@@ -1,0 +1,22 @@
+{
+  "name": "jacerider/neo_alchemist",
+  "description": "Component creation and management.",
+  "type": "drupal-module",
+  "license": "proprietary",
+  "homepage": "https://github.com/jacerider/neo_alchemist",
+  "authors": [
+    {
+      "name": "Cyle Carlson (JaceRider)",
+      "email": "jacerider@gmail.com",
+      "role": "Maintainer"
+    }
+  ],
+  "support": {
+    "issues": "https://github.com/jacerider/neo_alchemist/issues",
+    "source": "https://github.com/jacerider/neo_alchemist"
+  },
+  "minimum-stability": "dev",
+  "require": {
+    "drupal/core": "^10.3"
+  }
+}
