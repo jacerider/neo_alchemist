@@ -1,0 +1,5 @@
+entity.neo_component.library:
+  route_name: 'entity.neo_component.library'
+  title: 'Add component'
+  appears_on:
+    - entity.neo_component.collection

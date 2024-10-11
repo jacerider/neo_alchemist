@@ -1,0 +1,57 @@
+entity.neo_component.collection:
+  path: '/admin/config/neo/alchemist'
+  defaults:
+    _entity_list: 'neo_component'
+    _title: 'Component Library'
+  requirements:
+    _permission: 'administer neo_alchemist'
+
+entity.neo_component.library:
+  path: '/admin/config/neo/alchemist/add'
+  defaults:
+    _title: 'Select base component'
+    _controller: '\Drupal\neo_alchemist\Controller\ComponentLibraryController'
+  requirements:
+    _permission: 'administer neo_alchemist'
+
+entity.neo_component.add_form:
+  path: '/admin/config/neo/alchemist/add/{component}'
+  defaults:
+    _controller: '\Drupal\neo_alchemist\Controller\ComponentAddController'
+    _title: 'Add a component'
+  requirements:
+    _permission: 'administer neo_alchemist'
+
+entity.neo_component.canonical:
+  path: '/admin/config/neo/alchemist/{neo_component}'
+  defaults:
+    _controller: '\Drupal\neo_alchemist\Controller\ComponentManageController'
+    _title: 'Manage a component'
+  requirements:
+    _permission: 'administer neo_alchemist'
+
+entity.neo_component.preview:
+  path: '/admin/config/neo/alchemist/{neo_component}/preview'
+  defaults:
+    _controller: '\Drupal\neo_alchemist\Controller\ComponentPreviewController'
+    _title: 'Preview component'
+  requirements:
+    _permission: 'administer neo_alchemist'
+  options:
+    _admin_route: FALSE
+
+entity.neo_component.edit_form:
+  path: '/admin/config/neo/alchemist/{neo_component}/edit'
+  defaults:
+    _entity_form: 'neo_component.edit'
+    _title: 'Edit a component'
+  requirements:
+    _permission: 'administer neo_alchemist'
+
+entity.neo_component.delete_form:
+  path: '/admin/config/neo/alchemist/{neo_component}/delete'
+  defaults:
+    _entity_form: 'neo_component.delete'
+    _title: 'Delete a component'
+  requirements:
+    _permission: 'administer neo_alchemist'

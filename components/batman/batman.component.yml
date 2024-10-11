@@ -1,0 +1,60 @@
+'$schema': 'https://git.drupalcode.org/project/drupal/-/raw/10.1.x/core/modules/sdc/src/metadata.schema.json'
+name: Batman
+status: stable
+description: This is a batman.
+neo: true
+libraryOverrides:
+  dependencies:
+    - core/once
+props:
+  type: object
+  required:
+    - color
+  properties:
+    title:
+      type: string
+      title: Title
+      description: The super title.
+      # @todo Add examples here.
+      examples: ['A really cool title']
+    color:
+      type: string
+      title: Color
+      description: "Background color to use for the chip, one of 'primary' or 'secondary'."
+      # The enum directive restricts the possible values in the element to our list.
+      enum: ['primary', 'secondary']
+      examples: ['primary']
+    image:
+      title: 'Image'
+      $ref: json-schema-definitions://neo_alchemist.module/image
+      # @todo `type: object` should not be necessary, it's because \Drupal\sdc\Component\ComponentValidator::getClassProps() does not yet support $ref
+      type: object
+      examples:
+        - src: https://placehold.co/600x400.png
+          alt: 'Boring placeholder'
+          width: 600
+          height: 400
+    # items:
+    #   type: array
+    #   title: Items
+    #   description: Super items list.
+    #   items:
+    #     type: string
+      # @todo Add examples here.
+      # examples: []
+    # sequence:
+    #   type: array
+    #   title: Sequence
+    #   description: A super sequence.
+    #   # @todo Add examples here.
+    #   examples: []
+    #   items:
+    #     type: object
+    #     properties:
+    #       title:
+    #         type: string
+    #         title: Title
+slots:
+  first:
+    title: First
+    description: First slot

@@ -1,0 +1,6 @@
+component.preview:
+  version: VERSION
+  neo: { group: contrib }
+  css:
+    component:
+      src/css/component.preview.scss: {}

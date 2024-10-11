@@ -1,0 +1,118 @@
+neo_alchemist.neo_component.*:
+  type: config_entity
+  label: Component
+  mapping:
+    id:
+      type: string
+      label: ID
+    label:
+      type: label
+      label: Label
+    uuid:
+      type: string
+    description:
+      type: string
+    component:
+      type: string
+      label: 'Single-Directory Component'
+      constraints:
+        NotBlank: []
+        Regex:
+          pattern: '/^[a-z0-9_-]+:[a-z0-9_-]+$/'
+          message: 'The %value machine name is not valid.'
+        PluginExists:
+          manager: plugin.manager.sdc
+          interface: 'Drupal\Core\Plugin\PluginBase'
+    # All defaults for this Component made available through Experience Builder.
+    # Taken directly from Experience Builder.
+    defaults:
+      type: mapping
+      mapping:
+        # Defaults for this SDC' props, keyed by SDC prop name, alphabetically.
+        props:
+          type: sequence
+          orderby: key
+          constraints:
+            KeyForEverySdcProp: "%parent.%parent.component"
+          sequence:
+            type: mapping
+            # For each SDC prop, first a field type must be picked from the list of possible choices provided by \Drupal\neo_alchemist\ShapeMatcher\FieldForComponentSuggester
+            mapping:
+              field_type:
+                type: string
+                label: 'Default field type'
+                constraints:
+                  PluginExists:
+                    manager: plugin.manager.field.field_type
+                    interface: '\Drupal\Core\Field\FieldItemInterface'
+              field_storage_settings:
+                type: field.storage_settings.[%parent.field_type]
+                # Optional *if* the default storage settings should be used.
+                requiredKey: false
+              field_instance_settings:
+                type: field.field_settings.[%parent.field_type]
+                # Optional *if* the default instance settings should be used.
+                requiredKey: false
+              # After a field type is selected, a field widget must be picked.
+              # @todo MUCH later: widget settings.
+              field_widget:
+                type: string
+                label: 'Default field widget'
+                constraints:
+                  PluginExists:
+                    manager: plugin.manager.field.widget
+                    interface: '\Drupal\Core\Field\WidgetInterface'
+              # Then finally, a default value must be picked for every REQUIRED prop, using the aforementioned widget.
+              # This value uses the field type's default value config schema, and will be simplified to a
+              # StaticPropSource's `value`.
+              # @see \Drupal\neo_alchemist\PropSource\StaticPropSource::denormalizeValue()
+              # @see \Drupal\neo_alchemist\PropSource\StaticPropSource::isMinimalRepresentation()
+              default_value:
+                # TRICKY: this MUST be a sequence, to allow for a multi-value default for `type: array` prop shapes.
+                type: sequence
+                label: 'Default values'
+                sequence:
+                  type: field.value.[%parent.%parent.field_type]
+                # @todo Add validation constraint because this is only *conditionally* nullable: if the SDC prop is optional
+                nullable: true
+              # The default value must be retrievable
+              expression:
+                type: string
+                label: ''
+                constraints: {}
+                # @todo Add `StructuredDataPropExpression` validation constraint that fails if StructuredDataPropExpression::fromString() fails
+                # StructuredDataPropExpression: [field_type]
+    overrides:
+      type: mapping
+      mapping:
+        # Defaults for this SDC' props, keyed by SDC prop name, alphabetically.
+        props:
+          type: sequence
+          orderby: key
+          constraints:
+            KeyForEverySdcProp: "%parent.%parent.component"
+          sequence:
+            type: mapping
+            # For each SDC prop, first a field type must be picked from the list of possible choices provided by \Drupal\neo_alchemist\ShapeMatcher\FieldForComponentSuggester
+            mapping:
+              default_value:
+                # TRICKY: this MUST be a sequence, to allow for a multi-value default for `type: array` prop shapes.
+                type: sequence
+                label: 'Default values'
+                sequence:
+                  type: field.value.[%parent.%parent.field_type]
+                # @todo Add validation constraint because this is only *conditionally* nullable: if the SDC prop is optional
+                nullable: true
+              # The default value must be retrievable
+              expression:
+                type: string
+                label: ''
+                constraints: {}
+                # @todo Add `StructuredDataPropExpression` validation constraint that fails if StructuredDataPropExpression::fromString() fails
+                # StructuredDataPropExpression: [field_type]
+    target_entity_type:
+      type: string
+      label: 'Target Entity Type'
+    target_entity_bundle:
+      type: string
+      label: 'Target Entity Bundle'

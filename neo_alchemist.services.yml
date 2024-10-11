@@ -1,0 +1,27 @@
+services:
+  neo_component_page_renderer:
+    class: Drupal\neo_alchemist\Render\ComponentPageRenderer
+    arguments: ['@renderer', '@html_response.attachments_processor', '@module_handler', '@theme.manager']
+    lazy: true
+  Drupal\Core\Render\BareHtmlPageRendererInterface: '@neo_component_page_renderer'
+
+  Drupal\neo_alchemist\JsonSchemaDefinitionsStreamwrapper:
+    public: true
+    tags:
+      - { name: stream_wrapper, scheme: json-schema-definitions }
+
+  Drupal\neo_alchemist\Plugin\AdapterManager:
+    parent: default_plugin_manager
+
+  Drupal\neo_alchemist\ShapeMatcher\SdcPropToFieldTypePropMatcher:
+    public: true
+    arguments:
+      $typedDataManager: '@typed_data_manager'
+      $constraintManager: '@validation.constraint'
+      $entityTypeBundleInfo: '@entity_type.bundle.info'
+      $entityFieldManager: '@entity_field.manager'
+      $adapterManager: '@Drupal\neo_alchemist\Plugin\AdapterManager'
+
+  Drupal\neo_alchemist\ShapeMatcher\FieldForComponentSuggester:
+    arguments: ['@Drupal\neo_alchemist\ShapeMatcher\SdcPropToFieldTypePropMatcher', '@plugin.manager.sdc', '@entity_field.manager', '@entity_type.bundle.info']
+    public: true

@@ -1,0 +1,16 @@
+{#
+/**
+ * @file
+ * Theme override to display a single page.
+ *
+ * @see template_preprocess_page()
+ * @see html.html.twig
+ */
+#}
+{%
+  set page_classes = []
+%}
+<div{{ attributes.addClass(page_classes) }}>
+  {{ page.highlighted }}
+  {{ page.content }}
+</div>{# /.layout-container #}
