@@ -9,6 +9,8 @@ use Drupal\Core\Field\Plugin\Field\FieldType\StringItem;
 use Drupal\neo_alchemist\Plugin\Validation\Constraint\StringSemanticsConstraint;
 
 /**
+ * Override string item with prose constraint.
+ *
  * @todo Fix upstream.
  * @see neo_alchemist_entity_base_field_info_alter()
  */

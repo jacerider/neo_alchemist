@@ -8,7 +8,6 @@ use Drupal\Core\Controller\ControllerBase;
 use Drupal\Core\Render\BareHtmlPageRendererInterface;
 use Drupal\Core\Theme\ComponentPluginManager;
 use Drupal\neo_alchemist\ComponentInterface;
-use Drupal\neo_alchemist\ShapeMatcher\FieldForComponentSuggester;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
@@ -21,8 +20,7 @@ final class ComponentPreviewController extends ControllerBase {
    */
   public function __construct(
     private readonly BareHtmlPageRendererInterface $bareHtmlPageRenderer,
-    private readonly ComponentPluginManager $componentPluginManager,
-    private readonly FieldForComponentSuggester $fieldForComponentSuggester,
+    private readonly ComponentPluginManager $componentPluginManager
   ) {}
 
   /**
@@ -31,8 +29,7 @@ final class ComponentPreviewController extends ControllerBase {
   public static function create(ContainerInterface $container): self {
     return new self(
       $container->get('neo_component_page_renderer'),
-      $container->get('plugin.manager.sdc'),
-      $container->get(FieldForComponentSuggester::class)
+      $container->get('plugin.manager.sdc')
     );
   }
 

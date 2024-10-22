@@ -35,6 +35,7 @@ final class ComponentManageController extends ControllerBase {
    */
   public function __invoke(ComponentInterface $neo_component) {
     $build = [];
+    // $build['bla'] = $widget->;
 
     $build['form'] = $this->entityFormBuilder()->getForm($neo_component, 'manage');
     // $build['iframe'] = [

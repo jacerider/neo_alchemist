@@ -4,15 +4,10 @@ declare(strict_types=1);
 
 namespace Drupal\neo_alchemist\Form;
 
-use Drupal\Core\Entity\ContentEntityTypeInterface;
 use Drupal\Core\Entity\EntityForm;
 use Drupal\Core\Entity\EntityTypeBundleInfoInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Form\FormStateInterface;
-use Drupal\neo_alchemist\Entity\Component;
-use Drupal\neo_alchemist\PropShape\PropShape;
-use Drupal\neo_alchemist\PropSource\PropSource;
-use Drupal\node\Entity\Node;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
@@ -71,6 +66,7 @@ final class ComponentManageForm extends EntityForm {
 
     $form = parent::form($form, $form_state);
     $form['#theme'] = 'neo_component_preview_form';
+    $form_state->set('neo_component_static', TRUE);
 
     $form['iframe'] = [
       '#type' => 'html_tag',
@@ -86,25 +82,55 @@ final class ComponentManageForm extends EntityForm {
       ],
     ];
 
-    // Allow form alterations specific to XB component prop forms (currently
-    // only "static prop sources").
-    $form_state->set('is_xb_static_prop_source', TRUE);
+    // $form['modal'] = [
+    //   '#type' => 'neo_modal',
+    //   '#title' => $this->t('Component Properties'),
+    //   '#close' => $this->t('Save'),
+    // ];
 
-    $component_plugin = $this->entity->getComponent();
-    // $node = Node::load(1);
-    $node = Node::create([
-      'type' => 'page',
-    ]);
-    $form['#parents'] = [];
-    $defaults = $this->entity->get('defaults');
-    if (!empty($defaults['props'])) {
-      foreach ($defaults['props'] as $sdc_prop_name => $prop_source_array) {
-        assert(isset($component_plugin->metadata->schema['properties'][$sdc_prop_name]['title']));
-        $label = $component_plugin->metadata->schema['properties'][$sdc_prop_name]['title'];
-        $source = $this->entity->getDefaultStaticPropSource($sdc_prop_name);
-        $form[$sdc_prop_name] = $source->formTemporaryRemoveThisExclamationExclamationExclamation($prop_source_array['field_widget'], $sdc_prop_name, $label, FALSE, $node, $form, $form_state);
-        $form[$sdc_prop_name]['#weight'] = $prop_source_array['weight'] ?? 0;
-      }
+    // $form['modal']['textfield'] = [
+    //   '#type' => 'textfield',
+    //   '#title' => $this->t('Title'),
+    //   '#default_value' => $this->entity->label(),
+    // ];
+
+    $form['props'] = [
+      '#type' => 'table',
+      '#tree' => TRUE,
+      '#header' => [
+        'name' => $this->t('Property'),
+        'required' => $this->t('Required'),
+        'editable' => $this->t('Editable'),
+      ],
+    ];
+
+    /** @var \Drupal\neo_alchemist\FieldMatcher $matcher */
+    $matcher = \Drupal::service('neo_alchemist.field_matcher');
+    $form['values'] = [
+      '#parents' => ['values'],
+    ];
+
+    foreach ($this->entity->getPropShapes() as $propName => $shape) {
+      // if ($propName === 'email' || TRUE) {
+      //   $matches = $matcher->getMatches($shape);
+      //   ksm($matches);
+      // }
+      $row = [];
+      $row['name']['#markup'] = $shape->getTitle() . ' <small>(' . $shape->getName() . ')</small>';
+      $row['require'] = [
+        '#type' => 'checkbox',
+        // '#default_value' => $shape->isRequired(),
+        // '#disabled' => TRUE,
+      ];
+      $row['editable'] = [
+        '#type' => 'checkbox',
+        // '#default_value' => $shape->isRequired(),
+        // '#disabled' => TRUE,
+      ];
+
+      $form['props'][$propName] = $row;
+
+      $form['values'][$propName] = $shape->getForm($form['values'], $form_state);
     }
 
     return $form;
@@ -119,31 +145,59 @@ final class ComponentManageForm extends EntityForm {
       '#value' => $this->t('Save'),
       '#submit' => ['::submitForm', '::save'],
     ];
+    $actions['reset'] = [
+      '#type' => 'submit',
+      '#value' => $this->t('Reset'),
+      '#limit_validation_errors' => [],
+      '#submit' => ['::submitForm', '::reset'],
+    ];
     return $actions;
   }
 
   /**
    * {@inheritdoc}
    */
+  public function validateForm(array &$form, FormStateInterface $form_state) {
+    parent::validateForm($form, $form_state);
+    foreach ($this->entity->getPropShapes() as $propName => $shape) {
+      $shape->validateForm($form['values'][$propName], $form_state, $form_state->getValue([
+        'values',
+        $propName,
+      ], []));
+      $shape->setFieldItemValue($form_state->getValue([
+        'values',
+        $propName,
+      ], []));
+    }
+  }
+
+  /**
+   * {@inheritdoc}
+   */
   public function save(array $form, FormStateInterface $form_state): int {
-    $component_plugin = $this->entity->getComponent();
-    $defaults = $this->entity->get('defaults');
-    $overrides = $this->entity->get('overrides');
-    if (!empty($defaults['props'])) {
-      foreach ($defaults['props'] as $sdc_prop_name => $prop_source_array) {
-        assert(isset($component_plugin->metadata->schema['properties'][$sdc_prop_name]['title']));
-        $label = $component_plugin->metadata->schema['properties'][$sdc_prop_name]['title'];
-        $source = $this->entity->getDefaultStaticPropSource($sdc_prop_name);
-        $values = $source->massageFormValuesTemporaryRemoveThisExclamationExclamationExclamation($prop_source_array['field_widget'], $sdc_prop_name, $label, $form_state->getValue($sdc_prop_name), $form, $form_state);
-        // $source->fieldItem->setValue($values);
-        // $values = $values ? $source->evaluate(NULL) : NULL;
-        $overrides['props'][$sdc_prop_name] = [
-          'default_value' => $values,
-          'expression' => $prop_source_array['expression'],
-        ];
+    $defaults = [];
+    foreach ($this->entity->getPropShapes() as $propName => $shape) {
+      $value = $shape->massageFormValues($form, $form_state, $form_state->getValue([
+        'values',
+        $propName,
+      ], []));
+      if ($value !== $shape->getFieldItemDefaultValue()) {
+        $defaults['props'][$propName]['field_type'] = $shape->getFieldType();
+        $defaults['props'][$propName]['default_value'] = $value;
       }
     }
-    $this->entity->set('overrides', $overrides);
+    ksm($defaults);
+    $this->entity->set('defaults', $defaults);
+    $result = parent::save($form, $form_state);
+    return $result;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function reset(array $form, FormStateInterface $form_state): int {
+    $defaults = [];
+    $this->entity->set('defaults', $defaults);
     $result = parent::save($form, $form_state);
     return $result;
   }

@@ -3,5 +3,6 @@ type: module
 description: 'Component creation and management.'
 package: Neo
 core_version_requirement: ^10.3 || ^11
+neo: true
 dependencies:
   - neo:neo

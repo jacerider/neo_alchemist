@@ -14,7 +14,6 @@ use Drupal\Core\TypedData\OptionsProviderInterface;
  * A variant of BaseFieldDefinition that is for pure field storage definitions.
  *
  * @todo Remove this after https://www.drupal.org/node/2280639 is fixed.
- * @see \Drupal\neo_alchemist\PropSource\StaticPropSource::conjureFieldItem()
  * @see \Drupal\entity_test\FieldStorageDefinition
  *
  * @internal

@@ -1,0 +1,56 @@
+image:
+  title: Image
+  type: object
+  required:
+    - src
+  properties:
+    src:
+      title: Image URL
+      type: image-uri
+    alt:
+      title: Alternative text
+      type: string
+    width:
+      title: Image width
+      type: integer
+    height:
+      title: Image height
+      type: integer
+image-uri:
+  title: Image URL
+  type: string
+  format: uri-reference
+  pattern: ^(\/|https?:\/\/).*\.(png|gif|jpg|jpeg|webp)(\?.*)?(#.*)?$
+email:
+  title: Email
+  type: string
+  pattern: ^[a-zA-Z0-9._%±]+@[a-zA-Z0-9.-]+.[a-zA-Z]{2,}$
+uri:
+  title: URI
+  type: string
+link:
+  title: Link
+  type: object
+  properties:
+    uri:
+      title: 'URI'
+      type: uri
+    title:
+      title: 'Title'
+      type: string
+    options:
+      title: 'Options'
+      type: object
+url:
+  title: Url
+  type: object
+  properties:
+    uri:
+      title: 'URI'
+      type: uri
+    title:
+      title: 'Title'
+      type: string
+    options:
+      title: 'Options'
+      type: object

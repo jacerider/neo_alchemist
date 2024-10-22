@@ -73,25 +73,11 @@ interface ComponentInterface extends ConfigEntityInterface {
   public function getTargetEntityBundle(): string;
 
   /**
-   * Get the default static source for a prop.
+   * Get prop shapes.
    *
-   * @param string $prop_name
-   *   The prop name.
-   *
-   * @return \Drupal\neo_alchemist\PropSource\StaticPropSource|null
-   *   The default static source for the prop, or NULL if none.
+   * @return \Drupal\neo_alchemist\ComponentShapePluginInterface[]
+   *   The shapes.
    */
-  public function getDefaultStaticPropSource(string $prop_name): ?StaticPropSource;
-
-  /**
-   * Get the defaults for a component plugin.
-   *
-   * @param \Drupal\Core\Plugin\Component $component_plugin
-   *   The component plugin.
-   *
-   * @return array
-   *   The defaults for the component plugin.
-   */
-  public static function getDefaultsForComponentPlugin(Component $component_plugin): array;
+  public function getPropShapes(): array;
 
 }

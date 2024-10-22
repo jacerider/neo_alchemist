@@ -1,24 +1,27 @@
 <?php
 
+/**
+ * @file
+ * Json Schema string format.
+ */
+
 declare(strict_types=1);
 
 namespace Drupal\neo_alchemist\JsonSchemaInterpreter;
 
 use Drupal\Core\TypedData\Type\DateTimeInterface;
 use Drupal\Core\TypedData\Type\UriInterface;
-use Drupal\datetime\Plugin\Field\FieldType\DateTimeItem;
-use Drupal\neo_alchemist\PropExpressions\StructuredData\FieldTypePropExpression;
-use Drupal\neo_alchemist\PropShape\PropShape;
-use Drupal\neo_alchemist\PropShape\StorablePropShape;
 use Drupal\neo_alchemist\ShapeMatcher\DataTypeShapeRequirement;
 use Symfony\Component\Validator\Constraints\Ip;
 
-// phpcs:disable Drupal.Files.LineLength.TooLong
-// phpcs:disable Drupal.Commenting.PostStatementComment.Found
-
 /**
+ * Json Schema string format.
+ *
  * @see https://json-schema.org/understanding-json-schema/reference/string#format
  * @see https://json-schema.org/understanding-json-schema/reference/string#built-in-formats
+ *
+ * phpcs:disable Drupal.Files.LineLength.TooLong
+ * phpcs:disable Drupal.Commenting.PostStatementComment.Found
  */
 enum JsonSchemaStringFormat: string {
   // Dates and times.
@@ -62,6 +65,9 @@ enum JsonSchemaStringFormat: string {
   // Regular expressions.
   case REGEX = 'regex'; // Since draft 7, ECMA262.
 
+  /**
+   * Convert to data type shape requirements.
+   */
   public function toDataTypeShapeRequirements(): DataTypeShapeRequirement {
     return match($this) {
       // Built-in formats: dates and times.
@@ -106,75 +112,6 @@ enum JsonSchemaStringFormat: string {
       // Built-in formats: Regular expressions.
       // @see https://json-schema.org/understanding-json-schema/reference/string#regular-expressions
       static::REGEX => new DataTypeShapeRequirement('NOT YET SUPPORTED', []),
-    };
-  }
-
-  /**
-   * Finds the recommended UX (storage + widget) for a prop shape.
-   *
-   * Used for generating a StaticPropSource, for storing a value that fits in
-   * this prop shape.
-   *
-   * @param \Drupal\neo_alchemist\PropShape\PropShape $shape
-   *   The prop shape to find the recommended UX (storage + widget) for.
-   *
-   * @return \Drupal\neo_alchemist\PropShape\StorablePropShape|null
-   *   NULL is returned to indicate that Experience Builder + Drupal core do not
-   *   support a field type that provides a good UX for entering a value of this
-   *   shape. Otherwise, a StorablePropShape is returned that specifies that UX.
-   *
-   * @see \Drupal\neo_alchemist\PropSource\StaticPropSource
-   */
-  public function computeStorablePropShape(PropShape $shape): ?StorablePropShape {
-    return match($this) {
-      // Built-in formats: dates and times.
-      // @see https://json-schema.org/understanding-json-schema/reference/string#dates-and-times
-      // @see \Drupal\datetime\Plugin\Field\FieldType\DateTimeItem
-      static::DATE_TIME => new StorablePropShape(shape: $shape, fieldTypeProp: new FieldTypePropExpression('datetime', 'value'), fieldStorageSettings: ['datetime_type' => DateTimeItem::DATETIME_TYPE_DATETIME], fieldWidget: 'datetime_default'),
-      // @see \Drupal\datetime\Plugin\Field\FieldType\DateTimeItem
-      static::DATE => new StorablePropShape(shape: $shape, fieldTypeProp: new FieldTypePropExpression('datetime', 'value'), fieldStorageSettings: ['datetime_type' => DateTimeItem::DATETIME_TYPE_DATE], fieldWidget: 'datetime_default'),
-      // @todo A new subclass of DateTimeItem, to allow storing only time?
-      static::TIME => NULL,
-      // @todo A new field type powered by \Drupal\Core\TypedData\Plugin\DataType\DurationIso8601, to allow storing a duration?
-      // @see \Drupal\Core\TypedData\Plugin\DataType\DurationIso8601
-      static::DURATION => NULL,
-
-      // Built-in formats: email addresses.
-      // @see https://json-schema.org/understanding-json-schema/reference/string#email-addresses
-      // @see \Drupal\Core\Field\Plugin\Field\FieldType\EmailItem
-      static::EMAIL, static::IDN_EMAIL => new StorablePropShape(shape: $shape, fieldTypeProp: new FieldTypePropExpression('email', 'value'), fieldWidget: 'email_default'),
-
-      // Built-in formats: hostnames.
-      // @see https://json-schema.org/understanding-json-schema/reference/string#hostnames
-      static::HOSTNAME, static::IDN_HOSTNAME => NULL,
-
-      // Built-in formats: IP addresses.
-      // @see https://json-schema.org/understanding-json-schema/reference/string#ip-addresses
-      static::IPV4 => NULL,
-      static::IPV6 => NULL,
-
-      // Built-in formats: resource identifiers.
-      // @see https://json-schema.org/understanding-json-schema/reference/string#resource-identifiers
-      // ⚠️ This field type has no widget in Drupal core, otherwise it'd be
-      //     possible to support! But … would allowing the Content Creator to
-      //     enter a UUID really make sense?
-      // @see \Drupal\Core\Field\Plugin\Field\FieldType\UuidItem
-      static::UUID => NULL,
-      // TRICKY: Drupal core does not support RFC3987 aka IRIs, but it's a superset of RFC3986.
-      // @see \Drupal\Core\Field\Plugin\Field\FieldType\UriItem
-      static::URI_REFERENCE, static::URI, static::IRI_REFERENCE, static::IRI => new StorablePropShape(shape: $shape, fieldTypeProp: new FieldTypePropExpression('uri', 'value'), fieldWidget: 'uri'),
-
-      // Built-in formats: URI template.
-      // @see https://json-schema.org/understanding-json-schema/reference/string#uri-template
-      static::URI_TEMPLATE => NULL,
-
-      // Built-in formats: JSON Pointer.
-      // @see https://json-schema.org/understanding-json-schema/reference/string#json-pointer
-      static::JSON_POINTER, static::RELATIVE_JSON_POINTER => NULL,
-
-      // Built-in formats: Regular expressions.
-      // @see https://json-schema.org/understanding-json-schema/reference/string#regular-expressions
-      static::REGEX => NULL,
     };
   }
 

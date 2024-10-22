@@ -5,23 +5,25 @@ services:
     lazy: true
   Drupal\Core\Render\BareHtmlPageRendererInterface: '@neo_component_page_renderer'
 
-  Drupal\neo_alchemist\JsonSchemaDefinitionsStreamwrapper:
-    public: true
-    tags:
-      - { name: stream_wrapper, scheme: json-schema-definitions }
+  plugin.manager.neo_component_prop_def:
+    class: Drupal\neo_alchemist\ComponentPropDefPluginManager
+    arguments: ['@module_handler', '@cache.discovery']
 
-  Drupal\neo_alchemist\Plugin\AdapterManager:
+  plugin.manager.neo_component_shape:
+    class: Drupal\neo_alchemist\ComponentShapePluginManager
     parent: default_plugin_manager
 
-  Drupal\neo_alchemist\ShapeMatcher\SdcPropToFieldTypePropMatcher:
-    public: true
-    arguments:
-      $typedDataManager: '@typed_data_manager'
-      $constraintManager: '@validation.constraint'
-      $entityTypeBundleInfo: '@entity_type.bundle.info'
-      $entityFieldManager: '@entity_field.manager'
-      $adapterManager: '@Drupal\neo_alchemist\Plugin\AdapterManager'
+  neo_alchemist.field_matcher:
+    class: Drupal\neo_alchemist\FieldMatcher
+    arguments: ['@typed_data_manager', '@validation.constraint', '@entity_type.bundle.info', '@entity_field.manager']
 
-  Drupal\neo_alchemist\ShapeMatcher\FieldForComponentSuggester:
-    arguments: ['@Drupal\neo_alchemist\ShapeMatcher\SdcPropToFieldTypePropMatcher', '@plugin.manager.sdc', '@entity_field.manager', '@entity_type.bundle.info']
-    public: true
+  neo_alchemist.route_subscriber:
+    class: Drupal\neo_alchemist\EventSubscriber\RouteSubscriber
+    arguments: ['@entity_type.manager', '@entity_field.manager']
+    tags:
+      - { name: event_subscriber }
+
+  neo_alchemist.access_checker:
+    class: Drupal\neo_alchemist\Access\EntityComponentAccessCheck
+    tags:
+      - { name: access_check, applies_to: _neo_alchemist_component }

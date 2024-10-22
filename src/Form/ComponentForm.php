@@ -65,7 +65,6 @@ final class ComponentForm extends EntityForm {
    */
   public function form(array $form, FormStateInterface $form_state): array {
     $component = $this->entity->getComponentDefinition();
-    // ksm($component);
     // /** @var \Drupal\Core\Plugin\Context\ContextInterface[] $contexts */
     // $contexts = \Drupal::service('context.repository')->getAvailableContexts();
     // $options = [];
@@ -82,6 +81,11 @@ final class ComponentForm extends EntityForm {
     // ksm($this->entity->getComponentId());
     // // ksm(\Drupal::service('context.repository')->getAvailableContexts());
     // // ksm(\Drupal::service('context.repository')->getRuntimeContexts());
+
+    /** @var \Drupal\Core\Entity\EntityFieldManagerInterface $fieldManager */
+    // $fieldManager = \Drupal::service('entity_field.manager');
+    // $field_map = $fieldManager->getFieldMapByFieldType('neo_component_tree');
+    // ksm($field_map);
 
     $form = parent::form($form, $form_state);
 

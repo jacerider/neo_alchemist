@@ -1,3 +1,6 @@
+# route_callbacks:
+#   - 'neo_alchemist.route_subscriber:routes'
+
 entity.neo_component.collection:
   path: '/admin/config/neo/alchemist'
   defaults:

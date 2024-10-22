@@ -1,0 +1,53 @@
+neo_alchemist.neo_component.*:
+  type: config_entity
+  label: Component
+  mapping:
+    id:
+      type: string
+      label: ID
+    label:
+      type: label
+      label: Label
+    uuid:
+      type: string
+    description:
+      type: string
+    component:
+      type: string
+      label: 'Single-Directory Component'
+      constraints:
+        NotBlank: []
+        Regex:
+          pattern: '/^[a-z0-9_-]+:[a-z0-9_-]+$/'
+          message: 'The %value machine name is not valid.'
+        PluginExists:
+          manager: plugin.manager.sdc
+          interface: 'Drupal\Core\Plugin\PluginBase'
+    target_entity_type:
+      type: string
+      label: 'Target Entity Type'
+    target_entity_bundle:
+      type: string
+      label: 'Target Entity Bundle'
+    defaults:
+      type: mapping
+      mapping:
+        props:
+          type: sequence
+          orderby: key
+          sequence:
+            type: mapping
+            mapping:
+              field_type:
+                type: string
+                label: 'Default field type'
+                constraints:
+                  PluginExists:
+                    manager: plugin.manager.field.field_type
+                    interface: '\Drupal\Core\Field\FieldItemInterface'
+              default_value:
+                type: sequence
+                label: 'Default values'
+                sequence:
+                  type: field.value.[%parent.%parent.field_type]
+                nullable: true

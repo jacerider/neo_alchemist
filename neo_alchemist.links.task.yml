@@ -1,0 +1,2 @@
+entity.neo_component_tasks:
+  deriver: Drupal\neo_alchemist\Plugin\Derivative\ComponentTasksDeriver
