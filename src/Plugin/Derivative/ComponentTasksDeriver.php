@@ -52,6 +52,7 @@ class ComponentTasksDeriver extends DeriverBase implements ContainerDeriverInter
             $base_route = "entity.$entityTypeId.edit-form";
           }
           if ($base_route) {
+            // Entity routes.
             $this->derivatives[$entityTypeId] = [
               'route_name' => "entity.$entityTypeId.alchemist",
               'title' => 'Layout',
@@ -62,7 +63,7 @@ class ComponentTasksDeriver extends DeriverBase implements ContainerDeriverInter
               foreach ($neoFields[$entityTypeId] as $fieldName => $field) {
                 $this->derivatives["$entityTypeId.$fieldName"] = [
                   'route_name' => "entity.$entityTypeId.alchemist.$fieldName",
-                  'title' => 'Layout',
+                  'title' => 'Field Layout',
                   'base_route' => $base_route,
                   'alchemist_field_name' => $fieldName,
                   'parent_id' => "entity.neo_component_tasks:$entityTypeId",
@@ -70,17 +71,29 @@ class ComponentTasksDeriver extends DeriverBase implements ContainerDeriverInter
                 ] + $base_plugin_definition;
               }
             }
-            // foreach (array_filter($entityType->getFields(), function ($field) {
-            //   return $field->getType() === 'neo_component_tree';
-            // }) as $field) {
-            //   $field_name = $field->getName();
-            //   $this->derivatives["$entityTypeId.$field_name"] = [
-            //     'route_name' => "entity.$entityTypeId.alchemist.layout",
-            //     'title' => $field->getLabel(),
-            //     'base_route' => "entity.$entityTypeId.alchemist",
-            //     'weight' => 15,
-            //   ] + $base_plugin_definition;
-            // }
+            // Field routes.
+            if ($routeName = $entityType->get('field_ui_base_route')) {
+              $this->derivatives["field_ui.$entityTypeId"] = [
+                'route_name' => "entity.$entityTypeId.field_ui.alchemist",
+                'title' => 'Layout',
+                'base_route' => $routeName,
+                'weight' => 0.1,
+              ] + $base_plugin_definition;
+              if (isset($neoFields[$entityTypeId])) {
+                foreach ($neoFields[$entityTypeId] as $fieldName => $field) {
+                  foreach ($neoFields[$entityTypeId] as $fieldName => $field) {
+                    $this->derivatives["field_ui.$entityTypeId.$fieldName"] = [
+                      'route_name' => "entity.$entityTypeId.field_ui.alchemist.$fieldName",
+                      'title' => 'Field Layout',
+                      'base_route' => $base_route,
+                      'alchemist_field_name' => $fieldName,
+                      'parent_id' => "entity.neo_component_tasks:field_ui.$entityTypeId",
+                      'class' => 'Drupal\neo_alchemist\Plugin\Menu\LocalTask\FieldComponentLocalTask',
+                    ] + $base_plugin_definition;
+                  }
+                }
+              }
+            }
           }
         }
       }

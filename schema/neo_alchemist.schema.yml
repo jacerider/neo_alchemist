@@ -45,7 +45,7 @@ neo_alchemist.neo_component.*:
                   PluginExists:
                     manager: plugin.manager.field.field_type
                     interface: '\Drupal\Core\Field\FieldItemInterface'
-              default_value:
+              value:
                 type: sequence
                 label: 'Default values'
                 sequence:

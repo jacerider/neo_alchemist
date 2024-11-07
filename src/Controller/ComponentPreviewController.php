@@ -46,7 +46,7 @@ final class ComponentPreviewController extends ControllerBase {
     ];
 
     $build['component'] = $neo_component->toRenderable();
-    return $this->bareHtmlPageRenderer->renderBarePage($build, 'Preview: ' . $neo_component->label(), 'neo_component_preview');
+    return $this->bareHtmlPageRenderer->renderBarePage($build, 'Preview: ' . $neo_component->label(), 'page');
   }
 
 }

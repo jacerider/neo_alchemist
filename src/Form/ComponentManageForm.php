@@ -63,10 +63,9 @@ final class ComponentManageForm extends EntityForm {
    * {@inheritdoc}
    */
   public function form(array $form, FormStateInterface $form_state): array {
-
     $form = parent::form($form, $form_state);
-    $form['#theme'] = 'neo_component_preview_form';
-    $form_state->set('neo_component_static', TRUE);
+    // $form['#theme'] = 'neo_component_preview_form';
+    $form_state->set('neo_component_form', TRUE);
 
     $form['iframe'] = [
       '#type' => 'html_tag',
@@ -183,10 +182,9 @@ final class ComponentManageForm extends EntityForm {
       ], []));
       if ($value !== $shape->getFieldItemDefaultValue()) {
         $defaults['props'][$propName]['field_type'] = $shape->getFieldType();
-        $defaults['props'][$propName]['default_value'] = $value;
+        $defaults['props'][$propName]['value'] = $value;
       }
     }
-    ksm($defaults);
     $this->entity->set('defaults', $defaults);
     $result = parent::save($form, $form_state);
     return $result;

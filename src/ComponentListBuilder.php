@@ -34,4 +34,18 @@ final class ComponentListBuilder extends ConfigEntityListBuilder {
     return $row + parent::buildRow($entity);
   }
 
+  /**
+   * {@inheritdoc}
+   */
+  public function getDefaultOperations(EntityInterface $entity) {
+    /** @var \Drupal\Core\Config\Entity\ConfigEntityInterface $entity */
+    return [
+      'customize' => [
+        'title' => $this->t('Customize'),
+        'weight' => -10,
+        'url' => $entity->toUrl(),
+      ],
+    ] + parent::getDefaultOperations($entity);
+  }
+
 }

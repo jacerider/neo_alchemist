@@ -17,7 +17,7 @@ class EntityComponentAccessCheck implements AccessInterface {
   /**
    * Checks access to the entity operation on the given route.
    *
-   * The route's '_neo_alchemist_component' requirement must follow the pattern
+   * The route's '_neo_alchemist_entity' requirement must follow the pattern
    * 'slug.operation'. Typically, the slug is an entity type ID, but it can be
    * any slug defined in the route. The route match parameter corresponding to
    * the slug is checked to see if it is entity-like, that is: implements
@@ -29,14 +29,14 @@ class EntityComponentAccessCheck implements AccessInterface {
    * @code
    * pattern: '/foo/{node}/bar'
    * requirements:
-   *   _neo_alchemist_component: 'node.update'
+   *   _neo_alchemist_entity: 'node.update'
    * @endcode
    * And this will check 'delete' access to a dynamic entity type:
    * @code
    * example.route:
    *   path: foo/{entity_type}/{example}
    *   requirements:
-   *     _neo_alchemist_component: example.delete
+   *     _neo_alchemist_entity: example.delete
    *   options:
    *     parameters:
    *       example:
@@ -59,7 +59,7 @@ class EntityComponentAccessCheck implements AccessInterface {
    */
   public function access(Route $route, RouteMatchInterface $route_match, AccountInterface $account) {
     // Split the entity type and the operation.
-    $requirement = $route->getRequirement('_neo_alchemist_component');
+    $requirement = $route->getRequirement('_neo_alchemist_entity');
     [$entity_type, $operation, $field_name] = explode('.', $requirement . '.');
     // If $entity_type parameter is a valid entity, call its own access check.
     $parameters = $route_match->getParameters();

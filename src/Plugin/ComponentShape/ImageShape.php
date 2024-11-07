@@ -143,6 +143,12 @@ class ImageShape extends ComponentShapePluginBase {
     if (!$hide) {
       $values += $this->getDefaultValue();
     }
+    if (!empty($values['target_id'])) {
+      // If the target ID is set, we remove all other values.
+      $values = [
+        'target_id' => $values['target_id'],
+      ];
+    }
     return $values;
   }
 

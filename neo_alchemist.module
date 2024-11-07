@@ -5,17 +5,18 @@
  * Primary module hooks for Neo | Alchemist module.
  */
 
-use Drupal\Component\Serialization\Json;
-use Drupal\Core\Access\AccessResult;
-use Drupal\Core\Entity\ContentEntityInterface;
 use Drupal\Core\Entity\ContentEntityTypeInterface;
 use Drupal\Core\Entity\EntityInterface;
+use Drupal\Core\Entity\EntityTypeInterface;
 use Drupal\Core\Form\FormStateInterface;
-use Drupal\Core\Render\Element;
-use Drupal\Core\Session\AccountInterface;
-use Drupal\file\Entity\File;
-use Drupal\media\Entity\Media;
+use Drupal\field\FieldConfigInterface;
+use Drupal\field\FieldStorageConfigInterface;
 use Drupal\media_library\MediaLibraryState;
+use Drupal\neo_alchemist\Entity\ComponentFieldConfig;
+use Drupal\neo_alchemist\Form\InstanceComponentDeleteForm;
+use Drupal\neo_alchemist\Form\InstanceComponentForm;
+use Drupal\neo_alchemist\Form\InstanceComponentResetForm;
+use Drupal\neo_alchemist\Form\InstanceComponentSortForm;
 use Drupal\neo_alchemist\Plugin\Field\FieldTypeOverride\StringItemOverride;
 
 /**
@@ -68,7 +69,7 @@ function neo_alchemist_field_widget_single_element_media_library_widget_form_alt
   // host entity type. That is not true for XB's "static prop sources".
   // @see \Drupal\neo_alchemist\PropSource\StaticPropSource
   // @see \Drupal\neo_alchemist\Form\ComponentPropsForm::buildForm()
-  if ($form_state->get('neo_component_static') !== TRUE) {
+  if ($form_state->get('neo_component_form') !== TRUE) {
     return;
   }
 
@@ -150,6 +151,62 @@ function neo_alchemist_entity_type_alter(array &$entity_types) {
     if ($entityType instanceof ContentEntityTypeInterface && $entityType->hasLinkTemplate('canonical')) {
       $canonical = $entityType->getLinkTemplate('canonical');
       $entityType->setLinkTemplate('alchemist', $canonical . '/alchemist');
+
+      $configFactory = \Drupal::configFactory();
+      $entityTypeId = $entityType->id();
+      $names = $configFactory->listAll('field.field.' . $entityTypeId);
+      foreach ($configFactory->loadMultiple($names) as $config) {
+        if ($config->get('field_type') === 'neo_component_tree') {
+          $fieldName = $config->get('field_name');
+          $fieldNameKey = ComponentFieldConfig::getKeyFromFieldname($fieldName);
+          $entityType->setLinkTemplate("alchemist.$fieldName", "$canonical/alchemist/$fieldNameKey");
+          $entityType->setLinkTemplate("alchemist.$fieldName.library", "$canonical/alchemist/$fieldNameKey/library");
+          $entityType->setLinkTemplate("alchemist.$fieldName.reset", "$canonical/alchemist/$fieldNameKey/reset");
+          $entityType->setLinkTemplate("alchemist.$fieldName.sort", "$canonical/alchemist/$fieldNameKey/sort");
+          $entityType->setLinkTemplate("alchemist.$fieldName.add", "$canonical/alchemist/$fieldNameKey/add/{neo_component}");
+          $entityType->setLinkTemplate("alchemist.$fieldName.edit", "$canonical/alchemist/$fieldNameKey/edit/{neo_component}");
+          $entityType->setLinkTemplate("alchemist.$fieldName.delete", "$canonical/alchemist/$fieldNameKey/delete/{uuid}");
+          $entityType->setFormClass('alchemist', InstanceComponentForm::class);
+          $entityType->setFormClass('alchemist_reset', InstanceComponentResetForm::class);
+          $entityType->setFormClass('alchemist_sort', InstanceComponentSortForm::class);
+          $entityType->setFormClass('alchemist_edit', InstanceComponentForm::class);
+          $entityType->setFormClass('alchemist_delete', InstanceComponentDeleteForm::class);
+        }
+      }
+    }
+  }
+}
+
+/**
+ * Implements hook_entity_insert().
+ */
+function neo_alchemist_entity_insert(EntityInterface $entity) {
+  if ($entity instanceof FieldStorageConfigInterface && $entity->getType() === 'neo_component_tree') {
+    \Drupal::state()->set('neo_alchemist.rebuild_needed', TRUE);
+  }
+}
+
+/**
+ * Implements hook_entity_delete().
+ */
+function neo_alchemist_entity_delete(EntityInterface $entity) {
+  if ($entity instanceof FieldStorageConfigInterface && $entity->getType() === 'neo_component_tree') {
+    \Drupal::state()->set('neo_alchemist.rebuild_needed', TRUE);
+  }
+}
+
+/**
+ * Implements hook_alchemist_entity_bundle_field_info_alter().
+ */
+function neo_alchemist_entity_bundle_field_info_alter(&$fields, EntityTypeInterface $entity_type, $bundle) {
+  // Alter the field config entity to use a custom class for component tree
+  // fields.
+  foreach ($fields as $id => $field) {
+    /** @var \Drupal\Core\Field\Fiel $field */
+    if ($field instanceof FieldConfigInterface && $field->getType() === 'neo_component_tree') {
+      $entity_class = 'Drupal\neo_alchemist\Entity\ComponentFieldConfig';
+      $instance = new $entity_class($field->toArray(), 'field_config');
+      $fields[$id] = $instance;
     }
   }
 }

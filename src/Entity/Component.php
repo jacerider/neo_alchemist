@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\neo_alchemist\Entity;
 
+use Drupal\Component\Utility\NestedArray;
 use Drupal\Core\Config\Entity\ConfigEntityBase;
 use Drupal\Core\Entity\EntityTypeInterface;
 use Drupal\Core\Plugin\Component as ComponentPlugin;
@@ -58,20 +59,20 @@ use Drupal\neo_alchemist\ComponentInterface;
  *   },
  * )
  */
-final class Component extends ConfigEntityBase implements ComponentInterface {
+class Component extends ConfigEntityBase implements ComponentInterface {
 
   /**
-   * The example ID.
+   * The component ID.
    */
   protected string $id;
 
   /**
-   * The example label.
+   * The component label.
    */
   protected string $label;
 
   /**
-   * The example description.
+   * The component description.
    */
   protected string $description;
 
@@ -81,7 +82,7 @@ final class Component extends ConfigEntityBase implements ComponentInterface {
   protected string $component;
 
   /**
-   * The defaults.
+   * The default values.
    *
    * @var array
    */
@@ -96,6 +97,13 @@ final class Component extends ConfigEntityBase implements ComponentInterface {
    * The target entity bundle.
    */
   protected ?string $target_entity_bundle = '';
+
+  /**
+   * {@inheritdoc}
+   */
+  public function isPublished(): bool {
+    return (bool) $this->status;
+  }
 
   /**
    * {@inheritdoc}
@@ -181,16 +189,26 @@ final class Component extends ConfigEntityBase implements ComponentInterface {
   /**
    * {@inheritdoc}
    */
+  public function getValues(): array {
+    return $this->defaults ?? [];
+  }
+
+  /**
+   * {@inheritdoc}
+   */
   public function getPropShapes(): array {
     /** @var \Drupal\neo_alchemist\ComponentShapePluginManager $manager */
     $manager = \Drupal::service('plugin.manager.neo_component_shape');
     $shapes = [];
     $component = $this->getComponent();
     $metadata = $component->metadata;
-    $shapes = $manager->getInstancesFromSchema($metadata->schema, $this->defaults ?? [], $this->getTargetEntityTypeId(), $this->getTargetEntityBundle());
+    $shapes = $manager->getInstancesFromSchema($metadata->schema, $this->getValues(), $this->getTargetEntityTypeId(), $this->getTargetEntityBundle());
     return $shapes;
   }
 
+  /**
+   * {@inheritdoc}
+   */
   public function getPropValues(): array {
     $values = [];
     foreach ($this->getPropShapes() as $shapeId => $shape) {
@@ -198,7 +216,7 @@ final class Component extends ConfigEntityBase implements ComponentInterface {
       if (is_null($value)) {
         continue;
       }
-      if (is_array($value) && empty($value)) {
+      if (!is_bool($value) && empty($value)) {
         continue;
       }
       $values[$shapeId] = $value;
@@ -206,6 +224,9 @@ final class Component extends ConfigEntityBase implements ComponentInterface {
     return $values;
   }
 
+  /**
+   * {@inheritdoc}
+   */
   public function toRenderable() {
     return [
       '#type' => 'component',

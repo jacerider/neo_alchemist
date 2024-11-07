@@ -6,7 +6,7 @@
     color == 'secondary' ? 'bg-secondary-500 text-secondary-content-500',
   ]
 %}
-<div class="{{ classes|join(" ") }}">
+<div{{ attributes.addClass(classes) }}>
   <div>
     {{ neo_image_style(image.src, {scaleCrop: {width: 300, height: 200}}, image.alt) }}
   </div>

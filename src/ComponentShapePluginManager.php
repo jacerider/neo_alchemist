@@ -65,8 +65,8 @@ final class ComponentShapePluginManager extends DefaultPluginManager {
           // }
           // Make sure we match the stored field type with the prop field type.
           if (isset($defaults['props'][$propName]) && $defaults['props'][$propName]['field_type'] === $shape->getFieldType()) {
-            if (isset($defaults['props'][$propName]['default_value'])) {
-              $shape->setFieldItemValue($defaults['props'][$propName]['default_value']);
+            if (isset($defaults['props'][$propName]['value'])) {
+              $shape->setFieldItemValue($defaults['props'][$propName]['value']);
             }
           }
           $instances[$propName] = $shape;

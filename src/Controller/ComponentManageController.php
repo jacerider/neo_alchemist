@@ -54,7 +54,7 @@ final class ComponentManageController extends ControllerBase {
 
     // return $build;
 
-    return $this->bareHtmlPageRenderer->renderBarePage($build, 'Preview: ' . $neo_component->label(), 'neo_component_preview', [
+    return $this->bareHtmlPageRenderer->renderBarePage($build, 'Preview: ' . $neo_component->label(), 'page', [
       '#show_messages' => TRUE,
     ]);
   }

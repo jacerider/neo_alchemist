@@ -7,12 +7,19 @@ namespace Drupal\neo_alchemist;
 use Drupal\Core\Config\Entity\ConfigEntityInterface;
 use Drupal\Core\Entity\EntityTypeInterface;
 use Drupal\Core\Plugin\Component;
-use Drupal\neo_alchemist\PropSource\StaticPropSource;
 
 /**
  * Provides an interface defining a component entity type.
  */
 interface ComponentInterface extends ConfigEntityInterface {
+
+  /**
+   * Checks if the component is published.
+   *
+   * @return bool
+   *   TRUE if the component is published, FALSE otherwise.
+   */
+  public function isPublished(): bool;
 
   /**
    * Gets the component plugin machine name.
@@ -79,5 +86,23 @@ interface ComponentInterface extends ConfigEntityInterface {
    *   The shapes.
    */
   public function getPropShapes(): array;
+
+  /**
+   * Get prop values.
+   *
+   * These values are ready for use with SDC rendering.
+   *
+   * @return array
+   *   The prop values.
+   */
+  public function getPropValues(): array;
+
+  /**
+   * Converts the component entity to a renderable array.
+   *
+   * @return array
+   *   A renderable array representing the component.
+   */
+  public function toRenderable();
 
 }

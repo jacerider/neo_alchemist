@@ -78,6 +78,8 @@ class ComponentPageRenderer extends BareHtmlPageRenderer {
       ] + $page_additions,
     ];
 
+    $html['page']['status'] = ['#type' => 'status_messages'];
+
     // For backwards compatibility.
     // @todo In Drupal 9, add a $show_messages function parameter.
     if (!isset($page_additions['#show_messages']) || $page_additions['#show_messages'] === TRUE) {

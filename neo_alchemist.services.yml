@@ -23,7 +23,19 @@ services:
     tags:
       - { name: event_subscriber }
 
-  neo_alchemist.access_checker:
+  neo_alchemist.kernel_subscriber:
+    class: Drupal\neo_alchemist\EventSubscriber\KernelSubscriber
+    arguments: ['@state', '@entity_type.manager', '@router.builder']
+    tags:
+      - { name: event_subscriber }
+
+  neo_alchemist.entity_access_checker:
     class: Drupal\neo_alchemist\Access\EntityComponentAccessCheck
     tags:
-      - { name: access_check, applies_to: _neo_alchemist_component }
+      - { name: access_check, applies_to: _neo_alchemist_entity }
+
+  neo_alchemist.field_access_checker:
+    class: Drupal\neo_alchemist\Access\FieldComponentAccessCheck
+    arguments: ['@entity_field.manager']
+    tags:
+      - { name: access_check, applies_to: _neo_alchemist_field }

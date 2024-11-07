@@ -8,8 +8,8 @@ libraryOverrides:
     - core/once
 props:
   type: object
-  # required:
-  #   - color
+  required:
+    - color
   properties:
     title:
       type: string
@@ -53,13 +53,13 @@ props:
     #   examples:
     #     -
     #       uri: internal:/
-    # color:
-    #   type: string
-    #   title: Color
-    #   description: "Background color to use for the chip, one of 'primary' or 'secondary'."
-    #   # The enum directive restricts the possible values in the element to our list.
-    #   enum: ['base', 'primary', 'secondary']
-    #   examples: ['primary']
+    color:
+      type: string
+      title: Color
+      description: "Background color to use for the chip, one of 'primary' or 'secondary'."
+      # The enum directive restricts the possible values in the element to our list.
+      enum: ['base', 'primary', 'secondary']
+      examples: ['primary']
     image:
       title: 'Image'
       type: image
