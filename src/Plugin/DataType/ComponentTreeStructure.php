@@ -95,12 +95,7 @@ class ComponentTreeStructure extends TypedData {
    * {@inheritdoc}
    */
   public function getValue() {
-    $value = $this->value ?? NULL;
-    if (!$value) {
-
-    }
-    ksm($value);
-    return $value;
+    return $this->value ?? NULL;
   }
 
   /**

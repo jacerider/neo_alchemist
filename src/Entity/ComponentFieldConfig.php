@@ -7,6 +7,7 @@ use Drupal\Core\Entity\EntityMalformedException;
 use Drupal\Core\Url;
 use Drupal\field\Entity\FieldConfig;
 use Drupal\neo_alchemist\ComponentFieldConfigInterface;
+use Drupal\neo_alchemist\Plugin\DataType\ComponentTreeStructure;
 use Drupal\neo_alchemist\Plugin\Field\FieldType\ComponentTreeItem;
 
 /**
@@ -71,10 +72,14 @@ class ComponentFieldConfig extends FieldConfig implements ComponentFieldConfigIn
    */
   public function setComponentValuesFromFieldItem(ComponentTreeItem $fieldItem): self {
     $value = $fieldItem->getValue();
-    $this->setSetting('defaults', [
-      'tree' => Json::decode($value['tree']),
-      'props' => Json::decode($value['props']),
-    ]);
+    $value['tree'] = Json::decode($value['tree']);
+    $value['props'] = Json::decode($value['props']);
+    if (empty($value['tree'][ComponentTreeStructure::ROOT_UUID])) {
+      $this->setSetting('defaults', []);
+    }
+    else {
+      $this->setSetting('defaults', $value);
+    }
     return $this;
   }
 
@@ -83,6 +88,13 @@ class ComponentFieldConfig extends FieldConfig implements ComponentFieldConfigIn
    */
   public function getComponentValues(): array {
     return $this->getSetting('defaults') ?? [];
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function hasComponentValues(): bool {
+    return !empty($this->getComponentValues());
   }
 
   /**

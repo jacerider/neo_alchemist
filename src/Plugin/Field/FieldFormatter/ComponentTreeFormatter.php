@@ -18,7 +18,7 @@ use Drupal\neo_alchemist\Plugin\Field\FieldType\ComponentTreeItem;
     'neo_component_tree',
   ],
 )]
-class NaiveComponentTreeFormatter extends FormatterBase {
+class ComponentTreeFormatter extends FormatterBase {
 
   /**
    * {@inheritdoc}

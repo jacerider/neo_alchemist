@@ -19,6 +19,7 @@ use Drupal\neo_alchemist\Entity\Component;
 use Drupal\neo_alchemist\Plugin\DataType\ComponentPropsValues;
 use Drupal\neo_alchemist\Plugin\DataType\ComponentTreeHydrated;
 use Drupal\neo_alchemist\Plugin\DataType\ComponentTreeStructure;
+use Drupal\neo_alchemist\Plugin\Field\NeoComponentTreeList;
 
 /**
  * Plugin implementation of the 'component_tree' field type.
@@ -46,6 +47,7 @@ use Drupal\neo_alchemist\Plugin\DataType\ComponentTreeStructure;
     ],
   ],
   cardinality: 1,
+  list_class: NeoComponentTreeList::class,
 )]
 class ComponentTreeItem extends FieldItemBase implements RenderableInterface {
 
@@ -167,6 +169,16 @@ class ComponentTreeItem extends FieldItemBase implements RenderableInterface {
 
   /**
    * {@inheritdoc}
+   *
+   * @return \Drupal\neo_alchemist\Plugin\Field\NeoComponentTreeList
+   *   The field item list.
+   */
+  public function getParent() {
+    return $this->parent;
+  }
+
+  /**
+   * {@inheritdoc}
    */
   public function isEmpty() {
     // If either `tree` or `props` is not set, consider this not empty, because
@@ -232,7 +244,8 @@ class ComponentTreeItem extends FieldItemBase implements RenderableInterface {
    *   TRUE if the item belongs to an actual entity, FALSE otherwise.
    */
   public function belongsToFieldConfig(): bool {
-    return $this->getEntity()->isNew();
+    return $this->getParent()->belongsToFieldConfig();
+    // return $this->getEntity()->isNew();
   }
 
   /**

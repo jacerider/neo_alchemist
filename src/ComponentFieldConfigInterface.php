@@ -68,4 +68,15 @@ interface ComponentFieldConfigInterface extends FieldConfigInterface {
    */
   public function getComponentValues(): array;
 
+  /**
+   * Checks if the component has values.
+   *
+   * This method retrieves the component values and checks if they are not
+   * empty.
+   *
+   * @return bool
+   *   TRUE if the component has values, FALSE otherwise.
+   */
+  public function hasComponentValues(): bool;
+
 }
