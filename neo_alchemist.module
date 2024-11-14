@@ -15,7 +15,9 @@ use Drupal\media_library\MediaLibraryState;
 use Drupal\neo_alchemist\Entity\ComponentFieldConfig;
 use Drupal\neo_alchemist\Form\InstanceComponentDeleteForm;
 use Drupal\neo_alchemist\Form\InstanceComponentForm;
+use Drupal\neo_alchemist\Form\InstanceComponentPublishForm;
 use Drupal\neo_alchemist\Form\InstanceComponentResetForm;
+use Drupal\neo_alchemist\Form\InstanceComponentRevertForm;
 use Drupal\neo_alchemist\Form\InstanceComponentSortForm;
 use Drupal\neo_alchemist\Plugin\Field\FieldTypeOverride\StringItemOverride;
 
@@ -161,12 +163,16 @@ function neo_alchemist_entity_type_alter(array &$entity_types) {
           $fieldNameKey = ComponentFieldConfig::getKeyFromFieldname($fieldName);
           $entityType->setLinkTemplate("alchemist.$fieldName", "$canonical/alchemist/$fieldNameKey");
           $entityType->setLinkTemplate("alchemist.$fieldName.library", "$canonical/alchemist/$fieldNameKey/library");
+          $entityType->setLinkTemplate("alchemist.$fieldName.publish", "$canonical/alchemist/$fieldNameKey/publish");
+          $entityType->setLinkTemplate("alchemist.$fieldName.revert", "$canonical/alchemist/$fieldNameKey/revert");
           $entityType->setLinkTemplate("alchemist.$fieldName.reset", "$canonical/alchemist/$fieldNameKey/reset");
           $entityType->setLinkTemplate("alchemist.$fieldName.sort", "$canonical/alchemist/$fieldNameKey/sort");
           $entityType->setLinkTemplate("alchemist.$fieldName.add", "$canonical/alchemist/$fieldNameKey/add/{neo_component}");
           $entityType->setLinkTemplate("alchemist.$fieldName.edit", "$canonical/alchemist/$fieldNameKey/edit/{neo_component}");
           $entityType->setLinkTemplate("alchemist.$fieldName.delete", "$canonical/alchemist/$fieldNameKey/delete/{uuid}");
           $entityType->setFormClass('alchemist', InstanceComponentForm::class);
+          $entityType->setFormClass('alchemist_publish', InstanceComponentPublishForm::class);
+          $entityType->setFormClass('alchemist_revert', InstanceComponentRevertForm::class);
           $entityType->setFormClass('alchemist_reset', InstanceComponentResetForm::class);
           $entityType->setFormClass('alchemist_sort', InstanceComponentSortForm::class);
           $entityType->setFormClass('alchemist_edit', InstanceComponentForm::class);

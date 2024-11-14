@@ -128,13 +128,14 @@ abstract class ComponentInstanceBase extends Component implements ComponentInsta
    * {@inheritDoc}
    */
   public function save() {
-    return 1;
+    return $this->getFieldItem()->saveComponents();
   }
 
   /**
    * {@inheritDoc}
    */
   public function delete() {
+    return $this->getFieldItem()->removeComponent($this->uuid())->saveComponents();
   }
 
 }

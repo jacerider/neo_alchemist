@@ -6,8 +6,6 @@ namespace Drupal\neo_alchemist\Controller;
 
 use Drupal\Component\Serialization\Json;
 use Drupal\Core\Controller\ControllerBase;
-use Drupal\Core\Entity\ContentEntityInterface;
-use Drupal\Core\Routing\RouteMatchInterface;
 use Drupal\neo_alchemist\EntityComponentTrait;
 use Drupal\neo_alchemist\Plugin\Field\FieldType\ComponentTreeItem;
 use Drupal\neo_icon\IconTranslationTrait;
@@ -26,6 +24,53 @@ abstract class InstanceComponentManageBase extends ControllerBase {
    */
   public function build(ComponentTreeItem $fieldItem) {
     $build = [];
+
+    if ($fieldItem->hasDraft()) {
+      $build['publish'] = [
+        '#type' => 'link',
+        '#title' => $this->adminIcon('Publish'),
+        '#url' => $fieldItem->toUrl('publish'),
+        '#attached' => ['library' => ['core/drupal.dialog.ajax']],
+        '#attributes' => [
+          'class' => ['use-ajax', 'btn', 'btn-primary'],
+          'data-dialog-type' => 'modal',
+          'data-dialog-options' => Json::encode([
+            'width' => 700,
+          ]),
+        ],
+      ];
+      $build['revert'] = [
+        '#type' => 'link',
+        '#title' => $this->adminIcon('Revert'),
+        '#url' => $fieldItem->toUrl('revert'),
+        '#attached' => ['library' => ['core/drupal.dialog.ajax']],
+        '#attributes' => [
+          'class' => ['use-ajax', 'btn', 'btn-warning'],
+          'data-dialog-type' => 'modal',
+          'data-dialog-options' => Json::encode([
+            'width' => 700,
+          ]),
+        ],
+      ];
+    }
+
+    if (!$fieldItem->belongsToFieldConfig() && !$fieldItem->getParent()->isDefault()) {
+      // Allow reset only for entity-based components.
+      $build['reset'] = [
+        '#type' => 'link',
+        '#title' => $this->adminIcon('Reset'),
+        '#url' => $fieldItem->toUrl('reset'),
+        '#attached' => ['library' => ['core/drupal.dialog.ajax']],
+        '#attributes' => [
+          'class' => ['use-ajax', 'btn', 'btn-alert'],
+          'data-dialog-type' => 'modal',
+          'data-dialog-options' => Json::encode([
+            'width' => 700,
+          ]),
+        ],
+      ];
+    }
+
     $instances = $fieldItem->getComponents();
     if ($instances) {
       $build['table'] = [
@@ -101,9 +146,12 @@ abstract class InstanceComponentManageBase extends ControllerBase {
       }
     }
 
-    $build['add'] = [
+    $build['actions'] = [
+      '#type' => 'actions',
+    ];
+    $build['actions']['add'] = [
       '#type' => 'link',
-      '#title' => $this->t('Add component'),
+      '#title' => $this->adminIcon('Add'),
       '#url' => $fieldItem->toUrl('library'),
       '#attached' => ['library' => ['core/drupal.dialog.ajax']],
       '#attributes' => [
@@ -115,27 +163,10 @@ abstract class InstanceComponentManageBase extends ControllerBase {
       ],
     ];
 
-    if (!$fieldItem->belongsToFieldConfig()) {
-      // Allow reset only for entity-based components.
-      $build['reset'] = [
-        '#type' => 'link',
-        '#title' => $this->t('Reset component'),
-        '#url' => $fieldItem->toUrl('reset'),
-        '#attached' => ['library' => ['core/drupal.dialog.ajax']],
-        '#attributes' => [
-          'class' => ['use-ajax', 'btn', 'btn-outline'],
-          'data-dialog-type' => 'modal',
-          'data-dialog-options' => Json::encode([
-            'width' => 700,
-          ]),
-        ],
-      ];
-    }
-
     if (count($instances) > 1) {
-      $build['sort'] = [
+      $build['actions']['sort'] = [
         '#type' => 'link',
-        '#title' => $this->t('Sort components'),
+        '#title' => $this->adminIcon('Sort'),
         '#url' => $fieldItem->toUrl('sort'),
         '#attached' => ['library' => ['core/drupal.dialog.ajax']],
         '#attributes' => [

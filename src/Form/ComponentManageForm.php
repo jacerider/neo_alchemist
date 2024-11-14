@@ -100,6 +100,7 @@ final class ComponentManageForm extends EntityForm {
         'name' => $this->t('Property'),
         'required' => $this->t('Required'),
         'editable' => $this->t('Editable'),
+        'edit' => '',
       ],
     ];
 
@@ -125,6 +126,12 @@ final class ComponentManageForm extends EntityForm {
         '#type' => 'checkbox',
         // '#default_value' => $shape->isRequired(),
         // '#disabled' => TRUE,
+      ];
+
+      $row['edit'] = [
+        '#type' => 'link',
+        '#title' => $this->t('Edit'),
+        '#url' => $this->entity->toUrl('edit-prop-form')->setRouteParameter('shape', $propName),
       ];
 
       $form['props'][$propName] = $row;

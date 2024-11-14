@@ -68,6 +68,9 @@ class EntityComponentAccessCheck implements AccessInterface {
       if ($entity instanceof ContentEntityInterface) {
         foreach ($entity->getFieldDefinitions() as $fieldDefinition) {
           if ($fieldDefinition->getType() === 'neo_component_tree') {
+            if (!$fieldDefinition->getSetting('allow_custom')) {
+              return AccessResult::forbidden('Customized layouts are not allowed.');
+            }
             if (!$field_name || $field_name === $fieldDefinition->getName()) {
               return $entity->access($operation, $account, TRUE);
             }

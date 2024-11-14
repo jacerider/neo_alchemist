@@ -158,21 +158,11 @@ final class InstanceComponentSortForm extends ContentEntityForm {
     $fieldDefinition = $this->fieldItem->getFieldDefinition();
     $fieldItem = $this->fieldItem;
     $fieldItem->sortComponents(array_keys($form_state->getValue('values')));
-    if ($fieldItem->belongsToFieldConfig()) {
-      $result = $fieldItem->getFieldDefinition()->setComponentValuesFromFieldItem($fieldItem)->save();
-      $entityType = $this->entityTypeManager->getDefinition($fieldDefinition->getTargetEntityTypeId());
-      $this->messenger()->addStatus($this->t('Components have been sorted successfully on %label: %field_label.', [
-        '%label' => $entityType->getLabel(),
-        '%field_label' => $fieldDefinition->getLabel(),
-      ]));
-    }
-    else {
-      $result = $this->entity->save();
-      $this->messenger()->addStatus($this->t('Components have been sorted successfully on %label: %field_label.', [
-        '%label' => $this->entity->label(),
-        '%field_label' => $fieldDefinition->getLabel(),
-      ]));
-    }
+    $result = $fieldItem->saveComponents();
+    $this->messenger()->addStatus($this->t('Components have been sorted successfully on %label: %field_label.', [
+      '%label' => $fieldItem->belongsToFieldConfig() ? $this->entityTypeManager->getDefinition($fieldDefinition->getTargetEntityTypeId())->getLabel() : $this->entity->label(),
+      '%field_label' => $fieldDefinition->getLabel(),
+    ]));
     $form_state->setRedirectUrl($fieldItem->toUrl());
     return $result;
   }

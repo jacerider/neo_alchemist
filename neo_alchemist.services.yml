@@ -39,3 +39,9 @@ services:
     arguments: ['@entity_field.manager']
     tags:
       - { name: access_check, applies_to: _neo_alchemist_field }
+
+  neo_alchemist.prop_access_checker:
+    class: Drupal\neo_alchemist\Access\ComponentPropAccessCheck
+    arguments: ['@entity_field.manager']
+    tags:
+      - { name: access_check, applies_to: _neo_alchemist_prop }

@@ -141,7 +141,6 @@ final class ComponentForm extends EntityForm {
             '%label' => $target_entity_type->getLabel(),
           ]),
           '#default_value' => $this->entity->getTargetEntityBundle(),
-          '#required' => TRUE,
           '#options' => $options,
           '#empty_option' => $this->t('- All -'),
           '#disabled' => !$this->entity->isNew(),

@@ -18,7 +18,6 @@ final class ComponentListBuilder extends ConfigEntityListBuilder {
    */
   public function buildHeader(): array {
     $header['label'] = $this->t('Label');
-    $header['id'] = $this->t('Machine name');
     $header['status'] = $this->t('Status');
     return $header + parent::buildHeader();
   }
@@ -28,8 +27,7 @@ final class ComponentListBuilder extends ConfigEntityListBuilder {
    */
   public function buildRow(EntityInterface $entity): array {
     /** @var \Drupal\neo_alchemist\ComponentInterface $entity */
-    $row['label'] = Link::fromTextAndUrl($entity->label(), $entity->toUrl());
-    $row['id'] = $entity->id();
+    $row['label']['data']['#markup'] = $entity->label() . ' <small>(' . $entity->id() . ')</small>';
     $row['status'] = $entity->status() ? $this->t('Enabled') : $this->t('Disabled');
     return $row + parent::buildRow($entity);
   }

@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace Drupal\neo_alchemist\Controller;
 
-use Drupal\Component\Serialization\Json;
-use Drupal\Core\Controller\ControllerBase;
 use Drupal\Core\Entity\EntityFieldManagerInterface;
 use Drupal\Core\Routing\RouteMatchInterface;
 use Drupal\neo_icon\IconTranslationTrait;
@@ -52,7 +50,7 @@ final class FieldComponentManageController extends InstanceComponentManageBase {
     $entityType = $this->entityTypeManager()->getDefinition($fieldDefinition->getTargetEntityTypeId());
     return $this->t('Default layout for %label: %field_label', [
       '%label' => $entityType->getLabel(),
-      '%field_label' => $fieldDefinition->getLabel()
+      '%field_label' => $fieldDefinition->getLabel(),
     ]);
   }
 

@@ -4,10 +4,13 @@ declare(strict_types=1);
 
 namespace Drupal\neo_alchemist\Plugin\Field\FieldType;
 
+use Drupal\Component\Render\FormattableMarkup;
 use Drupal\Component\Serialization\Json;
 use Drupal\Core\Field\Attribute\FieldType;
+use Drupal\Core\Field\FieldDefinitionInterface;
 use Drupal\Core\Field\FieldItemBase;
 use Drupal\Core\Field\FieldStorageDefinitionInterface;
+use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Render\RenderableInterface;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\Core\Theme\ComponentPluginManager;
@@ -59,6 +62,13 @@ class ComponentTreeItem extends FieldItemBase implements RenderableInterface {
   protected $definition;
 
   /**
+   * Flag to indicate if the item is a draft.
+   *
+   * @var bool
+   */
+  protected $draft = FALSE;
+
+  /**
    * The Neo component.
    *
    * @var \Drupal\neo_alchemist\ComponentInterface[]
@@ -70,8 +80,42 @@ class ComponentTreeItem extends FieldItemBase implements RenderableInterface {
    */
   public static function defaultFieldSettings() {
     return [
+      'allow_custom' => FALSE,
       'defaults' => [],
     ];
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function fieldSettingsForm(array $form, FormStateInterface $form_state) {
+    $element = parent::fieldSettingsForm($form, $form_state);
+    $settings = $this->getSettings();
+
+    $element['allow_custom'] = [
+      '#type' => 'checkbox',
+      '#title' => $this->t('Allow each entity to have its layout customized.'),
+      '#default_value' => $settings['allow_custom'] ?? FALSE,
+    ];
+
+    $element['defaults'] = [
+      '#type' => 'value',
+      '#value' => $settings['defaults'] ?? [],
+    ];
+
+    return $element;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public static function fieldSettingsSummary(FieldDefinitionInterface $field_definition): array {
+    $summary = parent::fieldSettingsSummary($field_definition);
+    $settings = $field_definition->getSettings();
+    $summary[] = new FormattableMarkup('Allow customized: @value', [
+      '@value' => !empty($settings['allow_custom']) ? 'Yes' : 'No',
+    ]);
+    return $summary;
   }
 
   /**
@@ -151,6 +195,8 @@ class ComponentTreeItem extends FieldItemBase implements RenderableInterface {
     return match($rel) {
       'library' => $this->getEntity()->toUrl("alchemist.{$fieldName}.library"),
       'add' => $this->getEntity()->toUrl("alchemist.{$fieldName}.add"),
+      'publish' => $this->getEntity()->toUrl("alchemist.{$fieldName}.publish"),
+      'revert' => $this->getEntity()->toUrl("alchemist.{$fieldName}.revert"),
       'reset' => $this->getEntity()->toUrl("alchemist.{$fieldName}.reset"),
       'sort' => $this->getEntity()->toUrl("alchemist.{$fieldName}.sort"),
       default => $this->getEntity()->toUrl("alchemist.{$fieldName}")
@@ -192,7 +238,6 @@ class ComponentTreeItem extends FieldItemBase implements RenderableInterface {
 
     $tree = $this->get('tree')->getValue();
     return $tree === '' || $tree === Json::encode([]);
-    return $tree === '' || $tree === Json::encode([]) || $tree === Json::encode([ComponentTreeStructure::ROOT_UUID => []]);
   }
 
   /**
@@ -245,7 +290,16 @@ class ComponentTreeItem extends FieldItemBase implements RenderableInterface {
    */
   public function belongsToFieldConfig(): bool {
     return $this->getParent()->belongsToFieldConfig();
-    // return $this->getEntity()->isNew();
+  }
+
+  /**
+   * Checks if the item is the default value.
+   *
+   * @return bool
+   *   TRUE if the item is the default value, FALSE otherwise.
+   */
+  protected function isDefault(): bool {
+    return $this->getParent()->isDefault();
   }
 
   /**
@@ -331,20 +385,6 @@ class ComponentTreeItem extends FieldItemBase implements RenderableInterface {
     return $components;
   }
 
-  public function resetComponents(): self {
-    $this->parent->setValue(NULL);
-    // $this->setValue(NULL);
-    // $this->get('tree')->setValue('{}');
-    // $this->get('props')->setValue('{}');
-    // $tree = $this->get('tree');
-    // assert($tree instanceof ComponentTreeStructure);
-    // $props = $this->get('props');
-    // assert($props instanceof ComponentPropsValues);
-    // $tree->reset();
-    // $props->reset();
-    return $this;
-  }
-
   /**
    * Sorts the components within the tree structure.
    *
@@ -356,10 +396,11 @@ class ComponentTreeItem extends FieldItemBase implements RenderableInterface {
    *   (optional) The slot within the parent component where the components
    *   should be sorted.
    */
-  public function sortComponents(array $component_instance_uuids, string $parentUuid = ComponentTreeStructure::ROOT_UUID, $slot = NULL) {
+  public function sortComponents(array $component_instance_uuids, string $parentUuid = ComponentTreeStructure::ROOT_UUID, $slot = NULL): self {
     $tree = $this->get('tree');
     assert($tree instanceof ComponentTreeStructure);
     $tree->sortComponents($component_instance_uuids, $parentUuid, $slot);
+    return $this;
   }
 
   /**
@@ -421,6 +462,148 @@ class ComponentTreeItem extends FieldItemBase implements RenderableInterface {
     $tree->removeComponent($uuid);
     $props->removeComponent($uuid);
     return $this;
+  }
+
+  /**
+   * Resets the components by setting the parent value to NULL.
+   *
+   * @return self
+   *   The current instance of the class for method chaining.
+   */
+  public function resetComponents(): self {
+    $this->getParent()->setValue(NULL);
+    return $this;
+  }
+
+  /**
+   * Saves the components.
+   *
+   * When saving existing entities, the entity is assumed to be complete,
+   * partial updates of entities are not supported.
+   *
+   * @return int
+   *   Either SAVED_NEW or SAVED_UPDATED, depending on the operation performed.
+   *
+   * @throws \Drupal\Core\Entity\EntityStorageException
+   *   In case of failures an exception is thrown.
+   */
+  public function saveComponents(): int {
+    if ($this->belongsToFieldConfig()) {
+      return $this->getFieldDefinition()->setComponentValuesFromFieldItem($this)->save();
+    }
+    else {
+      if ($this->isDraft()) {
+        $this->setDraftValue($this->getValue());
+        return SAVED_UPDATED;
+      }
+      $this->deleteDraft();
+      return $this->getEntity()->save();
+    }
+  }
+
+  /**
+   * Generates a draft key for the current entity and field definition.
+   *
+   * The draft key is a string composed of the 'neo_alchemist' prefix, the
+   * entity ID, and the field name, concatenated with dots.
+   *
+   * @return string
+   *   The generated draft key.
+   *
+   * @throws \AssertionError
+   *   Thrown if the field does not belong to a field configuration.
+   */
+  protected function getDraftKey(): string {
+    assert(!$this->belongsToFieldConfig());
+    return implode('.', [
+      'neo_alchemist',
+      $this->getEntity()->id(),
+      $this->getFieldDefinition()->getName(),
+    ]);
+  }
+
+  /**
+   * Retrieves the draft value of the component tree item.
+   *
+   * @return array|null
+   *   The draft value as an array, or NULL if no draft value is set.
+   */
+  public function getDraftValue(): ?array {
+    return $this->getState()->get($this->getDraftKey());
+  }
+
+  /**
+   * Sets the draft value for the component tree item.
+   *
+   * @param array $value
+   *   The draft value to be set.
+   *
+   * @return self
+   *   The current instance of the component tree item.
+   */
+  public function setDraftValue(array $value): self {
+    $this->getState()->set($this->getDraftKey(), $value);
+    return $this;
+  }
+
+  /**
+   * Deletes the draft state of the current component tree item.
+   *
+   * This method removes the draft state associated with the current component
+   * tree item by using the draft key to identify the state to be deleted.
+   *
+   * @return self
+   *   Returns the current instance of the component tree item.
+   */
+  public function deleteDraft(): self {
+    $this->getState()->delete($this->getDraftKey());
+    return $this;
+  }
+
+  /**
+   * Checks if the current item has a draft version.
+   *
+   * This method first checks if the item belongs to a field configuration.
+   * If it does, it returns FALSE, indicating that there is no draft.
+   * Otherwise, it retrieves the draft value and returns it as a boolean.
+   *
+   * @return bool
+   *   TRUE if the item has a draft version, FALSE otherwise.
+   */
+  public function hasDraft(): bool {
+    if ($this->belongsToFieldConfig()) {
+      return FALSE;
+    }
+    return (bool) $this->getDraftValue();
+  }
+
+  /**
+   * Enforces the current item as a draft.
+   *
+   * @param bool $enforce
+   *   (optional) Whether to enforce the item as a draft. Defaults to TRUE.
+   *
+   * @return self
+   *   The current instance for chaining.
+   */
+  public function enforceAsDraft(bool $enforce = TRUE): self {
+    $this->draft = $enforce;
+    if ($enforce) {
+      if ($draftValue = $this->getDraftValue()) {
+        $this->setValue($draftValue);
+      }
+    }
+    return $this;
+  }
+
+  /**
+   * Checks if the current item is a draft.
+   *
+   * @return bool
+   *   TRUE if the item is a draft, FALSE otherwise.
+   */
+  public function isDraft(): bool {
+    return $this->draft;
   }
 
   /**
@@ -531,6 +714,16 @@ class ComponentTreeItem extends FieldItemBase implements RenderableInterface {
     $hydrated = $this->get('hydrated');
     assert($hydrated instanceof ComponentTreeHydrated);
     return $hydrated->toRenderable();
+  }
+
+  /**
+   * Gets the state service.
+   *
+   * @return \Drupal\Core\State\StateInterface
+   *   The state service.
+   */
+  protected function getState() {
+    return \Drupal::state();
   }
 
 }

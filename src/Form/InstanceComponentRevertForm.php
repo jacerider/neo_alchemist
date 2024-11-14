@@ -10,7 +10,7 @@ use Drupal\Core\Form\FormStateInterface;
  *
  * @internal
  */
-class InstanceComponentResetForm extends EntityConfirmFormBase {
+class InstanceComponentRevertForm extends EntityConfirmFormBase {
 
   /**
    * The entity being edited.
@@ -41,7 +41,7 @@ class InstanceComponentResetForm extends EntityConfirmFormBase {
    * {@inheritdoc}
    */
   public function getQuestion() {
-    return $this->t('Reset the components on %label: %field_label?', [
+    return $this->t('Revert the components on %label: %field_label?', [
       '%label' => $this->entity->label(),
       '%field_label' => $this->fieldItem->getFieldDefinition()->getLabel(),
     ]);
@@ -58,28 +58,27 @@ class InstanceComponentResetForm extends EntityConfirmFormBase {
    * {@inheritdoc}
    */
   public function getConfirmText() {
-    return $this->t('Reset');
+    return $this->t('Revert');
   }
 
   /**
    * {@inheritdoc}
    */
   public function getDescription() {
-    return $this->t('Are you sure you want to reset this layout to its default components.');
+    return $this->t('Are you sure you want to revert the pending changes to this layout and all of its components?');
   }
 
   /**
    * {@inheritdoc}
    */
   public function submitForm(array &$form, FormStateInterface $form_state) {
-    $fieldItem = $this->fieldItem->enforceAsDraft(FALSE)->resetComponents();
+    $fieldItem = $this->fieldItem->deleteDraft();
     $form_state->setRedirectUrl($this->getCancelUrl());
-    $result = $fieldItem->saveComponents();
-    $this->messenger()->addStatus($this->t('Components have been reset successfully on %label: %field_label.', [
+    $this->messenger()->addStatus($this->t('Components have been reverted successfully on %label: %field_label.', [
       '%label' => $this->entity->label(),
       '%field_label' => $fieldItem->getFieldDefinition()->getLabel(),
     ]));
-    return $result;
+    return SAVED_UPDATED;
   }
 
 }

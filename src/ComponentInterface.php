@@ -69,7 +69,7 @@ interface ComponentInterface extends ConfigEntityInterface {
    * @return \Drupal\Core\Entity\EntityTypeInterface|null
    *   The target entity type definition.
    */
-  public function getTargetEntityTypeDefinition(): EntityTypeInterface|null;
+  public function getTargetEntityTypeDefinition(): ?EntityTypeInterface;
 
   /**
    * Gets the target entity bundle.
@@ -86,6 +86,17 @@ interface ComponentInterface extends ConfigEntityInterface {
    *   The shapes.
    */
   public function getPropShapes(): array;
+
+  /**
+   * Get a prop shape.
+   *
+   * @param string $id
+   *   The prop shape ID.
+   *
+   * @return \Drupal\neo_alchemist\ComponentShapePluginInterface|null
+   *   The prop shape.
+   */
+  public function getPropShape(string $id): ?ComponentShapePluginInterface;
 
   /**
    * Get prop values.

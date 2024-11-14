@@ -26,8 +26,11 @@ class ComponentFieldConfig extends FieldConfig implements ComponentFieldConfigIn
       'library' => Url::fromRoute("entity.{$entityTypeId}.field_ui.alchemist.{$fieldName}.library", $parameters),
       'add' => Url::fromRoute("entity.{$entityTypeId}.field_ui.alchemist.{$fieldName}.add", $parameters),
       'sort' => Url::fromRoute("entity.{$entityTypeId}.field_ui.alchemist.{$fieldName}.sort", $parameters),
+      'publish' => throw new EntityMalformedException('Publish is not supported for component fields.'),
+      'revert' => throw new EntityMalformedException('Revert is not supported for component fields.'),
       'reset' => throw new EntityMalformedException('Reset is not supported for component fields.'),
-      default => Url::fromRoute("entity.{$entityTypeId}.field_ui.alchemist.{$fieldName}", $parameters),
+      NULL => Url::fromRoute("entity.{$entityTypeId}.field_ui.alchemist.{$fieldName}", $parameters),
+      default => parent::toUrl($rel, $options),
     };
   }
 

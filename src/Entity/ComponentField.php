@@ -25,33 +25,4 @@ final class ComponentField extends ComponentInstanceBase implements ComponentFie
     };
   }
 
-  /**
-   * {@inheritDoc}
-   */
-  public function setValues(array $values): self {
-    parent::setValues($values);
-    $this->getFieldDefinition()->setComponentValuesFromFieldItem($this->getFieldItem());
-    return $this;
-  }
-
-  /**
-   * {@inheritDoc}
-   */
-  public function save() {
-    return $this->getFieldDefinition()->save();
-  }
-
-  /**
-   * {@inheritDoc}
-   */
-  public function delete() {
-    $fieldItem = $this->getFieldItem();
-    // Remove component field field item.
-    $fieldItem->removeComponent($this->uuid());
-    // Update the field definition with the new component list.
-    $this->getFieldDefinition()->setComponentValuesFromFieldItem($fieldItem);
-    // Save the changes to the field definition.
-    return $this->getFieldDefinition()->save();
-  }
-
 }

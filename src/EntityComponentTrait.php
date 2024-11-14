@@ -30,6 +30,7 @@ trait EntityComponentTrait {
     }
     $item = $list->first();
     assert($item instanceof ComponentTreeItem);
+    $item->enforceAsDraft();
     return $item;
   }
 

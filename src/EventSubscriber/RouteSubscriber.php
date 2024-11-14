@@ -59,6 +59,7 @@ class RouteSubscriber extends RouteSubscriberBase {
                   'field' => $fieldName,
                 ])
                 ->setOption('parameters', $parameters)
+                ->setOption('_admin_route', TRUE)
                 ->setOption('_alchemist_entity_type_id', $entityTypeId)
                 ->setRequirement('_neo_alchemist_entity', "{$entityTypeId}.alchemist.{$fieldName}");
               $collection->add("entity.{$entityTypeId}.alchemist.{$fieldName}", $route);
@@ -76,6 +77,34 @@ class RouteSubscriber extends RouteSubscriberBase {
                 ->setOption('_alchemist_entity_type_id', $entityTypeId)
                 ->setRequirement('_neo_alchemist_entity', "{$entityTypeId}.alchemist.{$fieldName}");
               $collection->add("entity.{$entityTypeId}.alchemist.{$fieldName}.library", $route);
+
+              // Publish route.
+              $route = new Route($entityType->getLinkTemplate('alchemist') . "/$fieldNameKey/publish");
+              $route
+                ->setDefaults([
+                  '_controller' => 'Drupal\neo_alchemist\Controller\EntityComponentPublishController',
+                  'title' => 'Publish',
+                  'field' => $fieldName,
+                ])
+                ->setOption('parameters', $parameters)
+                ->setOption('_admin_route', TRUE)
+                ->setOption('_alchemist_entity_type_id', $entityTypeId)
+                ->setRequirement('_neo_alchemist_entity', "{$entityTypeId}.alchemist.{$fieldName}");
+              $collection->add("entity.{$entityTypeId}.alchemist.{$fieldName}.publish", $route);
+
+              // Revert route.
+              $route = new Route($entityType->getLinkTemplate('alchemist') . "/$fieldNameKey/revert");
+              $route
+                ->setDefaults([
+                  '_controller' => 'Drupal\neo_alchemist\Controller\EntityComponentRevertController',
+                  'title' => 'Revert',
+                  'field' => $fieldName,
+                ])
+                ->setOption('parameters', $parameters)
+                ->setOption('_admin_route', TRUE)
+                ->setOption('_alchemist_entity_type_id', $entityTypeId)
+                ->setRequirement('_neo_alchemist_entity', "{$entityTypeId}.alchemist.{$fieldName}");
+              $collection->add("entity.{$entityTypeId}.alchemist.{$fieldName}.revert", $route);
 
               // Reset route.
               $route = new Route($entityType->getLinkTemplate('alchemist') . "/$fieldNameKey/reset");

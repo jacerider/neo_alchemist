@@ -9,6 +9,7 @@ use Drupal\Core\Config\Entity\ConfigEntityBase;
 use Drupal\Core\Entity\EntityTypeInterface;
 use Drupal\Core\Plugin\Component as ComponentPlugin;
 use Drupal\neo_alchemist\ComponentInterface;
+use Drupal\neo_alchemist\ComponentShapePluginInterface;
 
 /**
  * Defines the component entity type.
@@ -28,6 +29,7 @@ use Drupal\neo_alchemist\ComponentInterface;
  *     "form" = {
  *       "add" = "Drupal\neo_alchemist\Form\ComponentForm",
  *       "edit" = "Drupal\neo_alchemist\Form\ComponentForm",
+ *       "prop" = "Drupal\neo_alchemist\Form\ComponentPropForm",
  *       "delete" = "Drupal\Core\Entity\EntityDeleteForm",
  *       "manage" = "Drupal\neo_alchemist\Form\ComponentManageForm",
  *     },
@@ -38,6 +40,7 @@ use Drupal\neo_alchemist\ComponentInterface;
  *     "collection" = "/admin/config/neo/alchemist",
  *     "add-form" = "/admin/config/neo/alchemist/add/{component}",
  *     "edit-form" = "/admin/config/neo/alchemist/{neo_component}/edit",
+ *     "edit-prop-form" = "/admin/config/neo/alchemist/{neo_component}/prop/{prop}",
  *     "delete-form" = "/admin/config/neo/alchemist/{neo_component}/delete",
  *     "canonical" = "/admin/config/neo/alchemist/{neo_component}",
  *     "preview" = "/admin/config/neo/alchemist/{neo_component}/preview",
@@ -164,7 +167,7 @@ class Component extends ConfigEntityBase implements ComponentInterface {
   /**
    * {@inheritdoc}
    */
-  public function getTargetEntityTypeDefinition(): EntityTypeInterface|null {
+  public function getTargetEntityTypeDefinition(): ?EntityTypeInterface {
     $targetEntityType = $this->getTargetEntityTypeId();
     return $targetEntityType ? \Drupal::entityTypeManager()->getDefinition($targetEntityType) : NULL;
   }
@@ -199,11 +202,14 @@ class Component extends ConfigEntityBase implements ComponentInterface {
   public function getPropShapes(): array {
     /** @var \Drupal\neo_alchemist\ComponentShapePluginManager $manager */
     $manager = \Drupal::service('plugin.manager.neo_component_shape');
-    $shapes = [];
-    $component = $this->getComponent();
-    $metadata = $component->metadata;
-    $shapes = $manager->getInstancesFromSchema($metadata->schema, $this->getValues(), $this->getTargetEntityTypeId(), $this->getTargetEntityBundle());
-    return $shapes;
+    return $manager->getInstancesFromSchema($this->getComponent()->metadata->schema, $this->getValues(), $this->getTargetEntityTypeId(), $this->getTargetEntityBundle());
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function getPropShape(string $propId): ?ComponentShapePluginInterface {
+    return $this->getPropShapes()[$propId] ?? NULL;
   }
 
   /**
@@ -242,7 +248,9 @@ class Component extends ConfigEntityBase implements ComponentInterface {
    *   Returns the unique name.
    */
   public function getUniqueId() {
-    $suggestion = str_replace(':', '+', $this->getComponentId());
+    $parts = explode(':', $this->getComponentId());
+    $suggestion = $parts[1];
+    // $suggestion = str_replace(':', '__', $this->getComponentId());
 
     // Get all the blocks which starts with the suggested machine name.
     $query = $this->entityTypeManager()->getStorage('neo_component')->getQuery();
@@ -259,7 +267,7 @@ class Component extends ConfigEntityBase implements ComponentInterface {
     $count = 1;
     $machine_default = $suggestion;
     while (in_array($machine_default, $item_ids)) {
-      $machine_default = $suggestion . '+' . ++$count;
+      $machine_default = $suggestion . '_' . ++$count;
     }
     return $machine_default;
   }

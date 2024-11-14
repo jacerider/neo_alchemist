@@ -51,6 +51,14 @@ entity.neo_component.edit_form:
   requirements:
     _permission: 'administer neo_alchemist'
 
+entity.neo_component.edit_prop_form:
+  path: '/admin/config/neo/alchemist/{neo_component}/prop/{prop}'
+  defaults:
+    _entity_form: 'neo_component.prop'
+    _title: 'Edit a component'
+  requirements:
+    _neo_alchemist_prop: neo_component.prop
+
 entity.neo_component.delete_form:
   path: '/admin/config/neo/alchemist/{neo_component}/delete'
   defaults:
