@@ -46,7 +46,7 @@ class StringShape extends ComponentShapePluginBase {
         'allowed_values' => array_map(fn ($v) => [
           'value' => $v,
           'label' => (string) $v,
-        ], $this->schema['enum'])
+        ], $this->schema['enum']),
       ];
     }
     return [];

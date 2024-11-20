@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Drupal\neo_alchemist\Entity;
 
-use Drupal\Component\Utility\NestedArray;
 use Drupal\Core\Config\Entity\ConfigEntityBase;
+use Drupal\Core\Entity\ContentEntityInterface;
 use Drupal\Core\Entity\EntityTypeInterface;
 use Drupal\Core\Plugin\Component as ComponentPlugin;
 use Drupal\neo_alchemist\ComponentInterface;
@@ -56,7 +56,7 @@ use Drupal\neo_alchemist\ComponentShapePluginInterface;
  *     "label",
  *     "description",
  *     "component",
- *     "defaults",
+ *     "settings",
  *     "target_entity_type",
  *     "target_entity_bundle",
  *   },
@@ -66,38 +66,50 @@ class Component extends ConfigEntityBase implements ComponentInterface {
 
   /**
    * The component ID.
+   *
+   * @var string
    */
   protected string $id;
 
   /**
    * The component label.
+   *
+   * @var string
    */
   protected string $label;
 
   /**
    * The component description.
+   *
+   * @var string
    */
   protected string $description;
 
   /**
    * The SDS component.
+   *
+   * @var string
    */
   protected string $component;
 
   /**
-   * The default values.
+   * The settings.
    *
-   * @var array
+   * @var array|null
    */
-  protected ?array $defaults;
+  protected ?array $settings = [];
 
   /**
    * The target entity type.
+   *
+   * @var string|null
    */
   protected ?string $target_entity_type = '';
 
   /**
    * The target entity bundle.
+   *
+   * @var string|null
    */
   protected ?string $target_entity_bundle = '';
 
@@ -148,6 +160,36 @@ class Component extends ConfigEntityBase implements ComponentInterface {
     return $schema;
   }
 
+  // public function getValueProviderIds(): array {
+  //   ksm($this->providers);
+  //   $ids = array_map(function ($provider) {
+  //     return $provider['plugin'];
+  //   }, $this->providers);
+  //   return array_combine($ids, $ids);
+  // }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function getSettings(): array {
+    return $this->settings ?? [];
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function getSetting(string $key, $default = NULL): mixed {
+    return $this->settings[$key] ?? $default;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function setSetting(string $key, $value): self {
+    $this->settings[$key] = $value;
+    return $this;
+  }
+
   /**
    * {@inheritdoc}
    */
@@ -193,7 +235,40 @@ class Component extends ConfigEntityBase implements ComponentInterface {
    * {@inheritdoc}
    */
   public function getValues(): array {
-    return $this->defaults ?? [];
+    return [];
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function getTargetEntity(): ContentEntityInterface {
+    $entity = NULL;
+    $entityTypeId = $this->getTargetEntityTypeId();
+    $entityTypeManager = \Drupal::entityTypeManager();
+    if ($entityTypeId) {
+      $entityType = $entityTypeManager->getDefinition($entityTypeId);
+      $bundleKey = $entityType->getKey('bundle');
+      if ($bundleKey) {
+        $bundle = $this->getTargetEntityBundle();
+        if (!$bundle) {
+          $bundles = \Drupal::service('entity_type.bundle.info')->getBundleInfo($entityTypeId);
+          if ($bundles) {
+            $bundle = key($bundles);
+          }
+        }
+        if ($bundle) {
+          $entity = $entityTypeManager->getStorage($entityTypeId)->create([
+            $bundleKey => $bundle,
+          ]);
+        }
+      }
+    }
+    if (!$entity) {
+      $entity = $entityTypeManager->getStorage('node')->create([
+        'type' => 'page',
+      ]);
+    }
+    return $entity;
   }
 
   /**
@@ -202,7 +277,7 @@ class Component extends ConfigEntityBase implements ComponentInterface {
   public function getPropShapes(): array {
     /** @var \Drupal\neo_alchemist\ComponentShapePluginManager $manager */
     $manager = \Drupal::service('plugin.manager.neo_component_shape');
-    return $manager->getInstancesFromSchema($this->getComponent()->metadata->schema, $this->getValues(), $this->getTargetEntityTypeId(), $this->getTargetEntityBundle());
+    return $manager->getInstancesFromSchema($this->getComponent()->metadata->schema, $this->getTargetEntity(), $this->getValues(), $this->getSettings()['props'] ?? []);
   }
 
   /**

@@ -21,14 +21,6 @@ interface ComponentInstanceInterface extends ComponentInterface {
   public function isComponentPublished(): bool;
 
   /**
-   * Retrieves the parent entity.
-   *
-   * @return \Drupal\Core\Entity\ContentEntityInterface
-   *   The parent entity.
-   */
-  public function getEntity(): ContentEntityInterface;
-
-  /**
    * Retrieves the field item.
    *
    * @return \Drupal\neo_alchemist\Plugin\Field\FieldType\ComponentTreeItem

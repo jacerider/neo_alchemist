@@ -21,7 +21,7 @@ final class EntityComponentEditController extends ControllerBase {
    */
   public function __invoke(RouteMatchInterface $routeMatch, string $field, string $uuid) {
     $instance = $this->getComponentFieldItem($this->getEntityFromRouteMatch($routeMatch), $field)->getComponent($uuid);
-    return $this->entityFormBuilder()->getForm($instance->getEntity(), 'alchemist_edit', [
+    return $this->entityFormBuilder()->getForm($instance->getTargetEntity(), 'alchemist_edit', [
       'neo_component_instance' => $instance,
     ]);
   }

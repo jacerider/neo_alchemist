@@ -38,7 +38,7 @@ final class FieldComponentAddController extends ControllerBase {
    */
   public function __invoke(RouteMatchInterface $routeMatch, ComponentInterface $neo_component) {
     $instance = $this->getFieldDefinitionFromRouteMatch($routeMatch)->getFieldItem()->createComponent($neo_component);
-    return $this->entityFormBuilder()->getForm($instance->getEntity(), 'alchemist', [
+    return $this->entityFormBuilder()->getForm($instance->getTargetEntity(), 'alchemist', [
       'neo_component_instance' => $instance,
     ]);
   }

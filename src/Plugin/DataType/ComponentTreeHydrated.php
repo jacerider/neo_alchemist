@@ -12,12 +12,10 @@ use Drupal\Core\Render\RenderableInterface;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\Core\TypedData\Attribute\DataType;
 use Drupal\Core\TypedData\TypedData;
-use Drupal\neo_alchemist\Entity\Component;
 use Drupal\neo_alchemist\Plugin\Field\FieldType\ComponentTreeItem;
 
 /**
- * @todo Do we need multiple variations of this? See \Drupal\datetime\DateTimeComputed for an example where there's *settings*
- * @phpstan-type JsonSchema array<string, mixed>
+ * Hydrated data.
  */
 #[DataType(
   id: "neo_component_tree_hydrated",
@@ -73,7 +71,10 @@ class ComponentTreeHydrated extends TypedData implements CacheableDependencyInte
     // tree, by assigning child components to their parent component's slot. If
     // this happens depth-first, then the tree will gradually be built, with the
     // last iteration assigning the last component to the component tree's root.
-    foreach ($tree->getSlotChildrenDepthFirst() as $parent_uuid => ['slot' => $slot, 'uuid' => $uuid]) {
+    foreach ($tree->getSlotChildrenDepthFirst() as $parent_uuid => [
+      'slot' => $slot,
+      'uuid' => $uuid,
+    ]) {
       assert(array_key_exists('slots', $hydrated[$parent_uuid]));
 
       // Remove default slot value: this slot is populated.
@@ -95,7 +96,9 @@ class ComponentTreeHydrated extends TypedData implements CacheableDependencyInte
    */
   public function setValue($value, $notify = TRUE): void {
     // There is nothing to set, so return early.
-    // @todo This is an upstream core bug, because this is defined as both computed and read-only, yet it still gets called 🙃 Once the core bug is fixed, this should throw a ReadOnlyException.
+    // @todo This is an upstream core bug, because this is defined as both
+    // computed and read-only, yet it still gets called 🙃 Once the core bug is
+    // fixed, this should throw a ReadOnlyException.
     // throw new ReadOnlyException();
   }
 

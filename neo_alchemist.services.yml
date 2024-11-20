@@ -13,6 +13,10 @@ services:
     class: Drupal\neo_alchemist\ComponentShapePluginManager
     parent: default_plugin_manager
 
+  plugin.manager.neo_component_value_provider:
+    class: Drupal\neo_alchemist\ComponentValueProviderPluginManager
+    parent: default_plugin_manager
+
   neo_alchemist.field_matcher:
     class: Drupal\neo_alchemist\FieldMatcher
     arguments: ['@typed_data_manager', '@validation.constraint', '@entity_type.bundle.info', '@entity_field.manager']

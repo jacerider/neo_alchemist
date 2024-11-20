@@ -14,7 +14,7 @@ final class ComponentEntity extends ComponentInstanceBase {
    */
   public function toUrl($rel = NULL, array $options = []) {
     $fieldName = $this->getFieldItem()->getFieldDefinition()->getName();
-    $entity = $this->getEntity();
+    $entity = $this->getTargetEntity();
     return match($rel) {
       'edit' => $entity->toUrl("alchemist.$fieldName.edit")->setRouteParameter('uuid', $this->uuid()),
       'delete' => $entity->toUrl("alchemist.{$fieldName}.delete")->setRouteParameter('uuid', $this->uuid()),

@@ -17,7 +17,7 @@ final class ComponentField extends ComponentInstanceBase implements ComponentFie
    */
   public function toUrl($rel = NULL, array $options = []) {
     $fieldName = $this->getFieldItem()->getFieldDefinition()->getName();
-    $entityTypeId = $this->getEntity()->getEntityTypeId();
+    $entityTypeId = $this->getTargetEntity()->getEntityTypeId();
     return match($rel) {
       'edit' => Url::fromRoute("entity.{$entityTypeId}.field_ui.alchemist.{$fieldName}.edit", ['uuid' => $this->uuid()] + $this->getFieldDefinition()->getUrlParameters()),
       'delete' => Url::fromRoute("entity.{$entityTypeId}.field_ui.alchemist.{$fieldName}.delete", ['uuid' => $this->uuid()] + $this->getFieldDefinition()->getUrlParameters()),

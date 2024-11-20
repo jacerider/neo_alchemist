@@ -58,7 +58,7 @@ abstract class ComponentInstanceBase extends Component implements ComponentInsta
   /**
    * {@inheritDoc}
    */
-  public function getEntity(): ContentEntityInterface {
+  public function getTargetEntity(): ContentEntityInterface {
     return $this->getFieldItem()->getEntity();
   }
 
@@ -108,7 +108,7 @@ abstract class ComponentInstanceBase extends Component implements ComponentInsta
     // Set on entity.
     // We do this as the field item entity may have gotten disconnected. This
     // is currently happening on ajax validation in edit forms.
-    $this->getEntity()->set($this->getFieldDefinition()->getName(), $fieldItem->getValue(), FALSE);
+    $this->getTargetEntity()->set($this->getFieldDefinition()->getName(), $fieldItem->getValue(), FALSE);
     return $this;
   }
 
@@ -119,7 +119,7 @@ abstract class ComponentInstanceBase extends Component implements ComponentInsta
     $access = match(TRUE) {
       $operation === 'update' && !$this->isComponentPublished() => AccessResult::forbidden('Component is unpublished globally.'),
       $operation === 'sort' && !$this->isComponentPublished() => AccessResult::forbidden('Component is unpublished globally.'),
-      default => $this->getEntity()->access($operation, $account, TRUE),
+      default => $this->getTargetEntity()->access($operation, $account, TRUE),
     };
     return $return_as_object ? $access : $access->isAllowed();
   }

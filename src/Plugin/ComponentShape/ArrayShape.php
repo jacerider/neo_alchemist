@@ -67,7 +67,7 @@ class ArrayShape extends ComponentShapePluginBase {
    * @return \Drupal\neo_alchemist\ComponentShapePluginInterface[]
    *   The child shapes.
    */
-  protected function getChildShapes(int $delta): array {
+  protected function getChildShapes(int $delta, $value): array {
     $schema = $this->getSchema();
     if (!empty($schema['items'])) {
       if ($this->isSingleProp()) {
@@ -84,7 +84,7 @@ class ArrayShape extends ComponentShapePluginBase {
           $prop['examples'] = $schema['examples'][$delta][$propName] ?? $prop['examples'] ?? [];
         }
       }
-      return $this->shapeManager->getInstancesFromSchema($schema['items']);
+      return $this->shapeManager->getInstancesFromSchema($schema['items'], $this->getEntity());
     }
     return [];
   }
@@ -103,7 +103,7 @@ class ArrayShape extends ComponentShapePluginBase {
     $keyedShapes = [];
     $values = $values ?? $this->getFieldItemValue();
     foreach ($values as $delta => $value) {
-      $shapes = $this->getChildShapes($delta);
+      $shapes = $this->getChildShapes($delta, $value);
       foreach ($shapes as $shape) {
         $itemValue = $value[$shape->getName()] ?? ($this->isSingleProp() ? $value : []);
         $shape->setFieldItemValue($itemValue);
@@ -328,7 +328,7 @@ class ArrayShape extends ComponentShapePluginBase {
   public function massageFormValues(array $form, FormStateInterface $form_state, array $values): array {
     $newValues = [];
     foreach ($values as $delta => $value) {
-      $shapes = $this->getChildShapes($delta);
+      $shapes = $this->getChildShapes($delta, $value);
       foreach ($shapes as $shape) {
         $newValues[$delta][$shape->getName()] = $shape->massageFormValues($form, $form_state, $value[$shape->getName()] ?? []);
       }

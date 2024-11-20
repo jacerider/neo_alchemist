@@ -37,7 +37,7 @@ final class FieldComponentDeleteController extends ControllerBase {
    */
   public function __invoke(RouteMatchInterface $routeMatch, string $uuid) {
     $instance = $this->getFieldDefinitionFromRouteMatch($routeMatch)->getFieldItem()->getComponent($uuid);
-    return $this->entityFormBuilder()->getForm($instance->getEntity(), 'alchemist_delete', [
+    return $this->entityFormBuilder()->getForm($instance->getTargetEntity(), 'alchemist_delete', [
       'neo_component_instance' => $instance,
     ]);
   }

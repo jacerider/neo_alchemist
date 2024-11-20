@@ -37,7 +37,7 @@ final class FieldComponentEditController extends ControllerBase {
    */
   public function __invoke(RouteMatchInterface $routeMatch, string $field, string $uuid) {
     $instance = $this->getFieldDefinitionFromRouteMatch($routeMatch)->getFieldItem()->getComponent($uuid);
-    return $this->entityFormBuilder()->getForm($instance->getEntity(), 'alchemist_edit', [
+    return $this->entityFormBuilder()->getForm($instance->getTargetEntity(), 'alchemist_edit', [
       'neo_component_instance' => $instance,
     ]);
   }
@@ -50,7 +50,7 @@ final class FieldComponentEditController extends ControllerBase {
     $instance = $this->getFieldDefinitionFromRouteMatch($routeMatch)->getFieldItem()->getComponent($uuid);
     return $this->t('Edit %component from %label: %field_label', [
       '%component' => $instance->label(),
-      '%label' => $instance->getEntity()->getEntityType()->getLabel(),
+      '%label' => $instance->getTargetEntity()->getEntityType()->getLabel(),
       '%field_label' => $fieldDefinition->getLabel(),
     ]);
   }

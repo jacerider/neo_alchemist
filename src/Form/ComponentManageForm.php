@@ -104,11 +104,11 @@ final class ComponentManageForm extends EntityForm {
       ],
     ];
 
-    /** @var \Drupal\neo_alchemist\FieldMatcher $matcher */
-    $matcher = \Drupal::service('neo_alchemist.field_matcher');
-    $form['values'] = [
-      '#parents' => ['values'],
-    ];
+    // /** @var \Drupal\neo_alchemist\FieldMatcher $matcher */
+    // $matcher = \Drupal::service('neo_alchemist.field_matcher');
+    // $form['values'] = [
+    //   '#parents' => ['values'],
+    // ];
 
     foreach ($this->entity->getPropShapes() as $propName => $shape) {
       // if ($propName === 'email' || TRUE) {
@@ -131,12 +131,12 @@ final class ComponentManageForm extends EntityForm {
       $row['edit'] = [
         '#type' => 'link',
         '#title' => $this->t('Edit'),
-        '#url' => $this->entity->toUrl('edit-prop-form')->setRouteParameter('shape', $propName),
+        '#url' => $this->entity->toUrl('edit-prop-form')->setRouteParameter('prop', $propName),
       ];
 
       $form['props'][$propName] = $row;
 
-      $form['values'][$propName] = $shape->getForm($form['values'], $form_state);
+      // $form['values'][$propName] = $shape->getForm($form['values'], $form_state);
     }
 
     return $form;
@@ -192,6 +192,8 @@ final class ComponentManageForm extends EntityForm {
         $defaults['props'][$propName]['value'] = $value;
       }
     }
+    ksm($defaults);
+    return 1;
     $this->entity->set('defaults', $defaults);
     $result = parent::save($form, $form_state);
     return $result;

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Drupal\neo_alchemist;
 
 use Drupal\Core\Config\Entity\ConfigEntityInterface;
+use Drupal\Core\Entity\ContentEntityInterface;
 use Drupal\Core\Entity\EntityTypeInterface;
 use Drupal\Core\Plugin\Component;
 
@@ -48,6 +49,40 @@ interface ComponentInterface extends ConfigEntityInterface {
   public function getComponentSchema(): mixed;
 
   /**
+   * Retrieves the settings for the component.
+   *
+   * @return array
+   *   An array of settings. If no settings are defined, an empty array is returned.
+   */
+  public function getSettings(): array;
+
+  /**
+   * Retrieves a setting value by its key.
+   *
+   * @param string $key
+   *   The key of the setting to retrieve.
+   * @param mixed $default
+   *   (optional) The default value to return if the setting is not found. Defaults to NULL.
+   *
+   * @return mixed
+   *   The value of the setting if it exists, otherwise the default value.
+   */
+  public function getSetting(string $key, $default = NULL): mixed;
+
+  /**
+   * Sets a specific setting for the component.
+   *
+   * @param string $key
+   *   The key of the setting to be set.
+   * @param mixed $value
+   *   The value to be set for the specified key.
+   *
+   * @return $this
+   *   The current instance of the component for method chaining.
+   */
+  public function setSetting(string $key, $value): self;
+
+  /**
    * Get the component definition.
    *
    * @return array
@@ -78,6 +113,14 @@ interface ComponentInterface extends ConfigEntityInterface {
    *   The target entity bundle.
    */
   public function getTargetEntityBundle(): string;
+
+  /**
+   * Retrieves the parent entity.
+   *
+   * @return \Drupal\Core\Entity\ContentEntityInterface
+   *   The parent entity.
+   */
+  public function getTargetEntity(): ContentEntityInterface;
 
   /**
    * Get prop shapes.

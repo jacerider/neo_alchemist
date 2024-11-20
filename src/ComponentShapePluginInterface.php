@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\neo_alchemist;
 
+use Drupal\Core\Entity\ContentEntityInterface;
 use Drupal\Core\Field\FieldItemInterface;
 use Drupal\Core\Field\WidgetInterface;
 use Drupal\Core\Form\FormStateInterface;
@@ -28,6 +29,63 @@ interface ComponentShapePluginInterface {
    * Returns the translated plugin label.
    */
   public function label(): string;
+
+  /**
+   * Retrieves the value provider definitions for the current shape.
+   *
+   * This method uses the value provider manager to get the filtered definitions
+   * based on the current shape instance.
+   *
+   * @return array
+   *   An array of value provider definitions.
+   */
+  public function getValueProviderDefinitions(): array;
+
+  /**
+   * Adds a value provider to the component shape.
+   *
+   * @param string $providerId
+   *   The unique identifier for the provider.
+   * @param array $settings
+   *   An associative array of settings for the provider.
+   *
+   * @return self
+   *   The current instance of the component shape plugin.
+   */
+  public function addValueProvider(string $providerId, array $settings): self;
+
+  /**
+   * Checks if a value provider is enabled.
+   *
+   * @param string $providerId
+   *   The ID of the provider to check.
+   *
+   * @return bool
+   *   TRUE if the provider is enabled, FALSE otherwise.
+   */
+  public function isValueProviderEnabled(string $providerId): bool;
+
+  /**
+   * Retrieves the value providers.
+   *
+   * @return \Drupal\neo_alchemist\ComponentValueProviderPluginInterface[]
+   *   An array of value providers.
+   */
+  public function getValueProviders(): array;
+
+  /**
+   * Retrieves a value provider instance based on the given provider ID.
+   *
+   * @param string $providerId
+   *   The ID of the value provider to create.
+   * @param array|null $settings
+   *   An associative array of settings for the provider. The default provider
+   *   settings will be used if no settings are provided.
+   *
+   * @return \Drupal\neo_alchemist\ComponentValueProviderPluginInterface|null
+   *   The value provider instance.
+   */
+  public function getValueProvider(string $providerId, array $settings = NULL): ?ComponentValueProviderPluginInterface;
 
   /**
    * Get expression.
@@ -114,32 +172,28 @@ interface ComponentShapePluginInterface {
   public function isRequired(): bool;
 
   /**
-   * Set the prop entity type and (optional) bundle.
+   * Retrieves the content entity associated with this plugin.
    *
-   * @param string $entityType
-   *   The entity type.
-   * @param string $entityBundle
-   *   (optional) The entity bundle.
-   *
-   * @return $this
+   * @return \Drupal\Core\Entity\ContentEntityInterface
+   *   The content entity.
    */
-  public function setEntityType(string $entityType, ?string $entityBundle = ''): self;
+  public function getEntity(): ContentEntityInterface;
 
   /**
    * Get the entity type.
    *
-   * @return string|null
+   * @return string
    *   The entity type.
    */
-  public function getEntityType(): ?string;
+  public function getEntityType(): string;
 
   /**
    * Get the entity bundle.
    *
-   * @return string|null
+   * @return string
    *   The entity bundle.
    */
-  public function getEntityBundle(): ?string;
+  public function getEntityBundle(): string;
 
   /**
    * Get the field type.
@@ -230,6 +284,17 @@ interface ComponentShapePluginInterface {
    * @return $this
    */
   public function setFieldItemValue(mixed $value): self;
+
+  // /**
+  //  * Sets the default value for the field item.
+  //  *
+  //  * @param mixed $value
+  //  *   The value to set for the field item.
+  //  *
+  //  * @return $this
+  //  *   The current instance of the class for method chaining.
+  //  */
+  // public function setFieldItemDefaultValue(mixed $value): self;
 
   /**
    * Set the widget type.

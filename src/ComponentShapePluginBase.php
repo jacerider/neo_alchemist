@@ -7,9 +7,11 @@ namespace Drupal\neo_alchemist;
 use Drupal\Component\Plugin\Factory\DefaultFactory;
 use Drupal\Component\Plugin\PluginBase;
 use Drupal\Core\DependencyInjection\DependencySerializationTrait;
+use Drupal\Core\Entity\ContentEntityInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Entity\Plugin\DataType\EntityAdapter;
 use Drupal\Core\Field\FieldItemInterface;
+use Drupal\Core\Field\FieldItemListInterface;
 use Drupal\Core\Field\WidgetInterface;
 use Drupal\Core\Field\WidgetPluginManager;
 use Drupal\Core\Form\FormStateInterface;
@@ -21,7 +23,6 @@ use Drupal\neo_alchemist\PropExpressions\Component\ComponentPropExpression;
 use Drupal\neo_alchemist\PropSource\FieldStorageDefinition;
 use Drupal\neo_alchemist\ShapeMatcher\DataTypeShapeRequirement;
 use Drupal\neo_alchemist\ShapeMatcher\DataTypeShapeRequirements;
-use Drupal\node\Entity\Node;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
@@ -30,6 +31,13 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
 abstract class ComponentShapePluginBase extends PluginBase implements ComponentShapePluginInterface, ContainerFactoryPluginInterface {
 
   use DependencySerializationTrait;
+
+  /**
+   * The field item list.
+   *
+   * @var \Drupal\Core\Field\FieldItemListInterface
+   */
+  protected FieldItemListInterface $field;
 
   /**
    * The field item.
@@ -74,18 +82,39 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
   protected array $widgetSettings;
 
   /**
-   * The target entity type.
+   * The value providers.
    *
-   * @var string
+   * @var array
    */
-  protected string $entityType;
+  protected $providers = [];
 
   /**
-   * The target entity bundle.
+   * The value provider instances.
    *
-   * @var string
+   * @var Drupal\neo_alchemist\ComponentValueProviderPluginInterface[]
    */
-  protected string $entityBundle;
+  protected $providerInstances;
+
+  /**
+   * The value provider definitions.
+   *
+   * @var array
+   */
+  protected array $providerDefinitions;
+
+  /**
+   * The entity.
+   *
+   * @var \Drupal\Core\Entity\ContentEntityInterface
+   */
+  protected ContentEntityInterface $entity;
+
+  /**
+   * Whether the field item value is the default value.
+   *
+   * @var bool
+   */
+  protected bool $isDefaultValue = TRUE;
 
   /**
    * Constructs a new ComponentShapePluginBase object.
@@ -94,14 +123,17 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
     $plugin_id,
     $plugin_definition,
     array $schema,
+    ContentEntityInterface $entity,
     bool $required,
     protected EntityTypeManagerInterface $entityTypeManager,
     protected TypedDataManagerInterface $typedDataManager,
-    protected WidgetPluginManager $widgetManager
+    protected WidgetPluginManager $widgetManager,
+    protected ComponentValueProviderPluginManager $valueProviderManager
   ) {
     parent::__construct([], $plugin_id, $plugin_definition);
     $this->schema = $schema;
     $this->schemaType = SdcPropJsonSchemaType::from($this->getType());
+    $this->entity = $entity;
     $this->required = $required;
 
     $fieldType = $this->getFieldType();
@@ -116,19 +148,19 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
       $fieldItemClass = $fieldItemDefinition->getClass();
       $fieldItemDefinition->setSettings($fieldItemClass::fieldSettingsFromConfigData($fieldInstanceSettings) + $fieldItemDefinition->getSettings());
     }
+    /** @var \Drupal\Core\Field\FieldItemInterface $fieldItem */
     $this->fieldItem = $this->typedDataManager->createInstance($fieldDataType, [
       'name' => NULL,
       'parent' => NULL,
       'data_definition' => $fieldItemDefinition,
     ]);
+    $this->fieldItem->setContext(NULL, EntityAdapter::createFromEntity($this->entity));
 
     /** @var \Drupal\neo_alchemist\PropSource\FieldStorageDefinition $fieldStorageDefinition */
     $fieldStorageDefinition = $this->fieldItem->getFieldDefinition();
     $fieldStorageDefinition
       ->setName($this->getName())
       ->setLabel($this->getTitle());
-
-    $this->setFieldItemValue($this->getDefaultValue());
   }
 
   /**
@@ -139,10 +171,12 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
       $plugin_id,
       $plugin_definition,
       $configuration['schema'],
+      $configuration['entity'],
       $configuration['required'],
       $container->get('entity_type.manager'),
       $container->get(TypedDataManagerInterface::class),
-      $container->get('plugin.manager.field.widget')
+      $container->get('plugin.manager.field.widget'),
+      $container->get('plugin.manager.neo_component_value_provider')
     );
   }
 
@@ -152,6 +186,67 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
   public function label(): string {
     // Cast the label to a string since it is a TranslatableMarkup object.
     return (string) $this->pluginDefinition['label'];
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function getValueProviderDefinitions(): array {
+    if (!isset($this->providerDefinitions)) {
+      $this->providerDefinitions = $this->valueProviderManager->getFilteredDefinitionsFromShape($this);
+    }
+    return $this->providerDefinitions;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function addValueProvider(string $providerId, array $settings): self {
+    if (isset($this->getValueProviderDefinitions()[$providerId])) {
+      $this->providers[$providerId] = $settings;
+    }
+    return $this;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function isValueProviderEnabled(string $providerId): bool {
+    return isset($this->providers[$providerId]);
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function getValueProviders(): array {
+    $providers = [];
+    foreach ($this->providers as $providerId => $settings) {
+      if ($instance = $this->getValueProvider($providerId)) {
+        $providers[$providerId] = $instance;
+      }
+    }
+    return $providers;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function getValueProvider(string $providerId, array $settings = NULL): ?ComponentValueProviderPluginInterface {
+    if (!isset($this->getValueProviderDefinitions()[$providerId])) {
+      return NULL;
+    }
+    if (!$settings && isset($this->providerInstances[$providerId])) {
+      return $this->providerInstances[$providerId];
+
+    }
+    $instance = $this->valueProviderManager->createInstance($providerId, [
+      'shape' => $this,
+      'settings' => $settings ?? $this->providers[$providerId] ?? [],
+    ]);
+    if (!$settings) {
+      $this->providerInstances[$providerId] = $instance;
+    }
+    return $instance;
   }
 
   /**
@@ -220,24 +315,22 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
   /**
    * {@inheritDoc}
    */
-  public function setEntityType(string $entityType, ?string $entityBundle = ''): self {
-    $this->entityType = $entityType;
-    $this->entityBundle = $entityBundle;
-    return $this;
+  public function getEntity(): ContentEntityInterface {
+    return $this->entity;
   }
 
   /**
    * {@inheritDoc}
    */
-  public function getEntityType(): ?string {
-    return $this->entityType ?? NULL;
+  public function getEntityType(): string {
+    return $this->getEntity()->getEntityTYpeId();
   }
 
   /**
    * {@inheritDoc}
    */
-  public function getEntityBundle(): ?string {
-    return $this->entityBundle ?? NULL;
+  public function getEntityBundle(): string {
+    return $this->getEntity()->bundle();
   }
 
   /**
@@ -339,17 +432,61 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
     return $fieldItem->getValue();
   }
 
+  protected mixed $overrideValue;
+
+  public function setOverrideValue(mixed $value) {
+    $this->overrideValue = $value;
+    return $this;
+  }
+
+  public function getOverrideValue(): mixed {
+    return $this->overrideValue;
+  }
+
   /**
    * {@inheritDoc}
    */
   public function getFieldItemValue(): array {
     return $this->fieldItem->getValue();
+    // $fieldItem = clone $this->fieldItem;
+    // if ($this->isDefaultValue || TRUE) {
+    //   $stopProcessing = FALSE;
+    //   foreach ($this->getValueProviders() as $providerId => $instance) {
+    //     $instance->modify($fieldItem, $stopProcessing);
+    //     if ($stopProcessing === TRUE) {
+    //       break;
+    //     }
+    //   }
+    // }
+    // return $fieldItem->getValue();
+  }
+
+  public function calculateFieldItemValue(): self {
+    $this->fieldItem->setValue($this->getDefaultValue());
+    $stopProcessing = FALSE;
+    foreach ($this->getValueProviders() as $providerId => $instance) {
+      $instance->modify($this->fieldItem, $stopProcessing);
+      if ($stopProcessing === TRUE) {
+        break;
+      }
+    }
+    if (isset($this->overrideValue)) {
+      $this->fieldItem->setValue($this->overrideValue);
+    }
+    // We need a way to process values. Start with schema defaults. Then modify
+    // with value providers. Then overlay the user input.
+    // The question is when should I do this? Right now, user input is being set
+    // in the component shape plugin manager. Do we set it as its own property
+    // so that we can call this method over again when new value providers are
+    // set or new overrides are set?
+    return $this;
   }
 
   /**
    * {@inheritDoc}
    */
   public function setFieldItemValue(mixed $value): self {
+    $this->isDefaultValue = FALSE;
     // If if value is an array but we are not in an array type, we use the first
     // value 0 if set.
     if (is_array($value) && $this->getType() !== 'array') {
@@ -358,6 +495,15 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
     $this->fieldItem->setValue($value);
     return $this;
   }
+
+  // /**
+  //  * {@inheritDoc}
+  //  */
+  // public function setFieldItemDefaultValue(mixed $value): self {
+  //   $this->setFieldItemValue($value);
+  //   $this->isDefaultValue = TRUE;
+  //   return $this;
+  // }
 
   /**
    * {@inheritDoc}
@@ -480,18 +626,26 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
     // do not need an entity context, but some do:
     // @see \Drupal\file\Plugin\Field\FieldWidget\FileWidget
     // @see \Drupal\image\Plugin\Field\FieldWidget\ImageWidget
-    $host_entity = Node::create([
-      'type' => 'page',
-    ]);
-    if ($host_entity) {
-      $field->setContext(NULL, EntityAdapter::createFromEntity($host_entity));
+    if ($hostEntity = $this->getEntity()) {
+      $field->setContext(NULL, EntityAdapter::createFromEntity($hostEntity));
       $field_storage_definition = $field->getFieldDefinition()->getFieldStorageDefinition();
       assert($field_storage_definition instanceof FieldStorageDefinition);
-      $field_storage_definition->setTargetEntityTypeId($host_entity->getEntityTypeId());
+      $field_storage_definition->setTargetEntityTypeId($hostEntity->getEntityTypeId());
     }
 
     $elements['#parents'] = $form['#parents'] ?? [];
-    return $widget->form($field, $elements, $form_state);
+    $widgetForm = $widget->form($field, $elements, $form_state);
+    foreach ($this->getValueProviders() as $providerId => $instance) {
+      $instance->widgetFormAlter($widgetForm['widget'], $form_state, $fieldItem);
+      // ksm($instance);
+      // $instance->modify($fieldItem, $stopProcessing);
+    }
+
+    // $widgetForm['widget']['default'] = [
+    //   '#type' => 'checkbox',
+    //   '#title' => t('Use default value'),
+    // ];
+    return $widgetForm;
   }
 
   /**

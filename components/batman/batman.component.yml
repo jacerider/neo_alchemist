@@ -89,14 +89,14 @@ props:
     #       # The enum directive restricts the possible values in the element to our list.
     #       enum: ['base', 'primary', 'secondary']
     #       examples: ['primary']
-    # items:
-    #   type: array
-    #   title: Items
-    #   description: Super items list.
-    #   maxItems: 5
-    #   items:
-    #     type: string
-    #   examples: ['hello', 'good', 'field']
+    items:
+      type: array
+      title: Items
+      description: Super items list.
+      maxItems: 5
+      items:
+        type: string
+      examples: ['hello', 'good', 'field']
     # sequence:
     #   type: array
     #   title: Sequence
