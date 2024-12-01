@@ -8,12 +8,15 @@ use Drupal\Core\Entity\EntityForm;
 use Drupal\Core\Entity\EntityTypeBundleInfoInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Form\FormStateInterface;
+use Drupal\neo_icon\IconTranslationTrait;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
  * Component form.
  */
 final class ComponentManageForm extends EntityForm {
+
+  use IconTranslationTrait;
 
   /**
    * The entity.
@@ -81,18 +84,6 @@ final class ComponentManageForm extends EntityForm {
       ],
     ];
 
-    // $form['modal'] = [
-    //   '#type' => 'neo_modal',
-    //   '#title' => $this->t('Component Properties'),
-    //   '#close' => $this->t('Save'),
-    // ];
-
-    // $form['modal']['textfield'] = [
-    //   '#type' => 'textfield',
-    //   '#title' => $this->t('Title'),
-    //   '#default_value' => $this->entity->label(),
-    // ];
-
     $form['props'] = [
       '#type' => 'table',
       '#tree' => TRUE,
@@ -100,43 +91,49 @@ final class ComponentManageForm extends EntityForm {
         'name' => $this->t('Property'),
         'required' => $this->t('Required'),
         'editable' => $this->t('Editable'),
-        'edit' => '',
+        'value_providers' => $this->t('Value Providers'),
+        'value_modifiers' => $this->t('Value Modifiers'),
+        'operations' => '',
       ],
     ];
 
-    // /** @var \Drupal\neo_alchemist\FieldMatcher $matcher */
-    // $matcher = \Drupal::service('neo_alchemist.field_matcher');
-    // $form['values'] = [
-    //   '#parents' => ['values'],
-    // ];
-
     foreach ($this->entity->getPropShapes() as $propName => $shape) {
-      // if ($propName === 'email' || TRUE) {
-      //   $matches = $matcher->getMatches($shape);
-      //   ksm($matches);
-      // }
       $row = [];
       $row['name']['#markup'] = $shape->getTitle() . ' <small>(' . $shape->getName() . ')</small>';
-      $row['require'] = [
-        '#type' => 'checkbox',
-        // '#default_value' => $shape->isRequired(),
-        // '#disabled' => TRUE,
-      ];
-      $row['editable'] = [
-        '#type' => 'checkbox',
-        // '#default_value' => $shape->isRequired(),
-        // '#disabled' => TRUE,
-      ];
+      $row['required']['#markup'] = $shape->isRequired() ? $this->icon($this->t('Yes'))->iconOnly() : $this->icon($this->t('No'))->iconOnly();
+      $row['editable']['#markup'] = $shape->isEditable() ? $this->icon($this->t('Yes'))->iconOnly() : $this->icon($this->t('No'))->iconOnly();
+      $row['value_providers']['#markup'] = implode(', ', array_map(function ($provider) {
+        return $provider->label();
+      }, $shape->getValueProviders()));
+      $row['value_modifiers']['#markup'] = implode(', ', array_map(function ($provider) {
+        return $provider->label();
+      }, $shape->getValueModifiers()));
 
-      $row['edit'] = [
-        '#type' => 'link',
-        '#title' => $this->t('Edit'),
-        '#url' => $this->entity->toUrl('edit-prop-form')->setRouteParameter('prop', $propName),
+      $links = [];
+      $links['edit'] = [
+        'title' => $this->t('Customize'),
+        'url' => $this->entity->toUrl('edit-prop-form')->setRouteParameter('prop', $propName),
+      ];
+      $row['operations'] = [
+        '#type' => 'operations',
+        '#links' => $links,
       ];
 
       $form['props'][$propName] = $row;
+    }
 
-      // $form['values'][$propName] = $shape->getForm($form['values'], $form_state);
+    if ($this->entity->getTargetEntityTypeId()) {
+      $form['entity_preview'] = [
+        '#type' => 'entity_autocomplete',
+        '#title' => $this->t('Select a preview entity'),
+        '#description' => $this->t('Select an entity to use when previewing this component. This setting is specific to the current site environment.'),
+        '#target_type' => $this->entity->getTargetEntityTypeId(),
+        '#default_value' => $this->entity->getTargetPreviewEntity(),
+        '#selection_handler' => 'default',
+        '#selection_settings' => [
+          'target_bundles' => [$this->entity->getTargetEntityBundle()],
+        ],
+      ];
     }
 
     return $form;
@@ -146,6 +143,7 @@ final class ComponentManageForm extends EntityForm {
    * {@inheritdoc}
    */
   protected function actions(array $form, FormStateInterface $form_state) {
+    $actions = [];
     $actions['submit'] = [
       '#type' => 'submit',
       '#value' => $this->t('Save'),
@@ -163,38 +161,10 @@ final class ComponentManageForm extends EntityForm {
   /**
    * {@inheritdoc}
    */
-  public function validateForm(array &$form, FormStateInterface $form_state) {
-    parent::validateForm($form, $form_state);
-    // foreach ($this->entity->getPropShapes() as $propName => $shape) {
-    //   $shape->validateForm($form['values'][$propName], $form_state, $form_state->getValue([
-    //     'values',
-    //     $propName,
-    //   ], []));
-    //   $shape->setFieldItemValue($form_state->getValue([
-    //     'values',
-    //     $propName,
-    //   ], []));
-    // }
-  }
-
-  /**
-   * {@inheritdoc}
-   */
   public function save(array $form, FormStateInterface $form_state): int {
-    // $defaults = [];
-    // foreach ($this->entity->getPropShapes() as $propName => $shape) {
-    //   $value = $shape->massageFormValues($form, $form_state, $form_state->getValue([
-    //     'values',
-    //     $propName,
-    //   ], []));
-    //   if ($value !== $shape->getFieldItemDefaultValue()) {
-    //     $defaults['props'][$propName]['field_type'] = $shape->getFieldType();
-    //     $defaults['props'][$propName]['value'] = $value;
-    //   }
-    // }
-    // ksm($defaults);
-    // return 1;
-    // $this->entity->set('defaults', $defaults);
+    if ($entityPreview = $form_state->getValue('entity_preview')) {
+      $this->entity->setTargetPreviewEntity($entityPreview);
+    }
     $result = parent::save($form, $form_state);
     return $result;
   }

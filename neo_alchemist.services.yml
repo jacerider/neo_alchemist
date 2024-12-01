@@ -17,6 +17,10 @@ services:
     class: Drupal\neo_alchemist\ComponentValueProviderPluginManager
     parent: default_plugin_manager
 
+  plugin.manager.neo_component_value_modifier:
+    class: Drupal\neo_alchemist\ComponentValueModifierPluginManager
+    parent: default_plugin_manager
+
   neo_alchemist.field_matcher:
     class: Drupal\neo_alchemist\FieldMatcher
     arguments: ['@typed_data_manager', '@validation.constraint', '@entity_type.bundle.info', '@entity_field.manager']
@@ -49,3 +53,15 @@ services:
     arguments: ['@entity_field.manager']
     tags:
       - { name: access_check, applies_to: _neo_alchemist_prop }
+
+  neo_alchemist.field_param_converter:
+    class: Drupal\neo_alchemist\Routing\FieldParamConverter
+    tags:
+      - { name: paramconverter }
+    arguments: ['@entity_type.manager', '@entity_field.manager']
+
+  neo_alchemist.field_component_param_converter:
+    class: Drupal\neo_alchemist\Routing\FieldComponentParamConverter
+    tags:
+      - { name: paramconverter }
+    arguments: ['@entity_type.manager', '@entity_field.manager']

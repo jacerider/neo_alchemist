@@ -116,10 +116,15 @@ abstract class ComponentInstanceBase extends Component implements ComponentInsta
    * {@inheritDoc}
    */
   public function access($operation, ?AccountInterface $account = NULL, $return_as_object = FALSE) {
+    $targetEntity = $this->getTargetEntity();
+    $targetEntityTypeId = $this->getTargetEntityTypeId();
+    $targetEntityBundle = $this->getTargetEntityBundle();
     $access = match(TRUE) {
-      $operation === 'update' && !$this->isComponentPublished() => AccessResult::forbidden('Component is unpublished globally.'),
-      $operation === 'sort' && !$this->isComponentPublished() => AccessResult::forbidden('Component is unpublished globally.'),
-      default => $this->getTargetEntity()->access($operation, $account, TRUE),
+      $operation === 'create' && $targetEntityTypeId && $targetEntityTypeId !== $targetEntity->getEntityTypeId() => AccessResult::forbidden('Invalid target entity type.'),
+      $operation === 'create' && $targetEntityBundle && $targetEntityBundle !== $targetEntity->bundle() => AccessResult::forbidden('Invalid target entity bundle.'),
+      $operation === 'update' => AccessResult::allowedIf($this->isPublished())->andIf($this->getFieldItem()->access('update', $account, TRUE)),
+      $operation === 'sort' => AccessResult::allowedIf($this->isPublished())->andIf($this->getFieldItem()->access('sort', $account, TRUE)),
+      default => $this->getFieldItem()->access($operation, $account, TRUE),
     };
     return $return_as_object ? $access : $access->isAllowed();
   }

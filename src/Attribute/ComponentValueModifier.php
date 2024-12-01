@@ -8,13 +8,13 @@ use Drupal\Component\Plugin\Attribute\AttributeBase;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
 
 /**
- * The neo_component_value_provider attribute.
+ * The neo_component_value_modifier attribute.
  */
 #[\Attribute(\Attribute::TARGET_CLASS)]
-final class ComponentValueProvider extends AttributeBase {
+final class ComponentValueModifier extends AttributeBase {
 
   /**
-   * Constructs a new ComponentValueProvider instance.
+   * Constructs a new ComponentValueModifier instance.
    *
    * @param string $id
    *   The plugin ID. There are some implementation bugs that make the plugin

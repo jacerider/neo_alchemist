@@ -4,12 +4,12 @@ declare(strict_types = 1);
 
 namespace Drupal\neo_alchemist\Plugin\Menu\LocalTask;
 
-use Drupal\Core\Entity\ContentEntityInterface;
 use Drupal\Core\Entity\EntityFieldManagerInterface;
 use Drupal\Core\Menu\LocalTaskDefault;
 use Drupal\Core\Plugin\ContainerFactoryPluginInterface;
 use Drupal\Core\Routing\RouteMatchInterface;
 use Drupal\Core\StringTranslation\StringTranslationTrait;
+use Drupal\neo_alchemist\Entity\ComponentFieldConfig;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\HttpFoundation\Request;
 
@@ -52,13 +52,13 @@ class FieldComponentLocalTask extends LocalTaskDefault implements ContainerFacto
   public function getTitle(Request $request = NULL) {
     $route = $this->routeProvider()->getRouteByName($this->getRouteName());
     $route->compile();
+    $routeParameters = $this->getRouteParameters($this->routeMatch);
+    $field = ComponentFieldConfig::getFieldnameFromKey($routeParameters['neo_field']);
     $entityTypeId = $route->getDefault('entity_type_id');
     $bundle = $this->routeMatch->getParameter('bundle') ?? $entityTypeId;
-    $field = $route->getDefault('field');
     $fieldDefinition = array_filter($this->entityFieldManager->getFieldDefinitions($entityTypeId, $bundle), fn($fieldDefinition) => $fieldDefinition->getName() === $field);
     if ($fieldDefinition) {
-      $fieldDefinition = reset($fieldDefinition);
-      return $fieldDefinition->getLabel();
+      return reset($fieldDefinition)->getLabel();
     }
     return $this->pluginDefinition['title'];
   }

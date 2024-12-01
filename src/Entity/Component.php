@@ -26,6 +26,8 @@ use Drupal\neo_alchemist\ComponentShapePluginInterface;
  *   ),
  *   handlers = {
  *     "list_builder" = "Drupal\neo_alchemist\ComponentListBuilder",
+ *     "storage" = "Drupal\neo_alchemist\ComponentStorage",
+ *     "access" = "Drupal\neo_alchemist\ComponentAccessControlHandler",
  *     "form" = {
  *       "add" = "Drupal\neo_alchemist\Form\ComponentForm",
  *       "edit" = "Drupal\neo_alchemist\Form\ComponentForm",
@@ -232,28 +234,13 @@ class Component extends ConfigEntityBase implements ComponentInterface {
   /**
    * {@inheritdoc}
    */
-  public function save() {
-    if ($this->isNew()) {
-      $this->set('id', $this->getUniqueId());
-    }
-    return parent::save();
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function getValues(): array {
-    return [];
-  }
-
-  /**
-   * {@inheritdoc}
-   */
   public function getTargetEntity(): ContentEntityInterface {
     $entity = NULL;
-    $entityTypeId = $this->getTargetEntityTypeId();
     $entityTypeManager = \Drupal::entityTypeManager();
-    if ($entityTypeId) {
+    if ($entityTypeId = $this->getTargetEntityTypeId()) {
+      if ($entity = $this->getTargetPreviewEntity()) {
+        return $entity;
+      }
       $entityType = $entityTypeManager->getDefinition($entityTypeId);
       $bundleKey = $entityType->getKey('bundle');
       if ($bundleKey) {
@@ -277,6 +264,47 @@ class Component extends ConfigEntityBase implements ComponentInterface {
       ]);
     }
     return $entity;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function setTargetPreviewEntity(string $entityId): bool {
+    if (!$this->isNew() && ($entityTypeId = $this->getTargetEntityTypeId())) {
+      $entity = \Drupal::entityTypeManager()->getStorage($entityTypeId)->load($entityId);
+      if ($entity) {
+        \Drupal::state()->set('neo_alchemist.' . $this->id() . '.preview_entity', $entity->id());
+        return TRUE;
+      }
+    }
+    return FALSE;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function getTargetPreviewEntity(): ?ContentEntityInterface {
+    if ($entityId = \Drupal::state()->get('neo_alchemist.' . $this->id() . '.preview_entity')) {
+      return \Drupal::entityTypeManager()->getStorage($this->getTargetEntityTypeId())->load($entityId);
+    }
+    return NULL;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function save() {
+    if ($this->isNew()) {
+      $this->set('id', $this->getUniqueId());
+    }
+    return parent::save();
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function getValues(): array {
+    return [];
   }
 
   /**

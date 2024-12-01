@@ -6,30 +6,27 @@ namespace Drupal\neo_alchemist\Controller;
 
 use Drupal\Component\Serialization\Json;
 use Drupal\Core\Controller\ControllerBase;
-use Drupal\neo_alchemist\EntityComponentTrait;
 use Drupal\neo_alchemist\Plugin\Field\FieldType\ComponentTreeItem;
 use Drupal\neo_icon\IconTranslationTrait;
 
 /**
  * Returns responses for Neo | Alchemist routes.
  */
-abstract class InstanceComponentManageBase extends ControllerBase {
+final class InstanceComponentManageController extends ControllerBase {
 
-  use EntityComponentControllerTrait;
-  use EntityComponentTrait;
   use IconTranslationTrait;
 
   /**
    * Builds the response.
    */
-  public function build(ComponentTreeItem $fieldItem) {
+  public function __invoke(ComponentTreeItem $neo_field) {
     $build = [];
 
-    if ($fieldItem->hasDraft()) {
+    if ($neo_field->access('publish')) {
       $build['publish'] = [
         '#type' => 'link',
         '#title' => $this->adminIcon('Publish'),
-        '#url' => $fieldItem->toUrl('publish'),
+        '#url' => $neo_field->toUrl('publish'),
         '#attached' => ['library' => ['core/drupal.dialog.ajax']],
         '#attributes' => [
           'class' => ['use-ajax', 'btn', 'btn-primary'],
@@ -39,10 +36,12 @@ abstract class InstanceComponentManageBase extends ControllerBase {
           ]),
         ],
       ];
+    }
+    if ($neo_field->access('revert')) {
       $build['revert'] = [
         '#type' => 'link',
         '#title' => $this->adminIcon('Revert'),
-        '#url' => $fieldItem->toUrl('revert'),
+        '#url' => $neo_field->toUrl('revert'),
         '#attached' => ['library' => ['core/drupal.dialog.ajax']],
         '#attributes' => [
           'class' => ['use-ajax', 'btn', 'btn-warning'],
@@ -54,12 +53,12 @@ abstract class InstanceComponentManageBase extends ControllerBase {
       ];
     }
 
-    if (!$fieldItem->belongsToFieldConfig() && !$fieldItem->getParent()->isDefault()) {
+    if ($neo_field->access('reset')) {
       // Allow reset only for entity-based components.
       $build['reset'] = [
         '#type' => 'link',
         '#title' => $this->adminIcon('Reset'),
-        '#url' => $fieldItem->toUrl('reset'),
+        '#url' => $neo_field->toUrl('reset'),
         '#attached' => ['library' => ['core/drupal.dialog.ajax']],
         '#attributes' => [
           'class' => ['use-ajax', 'btn', 'btn-alert'],
@@ -71,7 +70,7 @@ abstract class InstanceComponentManageBase extends ControllerBase {
       ];
     }
 
-    $instances = $fieldItem->getComponents();
+    $instances = $neo_field->getComponents();
     if ($instances) {
       $build['table'] = [
         '#type' => 'table',
@@ -114,7 +113,7 @@ abstract class InstanceComponentManageBase extends ControllerBase {
         if ($instance->access('sort')) {
           $links['sort'] = [
             'title' => $this->adminIcon('Sort'),
-            'url' => $instance->toUrl('sort'),
+            'url' => $instance->toUrl('sort')->setRouteParameter('uuid', $instance->uuid()),
             'attributes' => [
               'class' => ['use-ajax'],
               'data-dialog-type' => 'modal',
@@ -152,7 +151,7 @@ abstract class InstanceComponentManageBase extends ControllerBase {
     $build['actions']['add'] = [
       '#type' => 'link',
       '#title' => $this->adminIcon('Add'),
-      '#url' => $fieldItem->toUrl('library'),
+      '#url' => $neo_field->toUrl('library'),
       '#attached' => ['library' => ['core/drupal.dialog.ajax']],
       '#attributes' => [
         'class' => ['use-ajax', 'btn'],
@@ -163,11 +162,11 @@ abstract class InstanceComponentManageBase extends ControllerBase {
       ],
     ];
 
-    if (count($instances) > 1) {
+    if ($neo_field->access('sort')) {
       $build['actions']['sort'] = [
         '#type' => 'link',
         '#title' => $this->adminIcon('Sort'),
-        '#url' => $fieldItem->toUrl('sort'),
+        '#url' => $neo_field->toUrl('sort'),
         '#attached' => ['library' => ['core/drupal.dialog.ajax']],
         '#attributes' => [
           'class' => ['use-ajax', 'btn', 'btn-outline'],
@@ -179,6 +178,18 @@ abstract class InstanceComponentManageBase extends ControllerBase {
       ];
     }
     return $build;
+  }
+
+  /**
+   * Builds the title.
+   */
+  public function getTitle(ComponentTreeItem $neo_field) {
+    $label = $neo_field->belongsToFieldConfig() ? $neo_field->getEntity()->getEntityType()->getLabel() : $neo_field->getEntity()->label();
+    return $this->t('@for for %label: %field_label', [
+      '@for' => $neo_field->belongsToFieldConfig() ? 'Default layout' : 'Layout',
+      '%label' => $label,
+      '%field_label' => $neo_field->getFieldDefinition()->getLabel(),
+    ]);
   }
 
 }

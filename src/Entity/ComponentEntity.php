@@ -19,12 +19,13 @@ final class ComponentEntity extends ComponentInstanceBase {
    */
   public function toUrl($rel = NULL, array $options = []) {
     $fieldName = $this->getFieldItem()->getFieldDefinition()->getName();
+    $fieldKey = ComponentFieldConfig::getKeyFromFieldname($fieldName);
     $entity = $this->getTargetEntity();
     return match($rel) {
-      'edit' => $entity->toUrl("alchemist.$fieldName.edit")->setRouteParameter('uuid', $this->uuid()),
-      'delete' => $entity->toUrl("alchemist.{$fieldName}.delete")->setRouteParameter('uuid', $this->uuid()),
-      'sort' => $entity->toUrl("alchemist.{$fieldName}.sort")->setRouteParameter('uuid', $this->uuid()),
-      default => $entity->toUrl("alchemist.{$fieldName}"),
+      'edit' => $entity->toUrl("alchemist.edit")->setRouteParameter('neo_field', $fieldKey)->setRouteParameter('neo_component', $this->uuid()),
+      'delete' => $entity->toUrl("alchemist.delete")->setRouteParameter('neo_field', $fieldKey)->setRouteParameter('neo_component', $this->uuid()),
+      'sort' => $entity->toUrl("alchemist.sort")->setRouteParameter('neo_field', $fieldKey),
+      default => $entity->toUrl("alchemist.manage")->setRouteParameter('neo_field', $fieldKey),
     };
   }
 

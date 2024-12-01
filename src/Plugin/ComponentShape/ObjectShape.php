@@ -7,6 +7,7 @@ namespace Drupal\neo_alchemist\Plugin\ComponentShape;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\neo_alchemist\Attribute\ComponentShape;
+use Drupal\neo_alchemist\ComponentShapeChildrenPluginInterface;
 use Drupal\neo_alchemist\ComponentShapePluginBase;
 
 /**
@@ -16,7 +17,7 @@ use Drupal\neo_alchemist\ComponentShapePluginBase;
   prop: 'object',
   label: new TranslatableMarkup('Object'),
 )]
-class ObjectShape extends ComponentShapePluginBase {
+class ObjectShape extends ComponentShapePluginBase implements ComponentShapeChildrenPluginInterface {
 
   use ShapeManagerDependentShapeTrait;
 
@@ -28,12 +29,9 @@ class ObjectShape extends ComponentShapePluginBase {
   }
 
   /**
-   * Get child shapes.
-   *
-   * @return \Drupal\neo_alchemist\ComponentShapePluginInterface[]
-   *   The child shapes.
+   * {@inheritDoc}
    */
-  protected function getChildShapes(): array {
+  public function getChildShapes(int $delta = 0): array {
     $shapes = $this->shapeManager->getInstancesFromSchema($this->getSchema(), $this->getComponent());
     $values = $this->getFieldItemValue();
     foreach ($shapes as $shape) {

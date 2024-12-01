@@ -133,6 +133,32 @@ interface ComponentInterface extends ConfigEntityInterface {
   public function getTargetEntity(): ContentEntityInterface;
 
   /**
+   * Sets the target preview entity for the component.
+   *
+   * This method sets the preview entity for the component if the component is
+   * not new and the target entity type ID is available. It loads the entity
+   * using the provided entity ID and stores the entity ID in the state system.
+   *
+   * @param string $entityId
+   *   The ID of the entity to be set as the preview entity.
+   *
+   * @return bool
+   *   TRUE if the preview entity was successfully set, FALSE otherwise.
+   */
+  public function setTargetPreviewEntity(string $entityId): bool;
+
+  /**
+   * Retrieves the target preview entity associated with this component.
+   *
+   * This method checks the state storage for a preview entity ID associated
+   * with this component and loads the corresponding entity if it exists.
+   *
+   * @return \Drupal\Core\Entity\ContentEntityInterface|null
+   *   The target preview entity if it exists, or NULL otherwise.
+   */
+  public function getTargetPreviewEntity(): ?ContentEntityInterface;
+
+  /**
    * Get prop shapes.
    *
    * @return \Drupal\neo_alchemist\ComponentShapePluginInterface[]

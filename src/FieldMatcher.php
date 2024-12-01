@@ -110,12 +110,10 @@ final class FieldMatcher {
       $value = $this->recurseEntity($field->entity, $path);
     }
     elseif ($field instanceof FieldItemListInterface) {
-      $value = $field->first()->getValue();
+      $value = $field->getValue();
       if ($property) {
-        return $value[$property] ?? [];
+        $value = $value[0][$property] ?? [];
       }
-      // If $path is not empty, we are requesting a property.
-      return $field->first()->getValue();
     }
     return $value;
   }
@@ -143,9 +141,9 @@ final class FieldMatcher {
    *     ...
    *   ]
    */
-  public function getMatchesAsOptions(ComponentShapePluginInterface $shape): array {
+  public function getMatchesAsOptions(ComponentShapePluginInterface $shape, string $entityTypeId = NULL, string $entityBundle = NULL): array {
     $options = [];
-    foreach ($this->getMatches($shape) as $key => [
+    foreach ($this->getMatches($shape, $entityTypeId, $entityBundle) as $key => [
       'title' => $title,
       'group' => $group,
       'definition' => $definition,
@@ -169,10 +167,18 @@ final class FieldMatcher {
    * @return array
    *   An array of matches, sorted by weight and title.
    */
-  public function getMatches(ComponentShapePluginInterface $shape): array {
+  public function getMatches(ComponentShapePluginInterface $shape, string $entityTypeId = NULL, string $entityBundle = NULL): array {
     $matches = [];
 
-    if ($entityType = $shape->getTargetEntityType()) {
+    if ($entityTypeId) {
+      $dataType = implode(':', array_filter([
+        'entity',
+        $entityTypeId,
+        $entityBundle,
+      ]));
+      $entityDataDefinition = EntityDataDefinition::createFromDataType($dataType);
+    }
+    elseif ($entityType = $shape->getTargetEntityType()) {
       $dataType = implode(':', array_filter([
         'entity',
         $entityType,

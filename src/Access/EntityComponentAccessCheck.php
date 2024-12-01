@@ -7,6 +7,8 @@ use Drupal\Core\Entity\ContentEntityInterface;
 use Drupal\Core\Routing\Access\AccessInterface;
 use Drupal\Core\Routing\RouteMatchInterface;
 use Drupal\Core\Session\AccountInterface;
+use Drupal\neo_alchemist\ComponentInterface;
+use Drupal\neo_alchemist\Plugin\Field\FieldType\ComponentTreeItem;
 use Symfony\Component\Routing\Route;
 
 /**
@@ -60,18 +62,34 @@ class EntityComponentAccessCheck implements AccessInterface {
   public function access(Route $route, RouteMatchInterface $route_match, AccountInterface $account) {
     // Split the entity type and the operation.
     $requirement = $route->getRequirement('_neo_alchemist_entity');
-    [$entity_type, $operation, $field_name] = explode('.', $requirement . '.');
+    [$entity_type, $operation, $field, $component] = explode('.', $requirement . '...');
     // If $entity_type parameter is a valid entity, call its own access check.
     $parameters = $route_match->getParameters();
     if ($parameters->has($entity_type)) {
       $entity = $parameters->get($entity_type);
       if ($entity instanceof ContentEntityInterface) {
+        $neoComponent = $route_match->getParameter($component);
+        if ($neoComponent instanceof ComponentInterface) {
+          // Make sure component is valid for the entity type.
+          $targetEntityTypeId = $neoComponent->getTargetEntityTypeId();
+          if ($targetEntityTypeId && $targetEntityTypeId !== $entity->getEntityTypeId()) {
+            return AccessResult::forbidden();
+          }
+          // Make sure component is valid for the entity bundle.
+          $targetEntityBundle = $neoComponent->getTargetEntityBundle();
+          if ($targetEntityBundle && $targetEntityBundle !== $entity->bundle()) {
+            return AccessResult::forbidden();
+          }
+        }
+        $neoField = $route_match->getParameter($field);
+        if ($neoField instanceof ComponentTreeItem) {
+          return $neoField->access($operation, $account, TRUE);
+        }
+        // Fall back to simple entity access when we do not have a neoField.
+        // This happens for /alchemist.
         foreach ($entity->getFieldDefinitions() as $fieldDefinition) {
           if ($fieldDefinition->getType() === 'neo_component_tree') {
-            if (!$fieldDefinition->getSetting('allow_custom')) {
-              return AccessResult::forbidden('Customized layouts are not allowed.');
-            }
-            if (!$field_name || $field_name === $fieldDefinition->getName()) {
+            if ($fieldDefinition->getSetting('allow_custom')) {
               return $entity->access($operation, $account, TRUE);
             }
           }

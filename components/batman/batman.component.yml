@@ -68,27 +68,27 @@ props:
           alt: 'Boring placeholder'
           width: 300
           height: 200
-    # wow:
-    #   title: 'WOW'
-    #   type: object
-    #   required:
-    #     - more
-    #     - color
-    #   properties:
-    #     more:
-    #       type: string
-    #       title: More
-    #     many:
-    #       type: string
-    #       title: Many
-    #       examples: ['wow']
-    #     color:
-    #       type: string
-    #       title: Color
-    #       description: "Background color to use for the chip, one of 'primary' or 'secondary'."
-    #       # The enum directive restricts the possible values in the element to our list.
-    #       enum: ['base', 'primary', 'secondary']
-    #       examples: ['primary']
+    wow:
+      title: 'WOW'
+      type: object
+      required:
+        - more
+        - color
+      properties:
+        more:
+          type: string
+          title: More
+        many:
+          type: string
+          title: Many
+          examples: ['wow']
+        color:
+          type: string
+          title: Color
+          description: "Background color to use for the chip, one of 'primary' or 'secondary'."
+          # The enum directive restricts the possible values in the element to our list.
+          enum: ['base', 'primary', 'secondary']
+          examples: ['primary']
     items:
       type: array
       title: Items
@@ -97,42 +97,45 @@ props:
       items:
         type: string
       examples: ['hello', 'good', 'field']
-    # sequence:
-    #   type: array
-    #   title: Sequence
-    #   description: A super sequence.
-    #   # @todo Add examples here.
-    #   examples:
-    #     - title: Google
-    #       url: https://google.com
-    #     - title: Yahoo
-    #       url: https://yahoo.com
-    #       image:
-    #         - src: https://placehold.co/300x200.png
-    #           alt: 'Boring placeholder'
-    #           width: 300
-    #           height: 200
-    #   items:
-    #     type: object
-    #     properties:
-    #       title:
-    #         type: string
-    #         title: Title
-    #       url:
-    #         type: url
-    #         title: URL
-    #       image:
-    #         title: 'Image'
-    #         type: image
-    #       wow:
-    #         type: object
-    #         properties:
-    #           more:
-    #             type: string
-    #             title: More
-    #           max:
-    #             type: string
-    #             title: Max
+    sequence:
+      type: array
+      title: Sequence
+      description: A super sequence.
+      # @todo Add examples here.
+      examples:
+        - title: Google
+          url: https://google.com
+        - title: Yahoo
+          url: https://yahoo.com
+          image:
+            - src: https://placehold.co/300x200.png
+              alt: 'Boring placeholder'
+              width: 300
+              height: 200
+      items:
+        type: object
+        required:
+          - title
+        properties:
+          title:
+            type: string
+            title: Title
+            description: The item title.
+          url:
+            type: url
+            title: URL
+          image:
+            title: 'Image'
+            type: image
+          wow:
+            type: object
+            properties:
+              more:
+                type: string
+                title: More
+              max:
+                type: string
+                title: Max
 slots:
   first:
     title: First

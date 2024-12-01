@@ -6,12 +6,14 @@ namespace Drupal\neo_alchemist\Plugin\Field\FieldType;
 
 use Drupal\Component\Render\FormattableMarkup;
 use Drupal\Component\Serialization\Json;
+use Drupal\Core\Access\AccessResult;
 use Drupal\Core\Field\Attribute\FieldType;
 use Drupal\Core\Field\FieldDefinitionInterface;
 use Drupal\Core\Field\FieldItemBase;
 use Drupal\Core\Field\FieldStorageDefinitionInterface;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Render\RenderableInterface;
+use Drupal\Core\Session\AccountInterface;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\Core\Theme\ComponentPluginManager;
 use Drupal\Core\TypedData\DataDefinition;
@@ -19,10 +21,12 @@ use Drupal\Core\Url;
 use Drupal\neo_alchemist\ComponentInstanceInterface;
 use Drupal\neo_alchemist\ComponentInterface;
 use Drupal\neo_alchemist\Entity\Component;
+use Drupal\neo_alchemist\Entity\ComponentFieldConfig;
 use Drupal\neo_alchemist\Plugin\DataType\ComponentPropsValues;
 use Drupal\neo_alchemist\Plugin\DataType\ComponentTreeHydrated;
 use Drupal\neo_alchemist\Plugin\DataType\ComponentTreeStructure;
 use Drupal\neo_alchemist\Plugin\Field\NeoComponentTreeList;
+use Drupal\node\Plugin\views\filter\Access;
 
 /**
  * Plugin implementation of the 'component_tree' field type.
@@ -192,15 +196,31 @@ class ComponentTreeItem extends FieldItemBase implements RenderableInterface {
     if ($this->belongsToFieldConfig()) {
       return $this->getFieldDefinition()->toUrl($rel, $options);
     }
+    $fieldKey = ComponentFieldConfig::getKeyFromFieldname($fieldName);
     return match($rel) {
-      'library' => $this->getEntity()->toUrl("alchemist.{$fieldName}.library"),
-      'add' => $this->getEntity()->toUrl("alchemist.{$fieldName}.add"),
-      'publish' => $this->getEntity()->toUrl("alchemist.{$fieldName}.publish"),
-      'revert' => $this->getEntity()->toUrl("alchemist.{$fieldName}.revert"),
-      'reset' => $this->getEntity()->toUrl("alchemist.{$fieldName}.reset"),
-      'sort' => $this->getEntity()->toUrl("alchemist.{$fieldName}.sort"),
-      default => $this->getEntity()->toUrl("alchemist.{$fieldName}")
+      'library' => $this->getEntity()->toUrl("alchemist.library")->setRouteParameter('neo_field', $fieldKey),
+      'add' => $this->getEntity()->toUrl("alchemist.add")->setRouteParameter('neo_field', $fieldKey),
+      'publish' => $this->getEntity()->toUrl("alchemist.publish")->setRouteParameter('neo_field', $fieldKey),
+      'revert' => $this->getEntity()->toUrl("alchemist.revert")->setRouteParameter('neo_field', $fieldKey),
+      'reset' => $this->getEntity()->toUrl("alchemist.reset")->setRouteParameter('neo_field', $fieldKey),
+      'sort' => $this->getEntity()->toUrl("alchemist.sort")->setRouteParameter('neo_field', $fieldKey),
+      default => $this->getEntity()->toUrl("alchemist.manage")->setRouteParameter('neo_field', $fieldKey)
     };
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  public function access($operation, ?AccountInterface $account = NULL, $return_as_object = FALSE) {
+    $access = match(TRUE) {
+      $operation === 'create' => AccessResult::allowedIf($this->getSetting('allow_custom'))->andIf($this->getEntity()->access('update', $account, TRUE)),
+      $operation === 'publish' => AccessResult::allowedIf($this->hasDraft())->andIf($this->getEntity()->access('update', $account, TRUE)),
+      $operation === 'revert' => AccessResult::allowedIf($this->hasDraft())->andIf($this->getEntity()->access('update', $account, TRUE)),
+      $operation === 'reset' => AccessResult::allowedIf(!$this->belongsToFieldConfig() && !$this->getParent()->isDefault())->andIf($this->getEntity()->access('update', $account, TRUE)),
+      $operation === 'sort' => AccessResult::allowedIf(count($this->getComponents()) > 1)->andIf($this->getEntity()->access('update', $account, TRUE)),
+      default => $this->getEntity()->access($operation, $account, TRUE),
+    };
+    return $return_as_object ? $access : $access->isAllowed();
   }
 
   /**
@@ -353,14 +373,16 @@ class ComponentTreeItem extends FieldItemBase implements RenderableInterface {
       assert($props instanceof ComponentPropsValues);
       $id = $tree->getComponentId($uuid);
       if ($id) {
-        $neoComponent = clone Component::load($id);
-        $value = $neoComponent->toArray();
-        $value['uuid'] = $uuid;
-        $value['fieldItem'] = $this;
-        $value['values'] = $props->getComponentPropsSources($uuid);
-        $entity_class = $this->getComponentInstanceClass();
-        $instance = new $entity_class($value, 'neo_component');
-        self::$components[$uuid] = $instance;
+        $neoComponent = Component::load($id);
+        if ($neoComponent) {
+          $value = $neoComponent->toArray();
+          $value['uuid'] = $uuid;
+          $value['fieldItem'] = $this;
+          $value['values'] = $props->getComponentPropsSources($uuid);
+          $entity_class = $this->getComponentInstanceClass();
+          $instance = new $entity_class($value, 'neo_component');
+          self::$components[$uuid] = $instance;
+        }
       }
     }
     return self::$components[$uuid];
@@ -380,7 +402,9 @@ class ComponentTreeItem extends FieldItemBase implements RenderableInterface {
     $tree = $this->get('tree');
     assert($tree instanceof ComponentTreeStructure);
     foreach ($tree->getComponentBySection($parentUuid) as $data) {
-      $components[$data['uuid']] = $this->getComponent($data['uuid']);
+      if ($component = $this->getComponent($data['uuid'])) {
+        $components[$data['uuid']] = $component;
+      }
     }
     return $components;
   }

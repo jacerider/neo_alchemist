@@ -20,7 +20,6 @@ use Drupal\Core\Plugin\ContainerFactoryPluginInterface;
 use Drupal\Core\TypedData\DataDefinition;
 use Drupal\Core\TypedData\DataDefinitionInterface;
 use Drupal\Core\TypedData\TypedDataManagerInterface;
-use Drupal\neo_alchemist\PropExpressions\Component\ComponentPropExpression;
 use Drupal\neo_alchemist\PropSource\FieldStorageDefinition;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
@@ -51,6 +50,13 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
    * @var bool
    */
   protected bool $required = FALSE;
+
+  /**
+   * Enforce as required. If true, the prop will be required.
+   *
+   * @var bool
+   */
+  protected bool $enforceRequired = FALSE;
 
   /**
    * Whether the prop is editable.
@@ -95,6 +101,27 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
   protected array $providerDefinitions;
 
   /**
+   * The value modifiers.
+   *
+   * @var array
+   */
+  protected $modifiers = [];
+
+  /**
+   * The value provider instances.
+   *
+   * @var Drupal\neo_alchemist\ComponentValueModifierPluginInterface[]
+   */
+  protected $modifierInstances;
+
+  /**
+   * The value modifier definitions.
+   *
+   * @var array
+   */
+  protected array $modifierDefinitions;
+
+  /**
    * The field item list.
    *
    * @var \Drupal\Core\Field\FieldItemListInterface
@@ -112,13 +139,6 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
   protected mixed $overrideValue = NULL;
 
   /**
-   * Whether the field item value is the default value.
-   *
-   * @var bool
-   */
-  protected bool $isDefaultValue = TRUE;
-
-  /**
    * Constructs a new ComponentShapePluginBase object.
    */
   public function __construct(
@@ -129,7 +149,8 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
     protected EntityTypeManagerInterface $entityTypeManager,
     protected TypedDataManagerInterface $typedDataManager,
     protected WidgetPluginManager $widgetManager,
-    protected ComponentValueProviderPluginManager $valueProviderManager
+    protected ComponentValueProviderPluginManager $valueProviderManager,
+    protected ComponentValueModifierPluginManager $valueModifierManager
   ) {
     parent::__construct([], $plugin_id, $plugin_definition);
 
@@ -172,7 +193,8 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
       $container->get('entity_type.manager'),
       $container->get(TypedDataManagerInterface::class),
       $container->get('plugin.manager.field.widget'),
-      $container->get('plugin.manager.neo_component_value_provider')
+      $container->get('plugin.manager.neo_component_value_provider'),
+      $container->get('plugin.manager.neo_component_value_modifier')
     );
   }
 
@@ -256,22 +278,73 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
   /**
    * {@inheritdoc}
    */
-  public function getValueProvider(string $providerId, array $settings = NULL): ?ComponentValueProviderPluginInterface {
+  public function getValueProvider(string $providerId): ?ComponentValueProviderPluginInterface {
     if (!isset($this->getValueProviderDefinitions()[$providerId])) {
       return NULL;
     }
-    if (!$settings && isset($this->providerInstances[$providerId])) {
-      return $this->providerInstances[$providerId];
+    if (!isset($this->providerInstances[$providerId])) {
+      $this->providerInstances[$providerId] = $this->valueProviderManager->createInstance($providerId, [
+        'shape' => $this,
+        'settings' => $this->providers[$providerId] ?? [],
+      ]);
+    }
+    return $this->providerInstances[$providerId];
+  }
 
+  /**
+   * {@inheritdoc}
+   */
+  public function getValueModifierDefinitions(): array {
+    if (!isset($this->modifierDefinitions)) {
+      $this->modifierDefinitions = $this->valueModifierManager->getFilteredDefinitionsFromShape($this);
     }
-    $instance = $this->valueProviderManager->createInstance($providerId, [
-      'shape' => $this,
-      'settings' => $settings ?? $this->providers[$providerId] ?? [],
-    ]);
-    if (!$settings) {
-      $this->providerInstances[$providerId] = $instance;
+    return $this->modifierDefinitions;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function addValueModifier(string $modifierId, array $settings): self {
+    if (isset($this->getValueModifierDefinitions()[$modifierId])) {
+      $this->modifiers[$modifierId] = $settings;
     }
-    return $instance;
+    return $this;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function isValueModifierEnabled(string $modifierId): bool {
+    return isset($this->modifiers[$modifierId]);
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function getValueModifiers(): array {
+    $modifiers = [];
+    foreach ($this->modifiers as $modifierId => $settings) {
+      if ($instance = $this->getValueModifier($modifierId)) {
+        $modifiers[$modifierId] = $instance;
+      }
+    }
+    return $modifiers;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function getValueModifier(string $modifierId, array $settings = NULL): ?ComponentValueModifierPluginInterface {
+    if (!isset($this->getValueModifierDefinitions()[$modifierId])) {
+      return NULL;
+    }
+    if (!isset($this->modifierInstances[$modifierId])) {
+      $this->modifierInstances[$modifierId] = $this->valueModifierManager->createInstance($modifierId, [
+        'shape' => $this,
+        'settings' => $this->modifiers[$modifierId] ?? [],
+      ]);
+    }
+    return $this->modifierInstances[$modifierId];
   }
 
   /**
@@ -326,8 +399,26 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
   /**
    * {@inheritDoc}
    */
+  public function enforceRequired(): self {
+    $this->enforceRequired = TRUE;
+    $this->required = TRUE;
+    return $this;
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  public function isEnforcedRequired(): bool {
+    return $this->enforceRequired;
+  }
+
+  /**
+   * {@inheritDoc}
+   */
   public function setRequired(bool $required = TRUE): self {
-    $this->required = $required;
+    if (!$this->isEnforcedRequired()) {
+      $this->required = $required;
+    }
     return $this;
   }
 
@@ -528,6 +619,9 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
         $value = $this->getDefaultValue();
       }
     }
+    foreach ($this->getValueModifiers() as $instance) {
+      $value = $instance->modifyValue($value);
+    }
     return $value;
   }
 
@@ -626,7 +720,6 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
    * {@inheritDoc}
    */
   public function setFieldItemValue(mixed $value): self {
-    $this->isDefaultValue = FALSE;
     // If if value is an array but we are not in an array type, we use the first
     // value 0 if set.
     if (is_array($value) && $this->getType() !== 'array') {
@@ -779,10 +872,24 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
   }
 
   /**
+   * The field definition for support check.
+   *
+   * By default, this is the field definition of the field item list. Shapes
+   * such as the ArrayShape override this method to return the nested field
+   * definition.
+   *
+   * @return \Drupal\Core\Field\FieldDefinitionInterface
+   *   The field definition.
+   */
+  protected function getFieldDefinitionForSupportCheck(): FieldDefinitionInterface {
+    return $this->getFieldItemList()->getFieldDefinition();
+  }
+
+  /**
    * {@inheritDoc}
    */
   public function allowFieldDefinition(FieldDefinitionInterface $entityFieldDefinition): bool {
-    $fieldDefinition = $this->getFieldItemList()->getFieldDefinition();
+    $fieldDefinition = $this->getFieldDefinitionForSupportCheck();
     $fieldStorageSettings = $fieldDefinition->getFieldStorageDefinition()->getSettings();
     $entityFieldStorageSettings = $entityFieldDefinition->getFieldStorageDefinition()->getSettings();
     // If we have allowed values (enum), we need to check if they match.
@@ -812,7 +919,7 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
    * {@inheritDoc}
    */
   public function supportsFieldDefinition(FieldDefinitionInterface $entityFieldDefinition): bool {
-    $fieldDefinition = $this->getFieldItemList()->getFieldDefinition();
+    $fieldDefinition = $this->getFieldDefinitionForSupportCheck();
     if ($fieldDefinition->getType() === $entityFieldDefinition->getType()) {
       return TRUE;
     }
@@ -824,7 +931,7 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
    */
   public function supportsFieldProperties(array $entityFieldProperties): bool {
     if (count($entityFieldProperties) === 1) {
-      $shapeFieldProperties = $this->getFieldItemList()->getFieldDefinition()->getFieldStorageDefinition()->getPropertyDefinitions();
+      $shapeFieldProperties = $this->getFieldDefinitionForSupportCheck()->getFieldStorageDefinition()->getPropertyDefinitions();
       if (count($shapeFieldProperties) === 1) {
         // When both the shape and the field have only one property, we can
         // match them directly.
@@ -838,7 +945,7 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
    * {@inheritDoc}
    */
   public function supportsFieldProperty(DataDefinitionInterface $entityFieldProperty): bool {
-    $shapeFieldProperties = $this->getFieldItemList()->getFieldDefinition()->getFieldStorageDefinition()->getPropertyDefinitions();
+    $shapeFieldProperties = $this->getFieldDefinitionForSupportCheck()->getFieldStorageDefinition()->getPropertyDefinitions();
     if (count($shapeFieldProperties) > 1) {
       // This shape has more than one property and cannot by matched by a single
       // property.
@@ -900,7 +1007,7 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
    *   Returns TRUE if the shape is scalar, FALSE otherwise.
    */
   public function isScalar(): bool {
-    return match ($this) {
+    return match ($this->getType()) {
       // A subset of the "primitive types" in JSON schema are:
       // - "scalar values" in PHP terminology
       // - "primitives" in Drupal Typed data terminology.

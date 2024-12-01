@@ -9,6 +9,7 @@ use Drupal\Core\Entity\ContentEntityTypeInterface;
 use Drupal\Core\Entity\EntityFieldManagerInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Plugin\Discovery\ContainerDeriverInterface;
+use Drupal\neo_alchemist\Entity\ComponentFieldConfig;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
@@ -61,11 +62,14 @@ class ComponentTasksDeriver extends DeriverBase implements ContainerDeriverInter
             ] + $base_plugin_definition;
             if (isset($neoFields[$entityTypeId])) {
               foreach ($neoFields[$entityTypeId] as $fieldName => $field) {
+                $fieldNameKey = ComponentFieldConfig::getKeyFromFieldname($fieldName);
                 $this->derivatives["$entityTypeId.$fieldName"] = [
-                  'route_name' => "entity.$entityTypeId.alchemist.$fieldName",
+                  'route_name' => "entity.$entityTypeId.alchemist.manage",
+                  'route_parameters' => [
+                    'neo_field' => $fieldNameKey,
+                  ],
                   'title' => 'Field Layout',
                   'base_route' => $base_route,
-                  'alchemist_field_name' => $fieldName,
                   'parent_id' => "entity.neo_component_tasks:$entityTypeId",
                   'class' => 'Drupal\neo_alchemist\Plugin\Menu\LocalTask\EntityComponentLocalTask',
                 ] + $base_plugin_definition;
@@ -82,11 +86,14 @@ class ComponentTasksDeriver extends DeriverBase implements ContainerDeriverInter
               if (isset($neoFields[$entityTypeId])) {
                 foreach ($neoFields[$entityTypeId] as $fieldName => $field) {
                   foreach ($neoFields[$entityTypeId] as $fieldName => $field) {
+                    $fieldNameKey = ComponentFieldConfig::getKeyFromFieldname($fieldName);
                     $this->derivatives["field_ui.$entityTypeId.$fieldName"] = [
-                      'route_name' => "entity.$entityTypeId.field_ui.alchemist.$fieldName",
+                      'route_name' => "entity.$entityTypeId.field_ui.alchemist.manage",
+                      'route_parameters' => [
+                        'neo_field' => $fieldNameKey,
+                      ],
                       'title' => 'Field Layout',
                       'base_route' => $base_route,
-                      'alchemist_field_name' => $fieldName,
                       'parent_id' => "entity.neo_component_tasks:field_ui.$entityTypeId",
                       'class' => 'Drupal\neo_alchemist\Plugin\Menu\LocalTask\FieldComponentLocalTask',
                     ] + $base_plugin_definition;

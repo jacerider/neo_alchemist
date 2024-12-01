@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Drupal\neo_alchemist\Plugin\ComponentValueProvider;
 
-use Drupal\Core\Field\FieldItemInterface;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\neo_alchemist\Attribute\ComponentValueProvider;
@@ -16,7 +15,7 @@ use Drupal\neo_alchemist\ComponentValueProviderPluginBase;
 #[ComponentValueProvider(
   id: 'default',
   label: new TranslatableMarkup('Default'),
-  description: new TranslatableMarkup('The default provider for component prop values.'),
+  description: new TranslatableMarkup('Provide default values for the component.'),
   weight: 10,
 )]
 final class DefaultValueProvider extends ComponentValueProviderPluginBase {
@@ -60,7 +59,7 @@ final class DefaultValueProvider extends ComponentValueProviderPluginBase {
    * {@inheritdoc}
    */
   public function onCalculateFieldItemValue() {
-    $this->shape->getFieldItem()->setValue($this->configuration['default']);
+    $this->shape->setFieldItemValue($this->configuration['default']);
   }
 
   /**

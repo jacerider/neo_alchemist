@@ -21,15 +21,15 @@ class ComponentFieldConfig extends FieldConfig implements ComponentFieldConfigIn
   public function toUrl($rel = NULL, array $options = []) {
     $entityTypeId = $this->getTargetEntityTypeId();
     $parameters = $this->getUrlParameters();
-    $fieldName = $this->getName();
+    $parameters['neo_field'] = self::getKeyFromFieldname($this->getName());
     return match($rel) {
-      'library' => Url::fromRoute("entity.{$entityTypeId}.field_ui.alchemist.{$fieldName}.library", $parameters),
-      'add' => Url::fromRoute("entity.{$entityTypeId}.field_ui.alchemist.{$fieldName}.add", $parameters),
-      'sort' => Url::fromRoute("entity.{$entityTypeId}.field_ui.alchemist.{$fieldName}.sort", $parameters),
+      'library' => Url::fromRoute("entity.{$entityTypeId}.field_ui.alchemist.library", $parameters),
+      'add' => Url::fromRoute("entity.{$entityTypeId}.field_ui.alchemist.add", $parameters),
+      'sort' => Url::fromRoute("entity.{$entityTypeId}.field_ui.alchemist.sort", $parameters),
       'publish' => throw new EntityMalformedException('Publish is not supported for component fields.'),
       'revert' => throw new EntityMalformedException('Revert is not supported for component fields.'),
       'reset' => throw new EntityMalformedException('Reset is not supported for component fields.'),
-      NULL => Url::fromRoute("entity.{$entityTypeId}.field_ui.alchemist.{$fieldName}", $parameters),
+      NULL => Url::fromRoute("entity.{$entityTypeId}.field_ui.alchemist.manage", $parameters),
       default => parent::toUrl($rel, $options),
     };
   }

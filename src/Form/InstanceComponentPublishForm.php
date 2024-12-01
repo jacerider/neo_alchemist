@@ -75,7 +75,6 @@ class InstanceComponentPublishForm extends EntityConfirmFormBase {
     $fieldItem = $this->fieldItem->enforceAsDraft(FALSE);
     $form_state->setRedirectUrl($this->entity->toUrl());
     $result = $fieldItem->saveComponents();
-    // $result = $this->entity->save();
     $this->messenger()->addStatus($this->t('Components have been published successfully on %label: %field_label.', [
       '%label' => $this->entity->label(),
       '%field_label' => $fieldItem->getFieldDefinition()->getLabel(),

@@ -14,8 +14,6 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
  */
 final class FieldComponentController extends ControllerBase {
 
-  use FieldComponentControllerTrait;
-
   /**
    * The controller constructor.
    */
@@ -71,6 +69,33 @@ final class FieldComponentController extends ControllerBase {
     ];
 
     return $build;
+  }
+
+  /**
+   * Returns the title.
+   */
+  public function getTitle(RouteMatchInterface $routeMatch) {
+    $fieldDefinitions = $this->getFieldDefinitionsFromRouteMatch($routeMatch);
+    if (count($fieldDefinitions) === 1) {
+      return $this->t('Layout');
+    }
+    return $this->t('Layouts');
+  }
+
+  /**
+   * Retrieves field definitions from route match.
+   *
+   * @param \Drupal\Core\Routing\RouteMatchInterface $routeMatch
+   *   The route match.
+   *
+   * @return \Drupal\neo_alchemist\ComponentFieldConfigInterface[]
+   *   The field definitions as determined from the passed-in route match.
+   */
+  protected function getFieldDefinitionsFromRouteMatch(RouteMatchInterface $routeMatch) {
+    $parameters = $routeMatch->getParameters();
+    $entityTypeId = $parameters->get('entity_type_id');
+    $bundle = $parameters->get('bundle') ?? $entityTypeId;
+    return array_filter($this->entityFieldManager->getFieldDefinitions($entityTypeId, $bundle), fn($field) => $field->getType() === 'neo_component_tree');
   }
 
 }

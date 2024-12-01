@@ -23,7 +23,14 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
   id: 'entity',
   label: new TranslatableMarkup('Entity'),
   description: new TranslatableMarkup('Provide values from entity fields.'),
-  entity_types: ['node.*', 'commerce_product.default'],
+  prop_types: [
+    ComponentShapePluginInterface::STRING,
+    ComponentShapePluginInterface::INTEGER,
+    ComponentShapePluginInterface::NUMBER,
+    ComponentShapePluginInterface::BOOLEAN,
+    ComponentShapePluginInterface::ARRAY,
+  ],
+  entity_types: ['*'],
   weight: 5,
 )]
 final class EntityValueProvider extends ComponentValueProviderPluginBase implements ContainerFactoryPluginInterface {
@@ -138,12 +145,9 @@ final class EntityValueProvider extends ComponentValueProviderPluginBase impleme
    */
   public function onCalculateFieldItemValue() {
     $value = $this->fieldMatcher->getEntityValue($this->shape->getEntity(), $this->configuration['field']);
-    // $value = $this->shape->getEntity()->label();
-    // Store the existence of the value so we can use it when determining
-    // editability.
     $this->hasEntityValue = !empty($value);
     $this->stopFurtherProcessing();
-    $this->shape->getFieldItem()->setValue($value);
+    $this->shape->setFieldItemValue($value);
   }
 
   /**

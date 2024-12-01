@@ -63,15 +63,19 @@ final class ComponentShapePluginManager extends DefaultPluginManager {
           'schema' => $prop,
           'component' => $component,
         ])) {
-          // $shape->setComponent($neoComponent);
-          // $shape->setScope($scope);
-          $shape->setRequired($required);
+          if ($required) {
+            $shape->enforceRequired();
+          }
           if (!empty($propSettings[$propName])) {
             $shape->setEditable($propSettings[$propName]['editable'] ?? TRUE);
+            $shape->setRequired($propSettings[$propName]['required'] ?? $required);
             if (isset($propSettings[$propName]['field_type']) && $propSettings[$propName]['field_type'] === $shape->getFieldType()) {
               // Type-check provided prop configuration and use providers.
               foreach ($propSettings[$propName]['providers'] ?? [] as $provider) {
                 $shape->addValueProvider($provider['plugin'], $provider['settings']);
+              }
+              foreach ($propSettings[$propName]['modifiers'] ?? [] as $modifier) {
+                $shape->addValueModifier($modifier['plugin'], $modifier['settings']);
               }
             }
           }

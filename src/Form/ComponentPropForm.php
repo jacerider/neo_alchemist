@@ -86,76 +86,168 @@ final class ComponentPropForm extends EntityForm {
   public function form(array $form, FormStateInterface $form_state): array {
     $form = parent::form($form, $form_state);
 
-    $tableId = 'neo-alchemist-component-prop-form-providers';
-    $form['providers'] = [
-      '#type' => 'table',
-      '#header' => [
-        'status' => $this->t('Status'),
-        'provider' => $this->t('Provider'),
-        'weight' => $this->t('Weight'),
-      ],
-      '#tabledrag' => [
-        [
-          'action' => 'order',
-          'relationship' => 'sibling',
-          'group' => 'table-sort-weight',
-        ],
-      ],
-      '#prefix' => '<div id="' . $tableId . '">',
-      '#suffix' => '</div>',
+    $form['tabs'] = [
+      '#type' => 'vertical_tabs',
     ];
 
-    foreach ($this->shape->getValueProviderDefinitions() as $providerId => $definition) {
-      $isActive = $form_state->get(['providers', $providerId, 'status']) ?? $this->shape->isValueProviderEnabled($providerId);
-      $row = [];
-      $row['#attributes']['class'][] = 'draggable';
-      $row['status'] = [
-        '#type' => 'checkbox',
-        '#title' => $this->t('Active'),
-        '#title_display' => 'invisible',
-        '#default_value' => $isActive,
-        '#disabled' => !empty($definition['status_lock']),
-        '#ajax' => [
-          'callback' => '::refreshAjax',
-          'wrapper' => $tableId,
-        ],
+    $valueProviderDefinitions = $this->shape->getValueProviderDefinitions();
+    if (!empty($valueProviderDefinitions)) {
+      $tableId = 'neo-alchemist-component-prop-form-providers';
+      $form['providers'] = [
+        '#type' => 'details',
+        '#title' => $this->t('Value Providers'),
+        '#group' => 'tabs',
       ];
-
-      if ($isActive) {
-        $instance = $this->shape->getValueProvider($providerId);
-        $row['provider'] = [
-          '#type' => 'fieldset',
-          '#title' => $definition['label'],
+      $form['providers']['values'] = [
+        '#type' => 'table',
+        '#header' => [
+          'status' => $this->t('Status'),
+          'provider' => $this->t('Provider'),
+          'weight' => $this->t('Weight'),
+        ],
+        '#tabledrag' => [
+          [
+            'action' => 'order',
+            'relationship' => 'sibling',
+            'group' => 'table-sort-weight',
+          ],
+        ],
+        '#prefix' => '<div id="' . $tableId . '">',
+        '#suffix' => '</div>',
+      ];
+      foreach ($valueProviderDefinitions as $providerId => $definition) {
+        $isActive = $form_state->get(['providers', $providerId, 'status']) ?? $this->shape->isValueProviderEnabled($providerId);
+        $form['providers']['values'][$providerId] = [
           '#parents' => [
             'providers',
             $providerId,
-            'provider',
           ],
         ];
-        $subform_state = SubformState::createForSubform($row['provider'], $form, $form_state);
-        $row['provider'] = $instance->buildConfigurationForm($row['provider'], $subform_state, $form);
-      }
-      else {
-        $row['provider']['#markup'] = '<div class="font-bold text-base">' . $definition['label'] . '</div>';
-      }
+        $row = &$form['providers']['values'][$providerId];
+        $row['#attributes']['class'][] = 'draggable';
+        $row['status'] = [
+          '#type' => 'checkbox',
+          '#title' => $this->t('Active'),
+          '#title_display' => 'invisible',
+          '#default_value' => $isActive,
+          '#disabled' => !empty($definition['status_lock']),
+          '#ajax' => [
+            'callback' => '::refreshAjax',
+            'wrapper' => $tableId,
+          ],
+        ];
 
-      $row['weight'] = [
-        '#type' => 'weight',
-        '#title' => $this->t('Weight for @title', ['@title' => $definition['label']]),
-        '#title_display' => 'invisible',
-        '#attributes' => [
-          'class' => [
-            'table-sort-weight',
+        if ($isActive) {
+          $instance = $this->shape->getValueProvider($providerId);
+          $row['provider'] = [
+            '#type' => 'fieldset',
+            '#title' => $definition['label'],
+            '#description' => $definition['description'],
+            '#description_display' => 'before',
+            '#parents' => [
+              'providers',
+              $providerId,
+              'provider',
+            ],
+          ];
+          $subform_state = SubformState::createForSubform($row['provider'], $form, $form_state);
+          $row['provider'] = $instance->buildConfigurationForm($row['provider'], $subform_state, $form);
+        }
+        else {
+          $row['provider']['#markup'] = '<div><span class="font-bold text-base">' . $definition['label'] . '</span>' . ($definition['description'] ? '<br><small class="description">' . $definition['description'] . '</small>' : '') . '</div>';
+        }
+
+        $row['weight'] = [
+          '#type' => 'weight',
+          '#title' => $this->t('Weight for @title', ['@title' => $definition['label']]),
+          '#title_display' => 'invisible',
+          '#attributes' => [
+            'class' => [
+              'table-sort-weight',
+            ],
+          ],
+        ];
+        // $form['providers']['values'][$providerId] = $row;
+      }
+    }
+
+    $valueModifierDefinitions = $this->shape->getValueModifierDefinitions();
+    if (!empty($valueModifierDefinitions)) {
+      $tableId = 'neo-alchemist-component-prop-form-modifiers';
+      $form['modifiers'] = [
+        '#type' => 'details',
+        '#title' => $this->t('Value Modifiers'),
+        '#group' => 'tabs',
+      ];
+      $form['modifiers']['values'] = [
+        '#type' => 'table',
+        '#header' => [
+          'status' => $this->t('Status'),
+          'modifier' => $this->t('Modifier'),
+          'weight' => $this->t('Weight'),
+        ],
+        '#tabledrag' => [
+          [
+            'action' => 'order',
+            'relationship' => 'sibling',
+            'group' => 'table-sort-weight',
           ],
         ],
+        '#prefix' => '<div id="' . $tableId . '">',
+        '#suffix' => '</div>',
       ];
-      $form['providers'][$providerId] = $row;
+      foreach ($valueModifierDefinitions as $modifierId => $definition) {
+        $isActive = $form_state->get(['modifiers', $modifierId, 'status']) ?? $this->shape->isValueModifierEnabled($modifierId);
+        $form['modifiers']['values'][$modifierId] = [
+          '#parents' => [
+            'modifiers',
+            $modifierId,
+          ],
+        ];
+        $row = &$form['modifiers']['values'][$modifierId];
+        $row['#attributes']['class'][] = 'draggable';
+        $row['status'] = [
+          '#type' => 'checkbox',
+          '#title' => $this->t('Active'),
+          '#title_display' => 'invisible',
+          '#default_value' => $isActive,
+          '#disabled' => !empty($definition['status_lock']),
+          '#ajax' => [
+            'callback' => '::refreshAjax',
+            'wrapper' => $tableId,
+          ],
+        ];
 
-      if ($isActive) {
-        // $row = [];
-        // $row['#wrapper_attributes']['colspan'] = count($form['providers']) - 1;
-        // $row['form']['#markup'] = 'form here';
-        // $form['providers'][$providerId . '_form'] = $row;
+        if ($isActive) {
+          $instance = $this->shape->getValueModifier($modifierId);
+          $row['modifier'] = [
+            '#type' => 'fieldset',
+            '#title' => $definition['label'],
+            '#description' => $definition['description'],
+            '#description_display' => 'before',
+            '#parents' => [
+              'modifiers',
+              $modifierId,
+              'modifier',
+            ],
+          ];
+          $subform_state = SubformState::createForSubform($row['modifier'], $form, $form_state);
+          $row['modifier'] = $instance->buildConfigurationForm($row['modifier'], $subform_state, $form);
+        }
+        else {
+          $row['modifier']['#markup'] = '<div><span class="font-bold text-base">' . $definition['label'] . '</span>' . ($definition['description'] ? '<br><small class="description">' . $definition['description'] . '</small>' : '') . '</div>';
+        }
+
+        $row['weight'] = [
+          '#type' => 'weight',
+          '#title' => $this->t('Weight for @title', ['@title' => $definition['label']]),
+          '#title_display' => 'invisible',
+          '#attributes' => [
+            'class' => [
+              'table-sort-weight',
+            ],
+          ],
+        ];
       }
     }
 
@@ -164,6 +256,14 @@ final class ComponentPropForm extends EntityForm {
       '#title' => $this->t('Allow Edit'),
       '#description' => $this->t('Allow the default value of this property to be changed per component instance.'),
       '#default_value' => $this->shape->isEditable(),
+    ];
+
+    $form['required'] = [
+      '#type' => 'checkbox',
+      '#title' => $this->t('Required'),
+      '#description' => $this->t('Require this property to be set for all component instances.'),
+      '#default_value' => $this->shape->isRequired(),
+      '#disabled' => $this->shape->isEnforcedRequired(),
     ];
 
     return $form;
@@ -194,14 +294,22 @@ final class ComponentPropForm extends EntityForm {
    */
   public function validateForm(array &$form, FormStateInterface $form_state) {
     parent::validateForm($form, $form_state);
-
-    $providerValues = $form_state->getValue(['providers']);
-    foreach ($providerValues as $providerId => $providerValue) {
+    // Providers.
+    foreach ($form_state->getValue(['providers'], []) as $providerId => $providerValue) {
       $form_state->set(['providers', $providerId, 'status'], !empty($providerValue['status']));
       if (!empty($providerValue['status'])) {
         $instance = $this->shape->getValueProvider($providerId);
-        $subform_state = SubformState::createForSubform($form['providers'][$providerId]['provider'], $form, $form_state);
-        $instance->validateConfigurationForm($form['providers'][$providerId]['provider'], $subform_state);
+        $subform_state = SubformState::createForSubform($form['providers']['values'][$providerId]['provider'], $form, $form_state);
+        $instance->validateConfigurationForm($form['providers']['values'][$providerId]['provider'], $subform_state);
+      }
+    }
+    // Modifiers.
+    foreach ($form_state->getValue(['modifiers'], []) as $modifierId => $modifierValue) {
+      $form_state->set(['modifiers', $modifierId, 'status'], !empty($modifierValue['status']));
+      if (!empty($modifierValue['status'])) {
+        $instance = $this->shape->getValueModifier($modifierId);
+        $subform_state = SubformState::createForSubform($form['modifiers']['values'][$modifierId]['modifier'], $form, $form_state);
+        $instance->validateConfigurationForm($form['modifiers']['values'][$modifierId]['modifier'], $subform_state);
       }
     }
   }
@@ -210,44 +318,42 @@ final class ComponentPropForm extends EntityForm {
    * {@inheritdoc}
    */
   public function save(array $form, FormStateInterface $form_state): int {
-    $providerIds = [];
     $props = $this->entity->getSetting('props', []);
     $propName = $this->shape->getName();
     $props[$propName] = [
       'prop' => $propName,
       'field_type' => $this->shape->getFieldType(),
       'editable' => !empty($form_state->getValue(['editable'])),
+      'required' => !empty($form_state->getValue(['required'])),
     ];
+
+    // Providers.
     foreach ($form_state->getValue(['providers']) as $providerId => $providerValue) {
       if (!empty($providerValue['status'])) {
-        $providerIds[] = $providerId;
         $instance = $this->shape->getValueProvider($providerId);
-        $subform_state = SubformState::createForSubform($form['providers'][$providerId]['provider'], $form, $form_state);
-        $instance->submitConfigurationForm($form['providers'][$providerId]['provider'], $subform_state);
+        $subform_state = SubformState::createForSubform($form['providers']['values'][$providerId]['provider'], $form, $form_state);
+        $instance->submitConfigurationForm($form['providers']['values'][$providerId]['provider'], $subform_state);
         $props[$propName]['providers'][$providerId] = [
           'plugin' => $providerId,
           'settings' => $subform_state->getValues(),
         ];
-        // $providers[$propName][$providerId] = [
-        //   'plugin' => $providerId,
-        //   'field_type' => $this->shape->getType(),
-        //   'settings' => $subform_state->getValues(),
-        // ];
       }
     }
 
-    // $providerValues = [
-    //   [
-    //     'plugin' => 'blek',
-    //     'settings' => [],
-    //   ]
-    // ];
+    // Modifiers.
+    foreach ($form_state->getValue(['modifiers']) as $modifierId => $modifierValue) {
+      if (!empty($modifierValue['status'])) {
+        $instance = $this->shape->getValueModifier($modifierId);
+        $subform_state = SubformState::createForSubform($form['modifiers']['values'][$modifierId]['modifier'], $form, $form_state);
+        $instance->submitConfigurationForm($form['modifiers']['values'][$modifierId]['modifier'], $subform_state);
+        $props[$propName]['modifiers'][$modifierId] = [
+          'plugin' => $modifierId,
+          'settings' => $subform_state->getValues(),
+        ];
+      }
+    }
 
-    // ksm($props);
-    // return 1;
-    // return 1;
     $this->entity->setSetting('props', $props);
-    // $this->entity->set('props', $props);
     $result = parent::save($form, $form_state);
     return $result;
   }

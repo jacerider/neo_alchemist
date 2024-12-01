@@ -6,11 +6,14 @@ namespace Drupal\neo_alchemist\Plugin\ComponentShape;
 
 use Drupal\Component\Utility\Html;
 use Drupal\Component\Utility\NestedArray;
+use Drupal\Core\Field\FieldDefinitionInterface;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\StringTranslation\StringTranslationTrait;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\neo_alchemist\Attribute\ComponentShape;
+use Drupal\neo_alchemist\ComponentShapeChildrenPluginInterface;
 use Drupal\neo_alchemist\ComponentShapePluginBase;
+use Drupal\neo_alchemist\ComponentShapePluginInterface;
 
 /**
  * Plugin implementation of the neo_component_shape.
@@ -19,10 +22,17 @@ use Drupal\neo_alchemist\ComponentShapePluginBase;
   prop: 'array',
   label: new TranslatableMarkup('Array'),
 )]
-class ArrayShape extends ComponentShapePluginBase {
+class ArrayShape extends ComponentShapePluginBase implements ComponentShapeChildrenPluginInterface {
 
   use ShapeManagerDependentShapeTrait;
   use StringTranslationTrait;
+
+  /**
+   * The single prop shape.
+   *
+   * @var \Drupal\neo_alchemist\ComponentShapePluginInterface|null
+   */
+  protected ?ComponentShapePluginInterface $singlePropShape;
 
   /**
    * {@inheritDoc}
@@ -39,6 +49,23 @@ class ArrayShape extends ComponentShapePluginBase {
    */
   protected function isSingleProp(): bool {
     return empty($this->getSchema()['items']['properties']);
+  }
+
+  /**
+   * Get the single prop shape.
+   *
+   * @return \Drupal\neo_alchemist\ComponentShapePluginInterface|null
+   *   The single prop shape.
+   */
+  protected function getSinglePropShape(): ?ComponentShapePluginInterface {
+    if (!isset($this->singlePropShape)) {
+      $this->singlePropShape = NULL;
+      if ($this->isSingleProp()) {
+        $shapes = $this->getChildShapes(0);
+        $this->singlePropShape = reset($shapes);
+      }
+    }
+    return $this->singlePropShape;
   }
 
   /**
@@ -62,12 +89,9 @@ class ArrayShape extends ComponentShapePluginBase {
   }
 
   /**
-   * Get child shapes.
-   *
-   * @return \Drupal\neo_alchemist\ComponentShapePluginInterface[]
-   *   The child shapes.
+   * {@inheritDoc}
    */
-  protected function getChildShapes(int $delta, $value): array {
+  public function getChildShapes(int $delta = 0): array {
     $schema = $this->getSchema();
     if (!empty($schema['items'])) {
       if ($this->isSingleProp()) {
@@ -103,7 +127,7 @@ class ArrayShape extends ComponentShapePluginBase {
     $keyedShapes = [];
     $values = $values ?? $this->getFieldItemValue();
     foreach ($values as $delta => $value) {
-      $shapes = $this->getChildShapes($delta, $value);
+      $shapes = $this->getChildShapes($delta);
       foreach ($shapes as $shape) {
         $itemValue = $value[$shape->getName()] ?? ($this->isSingleProp() ? $value : []);
         $shape->setFieldItemValue($itemValue);
@@ -330,12 +354,23 @@ class ArrayShape extends ComponentShapePluginBase {
   public function massageFormValues(array $form, FormStateInterface $form_state, array $values): array {
     $newValues = [];
     foreach ($values as $delta => $value) {
-      $shapes = $this->getChildShapes($delta, $value);
+      $shapes = $this->getChildShapes($delta);
       foreach ($shapes as $shape) {
         $newValues[$delta][$shape->getName()] = $shape->massageFormValues($form, $form_state, $value[$shape->getName()] ?? []);
       }
     }
     return $newValues;
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  protected function getFieldDefinitionForSupportCheck(): FieldDefinitionInterface {
+    if ($singlePropShape = $this->getSinglePropShape()) {
+      // Use the single prop shape field definition.
+      return $singlePropShape->getFieldItem()->getFieldDefinition();
+    }
+    return parent::getFieldDefinitionForSupportCheck();
   }
 
 }

@@ -29,7 +29,8 @@ entity.neo_component.canonical:
   path: '/admin/config/neo/alchemist/{neo_component}'
   defaults:
     _controller: '\Drupal\neo_alchemist\Controller\ComponentManageController'
-    _title: 'Manage a component'
+    # _title: 'Manage a component'
+    _title_callback: '\Drupal\neo_alchemist\Controller\ComponentManageController::getTitle'
   requirements:
     _permission: 'administer neo_alchemist'
 

@@ -11,7 +11,6 @@ use Drupal\Core\Field\FieldItemListInterface;
 use Drupal\Core\Field\WidgetInterface;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\TypedData\DataDefinitionInterface;
-use Drupal\neo_alchemist\PropExpressions\Component\ComponentPropExpression;
 
 /**
  * Interface for neo_component_shape plugins.
@@ -92,14 +91,65 @@ interface ComponentShapePluginInterface {
    *
    * @param string $providerId
    *   The ID of the value provider to create.
-   * @param array|null $settings
-   *   An associative array of settings for the provider. The default provider
-   *   settings will be used if no settings are provided.
    *
    * @return \Drupal\neo_alchemist\ComponentValueProviderPluginInterface|null
    *   The value provider instance.
    */
-  public function getValueProvider(string $providerId, array $settings = NULL): ?ComponentValueProviderPluginInterface;
+  public function getValueProvider(string $providerId): ?ComponentValueProviderPluginInterface;
+
+  /**
+   * Retrieves the value modifier definitions for the current shape.
+   *
+   * This method uses the value modifier manager to get the filtered definitions
+   * based on the current shape instance.
+   *
+   * @return array
+   *   An array of value modifier definitions.
+   */
+  public function getValueModifierDefinitions(): array;
+
+  /**
+   * Adds a value modifier to the component shape.
+   *
+   * @param string $modifierId
+   *   The unique identifier for the modifier.
+   * @param array $settings
+   *   An associative array of settings for the modifier.
+   *
+   * @return self
+   *   The current instance of the component shape plugin.
+   */
+  public function addValueModifier(string $modifierId, array $settings): self;
+
+  /**
+   * Checks if a value modifier is enabled.
+   *
+   * @param string $modifierId
+   *   The ID of the modifier to check.
+   *
+   * @return bool
+   *   TRUE if the modifier is enabled, FALSE otherwise.
+   */
+  public function isValueModifierEnabled(string $modifierId): bool;
+
+  /**
+   * Retrieves the value modifiers.
+   *
+   * @return \Drupal\neo_alchemist\ComponentValueModifierPluginInterface[]
+   *   An array of value modifiers.
+   */
+  public function getValueModifiers(): array;
+
+  /**
+   * Retrieves a value modifier instance based on the given modifier ID.
+   *
+   * @param string $modifierId
+   *   The ID of the value modifier to create.
+   *
+   * @return \Drupal\neo_alchemist\ComponentValueModifierPluginInterface|null
+   *   The value modifier instance.
+   */
+  public function getValueModifier(string $modifierId): ?ComponentValueModifierPluginInterface;
 
   /**
    * Get the schema.
@@ -168,6 +218,25 @@ interface ComponentShapePluginInterface {
    *   The scope of the component shape.
    */
   public function getScope(): string;
+
+  /**
+   * Enforces that the component shape is required.
+   *
+   * This method sets the `enforceRequired` and `required` properties to TRUE,
+   * ensuring that the component shape is marked as required.
+   *
+   * @return self
+   *   The current instance of the class for method chaining.
+   */
+  public function enforceRequired(): self;
+
+  /**
+   * Checks if the required enforcement is enabled.
+   *
+   * @return bool
+   *   TRUE if the required enforcement is enabled, FALSE otherwise.
+   */
+  public function isEnforcedRequired(): bool;
 
   /**
    * Sets the required status of the component shape.

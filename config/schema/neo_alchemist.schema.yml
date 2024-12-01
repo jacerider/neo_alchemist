@@ -209,6 +209,9 @@ neo_alchemist.neo_component_settings.props:
       editable:
         type: boolean
         title: Editable
+      required:
+        type: boolean
+        title: Required
       providers:
         type: sequence
         label: Providers
@@ -229,7 +232,26 @@ neo_alchemist.neo_component_settings.props:
             settings:
               type: neo_alchemist.neo_component_value_provider.[%parent.plugin]
               nullable: true
-
+      modifiers:
+        type: sequence
+        label: Modifiers
+        sequence:
+          type: mapping
+          label: Modifier
+          mapping:
+            plugin:
+              type: string
+              label: 'Value modifier'
+              constraints:
+                Regex:
+                  pattern: '/^[a-z0-9_-]+$/'
+                  message: 'The %value machine name is not valid.'
+                PluginExists:
+                  manager: plugin.manager.neo_component_value_modifier
+                  interface: '\Drupal\neo_alchemist\ComponentValueModifierPluginInterface'
+            settings:
+              type: neo_alchemist.neo_component_value_modifier.[%parent.plugin]
+              nullable: true
 
 neo_alchemist.neo_component_value_provider.*:
   type: mapping
@@ -254,3 +276,40 @@ neo_alchemist.neo_component_value_provider.entity:
     override_empty:
       type: boolean
       label: 'Allow override when value is empty'
+
+neo_alchemist.neo_component_value_modifier.*:
+  type: mapping
+
+neo_alchemist.neo_component_value_modifier.prefix:
+  type: mapping
+  label: 'Prefix value modifier'
+  mapping:
+    value:
+      label: Prefix
+      type: string
+
+neo_alchemist.neo_component_value_modifier.suffix:
+  type: mapping
+  label: 'Suffix value modifier'
+  mapping:
+    value:
+      label: Suffix
+      type: string
+
+neo_alchemist.neo_component_value_modifier.number:
+  type: mapping
+  label: 'Convert value to number'
+  mapping:
+    decimals:
+      label: Decimals
+      type: integer
+      constraints:
+        NotNull: []
+        Range:
+          min: 0
+    decimal_separator:
+      label: Decimal Separator
+      type: string
+    thousands_separator:
+      label: Thousands Separator
+      type: string
