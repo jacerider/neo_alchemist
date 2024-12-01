@@ -33,6 +33,14 @@ interface ComponentInterface extends ConfigEntityInterface {
   public function getComponentId(): string;
 
   /**
+   * Gets the scope of the component.
+   *
+   * @return string
+   *   The scope of the component.
+   */
+  public function getScope(): string;
+
+  /**
    * Get the component.
    *
    * @return \Drupal\Core\Plugin\Component
@@ -52,7 +60,8 @@ interface ComponentInterface extends ConfigEntityInterface {
    * Retrieves the settings for the component.
    *
    * @return array
-   *   An array of settings. If no settings are defined, an empty array is returned.
+   *   An array of settings. If no settings are defined, an empty array is
+   *   returned.
    */
   public function getSettings(): array;
 
@@ -62,7 +71,8 @@ interface ComponentInterface extends ConfigEntityInterface {
    * @param string $key
    *   The key of the setting to retrieve.
    * @param mixed $default
-   *   (optional) The default value to return if the setting is not found. Defaults to NULL.
+   *   (optional) The default value to return if the setting is not found.
+   *   Defaults to NULL.
    *
    * @return mixed
    *   The value of the setting if it exists, otherwise the default value.

@@ -15,6 +15,11 @@ final class ComponentField extends ComponentInstanceBase implements ComponentFie
   /**
    * {@inheritdoc}
    */
+  protected string $scope = 'field';
+
+  /**
+   * {@inheritdoc}
+   */
   public function toUrl($rel = NULL, array $options = []) {
     $fieldName = $this->getFieldItem()->getFieldDefinition()->getName();
     $entityTypeId = $this->getTargetEntity()->getEntityTypeId();

@@ -14,6 +14,8 @@ use Drupal\neo_alchemist\ComponentShapePluginBase;
 #[ComponentShape(
   prop: 'url',
   label: new TranslatableMarkup('Url'),
+  default_field_type: 'link',
+  default_field_widget: 'link_default',
 )]
 class UrlShape extends ComponentShapePluginBase {
 
@@ -22,18 +24,11 @@ class UrlShape extends ComponentShapePluginBase {
   /**
    * {@inheritDoc}
    */
-  protected function getDefaultFieldType(): string {
-    return 'link';
-  }
-
-  /**
-   * {@inheritDoc}
-   */
   protected function getWidgetType(): ?string {
     if ($this->moduleHandler->moduleExists('linkit')) {
       return 'linkit';
     }
-    return 'link_default';
+    return parent::getWidgetType();
   }
 
   /**

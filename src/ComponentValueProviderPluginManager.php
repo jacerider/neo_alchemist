@@ -24,11 +24,25 @@ final class ComponentValueProviderPluginManager extends DefaultPluginManager {
     $this->setCacheBackend($cache_backend, 'neo_component_value_provider_plugins');
   }
 
+  /**
+   * Filters and sorts component definitions based on the provided shape.
+   *
+   * This method retrieves all component definitions and filters them based on
+   * the type, entity type, and bundle specified by the given shape. It then
+   * sorts the filtered definitions by weight and label.
+   *
+   * @param \Drupal\neo_alchemist\ComponentShapePluginInterface $shape
+   *   The shape plugin interface which provides the type, entity type, and
+   *   bundle.
+   *
+   * @return array
+   *   An array of filtered and sorted component definitions.
+   */
   public function getFilteredDefinitionsFromShape(ComponentShapePluginInterface $shape) {
     $definitions = $this->getDefinitions();
     $type = $shape->getType();
-    $entityTypeId = $shape->getEntityType();
-    $bundle = $shape->getEntityBundle();
+    $entityTypeId = $shape->getTargetEntityType();
+    $bundle = $shape->getTargetEntityBundle();
 
     $filtered = [];
     $keys = ['*'];

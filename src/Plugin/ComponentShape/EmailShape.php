@@ -14,21 +14,9 @@ use Drupal\neo_alchemist\ComponentShapePluginBase;
 #[ComponentShape(
   prop: 'email',
   label: new TranslatableMarkup('Email'),
+  default_field_type: 'email',
+  default_field_widget: 'email_default',
 )]
 class EmailShape extends ComponentShapePluginBase {
-
-  /**
-   * {@inheritDoc}
-   */
-  protected function getDefaultFieldType(): string {
-    return 'email';
-  }
-
-  /**
-   * {@inheritDoc}
-   */
-  protected function getWidgetType(): ?string {
-    return 'email_default';
-  }
 
 }

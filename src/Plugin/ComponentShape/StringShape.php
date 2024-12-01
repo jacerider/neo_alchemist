@@ -14,42 +14,12 @@ use Drupal\neo_alchemist\ComponentShapePluginBase;
 #[ComponentShape(
   prop: 'string',
   label: new TranslatableMarkup('String'),
+  default_field_type: 'string',
+  default_field_type_with_options: 'list_string',
+  default_field_widget: 'string_textfield',
+  default_field_widget_with_options: 'options_select',
+  supports_field_props: ['string', 'integer', 'float', 'decimal', 'email'],
 )]
 class StringShape extends ComponentShapePluginBase {
-
-  /**
-   * {@inheritDoc}
-   */
-  protected function getDefaultFieldType(): string {
-    if (array_key_exists('enum', $this->schema)) {
-      return 'list_string';
-    }
-    return 'string';
-  }
-
-  /**
-   * {@inheritDoc}
-   */
-  protected function getWidgetType(): ?string {
-    if (array_key_exists('enum', $this->schema)) {
-      return 'options_select';
-    }
-    return 'string_textfield';
-  }
-
-  /**
-   * {@inheritDoc}
-   */
-  public function getFieldStorageSettings(): array {
-    if (array_key_exists('enum', $this->schema)) {
-      return [
-        'allowed_values' => array_map(fn ($v) => [
-          'value' => $v,
-          'label' => (string) $v,
-        ], $this->schema['enum']),
-      ];
-    }
-    return [];
-  }
 
 }

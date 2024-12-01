@@ -56,7 +56,9 @@ final class InstanceComponentForm extends ContentEntityForm {
       '#parents' => ['values'],
     ];
     foreach ($this->instance->getPropShapes() as $propName => $shape) {
-      $form['values'][$propName] = $shape->getForm($form['values'], $form_state);
+      if ($shape->isEditable()) {
+        $form['values'][$propName] = $shape->getForm($form['values'], $form_state);
+      }
     }
 
     $form['status'] = [
@@ -84,6 +86,15 @@ final class InstanceComponentForm extends ContentEntityForm {
       'status' => (int) !empty($form_state->getValue('status')),
     ];
     foreach ($this->instance->getPropShapes() as $propName => $shape) {
+      if (!$form_state->hasValue([
+        'values',
+        $propName,
+      ])) {
+        // If the value for this prop does not exist, we skip it. This is used
+        // by the override system.
+        // @see \Drupal\neo_alchemist\Plugin\ComponentValueProvider\EntityValueProvider::widgetFormValidate()
+        continue;
+      }
       $shape->validateForm($form['values'][$propName], $form_state, $form_state->getValue([
         'values',
         $propName,

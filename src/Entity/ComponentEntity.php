@@ -12,6 +12,11 @@ final class ComponentEntity extends ComponentInstanceBase {
   /**
    * {@inheritdoc}
    */
+  protected string $scope = 'entity';
+
+  /**
+   * {@inheritdoc}
+   */
   public function toUrl($rel = NULL, array $options = []) {
     $fieldName = $this->getFieldItem()->getFieldDefinition()->getName();
     $entity = $this->getTargetEntity();

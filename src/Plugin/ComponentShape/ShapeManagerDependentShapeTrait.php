@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace Drupal\neo_alchemist\Plugin\ComponentShape;
 
-use Drupal\Core\Entity\ContentEntityInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Field\WidgetPluginManager;
 use Drupal\Core\TypedData\TypedDataManagerInterface;
+use Drupal\neo_alchemist\ComponentInterface;
 use Drupal\neo_alchemist\ComponentShapePluginManager;
 use Drupal\neo_alchemist\ComponentValueProviderPluginManager;
 use Symfony\Component\DependencyInjection\ContainerInterface;
@@ -26,15 +26,14 @@ trait ShapeManagerDependentShapeTrait {
     $plugin_id,
     $plugin_definition,
     array $schema,
-    ContentEntityInterface $entity,
-    bool $required,
+    protected ComponentInterface $component,
     protected EntityTypeManagerInterface $entityTypeManager,
     protected TypedDataManagerInterface $typedDataManager,
     protected WidgetPluginManager $widgetManager,
     protected ComponentValueProviderPluginManager $valueProviderManager,
     protected ComponentShapePluginManager $shapeManager,
   ) {
-    parent::__construct($plugin_id, $plugin_definition, $schema, $entity, $required, $entityTypeManager, $typedDataManager, $widgetManager, $valueProviderManager);
+    parent::__construct($plugin_id, $plugin_definition, $schema, $component, $entityTypeManager, $typedDataManager, $widgetManager, $valueProviderManager);
   }
 
   /**
@@ -45,8 +44,7 @@ trait ShapeManagerDependentShapeTrait {
       $plugin_id,
       $plugin_definition,
       $configuration['schema'],
-      $configuration['entity'],
-      $configuration['required'],
+      $configuration['component'],
       $container->get('entity_type.manager'),
       $container->get(TypedDataManagerInterface::class),
       $container->get('plugin.manager.field.widget'),

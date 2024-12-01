@@ -165,36 +165,36 @@ final class ComponentManageForm extends EntityForm {
    */
   public function validateForm(array &$form, FormStateInterface $form_state) {
     parent::validateForm($form, $form_state);
-    foreach ($this->entity->getPropShapes() as $propName => $shape) {
-      $shape->validateForm($form['values'][$propName], $form_state, $form_state->getValue([
-        'values',
-        $propName,
-      ], []));
-      $shape->setFieldItemValue($form_state->getValue([
-        'values',
-        $propName,
-      ], []));
-    }
+    // foreach ($this->entity->getPropShapes() as $propName => $shape) {
+    //   $shape->validateForm($form['values'][$propName], $form_state, $form_state->getValue([
+    //     'values',
+    //     $propName,
+    //   ], []));
+    //   $shape->setFieldItemValue($form_state->getValue([
+    //     'values',
+    //     $propName,
+    //   ], []));
+    // }
   }
 
   /**
    * {@inheritdoc}
    */
   public function save(array $form, FormStateInterface $form_state): int {
-    $defaults = [];
-    foreach ($this->entity->getPropShapes() as $propName => $shape) {
-      $value = $shape->massageFormValues($form, $form_state, $form_state->getValue([
-        'values',
-        $propName,
-      ], []));
-      if ($value !== $shape->getFieldItemDefaultValue()) {
-        $defaults['props'][$propName]['field_type'] = $shape->getFieldType();
-        $defaults['props'][$propName]['value'] = $value;
-      }
-    }
-    ksm($defaults);
-    return 1;
-    $this->entity->set('defaults', $defaults);
+    // $defaults = [];
+    // foreach ($this->entity->getPropShapes() as $propName => $shape) {
+    //   $value = $shape->massageFormValues($form, $form_state, $form_state->getValue([
+    //     'values',
+    //     $propName,
+    //   ], []));
+    //   if ($value !== $shape->getFieldItemDefaultValue()) {
+    //     $defaults['props'][$propName]['field_type'] = $shape->getFieldType();
+    //     $defaults['props'][$propName]['value'] = $value;
+    //   }
+    // }
+    // ksm($defaults);
+    // return 1;
+    // $this->entity->set('defaults', $defaults);
     $result = parent::save($form, $form_state);
     return $result;
   }
@@ -203,8 +203,7 @@ final class ComponentManageForm extends EntityForm {
    * {@inheritdoc}
    */
   public function reset(array $form, FormStateInterface $form_state): int {
-    $defaults = [];
-    $this->entity->set('defaults', $defaults);
+    $this->entity->setSetting('props', []);
     $result = parent::save($form, $form_state);
     return $result;
   }

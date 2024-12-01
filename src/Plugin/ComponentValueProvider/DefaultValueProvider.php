@@ -45,7 +45,6 @@ final class DefaultValueProvider extends ComponentValueProviderPluginBase {
   protected function providerValidate(array $form, FormStateInterface $form_state): void {
     $values = $form_state->getValues()[$this->shape->getName()] ?? [];
     $this->shape->validateForm($form, $form_state, $values);
-    // $this->shape->setFieldItemValue($values);
   }
 
   /**
@@ -60,9 +59,15 @@ final class DefaultValueProvider extends ComponentValueProviderPluginBase {
   /**
    * {@inheritdoc}
    */
-  public function modify(FieldItemInterface $item, bool &$stopProcessing) {
-    // ksm('hit');
-    $item->setValue($this->configuration['default']);
+  public function onCalculateFieldItemValue() {
+    $this->shape->getFieldItem()->setValue($this->configuration['default']);
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function fieldItemValue(): array {
+    return $this->configuration['default'];
   }
 
 }

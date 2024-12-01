@@ -84,7 +84,7 @@ class ArrayShape extends ComponentShapePluginBase {
           $prop['examples'] = $schema['examples'][$delta][$propName] ?? $prop['examples'] ?? [];
         }
       }
-      return $this->shapeManager->getInstancesFromSchema($schema['items'], $this->getEntity());
+      return $this->shapeManager->getInstancesFromSchema($schema['items'], $this->getComponent());
     }
     return [];
   }
@@ -219,6 +219,7 @@ class ArrayShape extends ComponentShapePluginBase {
           '#type' => 'submit',
           '#name' => $id . '-remove-' . $delta,
           '#value' => $this->t('Remove'),
+          '#widget_parents' => array_merge($parents, [$delta]),
           '#submit' => [[get_class($this), 'removeItemSubmit']],
           '#attributes' => [
             'class' => ['btn-xs'],
@@ -287,11 +288,12 @@ class ArrayShape extends ComponentShapePluginBase {
   public static function removeItemSubmit(array $form, FormStateInterface $form_state) {
     $button = $form_state->getTriggeringElement();
     $parents = array_slice($button['#array_parents'], 0, -2);
-    $rowParents = array_slice($button['#array_parents'], 0, -1);
+    $rowParents = $button['#widget_parents'];
+    $parents = array_slice($rowParents, 0, -1);
     $delta = end($rowParents);
 
     // Go one level up in the form, to the widgets container.
-    $element = NestedArray::getValue($form, $parents);
+    $element = NestedArray::getValue($form, array_slice($button['#array_parents'], 0, -2));
     $form_state->set($element['#id'] . '-remove', $delta);
 
     // Decrement the count.

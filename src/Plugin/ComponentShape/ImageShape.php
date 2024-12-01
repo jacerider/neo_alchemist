@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\neo_alchemist\Plugin\ComponentShape;
 
+use Drupal\Core\Field\FieldDefinitionInterface;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Render\Element;
 use Drupal\Core\StringTranslation\StringTranslationTrait;
@@ -19,17 +20,12 @@ use Drupal\neo_alchemist\ComponentShapePluginBase;
 #[ComponentShape(
   prop: 'image',
   label: new TranslatableMarkup('Image'),
+  default_field_type: 'entity_reference',
+  default_field_widget: 'media_library_widget',
 )]
 class ImageShape extends ComponentShapePluginBase {
 
   use StringTranslationTrait;
-
-  /**
-   * {@inheritDoc}
-   */
-  protected function getDefaultFieldType(): string {
-    return 'entity_reference';
-  }
 
   /**
    * {@inheritDoc}
@@ -57,39 +53,6 @@ class ImageShape extends ComponentShapePluginBase {
   /**
    * {@inheritDoc}
    */
-  protected function getDefaultWidgetType(): ?string {
-    return 'media_library_widget';
-  }
-
-  // /**
-  //  * {@inheritDoc}
-  //  */
-  // public function getWidget(): ?WidgetInterface {
-  //   $value = $this->getFieldItemValue();
-  //   if ($this->getFieldItem()->isEmpty()) {
-  //     $default = $this->getDefaultValue();
-  //     $file = File::create([
-  //       'uri' => $default['src'],
-  //     ]);
-  //     $media = Media::create([
-  //       'mid' => 0,
-  //       'bundle' => 'image',
-  //       'thumbnail' => $file,
-  //     ]);
-  //     // $media->set('id', 0);
-  //     $sourceField = $media->getSource()->getConfiguration()['source_field'];
-  //     $media->set($sourceField, $file);
-  //     $this->setFieldItemValue($media);
-  //   }
-  //   ksm($value, $this->getDefaultValue());
-  //   $widget = parent::getWidget();
-
-  //   return $widget;
-  // }
-
-  /**
-   * {@inheritDoc}
-   */
   public function getForm(array $form, FormStateInterface $form_state): ?array {
     $form = parent::getForm($form, $form_state);
     if ($this->getWidgetType() === 'media_library_widget' && !$this->isRequired()) {
@@ -103,6 +66,19 @@ class ImageShape extends ComponentShapePluginBase {
       ];
     }
     return $form;
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  protected function isFieldItemEmpty(): bool {
+    $value = $this->fieldItem->getValue();
+    // Since this shape provides non-standard default values, we do not consider
+    // the field as empty if it has an src value.
+    if (!empty($value['src'])) {
+      return FALSE;
+    }
+    return parent::isFieldItemEmpty();
   }
 
   /**
@@ -150,6 +126,28 @@ class ImageShape extends ComponentShapePluginBase {
       ];
     }
     return $values;
+  }
+
+  /**
+   * Matches the field definition type with the entity field definition type.
+   *
+   * @param \Drupal\Core\Field\FieldDefinitionInterface $entityFieldDefinition
+   *   The field definition of the entity to match against.
+   *
+   * @return bool
+   *   TRUE if the field definition types match, FALSE otherwise.
+   */
+  public function supportsFieldDefinition(FieldDefinitionInterface $entityFieldDefinition): bool {
+    $fieldDefinition = $this->getFieldItemList()->getFieldDefinition();
+    if ($fieldDefinition->getType() === $entityFieldDefinition->getType()) {
+      if ($entityFieldDefinition->getSetting('target_type') === 'media') {
+        $target_bundles = $entityFieldDefinition->getSetting('handler_settings')['target_bundles'] ?? [];
+        if (count($target_bundles) === 1 && isset($target_bundles['image'])) {
+          return TRUE;
+        }
+      }
+    }
+    return FALSE;
   }
 
 }

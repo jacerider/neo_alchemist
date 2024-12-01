@@ -14,21 +14,9 @@ use Drupal\neo_alchemist\ComponentShapePluginBase;
 #[ComponentShape(
   prop: 'uri',
   label: new TranslatableMarkup('URI'),
+  default_field_type: 'uri',
+  default_field_widget: 'uri',
 )]
 class UriShape extends ComponentShapePluginBase {
-
-  /**
-   * {@inheritDoc}
-   */
-  protected function getDefaultFieldType(): string {
-    return 'uri';
-  }
-
-  /**
-   * {@inheritDoc}
-   */
-  protected function getWidgetType(): ?string {
-    return 'uri';
-  }
 
 }

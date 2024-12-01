@@ -206,6 +206,9 @@ neo_alchemist.neo_component_settings.props:
           PluginExists:
             manager: plugin.manager.field.field_type
             interface: '\Drupal\Core\Field\FieldItemInterface'
+      editable:
+        type: boolean
+        title: Editable
       providers:
         type: sequence
         label: Providers
@@ -237,3 +240,17 @@ neo_alchemist.neo_component_value_provider.default:
   mapping:
     default:
       type: field.value.[%parent.%parent.%parent.%parent.field_type]
+
+neo_alchemist.neo_component_value_provider.entity:
+  type: mapping
+  label: 'Default value provider'
+  mapping:
+    field:
+      type: string
+      label: 'The field to get the value from'
+    override:
+      type: boolean
+      label: 'Allow override when value is found'
+    override_empty:
+      type: boolean
+      label: 'Allow override when value is empty'

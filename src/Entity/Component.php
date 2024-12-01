@@ -114,6 +114,15 @@ class Component extends ConfigEntityBase implements ComponentInterface {
   protected ?string $target_entity_bundle = '';
 
   /**
+   * The scope of the component.
+   *
+   * Can be 'config', 'field' or 'entity'.
+   *
+   * @var string|null
+   */
+  protected string $scope = 'config';
+
+  /**
    * {@inheritdoc}
    */
   public function isPublished(): bool {
@@ -125,6 +134,13 @@ class Component extends ConfigEntityBase implements ComponentInterface {
    */
   public function getComponentId(): string {
     return $this->component;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function getScope(): string {
+    return $this->scope;
   }
 
   /**
@@ -159,14 +175,6 @@ class Component extends ConfigEntityBase implements ComponentInterface {
 
     return $schema;
   }
-
-  // public function getValueProviderIds(): array {
-  //   ksm($this->providers);
-  //   $ids = array_map(function ($provider) {
-  //     return $provider['plugin'];
-  //   }, $this->providers);
-  //   return array_combine($ids, $ids);
-  // }
 
   /**
    * {@inheritdoc}
@@ -277,7 +285,7 @@ class Component extends ConfigEntityBase implements ComponentInterface {
   public function getPropShapes(): array {
     /** @var \Drupal\neo_alchemist\ComponentShapePluginManager $manager */
     $manager = \Drupal::service('plugin.manager.neo_component_shape');
-    return $manager->getInstancesFromSchema($this->getComponent()->metadata->schema, $this->getTargetEntity(), $this->getValues(), $this->getSettings()['props'] ?? []);
+    return $manager->getInstancesFromSchema($this->getComponent()->metadata->schema, $this, $this->getValues(), $this->getSettings()['props'] ?? []);
   }
 
   /**

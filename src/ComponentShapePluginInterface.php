@@ -5,13 +5,13 @@ declare(strict_types=1);
 namespace Drupal\neo_alchemist;
 
 use Drupal\Core\Entity\ContentEntityInterface;
+use Drupal\Core\Field\FieldDefinitionInterface;
 use Drupal\Core\Field\FieldItemInterface;
+use Drupal\Core\Field\FieldItemListInterface;
 use Drupal\Core\Field\WidgetInterface;
 use Drupal\Core\Form\FormStateInterface;
-use Drupal\neo_alchemist\JsonSchemaInterpreter\SdcPropJsonSchemaType;
+use Drupal\Core\TypedData\DataDefinitionInterface;
 use Drupal\neo_alchemist\PropExpressions\Component\ComponentPropExpression;
-use Drupal\neo_alchemist\ShapeMatcher\DataTypeShapeRequirement;
-use Drupal\neo_alchemist\ShapeMatcher\DataTypeShapeRequirements;
 
 /**
  * Interface for neo_component_shape plugins.
@@ -74,6 +74,20 @@ interface ComponentShapePluginInterface {
   public function getValueProviders(): array;
 
   /**
+   * Retrieves the allowed value providers.
+   *
+   * This method filters the value providers to return only those that allow
+   * processing.
+   *
+   * @param string $op
+   *   The operation to filter the value providers by.
+   *
+   * @return array
+   *   An array of allowed value providers.
+   */
+  public function getAllowedValueProviders(string $op): array;
+
+  /**
    * Retrieves a value provider instance based on the given provider ID.
    *
    * @param string $providerId
@@ -88,28 +102,12 @@ interface ComponentShapePluginInterface {
   public function getValueProvider(string $providerId, array $settings = NULL): ?ComponentValueProviderPluginInterface;
 
   /**
-   * Get expression.
-   *
-   * @return \Drupal\neo_alchemist\PropExpressions\Component\ComponentPropExpression
-   *   The expression.
-   */
-  public function getExpression(): ComponentPropExpression;
-
-  /**
    * Get the schema.
    *
    * @return array
    *   The schema.
    */
   public function getSchema(): array;
-
-  /**
-   * Get the schema type.
-   *
-   * @return \Drupal\neo_alchemist\JsonSchemaInterpreter\SdcPropJsonSchemaType
-   *   The schema type.
-   */
-  public function getSchemaType(): SdcPropJsonSchemaType;
 
   /**
    * Get the prop type.
@@ -164,12 +162,56 @@ interface ComponentShapePluginInterface {
   public function getDescription(): string;
 
   /**
+   * Gets the scope of the component shape.
+   *
+   * @return string
+   *   The scope of the component shape.
+   */
+  public function getScope(): string;
+
+  /**
+   * Sets the required status of the component shape.
+   *
+   * @param bool $required
+   *   (optional) Whether the component shape is required. Defaults to TRUE.
+   *
+   * @return $this
+   *   The current instance of the component shape plugin.
+   */
+  public function setRequired(bool $required = TRUE): self;
+
+  /**
    * Is the prop required.
    *
    * @return bool
    *   Returns TRUE if the prop is required, FALSE otherwise.
    */
   public function isRequired(): bool;
+
+  /**
+   * Sets the editable state of the component.
+   *
+   * @param bool $editable
+   *   (optional) The editable state to set. Defaults to TRUE.
+   *
+   * @return $this
+   *   The current instance of the class for method chaining.
+   */
+  public function setEditable(bool $editable = TRUE): self;
+
+  /**
+   * Determines if the component shape is editable.
+   *
+   * This method checks the `editable` property of the current instance and
+   * iterates through all allowed value providers to determine if any of them
+   * are not editable. If any provider is not editable, the component shape
+   * is considered not editable. The iteration stops if a provider indicates
+   * that processing should not continue.
+   *
+   * @return bool
+   *   TRUE if the component shape is editable, FALSE otherwise.
+   */
+  public function isEditable(): bool;
 
   /**
    * Retrieves the content entity associated with this plugin.
@@ -182,18 +224,26 @@ interface ComponentShapePluginInterface {
   /**
    * Get the entity type.
    *
+   * This is the entity type id set on the component. It is not the entity type
+   * of the host entity as that entity is dynamically generated even if there is
+   * no entity type set on the component.
+   *
    * @return string
    *   The entity type.
    */
-  public function getEntityType(): string;
+  public function getTargetEntityType(): string;
 
   /**
    * Get the entity bundle.
    *
+   * This is the bundle id set on the component. It is not the bundle
+   * of the host entity as that entity is dynamically generated even if there is
+   * no bundle set on the component.
+   *
    * @return string
    *   The entity bundle.
    */
-  public function getEntityBundle(): string;
+  public function getTargetEntityBundle(): string;
 
   /**
    * Get the field type.
@@ -218,6 +268,33 @@ interface ComponentShapePluginInterface {
    *   The field instance settings.
    */
   public function getFieldInstanceSettings(): array;
+
+  /**
+   * Retrieves the field options from the schema.
+   *
+   * This method checks if the 'enum' key exists in the schema array. If it
+   * does, it returns the associated value, which is expected to be an array of
+   * options. If the 'enum' key does not exist, it returns NULL.
+   *
+   * @return array|null
+   *   An array of field options if the 'enum' key exists in the schema, or NULL
+   *   if the 'enum' key is not present.
+   */
+  public function getFieldOptions(): ?array;
+
+  /**
+   * Retrieves the field item list for the component shape.
+   *
+   * This method creates a new field item list instance based on the field
+   * storage definition and sets the required property. It then clones the
+   * current field item and sets it as the sole value of the field item list.
+   * If a host entity is available, it sets the context for the field item list
+   * with the host entity.
+   *
+   * @return \Drupal\Core\Field\FieldItemListInterface
+   *   The field item list instance.
+   */
+  public function getFieldItemList(): FieldItemListInterface;
 
   /**
    * Get the field item.
@@ -268,12 +345,44 @@ interface ComponentShapePluginInterface {
   public function getFieldItemDefaultValue(): array;
 
   /**
+   * Sets the override value.
+   *
+   * @param mixed $value
+   *   The value to set as the override.
+   *
+   * @return $this
+   *   The current instance for method chaining.
+   */
+  public function setOverrideValue(mixed $value): self;
+
+  /**
+   * Retrieves the override value.
+   *
+   * @return array|string|int|float|bool
+   *   The override value, which can be of various types including array,
+   *   string, integer, float, or boolean.
+   */
+  public function getOverrideValue(): array|string|int|float|bool|null;
+
+  /**
    * Get the field item value.
    *
    * @return mixed
    *   The field item value.
    */
   public function getFieldItemValue(): array;
+
+  /**
+   * Calculates the value of the field item.
+   *
+   * This method processes the field item value by starting with the schema
+   * defaults, then modifying with value providers, and finally overlaying
+   * the user input if applicable.
+   *
+   * @return self
+   *   The current instance of the class for method chaining.
+   */
+  public function calculateFieldItemValue(): self;
 
   /**
    * Set the field item value.
@@ -284,17 +393,6 @@ interface ComponentShapePluginInterface {
    * @return $this
    */
   public function setFieldItemValue(mixed $value): self;
-
-  // /**
-  //  * Sets the default value for the field item.
-  //  *
-  //  * @param mixed $value
-  //  *   The value to set for the field item.
-  //  *
-  //  * @return $this
-  //  *   The current instance of the class for method chaining.
-  //  */
-  // public function setFieldItemDefaultValue(mixed $value): self;
 
   /**
    * Set the widget type.
@@ -365,6 +463,65 @@ interface ComponentShapePluginInterface {
   public function massageFormValues(array $form, FormStateInterface $form_state, array $values): array;
 
   /**
+   * Checks if the field definition is supported by the shape.
+   *
+   * This differs from the support calls in that if it returns FALSE then
+   * no other "supports" calls will be made.
+   *
+   * @param \Drupal\Core\Field\FieldDefinitionInterface $entityFieldDefinition
+   *   The field definition of the entity to match against.
+   *
+   * @return bool
+   *   TRUE if the field definition is supported, FALSE otherwise.
+   */
+  public function allowFieldDefinition(FieldDefinitionInterface $entityFieldDefinition): bool;
+
+  /**
+   * Matches the field definition type with the entity field definition type.
+   *
+   * @param \Drupal\Core\Field\FieldDefinitionInterface $entityFieldDefinition
+   *   The field definition of the entity to match against.
+   *
+   * @return bool
+   *   TRUE if the field definition types match, FALSE otherwise.
+   */
+  public function supportsFieldDefinition(FieldDefinitionInterface $entityFieldDefinition): bool;
+
+  /**
+   * Check if all field properties are supported.
+   *
+   * Returning TRUE means that all requirements of the shape are met by the
+   * properties of this field.
+   *
+   * @param \Drupal\Core\TypedData\DataDefinitionInterface[] $entityFieldProperties
+   *   An array of field properties keyed by name.
+   *
+   * @return bool
+   *   Returns TRUE if ALL field properties are supported, FALSE otherwise.
+   */
+  public function supportsFieldProperties(array $entityFieldProperties): bool;
+
+  /**
+   * Checks if the given entity field property is supported by the shape.
+   *
+   * This method determines if the shape can support the provided entity field
+   * property. It first retrieves the shape's field properties and checks if
+   * there is more than one property. If there is more than one property, it
+   * returns FALSE, indicating that the shape cannot be matched by a single
+   * property. If there is only one property, it iterates through the shape's
+   * field properties and checks if the shape field property supports the given
+   * entity field property.
+   *
+   * @param \Drupal\Core\TypedData\DataDefinitionInterface $entityFieldProperty
+   *   The entity field property to check.
+   *
+   * @return bool
+   *   TRUE if the shape supports the given entity field property, FALSE
+   *   otherwise.
+   */
+  public function supportsFieldProperty(DataDefinitionInterface $entityFieldProperty): bool;
+
+  /**
    * Check if shape is scalar.
    *
    * @return bool
@@ -387,13 +544,5 @@ interface ComponentShapePluginInterface {
    *   Returns TRUE if the shape is traversable, FALSE otherwise.
    */
   public function isTraversable(): bool;
-
-  /**
-   * Cast to requirements.
-   *
-   * @return \Drupal\neo_alchemist\ShapeMatcher\DataTypeShapeRequirement|\Drupal\neo_alchemist\ShapeMatcher\DataTypeShapeRequirements|false
-   *   The requirements.
-   */
-  public function toRequirements(): DataTypeShapeRequirement|DataTypeShapeRequirements|false;
 
 }

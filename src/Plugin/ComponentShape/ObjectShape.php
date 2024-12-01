@@ -34,7 +34,7 @@ class ObjectShape extends ComponentShapePluginBase {
    *   The child shapes.
    */
   protected function getChildShapes(): array {
-    $shapes = $this->shapeManager->getInstancesFromSchema($this->getSchema(), $this->getEntity());
+    $shapes = $this->shapeManager->getInstancesFromSchema($this->getSchema(), $this->getComponent());
     $values = $this->getFieldItemValue();
     foreach ($shapes as $shape) {
       $shape->setFieldItemValue($values[$shape->getName()] ?? []);

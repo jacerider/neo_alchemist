@@ -15,46 +15,12 @@ use Drupal\neo_alchemist\ComponentShapePluginBase;
 #[ComponentShape(
   prop: 'integer',
   label: new TranslatableMarkup('Integer'),
+  default_field_type: 'integer',
+  default_field_type_with_options: 'list_integer',
+  default_field_widget: 'number',
+  default_field_widget_with_options: 'options_select',
 )]
 class IntegerShape extends ComponentShapePluginBase {
-
-  /**
-   * {@inheritDoc}
-   */
-  protected function getDefaultFieldType(): string {
-    if (array_key_exists('enum', $this->schema)) {
-      return 'list_integer';
-    }
-    return 'integer';
-  }
-
-  /**
-   * {@inheritDoc}
-   */
-  protected function getWidgetType(): ?string {
-    if (array_key_exists('enum', $this->schema)) {
-      return 'options_select';
-    }
-    return 'number';
-  }
-
-  /**
-   * {@inheritDoc}
-   */
-  public function getFieldStorageSettings(): array {
-    if (array_key_exists('enum', $this->schema)) {
-      return [
-        'allowed_values' => array_map(fn ($v) => [
-          'value' => $v,
-          'label' => (string) $v,
-        ], $this->schema['enum'])
-      ];
-    }
-    $settings = [];
-    $settings['min'] = $this->schema['minimum'] ?? (array_key_exists('exclusiveMinimum', $this->schema) ? $this->schema['exclusiveMinimum'] + 1 : '');
-    $settings['max'] = $this->schema['maximum'] ?? (array_key_exists('exclusiveMaximum', $this->schema) ? $this->schema['exclusiveMaximum'] - 1 : '');
-    return $settings;
-  }
 
   /**
    * {@inheritDoc}

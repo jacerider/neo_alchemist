@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Drupal\neo_alchemist;
 
 use Drupal\Component\Plugin\PluginBase;
-use Drupal\Core\Field\FieldItemInterface;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Plugin\PluginWithFormsInterface;
 use Drupal\Core\Plugin\PluginWithFormsTrait;
@@ -26,6 +25,13 @@ abstract class ComponentValueProviderPluginBase extends PluginBase implements Co
    * @var \Drupal\neo_alchemist\ComponentShapePluginInterface
    */
   protected ComponentShapePluginInterface $shape;
+
+  /**
+   * Flag to continue processing.
+   *
+   * @var bool
+   */
+  protected $continueProcessing = TRUE;
 
   /**
    * Creates a toolbar item instance.
@@ -150,10 +156,60 @@ abstract class ComponentValueProviderPluginBase extends PluginBase implements Co
   /**
    * {@inheritdoc}
    */
-  public function modify(FieldItemInterface $item, bool &$stopProcessing) {
+  public function isEditable(): bool {
+    return TRUE;
   }
 
-  public function widgetFormAlter(array &$element, FormStateInterface $form_state, FieldItemInterface $fieldItem) {
+  /**
+   * {@inheritdoc}
+   */
+  public function allowProcessing(string $op): bool {
+    return TRUE;
+  }
+
+  /**
+   * Allow the processing by setting the continue flag to FALSE.
+   *
+   * This will allow any following value providers to be processed.
+   *
+   * @return self
+   *   The current instance of the class.
+   */
+  protected function allowFurtherProcessing(): self {
+    $this->continueProcessing = TRUE;
+    return $this;
+  }
+
+  /**
+   * Stops the processing by setting the continue flag to FALSE.
+   *
+   * This will prevent any following value providers from being processed.
+   *
+   * @return self
+   *   The current instance of the class.
+   */
+  protected function stopFurtherProcessing(): self {
+    $this->continueProcessing = FALSE;
+    return $this;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function shouldContinueProcessing(): bool {
+    return $this->continueProcessing;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function onCalculateFieldItemValue() {
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function widgetFormAlter(array &$element, FormStateInterface $form_state) {
   }
 
 }

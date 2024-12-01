@@ -10,6 +10,7 @@ use Drupal\Core\DependencyInjection\DependencySerializationTrait;
 use Drupal\Core\Entity\ContentEntityInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Entity\Plugin\DataType\EntityAdapter;
+use Drupal\Core\Field\FieldDefinitionInterface;
 use Drupal\Core\Field\FieldItemInterface;
 use Drupal\Core\Field\FieldItemListInterface;
 use Drupal\Core\Field\WidgetInterface;
@@ -17,12 +18,10 @@ use Drupal\Core\Field\WidgetPluginManager;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Plugin\ContainerFactoryPluginInterface;
 use Drupal\Core\TypedData\DataDefinition;
+use Drupal\Core\TypedData\DataDefinitionInterface;
 use Drupal\Core\TypedData\TypedDataManagerInterface;
-use Drupal\neo_alchemist\JsonSchemaInterpreter\SdcPropJsonSchemaType;
 use Drupal\neo_alchemist\PropExpressions\Component\ComponentPropExpression;
 use Drupal\neo_alchemist\PropSource\FieldStorageDefinition;
-use Drupal\neo_alchemist\ShapeMatcher\DataTypeShapeRequirement;
-use Drupal\neo_alchemist\ShapeMatcher\DataTypeShapeRequirements;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
@@ -47,32 +46,25 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
   protected FieldItemInterface $fieldItem;
 
   /**
-   * The schema.
-   *
-   * @var array
-   */
-  protected array $schema;
-
-  /**
-   * The schema type.
-   *
-   * @var \Drupal\neo_alchemist\JsonSchemaInterpreter\SdcPropJsonSchemaType
-   */
-  protected SdcPropJsonSchemaType $schemaType;
-
-  /**
    * Whether the prop is required.
    *
    * @var bool
    */
-  protected bool $required;
+  protected bool $required = FALSE;
+
+  /**
+   * Whether the prop is editable.
+   *
+   * @var bool
+   */
+  protected bool $editable = TRUE;
 
   /**
    * The widget type.
    *
-   * @var string
+   * @var string|null
    */
-  protected string $widgetType;
+  protected ?string $widgetType;
 
   /**
    * The widget settings.
@@ -103,11 +95,21 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
   protected array $providerDefinitions;
 
   /**
-   * The entity.
+   * The field item list.
    *
-   * @var \Drupal\Core\Entity\ContentEntityInterface
+   * @var \Drupal\Core\Field\FieldItemListInterface
    */
-  protected ContentEntityInterface $entity;
+  protected FieldItemListInterface $fieldItemList;
+
+  /**
+   * The override value.
+   *
+   * This the value that will sit on top of the defeault value and any value
+   * providers.
+   *
+   * @var mixed
+   */
+  protected mixed $overrideValue = NULL;
 
   /**
    * Whether the field item value is the default value.
@@ -122,19 +124,14 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
   public function __construct(
     $plugin_id,
     $plugin_definition,
-    array $schema,
-    ContentEntityInterface $entity,
-    bool $required,
+    protected array $schema,
+    protected ComponentInterface $component,
     protected EntityTypeManagerInterface $entityTypeManager,
     protected TypedDataManagerInterface $typedDataManager,
     protected WidgetPluginManager $widgetManager,
     protected ComponentValueProviderPluginManager $valueProviderManager
   ) {
     parent::__construct([], $plugin_id, $plugin_definition);
-    $this->schema = $schema;
-    $this->schemaType = SdcPropJsonSchemaType::from($this->getType());
-    $this->entity = $entity;
-    $this->required = $required;
 
     $fieldType = $this->getFieldType();
     $fieldDataType = 'field_item:' . $fieldType;
@@ -154,7 +151,7 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
       'parent' => NULL,
       'data_definition' => $fieldItemDefinition,
     ]);
-    $this->fieldItem->setContext(NULL, EntityAdapter::createFromEntity($this->entity));
+    $this->fieldItem->setContext(NULL, EntityAdapter::createFromEntity($this->getComponent()->getTargetEntity()));
 
     /** @var \Drupal\neo_alchemist\PropSource\FieldStorageDefinition $fieldStorageDefinition */
     $fieldStorageDefinition = $this->fieldItem->getFieldDefinition();
@@ -171,8 +168,7 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
       $plugin_id,
       $plugin_definition,
       $configuration['schema'],
-      $configuration['entity'],
-      $configuration['required'],
+      $configuration['component'],
       $container->get('entity_type.manager'),
       $container->get(TypedDataManagerInterface::class),
       $container->get('plugin.manager.field.widget'),
@@ -186,6 +182,26 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
   public function label(): string {
     // Cast the label to a string since it is a TranslatableMarkup object.
     return (string) $this->pluginDefinition['label'];
+  }
+
+  /**
+   * Retrieves the supported field property types for the plugin.
+   *
+   * This method returns an array of supported field property types defined
+   * in the plugin definition. If no supported field property types are
+   * defined, an empty array is returned.
+   *
+   * @return array
+   *   An array of supported field property types.
+   */
+  protected function getSupportedFieldPropertyTypes(): array {
+    $props = $this->pluginDefinition['supports_field_props'] ?? [];
+    $shapeFieldProperties = $this->getFieldItemList()->getFieldDefinition()->getFieldStorageDefinition()->getPropertyDefinitions();
+    if (count($shapeFieldProperties) === 1) {
+      // If shape has only one property, we can use the field property type.
+      $props[] = reset($shapeFieldProperties)->getDataType();
+    }
+    return array_unique($props);
   }
 
   /**
@@ -231,6 +247,15 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
   /**
    * {@inheritdoc}
    */
+  public function getAllowedValueProviders(string $op): array {
+    return array_filter($this->getValueProviders(), function (ComponentValueProviderPluginInterface $provider) use ($op) {
+      return $provider->allowProcessing($op);
+    });
+  }
+
+  /**
+   * {@inheritdoc}
+   */
   public function getValueProvider(string $providerId, array $settings = NULL): ?ComponentValueProviderPluginInterface {
     if (!isset($this->getValueProviderDefinitions()[$providerId])) {
       return NULL;
@@ -250,24 +275,10 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
   }
 
   /**
-   * {@inheritdoc}
-   */
-  public function getExpression(): ComponentPropExpression {
-    return new ComponentPropExpression($this->getPluginId(), $this->getName());
-  }
-
-  /**
    * {@inheritDoc}
    */
   public function getSchema(): array {
     return $this->schema;
-  }
-
-  /**
-   * {@inheritDoc}
-   */
-  public function getSchemaType(): SdcPropJsonSchemaType {
-    return $this->schemaType;
   }
 
   /**
@@ -308,6 +319,21 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
   /**
    * {@inheritDoc}
    */
+  public function getScope(): string {
+    return $this->component->getScope();
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  public function setRequired(bool $required = TRUE): self {
+    $this->required = $required;
+    return $this;
+  }
+
+  /**
+   * {@inheritDoc}
+   */
   public function isRequired(): bool {
     return $this->required;
   }
@@ -315,22 +341,53 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
   /**
    * {@inheritDoc}
    */
+  public function setEditable(bool $editable = TRUE): self {
+    $this->editable = $editable;
+    return $this;
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  public function isEditable(): bool {
+    $editable = $this->editable;
+    foreach ($this->getAllowedValueProviders('edit') as $providerId => $instance) {
+      if (!$instance->isEditable()) {
+        $editable = FALSE;
+      }
+      if (!$instance->shouldContinueProcessing()) {
+        break;
+      }
+    }
+    return $editable;
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  public function getComponent(): ComponentInterface {
+    return $this->component;
+  }
+
+  /**
+   * {@inheritDoc}
+   */
   public function getEntity(): ContentEntityInterface {
-    return $this->entity;
+    return $this->getComponent()->getTargetEntity();
   }
 
   /**
    * {@inheritDoc}
    */
-  public function getEntityType(): string {
-    return $this->getEntity()->getEntityTYpeId();
+  public function getTargetEntityType(): string {
+    return $this->getComponent()->getTargetEntityTypeId();
   }
 
   /**
    * {@inheritDoc}
    */
-  public function getEntityBundle(): string {
-    return $this->getEntity()->bundle();
+  public function getTargetEntityBundle(): string {
+    return $this->getComponent()->getTargetEntityBundle();
   }
 
   /**
@@ -347,7 +404,11 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
    *   The field type.
    */
   protected function getDefaultFieldType(): string {
-    return $this->pluginDefinition['prop'];
+    $fieldType = $this->pluginDefinition['default_field_type'] ?? $this->pluginDefinition['prop'];
+    if ($this->getFieldOptions()) {
+      $fieldType = $this->pluginDefinition['default_field_type_with_options'] ?? $fieldType;
+    }
+    return $fieldType;
   }
 
   /**
@@ -364,7 +425,14 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
    *   The default field storage settings.
    */
   protected function getDefaultFieldStorageSettings(): array {
-    return [];
+    $settings = [];
+    if ($options = $this->getFieldOptions()) {
+      $settings['allowed_values'] = array_map(fn ($v) => [
+        'value' => $v,
+        'label' => ucwords(str_replace(['-', '_'], ' ', (string) $v)),
+      ], $options);
+    }
+    return $settings;
   }
 
   /**
@@ -381,7 +449,61 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
    *   The default field instance settings.
    */
   protected function getDefaultFieldInstaceSettings(): array {
-    return [];
+    $settings = [];
+    if ($min = $this->schema['minimum'] ?? (array_key_exists('exclusiveMinimum', $this->schema) ? $this->schema['exclusiveMinimum'] + 1 : '')) {
+      $settings['min'] = $min;
+    }
+    if ($max = $this->schema['maximum'] ?? (array_key_exists('exclusiveMaximum', $this->schema) ? $this->schema['exclusiveMaximum'] - 1 : '')) {
+      $settings['max'] = $max;
+    }
+    return $settings;
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  public function getFieldOptions(): ?array {
+    if (array_key_exists('enum', $this->schema)) {
+      return $this->schema['enum'];
+    }
+    return NULL;
+  }
+
+  /**
+   * Retrieves the field item list for the component shape.
+   *
+   * This method creates a new field item list instance based on the field
+   * storage definition and sets the required property. It then gets the
+   * current field item and sets it as the sole value of the field item list.
+   * If a host entity is available, it sets the context for the field item list
+   * with the host entity.
+   *
+   * @return \Drupal\Core\Field\FieldItemListInterface
+   *   The field item list instance.
+   */
+  public function getFieldItemList(): FieldItemListInterface {
+    if (!isset($this->fieldItemList)) {
+      /** @var \Drupal\neo_alchemist\PropSource\FieldStorageDefinition $fieldStorageDefinition */
+      $fieldStorageDefinition = $this->fieldItem->getFieldDefinition();
+
+      $list_class = $fieldStorageDefinition->getClass();
+      $fieldStorageDefinition->setRequired($this->required);
+      $field = (new $list_class($fieldStorageDefinition, $fieldStorageDefinition->getName(), NULL));
+      $field->set(0, $this->fieldItem);
+
+      // Only *after* the field item list has had its conjured field item set as
+      // the sole value, it becomes safe to specify the host entity. Most widgets
+      // do not need an entity context, but some do:
+      // @see \Drupal\file\Plugin\Field\FieldWidget\FileWidget
+      // @see \Drupal\image\Plugin\Field\FieldWidget\ImageWidget
+      if ($hostEntity = $this->getEntity()) {
+        $field->setContext(NULL, EntityAdapter::createFromEntity($hostEntity));
+        assert($fieldStorageDefinition instanceof FieldStorageDefinition);
+        $fieldStorageDefinition->setTargetEntityTypeId($hostEntity->getEntityTypeId());
+      }
+      $this->fieldItemList = $field;
+    }
+    return $this->fieldItemList;
   }
 
   /**
@@ -432,14 +554,28 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
     return $fieldItem->getValue();
   }
 
-  protected mixed $overrideValue;
-
-  public function setOverrideValue(mixed $value) {
+  /**
+   * Sets the override value.
+   *
+   * @param mixed $value
+   *   The value to set as the override.
+   *
+   * @return $this
+   *   The current instance for method chaining.
+   */
+  public function setOverrideValue(mixed $value): self {
     $this->overrideValue = $value;
     return $this;
   }
 
-  public function getOverrideValue(): mixed {
+  /**
+   * Retrieves the override value.
+   *
+   * @return array|string|int|float|bool
+   *   The override value, which can be of various types including array,
+   *   string, integer, float, or boolean.
+   */
+  public function getOverrideValue(): array|string|int|float|bool|null {
     return $this->overrideValue;
   }
 
@@ -447,38 +583,42 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
    * {@inheritDoc}
    */
   public function getFieldItemValue(): array {
-    return $this->fieldItem->getValue();
-    // $fieldItem = clone $this->fieldItem;
-    // if ($this->isDefaultValue || TRUE) {
-    //   $stopProcessing = FALSE;
-    //   foreach ($this->getValueProviders() as $providerId => $instance) {
-    //     $instance->modify($fieldItem, $stopProcessing);
-    //     if ($stopProcessing === TRUE) {
-    //       break;
-    //     }
-    //   }
-    // }
-    // return $fieldItem->getValue();
+    return !$this->isFieldItemEmpty() ? $this->fieldItem->getValue() : [];
   }
 
+  /**
+   * Checks if the field item is empty.
+   *
+   * This method determines whether the field item associated with this
+   * component is empty or not.
+   *
+   * Shapes can override this method to provide custom logic for determining
+   * whether the field item is empty. This might be necessary if the shape
+   * provides non-standard field item values.
+   *
+   * @return bool
+   *   TRUE if the field item is empty, FALSE otherwise.
+   */
+  protected function isFieldItemEmpty(): bool {
+    return $this->fieldItem->isEmpty();
+  }
+
+  /**
+   * {@inheritDoc}
+   */
   public function calculateFieldItemValue(): self {
+    // We need a way to process values. Start with schema defaults. Then modify
+    // with value providers. Then overlay the user input.
     $this->fieldItem->setValue($this->getDefaultValue());
-    $stopProcessing = FALSE;
-    foreach ($this->getValueProviders() as $providerId => $instance) {
-      $instance->modify($this->fieldItem, $stopProcessing);
-      if ($stopProcessing === TRUE) {
+    foreach ($this->getAllowedValueProviders('calculate') as $providerId => $instance) {
+      $instance->onCalculateFieldItemValue();
+      if (!$instance->shouldContinueProcessing()) {
         break;
       }
     }
-    if (isset($this->overrideValue)) {
+    if (isset($this->overrideValue) && $this->isEditable()) {
       $this->fieldItem->setValue($this->overrideValue);
     }
-    // We need a way to process values. Start with schema defaults. Then modify
-    // with value providers. Then overlay the user input.
-    // The question is when should I do this? Right now, user input is being set
-    // in the component shape plugin manager. Do we set it as its own property
-    // so that we can call this method over again when new value providers are
-    // set or new overrides are set?
     return $this;
   }
 
@@ -495,15 +635,6 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
     $this->fieldItem->setValue($value);
     return $this;
   }
-
-  // /**
-  //  * {@inheritDoc}
-  //  */
-  // public function setFieldItemDefaultValue(mixed $value): self {
-  //   $this->setFieldItemValue($value);
-  //   $this->isDefaultValue = TRUE;
-  //   return $this;
-  // }
 
   /**
    * {@inheritDoc}
@@ -576,7 +707,11 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
    *   The default widget type.
    */
   protected function getDefaultWidgetType(): ?string {
-    return NULL;
+    $widgetType = $this->pluginDefinition['default_field_widget'] ?? NULL;
+    if ($this->getFieldOptions()) {
+      $widgetType = $this->pluginDefinition['default_field_widget_with_options'] ?? $widgetType;
+    }
+    return $widgetType;
   }
 
   /**
@@ -611,40 +746,12 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
     if (!$widget) {
       return $elements;
     }
-
-    /** @var \Drupal\neo_alchemist\PropSource\FieldStorageDefinition $fieldStorageDefinition */
-    $fieldStorageDefinition = $this->fieldItem->getFieldDefinition()->getFieldStorageDefinition();
-    $list_class = $fieldStorageDefinition->getClass();
-    $fieldStorageDefinition->setRequired($this->required);
-    $field = (new $list_class($fieldStorageDefinition, $fieldStorageDefinition->getName(), NULL));
-
-    $fieldItem = clone $this->fieldItem;
-    $field->set(0, $fieldItem);
-
-    // Only *after* the field item list has had its conjured field item set as
-    // the sole value, it becomes safe to specify the host entity. Most widgets
-    // do not need an entity context, but some do:
-    // @see \Drupal\file\Plugin\Field\FieldWidget\FileWidget
-    // @see \Drupal\image\Plugin\Field\FieldWidget\ImageWidget
-    if ($hostEntity = $this->getEntity()) {
-      $field->setContext(NULL, EntityAdapter::createFromEntity($hostEntity));
-      $field_storage_definition = $field->getFieldDefinition()->getFieldStorageDefinition();
-      assert($field_storage_definition instanceof FieldStorageDefinition);
-      $field_storage_definition->setTargetEntityTypeId($hostEntity->getEntityTypeId());
-    }
-
+    $field = $this->getFieldItemList();
     $elements['#parents'] = $form['#parents'] ?? [];
     $widgetForm = $widget->form($field, $elements, $form_state);
-    foreach ($this->getValueProviders() as $providerId => $instance) {
-      $instance->widgetFormAlter($widgetForm['widget'], $form_state, $fieldItem);
-      // ksm($instance);
-      // $instance->modify($fieldItem, $stopProcessing);
+    foreach ($this->getAllowedValueProviders('form') as $instance) {
+      $instance->widgetFormAlter($widgetForm, $form_state);
     }
-
-    // $widgetForm['widget']['default'] = [
-    //   '#type' => 'checkbox',
-    //   '#title' => t('Use default value'),
-    // ];
     return $widgetForm;
   }
 
@@ -669,6 +776,98 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
     $actualValues = $fieldItem->getValue();
     $storedValues = array_intersect_key($actualValues, $fieldItem->getProperties(FALSE));
     return $storedValues;
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  public function allowFieldDefinition(FieldDefinitionInterface $entityFieldDefinition): bool {
+    $fieldDefinition = $this->getFieldItemList()->getFieldDefinition();
+    $fieldStorageSettings = $fieldDefinition->getFieldStorageDefinition()->getSettings();
+    $entityFieldStorageSettings = $entityFieldDefinition->getFieldStorageDefinition()->getSettings();
+    // If we have allowed values (enum), we need to check if they match.
+    if (isset($fieldStorageSettings['allowed_values'])) {
+      if (count(array_intersect_key($fieldStorageSettings['allowed_values'] ?? [], $entityFieldStorageSettings['allowed_values'] ?? [])) !== count($fieldStorageSettings['allowed_values'])) {
+        return FALSE;
+      }
+    }
+    // Max length.
+    if (isset($fieldStorageSettings['max_length']) && $fieldStorageSettings['max_length'] < ($entityFieldStorageSettings['max_length'] ?? 0)) {
+      return FALSE;
+    }
+
+    // Perform settings comparison.
+    $shapeFieldSettings = $fieldDefinition->getSettings();
+    $fieldSettings = $entityFieldDefinition->getSettings();
+    if (!empty($shapeFieldSettings['min']) && (int) $shapeFieldSettings['min'] > (int) ($fieldSettings['min'] ?? 0)) {
+      return FALSE;
+    }
+    if (!empty($shapeFieldSettings['max']) && (int) $shapeFieldSettings['max'] < (int) ($fieldSettings['max'] ?? 0)) {
+      return FALSE;
+    }
+    return TRUE;
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  public function supportsFieldDefinition(FieldDefinitionInterface $entityFieldDefinition): bool {
+    $fieldDefinition = $this->getFieldItemList()->getFieldDefinition();
+    if ($fieldDefinition->getType() === $entityFieldDefinition->getType()) {
+      return TRUE;
+    }
+    return FALSE;
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  public function supportsFieldProperties(array $entityFieldProperties): bool {
+    if (count($entityFieldProperties) === 1) {
+      $shapeFieldProperties = $this->getFieldItemList()->getFieldDefinition()->getFieldStorageDefinition()->getPropertyDefinitions();
+      if (count($shapeFieldProperties) === 1) {
+        // When both the shape and the field have only one property, we can
+        // match them directly.
+        return $this->supportsShapeFieldProperty(reset($shapeFieldProperties), reset($entityFieldProperties));
+      }
+    }
+    return FALSE;
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  public function supportsFieldProperty(DataDefinitionInterface $entityFieldProperty): bool {
+    $shapeFieldProperties = $this->getFieldItemList()->getFieldDefinition()->getFieldStorageDefinition()->getPropertyDefinitions();
+    if (count($shapeFieldProperties) > 1) {
+      // This shape has more than one property and cannot by matched by a single
+      // property.
+      return FALSE;
+    }
+    foreach ($shapeFieldProperties as $shapeFieldPropertyName => $shapeFieldProperty) {
+      if ($this->supportsShapeFieldProperty($shapeFieldProperty, $entityFieldProperty)) {
+        return TRUE;
+      }
+    }
+    return FALSE;
+  }
+
+  /**
+   * Check if a single field property is supported.
+   *
+   * Returning TRUE means that the requirement of the shape is met by a single
+   * property of this field.
+   *
+   * @param \Drupal\Core\TypedData\DataDefinitionInterface $shapeFieldProperty
+   *   A shape field property.
+   * @param \Drupal\Core\TypedData\DataDefinitionInterface $entityFieldProperty
+   *   The field property.
+   *
+   * @return bool
+   *   Returns TRUE if the field property is supported, FALSE otherwise.
+   */
+  protected function supportsShapeFieldProperty(DataDefinitionInterface $shapeFieldProperty, DataDefinitionInterface $entityFieldProperty): bool {
+    return in_array($entityFieldProperty->getDataType(), $this->getSupportedFieldPropertyTypes());
   }
 
   /**
@@ -701,7 +900,24 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
    *   Returns TRUE if the shape is scalar, FALSE otherwise.
    */
   public function isScalar(): bool {
-    return $this->schemaType->isScalar();
+    return match ($this) {
+      // A subset of the "primitive types" in JSON schema are:
+      // - "scalar values" in PHP terminology
+      // - "primitives" in Drupal Typed data terminology.
+      // @see https://www.php.net/manual/en/function.is-scalar.php
+      // @see \Drupal\Core\TypedData\PrimitiveInterface
+      self::STRING, self::NUMBER, self::INTEGER, self::BOOLEAN => TRUE,
+      // Another subset of the "primitive types" in JSON schema are:
+      // - "non-scalar values" in PHP terminology, specifically "iterable"
+      // - "traversable" in Drupal Typed Data terminology, specifically "lists"
+      //   ("sequences" in config schema) or "complex data" ("mappings" in
+      //   config schema)
+      // @see https://www.php.net/manual/en/function.is-iterable.php
+      // @see \Drupal\Core\TypedData\ListInterface
+      // @see \Drupal\Core\TypedData\ComplexDataInterface
+      // @see \Drupal\Core\TypedData\TraversableTypedDataInterface
+      self::ARRAY, self::OBJECT => FALSE,
+    };
   }
 
   /**
@@ -711,7 +927,7 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
    *   Returns TRUE if the shape is iterable, FALSE otherwise.
    */
   public function isIterable(): bool {
-    return $this->schemaType->isIterable();
+    return !$this->isScalar();
   }
 
   /**
@@ -721,17 +937,7 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
    *   Returns TRUE if the shape is traversable, FALSE otherwise.
    */
   public function isTraversable(): bool {
-    return $this->schemaType->isTraversable();
-  }
-
-  /**
-   * Cast to requirements.
-   *
-   * @return \Drupal\neo_alchemist\ShapeMatcher\DataTypeShapeRequirement|\Drupal\neo_alchemist\ShapeMatcher\DataTypeShapeRequirements|false
-   *   The requirements.
-   */
-  public function toRequirements(): DataTypeShapeRequirement|DataTypeShapeRequirements|false {
-    return $this->schemaType->toDataTypeShapeRequirements($this->getSchema());
+    return !$this->isScalar();
   }
 
   /**

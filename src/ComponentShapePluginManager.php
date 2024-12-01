@@ -31,17 +31,17 @@ final class ComponentShapePluginManager extends DefaultPluginManager {
    *
    * @param array $schema
    *   The schema.
-   * @param \Drupal\Core\Entity\ContentEntityInterface $entity
-   *   The entity.
+   * @param \Drupal\neo_alchemist\ComponentInterface $component
+   *   The neo component.
    * @param array $values
    *   The value overrides.
-   * @param array $props
-   *   The props.
+   * @param array $propSettings
+   *   The prop settings.
    *
    * @return \Drupal\neo_alchemist\ComponentShapePluginInterface[]
    *   The instances.
    */
-  public function getInstancesFromSchema(array $schema, ContentEntityInterface $entity, array $values = [], array $propSettings = []): array {
+  public function getInstancesFromSchema(array $schema, ComponentInterface $component, array $values = [], array $propSettings = []): array {
     $instances = [];
     if (!empty($schema['properties'])) {
       foreach ($schema['properties'] as $propName => $prop) {
@@ -61,26 +61,27 @@ final class ComponentShapePluginManager extends DefaultPluginManager {
         $required = in_array($propName, $schema['required'] ?? [], TRUE);
         if ($shape = $this->getInstance([
           'schema' => $prop,
-          'entity' => $entity,
-          'required' => $required,
+          'component' => $component,
         ])) {
-          // if ($propName === 'image') {
-          //   $shape->setWidget('neo_options_buttons');
-          // }
-          if (isset($propSettings[$propName]['field_type']) && $propSettings[$propName]['field_type'] === $shape->getFieldType()) {
-            // Type-check provided prop configuration and use providers.
-            foreach ($propSettings[$propName]['providers'] as $provider) {
-              $shape->addValueProvider($provider['plugin'], $provider['settings']);
+          // $shape->setComponent($neoComponent);
+          // $shape->setScope($scope);
+          $shape->setRequired($required);
+          if (!empty($propSettings[$propName])) {
+            $shape->setEditable($propSettings[$propName]['editable'] ?? TRUE);
+            if (isset($propSettings[$propName]['field_type']) && $propSettings[$propName]['field_type'] === $shape->getFieldType()) {
+              // Type-check provided prop configuration and use providers.
+              foreach ($propSettings[$propName]['providers'] ?? [] as $provider) {
+                $shape->addValueProvider($provider['plugin'], $provider['settings']);
+              }
             }
           }
           // Make sure we match the stored field type with the prop field type.
           if (isset($values['props'][$propName]) && $values['props'][$propName]['field_type'] === $shape->getFieldType()) {
             if (isset($values['props'][$propName]['value'])) {
-              // ksm('set', $propName);
               $shape->setOverrideValue($values['props'][$propName]['value']);
-              // $shape->setFieldItemValue($values['props'][$propName]['value']);
             }
           }
+          // Given all provided values, calculate the field item value.
           $shape->calculateFieldItemValue();
           $instances[$propName] = $shape;
         }
@@ -98,14 +99,12 @@ final class ComponentShapePluginManager extends DefaultPluginManager {
   public function getInstance(array $options): ?ComponentShapePluginInterface {
     $options += [
       'schema' => [],
-      'entity' => NULL,
-      'required' => FALSE,
+      'component' => NULL,
     ];
     $schema = $options['schema'];
     $type = is_array($schema['type']) ? $schema['type'][0] : $schema['type'];
     $configuration['schema'] = $schema;
-    $configuration['entity'] = $options['entity'];
-    $configuration['required'] = $options['required'];
+    $configuration['component'] = $options['component'];
     if (!empty($schema['ref']) && $this->hasDefinition($schema['ref'])) {
       $type = $schema['ref'];
     }
@@ -124,7 +123,7 @@ final class ComponentShapePluginManager extends DefaultPluginManager {
       return $plugin_class::create(\Drupal::getContainer(), $configuration, $plugin_id, $plugin_definition);
     }
 
-    return new $plugin_class($plugin_id, $plugin_definition, $configuration['schema'], $configuration['entity'], $configuration['required']);
+    return new $plugin_class($plugin_id, $plugin_definition, $configuration['schema'], $configuration['component']);
   }
 
 }

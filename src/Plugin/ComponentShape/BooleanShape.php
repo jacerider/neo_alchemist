@@ -15,22 +15,10 @@ use Drupal\neo_alchemist\ComponentShapePluginBase;
 #[ComponentShape(
   prop: 'boolean',
   label: new TranslatableMarkup('Boolean'),
+  default_field_type: 'boolean',
+  default_field_widget: 'boolean_checkbox',
 )]
 class BooleanShape extends ComponentShapePluginBase {
-
-  /**
-   * {@inheritDoc}
-   */
-  protected function getDefaultFieldType(): string {
-    return 'boolean';
-  }
-
-  /**
-   * {@inheritDoc}
-   */
-  protected function getWidgetType(): ?string {
-    return 'boolean_checkbox';
-  }
 
   /**
    * {@inheritDoc}

@@ -25,7 +25,7 @@ props:
       type: integer
       title: Integer
       description: The super integer.
-      minimum: 4
+      minimum: 3
       maximum: 6
       examples: [5]
     number:
@@ -38,21 +38,21 @@ props:
       title: Boolean
       description: The super boolean.
       examples: [false]
-    # link:
-    #   type: link
-    #   title: Link
-    #   description: The super link.
-    #   examples:
-    #     -
-    #       uri: internal:/
-    #       title: Call to action
-    # url:
-    #   type: url
-    #   title: Url
-    #   description: The super url.
-    #   examples:
-    #     -
-    #       uri: internal:/
+    link:
+      type: link
+      title: Link
+      description: The super link.
+      examples:
+        -
+          uri: internal:/
+          title: Call to action
+    url:
+      type: url
+      title: Url
+      description: The super url.
+      examples:
+        -
+          uri: internal:/
     color:
       type: string
       title: Color

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\neo_alchemist;
 
-use Drupal\Component\Utility\SortArray;
+use Drupal\Core\Entity\ContentEntityInterface;
 use Drupal\Core\Entity\EntityFieldManagerInterface;
 use Drupal\Core\Entity\EntityTypeBundleInfoInterface;
 use Drupal\Core\Entity\Plugin\DataType\ConfigEntityAdapter;
@@ -12,31 +12,20 @@ use Drupal\Core\Entity\Plugin\DataType\EntityAdapter;
 use Drupal\Core\Entity\Plugin\DataType\EntityReference;
 use Drupal\Core\Entity\TypedData\EntityDataDefinition;
 use Drupal\Core\Entity\TypedData\EntityDataDefinitionInterface;
+use Drupal\Core\Field\EntityReferenceFieldItemListInterface;
 use Drupal\Core\Field\FieldDefinitionInterface;
 use Drupal\Core\Field\FieldItemInterface;
+use Drupal\Core\Field\FieldItemListInterface;
 use Drupal\Core\Field\TypedData\FieldItemDataDefinitionInterface;
 use Drupal\Core\TypedData\DataDefinitionInterface;
 use Drupal\Core\TypedData\DataReferenceDefinitionInterface;
-use Drupal\Core\TypedData\Plugin\DataType\BooleanData;
-use Drupal\Core\TypedData\Plugin\DataType\FloatData;
-use Drupal\Core\TypedData\Plugin\DataType\IntegerData;
-use Drupal\Core\TypedData\Plugin\DataType\StringData;
 use Drupal\Core\TypedData\PrimitiveInterface;
 use Drupal\Core\TypedData\TypedDataInterface;
 use Drupal\Core\TypedData\TypedDataManagerInterface;
 use Drupal\Core\Validation\ConstraintManager;
-use Drupal\Core\Validation\Plugin\Validation\Constraint\ComplexDataConstraint;
-use Drupal\file\Plugin\Field\FieldType\FileItem;
-use Drupal\file\Plugin\Field\FieldType\FileUriItem;
-use Drupal\neo_alchemist\JsonSchemaInterpreter\SdcPropJsonSchemaType;
-use Drupal\neo_alchemist\PropExpressions\StructuredData\FieldPropExpression;
-use Drupal\neo_alchemist\PropExpressions\StructuredData\ReferenceFieldPropExpression;
-use Drupal\neo_alchemist\PropExpressions\StructuredData\FieldObjectPropsExpression;
-use Drupal\neo_alchemist\ShapeMatcher\DataTypeShapeRequirement;
-use Symfony\Component\Validator\Constraint;
 
 /**
- * @todo Add class description.
+ * Provides methods for matching fields between content entities and shapes.
  */
 final class FieldMatcher {
 
@@ -50,133 +39,311 @@ final class FieldMatcher {
     private readonly EntityFieldManagerInterface $entityFieldManager,
   ) {}
 
-  public function getMatchesAsOptions(ComponentShapePluginInterface $shape): array {
-    $matches = $this->getMatches($shape);
-    $host_entity_type_id = $shape->getEntityType();
-    $host_entity_type_bundle = $shape->getEntityBundle();
-    if ($host_entity_type_id) {
-      $field_definitions = $this->entityFieldManager->getFieldDefinitions($host_entity_type_id, $host_entity_type_bundle);
-      $matches = array_combine(
-        array_map(
-          function (FieldPropExpression|FieldObjectPropsExpression|ReferenceFieldPropExpression $e) use ($field_definitions, $host_entity_type_id, $host_entity_type_bundle) {
-            $field_name = $e instanceof ReferenceFieldPropExpression
-              ? $e->referencer->fieldName
-              : $e->fieldName;
-            // ksm(get_class($e), $field_name, $e->fieldName, (string) $e);
-            $field_definition = $field_definitions[$field_name];
-            assert($field_definition instanceof FieldDefinitionInterface);
-            return (string) t("This @entity's @field-label", [
-              '@entity' => $this->entityTypeBundleInfo->getBundleInfo($host_entity_type_id)[$host_entity_type_bundle]['label'],
-              '@field-label' => $field_definition->getLabel(),
-            ]);
-          },
-          $matches,
-        ),
-      $matches);
-    }
-    return $matches;
+  /**
+   * Retrieves the value of a specified field from a content entity.
+   *
+   * This method takes a content entity and a key representing the field path,
+   * then returns the value of that field. The key can be a dot-separated string
+   * to indicate nested fields.
+   *
+   * @param \Drupal\Core\Entity\ContentEntityInterface $entity
+   *   The content entity from which to retrieve the field value.
+   * @param string $key
+   *   The dot-separated string representing the field path.
+   *
+   * @return mixed
+   *   The value of the specified field.
+   */
+  public function getEntityValue(ContentEntityInterface $entity, $key): mixed {
+    $path = explode('.', $key);
+    return $this->recurseEntity($entity, $path);
   }
 
   /**
-   * @todo Add method description.
+   * Retrieves the field definition for a given key from the component shape.
+   *
+   * @param \Drupal\neo_alchemist\ComponentShapePluginInterface $shape
+   *   The component shape plugin instance.
+   * @param string $key
+   *   The key for which the field definition is to be retrieved.
+   *
+   * @return \Drupal\Core\Field\FieldDefinitionInterface|null
+   *   The field definition if found, or NULL if no matching definition exists.
+   */
+  public function getFieldDefinition(ComponentShapePluginInterface $shape, string $key): ?FieldDefinitionInterface {
+    $matches = $this->getMatches($shape);
+    return $matches[$key]['definition'] ?? NULL;
+  }
+
+  /**
+   * Recursively retrieves the value of a field from a content entity.
+   *
+   * @param \Drupal\Core\Entity\ContentEntityInterface $entity
+   *   The content entity from which to retrieve the field value.
+   * @param array $path
+   *   An array representing the path to the field. Each element in the array
+   *   should be a string in the format 'field_name:property', where 'property'
+   *   is optional.
+   *
+   * @return mixed
+   *   The value of the field or property, or an empty array if the field or
+   *   property does not exist or is empty.
+   */
+  private function recurseEntity(ContentEntityInterface $entity, array $path): mixed {
+    $value = [];
+    $key = array_shift($path);
+    $parts = explode(':', $key);
+    $fieldName = $parts[0];
+    $property = $parts[1] ?? NULL;
+    if (!$entity->hasField($fieldName)) {
+      return $value;
+    }
+    $field = $entity->get($fieldName);
+    if ($field->isEmpty()) {
+      return $value;
+    }
+    // If we have a reference field and there is a path, recurse.
+    if ($field instanceof EntityReferenceFieldItemListInterface && !empty($path)) {
+      if (!$field->entity) {
+        return $value;
+      }
+      $value = $this->recurseEntity($field->entity, $path);
+    }
+    elseif ($field instanceof FieldItemListInterface) {
+      $value = $field->first()->getValue();
+      if ($property) {
+        return $value[$property] ?? [];
+      }
+      // If $path is not empty, we are requesting a property.
+      return $field->first()->getValue();
+    }
+    return $value;
+  }
+
+  /**
+   * Retrieves matches as options for a given component shape.
+   *
+   * This method processes the matches obtained from the `getMatches` method
+   * and organizes them into an associative array suitable for use as options
+   * in a select input or similar UI component. The options are grouped by
+   * their respective group names, with each group's name capitalized.
+   *
+   * @param ComponentShapePluginInterface $shape
+   *   The component shape plugin interface instance for which matches are to be
+   *   retrieved.
+   *
+   * @return array
+   *   An associative array of options, grouped by their respective group names.
+   *   The array structure is as follows:
+   *   [
+   *     'GroupName' => [
+   *       'key' => 'Title',
+   *       ...
+   *     ],
+   *     ...
+   *   ]
+   */
+  public function getMatchesAsOptions(ComponentShapePluginInterface $shape): array {
+    $options = [];
+    foreach ($this->getMatches($shape) as $key => [
+      'title' => $title,
+      'group' => $group,
+      'definition' => $definition,
+    ]) {
+      $options[ucwords($group)][$key] = $title;
+    }
+    return $options;
+  }
+
+  /**
+   * Gets the matches for the given component shape.
+   *
+   * This method retrieves the matches for a given component shape by
+   * determining the target entity type and bundle, creating an entity data
+   * definition, and then matching it against the shape. The matches are then
+   * sorted by weight and title.
+   *
+   * @param \Drupal\neo_alchemist\ComponentShapePluginInterface $shape
+   *   The component shape plugin interface.
+   *
+   * @return array
+   *   An array of matches, sorted by weight and title.
    */
   public function getMatches(ComponentShapePluginInterface $shape): array {
     $matches = [];
 
-    if ($entityType = $shape->getEntityType()) {
+    if ($entityType = $shape->getTargetEntityType()) {
       $dataType = implode(':', array_filter([
         'entity',
         $entityType,
-        $shape->getEntityBundle(),
+        $shape->getTargetEntityBundle(),
       ]));
-      $entity_data_definition = EntityDataDefinition::createFromDataType($dataType);
+      $entityDataDefinition = EntityDataDefinition::createFromDataType($dataType);
     }
     else {
       return $matches;
     }
 
-    $matches = $this->matchEntityProps($entity_data_definition, 1, $shape);
-    uasort($matches, [SortArray::class, 'sortByTitleElement']);
+    $matches = $this->match($entityDataDefinition, $shape, 1);
+
+    uasort($matches, function ($a, $b) {
+      $a_weight = $a['weight'] ?? 0;
+      $b_weight = $b['weight'] ?? 0;
+      if ($a_weight == $b_weight) {
+        $a_label = $a['title'];
+        $b_label = $b['title'];
+        return strnatcasecmp((string) $a_label, (string) $b_label);
+      }
+      return ($a_weight < $b_weight) ? 1 : -1;
+    });
+
     return $matches;
   }
 
-  private function matchEntityProps(EntityDataDefinitionInterface $entity_data_definition, int $levels_to_recurse, ComponentShapePluginInterface $shape, array $parent_definitions = []): array {
-    $matches = [];
+  /**
+   * Matches the entity data definition with the component shape plugin.
+   *
+   * This method determines whether the shape is scalar or iterable and
+   * delegates the matching process to the appropriate method.
+   *
+   * @param \Drupal\Core\Entity\TypedData\EntityDataDefinitionInterface $entityDataDefinition
+   *   The entity data definition to match.
+   * @param \Drupal\neo_alchemist\ComponentShapePluginInterface $shape
+   *   The component shape plugin to match against.
+   * @param int $level
+   *   The current level of matching.
+   * @param array $parentDefinitions
+   *   (optional) An array of parent definitions. Defaults to an empty array.
+   *
+   * @return array
+   *   An array of matched definitions.
+   */
+  private function match(EntityDataDefinitionInterface $entityDataDefinition, ComponentShapePluginInterface $shape, int $level, array $parentDefinitions = []): array {
     if ($shape->isScalar()) {
-      $matches = $this->matchEntityPropsForScalar($entity_data_definition, $levels_to_recurse, $shape, $parent_definitions);
+      return $this->matchScalar($entityDataDefinition, $shape, $level, $parentDefinitions);
     }
     else {
-      // assert(is_array($shape->getSchema()));
-      // return $this->matchEntityPropsForIterable($entity_data_definition, $levels_to_recurse, $shape);
+      return $this->matchIterable($entityDataDefinition, $shape, $level, $parentDefinitions);
     }
-    return $matches;
   }
 
   /**
-   * @todo Add method description.
+   * Matches an iterable entity data definition with a component shape plugin.
+   *
+   * This method attempts to match an iterable entity data definition with a
+   * given component shape plugin at a specified level. It delegates the actual
+   * matching logic to the matchScalar method.
+   *
+   * @param \Drupal\Core\Entity\TypedData\EntityDataDefinitionInterface $entityDataDefinition
+   *   The entity data definition to match.
+   * @param \Drupal\neo_alchemist\ComponentShapePluginInterface $shape
+   *   The component shape plugin to match against.
+   * @param int $level
+   *   The current level of matching.
+   * @param array $parentDefinitions
+   *   (optional) An array of parent definitions for context. Defaults to an
+   *   empty array.
+   *
+   * @return mixed
+   *   The result of the matchScalar method.
    */
-  private function matchEntityPropsForIterable(EntityDataDefinitionInterface $entity_data_definition, int $levels_to_recurse, ComponentShapePluginInterface $shape): array {
-    if (!$shape->isIterable()) {
-      throw new \LogicException();
-    }
-    $matches = [];
-
-    $required_object_props = [];
-    $all_object_props = [];
-    $object_prop_matches = [];
-    foreach ($this->iterateJsonSchema($shape->getSchema()) as $name => ['required' => $sub_required, 'schema' => $sub_schema]) {
-    }
-
-    ksm('hit');
-    return $matches;
+  private function matchIterable(EntityDataDefinitionInterface $entityDataDefinition, ComponentShapePluginInterface $shape, int $level, array $parentDefinitions = []) {
+    return $this->matchScalar($entityDataDefinition, $shape, $level, $parentDefinitions);
   }
 
   /**
-   * @todo Add method description.
+   * Matches scalar fields between an entity data definition and a shape.
+   *
+   * This method attempts to find matching scalar fields between the provided
+   * entity data definition and the shape. It considers various conditions such
+   * as whether the field is required, allowed, and supported by the shape.
+   *
+   * @param \Drupal\Core\Entity\TypedData\EntityDataDefinitionInterface $entityDataDefinition
+   *   The entity data definition to match against.
+   * @param \Drupal\neo_alchemist\ComponentShapePluginInterface $shape
+   *   The shape plugin to match fields with.
+   * @param int $level
+   *   The level of recursion allowed for matching nested fields.
+   * @param array $parentDefinitions
+   *   (optional) An array of parent field definitions for nested matching.
+   *
+   * @return array
+   *   An array of matched fields with their respective properties such as
+   *   title, group, definition, and weight.
    */
-  private function matchEntityPropsForScalar(EntityDataDefinitionInterface $entity_data_definition, int $levels_to_recurse, ComponentShapePluginInterface $shape, array $parent_definitions = []): array {
+  private function matchScalar(EntityDataDefinitionInterface $entityDataDefinition, ComponentShapePluginInterface $shape, int $level, array $parentDefinitions = []) {
     $matches = [];
 
-    $is_required_in_json_schema = $shape->isRequired();
-    $field_definitions = $this->recurseDataDefinitionInterface($entity_data_definition);
-    // ksm($field_definitions);
+    $isRequired = $shape->isRequired();
+    $shapeFieldDefinition = $shape->getFieldItemList()->getFieldDefinition();
+    $fieldDefinitions = $this->dataDefinitions($entityDataDefinition);
 
-    foreach ($field_definitions as $field_definition) {
-      assert($field_definition instanceof FieldDefinitionInterface);
-      if ($is_required_in_json_schema && !$field_definition->isRequired()) {
+    foreach ($fieldDefinitions as $fieldDefinition) {
+      assert($fieldDefinition instanceof FieldDefinitionInterface);
+      if ($fieldDefinition instanceof ComponentFieldConfigInterface) {
         continue;
       }
-      $field_parent_definitions = array_merge($parent_definitions, [$field_definition]);
-      // This matches string to string. But should we allow the shape to
-      // determine its match.
-      // ksm($field_definition->getType(), $field_definition->getFieldStorageDefinition()->getType(), $shape->getType(), $shape->getRef());
-      if ($field_definition->getFieldStorageDefinition()->getType() === $shape->getRef()) {
-      // if ($field_definition->getType() === $shape->getType()) {
-        if ($shape->isRequired() && !$field_definition->isRequired()) {
-          continue;
-        }
-        // ksm((string) $field_definition->getLabel());
-        $matches[$this->getDefinitionsKey($field_parent_definitions)] = [
-          'title' => $this->getDefinitionsLabel($field_parent_definitions),
-          'definition' => $field_definition,
-        ];
+      if ($isRequired && !$fieldDefinition->isRequired()) {
+        continue;
       }
-      $properties = $this->recurseDataDefinitionInterface($field_definition);
-      foreach ($properties as $property_name => $property_definition) {
-        $is_reference = $this->dataLeafIsReference($property_definition);
-        if ($is_reference === NULL) {
+      $parentFieldDefinitions = array_merge($parentDefinitions, [$fieldDefinition]);
+
+      // If shape field is required, but the field definition is not, skip.
+      if ($shapeFieldDefinition->isRequired() && !$fieldDefinition->isRequired()) {
+        continue;
+      }
+
+      // Check if the field definition is allowed.
+      if (!$shape->allowFieldDefinition($fieldDefinition)) {
+        continue;
+      }
+
+      // Check if the field definition is supported.
+      if ($shape->supportsFieldDefinition($fieldDefinition)) {
+        $matches[$this->key($parentFieldDefinitions)] = [
+          'title' => $this->label($parentFieldDefinitions),
+          'group' => $this->group($parentFieldDefinitions),
+          'definition' => $fieldDefinition,
+          'weight' => $level,
+        ];
+        continue;
+      }
+
+      $properties = $this->dataDefinitions($fieldDefinition);
+      // Check if all field properties are supported.
+      if ($shape->supportsFieldProperties($properties)) {
+        $matches[$this->key($parentFieldDefinitions)] = [
+          'title' => $this->label($parentFieldDefinitions),
+          'group' => $this->group($parentFieldDefinitions),
+          'definition' => $fieldDefinition,
+          'weight' => $level,
+        ];
+        continue;
+      }
+      foreach ($properties as $propertyName => $property) {
+        $isReference = $this->isReference($property);
+        if ($isReference === NULL) {
           // Neither a reference nor a primitive.
           continue;
         }
-        if ($is_reference) {
-          if ($levels_to_recurse === 0) {
+        if ($isReference) {
+          if ($level === 0) {
             continue;
           }
-          if ($property_definition instanceof DataReferenceDefinitionInterface && is_a($property_definition->getClass(), EntityReference::class, TRUE)) {
-            $target = $property_definition->getTargetDefinition();
+          if ($property instanceof DataReferenceDefinitionInterface && is_a($property->getClass(), EntityReference::class, TRUE)) {
+            $target = $property->getTargetDefinition();
             assert($target instanceof EntityDataDefinitionInterface);
-            $matches += $this->matchEntityProps($target, $levels_to_recurse - 1, $shape, $field_parent_definitions);
+            $matches += $this->match($target, $shape, $level - 1, $parentFieldDefinitions);
           }
+        }
+        // Check if single field property is supported.
+        elseif ($shape->supportsFieldProperty($property)) {
+          $matches[$this->key($parentFieldDefinitions, $propertyName)] = [
+            'title' => $this->label($parentFieldDefinitions, $property->getLabel()),
+            'group' => $this->group($parentFieldDefinitions),
+            'definition' => $fieldDefinition,
+            'weight' => $level,
+          ];
         }
       }
     }
@@ -185,33 +352,66 @@ final class FieldMatcher {
   }
 
   /**
-   * Get the label for a set of definitions.
+   * Provides data definitions based on the type of DataDefinitionInterface.
    *
-   * @param Drupal\Core\Entity\TypedData\EntityDataDefinitionInterface[] $definitions
-   *   The definitions.
+   * This method uses a match expression to handle different types of data
+   * definitions:
+   * - EntityDataDefinitionInterface: Handles entity level data definitions.
+   * - FieldDefinitionInterface: Recursively handles field level data
+   *   definitions.
+   * - FieldItemDataDefinitionInterface: Handles field item data definitions.
    *
-   * @return string
-   *   The key.
+   * @param \Drupal\Core\TypedData\DataDefinitionInterface $dd
+   *   The data definition to process.
+   *
+   * @return array
+   *   An array of data definitions based on the type of the provided data
+   *   definition.
+   *
+   * @throws \LogicException
+   *   Thrown when an unhandled data definition type is encountered.
    */
-  private function getDefinitionsLabel(array $definitions): string {
-    return implode(' → ', array_map(fn ($d) => $d->getLabel() . ' (' . $d->getTargetEntityTypeId() . ')', $definitions));
+  private function dataDefinitions(DataDefinitionInterface $dd): array {
+    return match (TRUE) {
+      // Entity level.
+      $dd instanceof EntityDataDefinitionInterface => (function ($dd) {
+        if ($dd->getClass() === ConfigEntityAdapter::class) {
+          // @todo load config entity type, look at export properties?
+          return [];
+        }
+        assert($dd->getClass() === EntityAdapter::class);
+        $entity_type_id = $dd->getEntityTypeId();
+        assert(is_string($entity_type_id));
+        // If no bundles or multiple bundles are specified, inspect the base
+        // fields. Otherwise (if a single bundle is specified), inspect all
+        // fields.
+        if ($dd->getBundles() !== NULL && count($dd->getBundles()) === 1) {
+          return $this->entityFieldManager->getFieldDefinitions($entity_type_id, $dd->getBundles()[0]);
+        }
+        return $this->entityFieldManager->getBaseFieldDefinitions($entity_type_id);
+      })($dd),
+      // Field level.
+      $dd instanceof FieldDefinitionInterface => $this->recurseDataDefinitionInterface($dd->getItemDefinition()),
+      $dd instanceof FieldItemDataDefinitionInterface => $dd->getPropertyDefinitions(),
+      default => throw new \LogicException('Unhandled.'),
+    };
   }
 
   /**
-   * Get the key for a set of definitions.
+   * Recursively matches data definitions and returns field definitions.
    *
-   * @param Drupal\Core\Entity\TypedData\EntityDataDefinitionInterface[] $definitions
-   *   The definitions.
+   * This method inspects the provided DataDefinitionInterface instance and
+   * determines the appropriate field definitions based on the type of data
+   * definition. It handles entity-level and field-level data definitions.
    *
-   * @return string
-   *   The key.
-   */
-  private function getDefinitionsKey(array $definitions): string {
-    return implode('.', array_map(fn ($d) => $d->getName(), $definitions));
-  }
-
-  /**
-   * @return \Drupal\Core\TypedData\DataDefinitionInterface[]
+   * @param \Drupal\Core\TypedData\DataDefinitionInterface $dd
+   *   The data definition to inspect.
+   *
+   * @return array
+   *   An array of field definitions.
+   *
+   * @throws \LogicException
+   *   Thrown when an unhandled data definition type is encountered.
    */
   private function recurseDataDefinitionInterface(DataDefinitionInterface $dd): array {
     return match (TRUE) {
@@ -240,31 +440,92 @@ final class FieldMatcher {
   }
 
   /**
-   * @todo Add method description.
+   * Determines if the given data definition or typed data is a reference.
+   *
+   * This method checks if the provided data definition or typed data is a
+   * reference type. It throws an exception if the provided typed data is not a
+   * leaf node.
+   *
+   * @param \Drupal\Core\TypedData\TypedDataInterface|\Drupal\Core\TypedData\DataDefinitionInterface $td_or_dd
+   *   The data definition or typed data to check.
+   *
+   * @return bool|null
+   *   TRUE if the data definition is a reference, FALSE if it is a primitive
+   *   type, or NULL if the type cannot be handled and merits logging.
+   *
+   * @throws \LogicException
+   *   Thrown when the provided typed data is not a leaf node.
    */
-  private function dataLeafIsReference(TypedDataInterface|DataDefinitionInterface $td_or_dd): ?bool {
+  private function isReference(TypedDataInterface|DataDefinitionInterface $td_or_dd): ?bool {
     if ($td_or_dd instanceof TypedDataInterface && !$td_or_dd->getParent() instanceof FieldItemInterface) {
       throw new \LogicException(__METHOD__ . ' was given a non-leaf.');
     }
-    $dd = $td_or_dd instanceof TypedDataInterface
-      ? $td_or_dd->getDataDefinition()
-      : $td_or_dd;
+    $dd = $td_or_dd instanceof TypedDataInterface ? $td_or_dd->getDataDefinition() : $td_or_dd;
     return match(TRUE) {
       $dd instanceof DataReferenceDefinitionInterface => TRUE,
       is_a($dd->getClass(), PrimitiveInterface::class, TRUE) => FALSE,
       // Anything else cannot be handled and merits logging.
-      TRUE => (function ($td_or_dd) {
-        match (TRUE) {
-          // PHPStan does not like this because getParent()->getDataDefinition()
-          // only has a less specific type guarantee. But … this is just for
-          // logging unhandled cases. This is sufficient as-is.
-          // @phpstan-ignore-next-line
-          $td_or_dd instanceof TypedDataInterface => @trigger_error(sprintf("Unhandled data type class: `%s` Drupal field type `%s` property uses `%s` data type class that is not yet supported", $td_or_dd->getParent()->getDataDefinition()->getFieldDefinition()->getType(), $td_or_dd->getName(), $td_or_dd->getDataDefinition()->getClass()), E_USER_DEPRECATED),
-          $td_or_dd instanceof DataDefinitionInterface => @trigger_error(sprintf("Unhandled data type class: `%s` data type class that is not yet supported", $td_or_dd->getClass()), E_USER_DEPRECATED),
-        };
-        return NULL;
-      })($td_or_dd),
+      TRUE => NULL,
     };
+  }
+
+  /**
+   * Get the label for a set of definitions.
+   *
+   * @param Drupal\Core\Entity\TypedData\EntityDataDefinitionInterface[] $definitions
+   *   The definitions.
+   * @param string|null $propertyLabel
+   *   The property label.
+   *
+   * @return string
+   *   The key.
+   */
+  private function label(array $definitions, $propertyLabel = NULL): string {
+    $definition = end($definitions);
+    return $definition->getLabel() . ($propertyLabel ? ": $propertyLabel" : '') . ' (' . $definition->getName() . ')';
+  }
+
+  /**
+   * Get the group for a set of definitions.
+   *
+   * @param Drupal\Core\Entity\TypedData\EntityDataDefinitionInterface[] $definitions
+   *   The definitions.
+   *
+   * @return string
+   *   The key.
+   */
+  private function group(array $definitions): string {
+    $first = array_shift($definitions);
+    $group = [
+      ucwords(str_replace('_', ' ', $first->getTargetEntityTypeId())),
+    ];
+    if (!empty($definitions)) {
+      $group[0] .= ' (' . $first->getName() . ')';
+      // $group[] = $first->getName();
+      foreach ($definitions as $definition) {
+        $group[] = ucwords(str_replace('_', ' ', $definition->getTargetEntityTypeId()));
+      }
+    }
+    return implode(' → ', $group);
+  }
+
+  /**
+   * Get the key for a set of definitions.
+   *
+   * @param Drupal\Core\Entity\TypedData\EntityDataDefinitionInterface[] $definitions
+   *   The definitions.
+   * @param string|null $propertyName
+   *   The property name.
+   *
+   * @return string
+   *   The key.
+   */
+  private function key(array $definitions, $propertyName = NULL): string {
+    $key = implode('.', array_map(fn ($d) => $d->getName(), $definitions));
+    if ($propertyName) {
+      $key .= ':' . $propertyName;
+    }
+    return $key;
   }
 
 }

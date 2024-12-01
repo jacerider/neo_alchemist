@@ -159,6 +159,13 @@ final class ComponentPropForm extends EntityForm {
       }
     }
 
+    $form['editable'] = [
+      '#type' => 'checkbox',
+      '#title' => $this->t('Allow Edit'),
+      '#description' => $this->t('Allow the default value of this property to be changed per component instance.'),
+      '#default_value' => $this->shape->isEditable(),
+    ];
+
     return $form;
   }
 
@@ -205,20 +212,23 @@ final class ComponentPropForm extends EntityForm {
   public function save(array $form, FormStateInterface $form_state): int {
     $providerIds = [];
     $props = $this->entity->getSetting('props', []);
-    unset($props[$this->shape->getName()]);
+    $propName = $this->shape->getName();
+    $props[$propName] = [
+      'prop' => $propName,
+      'field_type' => $this->shape->getFieldType(),
+      'editable' => !empty($form_state->getValue(['editable'])),
+    ];
     foreach ($form_state->getValue(['providers']) as $providerId => $providerValue) {
       if (!empty($providerValue['status'])) {
         $providerIds[] = $providerId;
         $instance = $this->shape->getValueProvider($providerId);
         $subform_state = SubformState::createForSubform($form['providers'][$providerId]['provider'], $form, $form_state);
         $instance->submitConfigurationForm($form['providers'][$providerId]['provider'], $subform_state);
-        $props[$this->shape->getName()]['prop'] = $this->shape->getName();
-        $props[$this->shape->getName()]['field_type'] = $this->shape->getFieldType();
-        $props[$this->shape->getName()]['providers'][$providerId] = [
+        $props[$propName]['providers'][$providerId] = [
           'plugin' => $providerId,
           'settings' => $subform_state->getValues(),
         ];
-        // $providers[$this->shape->getName()][$providerId] = [
+        // $providers[$propName][$providerId] = [
         //   'plugin' => $providerId,
         //   'field_type' => $this->shape->getType(),
         //   'settings' => $subform_state->getValues(),
