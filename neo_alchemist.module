@@ -5,10 +5,12 @@
  * Primary module hooks for Neo | Alchemist module.
  */
 
+use Drupal\Core\Config\Entity\ConfigEntityInterface;
 use Drupal\Core\Entity\ContentEntityTypeInterface;
 use Drupal\Core\Entity\EntityInterface;
 use Drupal\Core\Entity\EntityTypeInterface;
 use Drupal\Core\Form\FormStateInterface;
+use Drupal\Core\Url;
 use Drupal\field\FieldConfigInterface;
 use Drupal\field\FieldStorageConfigInterface;
 use Drupal\media_library\MediaLibraryState;
@@ -123,4 +125,36 @@ function neo_alchemist_entity_bundle_field_info_alter(&$fields, EntityTypeInterf
       $fields[$id] = $instance;
     }
   }
+}
+
+/**
+ * Implements hook_entity_operation().
+ */
+function neo_alchemist_entity_operation(EntityInterface $entity) {
+  $operations = [];
+  if ($entity->hasLinkTemplate('alchemist')) {
+    $operations['alchemist'] = [
+      'title' => t('Layout'),
+      'url' => $entity->toUrl('alchemist'),
+      'weight' => 50,
+    ];
+  }
+  else {
+    $info = $entity->getEntityType();
+    // Add manage fields and display links if this entity type is the bundle
+    // of another and that type has field UI enabled.
+    if (($bundle_of = $info->getBundleOf()) && \Drupal::entityTypeManager()->getDefinition($bundle_of)->getLinkTemplate('alchemist')) {
+      $url = Url::fromRoute("entity.{$bundle_of}.field_ui.alchemist", [
+        $entity->getEntityTypeId() => $entity->id(),
+      ]);
+      if ($url->access()) {
+        $operations['alchemist'] = [
+          'title' => t('Manage Layout'),
+          'weight' => 0,
+          'url' => $url,
+        ];
+      }
+    }
+  }
+  return $operations;
 }

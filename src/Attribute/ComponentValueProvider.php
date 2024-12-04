@@ -31,6 +31,8 @@ final class ComponentValueProvider extends AttributeBase {
    *   (optional) Whether the plugin is locked to its default status.
    * @param array|null $prop_types
    *   (optional) The prop type the plugin supports.
+   * @param array|null $ref_types
+   *   (optional) The ref type the plugin supports.
    * @param array|null $entity_types
    *   (optional) The entity types the plugin supports.
    *   Format: [entity].[bundle] for specific entity-bundle combinations or
@@ -50,6 +52,7 @@ final class ComponentValueProvider extends AttributeBase {
     public readonly bool $status_default = FALSE,
     public readonly bool $status_lock = FALSE,
     public readonly ?array $prop_types = NULL,
+    public readonly ?array $ref_types = NULL,
     public readonly ?array $entity_types = NULL,
     public readonly int $weight = 0,
     public ?string $provider = NULL,

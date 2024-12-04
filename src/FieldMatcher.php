@@ -6,38 +6,54 @@ namespace Drupal\neo_alchemist;
 
 use Drupal\Core\Entity\ContentEntityInterface;
 use Drupal\Core\Entity\EntityFieldManagerInterface;
-use Drupal\Core\Entity\EntityTypeBundleInfoInterface;
+use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Entity\Plugin\DataType\ConfigEntityAdapter;
 use Drupal\Core\Entity\Plugin\DataType\EntityAdapter;
 use Drupal\Core\Entity\Plugin\DataType\EntityReference;
 use Drupal\Core\Entity\TypedData\EntityDataDefinition;
 use Drupal\Core\Entity\TypedData\EntityDataDefinitionInterface;
+use Drupal\Core\Field\BaseFieldDefinition;
 use Drupal\Core\Field\EntityReferenceFieldItemListInterface;
 use Drupal\Core\Field\FieldDefinitionInterface;
 use Drupal\Core\Field\FieldItemInterface;
 use Drupal\Core\Field\FieldItemListInterface;
 use Drupal\Core\Field\TypedData\FieldItemDataDefinitionInterface;
+use Drupal\Core\StringTranslation\StringTranslationTrait;
 use Drupal\Core\TypedData\DataDefinitionInterface;
 use Drupal\Core\TypedData\DataReferenceDefinitionInterface;
 use Drupal\Core\TypedData\PrimitiveInterface;
 use Drupal\Core\TypedData\TypedDataInterface;
-use Drupal\Core\TypedData\TypedDataManagerInterface;
-use Drupal\Core\Validation\ConstraintManager;
 
 /**
  * Provides methods for matching fields between content entities and shapes.
  */
 final class FieldMatcher {
 
+  use StringTranslationTrait;
+
   /**
    * Constructs a FieldMatcher object.
    */
   public function __construct(
-    private readonly TypedDataManagerInterface $typedDataManager,
-    private readonly ConstraintManager $constraintManager,
-    private readonly EntityTypeBundleInfoInterface $entityTypeBundleInfo,
+    private readonly EntityTypeManagerInterface $entityTypeManager,
     private readonly EntityFieldManagerInterface $entityFieldManager,
   ) {}
+
+  /**
+   * Retrieves the field definition for a given key from the component shape.
+   *
+   * @param \Drupal\neo_alchemist\ComponentShapePluginInterface $shape
+   *   The component shape plugin instance.
+   * @param string $key
+   *   The key for which the field definition is to be retrieved.
+   *
+   * @return \Drupal\Core\Field\FieldDefinitionInterface|null
+   *   The field definition if found, or NULL if no matching definition exists.
+   */
+  public function getFieldDefinition(ComponentShapePluginInterface $shape, string $key): ?FieldDefinitionInterface {
+    $matches = $this->getMatches($shape);
+    return $matches[$key]['definition'] ?? NULL;
+  }
 
   /**
    * Retrieves the value of a specified field from a content entity.
@@ -60,22 +76,6 @@ final class FieldMatcher {
   }
 
   /**
-   * Retrieves the field definition for a given key from the component shape.
-   *
-   * @param \Drupal\neo_alchemist\ComponentShapePluginInterface $shape
-   *   The component shape plugin instance.
-   * @param string $key
-   *   The key for which the field definition is to be retrieved.
-   *
-   * @return \Drupal\Core\Field\FieldDefinitionInterface|null
-   *   The field definition if found, or NULL if no matching definition exists.
-   */
-  public function getFieldDefinition(ComponentShapePluginInterface $shape, string $key): ?FieldDefinitionInterface {
-    $matches = $this->getMatches($shape);
-    return $matches[$key]['definition'] ?? NULL;
-  }
-
-  /**
    * Recursively retrieves the value of a field from a content entity.
    *
    * @param \Drupal\Core\Entity\ContentEntityInterface $entity
@@ -92,9 +92,11 @@ final class FieldMatcher {
   private function recurseEntity(ContentEntityInterface $entity, array $path): mixed {
     $value = [];
     $key = array_shift($path);
-    $parts = explode(':', $key);
-    $fieldName = $parts[0];
-    $property = $parts[1] ?? NULL;
+    [$fieldName, $property, $subProperty] = explode(':', $key . '::');
+    if ($fieldName === '_entity' && $property) {
+      // Special entity property handling.
+      return $this->getEntityDefinitionValue($entity, $property, $subProperty);
+    }
     if (!$entity->hasField($fieldName)) {
       return $value;
     }
@@ -119,6 +121,64 @@ final class FieldMatcher {
   }
 
   /**
+   * Retrieves the value of a specified entity definition property.
+   *
+   * @param \Drupal\Core\Entity\ContentEntityInterface $entity
+   *   The content entity from which to retrieve the property value.
+   * @param string $property
+   *   The property to retrieve.
+   * @param string|null $subProperty
+   *   (optional) The sub-property to retrieve.
+   *
+   * @return array
+   *   The value of the specified entity definition property.
+   */
+  private function getEntityDefinitionValue(ContentEntityInterface $entity, string $property, string $subProperty = NULL): array {
+    return match ($property) {
+      'label' => [$entity->label()],
+      'link' => $this->getEntityDefinitionLink($entity, $subProperty),
+      default => [],
+    };
+  }
+
+  /**
+   * Generates a link definition for a given entity and property.
+   *
+   * This method creates a URL for the specified property of the given entity,
+   * checks if the URL is accessible, and then constructs a link definition
+   * array containing the title and URI.
+   *
+   * @param \Drupal\Core\Entity\ContentEntityInterface $entity
+   *   The content entity for which the link is being generated.
+   * @param string $property
+   *   The property of the entity for which the URL is generated
+   *   (e.g., 'canonical').
+   *
+   * @return array
+   *   An associative array containing:
+   *   - 'title': The title of the link.
+   *   - 'uri': The URI string of the link.
+   *   - 'options': An empty array for additional options (currently unused).
+   */
+  private function getEntityDefinitionLink(ContentEntityInterface $entity, string $property): array {
+    $url = $entity->toUrl($property);
+    if (!$url || !$url->access()) {
+      return [];
+    }
+    $titleReplacements = ['-', '_', '.'];
+    $route = \Drupal::service('router.route_provider')->getRouteByName($url->getRouteName());
+    $title = match($property) {
+      'canonical' => $route->getDefault('_title') ?? $entity->label(),
+      default => $route->getDefault('_title') ?? ucwords(str_replace($titleReplacements, ' ', str_replace('-form', '', $property))),
+    };
+    return [
+      'title' => $title,
+      'uri' => $url->toUriString(),
+      'options' => [],
+    ];
+  }
+
+  /**
    * Retrieves matches as options for a given component shape.
    *
    * This method processes the matches obtained from the `getMatches` method
@@ -129,6 +189,10 @@ final class FieldMatcher {
    * @param ComponentShapePluginInterface $shape
    *   The component shape plugin interface instance for which matches are to be
    *   retrieved.
+   * @param string|null $entityTypeId
+   *   (optional) The entity type ID to match against. Defaults to NULL.
+   * @param string|null $entityBundle
+   *   (optional) The entity bundle to match against. Defaults to NULL.
    *
    * @return array
    *   An associative array of options, grouped by their respective group names.
@@ -143,10 +207,10 @@ final class FieldMatcher {
    */
   public function getMatchesAsOptions(ComponentShapePluginInterface $shape, string $entityTypeId = NULL, string $entityBundle = NULL): array {
     $options = [];
-    foreach ($this->getMatches($shape, $entityTypeId, $entityBundle) as $key => [
+    $matches = $this->getMatches($shape, $entityTypeId, $entityBundle);
+    foreach ($matches as $key => [
       'title' => $title,
       'group' => $group,
-      'definition' => $definition,
     ]) {
       $options[ucwords($group)][$key] = $title;
     }
@@ -163,6 +227,10 @@ final class FieldMatcher {
    *
    * @param \Drupal\neo_alchemist\ComponentShapePluginInterface $shape
    *   The component shape plugin interface.
+   * @param string|null $entityTypeId
+   *   (optional) The entity type ID to match against. Defaults to NULL.
+   * @param string|null $entityBundle
+   *   (optional) The entity bundle to match against. Defaults to NULL.
    *
    * @return array
    *   An array of matches, sorted by weight and title.
@@ -283,6 +351,25 @@ final class FieldMatcher {
     $isRequired = $shape->isRequired();
     $shapeFieldDefinition = $shape->getFieldItemList()->getFieldDefinition();
     $fieldDefinitions = $this->dataDefinitions($entityDataDefinition);
+    $fieldDefinitions += $this->entityDefinitions($entityDataDefinition, $shape);
+
+    // $matches += $this->matchEntity($entityDataDefinition, $shape, $level, $parentDefinitions);$entityType = $this->entityTypeManager->getDefinition($entityDataDefinition->getEntityTypeId());
+    // if ($entityType->hasLinkTemplate('canonical')) {
+    //   $fieldDefinition = BaseFieldDefinition::create('link')
+    //     ->setLabel(t('@label Canonical Link', [
+    //       '@label' => $entityDataDefinition->getLabel(),
+    //     ]))
+    //     ->setName('entity')
+    //     ->setTargetEntityTypeId($entityDataDefinition->getEntityTypeId())
+    //     ->setRequired($isRequired);
+    //   $parentFieldDefinitions = array_merge($parentDefinitions, [$fieldDefinition]);
+    //   $matches[$this->key($parentFieldDefinitions, '_link_canonical')] = [
+    //     'title' => $this->label($parentFieldDefinitions),
+    //     'group' => $this->group($parentFieldDefinitions),
+    //     'definition' => $fieldDefinition,
+    //     'weight' => $level,
+    //   ];
+    // }
 
     foreach ($fieldDefinitions as $fieldDefinition) {
       assert($fieldDefinition instanceof FieldDefinitionInterface);
@@ -355,6 +442,66 @@ final class FieldMatcher {
     }
 
     return $matches;
+  }
+
+  /**
+   * Get dynamic field definitions for an entity.
+   *
+   * @param \Drupal\Core\Entity\TypedData\EntityDataDefinitionInterface $entityDataDefinition
+   *   The entity data definition.
+   * @param ComponentShapePluginInterface $shape
+   *   The component shape plugin.
+   *
+   * @return \Drupal\Core\Field\FieldDefinitionInterface[]
+   *   An array of field definitions.
+   */
+  private function entityDefinitions(EntityDataDefinitionInterface $entityDataDefinition, ComponentShapePluginInterface $shape): array {
+    $isRequired = $shape->isRequired();
+    $fieldDefinitions = [];
+
+    $entityType = $this->entityTypeManager->getDefinition($entityDataDefinition->getEntityTypeId());
+    if ($entityType->hasKey('label')) {
+      $fieldName = '_entity:label';
+      $fieldDefinitions[] = BaseFieldDefinition::create('string')
+        ->setLabel(t('(@label) Label', [
+          '@label' => $entityDataDefinition->getLabel(),
+        ]))
+        ->setName($fieldName)
+        ->setTargetEntityTypeId($entityDataDefinition->getEntityTypeId())
+        ->setRequired($isRequired);
+    }
+    foreach ($entityType->getLinkTemplates() as $templateId => $template) {
+      $fieldName = '_entity:link:' . $templateId;
+      $fieldDefinitions[$fieldName] = BaseFieldDefinition::create('link')
+        ->setLabel(t('(@label) @link Link', [
+          '@label' => $entityDataDefinition->getLabel(),
+          '@link' => ucwords(str_replace(['-', '_', '.'], ' ', $templateId)),
+        ]))
+        ->setName($fieldName)
+        ->setTargetEntityTypeId($entityDataDefinition->getEntityTypeId())
+        ->setRequired($isRequired);
+    }
+    // if ($entityType->hasLinkTemplate('canonical')) {
+    //   $fieldName = '_entity:link_canonical';
+    //   $fieldDefinitions[$fieldName] = BaseFieldDefinition::create('link')
+    //     ->setLabel(t('(@label) Canonical Link', [
+    //       '@label' => $entityDataDefinition->getLabel(),
+    //     ]))
+    //     ->setName($fieldName)
+    //     ->setTargetEntityTypeId($entityDataDefinition->getEntityTypeId())
+    //     ->setRequired($isRequired);
+    // }
+    // if ($entityType->hasLinkTemplate('edit-form')) {
+    //   $fieldName = '_entity:link_canonical';
+    //   $fieldDefinitions[$fieldName] = BaseFieldDefinition::create('link')
+    //     ->setLabel(t('(@label) Canonical Link', [
+    //       '@label' => $entityDataDefinition->getLabel(),
+    //     ]))
+    //     ->setName($fieldName)
+    //     ->setTargetEntityTypeId($entityDataDefinition->getEntityTypeId())
+    //     ->setRequired($isRequired);
+    // }
+    return $fieldDefinitions;
   }
 
   /**

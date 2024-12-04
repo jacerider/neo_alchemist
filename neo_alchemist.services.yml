@@ -23,7 +23,7 @@ services:
 
   neo_alchemist.field_matcher:
     class: Drupal\neo_alchemist\FieldMatcher
-    arguments: ['@typed_data_manager', '@validation.constraint', '@entity_type.bundle.info', '@entity_field.manager']
+    arguments: ['@entity_type.manager', '@entity_field.manager']
 
   neo_alchemist.route_subscriber:
     class: Drupal\neo_alchemist\EventSubscriber\RouteSubscriber
@@ -40,19 +40,29 @@ services:
   neo_alchemist.entity_access_checker:
     class: Drupal\neo_alchemist\Access\EntityComponentAccessCheck
     tags:
-      - { name: access_check, applies_to: _neo_alchemist_entity }
+      - { name: access_check, applies_to: _neo_entity_component }
 
   neo_alchemist.field_access_checker:
     class: Drupal\neo_alchemist\Access\FieldComponentAccessCheck
     arguments: ['@entity_field.manager']
     tags:
-      - { name: access_check, applies_to: _neo_alchemist_field }
+      - { name: access_check, applies_to: _neo_field_component }
+
+  neo_alchemist.neo_field_access_checker:
+    class: Drupal\neo_alchemist\Access\ComponentFieldAccessCheck
+    tags:
+      - { name: access_check, applies_to: _neo_component_field }
+
+  neo_alchemist.neo_component_access_checker:
+    class: Drupal\neo_alchemist\Access\ComponentAccessCheck
+    tags:
+      - { name: access_check, applies_to: _neo_component }
 
   neo_alchemist.prop_access_checker:
     class: Drupal\neo_alchemist\Access\ComponentPropAccessCheck
     arguments: ['@entity_field.manager']
     tags:
-      - { name: access_check, applies_to: _neo_alchemist_prop }
+      - { name: access_check, applies_to: _neo_component_prop }
 
   neo_alchemist.field_param_converter:
     class: Drupal\neo_alchemist\Routing\FieldParamConverter

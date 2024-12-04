@@ -105,13 +105,18 @@ props:
       examples:
         - title: Google
           url: https://google.com
+          image:
+            - src: https://placehold.co/100x100.png
+              alt: 'Boring placeholder'
+              width: 100
+              height: 100
         - title: Yahoo
           url: https://yahoo.com
           image:
-            - src: https://placehold.co/300x200.png
+            - src: https://placehold.co/100x100.png
               alt: 'Boring placeholder'
-              width: 300
-              height: 200
+              width: 100
+              height: 100
       items:
         type: object
         required:

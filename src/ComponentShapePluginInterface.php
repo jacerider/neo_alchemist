@@ -20,9 +20,9 @@ interface ComponentShapePluginInterface {
   const STRING = 'string';
   const NUMBER = 'number';
   const INTEGER = 'integer';
-  const OBJECT = 'object';
-  const ARRAY = 'array';
   const BOOLEAN = 'boolean';
+  const ARRAY = 'array';
+  const OBJECT = 'object';
 
   /**
    * Returns the translated plugin label.

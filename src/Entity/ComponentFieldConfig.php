@@ -3,7 +3,9 @@
 namespace Drupal\neo_alchemist\Entity;
 
 use Drupal\Component\Serialization\Json;
+use Drupal\Core\Access\AccessResult;
 use Drupal\Core\Entity\EntityMalformedException;
+use Drupal\Core\Session\AccountInterface;
 use Drupal\Core\Url;
 use Drupal\field\Entity\FieldConfig;
 use Drupal\neo_alchemist\ComponentFieldConfigInterface;
@@ -32,6 +34,24 @@ class ComponentFieldConfig extends FieldConfig implements ComponentFieldConfigIn
       NULL => Url::fromRoute("entity.{$entityTypeId}.field_ui.alchemist.manage", $parameters),
       default => parent::toUrl($rel, $options),
     };
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  public function access($operation, ?AccountInterface $account = NULL, $return_as_object = FALSE) {
+    $access = AccessResult::allowedIfHasPermission($account ?? \Drupal::currentUser(), 'administer ' . $this->getTargetEntityTypeId() . ' fields');
+    return $return_as_object ? $access : $access->isAllowed();
+  }
+
+  /**
+   * Check if field allows per-entity custom components.
+   *
+   * @return bool
+   *   TRUE if custom components are allowed, FALSE otherwise.
+   */
+  public function allowCustom(): bool {
+    return $this->getSetting('allow_custom');
   }
 
   /**

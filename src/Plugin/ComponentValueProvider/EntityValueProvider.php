@@ -23,12 +23,8 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
   id: 'entity',
   label: new TranslatableMarkup('Entity'),
   description: new TranslatableMarkup('Provide values from entity fields.'),
-  prop_types: [
-    ComponentShapePluginInterface::STRING,
-    ComponentShapePluginInterface::INTEGER,
-    ComponentShapePluginInterface::NUMBER,
-    ComponentShapePluginInterface::BOOLEAN,
-    ComponentShapePluginInterface::ARRAY,
+  ref_types: [
+    '!' . ComponentShapePluginInterface::OBJECT,
   ],
   entity_types: ['*'],
   weight: 5,

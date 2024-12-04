@@ -5,7 +5,6 @@ namespace Drupal\neo_alchemist\EventSubscriber;
 use Drupal\Core\Entity\EntityFieldManagerInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Routing\RouteSubscriberBase;
-use Drupal\neo_alchemist\Entity\ComponentFieldConfig;
 use Symfony\Component\Routing\Route;
 use Symfony\Component\Routing\RouteCollection;
 
@@ -48,7 +47,7 @@ class RouteSubscriber extends RouteSubscriberBase {
             ] + $defaults)
             ->setOption('parameters', $parameters)
             ->setOption('_admin_route', TRUE)
-            ->setRequirement('_neo_alchemist_entity', "{$entityTypeId}.update");
+            ->setRequirement('_neo_entity_component', "{$entityTypeId}.update");
           $collection->add("entity.{$entityTypeId}.alchemist", $route);
 
           if (isset($fields[$entityTypeId])) {
@@ -64,7 +63,7 @@ class RouteSubscriber extends RouteSubscriberBase {
               ] + $defaults)
               ->setOption('parameters', $fieldParameters)
               ->setOption('_admin_route', TRUE)
-              ->setRequirement('_neo_alchemist_entity', "{$entityTypeId}.update.neo_field");
+              ->setRequirement('_neo_component_field', "neo_field.update");
             $collection->add("entity.{$entityTypeId}.alchemist.manage", $route);
 
             // Library route.
@@ -76,7 +75,7 @@ class RouteSubscriber extends RouteSubscriberBase {
               ] + $defaults)
               ->setOption('parameters', $fieldParameters)
               ->setOption('_admin_route', TRUE)
-              ->setRequirement('_neo_alchemist_entity', "{$entityTypeId}.create.neo_field");
+              ->setRequirement('_neo_component_field', "neo_field.create");
             $collection->add("entity.{$entityTypeId}.alchemist.library", $route);
 
             // Publish route.
@@ -88,7 +87,7 @@ class RouteSubscriber extends RouteSubscriberBase {
               ] + $defaults)
               ->setOption('parameters', $fieldParameters)
               ->setOption('_admin_route', TRUE)
-              ->setRequirement('_neo_alchemist_entity', "{$entityTypeId}.publish.neo_field");
+              ->setRequirement('_neo_component_field', "neo_field.publish");
             $collection->add("entity.{$entityTypeId}.alchemist.publish", $route);
 
             // Revert route.
@@ -100,7 +99,7 @@ class RouteSubscriber extends RouteSubscriberBase {
               ] + $defaults)
               ->setOption('parameters', $fieldParameters)
               ->setOption('_admin_route', TRUE)
-              ->setRequirement('_neo_alchemist_entity', "{$entityTypeId}.revert.neo_field");
+              ->setRequirement('_neo_component_field', "neo_field.revert");
             $collection->add("entity.{$entityTypeId}.alchemist.revert", $route);
 
             // Reset route.
@@ -112,7 +111,7 @@ class RouteSubscriber extends RouteSubscriberBase {
               ] + $defaults)
               ->setOption('parameters', $fieldParameters)
               ->setOption('_admin_route', TRUE)
-              ->setRequirement('_neo_alchemist_entity', "{$entityTypeId}.reset.neo_field");
+              ->setRequirement('_neo_component_field', "neo_field.reset");
             $collection->add("entity.{$entityTypeId}.alchemist.reset", $route);
 
             // Sort route.
@@ -124,7 +123,7 @@ class RouteSubscriber extends RouteSubscriberBase {
               ] + $defaults)
               ->setOption('parameters', $fieldParameters)
               ->setOption('_admin_route', TRUE)
-              ->setRequirement('_neo_alchemist_entity', "{$entityTypeId}.sort.neo_field");
+              ->setRequirement('_neo_component_field', "neo_field.sort");
             $collection->add("entity.{$entityTypeId}.alchemist.sort", $route);
 
             $fieldComponentParameters = $fieldParameters;
@@ -141,7 +140,7 @@ class RouteSubscriber extends RouteSubscriberBase {
               ] + $defaults)
               ->setOption('parameters', $fieldComponentParameters)
               ->setOption('_admin_route', TRUE)
-              ->setRequirement('_neo_alchemist_entity', "{$entityTypeId}.create.neo_field.neo_component");
+              ->setRequirement('_neo_component', "neo_component.create");
             $collection->add("entity.{$entityTypeId}.alchemist.add", $route);
 
             // Component edit route.
@@ -153,7 +152,7 @@ class RouteSubscriber extends RouteSubscriberBase {
               ] + $defaults)
               ->setOption('parameters', $fieldComponentParameters)
               ->setOption('_admin_route', TRUE)
-              ->setRequirement('_neo_alchemist_entity', "{$entityTypeId}.update.neo_field");
+              ->setRequirement('_neo_component', "neo_component.update");
             $collection->add("entity.{$entityTypeId}.alchemist.edit", $route);
 
             // Component delete route.
@@ -165,7 +164,7 @@ class RouteSubscriber extends RouteSubscriberBase {
               ] + $defaults)
               ->setOption('parameters', $fieldComponentParameters)
               ->setOption('_admin_route', TRUE)
-              ->setRequirement('_neo_alchemist_entity', "{$entityTypeId}.delete.neo_field");
+              ->setRequirement('_neo_component', "neo_component.delete");
             $collection->add("entity.{$entityTypeId}.alchemist.delete", $route);
           }
         }
@@ -189,13 +188,13 @@ class RouteSubscriber extends RouteSubscriberBase {
 
           $defaults = [
             'entity_type_id' => $entityTypeId,
-            'entity_bundle_type' => $bundleEntityType ?: 'bundle',
           ];
           // If the entity type has no bundles and it doesn't use {bundle} in its
           // admin path, use the entity type.
           if (!str_contains($path, '{bundle}')) {
             $defaults['bundle'] = !$entityType->hasKey('bundle') ? $entityTypeId : '';
           }
+          $entityBundleType = $bundleEntityType ?: 'bundle';
 
           $route = new Route("$path/alchemist");
           $route
@@ -204,7 +203,7 @@ class RouteSubscriber extends RouteSubscriberBase {
               '_title_callback' => 'Drupal\neo_alchemist\Controller\FieldComponentController::getTitle',
             ] + $defaults)
             ->setOptions($options)
-            ->setRequirement('_neo_alchemist_field', 'entity_type_id.bundle.update');
+            ->setRequirement('_neo_field_component', "entity_type_id.{$entityBundleType}.update");
           $collection->add("entity.{$entityTypeId}.field_ui.alchemist", $route);
 
           if (isset($fields[$entityTypeId])) {
@@ -220,7 +219,7 @@ class RouteSubscriber extends RouteSubscriberBase {
                 '_title_callback' => 'Drupal\neo_alchemist\Controller\InstanceComponentManageController::getTitle',
               ] + $defaults)
               ->setOptions($fieldOptions)
-              ->setRequirement('_neo_alchemist_field', 'entity_type_id.bundle.update.neo_field');
+              ->setRequirement('_neo_component_field', "neo_field.update");
             $collection->add("entity.{$entityTypeId}.field_ui.alchemist.manage", $route);
 
             $route = new Route("$path/alchemist/{neo_field}/library");
@@ -230,7 +229,7 @@ class RouteSubscriber extends RouteSubscriberBase {
                 '_title_callback' => 'Drupal\neo_alchemist\Controller\InstanceComponentLibraryController::getTitle',
               ] + $defaults)
               ->setOptions($fieldOptions)
-              ->setRequirement('_neo_alchemist_field', 'entity_type_id.bundle.create.neo_field');
+              ->setRequirement('_neo_component_field', "neo_field.create");
             $collection->add("entity.{$entityTypeId}.field_ui.alchemist.library", $route);
 
             $route = new Route("$path/alchemist/{neo_field}/sort");
@@ -241,7 +240,7 @@ class RouteSubscriber extends RouteSubscriberBase {
               ] + $defaults)
               ->setOptions($fieldOptions)
               ->setOption('_admin_route', TRUE)
-              ->setRequirement('_neo_alchemist_field', 'entity_type_id.bundle.sort.neo_field');
+              ->setRequirement('_neo_component_field', "neo_field.sort");
             $collection->add("entity.{$entityTypeId}.field_ui.alchemist.sort", $route);
 
             $fieldComponentOptions = $fieldOptions;
@@ -256,7 +255,7 @@ class RouteSubscriber extends RouteSubscriberBase {
                 '_title_callback' => 'Drupal\neo_alchemist\Controller\InstanceComponentAddController::getTitle',
               ] + $defaults)
               ->setOptions($fieldComponentOptions)
-              ->setRequirement('_neo_alchemist_field', 'entity_type_id.bundle.create.neo_field.neo_component');
+              ->setRequirement('_neo_component', "neo_component.create");
             $collection->add("entity.{$entityTypeId}.field_ui.alchemist.add", $route);
 
             $route = new Route("$path/alchemist/{neo_field}/edit/{neo_component}");
@@ -266,7 +265,7 @@ class RouteSubscriber extends RouteSubscriberBase {
                 '_title_callback' => 'Drupal\neo_alchemist\Controller\InstanceComponentEditController::getTitle',
               ] + $defaults)
               ->setOptions($fieldComponentOptions)
-              ->setRequirement('_neo_alchemist_field', 'entity_type_id.bundle.update.neo_field.neo_component');
+              ->setRequirement('_neo_component', "neo_component.update");
             $collection->add("entity.{$entityTypeId}.field_ui.alchemist.edit", $route);
 
             $route = new Route("$path/alchemist/{neo_field}/delete/{neo_component}");
@@ -276,7 +275,7 @@ class RouteSubscriber extends RouteSubscriberBase {
                 'title' => 'Delete',
               ] + $defaults)
               ->setOptions($fieldComponentOptions)
-              ->setRequirement('_neo_alchemist_field', 'entity_type_id.bundle.delete.neo_field.neo_component');
+              ->setRequirement('_neo_component', "neo_component.delete");
             $collection->add("entity.{$entityTypeId}.field_ui.alchemist.delete", $route);
           }
         }

@@ -89,6 +89,7 @@ final class ComponentManageForm extends EntityForm {
       '#tree' => TRUE,
       '#header' => [
         'name' => $this->t('Property'),
+        'type' => $this->t('Type'),
         'required' => $this->t('Required'),
         'editable' => $this->t('Editable'),
         'value_providers' => $this->t('Value Providers'),
@@ -100,6 +101,7 @@ final class ComponentManageForm extends EntityForm {
     foreach ($this->entity->getPropShapes() as $propName => $shape) {
       $row = [];
       $row['name']['#markup'] = $shape->getTitle() . ' <small>(' . $shape->getName() . ')</small>';
+      $row['type']['#markup'] = $shape->getType() . ' <small>(' . $shape->getRef() . ')</small>';
       $row['required']['#markup'] = $shape->isRequired() ? $this->icon($this->t('Yes'))->iconOnly() : $this->icon($this->t('No'))->iconOnly();
       $row['editable']['#markup'] = $shape->isEditable() ? $this->icon($this->t('Yes'))->iconOnly() : $this->icon($this->t('No'))->iconOnly();
       $row['value_providers']['#markup'] = implode(', ', array_map(function ($provider) {
@@ -135,6 +137,22 @@ final class ComponentManageForm extends EntityForm {
         ],
       ];
     }
+
+    $permissions = \Drupal::service('user.permissions')->getPermissions();
+    $permissions_by_provider = [];
+    foreach ($permissions as $permission_name => $permission) {
+      $permissions_by_provider[$permission['provider']][$permission_name] = $permission['title'];
+    }
+    $permissions_by_provider = ['neo_alchemist' => $permissions_by_provider['neo_alchemist']] + $permissions_by_provider;
+    $form['permission'] = [
+      '#type' => 'select',
+      '#title' => $this->t('Permission'),
+      '#description' => $this->t('Select the permission required to manage this component. If no permission is selected the component will be available to all users who can make updates to the entity the component is attached to.'),
+      '#options' => $permissions_by_provider,
+      '#empty_option' => $this->t('- Select -'),
+      // '#multiple' => TRUE,
+    ];
+    // ksm($permissions_by_provider);
 
     return $form;
   }

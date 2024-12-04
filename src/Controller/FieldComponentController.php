@@ -8,6 +8,7 @@ use Drupal\Core\Controller\ControllerBase;
 use Drupal\Core\Entity\EntityFieldManagerInterface;
 use Drupal\Core\Routing\RouteMatchInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
+use Symfony\Component\HttpFoundation\Request;
 
 /**
  * Returns responses for Neo | Alchemist routes.
@@ -33,14 +34,17 @@ final class FieldComponentController extends ControllerBase {
   /**
    * Builds the response.
    */
-  public function __invoke(RouteMatchInterface $routeMatch) {
+  public function __invoke(Request $request, RouteMatchInterface $routeMatch) {
     $build = [];
 
     $fieldDefinitions = $this->getFieldDefinitionsFromRouteMatch($routeMatch);
     if (count($fieldDefinitions) === 1) {
-      $fieldDefinition = reset($fieldDefinitions);
-      $url = $fieldDefinition->toUrl();
-      return $this->redirect($url->getRouteName(), $url->getRouteParameters());
+      $url = reset($fieldDefinitions)->toUrl();
+      $destination = $request->query->get('destination');
+      $request->query->set('destination', NULL);
+      return $this->redirect($url->getRouteName(), $url->getRouteParameters(), [
+        'query' => ['destination' => $destination],
+      ]);
     }
 
     $rows = [];
@@ -77,9 +81,9 @@ final class FieldComponentController extends ControllerBase {
   public function getTitle(RouteMatchInterface $routeMatch) {
     $fieldDefinitions = $this->getFieldDefinitionsFromRouteMatch($routeMatch);
     if (count($fieldDefinitions) === 1) {
-      return $this->t('Layout');
+      return $this->t('Manage Layout');
     }
-    return $this->t('Layouts');
+    return $this->t('Manage Layouts');
   }
 
   /**

@@ -116,7 +116,7 @@ class ComponentTreeItem extends FieldItemBase implements RenderableInterface {
   public static function fieldSettingsSummary(FieldDefinitionInterface $field_definition): array {
     $summary = parent::fieldSettingsSummary($field_definition);
     $settings = $field_definition->getSettings();
-    $summary[] = new FormattableMarkup('Allow customized: @value', [
+    $summary[] = new FormattableMarkup('Allow customization: @value', [
       '@value' => !empty($settings['allow_custom']) ? 'Yes' : 'No',
     ]);
     return $summary;
@@ -213,6 +213,7 @@ class ComponentTreeItem extends FieldItemBase implements RenderableInterface {
    */
   public function access($operation, ?AccountInterface $account = NULL, $return_as_object = FALSE) {
     $access = match(TRUE) {
+      $operation === 'create' && $this->belongsToFieldConfig() => AccessResult::allowedIfHasPermission($account, 'administer ' . $this->getEntity()->getEntityTypeId() . ' fields'),
       $operation === 'create' => AccessResult::allowedIf($this->getSetting('allow_custom'))->andIf($this->getEntity()->access('update', $account, TRUE)),
       $operation === 'publish' => AccessResult::allowedIf($this->hasDraft())->andIf($this->getEntity()->access('update', $account, TRUE)),
       $operation === 'revert' => AccessResult::allowedIf($this->hasDraft())->andIf($this->getEntity()->access('update', $account, TRUE)),

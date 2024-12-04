@@ -13,6 +13,14 @@ use Drupal\neo_alchemist\Plugin\Field\FieldType\ComponentTreeItem;
 interface ComponentFieldConfigInterface extends FieldConfigInterface {
 
   /**
+   * Check if field allows per-entity custom components.
+   *
+   * @return bool
+   *   TRUE if custom components are allowed, FALSE otherwise.
+   */
+  public function allowCustom(): bool;
+
+  /**
    * Retrieves URL parameters based on the target entity type and bundle.
    *
    * This method constructs an array of URL parameters that can be used to

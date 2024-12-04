@@ -58,7 +58,7 @@ entity.neo_component.edit_prop_form:
     _entity_form: 'neo_component.prop'
     _title: 'Edit a component prop'
   requirements:
-    _neo_alchemist_prop: neo_component.prop
+    _neo_component_prop: neo_component.prop
 
 entity.neo_component.delete_form:
   path: '/admin/config/neo/alchemist/{neo_component}/delete'

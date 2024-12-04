@@ -39,37 +39,51 @@ final class ComponentValueProviderPluginManager extends DefaultPluginManager {
    *   An array of filtered and sorted component definitions.
    */
   public function getFilteredDefinitionsFromShape(ComponentShapePluginInterface $shape) {
-    $definitions = $this->getDefinitions();
-    $type = $shape->getType();
-    $entityTypeId = $shape->getTargetEntityType();
-    $bundle = $shape->getTargetEntityBundle();
-
-    $filtered = [];
-    $keys = [];
-    if ($entityTypeId) {
-      $keys[] = '*';
-      $keys[] = "$entityTypeId.*";
-      if ($bundle) {
-        $keys[] = "$entityTypeId.$bundle";
-      }
-    }
-    foreach ($definitions as $id => $definition) {
-      if (empty($definition['entity_types']) || array_intersect($keys, $definition['entity_types'])) {
-        if (!empty($definition['prop_types'])) {
-          if (in_array($type, $definition['prop_types'])) {
-            $filtered[$id] = $definition;
+    $filtered = array_filter($this->getDefinitions(), function ($definition) use ($shape) {
+      if (!empty($definition['entity_types'])) {
+        $entityTypeId = $shape->getTargetEntityType();
+        $bundle = $shape->getTargetEntityBundle();
+        $keys = [];
+        if ($entityTypeId) {
+          $keys[] = '*';
+          $keys[] = "$entityTypeId.*";
+          if ($bundle) {
+            $keys[] = "$entityTypeId.$bundle";
           }
         }
-        else {
-          $filtered[$id] = $definition;
+        $include = array_filter($definition['entity_types'], fn ($entityType) => substr($entityType, 0, 1) !== '!');
+        $exclude = array_map(fn ($entityType) => substr($entityType, 1), array_filter($definition['entity_types'], fn ($entityType) => substr($entityType, 0, 1) === '!'));
+        if ($include && !array_intersect($keys, $include)) {
+          return FALSE;
+        }
+        if ($exclude && array_intersect($keys, $exclude)) {
+          return FALSE;
         }
       }
-      else {
-        if (in_array($type, $definition['prop_types'])) {
-          $filtered[$id] = $definition;
+      if (!empty($definition['prop_types'])) {
+        $type = $shape->getType();
+        $include = array_filter($definition['prop_types'], fn ($propType) => substr($propType, 0, 1) !== '!');
+        $exclude = array_map(fn ($propType) => substr($propType, 1), array_filter($definition['prop_types'], fn ($propType) => substr($propType, 0, 1) === '!'));
+        if ($include && !in_array($type, $include)) {
+          return FALSE;
+        }
+        if ($exclude && in_array($type, $exclude)) {
+          return FALSE;
         }
       }
-    }
+      if (!empty($definition['ref_types'])) {
+        $type = $shape->getRef();
+        $include = array_filter($definition['ref_types'], fn ($propType) => substr($propType, 0, 1) !== '!');
+        $exclude = array_map(fn ($propType) => substr($propType, 1), array_filter($definition['ref_types'], fn ($propType) => substr($propType, 0, 1) === '!'));
+        if ($include && !in_array($type, $include)) {
+          return FALSE;
+        }
+        if ($exclude && in_array($type, $exclude)) {
+          return FALSE;
+        }
+      }
+      return TRUE;
+    });
     uasort($filtered, function ($a, $b) {
       $a_weight = $a['weight'] ?? 0;
       $b_weight = $b['weight'] ?? 0;

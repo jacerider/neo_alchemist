@@ -30,7 +30,7 @@ class ComponentPropAccessCheck implements AccessInterface {
    * @link https://www.drupal.org/docs/8/api/routing-system/parameters-in-routes
    */
   public function access(Route $route, RouteMatchInterface $route_match, AccountInterface $account) {
-    $requirement = $route->getRequirement('_neo_alchemist_prop');
+    $requirement = $route->getRequirement('_neo_component_prop');
     [$entity_type, $prop] = explode('.', $requirement);
     // If $entity_type parameter is a valid entity, call its own access check.
     $parameters = $route_match->getParameters();

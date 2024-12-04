@@ -101,7 +101,7 @@ class NeoComponentTreeList extends FieldItemList {
   public function setValue($values, $notify = TRUE) {
     if (!$this->belongsToFieldConfig()) {
       $this->isDefault = FALSE;
-      if (!$this->getFieldDefinition()->getSetting('allow_custom')) {
+      if (!$this->getFieldDefinition()->allowCustom()) {
         // If custom is not allowed. Do not allow the field to be set. Note that
         // the defaults have already been loaded.
         return;
