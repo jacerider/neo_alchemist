@@ -35,7 +35,7 @@
           t.active && e.classList.add("is-active"), e.addEventListener("click", (d) => {
             d.preventDefault(), i && (document.querySelectorAll(".neo-alchemist--resize").forEach((s) => {
               s.classList.remove("is-active");
-            }), e.classList.add("is-active"), i.style.width = t.width);
+            }), e.classList.add("is-active"), i.style.maxWidth = t.width);
           });
         });
       });
