@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Drupal\neo_alchemist;
 
+use Drupal\Component\Plugin\DerivativeInspectionInterface;
+use Drupal\Component\Plugin\PluginInspectionInterface;
 use Drupal\Core\Entity\ContentEntityInterface;
 use Drupal\Core\Field\FieldDefinitionInterface;
 use Drupal\Core\Field\FieldItemInterface;
@@ -15,7 +17,7 @@ use Drupal\Core\TypedData\DataDefinitionInterface;
 /**
  * Interface for neo_component_shape plugins.
  */
-interface ComponentShapePluginInterface {
+interface ComponentShapePluginInterface extends PluginInspectionInterface, DerivativeInspectionInterface {
 
   const STRING = 'string';
   const NUMBER = 'number';
@@ -28,6 +30,18 @@ interface ComponentShapePluginInterface {
    * Returns the translated plugin label.
    */
   public function label(): string;
+
+  /**
+   * Initialize the shape and calculates the value of the field item.
+   *
+   * This method processes the field item value by starting with the schema
+   * defaults, then modifying with value providers, and finally overlaying
+   * the user input if applicable.
+   *
+   * @return self
+   *   The current instance of the class for method chaining.
+   */
+  public function init(): self;
 
   /**
    * Retrieves the value provider definitions for the current shape.
@@ -52,6 +66,16 @@ interface ComponentShapePluginInterface {
    *   The current instance of the component shape plugin.
    */
   public function addValueProvider(string $providerId, array $settings): self;
+
+  /**
+   * Resets the value providers.
+   *
+   * This method resets the value providers for the current shape instance.
+   *
+   * @return self
+   *   The current instance of the class for method chaining.
+   */
+  public function resetValueProviders(): self;
 
   /**
    * Checks if a value provider is enabled.
@@ -220,6 +244,25 @@ interface ComponentShapePluginInterface {
   public function getScope(): string;
 
   /**
+   * Checks if the component shape is nested.
+   *
+   * @return bool
+   *   TRUE if the component shape is nested, FALSE otherwise.
+   */
+  public function isNested(): bool;
+
+  /**
+   * Sets the nested property.
+   *
+   * @param bool $nested
+   *   (optional) The value to set for the nested property. Defaults to TRUE.
+   *
+   * @return $this
+   *   The current instance of the class for method chaining.
+   */
+  public function setNested(bool $nested = TRUE): self;
+
+  /**
    * Enforces that the component shape is required.
    *
    * This method sets the `enforceRequired` and `required` properties to TRUE,
@@ -315,6 +358,17 @@ interface ComponentShapePluginInterface {
   public function getTargetEntityBundle(): string;
 
   /**
+   * Sets the field type for the component shape.
+   *
+   * @param string $fieldType
+   *   The field type to set.
+   *
+   * @return $this
+   *   The current instance of the class for method chaining.
+   */
+  public function setFieldType(string $fieldType): self;
+
+  /**
    * Get the field type.
    *
    * @return string
@@ -323,12 +377,34 @@ interface ComponentShapePluginInterface {
   public function getFieldType(): string;
 
   /**
+   * Sets the field storage settings.
+   *
+   * @param array $settings
+   *   An associative array of field storage settings.
+   *
+   * @return self
+   *   The current instance of the class for method chaining.
+   */
+  public function setFieldStorageSettings(array $settings): self;
+
+  /**
    * Get the field storage settings.
    *
    * @return array
    *   The field storage settings.
    */
   public function getFieldStorageSettings(): array;
+
+  /**
+   * Sets the field instance settings.
+   *
+   * @param array $settings
+   *   An associative array of field instance settings.
+   *
+   * @return self
+   *   The current instance of the class for method chaining.
+   */
+  public function setFieldInstanceSettings(array $settings): self;
 
   /**
    * Get the field instance settings.
@@ -400,10 +476,10 @@ interface ComponentShapePluginInterface {
   /**
    * Get the default value of the prop.
    *
-   * @return array|string|int|float|bool|null
+   * @return mixed
    *   The default value provided by SDC.
    */
-  public function getDefaultValue(): array|string|int|float|bool|null;
+  public function getDefaultValue(): mixed;
 
   /**
    * Get the default value of the field item.
@@ -431,7 +507,7 @@ interface ComponentShapePluginInterface {
    *   The override value, which can be of various types including array,
    *   string, integer, float, or boolean.
    */
-  public function getOverrideValue(): array|string|int|float|bool|null;
+  public function getOverrideValue(): mixed;
 
   /**
    * Get the field item value.
@@ -440,18 +516,6 @@ interface ComponentShapePluginInterface {
    *   The field item value.
    */
   public function getFieldItemValue(): array;
-
-  /**
-   * Calculates the value of the field item.
-   *
-   * This method processes the field item value by starting with the schema
-   * defaults, then modifying with value providers, and finally overlaying
-   * the user input if applicable.
-   *
-   * @return self
-   *   The current instance of the class for method chaining.
-   */
-  public function calculateFieldItemValue(): self;
 
   /**
    * Set the field item value.
@@ -529,7 +593,7 @@ interface ComponentShapePluginInterface {
    * @return array
    *   The massaged form values.
    */
-  public function massageFormValues(array $form, FormStateInterface $form_state, array $values): array;
+  public function massageFormValues(array $values, array $form, FormStateInterface $form_state): array;
 
   /**
    * Checks if the field definition is supported by the shape.

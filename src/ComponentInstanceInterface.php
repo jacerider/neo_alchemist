@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Drupal\neo_alchemist;
 
-use Drupal\Core\Entity\ContentEntityInterface;
 use Drupal\neo_alchemist\Plugin\Field\FieldType\ComponentTreeItem;
 
 /**

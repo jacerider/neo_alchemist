@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Drupal\neo_alchemist\Plugin\ComponentShape;
 
 use Drupal\Core\Form\FormStateInterface;
+use Drupal\Core\Form\SubformState;
+use Drupal\Core\Render\Element;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\neo_alchemist\Attribute\ComponentShape;
 use Drupal\neo_alchemist\ComponentShapeChildrenPluginInterface;
@@ -35,7 +37,7 @@ class ObjectShape extends ComponentShapePluginBase implements ComponentShapeChil
     $shapes = $this->shapeManager->getInstancesFromSchema($this->getSchema(), $this->getComponent());
     $values = $this->getFieldItemValue();
     foreach ($shapes as $shape) {
-      $shape->setFieldItemValue($values[$shape->getName()] ?? []);
+      $shape->setNested()->setFieldItemValue($values[$shape->getName()] ?? []);
     }
     return $shapes;
   }
@@ -58,35 +60,44 @@ class ObjectShape extends ComponentShapePluginBase implements ComponentShapeChil
   /**
    * {@inheritDoc}
    */
-  public function getForm(array $form, FormStateInterface $form_state): ?array {
-    $elements = [];
+  protected function form(array $form, FormStateInterface $form_state): array {
+    $widget = $this->getWidget();
+    if ($widget) {
+      // Objects can specify a widget. When they do, we use that widget.
+      return parent::form($form, $form_state);
+    }
     if ($shapes = $this->getChildShapes()) {
-      $parents = array_merge($form['#parents'] ?? [], [$this->getName()]);
-      $elements = [
-        '#type' => 'fieldset',
-        '#title' => $this->getTitle(),
-        '#description' => $this->getDescription(),
-        '#description_display' => 'before',
-        '#tree' => TRUE,
-        '#parents' => $parents,
-      ];
+      // $parents = array_merge($form['#parents'], [$this->getName()]);
       $values = $this->getFieldItemValue();
+      $form['#type'] = 'fieldset';
+      $form['#title'] = $this->getTitle();
+      $form['#description'] = $this->getDescription();
+      $form['#description_display'] = 'before';
       foreach ($shapes as $shape) {
         $shape->setFieldItemValue($values[$shape->getName()] ?? []);
-        $elements[$shape->getName()] = $shape->getForm($elements, $form_state);
+        $form[$shape->getName()] = [
+          '#parents' => $form['#parents'],
+        ];
+        $subform_state = SubformState::createForSubform($form[$shape->getName()], $form, $form_state);
+        $form[$shape->getName()] = $shape->getForm($form[$shape->getName()], $subform_state);
       }
     }
-    return $elements;
+    return $form;
   }
 
   /**
    * {@inheritDoc}
    */
-  public function massageFormValues(array $form, FormStateInterface $form_state, array $values): array {
+  public function massageFormValues(array $values, array $form, FormStateInterface $form_state): array {
     foreach ($this->getChildShapes() as $shape) {
-      $values[$shape->getName()] = $shape->massageFormValues($form, $form_state, $values[$shape->getName()] ?? []);
+      $shapeValue = $values[$shape->getName()] ?? [];
+      // If the shape value is an array, continue the massage process.
+      if (is_array($shapeValue) && isset($form[$shape->getName()])) {
+        $subform_state = SubformState::createForSubform($form[$shape->getName()], $form, $form_state);
+        $values[$shape->getName()] = $shape->massageFormValues($shapeValue, $form[$shape->getName()], $subform_state);
+      }
     }
-    return $values;
+    return parent::massageFormValues($values, $form, $form_state);
   }
 
 }

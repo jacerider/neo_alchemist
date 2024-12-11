@@ -66,6 +66,18 @@ class RouteSubscriber extends RouteSubscriberBase {
               ->setRequirement('_neo_component_field', "neo_field.update");
             $collection->add("entity.{$entityTypeId}.alchemist.manage", $route);
 
+            // Preview route.
+            $route = new Route($entityType->getLinkTemplate('alchemist') . "/{neo_field}/preview");
+            $route
+              ->setDefaults([
+                '_controller' => 'Drupal\neo_alchemist\Controller\InstanceComponentPreviewController',
+                '_title_callback' => 'Drupal\neo_alchemist\Controller\InstanceComponentPreviewController::getTitle',
+              ] + $defaults)
+              ->setOption('parameters', $fieldParameters)
+              ->setOption('_admin_route', FALSE)
+              ->setRequirement('_neo_component_field', "neo_field.update");
+            $collection->add("entity.{$entityTypeId}.alchemist.preview", $route);
+
             // Library route.
             $route = new Route($entityType->getLinkTemplate('alchemist') . "/{neo_field}/library");
             $route
@@ -221,6 +233,17 @@ class RouteSubscriber extends RouteSubscriberBase {
               ->setOptions($fieldOptions)
               ->setRequirement('_neo_component_field', "neo_field.update");
             $collection->add("entity.{$entityTypeId}.field_ui.alchemist.manage", $route);
+
+            $route = new Route("$path/alchemist/{neo_field}/preview");
+            $route
+              ->setDefaults([
+                '_controller' => 'Drupal\neo_alchemist\Controller\InstanceComponentPreviewController',
+                '_title_callback' => 'Drupal\neo_alchemist\Controller\InstanceComponentPreviewController::getTitle',
+              ] + $defaults)
+              ->setOptions($fieldOptions)
+              ->setOption('_admin_route', FALSE)
+              ->setRequirement('_neo_component_field', "neo_field.update");
+            $collection->add("entity.{$entityTypeId}.field_ui.alchemist.preview", $route);
 
             $route = new Route("$path/alchemist/{neo_field}/library");
             $route

@@ -20,7 +20,7 @@ image-uri:
   title: Image URL
   type: string
   format: uri-reference
-  pattern: ^(\/|https?:\/\/).*\.(png|gif|jpg|jpeg|webp)(\?.*)?(#.*)?$
+  pattern: ^(\/|https?:\/\/).*\.(?i)(png|gif|jpg|jpeg|webp)(\?.*)?(#.*)?$
 email:
   title: Email
   type: string

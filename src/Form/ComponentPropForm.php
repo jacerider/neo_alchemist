@@ -312,48 +312,91 @@ final class ComponentPropForm extends EntityForm {
         $instance->validateConfigurationForm($form['modifiers']['values'][$modifierId]['modifier'], $subform_state);
       }
     }
+    if (!$form_state->getErrors()) {
+      $props = $this->entity->getSetting('props', []);
+      $propName = $this->shape->getName();
+      $props[$propName] = [
+        'prop' => $propName,
+        'shape' => $this->shape->getPluginId(),
+        'field_type' => $this->shape->getFieldType(),
+        'editable' => !empty($form_state->getValue(['editable'])),
+        'required' => !empty($form_state->getValue(['required'])),
+      ];
+
+      // Providers.
+      foreach ($form_state->getValue(['providers']) ?? [] as $providerId => $providerValue) {
+        if (!empty($providerValue['status'])) {
+          $instance = $this->shape->getValueProvider($providerId);
+          $subform_state = SubformState::createForSubform($form['providers']['values'][$providerId]['provider'], $form, $form_state);
+          $instance->submitConfigurationForm($form['providers']['values'][$providerId]['provider'], $subform_state);
+          $props[$propName]['providers'][$providerId] = [
+            'plugin' => $providerId,
+            'settings' => $subform_state->getValues(),
+          ];
+        }
+      }
+
+      // Modifiers.
+      foreach ($form_state->getValue(['modifiers']) ?? [] as $modifierId => $modifierValue) {
+        if (!empty($modifierValue['status'])) {
+          $instance = $this->shape->getValueModifier($modifierId);
+          $subform_state = SubformState::createForSubform($form['modifiers']['values'][$modifierId]['modifier'], $form, $form_state);
+          $instance->submitConfigurationForm($form['modifiers']['values'][$modifierId]['modifier'], $subform_state);
+          $props[$propName]['modifiers'][$modifierId] = [
+            'plugin' => $modifierId,
+            'settings' => $subform_state->getValues(),
+          ];
+        }
+      }
+
+      // ksm('shape hidden', $this->shape->isHidden());
+      // $this->entity->setSetting()
+
+      $this->entity->setSetting('props', $props);
+    }
   }
 
   /**
    * {@inheritdoc}
    */
   public function save(array $form, FormStateInterface $form_state): int {
-    $props = $this->entity->getSetting('props', []);
-    $propName = $this->shape->getName();
-    $props[$propName] = [
-      'prop' => $propName,
-      'field_type' => $this->shape->getFieldType(),
-      'editable' => !empty($form_state->getValue(['editable'])),
-      'required' => !empty($form_state->getValue(['required'])),
-    ];
+    // $props = $this->entity->getSetting('props', []);
+    // $propName = $this->shape->getName();
+    // $props[$propName] = [
+    //   'prop' => $propName,
+    //   'shape' => $this->shape->getPluginId(),
+    //   'field_type' => $this->shape->getFieldType(),
+    //   'editable' => !empty($form_state->getValue(['editable'])),
+    //   'required' => !empty($form_state->getValue(['required'])),
+    // ];
 
-    // Providers.
-    foreach ($form_state->getValue(['providers']) as $providerId => $providerValue) {
-      if (!empty($providerValue['status'])) {
-        $instance = $this->shape->getValueProvider($providerId);
-        $subform_state = SubformState::createForSubform($form['providers']['values'][$providerId]['provider'], $form, $form_state);
-        $instance->submitConfigurationForm($form['providers']['values'][$providerId]['provider'], $subform_state);
-        $props[$propName]['providers'][$providerId] = [
-          'plugin' => $providerId,
-          'settings' => $subform_state->getValues(),
-        ];
-      }
-    }
+    // // Providers.
+    // foreach ($form_state->getValue(['providers']) as $providerId => $providerValue) {
+    //   if (!empty($providerValue['status'])) {
+    //     $instance = $this->shape->getValueProvider($providerId);
+    //     $subform_state = SubformState::createForSubform($form['providers']['values'][$providerId]['provider'], $form, $form_state);
+    //     $instance->submitConfigurationForm($form['providers']['values'][$providerId]['provider'], $subform_state);
+    //     $props[$propName]['providers'][$providerId] = [
+    //       'plugin' => $providerId,
+    //       'settings' => $subform_state->getValues(),
+    //     ];
+    //   }
+    // }
 
-    // Modifiers.
-    foreach ($form_state->getValue(['modifiers']) as $modifierId => $modifierValue) {
-      if (!empty($modifierValue['status'])) {
-        $instance = $this->shape->getValueModifier($modifierId);
-        $subform_state = SubformState::createForSubform($form['modifiers']['values'][$modifierId]['modifier'], $form, $form_state);
-        $instance->submitConfigurationForm($form['modifiers']['values'][$modifierId]['modifier'], $subform_state);
-        $props[$propName]['modifiers'][$modifierId] = [
-          'plugin' => $modifierId,
-          'settings' => $subform_state->getValues(),
-        ];
-      }
-    }
+    // // Modifiers.
+    // foreach ($form_state->getValue(['modifiers']) as $modifierId => $modifierValue) {
+    //   if (!empty($modifierValue['status'])) {
+    //     $instance = $this->shape->getValueModifier($modifierId);
+    //     $subform_state = SubformState::createForSubform($form['modifiers']['values'][$modifierId]['modifier'], $form, $form_state);
+    //     $instance->submitConfigurationForm($form['modifiers']['values'][$modifierId]['modifier'], $subform_state);
+    //     $props[$propName]['modifiers'][$modifierId] = [
+    //       'plugin' => $modifierId,
+    //       'settings' => $subform_state->getValues(),
+    //     ];
+    //   }
+    // }
 
-    $this->entity->setSetting('props', $props);
+    // $this->entity->setSetting('props', $props);
     $result = parent::save($form, $form_state);
     return $result;
   }

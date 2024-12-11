@@ -129,7 +129,7 @@ final class EntityValueProvider extends ComponentValueProviderPluginBase impleme
   public function allowProcessing(string $op): bool {
     return match($this->shape->getScope()) {
       'field' => match($op) {
-        'calculate' => !$this->shape->getEntity()->isNew(),
+        'default' => !$this->shape->getEntity()->isNew(),
         default => TRUE,
       },
       default => !$this->shape->getEntity()->isNew(),
@@ -139,11 +139,11 @@ final class EntityValueProvider extends ComponentValueProviderPluginBase impleme
   /**
    * {@inheritdoc}
    */
-  public function onCalculateFieldItemValue() {
+  public function provideDefaultValue(mixed $value): mixed {
     $value = $this->fieldMatcher->getEntityValue($this->shape->getEntity(), $this->configuration['field']);
     $this->hasEntityValue = !empty($value);
     $this->stopFurtherProcessing();
-    $this->shape->setFieldItemValue($value);
+    return $value;
   }
 
   /**
@@ -161,7 +161,8 @@ final class EntityValueProvider extends ComponentValueProviderPluginBase impleme
   /**
    * {@inheritdoc}
    */
-  public function widgetFormAlter(array &$element, FormStateInterface $form_state) {
+  public function formAlter(array &$element, FormStateInterface $form_state) {
+    return;
     $fieldDefinition = $this->fieldMatcher->getFieldDefinition($this->shape, $this->configuration['field']);
     if (!$fieldDefinition) {
       return;

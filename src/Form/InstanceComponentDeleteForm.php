@@ -4,6 +4,7 @@ namespace Drupal\neo_alchemist\Form;
 
 use Drupal\Core\Entity\EntityConfirmFormBase;
 use Drupal\Core\Form\FormStateInterface;
+use Drupal\neo_alchemist\Ajax\InstanceComponentPreviewIframeHelper;
 
 /**
  * Provides the filter format disable form.
@@ -11,6 +12,8 @@ use Drupal\Core\Form\FormStateInterface;
  * @internal
  */
 class InstanceComponentDeleteForm extends EntityConfirmFormBase {
+
+  use InstanceComponentPreviewIframeHelper;
 
   /**
    * The entity being edited.
@@ -70,8 +73,28 @@ class InstanceComponentDeleteForm extends EntityConfirmFormBase {
    */
   public function submitForm(array &$form, FormStateInterface $form_state) {
     $this->instance->delete();
-    $this->messenger()->addStatus($this->t('Removed component %label.', ['%label' => $this->instance->label()]));
+
+    $fieldItem = $this->instance->getFieldItem();
+    $fieldDefinition = $fieldItem->getFieldDefinition();
+    $this->messenger()->addStatus($this->t('Removed component %name successfully on %label: %field_label.', [
+      '%name' => $this->instance->label(),
+      '%label' => $fieldItem->belongsToFieldConfig() ? $this->entityTypeManager->getDefinition($fieldDefinition->getTargetEntityTypeId())->getLabel() : $this->entity->label(),
+      '%field_label' => $fieldDefinition->getLabel(),
+    ]));
+
     $form_state->setRedirectUrl($this->getCancelUrl());
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  protected function actions(array $form, FormStateInterface $form_state) {
+    $actions = parent::actions($form, $form_state);
+    if ($this->isAjax()) {
+      $actions['submit']['#ajax']['callback'] = '::ajaxSubmit';
+    }
+    $actions['cancel']['#attributes']['data-neo-modal-close'] = '1';
+    return $actions;
   }
 
 }

@@ -6,11 +6,14 @@ namespace Drupal\neo_alchemist\Form;
 
 use Drupal\Core\Entity\ContentEntityForm;
 use Drupal\Core\Form\FormStateInterface;
+use Drupal\neo_alchemist\Ajax\InstanceComponentPreviewIframeHelper;
 
 /**
  * Component form.
  */
 final class InstanceComponentSortForm extends ContentEntityForm {
+
+  use InstanceComponentPreviewIframeHelper;
 
   /**
    * Field item.
@@ -140,6 +143,9 @@ final class InstanceComponentSortForm extends ContentEntityForm {
       '#value' => $this->t('Save'),
       '#submit' => ['::submitForm', '::save'],
     ];
+    if ($this->isAjax()) {
+      $actions['submit']['#ajax']['callback'] = '::ajaxSubmit';
+    }
     $actions['cancel'] = [
       '#type' => 'link',
       '#title' => $this->t('Cancel'),

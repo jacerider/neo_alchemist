@@ -14,14 +14,54 @@ use Drupal\Core\Url;
 use Drupal\field\FieldConfigInterface;
 use Drupal\field\FieldStorageConfigInterface;
 use Drupal\media_library\MediaLibraryState;
-use Drupal\neo_alchemist\Entity\ComponentFieldConfig;
 use Drupal\neo_alchemist\Form\InstanceComponentDeleteForm;
 use Drupal\neo_alchemist\Form\InstanceComponentForm;
 use Drupal\neo_alchemist\Form\InstanceComponentPublishForm;
 use Drupal\neo_alchemist\Form\InstanceComponentResetForm;
 use Drupal\neo_alchemist\Form\InstanceComponentRevertForm;
 use Drupal\neo_alchemist\Form\InstanceComponentSortForm;
-use Drupal\neo_alchemist\Plugin\Field\FieldTypeOverride\StringItemOverride;
+
+/**
+ * Implements hook_theme().
+ */
+function neo_alchemist_theme(): array {
+  return [
+    'page__neo_alchemist_manage' => [
+      'base hook' => 'page',
+    ],
+    // 'page__neo_alchemist_preview' => [
+    //   'base hook' => 'page',
+    // ],
+    'neo_alchemist_manage' => [
+      'variables' => [
+        'src' => '',
+        'top_start' => [],
+        'top_end' => [],
+        'bottom_start' => [],
+        'bottom_end' => [],
+      ],
+    ],
+    'neo_alchemist_overlay' => [
+      'variables' => [],
+    ],
+  ];
+}
+
+function neo_alchemist_preprocess_page__neo_alchemist_preview(&$variables) {
+  // ksm($variables);
+  if (isset($variables['page']['status'])) {
+    $variables['page']['status'] = [
+      '#type' => 'html_tag',
+      '#tag' => 'div',
+      '#attributes' => [
+        'id' => 'neo-alchemist--messages',
+        'class' => ['fixed top-0 right-0 left-0 flex items-center justify-center px-4 opacity-0 -translate-y-full z-50'],
+      ],
+      'status' => $variables['page']['status'],
+    ];
+  }
+  // $variables['wrapper_attributes']['class'][] = 'p-6';
+}
 
 /**
  * Implements hook_field_widget_single_element_WIDGET_TYPE_form_alter().
@@ -71,6 +111,7 @@ function neo_alchemist_entity_type_alter(array &$entity_types) {
           $canonical = $entityType->getLinkTemplate('canonical');
           $entityType->setLinkTemplate('alchemist', $canonical . '/alchemist');
           $entityType->setLinkTemplate("alchemist.manage", "$canonical/alchemist/{neo_field}");
+          $entityType->setLinkTemplate("alchemist.preview", "$canonical/alchemist/{neo_field}/preview");
           $entityType->setLinkTemplate("alchemist.library", "$canonical/alchemist/{neo_field}/library");
           $entityType->setLinkTemplate("alchemist.publish", "$canonical/alchemist/{neo_field}/publish");
           $entityType->setLinkTemplate("alchemist.revert", "$canonical/alchemist/{neo_field}/revert");

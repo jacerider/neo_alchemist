@@ -2,6 +2,7 @@
 
 namespace Drupal\neo_alchemist\Render;
 
+use Drupal\Component\Utility\NestedArray;
 use Drupal\Core\Extension\ModuleHandlerInterface;
 use Drupal\Core\Render\AttachmentsResponseProcessorInterface;
 use Drupal\Core\Render\BareHtmlPageRenderer;
@@ -62,19 +63,19 @@ class ComponentPageRenderer extends BareHtmlPageRenderer {
       $this->invokePageAttachmentHooks($content);
     });
 
-    $attributes = [
-      'class' => [
-        str_replace('_', '-', $page_theme_property),
-      ],
-    ];
+    $wrapper_attributes = $page_additions['#wrapper_attributes'] ?? [];
+    $wrapper_attributes['class'][] = str_replace('_', '-', $page_theme_property);
+    $attributes = $page_additions['#attributes'] ?? [];
+
     $html = [
       '#type' => 'html',
-      '#attributes' => $attributes,
+      '#attributes' => $wrapper_attributes,
       'page' => [
         '#type' => 'page',
         '#theme' => $page_theme_property,
         '#title' => $title,
         'content' => $content,
+        '#attributes' => $attributes,
       ] + $page_additions,
     ];
 

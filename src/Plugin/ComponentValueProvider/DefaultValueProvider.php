@@ -7,6 +7,7 @@ namespace Drupal\neo_alchemist\Plugin\ComponentValueProvider;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\neo_alchemist\Attribute\ComponentValueProvider;
+use Drupal\neo_alchemist\ComponentShapePluginInterface;
 use Drupal\neo_alchemist\ComponentValueProviderPluginBase;
 
 /**
@@ -16,9 +17,16 @@ use Drupal\neo_alchemist\ComponentValueProviderPluginBase;
   id: 'default',
   label: new TranslatableMarkup('Default'),
   description: new TranslatableMarkup('Provide default values for the component.'),
-  weight: 10,
+  weight: 15,
 )]
 final class DefaultValueProvider extends ComponentValueProviderPluginBase {
+
+  /**
+   * The default shape plugin.
+   *
+   * @var \Drupal\neo_alchemist\ComponentShapePluginInterface
+   */
+  protected ComponentShapePluginInterface $defaultShape;
 
   /**
    * {@inheritdoc}
@@ -26,15 +34,34 @@ final class DefaultValueProvider extends ComponentValueProviderPluginBase {
   public function defaultConfiguration() {
     return [
       'default' => $this->shape->getDefaultValue(),
+      'options' => [],
     ];
+  }
+
+  /**
+   * Retrieves the default shape for the component.
+   *
+   * This method checks if the default shape is already set. If not, it clones
+   * the current shape and resets its value providers. The default shape is then
+   * returned.
+   *
+   * @return \Drupal\neo_alchemist\Plugin\ComponentShapePluginInterface
+   *   The default shape for the component.
+   */
+  protected function getDefaultShape(): ComponentShapePluginInterface {
+    if (!isset($this->defaultShape)) {
+      $this->defaultShape = clone $this->shape;
+      $this->defaultShape->resetValueProviders()->init();
+    }
+    return $this->defaultShape;
   }
 
   /**
    * Configuration form for the value provider plugin.
    */
   protected function providerForm(array $form, FormStateInterface $form_state, array &$complete_form): array {
-    $this->shape->setFieldItemValue($this->configuration['default']);
-    $form = $this->shape->getForm($form, $form_state);
+    $defaultShape = $this->getDefaultShape();
+    $form = $defaultShape->getForm($form, $form_state);
     return $form;
   }
 
@@ -42,30 +69,30 @@ final class DefaultValueProvider extends ComponentValueProviderPluginBase {
    * Form validation for the value provider plugin configuration.
    */
   protected function providerValidate(array $form, FormStateInterface $form_state): void {
-    $values = $form_state->getValues()[$this->shape->getName()] ?? [];
-    $this->shape->validateForm($form, $form_state, $values);
+    $defaultShape = $this->getDefaultShape();
+    $values = $form_state->getValues()[$defaultShape->getName()] ?? [];
+    $defaultShape->validateForm($form, $form_state, $values);
+    $values = $defaultShape->massageFormValues($values, $form, $form_state);
+    $form_state->setValues([
+      'default' => $values,
+      'options' => $form_state->getValue('_options'),
+    ]);
   }
 
-  /**
-   * Form submit for the value provider plugin configuration.
-   */
-  protected function providerSubmit(array $form, FormStateInterface $form_state): void {
-    $values = $form_state->getValues()[$this->shape->getName()] ?? [];
-    $value = $this->shape->massageFormValues($form, $form_state, $values);
-    $form_state->setValues(['default' => $value]);
-  }
+  // /**
+  //  * Form submit for the value provider plugin configuration.
+  //  */
+  // protected function providerSubmit(array $form, FormStateInterface $form_state): void {
+  //   $defaultShape = $this->getDefaultShape();
+  //   $values = $form_state->getValues()[$defaultShape->getName()] ?? [];
+  //   $values = $defaultShape->massageFormValues($values, $form, $form_state);
+  //   $form_state->setValues(['default' => $values]);
+  // }
 
   /**
    * {@inheritdoc}
    */
-  public function onCalculateFieldItemValue() {
-    $this->shape->setFieldItemValue($this->configuration['default']);
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function fieldItemValue(): array {
+  public function provideDefaultValue(mixed $value): mixed {
     return $this->configuration['default'];
   }
 

@@ -6,11 +6,15 @@ namespace Drupal\neo_alchemist\Form;
 
 use Drupal\Core\Entity\ContentEntityForm;
 use Drupal\Core\Form\FormStateInterface;
+use Drupal\Core\Form\SubformState;
+use Drupal\neo_alchemist\Ajax\InstanceComponentPreviewIframeHelper;
 
 /**
  * Component form.
  */
 final class InstanceComponentForm extends ContentEntityForm {
+
+  use InstanceComponentPreviewIframeHelper;
 
   /**
    * Component.
@@ -18,6 +22,20 @@ final class InstanceComponentForm extends ContentEntityForm {
    * @var \Drupal\neo_alchemist\ComponentInstanceInterface
    */
   protected $instance;
+
+  /**
+   * Before.
+   *
+   * @var string|null
+   */
+  protected $before;
+
+  /**
+   * After.
+   *
+   * @var string|null
+   */
+  protected $after;
 
   /**
    * {@inheritdoc}
@@ -46,18 +64,25 @@ final class InstanceComponentForm extends ContentEntityForm {
    */
   public function form(array $form, FormStateInterface $form_state): array {
     $form_state->set('neo_component_form', TRUE);
-    $this->instance = $form_state->get('neo_component_instance');
+    $this->instance = $this->instance ?? $form_state->get('neo_component_instance');
+    $this->before = $form_state->get('before');
+    $this->after = $form_state->get('after');
 
     // Add #process and #after_build callbacks.
     $form['#process'][] = '::processForm';
     $form['#after_build'][] = '::afterBuild';
 
     $form['values'] = [
-      '#parents' => ['values'],
+      '#type' => 'container',
     ];
     foreach ($this->instance->getPropShapes() as $propName => $shape) {
       if ($shape->isEditable()) {
-        $form['values'][$propName] = $shape->getForm($form['values'], $form_state);
+        $form['values'][$propName] = [
+          '#type' => 'container',
+          '#parents' => ['values'],
+        ];
+        $subform_state = SubformState::createForSubform((array) $form['values'][$propName], $form, $form_state);
+        $form['values'][$propName] = $shape->getForm($form['values'][$propName], $subform_state);
       }
     }
 
@@ -86,25 +111,17 @@ final class InstanceComponentForm extends ContentEntityForm {
       'status' => (int) !empty($form_state->getValue('status')),
     ];
     foreach ($this->instance->getPropShapes() as $propName => $shape) {
-      if (!$form_state->hasValue([
-        'values',
-        $propName,
-      ])) {
-        // If the value for this prop does not exist, we skip it. This is used
-        // by the override system.
-        // @see \Drupal\neo_alchemist\Plugin\ComponentValueProvider\EntityValueProvider::widgetFormValidate()
-        continue;
+      if (isset($form['values'][$propName])) {
+        $subform_state = SubformState::createForSubform($form['values'][$propName], $form, $form_state);
+        $value = $subform_state->getValues();
+        $options = $value['_options'] ?? [];
+        unset($value['_options']);
+        $shape->validateForm($form['values'][$propName], $subform_state, $value);
+        if (is_array($value)) {
+          $values['props'][$propName]['shape'] = $shape->getPluginId();
+          $values['props'][$propName]['value'] = $shape->massageFormValues($value, $form['values'][$propName], $subform_state);
+        }
       }
-      $shape->validateForm($form['values'][$propName], $form_state, $form_state->getValue([
-        'values',
-        $propName,
-      ], []));
-      $value = $shape->massageFormValues($form, $form_state, $form_state->getValue([
-        'values',
-        $propName,
-      ], []));
-      $values['props'][$propName]['field_type'] = $shape->getFieldType();
-      $values['props'][$propName]['value'] = $value;
     }
     $this->instance->setValues($values);
     return $this->entity;
@@ -119,6 +136,9 @@ final class InstanceComponentForm extends ContentEntityForm {
       '#value' => $this->t('Save'),
       '#submit' => ['::submitForm', '::save'],
     ];
+    if ($this->isAjax()) {
+      $actions['submit']['#ajax']['callback'] = '::ajaxSubmit';
+    }
     $actions['cancel'] = [
       '#type' => 'link',
       '#title' => $this->t('Cancel'),
@@ -135,6 +155,22 @@ final class InstanceComponentForm extends ContentEntityForm {
    */
   public function save(array $form, FormStateInterface $form_state): int {
     $form_state->setRedirectUrl($this->instance->toUrl());
+
+    $fieldItem = $this->instance->getFieldItem();
+    $fieldDefinition = $fieldItem->getFieldDefinition();
+    $this->messenger()->addStatus($this->t('@op component %name successfully on %label: %field_label.', [
+      '@op' => $this->instance->isNew() ? 'Created' : 'Updated',
+      '%name' => $this->instance->label(),
+      '%label' => $fieldItem->belongsToFieldConfig() ? $this->entityTypeManager->getDefinition($fieldDefinition->getTargetEntityTypeId())->getLabel() : $this->entity->label(),
+      '%field_label' => $fieldDefinition->getLabel(),
+    ]));
+
+    // If we have requested a position change, we make it here.
+    $position = $this->after ? 'after' : ($this->before ? 'before' : NULL);
+    if ($position) {
+      $this->instance->getFieldItem()->moveComponent($this->instance->uuid(), $this->after ?: $this->before, $position);
+    }
+
     return $this->instance->save();
   }
 

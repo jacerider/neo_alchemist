@@ -8,7 +8,7 @@ use Drupal\Component\Utility\Html;
 use Drupal\Component\Utility\NestedArray;
 use Drupal\Core\Field\FieldDefinitionInterface;
 use Drupal\Core\Form\FormStateInterface;
-use Drupal\Core\StringTranslation\StringTranslationTrait;
+use Drupal\Core\Form\SubformState;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\neo_alchemist\Attribute\ComponentShape;
 use Drupal\neo_alchemist\ComponentShapeChildrenPluginInterface;
@@ -25,7 +25,6 @@ use Drupal\neo_alchemist\ComponentShapePluginInterface;
 class ArrayShape extends ComponentShapePluginBase implements ComponentShapeChildrenPluginInterface {
 
   use ShapeManagerDependentShapeTrait;
-  use StringTranslationTrait;
 
   /**
    * The single prop shape.
@@ -108,7 +107,12 @@ class ArrayShape extends ComponentShapePluginBase implements ComponentShapeChild
           $prop['examples'] = $schema['examples'][$delta][$propName] ?? $prop['examples'] ?? [];
         }
       }
-      return $this->shapeManager->getInstancesFromSchema($schema['items'], $this->getComponent());
+      // $shapes = $this->shapeManager->getInstancesFromSchema($schema['items'], $this->getComponent());
+      // foreach ($shapes as $shape) {
+      //   $shape->setNested();
+      // }
+      // return $shapes;
+      return array_map(fn ($v) => $v->setNested(), $this->shapeManager->getInstancesFromSchema($schema['items'], $this->getComponent()));
     }
     return [];
   }
@@ -162,11 +166,9 @@ class ArrayShape extends ComponentShapePluginBase implements ComponentShapeChild
   /**
    * {@inheritDoc}
    */
-  public function getForm(array $form, FormStateInterface $form_state): ?array {
-    $elements = [];
-
+  protected function form(array $form, FormStateInterface $form_state): array {
     $parents = array_merge($form['#parents'] ?? [], [$this->getName()]);
-    $id = Html::getId('shape-' . implode('-', $parents));
+    $id = $form['#id'];
 
     $values = $form_state->get($id) ?? $this->getFieldItemValue();
 
@@ -213,46 +215,41 @@ class ArrayShape extends ComponentShapePluginBase implements ComponentShapeChild
         $description[] = $this->t('Must have at least <strong>@min</strong> items.', ['@min' => $min]);
       }
     }
-    $elements = [
-      '#type' => 'fieldset',
-      '#title' => $this->getTitle(),
-      '#description' => implode('<br>', $description),
-      '#description_display' => 'before',
-      '#required' => $this->isRequired(),
-      '#tree' => TRUE,
-      '#id' => $id,
-      '#parents' => $parents,
-    ];
+
+    $form['#type'] = 'fieldset';
+    $form['#title'] = $this->getTitle();
+    $form['#description'] = implode('<br>', $description);
+    $form['#description_display'] = 'before';
+    $form['#required'] = $this->isRequired();
+
     if (!empty($shapeList)) {
       foreach ($shapeList as $delta => $shapes) {
         /** @var \Drupal\neo_alchemist\ComponentShapePluginInterface[] $shapes */
-        $elements[$delta] = [
+        $form[$delta] = [
           '#type' => 'container',
           '#attributes' => [
             'class' => ['form--inline', 'pb-form-item'],
           ],
         ];
         foreach ($shapes as $shape) {
-          $shapeForm = [
-            '#parents' => array_merge($elements['#parents'], [$delta]),
+          $form[$delta][$shape->getName()] = [
+            '#parents' => array_merge($form['#parents'], [$delta]),
           ];
-          $shapeForm = $shape->getForm($shapeForm, $form_state);
-          $elements[$delta][$shape->getName()] = $shapeForm;
+          $subform_state = SubformState::createForSubform($form[$delta][$shape->getName()], $form, $form_state);
+          $form[$delta][$shape->getName()] = $shape->getForm($form[$delta][$shape->getName()], $subform_state);
         }
-        $elements[$delta]['remove'] = [
+        $form[$delta]['remove'] = [
           '#type' => 'submit',
           '#name' => $id . '-remove-' . $delta,
           '#value' => $this->t('Remove'),
-          '#widget_parents' => array_merge($parents, [$delta]),
+          '#widget_parents' => array_merge($form['#parents'], [$delta]),
           '#submit' => [[get_class($this), 'removeItemSubmit']],
           '#attributes' => [
             'class' => ['btn-xs'],
           ],
           '#limit_validation_errors' => [],
           '#disabled' => $count <= $min,
-          '#parents' => [
-            'shape_remove',
-          ],
+          '#parents' => array_merge(['remove_shape'], $parents, [$delta]),
           '#ajax' => [
             'callback' => [get_class($this), 'removeItemAjax'],
             'wrapper' => $id,
@@ -260,22 +257,21 @@ class ArrayShape extends ComponentShapePluginBase implements ComponentShapeChild
         ];
       }
     }
+
     if (!$max || $count < $max) {
-      $elements['add'] = [
+      $form['add'] = [
         '#type' => 'submit',
         '#value' => $this->t('Add'),
         '#submit' => [[get_class($this), 'addMoreSubmit']],
         '#limit_validation_errors' => [],
-        '#parents' => [
-          'shape_add',
-        ],
+        '#parents' => array_merge(['shape_add'], $parents),
         '#ajax' => [
           'callback' => [get_class($this), 'addMoreAjax'],
           'wrapper' => $id,
         ],
       ];
     }
-    return $elements;
+    return $form;
   }
 
   /**
@@ -351,12 +347,14 @@ class ArrayShape extends ComponentShapePluginBase implements ComponentShapeChild
   /**
    * {@inheritDoc}
    */
-  public function massageFormValues(array $form, FormStateInterface $form_state, array $values): array {
+  public function massageFormValues(array $values, array $form, FormStateInterface $form_state): array {
     $newValues = [];
+    // ksm($values);
+    // die;
     foreach ($values as $delta => $value) {
       $shapes = $this->getChildShapes($delta);
       foreach ($shapes as $shape) {
-        $newValues[$delta][$shape->getName()] = $shape->massageFormValues($form, $form_state, $value[$shape->getName()] ?? []);
+        $newValues[$delta][$shape->getName()] = $shape->massageFormValues($value[$shape->getName()] ?? [], $form, $form_state);
       }
     }
     return $newValues;

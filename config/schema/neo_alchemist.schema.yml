@@ -29,165 +29,12 @@ neo_alchemist.neo_component.*:
       mapping:
         props:
           type: neo_alchemist.neo_component_settings.props
-      # type: mapping
-      # label: Settings
-      # mapping:
-      #   props:
-      #     type: sequence
-      #     label: 'Props'
-      #     sequence:
-      #       type: mapping
-      #       label: 'Prop'
-      #       mapping:
-      #         prop:
-      #           type: string
-      #           label: Prop
-      #         field_type:
-      #           type: string
-      #           label: 'Default field type'
-      #           constraints:
-      #             PluginExists:
-      #               manager: plugin.manager.field.field_type
-      #               interface: '\Drupal\Core\Field\FieldItemInterface'
-      #         providers:
-      #           type: sequence
-      #           label: Providers
-      #           sequence:
-      #             type: mapping
-      #             label: Provider
-      #             mapping:
-      #               plugin:
-      #                 type: string
-      #                 label: 'Value provider'
-      #                 constraints:
-      #                   Regex:
-      #                     pattern: '/^[a-z0-9_-]+$/'
-      #                     message: 'The %value machine name is not valid.'
-      #                   PluginExists:
-      #                     manager: plugin.manager.neo_component_value_provider
-      #                     interface: '\Drupal\neo_alchemist\ComponentValueProviderPluginInterface'
-      #               settings:
-      #                 type: neo_alchemist.neo_component_value_provider.[%parent.plugin]
-      #                 nullable: true
-      # sequence:
-      #   type: mapping
-      #   mapping:
-      #     plugin:
-      #       type: string
-      #       label: 'Value provider'
-      #       constraints:
-      #         Regex:
-      #           pattern: '/^[a-z0-9_-]+:[a-z0-9_-]+$/'
-      #           message: 'The %value machine name is not valid.'
-      #         PluginExists:
-      #           manager: plugin.manager.neo_component_value_provider
-      #           interface: '\Drupal\neo_alchemist\ComponentValueProviderPluginInterface'
-      #     field_type:
-      #       type: string
-      #       label: 'Default field type'
-      #       constraints:
-      #         PluginExists:
-      #           manager: plugin.manager.field.field_type
-      #           interface: '\Drupal\Core\Field\FieldItemInterface'
-      #     settings:
-      #       type: neo_alchemist.neo_component_value_provider.[%parent.plugin]
-      #       # type: sequence
-      #       # label: 'Value provider settings'
-      #       # sequence: neo_alchemist.neo_component_value_provider.[%parent.plugin]
-      #       # nullable: true
     target_entity_type:
       type: string
       label: 'Target Entity Type'
     target_entity_bundle:
       type: string
       label: 'Target Entity Bundle'
-    # defaults:
-    #   type: mapping
-    #   mapping:
-    #     props:
-    #       type: sequence
-    #       orderby: key
-    #       sequence:
-    #         type: mapping
-    #         mapping:
-    #           field_type:
-    #             type: string
-    #             label: 'Default field type'
-    #             constraints:
-    #               PluginExists:
-    #                 manager: plugin.manager.field.field_type
-    #                 interface: '\Drupal\Core\Field\FieldItemInterface'
-    #           value:
-    #             type: sequence
-    #             label: 'Default values'
-    #             sequence:
-    #               type: field.value.[%parent.%parent.field_type]
-  # constraints:
-  #   FullyValidatable: ~
-
-# neo_alchemist.neo_component_value_provider.*:
-#   type: neo_component_value_provider
-
-# neo_component_value_provider:
-#   type: mapping
-#   label: 'Block settings'
-#   mapping:
-#     id:
-#       type: machine_name
-#       label: 'ID'
-#       constraints:
-#         Regex:
-#           pattern: '/^[a-z0-9_.]+$/'
-#           message: "The %value machine name is not valid."
-#     field_type:
-#       type: string
-#       label: 'Default field type'
-#       constraints:
-#         PluginExists:
-#           manager: plugin.manager.field.field_type
-#           interface: '\Drupal\Core\Field\FieldItemInterface'
-
-# neo_alchemist.neo_component_settings:
-#   type: mapping
-#   label: Settings
-#   mapping:
-#     props:
-#       type: sequence
-#       label: 'Props'
-#       sequence:
-#         type: mapping
-#         label: 'Prop'
-#         mapping:
-#           prop:
-#             type: string
-#             label: Prop
-#           field_type:
-#             type: string
-#             label: 'Default field type'
-#             constraints:
-#               PluginExists:
-#                 manager: plugin.manager.field.field_type
-#                 interface: '\Drupal\Core\Field\FieldItemInterface'
-#           providers:
-#             type: sequence
-#             label: Providers
-#             sequence:
-#               type: mapping
-#               label: Provider
-#               mapping:
-#                 plugin:
-#                   type: string
-#                   label: 'Value provider'
-#                   constraints:
-#                     Regex:
-#                       pattern: '/^[a-z0-9_-]+$/'
-#                       message: 'The %value machine name is not valid.'
-#                     PluginExists:
-#                       manager: plugin.manager.neo_component_value_provider
-#                       interface: '\Drupal\neo_alchemist\ComponentValueProviderPluginInterface'
-#                 settings:
-#                   type: neo_alchemist.neo_component_value_provider.[%parent.plugin]
-#                   nullable: true
 
 neo_alchemist.neo_component_settings.props:
   type: sequence
@@ -199,6 +46,13 @@ neo_alchemist.neo_component_settings.props:
       prop:
         type: string
         label: Prop
+      shape:
+        type: string
+        label: 'Shape ID'
+        constraints:
+          PluginExists:
+            manager: plugin.manager.neo_component_shape
+            interface: '\Drupal\neo_alchemist\ComponentShapePluginInterface'
       field_type:
         type: string
         label: 'Default field type'
@@ -262,6 +116,10 @@ neo_alchemist.neo_component_value_provider.default:
   mapping:
     default:
       type: field.value.[%parent.%parent.%parent.%parent.field_type]
+      mapping:
+        _hide:
+          type: boolean
+          label: 'If value is set as hidden'
 
 neo_alchemist.neo_component_value_provider.entity:
   type: mapping

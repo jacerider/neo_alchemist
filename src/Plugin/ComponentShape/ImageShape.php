@@ -20,53 +20,8 @@ use Drupal\neo_alchemist\ComponentShapePluginBase;
 #[ComponentShape(
   prop: 'image',
   label: new TranslatableMarkup('Image'),
-  default_field_type: 'entity_reference',
-  default_field_widget: 'media_library_widget',
 )]
-class ImageShape extends ComponentShapePluginBase {
-
-  use StringTranslationTrait;
-
-  /**
-   * {@inheritDoc}
-   */
-  protected function getDefaultFieldStorageSettings(): array {
-    return [
-      'target_type' => 'media',
-    ];
-  }
-
-  /**
-   * {@inheritDoc}
-   */
-  protected function getDefaultFieldInstaceSettings(): array {
-    return [
-      'handler' => 'default:media',
-      'handler_settings' => [
-        'target_bundles' => [
-          'image' => 'image',
-        ],
-      ],
-    ];
-  }
-
-  /**
-   * {@inheritDoc}
-   */
-  public function getForm(array $form, FormStateInterface $form_state): ?array {
-    $form = parent::getForm($form, $form_state);
-    if ($this->getWidgetType() === 'media_library_widget' && !$this->isRequired()) {
-      // When an image provides a default value, we need to provide a way to
-      // toggle it on/off.
-      $form['widget']['hide'] = [
-        '#type' => 'checkbox',
-        '#title' => $this->t('Hide Default Image'),
-        '#default_value' => empty($this->getValue()),
-        '#access' => empty(Element::children($form['widget']['selection'])) && !empty($this->getDefaultValue()),
-      ];
-    }
-    return $form;
-  }
+class ImageShape extends ObjectShape {
 
   /**
    * {@inheritDoc}
@@ -82,53 +37,6 @@ class ImageShape extends ComponentShapePluginBase {
   }
 
   /**
-   * {@inheritDoc}
-   */
-  public function adaptValue(mixed $value): array {
-    $entity = $this->fieldItem->entity;
-    if ($entity instanceof MediaInterface) {
-      $source = $entity->getSource();
-      $fid = $source->getSourceFieldValue($entity);
-      $file = $this->entityTypeManager->getStorage('file')->load($fid);
-      if ($file instanceof FileInterface) {
-        $value = [
-          'src' => $file->createFileUrl(),
-          'alt' => $source->getMetadata($entity, 'thumbnail_alt_value'),
-          'width' => $source->getMetadata($entity, 'width'),
-          'height' => $source->getMetadata($entity, 'height'),
-        ];
-      }
-    }
-    elseif ($entity instanceof FileInterface) {
-      $value = [
-        'src' => $entity->createFileUrl(),
-        'alt' => $entity->get('alt')->value,
-        'width' => $entity->get('width')->value,
-        'height' => $entity->get('height')->value,
-      ];
-    }
-    return $value;
-  }
-
-  /**
-   * {@inheritDoc}
-   */
-  public function massageFormValues(array $form, FormStateInterface $form_state, array $values): array {
-    $hide = !empty($values['hide']);
-    $values = parent::massageFormValues($form, $form_state, $values);
-    if (!$hide) {
-      $values += $this->getDefaultValue();
-    }
-    if (!empty($values['target_id'])) {
-      // If the target ID is set, we remove all other values.
-      $values = [
-        'target_id' => $values['target_id'],
-      ];
-    }
-    return $values;
-  }
-
-  /**
    * Matches the field definition type with the entity field definition type.
    *
    * @param \Drupal\Core\Field\FieldDefinitionInterface $entityFieldDefinition
@@ -140,6 +48,7 @@ class ImageShape extends ComponentShapePluginBase {
   public function supportsFieldDefinition(FieldDefinitionInterface $entityFieldDefinition): bool {
     $fieldDefinition = $this->getFieldItemList()->getFieldDefinition();
     if ($fieldDefinition->getType() === $entityFieldDefinition->getType()) {
+      // ksm($fieldDefinition->getType(), $entityFieldDefinition->getType(), $entityFieldDefinition->getName(), $entityFieldDefinition->getSetting('target_type'));
       if ($entityFieldDefinition->getSetting('target_type') === 'media') {
         $target_bundles = $entityFieldDefinition->getSetting('handler_settings')['target_bundles'] ?? [];
         if (count($target_bundles) === 1 && isset($target_bundles['image'])) {

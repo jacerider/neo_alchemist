@@ -1,0 +1,19 @@
+instance.component.manage:
+  version: VERSION
+  neo: { group: contrib }
+  js:
+    src/js/instance-component-manage.ts: {}
+  dependencies:
+    - core/drupal
+    - core/drupalSettings
+    - core/drupal.ajax
+    - core/drupal.displace
+
+instance.component.preview:
+  version: VERSION
+  neo: { group: contrib }
+  js:
+    src/js/instance-component-preview.ts: {}
+  dependencies:
+    - core/once
+    - core/drupal

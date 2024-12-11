@@ -168,27 +168,17 @@ abstract class ComponentValueProviderPluginBase extends PluginBase implements Co
   }
 
   /**
-   * Allow the processing by setting the continue flag to FALSE.
-   *
-   * This will allow any following value providers to be processed.
-   *
-   * @return self
-   *   The current instance of the class.
+   * {@inheritdoc}
    */
-  protected function allowFurtherProcessing(): self {
+  public function allowFurtherProcessing(): self {
     $this->continueProcessing = TRUE;
     return $this;
   }
 
   /**
-   * Stops the processing by setting the continue flag to FALSE.
-   *
-   * This will prevent any following value providers from being processed.
-   *
-   * @return self
-   *   The current instance of the class.
+   * {@inheritdoc}
    */
-  protected function stopFurtherProcessing(): self {
+  public function stopFurtherProcessing(): self {
     $this->continueProcessing = FALSE;
     return $this;
   }
@@ -203,13 +193,24 @@ abstract class ComponentValueProviderPluginBase extends PluginBase implements Co
   /**
    * {@inheritdoc}
    */
-  public function onCalculateFieldItemValue() {
+  public function onShapeInit() {
+  }
+
+  public function provideDefaultValue(mixed $value): mixed {
+    return $value;
+  }
+
+  public function provideOverrideValue(mixed $value): mixed {
+    return $value;
   }
 
   /**
    * {@inheritdoc}
    */
-  public function widgetFormAlter(array &$element, FormStateInterface $form_state) {
+  public function formAlter(array &$element, FormStateInterface $form_state) {
+  }
+
+  public function formValuesAlter(array &$values, array $original) {
   }
 
 }

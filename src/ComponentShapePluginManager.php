@@ -69,7 +69,7 @@ final class ComponentShapePluginManager extends DefaultPluginManager {
           if (!empty($propSettings[$propName])) {
             $shape->setEditable($propSettings[$propName]['editable'] ?? TRUE);
             $shape->setRequired($propSettings[$propName]['required'] ?? $required);
-            if (isset($propSettings[$propName]['field_type']) && $propSettings[$propName]['field_type'] === $shape->getFieldType()) {
+            if (isset($propSettings[$propName]['shape']) && $propSettings[$propName]['shape'] === $shape->getPluginId()) {
               // Type-check provided prop configuration and use providers.
               foreach ($propSettings[$propName]['providers'] ?? [] as $provider) {
                 $shape->addValueProvider($provider['plugin'], $provider['settings']);
@@ -80,13 +80,13 @@ final class ComponentShapePluginManager extends DefaultPluginManager {
             }
           }
           // Make sure we match the stored field type with the prop field type.
-          if (isset($values['props'][$propName]) && $values['props'][$propName]['field_type'] === $shape->getFieldType()) {
+          if (isset($values['props'][$propName]) && $values['props'][$propName]['shape'] === $shape->getPluginId()) {
             if (isset($values['props'][$propName]['value'])) {
               $shape->setOverrideValue($values['props'][$propName]['value']);
             }
           }
           // Given all provided values, calculate the field item value.
-          $shape->calculateFieldItemValue();
+          $shape->init();
           $instances[$propName] = $shape;
         }
       }

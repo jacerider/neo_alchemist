@@ -33,13 +33,33 @@ interface ComponentValueProviderPluginInterface extends ConfigurableInterface, P
    * Determines if this processor should be allowed to process.
    *
    * @param string $op
-   *   The operation being performed. Current operations are 'edit',
-   *   'calculate' and 'form'.
+   *   The operation being performed. Current operations are 'default', 'value',
+   *   'edit', and 'form'.
    *
    * @return bool
    *   TRUE if processing should be allowed, FALSE otherwise.
    */
   public function allowProcessing(string $op): bool;
+
+  /**
+   * Allow the processing by setting the continue flag to FALSE.
+   *
+   * This will allow any following value providers to be processed.
+   *
+   * @return self
+   *   The current instance of the class.
+   */
+  public function allowFurtherProcessing(): self;
+
+  /**
+   * Stops the processing by setting the continue flag to FALSE.
+   *
+   * This will prevent any following value providers from being processed.
+   *
+   * @return self
+   *   The current instance of the class.
+   */
+  public function stopFurtherProcessing(): self;
 
   /**
    * Determines if following processors should be allowed to process.
@@ -50,12 +70,11 @@ interface ComponentValueProviderPluginInterface extends ConfigurableInterface, P
   public function shouldContinueProcessing(): bool;
 
   /**
-   * Called when calculating the field item value.
+   * Called when the shape is initialized.
    *
-   * Typically used to set the field item value. Can call
-   * stopFurtherProcessing() to stop following processors from processing.
+   * Can be used to change the shapes type or other properties.
    */
-  public function onCalculateFieldItemValue();
+  public function onShapeInit();
 
   /**
    * Alter the widget form element.
@@ -65,6 +84,6 @@ interface ComponentValueProviderPluginInterface extends ConfigurableInterface, P
    * @param \Drupal\Core\Form\FormStateInterface $form_state
    *   The form state.
    */
-  public function widgetFormAlter(array &$element, FormStateInterface $form_state);
+  public function formAlter(array &$element, FormStateInterface $form_state);
 
 }

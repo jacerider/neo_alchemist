@@ -254,9 +254,16 @@ final class ViewsValueProvider extends ComponentValueProviderPluginBase implemen
   /**
    * {@inheritdoc}
    */
-  public function onCalculateFieldItemValue() {
+  public function isEditable(): bool {
+    return FALSE;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function provideOverrideValue(mixed $value): mixed {
     if (!$this->shape instanceof ComponentShapeChildrenPluginInterface) {
-      return;
+      return $value;
     }
     if ($this->configuration['view_id'] && $this->configuration['view_display_id']) {
       $childShapes = $this->shape->getChildShapes();
@@ -279,10 +286,11 @@ final class ViewsValueProvider extends ComponentValueProviderPluginBase implemen
         }
       }
       if (!empty($results) || empty($this->configuration['continue'])) {
-        $this->shape->setFieldItemValue($results);
+        $value = $results;
         $this->stopFurtherProcessing();
       }
     }
+    return $value;
   }
 
 }

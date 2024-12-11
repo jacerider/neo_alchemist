@@ -28,7 +28,7 @@ class EntityComponentAccessCheck implements AccessInterface {
         }
       }
     }
-    return AccessResult::allowed();
+    return AccessResult::neutral();
   }
 
 }

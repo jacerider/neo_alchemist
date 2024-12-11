@@ -6,8 +6,10 @@ namespace Drupal\neo_alchemist\Controller;
 
 use Drupal\Component\Serialization\Json;
 use Drupal\Core\Controller\ControllerBase;
+use Drupal\Core\Render\BareHtmlPageRendererInterface;
 use Drupal\neo_alchemist\Plugin\Field\FieldType\ComponentTreeItem;
 use Drupal\neo_icon\IconTranslationTrait;
+use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
  * Returns responses for Neo | Alchemist routes.
@@ -17,10 +19,112 @@ final class InstanceComponentManageController extends ControllerBase {
   use IconTranslationTrait;
 
   /**
+   * The controller constructor.
+   */
+  public function __construct(
+    private readonly BareHtmlPageRendererInterface $bareHtmlPageRenderer
+  ) {}
+
+  /**
+   * {@inheritdoc}
+   */
+  public static function create(ContainerInterface $container): self {
+    return new self(
+      $container->get('neo_component_page_renderer')
+    );
+  }
+
+  /**
+   * Builds the response.
+   */
+  public function tmp(ComponentTreeItem $neo_field) {
+    $build = [];
+
+    $build['markup'] = ['#markup' => 'hi'];
+
+    return $build;
+  }
+
+  /**
    * Builds the response.
    */
   public function __invoke(ComponentTreeItem $neo_field) {
-    $build = [];
+    $build = [
+      '#type' => 'neo_alchemist_manage',
+      '#neo_field' => $neo_field,
+    ];
+
+    // return $build;
+
+    return $this->bareHtmlPageRenderer->renderBarePage($build, $this->getTitle($neo_field), 'page__neo_alchemist_manage');
+
+    $build = [
+      '#attached' => [
+        'library' => [
+          'neo_alchemist/instance.component.manage',
+        ],
+        'drupalSettings' => [
+          'neoAlchemist' => [
+            'baseUrl' => $neo_field->toUrl()->toString(),
+          ],
+        ],
+      ],
+    ];
+
+    $build['iframe'] = [
+      '#type' => 'html_tag',
+      '#tag' => 'iframe',
+      '#attributes' => [
+        'id' => 'neo-alchemist--iframe',
+        'src' => $neo_field->toUrl('preview')->toString(),
+        'width' => '100%',
+        // 'height' => '800px',
+        'frameborder' => '0',
+        'class' => [
+          'h-displace',
+        ],
+      ],
+    ];
+
+    $build['header'] = [
+      '#type' => 'html_tag',
+      '#tag' => 'div',
+      '#attributes' => [
+        'class' => [
+          'fixed',
+          'top-0',
+          'left-0',
+          'w-full',
+          'bg-white',
+          'border-b',
+          'border-gray-200',
+          'p-4',
+        ],
+        'data-offset-top' => '',
+      ],
+    ];
+
+    $build['header']['back'] = [
+      '#type' => 'link',
+      '#title' => $this->adminIcon('Back'),
+      '#url' => $neo_field->toUrl('collection'),
+    ];
+
+    foreach ([
+      'sm' => $this->icon($this->t('Mobile'), 'mobile'),
+      'md' => $this->icon($this->t('Tablet'), 'tablet'),
+      'lg' => $this->icon($this->t('Desktop'), 'desktop'),
+    ] as $key => $label) {
+      $build['header'][$key] = [
+        '#type' => 'link',
+        '#title' => $label,
+        '#url' => $neo_field->toUrl('collection'),
+        '#attributes' => [
+          'id' => 'neo-alchemist--resize-' . $key,
+          'class' => ['btn', 'btn-xs', 'btn-outline'],
+        ],
+      ];
+    }
 
     if ($neo_field->access('publish')) {
       $build['publish'] = [
@@ -69,6 +173,47 @@ final class InstanceComponentManageController extends ControllerBase {
         ],
       ];
     }
+
+    $build['actions'] = [
+      '#type' => 'actions',
+      '#weight' => 100,
+      '#attributes' => [
+        'class' => ['p-0 !m-0'],
+      ],
+      '#prefix' => '<div class="fixed bottom-0 left-0 w-full bg-white border-t border-gray-200 p-4" data-offset-bottom>',
+      '#suffix' => '</div>',
+    ];
+    $build['actions']['add'] = [
+      '#type' => 'link',
+      '#title' => $this->adminIcon('Add'),
+      '#url' => $neo_field->toUrl('library'),
+      '#attached' => ['library' => ['core/drupal.dialog.ajax']],
+      '#attributes' => [
+        'class' => ['use-ajax', 'btn'],
+        'data-dialog-type' => 'modal',
+        'data-dialog-options' => Json::encode([
+          'width' => 700,
+        ]),
+      ],
+    ];
+
+    if ($neo_field->access('sort')) {
+      $build['actions']['sort'] = [
+        '#type' => 'link',
+        '#title' => $this->adminIcon('Sort'),
+        '#url' => $neo_field->toUrl('sort'),
+        '#attached' => ['library' => ['core/drupal.dialog.ajax']],
+        '#attributes' => [
+          'class' => ['use-ajax', 'btn', 'btn-outline'],
+          'data-dialog-type' => 'modal',
+          'data-dialog-options' => Json::encode([
+            'width' => 700,
+          ]),
+        ],
+      ];
+    }
+
+    return $this->bareHtmlPageRenderer->renderBarePage($build, $this->getTitle($neo_field), 'page__neo_alchemist_manage');
 
     $instances = $neo_field->getComponents();
     if ($instances) {
@@ -143,39 +288,6 @@ final class InstanceComponentManageController extends ControllerBase {
 
         $build['table']['#rows'][] = $row;
       }
-    }
-
-    $build['actions'] = [
-      '#type' => 'actions',
-    ];
-    $build['actions']['add'] = [
-      '#type' => 'link',
-      '#title' => $this->adminIcon('Add'),
-      '#url' => $neo_field->toUrl('library'),
-      '#attached' => ['library' => ['core/drupal.dialog.ajax']],
-      '#attributes' => [
-        'class' => ['use-ajax', 'btn'],
-        'data-dialog-type' => 'modal',
-        'data-dialog-options' => Json::encode([
-          'width' => 700,
-        ]),
-      ],
-    ];
-
-    if ($neo_field->access('sort')) {
-      $build['actions']['sort'] = [
-        '#type' => 'link',
-        '#title' => $this->adminIcon('Sort'),
-        '#url' => $neo_field->toUrl('sort'),
-        '#attached' => ['library' => ['core/drupal.dialog.ajax']],
-        '#attributes' => [
-          'class' => ['use-ajax', 'btn', 'btn-outline'],
-          'data-dialog-type' => 'modal',
-          'data-dialog-options' => Json::encode([
-            'width' => 700,
-          ]),
-        ],
-      ];
     }
     return $build;
   }

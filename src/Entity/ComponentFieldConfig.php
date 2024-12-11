@@ -25,6 +25,8 @@ class ComponentFieldConfig extends FieldConfig implements ComponentFieldConfigIn
     $parameters = $this->getUrlParameters();
     $parameters['neo_field'] = self::getKeyFromFieldname($this->getName());
     return match($rel) {
+      'collection' => Url::fromRoute("entity.{$entityTypeId}.field_ui_fields", $parameters),
+      'preview' => Url::fromRoute("entity.{$entityTypeId}.field_ui.alchemist.preview", $parameters),
       'library' => Url::fromRoute("entity.{$entityTypeId}.field_ui.alchemist.library", $parameters),
       'add' => Url::fromRoute("entity.{$entityTypeId}.field_ui.alchemist.add", $parameters),
       'sort' => Url::fromRoute("entity.{$entityTypeId}.field_ui.alchemist.sort", $parameters),

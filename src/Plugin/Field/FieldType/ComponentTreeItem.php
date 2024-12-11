@@ -198,6 +198,7 @@ class ComponentTreeItem extends FieldItemBase implements RenderableInterface {
     }
     $fieldKey = ComponentFieldConfig::getKeyFromFieldname($fieldName);
     return match($rel) {
+      'preview' => $this->getEntity()->toUrl("alchemist.preview")->setRouteParameter('neo_field', $fieldKey),
       'library' => $this->getEntity()->toUrl("alchemist.library")->setRouteParameter('neo_field', $fieldKey),
       'add' => $this->getEntity()->toUrl("alchemist.add")->setRouteParameter('neo_field', $fieldKey),
       'publish' => $this->getEntity()->toUrl("alchemist.publish")->setRouteParameter('neo_field', $fieldKey),
@@ -212,13 +213,14 @@ class ComponentTreeItem extends FieldItemBase implements RenderableInterface {
    * {@inheritDoc}
    */
   public function access($operation, ?AccountInterface $account = NULL, $return_as_object = FALSE) {
+    $account = $account ?? \Drupal::currentUser();
     $access = match(TRUE) {
       $operation === 'create' && $this->belongsToFieldConfig() => AccessResult::allowedIfHasPermission($account, 'administer ' . $this->getEntity()->getEntityTypeId() . ' fields'),
       $operation === 'create' => AccessResult::allowedIf($this->getSetting('allow_custom'))->andIf($this->getEntity()->access('update', $account, TRUE)),
       $operation === 'publish' => AccessResult::allowedIf($this->hasDraft())->andIf($this->getEntity()->access('update', $account, TRUE)),
       $operation === 'revert' => AccessResult::allowedIf($this->hasDraft())->andIf($this->getEntity()->access('update', $account, TRUE)),
       $operation === 'reset' => AccessResult::allowedIf(!$this->belongsToFieldConfig() && !$this->getParent()->isDefault())->andIf($this->getEntity()->access('update', $account, TRUE)),
-      $operation === 'sort' => AccessResult::allowedIf(count($this->getComponents()) > 1)->andIf($this->getEntity()->access('update', $account, TRUE)),
+      $operation === 'sort' => AccessResult::allowedIf($this->getEntity()->access('update', $account, TRUE)),
       default => $this->getEntity()->access($operation, $account, TRUE),
     };
     return $return_as_object ? $access : $access->isAllowed();
@@ -413,7 +415,7 @@ class ComponentTreeItem extends FieldItemBase implements RenderableInterface {
   /**
    * Sorts the components within the tree structure.
    *
-   * @param array $component_instance_uuids
+   * @param array $componentInstanceIds
    *   An array of component instance UUIDs to be sorted.
    * @param string $parentUuid
    *   (optional) The UUID of the parent component. Defaults to the root UUID.
@@ -421,10 +423,54 @@ class ComponentTreeItem extends FieldItemBase implements RenderableInterface {
    *   (optional) The slot within the parent component where the components
    *   should be sorted.
    */
-  public function sortComponents(array $component_instance_uuids, string $parentUuid = ComponentTreeStructure::ROOT_UUID, $slot = NULL): self {
+  public function sortComponents(array $componentInstanceIds, string $parentUuid = ComponentTreeStructure::ROOT_UUID, $slot = NULL): self {
     $tree = $this->get('tree');
     assert($tree instanceof ComponentTreeStructure);
-    $tree->sortComponents($component_instance_uuids, $parentUuid, $slot);
+    $tree->sortComponents($componentInstanceIds, $parentUuid, $slot);
+    return $this;
+  }
+
+  /**
+   * Moves a component to a new position within the component tree.
+   *
+   * @param string $uuid
+   *   The UUID of the component to move.
+   * @param string $positionUuid
+   *   The UUID of the component that determines the new position.
+   * @param string $position
+   *   The position relative to the $positionUuid component. Can be 'before' or
+   *   'after'. Defaults to 'after'.
+   * @param string $parentUuid
+   *   The UUID of the parent component. Defaults to the root UUID.
+   * @param mixed $slot
+   *   An optional slot identifier.
+   *
+   * @return self
+   *   Returns the current instance for method chaining.
+   */
+  public function moveComponent(string $uuid, string $positionUuid, string $position = 'after', string $parentUuid = ComponentTreeStructure::ROOT_UUID, $slot = NULL): self {
+    $tree = $this->get('tree');
+    assert($tree instanceof ComponentTreeStructure);
+    $componentInstanceIds = $tree->getComponentInstanceUuids();
+    if (in_array($uuid, $componentInstanceIds)) {
+      if ($position === 'before') {
+        $beforeIndex = array_search($positionUuid, $componentInstanceIds);
+        $componentInstanceIds = array_merge(
+          array_slice($componentInstanceIds, 0, $beforeIndex),
+          [$uuid],
+          array_slice($componentInstanceIds, $beforeIndex)
+        );
+      }
+      elseif ($position === 'after') {
+        $afterIndex = array_search($positionUuid, $componentInstanceIds);
+        $componentInstanceIds = array_merge(
+          array_slice($componentInstanceIds, 0, $afterIndex + 1),
+          [$uuid],
+          array_slice($componentInstanceIds, $afterIndex + 1)
+        );
+      }
+      $this->sortComponents($componentInstanceIds, $parentUuid, $slot);
+    }
     return $this;
   }
 
@@ -686,8 +732,8 @@ class ComponentTreeItem extends FieldItemBase implements RenderableInterface {
     // This *internal-only* validation does not need to happen using validation
     // constraints because it does not validate user input: it only helps ensure
     // that the logic of this field type is correct.
-    $component_instance_uuids = $tree->getComponentInstanceUuids();
-    if (array_intersect($component_instance_uuids, $props->getComponentInstanceUuids()) !== $component_instance_uuids) {
+    $componentInstanceIds = $tree->getComponentInstanceUuids();
+    if (array_intersect($componentInstanceIds, $props->getComponentInstanceUuids()) !== $componentInstanceIds) {
       throw new \LogicException(sprintf('The component UUIDs in the tree and props values do not match! Put a breakpoint here and figure out why.'));
     }
   }

@@ -8,58 +8,58 @@ libraryOverrides:
     - core/once
 props:
   type: object
-  required:
-    - color
+  # required:
+  #   - color
   properties:
     title:
       type: string
       title: Title
       description: The super title.
       examples: ['A really cool title']
-    email:
-      type: email
-      title: Email
-      description: The super title.
-      examples: ['jacerider@gmail.com']
-    integer:
-      type: integer
-      title: Integer
-      description: The super integer.
-      minimum: 3
-      maximum: 6
-      examples: [5]
-    number:
-      type: number
-      title: Number
-      description: The super number.
-      examples: [1.5]
-    boolean:
-      type: boolean
-      title: Boolean
-      description: The super boolean.
-      examples: [false]
-    link:
-      type: link
-      title: Link
-      description: The super link.
-      examples:
-        -
-          uri: internal:/
-          title: Call to action
-    url:
-      type: url
-      title: Url
-      description: The super url.
-      examples:
-        -
-          uri: internal:/
-    color:
-      type: string
-      title: Color
-      description: "Background color to use for the chip, one of 'primary' or 'secondary'."
-      # The enum directive restricts the possible values in the element to our list.
-      enum: ['base', 'primary', 'secondary']
-      examples: ['primary']
+    # email:
+    #   type: email
+    #   title: Email
+    #   description: The super title.
+    #   examples: ['jacerider@gmail.com']
+    # integer:
+    #   type: integer
+    #   title: Integer
+    #   description: The super integer.
+    #   minimum: 3
+    #   maximum: 6
+    #   examples: [5]
+    # number:
+    #   type: number
+    #   title: Number
+    #   description: The super number.
+    #   examples: [1.5]
+    # boolean:
+    #   type: boolean
+    #   title: Boolean
+    #   description: The super boolean.
+    #   examples: [false]
+    # link:
+    #   type: link
+    #   title: Link
+    #   description: The super link.
+    #   examples:
+    #     -
+    #       uri: internal:/
+    #       title: Call to action
+    # url:
+    #   type: url
+    #   title: Url
+    #   description: The super url.
+    #   examples:
+    #     -
+    #       uri: internal:/
+    # color:
+    #   type: string
+    #   title: Color
+    #   description: "Background color to use for the chip, one of 'primary' or 'secondary'."
+    #   # The enum directive restricts the possible values in the element to our list.
+    #   enum: ['base', 'primary', 'secondary']
+    #   examples: ['primary']
     image:
       title: 'Image'
       type: image
@@ -68,27 +68,27 @@ props:
           alt: 'Boring placeholder'
           width: 300
           height: 200
-    wow:
-      title: 'WOW'
-      type: object
-      required:
-        - more
-        - color
-      properties:
-        more:
-          type: string
-          title: More
-        many:
-          type: string
-          title: Many
-          examples: ['wow']
-        color:
-          type: string
-          title: Color
-          description: "Background color to use for the chip, one of 'primary' or 'secondary'."
-          # The enum directive restricts the possible values in the element to our list.
-          enum: ['base', 'primary', 'secondary']
-          examples: ['primary']
+    # wow:
+    #   title: 'WOW'
+    #   type: object
+    #   # required:
+    #   #   - more
+    #   #   - color
+    #   properties:
+    #     more:
+    #       type: string
+    #       title: More
+    #     many:
+    #       type: string
+    #       title: Many
+    #       examples: ['wow']
+    #     color:
+    #       type: string
+    #       title: Color
+    #       description: "Background color to use for the chip, one of 'primary' or 'secondary'."
+    #       # The enum directive restricts the possible values in the element to our list.
+    #       enum: ['base', 'primary', 'secondary']
+    #       examples: ['primary']
     items:
       type: array
       title: Items
@@ -97,50 +97,50 @@ props:
       items:
         type: string
       examples: ['hello', 'good', 'field']
-    sequence:
-      type: array
-      title: Sequence
-      description: A super sequence.
-      # @todo Add examples here.
-      examples:
-        - title: Google
-          url: https://google.com
-          image:
-            - src: https://placehold.co/100x100.png
-              alt: 'Boring placeholder'
-              width: 100
-              height: 100
-        - title: Yahoo
-          url: https://yahoo.com
-          image:
-            - src: https://placehold.co/100x100.png
-              alt: 'Boring placeholder'
-              width: 100
-              height: 100
-      items:
-        type: object
-        required:
-          - title
-        properties:
-          title:
-            type: string
-            title: Title
-            description: The item title.
-          url:
-            type: url
-            title: URL
-          image:
-            title: 'Image'
-            type: image
-          wow:
-            type: object
-            properties:
-              more:
-                type: string
-                title: More
-              max:
-                type: string
-                title: Max
+    # sequence:
+    #   type: array
+    #   title: Sequence
+    #   description: A super sequence.
+    #   # @todo Add examples here.
+    #   examples:
+    #     - title: Google
+    #       url: https://google.com
+    #       image:
+    #         - src: https://placehold.co/100x100.png
+    #           alt: 'Boring placeholder'
+    #           width: 100
+    #           height: 100
+    #     - title: Yahoo
+    #       url: https://yahoo.com
+    #       image:
+    #         - src: https://placehold.co/100x100.png
+    #           alt: 'Boring placeholder'
+    #           width: 100
+    #           height: 100
+    #   items:
+    #     type: object
+    #     required:
+    #       - title
+    #     properties:
+    #       title:
+    #         type: string
+    #         title: Title
+    #         description: The item title.
+    #       url:
+    #         type: url
+    #         title: URL
+    #       image:
+    #         title: 'Image'
+    #         type: image
+    #       wow:
+    #         type: object
+    #         properties:
+    #           more:
+    #             type: string
+    #             title: More
+    #           max:
+    #             type: string
+    #             title: Max
 slots:
   first:
     title: First
