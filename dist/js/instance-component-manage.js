@@ -29,7 +29,7 @@
       c && c(!0), [
         { id: "sm", width: "440px", active: !1 },
         { id: "md", width: "768px", active: !1 },
-        { id: "lg", width: "", active: !0 }
+        { id: "lg", width: "100%", active: !0 }
       ].forEach((t) => {
         once("neo.alchemist", "#neo-alchemist--resize-" + t.id).forEach((e) => {
           t.active && e.classList.add("is-active"), e.addEventListener("click", (d) => {

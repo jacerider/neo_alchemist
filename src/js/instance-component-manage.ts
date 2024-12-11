@@ -1,5 +1,6 @@
 (function (Drupal, drupalSettings, displace) {
   const iframe = document.getElementById('neo-alchemist--iframe') as HTMLIFrameElement;
+  // iframe.style.maxWidth = '100%';
 
   window.addEventListener('message', function (e) {
     // Get the sent data
@@ -39,7 +40,7 @@
       [
         {id: 'sm', width: '440px', active: false},
         {id: 'md', width: '768px', active: false},
-        {id: 'lg', width: '', active: true},
+        {id: 'lg', width: '100%', active: true},
       ].forEach((data) => {
         once('neo.alchemist', '#neo-alchemist--resize-' + data.id).forEach(el => {
           if (data.active) {

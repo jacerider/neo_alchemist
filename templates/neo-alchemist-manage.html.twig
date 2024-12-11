@@ -1,5 +1,5 @@
 {% if top_start or top_end %}
-  <div class="fixed flex gap-4 top-0 left-0 w-full bg-white border-b border-gray-200 p-4" data-offset-top>
+  <div class="fixed flex gap-4 top-0 left-0 w-full bg-white border-b border-gray-200 px-4 py-2 shadow" data-offset-top>
     {% if top_start %}
       <div>{{ top_start }}</div>
     {% endif %}
@@ -10,11 +10,11 @@
 {% endif %}
 
 <div class="flex items-center justify-center bg-base-300">
-  <iframe id="neo-alchemist--iframe" src="{{ src }}" frameborder="0" class="h-displace w-full transition-all"></iframe>
+  <iframe id="neo-alchemist--iframe" src="{{ src }}" frameborder="0" class="h-displace w-full transition-all" style="max-width:100%"></iframe>
 </div>
 
 {% if bottom_start or bottom_end %}
-  <div class="fixed bottom-0 left-0 w-full bg-white border-t border-gray-200 p-4" data-offset-bottom>
+  <div class="fixed bottom-0 left-0 w-full bg-white border-t border-gray-200 px-4 py-2 shadow" data-offset-bottom>
     {% if bottom_start %}
       <div>{{ bottom_start }}</div>
     {% endif %}

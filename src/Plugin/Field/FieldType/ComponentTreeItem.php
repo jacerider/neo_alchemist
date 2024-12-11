@@ -198,6 +198,7 @@ class ComponentTreeItem extends FieldItemBase implements RenderableInterface {
     }
     $fieldKey = ComponentFieldConfig::getKeyFromFieldname($fieldName);
     return match($rel) {
+      'collection' => $this->getEntity()->toUrl(),
       'preview' => $this->getEntity()->toUrl("alchemist.preview")->setRouteParameter('neo_field', $fieldKey),
       'library' => $this->getEntity()->toUrl("alchemist.library")->setRouteParameter('neo_field', $fieldKey),
       'add' => $this->getEntity()->toUrl("alchemist.add")->setRouteParameter('neo_field', $fieldKey),

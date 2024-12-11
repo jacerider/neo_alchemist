@@ -48,9 +48,18 @@ class InstanceComponentManage extends RenderElementBase {
     $element['#top_start'] = [];
     $element['#top_end'] = [];
 
+    $modalSettings = [
+      'width' => '100%',
+      'height' => '100%',
+      'neo' => [
+        'displaceTop' => '0px',
+        'displaceBottom' => '0px',
+      ],
+    ];
+
     $element['#top_start']['back'] = [
       '#type' => 'link',
-      '#title' => neo_admin_icon(t('Back')),
+      '#title' => neo_admin_icon(t('Back'), 'arrow-circle-left'),
       '#url' => $neoField->toUrl('collection'),
       '#attributes' => [
         'class' => ['btn', 'btn-xs'],
@@ -66,9 +75,7 @@ class InstanceComponentManage extends RenderElementBase {
         '#attributes' => [
           'class' => ['use-ajax', 'btn', 'btn-xs', 'btn-primary'],
           'data-dialog-type' => 'modal',
-          'data-dialog-options' => Json::encode([
-            'width' => 700,
-          ]),
+          'data-dialog-options' => Json::encode($modalSettings),
         ],
       ];
     }
@@ -81,9 +88,7 @@ class InstanceComponentManage extends RenderElementBase {
         '#attributes' => [
           'class' => ['use-ajax', 'btn', 'btn-xs', 'btn-warning'],
           'data-dialog-type' => 'modal',
-          'data-dialog-options' => Json::encode([
-            'width' => 700,
-          ]),
+          'data-dialog-options' => Json::encode($modalSettings),
         ],
       ];
     }
@@ -98,9 +103,7 @@ class InstanceComponentManage extends RenderElementBase {
         '#attributes' => [
           'class' => ['use-ajax', 'btn', 'btn-xs', 'btn-alert'],
           'data-dialog-type' => 'modal',
-          'data-dialog-options' => Json::encode([
-            'width' => 700,
-          ]),
+          'data-dialog-options' => Json::encode($modalSettings),
         ],
       ];
     }
@@ -131,9 +134,7 @@ class InstanceComponentManage extends RenderElementBase {
         '#attributes' => [
           'class' => ['use-ajax', 'btn'],
           'data-dialog-type' => 'modal',
-          'data-dialog-options' => Json::encode([
-            'width' => 700,
-          ]),
+          'data-dialog-options' => Json::encode($modalSettings),
         ],
       ];
     }
@@ -147,9 +148,7 @@ class InstanceComponentManage extends RenderElementBase {
         '#attributes' => [
           'class' => ['use-ajax', 'btn', 'btn-outline'],
           'data-dialog-type' => 'modal',
-          'data-dialog-options' => Json::encode([
-            'width' => 700,
-          ]),
+          'data-dialog-options' => Json::encode($modalSettings),
         ],
       ];
     }
