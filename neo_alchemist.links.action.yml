@@ -1,5 +1,8 @@
 entity.neo_component.library:
   route_name: 'entity.neo_component.library'
   title: 'Add component'
+  modal:
+    width: 100%
+    height: 100%
   appears_on:
     - entity.neo_component.collection

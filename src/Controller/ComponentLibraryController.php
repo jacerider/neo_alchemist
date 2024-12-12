@@ -5,14 +5,20 @@ declare(strict_types=1);
 namespace Drupal\neo_alchemist\Controller;
 
 use Drupal\Core\Controller\ControllerBase;
+use Drupal\Core\Render\Markup;
 use Drupal\Core\Theme\ComponentPluginManager;
 use Drupal\Core\Url;
+use Drupal\neo_icon\IconTranslationTrait;
+use Drupal\neo_tooltip\TooltipTrait;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
  * Returns responses for Neo | Alchemist routes.
  */
 final class ComponentLibraryController extends ControllerBase {
+
+  use IconTranslationTrait;
+  use TooltipTrait;
 
   /**
    * The controller constructor.
@@ -38,8 +44,41 @@ final class ComponentLibraryController extends ControllerBase {
 
     $rows = [];
     foreach ($definitions as $definition) {
+      /** @var \Drupal\Core\Plugin\Component $component */
+      $component = $this->pluginManagerSdc->createInstance($definition['id']);
+
       $row = [];
-      $row['name'] = $definition['name'];
+      $row['thumbnail'] = ['style' => 'width: 100px;'];
+      if ($thumbnail = $component->metadata->getThumbnailPath()) {
+        $row['thumbnail']['data'] = [
+          '#theme' => 'image',
+          '#uri' => $thumbnail,
+          '#alt' => $definition['name'],
+          '#attributes' => [
+            'style' => 'display: block; max-width: 80px; max-height: 80px',
+          ],
+          '#prefix' => '<div class="flex items-center justify-center">',
+          '#suffix' => '</div>',
+        ];
+      }
+
+      $info = $this->tooltipAsLink($this->adminIcon('Info', 'info-circle')->iconOnly(), [
+        '#markup' => Markup::create('<pre style="white-space:pre-line;">' . $component->metadata->documentation . '</pre>'),
+      ]);
+      $row['name']['data'] = [
+        '#type' => 'inline_template',
+        '#template' => '
+          {{ name }} {{ info }}
+          {% if description %}<br><small>{{ description }}</small>{% endif %}
+          {% if path %}<br><small>Path: <em>{{ path }}</em></small>{% endif %}
+        ',
+        '#context' => [
+          'name' => $definition['name'],
+          'info' => $info,
+          'description' => $definition['description'],
+          'path' => $component->metadata->path,
+        ],
+      ];
 
       $links = [];
       $links['add'] = [
@@ -48,12 +87,6 @@ final class ComponentLibraryController extends ControllerBase {
           'component' => $definition['id'],
         ]),
       ];
-      // if (isset($section)) {
-      //   $links['add']['query']['section'] = $section;
-      // }
-      // if (isset($weight)) {
-      //   $links['add']['query']['weight'] = $weight;
-      // }
       $row['operations']['data'] = [
         '#type' => 'operations',
         '#links' => $links,
@@ -63,6 +96,7 @@ final class ComponentLibraryController extends ControllerBase {
     $build = [
       '#type' => 'table',
       '#header' => [
+        'thumbnail' => $this->t('Thumbnail'),
         'name' => $this->t('Name'),
         'operations' => $this->t('Operations'),
       ],

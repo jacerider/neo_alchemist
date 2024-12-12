@@ -52,7 +52,7 @@ final class ComponentManageController extends ControllerBase {
     //   ],
     // ];
 
-    // return $build;
+    return $build;
 
     return $this->bareHtmlPageRenderer->renderBarePage($build, 'Manage: ' . $neo_component->label(), 'page', [
       '#show_messages' => TRUE,
