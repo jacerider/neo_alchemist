@@ -27,6 +27,7 @@ trait ShapeManagerDependentShapeTrait {
     $plugin_id,
     $plugin_definition,
     array $schema,
+    array $settings,
     protected ComponentInterface $component,
     protected EntityTypeManagerInterface $entityTypeManager,
     protected TypedDataManagerInterface $typedDataManager,
@@ -35,7 +36,7 @@ trait ShapeManagerDependentShapeTrait {
     protected ComponentValueModifierPluginManager $valueModifierManager,
     protected ComponentShapePluginManager $shapeManager,
   ) {
-    parent::__construct($plugin_id, $plugin_definition, $schema, $component, $entityTypeManager, $typedDataManager, $widgetManager, $valueProviderManager, $valueModifierManager);
+    parent::__construct($plugin_id, $plugin_definition, $schema, $settings, $component, $entityTypeManager, $typedDataManager, $widgetManager, $valueProviderManager, $valueModifierManager);
   }
 
   /**
@@ -46,6 +47,7 @@ trait ShapeManagerDependentShapeTrait {
       $plugin_id,
       $plugin_definition,
       $configuration['schema'],
+      $configuration['settings'],
       $configuration['component'],
       $container->get('entity_type.manager'),
       $container->get(TypedDataManagerInterface::class),

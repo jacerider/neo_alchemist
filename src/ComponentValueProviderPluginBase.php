@@ -133,25 +133,8 @@ abstract class ComponentValueProviderPluginBase extends PluginBase implements Co
 
   /**
    * {@inheritdoc}
-   *
-   * Most provider plugins should not override this method. To add submission
-   * handling for a specific provider type, override
-   * ComponentValuePluginProviderBase::providerSubmit().
-   *
-   * @see \Drupal\neo_alchemist\ComponentValuePluginProviderBase::providerSubmit()
    */
-  public function submitConfigurationForm(array &$form, FormStateInterface $form_state) {
-    // Process the provider's submission handling if no errors occurred only.
-    if (!$form_state->getErrors()) {
-      $this->providerSubmit($form, $form_state);
-    }
-  }
-
-  /**
-   * Form submit for the value provider plugin configuration.
-   */
-  protected function providerSubmit(array $form, FormStateInterface $form_state): void {
-  }
+  public function submitConfigurationForm(array &$form, FormStateInterface $form_state) {}
 
   /**
    * {@inheritdoc}
@@ -196,10 +179,16 @@ abstract class ComponentValueProviderPluginBase extends PluginBase implements Co
   public function onShapeInit() {
   }
 
+  /**
+   * {@inheritdoc}
+   */
   public function provideDefaultValue(mixed $value): mixed {
     return $value;
   }
 
+  /**
+   * {@inheritdoc}
+   */
   public function provideOverrideValue(mixed $value): mixed {
     return $value;
   }
@@ -208,9 +197,6 @@ abstract class ComponentValueProviderPluginBase extends PluginBase implements Co
    * {@inheritdoc}
    */
   public function formAlter(array &$element, FormStateInterface $form_state) {
-  }
-
-  public function formValuesAlter(array &$values, array $original) {
   }
 
 }

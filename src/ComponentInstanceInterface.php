@@ -61,4 +61,12 @@ interface ComponentInstanceInterface extends ComponentInterface {
    */
   public function getValue($key, mixed $default = NULL): mixed;
 
+  /**
+   * Retrieves the values for the component instance.
+   *
+   * @return array
+   *   An associative array of values.
+   */
+  public function getValues(): array;
+
 }

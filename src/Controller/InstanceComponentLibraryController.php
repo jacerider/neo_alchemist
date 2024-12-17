@@ -41,7 +41,12 @@ final class InstanceComponentLibraryController extends ControllerBase {
           'class' => ['use-ajax'],
           'data-dialog-type' => 'modal',
           'data-dialog-options' => Json::encode([
-            'width' => 700,
+            'width' => '100%',
+            'height' => '100%',
+            'neo' => [
+              'displaceTop' => '0px',
+              'displaceBottom' => '0px',
+            ],
           ]),
         ],
       ];

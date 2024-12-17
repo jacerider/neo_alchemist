@@ -41,17 +41,12 @@ final class DefaultValueProvider extends ComponentValueProviderPluginBase {
   /**
    * Retrieves the default shape for the component.
    *
-   * This method checks if the default shape is already set. If not, it clones
-   * the current shape and resets its value providers. The default shape is then
-   * returned.
-   *
    * @return \Drupal\neo_alchemist\Plugin\ComponentShapePluginInterface
    *   The default shape for the component.
    */
   protected function getDefaultShape(): ComponentShapePluginInterface {
     if (!isset($this->defaultShape)) {
-      $this->defaultShape = clone $this->shape;
-      $this->defaultShape->resetValueProviders()->init();
+      $this->defaultShape = $this->shape->getDefaultShape()->setFieldItemValue($this->configuration['default']);
     }
     return $this->defaultShape;
   }
@@ -72,22 +67,23 @@ final class DefaultValueProvider extends ComponentValueProviderPluginBase {
     $defaultShape = $this->getDefaultShape();
     $values = $form_state->getValues()[$defaultShape->getName()] ?? [];
     $defaultShape->validateForm($form, $form_state, $values);
-    $values = $defaultShape->massageFormValues($values, $form, $form_state);
+    $originalValues = $this->configuration['default'];
+    if (!is_array($originalValues)) {
+      $originalValues = [$originalValues];
+    }
+    $values = $defaultShape->massageFormValues($values, $originalValues, $form, $form_state);
     $form_state->setValues([
       'default' => $values,
       'options' => $form_state->getValue('_options'),
     ]);
   }
 
-  // /**
-  //  * Form submit for the value provider plugin configuration.
-  //  */
-  // protected function providerSubmit(array $form, FormStateInterface $form_state): void {
-  //   $defaultShape = $this->getDefaultShape();
-  //   $values = $form_state->getValues()[$defaultShape->getName()] ?? [];
-  //   $values = $defaultShape->massageFormValues($values, $form, $form_state);
-  //   $form_state->setValues(['default' => $values]);
-  // }
+  /**
+   * {@inheritdoc}
+   */
+  public function onShapeInit() {
+    $this->shape->setOptions($this->configuration['options'] ?? []);
+  }
 
   /**
    * {@inheritdoc}

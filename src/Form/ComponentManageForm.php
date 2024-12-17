@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\neo_alchemist\Form;
 
+use Drupal\Component\Serialization\Json;
 use Drupal\Core\Entity\EntityForm;
 use Drupal\Core\Entity\EntityTypeBundleInfoInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
@@ -86,9 +87,10 @@ final class ComponentManageForm extends EntityForm {
 
     $form['props'] = [
       '#type' => 'table',
+      '#attached' => ['library' => ['core/drupal.dialog.ajax']],
       '#tree' => TRUE,
       '#header' => [
-        'name' => $this->t('Property'),
+        'property' => $this->t('Property'),
         'type' => $this->t('Type'),
         'required' => $this->t('Required'),
         'editable' => $this->t('Editable'),
@@ -96,11 +98,22 @@ final class ComponentManageForm extends EntityForm {
         'value_modifiers' => $this->t('Value Modifiers'),
         'operations' => '',
       ],
+      '#style' => [
+        'property' => 'heading',
+      ],
+      '#size' => [
+        'required' => 'min',
+        'editable' => 'min',
+      ],
+      '#align' => [
+        'required' => 'center',
+        'editable' => 'center',
+      ],
     ];
 
     foreach ($this->entity->getPropShapes() as $propName => $shape) {
       $row = [];
-      $row['name']['#markup'] = $shape->getTitle() . ' <small>(' . $shape->getName() . ')</small>';
+      $row['property']['#markup'] = $shape->getTitle() . ' <small>(' . $shape->getName() . ')</small>';
       $row['type']['#markup'] = $shape->getType() . ' <small>(' . $shape->getRef() . ')</small>';
       $row['required']['#markup'] = $shape->isRequired() ? $this->icon($this->t('Yes'))->iconOnly() : $this->icon($this->t('No'))->iconOnly();
       $row['editable']['#markup'] = $shape->isEditable() ? $this->icon($this->t('Yes'))->iconOnly() : $this->icon($this->t('No'))->iconOnly();
@@ -115,6 +128,14 @@ final class ComponentManageForm extends EntityForm {
       $links['edit'] = [
         'title' => $this->t('Customize'),
         'url' => $this->entity->toUrl('edit-prop-form')->setRouteParameter('prop', $propName),
+        'attributes' => [
+          'class' => ['use-ajax'],
+          'data-dialog-type' => 'modal',
+          'data-dialog-options' => Json::encode([
+            'width' => '100%',
+            'height' => '100%',
+          ]),
+        ],
       ];
       $row['operations'] = [
         '#type' => 'operations',

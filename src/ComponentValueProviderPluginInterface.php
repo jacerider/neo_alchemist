@@ -4,20 +4,12 @@ declare(strict_types=1);
 
 namespace Drupal\neo_alchemist;
 
-use Drupal\Component\Plugin\ConfigurableInterface;
-use Drupal\Component\Plugin\PluginInspectionInterface;
 use Drupal\Core\Form\FormStateInterface;
-use Drupal\Core\Plugin\PluginFormInterface;
 
 /**
  * Interface for neo_component_value_provider plugins.
  */
-interface ComponentValueProviderPluginInterface extends ConfigurableInterface, PluginFormInterface, PluginInspectionInterface {
-
-  /**
-   * Returns the translated plugin label.
-   */
-  public function label(): string;
+interface ComponentValueProviderPluginInterface extends ComponentValueBasePluginInterface {
 
   /**
    * Determines if the component value is editable.
@@ -75,6 +67,28 @@ interface ComponentValueProviderPluginInterface extends ConfigurableInterface, P
    * Can be used to change the shapes type or other properties.
    */
   public function onShapeInit();
+
+  /**
+   * Provide a default value for the component.
+   *
+   * @param mixed $value
+   *   The value to provide a default for.
+   *
+   * @return mixed
+   *   The default value.
+   */
+  public function provideDefaultValue(mixed $value): mixed;
+
+  /**
+   * Provide an override value for the component.
+   *
+   * @param mixed $value
+   *   The value to provide an override for.
+   *
+   * @return mixed
+   *   The override value.
+   */
+  public function provideOverrideValue(mixed $value): mixed;
 
   /**
    * Alter the widget form element.

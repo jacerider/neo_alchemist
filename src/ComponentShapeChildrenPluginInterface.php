@@ -17,4 +17,12 @@ interface ComponentShapeChildrenPluginInterface {
    */
   public function getChildShapes(int $delta = 0): array;
 
+  /**
+   * Check if the schema is a single property.
+   *
+   * @return bool
+   *   Whether the schema is a single property.
+   */
+  public function isSingleProp(): bool;
+
 }

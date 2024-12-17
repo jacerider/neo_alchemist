@@ -133,25 +133,8 @@ abstract class ComponentValueModifierPluginBase extends PluginBase implements Co
 
   /**
    * {@inheritdoc}
-   *
-   * Most modifier plugins should not override this method. To add submission
-   * handling for a specific modifier type, override
-   * ComponentValuePluginModifierBase::modifierSubmit().
-   *
-   * @see \Drupal\neo_alchemist\ComponentValuePluginModifierBase::modifierSubmit()
    */
-  public function submitConfigurationForm(array &$form, FormStateInterface $form_state) {
-    // Process the modifier's submission handling if no errors occurred only.
-    if (!$form_state->getErrors()) {
-      $this->modifierSubmit($form, $form_state);
-    }
-  }
-
-  /**
-   * Form submit for the value modifier plugin configuration.
-   */
-  protected function modifierSubmit(array $form, FormStateInterface $form_state): void {
-  }
+  public function submitConfigurationForm(array &$form, FormStateInterface $form_state) {}
 
   /**
    * {@inheritdoc}

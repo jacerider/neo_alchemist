@@ -11,11 +11,71 @@ props:
   # required:
   #   - color
   properties:
-    title:
-      type: string
-      title: Title
-      description: The super title.
-      examples: ['A really cool title']
+    tmp:
+      type: object
+      title: Tmp
+      properties:
+        one:
+          type: string
+          title: One
+        image:
+          title: 'Image'
+          type: image
+          examples:
+            - src: https://placehold.co/300x200.png
+              alt: 'Boring placeholder'
+              width: 300
+              height: 200
+        child:
+          type: object
+          title: Child
+          # required:
+          #   - two
+          properties:
+            two:
+              type: string
+              title: Two
+            three:
+              type: string
+              title: Three
+    tmp_array:
+      type: array
+      title: Tmp Array
+      description: A super array.
+      # @todo Add examples here.
+      examples:
+        - title: Google
+          url: https://google.com
+        # - title: Yahoo
+          # url: https://yahoo.com
+      items:
+        type: object
+        title: Items
+        required:
+          - title
+        properties:
+          title:
+            type: string
+            title: Title
+            description: The item title.
+          url:
+            type: url
+            title: URL
+          # number:
+          #   type: number
+          #   title: Number
+          #   description: The super number.
+    # heading:
+    #   type: heading
+    #   title: Heading
+    #   examples:
+    #     - title: 'Component Title'
+    # title:
+    #   type: string
+    #   title: Title
+    #   description: The super title.
+    #   examples: ['A really cool title']
+
     # email:
     #   type: email
     #   title: Email
@@ -60,14 +120,14 @@ props:
     #   # The enum directive restricts the possible values in the element to our list.
     #   enum: ['base', 'primary', 'secondary']
     #   examples: ['primary']
-    image:
-      title: 'Image'
-      type: image
-      examples:
-        - src: https://placehold.co/300x200.png
-          alt: 'Boring placeholder'
-          width: 300
-          height: 200
+    # image:
+    #   title: 'Image'
+    #   type: image
+    #   examples:
+    #     - src: https://placehold.co/300x200.png
+    #       alt: 'Boring placeholder'
+    #       width: 300
+    #       height: 200
     # wow:
     #   title: 'WOW'
     #   type: object
@@ -119,6 +179,7 @@ props:
     #           height: 100
     #   items:
     #     type: object
+    #     title: Items
     #     required:
     #       - title
     #     properties:

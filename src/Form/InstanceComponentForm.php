@@ -63,10 +63,15 @@ final class InstanceComponentForm extends ContentEntityForm {
    * {@inheritdoc}
    */
   public function form(array $form, FormStateInterface $form_state): array {
+    $form['#parents'] = [];
+    $form['#style'] = 'clean';
     $form_state->set('neo_component_form', TRUE);
-    $this->instance = $this->instance ?? $form_state->get('neo_component_instance');
+    $this->instance = $form_state->get('neo_component_instance');
     $this->before = $form_state->get('before');
     $this->after = $form_state->get('after');
+    if (!$form_state->has('original_values')) {
+      $form_state->set('original_values', $this->instance->getValues());
+    }
 
     // Add #process and #after_build callbacks.
     $form['#process'][] = '::processForm';
@@ -76,14 +81,15 @@ final class InstanceComponentForm extends ContentEntityForm {
       '#type' => 'container',
     ];
     foreach ($this->instance->getPropShapes() as $propName => $shape) {
-      if ($shape->isEditable()) {
-        $form['values'][$propName] = [
-          '#type' => 'container',
-          '#parents' => ['values'],
-        ];
-        $subform_state = SubformState::createForSubform((array) $form['values'][$propName], $form, $form_state);
-        $form['values'][$propName] = $shape->getForm($form['values'][$propName], $subform_state);
+      if (!$shape->isEditable()) {
+        continue;
       }
+      $subform = [
+        '#type' => 'container',
+        '#parents' => ['values'],
+      ];
+      $subform_state = SubformState::createForSubform($subform, $form, $form_state);
+      $form['values'][$propName] = $shape->getForm($subform, $subform_state);
     }
 
     $form['status'] = [
@@ -107,20 +113,26 @@ final class InstanceComponentForm extends ContentEntityForm {
    * {@inheritdoc}
    */
   public function validateForm(array &$form, FormStateInterface $form_state) {
+    $this->instance->setRebuilding(TRUE);
     $values = [
       'status' => (int) !empty($form_state->getValue('status')),
     ];
+    $original_values = $form_state->get('original_values') ?? [];
     foreach ($this->instance->getPropShapes() as $propName => $shape) {
       if (isset($form['values'][$propName])) {
         $subform_state = SubformState::createForSubform($form['values'][$propName], $form, $form_state);
+        $originalValue = $original_values['props'][$propName]['value'] ?? [];
         $value = $subform_state->getValues();
-        $options = $value['_options'] ?? [];
         unset($value['_options']);
         $shape->validateForm($form['values'][$propName], $subform_state, $value);
-        if (is_array($value)) {
-          $values['props'][$propName]['shape'] = $shape->getPluginId();
-          $values['props'][$propName]['value'] = $shape->massageFormValues($value, $form['values'][$propName], $subform_state);
+        $values['props'][$propName]['shape'] = $shape->getPluginId();
+        if (is_array($value) && !empty($value)) {
+          $values['props'][$propName]['value'] = $shape->massageFormValues($value, $originalValue, $form['values'][$propName], $subform_state);
         }
+        else {
+          $values['props'][$propName]['value'] = $originalValue;
+        }
+        $values['props'][$propName]['options'] = $subform_state->getValue('_options', []);
       }
     }
     $this->instance->setValues($values);
@@ -154,6 +166,7 @@ final class InstanceComponentForm extends ContentEntityForm {
    * {@inheritdoc}
    */
   public function save(array $form, FormStateInterface $form_state): int {
+    $this->instance->setRebuilding(FALSE);
     $form_state->setRedirectUrl($this->instance->toUrl());
 
     $fieldItem = $this->instance->getFieldItem();

@@ -115,11 +115,14 @@ interface ComponentShapePluginInterface extends PluginInspectionInterface, Deriv
    *
    * @param string $providerId
    *   The ID of the value provider to create.
+   * @param bool $checkEnabled
+   *   (optional) Whether to check if the provider is enabled. Defaults to
+   *   FALSE.
    *
    * @return \Drupal\neo_alchemist\ComponentValueProviderPluginInterface|null
    *   The value provider instance.
    */
-  public function getValueProvider(string $providerId): ?ComponentValueProviderPluginInterface;
+  public function getValueProvider(string $providerId, bool $checkEnabled = TRUE): ?ComponentValueProviderPluginInterface;
 
   /**
    * Retrieves the value modifier definitions for the current shape.
@@ -169,11 +172,14 @@ interface ComponentShapePluginInterface extends PluginInspectionInterface, Deriv
    *
    * @param string $modifierId
    *   The ID of the value modifier to create.
+   * @param bool $checkEnabled
+   *   (optional) Whether to check if the provider is enabled. Defaults to
+   *   TRUE.
    *
    * @return \Drupal\neo_alchemist\ComponentValueModifierPluginInterface|null
    *   The value modifier instance.
    */
-  public function getValueModifier(string $modifierId): ?ComponentValueModifierPluginInterface;
+  public function getValueModifier(string $modifierId, bool $checkEnabled = TRUE): ?ComponentValueModifierPluginInterface;
 
   /**
    * Get the schema.
@@ -236,12 +242,59 @@ interface ComponentShapePluginInterface extends PluginInspectionInterface, Deriv
   public function getDescription(): string;
 
   /**
+   * Get the prop properties.
+   *
+   * This is the properties of the prop.
+   *
+   * @return array
+   *   The prop properties.
+   */
+  public function getProperties(): array;
+
+  /**
    * Gets the scope of the component shape.
    *
    * @return string
    *   The scope of the component shape.
    */
   public function getScope(): string;
+
+  /**
+   * Checks if the component is new.
+   *
+   * @return bool
+   *   TRUE if the component is new, FALSE otherwise.
+   */
+  public function isNew(): bool;
+
+  /**
+   * Checks if the component is rebuilding.
+   *
+   * Will be true if the component is being rebuilt without being saved.
+   *
+   * @return bool
+   *   TRUE if the component is rebuilding, FALSE otherwise.
+   */
+  public function isRebuilding();
+
+  /**
+   * Adds a parent shape to the current component shape.
+   *
+   * @param \Drupal\neo_alchemist\ComponentShapePluginInterface $parent
+   *   The parent shape to be added.
+   *
+   * @return $this
+   *   The current instance of the component shape plugin.
+   */
+  public function addParentShape(ComponentShapePluginInterface $parent): self;
+
+  /**
+   * Retrieves the parent shapes of the current component shape.
+   *
+   * @return \Drupal\neo_alchemist\ComponentShapePluginInterface[]
+   *   An array of parent shapes.
+   */
+  public function getParentShapes(): array;
 
   /**
    * Checks if the component shape is nested.
@@ -252,15 +305,122 @@ interface ComponentShapePluginInterface extends PluginInspectionInterface, Deriv
   public function isNested(): bool;
 
   /**
-   * Sets the nested property.
+   * Retrieves the nested ID by concatenating the elements of the parent path.
    *
-   * @param bool $nested
-   *   (optional) The value to set for the nested property. Defaults to TRUE.
+   * @return string
+   *   The concatenated parent ID.
+   */
+  public function getNestedId(): string;
+
+  /**
+   * Retrieves the path of parent component nested ids.
+   *
+   * This method iterates through the list of parent components and collects
+   * their nested ids into an array.
+   *
+   * @param bool $includeRoot
+   *   (optional) Whether to include the current component in the path. Defaults
+   *   to TRUE.
+   *
+   * @return array
+   *   An array of parent component nested ids.
+   */
+  public function getNestedIds($includeRoot = TRUE): array;
+
+  /**
+   * Retrieves the path of parent component names.
+   *
+   * This method iterates through the list of parent components and collects
+   * their names into an array.
+   *
+   * @param bool $includeRoot
+   *   (optional) Whether to include the current component in the path. Defaults
+   *   to TRUE.
+   *
+   * @return array
+   *   An array of parent component names.
+   */
+  public function getNestedPath($includeRoot = TRUE): array;
+
+  /**
+   * Retrieves the concatenated title of the current component and its parents.
+   *
+   * This method constructs a title string by combining the title of the current
+   * component with the titles of its parent components. The titles are
+   * separated by a colon and a space (": ").
+   *
+   * @param bool $includeRoot
+   *   (optional) Whether to include the current component in the path. Defaults
+   *   to TRUE.
+   *
+   * @return string
+   *   The concatenated title string of the current component and its parents.
+   */
+  public function getNestedTitle($includeRoot = TRUE): string;
+
+  /**
+   * Adds a nested value provider to the component.
+   *
+   * @param string|int $nestedId
+   *   The ID of the nested element.
+   * @param string $providerId
+   *   The ID of the provider.
+   * @param array $settings
+   *   An array of settings for the provider.
+   *
+   * @return self
+   *   Returns the instance of the class for method chaining.
+   */
+  public function addNestedValueProvider($nestedId, string $providerId, array $settings): self;
+
+  /**
+   * Retrieves the nested value providers.
+   *
+   * @return array
+   *   An array of nested value providers.
+   */
+  public function getNestedValueProviders(): array;
+
+  /**
+   * Adds a nested value provider to the component.
+   *
+   * @param string|int $nestedId
+   *   The ID of the nested element.
+   * @param string $providerId
+   *   The ID of the provider.
+   * @param array $settings
+   *   An array of settings for the provider.
+   *
+   * @return self
+   *   Returns the instance of the class for method chaining.
+   */
+  public function addNestedValueModifier($nestedId, string $providerId, array $settings): self;
+
+  /**
+   * Set the array of child shape nested ids that are expaneded.
+   *
+   * @param array $expanded
+   *   An array of child shape nested ids that are expaneded.
    *
    * @return $this
-   *   The current instance of the class for method chaining.
    */
-  public function setNested(bool $nested = TRUE): self;
+  public function setExpanded(array $expanded): self;
+
+  /**
+   * Get the array of child shape nested ids that are expaneded.
+   *
+   * @return array
+   *   An array of child shape nested ids that are expaneded.
+   */
+  public function getExpanded(): array;
+
+  /**
+   * Retrieves the nested value modifiers.
+   *
+   * @return array
+   *   An array of nested value modifiers.
+   */
+  public function getNestedValueModifiers(): array;
 
   /**
    * Enforces that the component shape is required.
@@ -324,6 +484,24 @@ interface ComponentShapePluginInterface extends PluginInspectionInterface, Deriv
    *   TRUE if the component shape is editable, FALSE otherwise.
    */
   public function isEditable(): bool;
+
+  /**
+   * Force the widget form to be shown even when the option empty is TRUE.
+   *
+   * @param bool $enforce
+   *   Whether to enforce showing the form.
+   *
+   * @return $this
+   */
+  public function enforceShowForm($enforce = TRUE): self;
+
+  /**
+   * Get the component.
+   *
+   * @return \Drupal\neo_alchemist\ComponentInterface
+   *   The component.
+   */
+  public function getComponent(): ComponentInterface;
 
   /**
    * Retrieves the content entity associated with this plugin.
@@ -454,10 +632,10 @@ interface ComponentShapePluginInterface extends PluginInspectionInterface, Deriv
    *
    * This value should be able to be passed to the SDC.
    *
-   * @return array|string|int|float|bool
+   * @return mixed
    *   The prop value.
    */
-  public function getValue(): array|string|int|float|bool;
+  public function getValue(): mixed;
 
   /**
    * Adapt the value to the SDC format.
@@ -468,10 +646,10 @@ interface ComponentShapePluginInterface extends PluginInspectionInterface, Deriv
    * @param mixed $value
    *   The value to adapt.
    *
-   * @return array|string|int|float|bool
+   * @return mixed
    *   The adapted value.
    */
-  public function adaptValue(mixed $value): array|string|int|float|bool;
+  public function adaptValue(mixed $value): mixed;
 
   /**
    * Get the default value of the prop.
@@ -503,11 +681,19 @@ interface ComponentShapePluginInterface extends PluginInspectionInterface, Deriv
   /**
    * Retrieves the override value.
    *
-   * @return array|string|int|float|bool
+   * @return mixed
    *   The override value, which can be of various types including array,
    *   string, integer, float, or boolean.
    */
   public function getOverrideValue(): mixed;
+
+  /**
+   * Clears the override value.
+   *
+   * @return $this
+   *   The current instance for method chaining.
+   */
+  public function resetOverrideValue(): self;
 
   /**
    * Get the field item value.
@@ -583,17 +769,152 @@ interface ComponentShapePluginInterface extends PluginInspectionInterface, Deriv
   /**
    * Massage the form values.
    *
+   * @param array $values
+   *   The form values.
+   * @param array $original_values
+   *   The original values.
    * @param array $form
    *   The parent form.
    * @param \Drupal\Core\Form\FormStateInterface $form_state
    *   The parent form state.
-   * @param array $values
-   *   The form values.
    *
    * @return array
    *   The massaged form values.
    */
-  public function massageFormValues(array $values, array $form, FormStateInterface $form_state): array;
+  public function massageFormValues(array $values, array $original_values, array $form, FormStateInterface $form_state): array;
+
+  /**
+   * Sets the access option for empty values.
+   *
+   * This method allows setting the access control for empty values in the
+   * options.
+   *
+   * @param bool $value
+   *   (optional) The access value to set. Defaults to TRUE.
+   *
+   * @return self
+   *   The current instance for method chaining.
+   */
+  public function setOptionEmptyAccess(bool $value = TRUE): self;
+
+  /**
+   * Checks if the 'empty' option is accessible.
+   *
+   * @return bool
+   *   TRUE if the 'empty' option is accessible, FALSE otherwise.
+   */
+  public function accessOptionEmpty(): bool;
+
+  /**
+   * Sets the 'empty' option value.
+   *
+   * @param bool $value
+   *   The value to set for the 'empty' option. Defaults to TRUE.
+   * @param bool $lock
+   *   Whether to lock the option after setting the value. Defaults to FALSE.
+   *
+   * @return self
+   *   The current instance for method chaining.
+   */
+  public function setOptionEmpty(bool $value = TRUE, bool $lock = FALSE): self;
+
+  /**
+   * Checks if the option is empty.
+   *
+   * This method determines if the option is considered empty. An option is
+   * considered empty if it is not required and its value is empty.
+   *
+   * @return bool
+   *   TRUE if the option is empty, FALSE otherwise.
+   */
+  public function isOptionEmpty(): bool;
+
+  /**
+   * Sets the default access option.
+   *
+   * This method sets the access value for the default option in the options
+   * array.
+   *
+   * @param bool $value
+   *   The access value to set. Defaults to TRUE.
+   *
+   * @return self
+   *   The current instance for method chaining.
+   */
+  public function setOptionDefaultAccess(bool $value = TRUE): self;
+
+  /**
+   * Checks if the default option is accessible.
+   *
+   * This method returns a boolean indicating whether the default option
+   * in the options array has access.
+   *
+   * @return bool
+   *   TRUE if the default option is accessible, FALSE otherwise.
+   */
+  public function accessOptionDefault(): bool;
+
+  /**
+   * Sets the default option value and optionally locks it.
+   *
+   * @param bool $value
+   *   The value to set as the default. Defaults to TRUE.
+   * @param bool $lock
+   *   Whether to lock the default value. Defaults to FALSE.
+   *
+   * @return self
+   *   The current instance for method chaining.
+   */
+  public function setOptionDefault(bool $value = TRUE, bool $lock = FALSE): self;
+
+  /**
+   * Checks if the option is set to its default value.
+   *
+   * @return bool
+   *   TRUE if the option is set to its default value, FALSE otherwise.
+   */
+  public function isOptionDefault(): bool;
+
+  /**
+   * Sets the options for the component shape.
+   *
+   * @param array $options
+   *   An associative array of options to set. Possible keys:
+   *   - value_empty: (bool) Whether the value is empty.
+   *   - value_default: (bool) Whether the value is default.
+   *   - nested: (array) Nested options to set.
+   * @param bool $lock
+   *   (optional) Whether to lock the options. Defaults to FALSE.
+   *
+   * @return self
+   *   The current instance of the component shape plugin.
+   */
+  public function setOptions(array $options, bool $lock = FALSE): self;
+
+  /**
+   * Sets the nested options for the component shape.
+   *
+   * This method sets the nested options for the component shape if the current
+   * instance implements the ComponentShapeChildrenPluginInterface.
+   *
+   * @param array $options
+   *   An associative array of options to set.
+   *
+   * @return $this
+   *   The current instance for method chaining.
+   */
+  public function setNestedOptions(array $options): self;
+
+  /**
+   * Retrieves nested options based on the provided nested ID.
+   *
+   * @param string|int $nestedId
+   *   The ID of the nested options to retrieve.
+   *
+   * @return array
+   *   An array of nested options corresponding to the provided nested ID.
+   */
+  public function getNestedOptions($nestedId): array;
 
   /**
    * Checks if the field definition is supported by the shape.
@@ -653,6 +974,28 @@ interface ComponentShapePluginInterface extends PluginInspectionInterface, Deriv
    *   otherwise.
    */
   public function supportsFieldProperty(DataDefinitionInterface $entityFieldProperty): bool;
+
+  /**
+   * Retrieves the default shape for the component.
+   *
+   * The current shape is cloned and its value providers are reset. The default
+   * shape is then returned.
+   *
+   * @return \Drupal\neo_alchemist\Plugin\ComponentShapePluginInterface
+   *   The default shape for the component.
+   */
+  public function getDefaultShape(): ComponentShapePluginInterface;
+
+  /**
+   * Retrieves the config shape for the component.
+   *
+   * The is useful for getting the fully processed shape with its default
+   * values without any override values.
+   *
+   * @return \Drupal\neo_alchemist\Plugin\ComponentShapePluginInterface
+   *   The default shape for the component.
+   */
+  public function getConfigShape(): ComponentShapePluginInterface;
 
   /**
    * Check if shape is scalar.

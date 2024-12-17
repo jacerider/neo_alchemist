@@ -113,6 +113,9 @@ class ComponentPluginManager extends ThemeComponentPluginManager {
       }
       $prop = $propRequired + $prop + $propOptional;
     }
+    elseif (isset($prop['properties'])) {
+      $prop['properties'] = array_map([__CLASS__, 'alterProp'], $prop['properties']);
+    }
     if (!empty($prop['items']['properties'])) {
       $prop['items']['properties'] = array_map([__CLASS__, 'alterProp'], $prop['items']['properties']);
     }

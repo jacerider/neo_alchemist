@@ -4,15 +4,12 @@ declare(strict_types=1);
 
 namespace Drupal\neo_alchemist\Plugin\ComponentShape;
 
-use Drupal\Component\Utility\Html;
 use Drupal\Component\Utility\NestedArray;
 use Drupal\Core\Field\FieldDefinitionInterface;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Form\SubformState;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\neo_alchemist\Attribute\ComponentShape;
-use Drupal\neo_alchemist\ComponentShapeChildrenPluginInterface;
-use Drupal\neo_alchemist\ComponentShapePluginBase;
 use Drupal\neo_alchemist\ComponentShapePluginInterface;
 
 /**
@@ -22,9 +19,7 @@ use Drupal\neo_alchemist\ComponentShapePluginInterface;
   prop: 'array',
   label: new TranslatableMarkup('Array'),
 )]
-class ArrayShape extends ComponentShapePluginBase implements ComponentShapeChildrenPluginInterface {
-
-  use ShapeManagerDependentShapeTrait;
+class ArrayShape extends ChildrenBaseShape {
 
   /**
    * The single prop shape.
@@ -46,8 +41,66 @@ class ArrayShape extends ComponentShapePluginBase implements ComponentShapeChild
    * @return bool
    *   Whether the schema is a single property.
    */
-  protected function isSingleProp(): bool {
+  public function isSingleProp(): bool {
     return empty($this->getSchema()['items']['properties']);
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  public function getChildShapes(int $delta = 0): array {
+    $schema = $this->getSchema();
+    if (empty($schema['items'])) {
+      return [];
+    }
+    if ($this->isSingleProp()) {
+      $schema['items']['properties']['value'] = [
+        'type' => [$schema['items']['type']],
+      ];
+    }
+    // Merge in any examples set on array.
+    foreach ($schema['items']['properties'] as $propName => &$prop) {
+      if ($this->isSingleProp()) {
+        $prop['examples'] = $schema['examples'][$delta] ?? $prop['examples'] ?? [];
+      }
+      else {
+        $prop['examples'] = $schema['examples'][$delta][$propName] ?? $prop['examples'] ?? [];
+      }
+    }
+    return $this->getChildShapesFromSchema($schema['items']);
+    // ksm($tmp);
+
+    if (!isset($this->childShapes)) {
+      $this->childShapes = [];
+      $schema = $this->getSchema();
+      if (!empty($schema['items'])) {
+        if ($this->isSingleProp()) {
+          $schema['items']['properties']['value'] = [
+            'type' => [$schema['items']['type']],
+          ];
+        }
+        // Merge in any examples set on array.
+        foreach ($schema['items']['properties'] as $propName => &$prop) {
+          if ($this->isSingleProp()) {
+            $prop['examples'] = $schema['examples'][$delta] ?? $prop['examples'] ?? [];
+          }
+          else {
+            $prop['examples'] = $schema['examples'][$delta][$propName] ?? $prop['examples'] ?? [];
+          }
+        }
+        // $value = $this->getFieldItemValue();
+        // $this->childShapes = array_map(function ($shape) use ($value) {
+        //   ksm($value);
+        //   $shape->addParentShape($this)->setOptionDefaultAccess(FALSE);
+        //   // Initialize the shape.
+        //   $shape->init();
+        //   return $shape;
+        // }, $this->shapeManager->getInstancesFromSchema($schema['items'], $this->getComponent()));
+        // ksm($schema['items']);
+        $this->childShapes = array_map(fn ($v) => $v->addParentShape($this)->setOptionDefaultAccess(FALSE)->init(), $this->shapeManager->getInstancesFromSchema($schema['items'], $this->getComponent()));
+      }
+    }
+    return $this->childShapes;
   }
 
   /**
@@ -88,36 +141,6 @@ class ArrayShape extends ComponentShapePluginBase implements ComponentShapeChild
   }
 
   /**
-   * {@inheritDoc}
-   */
-  public function getChildShapes(int $delta = 0): array {
-    $schema = $this->getSchema();
-    if (!empty($schema['items'])) {
-      if ($this->isSingleProp()) {
-        $schema['items']['properties']['value'] = [
-          'type' => [$schema['items']['type']],
-        ];
-      }
-      // Merge in any examples set on array.
-      foreach ($schema['items']['properties'] as $propName => &$prop) {
-        if ($this->isSingleProp()) {
-          $prop['examples'] = $schema['examples'][$delta] ?? $prop['examples'] ?? [];
-        }
-        else {
-          $prop['examples'] = $schema['examples'][$delta][$propName] ?? $prop['examples'] ?? [];
-        }
-      }
-      // $shapes = $this->shapeManager->getInstancesFromSchema($schema['items'], $this->getComponent());
-      // foreach ($shapes as $shape) {
-      //   $shape->setNested();
-      // }
-      // return $shapes;
-      return array_map(fn ($v) => $v->setNested(), $this->shapeManager->getInstancesFromSchema($schema['items'], $this->getComponent()));
-    }
-    return [];
-  }
-
-  /**
    * Get keyed child shapes.
    *
    * @param array|null $values
@@ -144,8 +167,10 @@ class ArrayShape extends ComponentShapePluginBase implements ComponentShapeChild
   /**
    * {@inheritDoc}
    */
-  public function adaptValue(mixed $values): array|string|int|float|bool {
+  public function adaptValue(mixed $values): mixed {
     $newValues = [];
+    // ksm($values);
+    // die;
     foreach ($this->getChildShapeList() as $delta => $shapes) {
       /** @var \Drupal\neo_alchemist\ComponentShapePluginInterface[] $shapes */
       foreach ($shapes as $shape) {
@@ -235,6 +260,7 @@ class ArrayShape extends ComponentShapePluginBase implements ComponentShapeChild
           $form[$delta][$shape->getName()] = [
             '#parents' => array_merge($form['#parents'], [$delta]),
           ];
+          $shape->setFieldItemValue([]);
           $subform_state = SubformState::createForSubform($form[$delta][$shape->getName()], $form, $form_state);
           $form[$delta][$shape->getName()] = $shape->getForm($form[$delta][$shape->getName()], $subform_state);
         }
@@ -347,14 +373,12 @@ class ArrayShape extends ComponentShapePluginBase implements ComponentShapeChild
   /**
    * {@inheritDoc}
    */
-  public function massageFormValues(array $values, array $form, FormStateInterface $form_state): array {
+  public function massageFormValues(array $values, array $original_values, array $form, FormStateInterface $form_state): array {
     $newValues = [];
-    // ksm($values);
-    // die;
     foreach ($values as $delta => $value) {
       $shapes = $this->getChildShapes($delta);
       foreach ($shapes as $shape) {
-        $newValues[$delta][$shape->getName()] = $shape->massageFormValues($value[$shape->getName()] ?? [], $form, $form_state);
+        $newValues[$delta][$shape->getName()] = $shape->massageFormValues($value[$shape->getName()] ?? [], $original_values[$shape->getName()] ?? [], $form, $form_state);
       }
     }
     return $newValues;

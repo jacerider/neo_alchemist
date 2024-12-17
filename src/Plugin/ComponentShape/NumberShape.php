@@ -32,13 +32,13 @@ class NumberShape extends ComponentShapePluginBase {
   /**
    * {@inheritDoc}
    */
-  public function massageFormValues(array $values, array $form, FormStateInterface $form_state): array {
+  public function massageFormValues(array $values, array $original_values, array $form, FormStateInterface $form_state): array {
     // Converty value to proper type.
     $values = array_map(function ($v) {
       $v['value'] = (float) $v['value'];
       return $v;
     }, $values);
-    return parent::massageFormValues($values, $form, $form_state);
+    return parent::massageFormValues($values, $original_values, $form, $form_state);
   }
 
 }

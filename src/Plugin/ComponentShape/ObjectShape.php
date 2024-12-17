@@ -6,11 +6,9 @@ namespace Drupal\neo_alchemist\Plugin\ComponentShape;
 
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Form\SubformState;
-use Drupal\Core\Render\Element;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\neo_alchemist\Attribute\ComponentShape;
-use Drupal\neo_alchemist\ComponentShapeChildrenPluginInterface;
-use Drupal\neo_alchemist\ComponentShapePluginBase;
+use Drupal\neo_alchemist\ComponentShapeExpandedPluginInterface;
 
 /**
  * Plugin implementation of the neo_component_shape.
@@ -19,9 +17,7 @@ use Drupal\neo_alchemist\ComponentShapePluginBase;
   prop: 'object',
   label: new TranslatableMarkup('Object'),
 )]
-class ObjectShape extends ComponentShapePluginBase implements ComponentShapeChildrenPluginInterface {
-
-  use ShapeManagerDependentShapeTrait;
+class ObjectShape extends ChildrenBaseShape implements ComponentShapeExpandedPluginInterface {
 
   /**
    * {@inheritDoc}
@@ -31,27 +27,60 @@ class ObjectShape extends ComponentShapePluginBase implements ComponentShapeChil
   }
 
   /**
-   * {@inheritDoc}
+   * Check if the schema is a single property.
+   *
+   * @return bool
+   *   Whether the schema is a single property.
    */
-  public function getChildShapes(int $delta = 0): array {
-    $shapes = $this->shapeManager->getInstancesFromSchema($this->getSchema(), $this->getComponent());
-    $values = $this->getFieldItemValue();
-    foreach ($shapes as $shape) {
-      $shape->setNested()->setFieldItemValue($values[$shape->getName()] ?? []);
-    }
-    return $shapes;
+  public function isSingleProp(): bool {
+    return count($this->getSchema()['properties']) === 1;
   }
 
   /**
    * {@inheritDoc}
    */
-  public function adaptValue(mixed $value): array|string|int|float|bool {
-    foreach ($this->getChildShapes() as $shape) {
-      if (isset($value[$shape->getName()])) {
-        $value[$shape->getName()] = $shape->getValue();
-        if (empty($value[$shape->getName()])) {
-          unset($value[$shape->getName()]);
+  public function allowExpanded(): bool {
+    return TRUE;
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  public function getChildShapes(int $delta = 0): array {
+    $schema = $this->getSchema();
+    $defaultValue = $this->getDefaultValue();
+    // Merge in any examples to each property.
+    foreach ($schema['properties'] as $propName => &$prop) {
+      $prop['examples'] = $defaultValue[$propName] ?? $schema['examples'][$propName] ?? $prop['examples'] ?? [];
+    }
+    return $this->getChildShapesFromSchema($schema);
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  public function isEditable(): bool {
+    $editable = parent::isEditable();
+    if ($editable && $this->isSingleProp()) {
+      // If we only have a single property, we use that shapes access.
+      foreach ($this->getChildShapes() as $shape) {
+        if (!$shape->isEditable()) {
+          return FALSE;
         }
+      }
+    }
+    return $editable;
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  public function adaptValue(mixed $value): mixed {
+    $value = [];
+    foreach ($this->getChildShapes() as $shape) {
+      $value[$shape->getName()] = $shape->getValue();
+      if ($shape->isOptionEmpty() || empty($value[$shape->getName()])) {
+        unset($value[$shape->getName()]);
       }
     }
     return $value;
@@ -61,25 +90,28 @@ class ObjectShape extends ComponentShapePluginBase implements ComponentShapeChil
    * {@inheritDoc}
    */
   protected function form(array $form, FormStateInterface $form_state): array {
-    $widget = $this->getWidget();
-    if ($widget) {
+    if ($this->getWidget()) {
       // Objects can specify a widget. When they do, we use that widget.
       return parent::form($form, $form_state);
     }
-    if ($shapes = $this->getChildShapes()) {
-      // $parents = array_merge($form['#parents'], [$this->getName()]);
+    $shapes = array_filter($this->getChildShapes(), fn ($shape) => $shape->isEditable());
+    if ($shapes) {
       $values = $this->getFieldItemValue();
       $form['#type'] = 'fieldset';
       $form['#title'] = $this->getTitle();
       $form['#description'] = $this->getDescription();
       $form['#description_display'] = 'before';
       foreach ($shapes as $shape) {
-        $shape->setFieldItemValue($values[$shape->getName()] ?? []);
-        $form[$shape->getName()] = [
+        // Force values to allow nesting of multiple shapes.
+        if ($values[$shape->getName()] ?? NULL) {
+          $shape->setFieldItemValue($values[$shape->getName()]);
+        }
+        $subform = [
+          '#type' => 'container',
           '#parents' => $form['#parents'],
         ];
-        $subform_state = SubformState::createForSubform($form[$shape->getName()], $form, $form_state);
-        $form[$shape->getName()] = $shape->getForm($form[$shape->getName()], $subform_state);
+        $subform_state = SubformState::createForSubform($subform, $form, $form_state);
+        $form[$shape->getName()] = $shape->getForm($subform, $subform_state);
       }
     }
     return $form;
@@ -88,16 +120,36 @@ class ObjectShape extends ComponentShapePluginBase implements ComponentShapeChil
   /**
    * {@inheritDoc}
    */
-  public function massageFormValues(array $values, array $form, FormStateInterface $form_state): array {
+  public function validateForm(array $form, FormStateInterface $form_state, array $values): void {
     foreach ($this->getChildShapes() as $shape) {
-      $shapeValue = $values[$shape->getName()] ?? [];
-      // If the shape value is an array, continue the massage process.
-      if (is_array($shapeValue) && isset($form[$shape->getName()])) {
+      if (isset($form[$shape->getName()])) {
         $subform_state = SubformState::createForSubform($form[$shape->getName()], $form, $form_state);
-        $values[$shape->getName()] = $shape->massageFormValues($shapeValue, $form[$shape->getName()], $subform_state);
+        $shape->validateForm($form[$shape->getName()], $subform_state, $values[$shape->getName()] ?? []);
+        $form_state->setValue([
+          '_options',
+          'nested',
+          $shape->getNestedId(),
+        ], $subform_state->getValue('_options'));
       }
     }
-    return parent::massageFormValues($values, $form, $form_state);
+    parent::validateForm($form, $form_state, $values);
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  public function massageFormValues(array $values, array $original_values, array $form, FormStateInterface $form_state): array {
+    foreach ($this->getChildShapes() as $shape) {
+      $shapeName = $shape->getName();
+      $shapeValue = $values[$shapeName] ?? [];
+      // If the shape value is an array, continue the massage process.
+      if (isset($form[$shapeName]) && is_array($shapeValue)) {
+        $subform_state = SubformState::createForSubform($form[$shapeName], $form, $form_state);
+        unset($shapeValue['_options']);
+        $values[$shapeName] = $shape->massageFormValues($shapeValue, $original_values[$shapeName] ?? [], $form[$shapeName], $subform_state);
+      }
+    }
+    return parent::massageFormValues($values, $original_values, $form, $form_state);
   }
 
 }

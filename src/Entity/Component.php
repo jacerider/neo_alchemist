@@ -125,6 +125,15 @@ class Component extends ConfigEntityBase implements ComponentInterface {
   protected string $scope = 'config';
 
   /**
+   * The rebuilding status of the component.
+   *
+   * Will be try when the component is rebuilding without being saved.
+   *
+   * @var bool
+   */
+  protected bool $rebuilding = FALSE;
+
+  /**
    * {@inheritdoc}
    */
   public function isPublished(): bool {
@@ -143,6 +152,21 @@ class Component extends ConfigEntityBase implements ComponentInterface {
    */
   public function getScope(): string {
     return $this->scope;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function setRebuilding(bool $rebuilding): self {
+    $this->rebuilding = $rebuilding;
+    return $this;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function isRebuilding() {
+    return $this->rebuilding;
   }
 
   /**
@@ -313,7 +337,8 @@ class Component extends ConfigEntityBase implements ComponentInterface {
   public function getPropShapes(): array {
     /** @var \Drupal\neo_alchemist\ComponentShapePluginManager $manager */
     $manager = \Drupal::service('plugin.manager.neo_component_shape');
-    return $manager->getInstancesFromSchema($this->getComponent()->metadata->schema, $this, $this->getValues(), $this->getSettings()['props'] ?? []);
+    // Get shapes and initialize them.
+    return array_map(fn ($v) => $v->init(), $manager->getInstancesFromSchema($this->getComponent()->metadata->schema, $this, $this->getSettings()['props'] ?? [], $this->getValues()));
   }
 
   /**

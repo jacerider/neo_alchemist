@@ -12,6 +12,17 @@
   </div>
   <div>
     <div class="flex flex-col gap-2">
+      {% if tmp %}
+        {{ tmp.one }}: {{ tmp.child.two }}
+        {% if tmp.image %}
+          {{ neo_image_style(tmp.image.src, {scaleCrop: {width: 100, height: 100}}, tmp.image.alt) }}
+        {% endif %}
+      {% endif %}
+      {% if heading %}
+        {% if heading.supertitle %}<div class="text-xs">{{ heading.supertitle }}</div>{% endif %}
+        <h2 class="text-xl font-bold">{{ heading.title }}</h2>
+        {% if heading.subtitle %}<div class="text-sm">{{ heading.subtitle }}</div>{% endif %}
+      {% endif %}
       {% if title %}
         <h2 class="text-xl font-bold">{{ title }}</h2>
       {% endif %}

@@ -1,3 +1,18 @@
+heading:
+  title: Heading
+  type: object
+  required:
+    - title
+  properties:
+    supertitle:
+      title: Supertitle
+      type: string
+    title:
+      title: Title
+      type: string
+    subtitle:
+      title: Subtitle
+      type: string
 image:
   title: Image
   type: object

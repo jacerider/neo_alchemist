@@ -2,3 +2,7 @@ neo_alchemist.layout:
   word: layout
   icon: drafting-compass
   prefix: admin
+neo_alchemist.component:
+  word: component
+  icon: shapes
+  prefix: admin

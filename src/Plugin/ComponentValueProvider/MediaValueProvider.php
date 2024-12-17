@@ -8,7 +8,6 @@ use Drupal\Core\DependencyInjection\DependencySerializationTrait;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Plugin\ContainerFactoryPluginInterface;
-use Drupal\Core\Render\Element;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\file\FileInterface;
 use Drupal\media\MediaInterface;
@@ -104,6 +103,8 @@ final class MediaValueProvider extends ComponentValueProviderPluginBase implemen
       ],
     ]);
     $this->shape->setWidget('media_library_widget');
+    // $this->shape->setOptionEmptyAccess(FALSE);
+    $this->shape->enforceShowForm();
   }
 
   /**
@@ -124,44 +125,47 @@ final class MediaValueProvider extends ComponentValueProviderPluginBase implemen
   }
 
   /**
-   * Form submit for the value provider plugin configuration.
+   * {@inheritdoc}
    */
-  protected function providerSubmit(array $form, FormStateInterface $form_state): void {
-    // $values = $form_state->getValues()[$this->shape->getName()] ?? [];
-    // $value = $this->shape->massageFormValues($form, $form_state, $values);
-    // $form_state->setValues(['default' => $value]);
+  public function formAlter(array &$element, FormStateInterface $form_state) {
+    if ($this->shape->isOptionDefault()) {
+      $value = $this->shape->getValue();
+      if (!empty($value['src'])) {
+        $element['preview'] = [
+          '#type' => 'inline_template',
+          '#template' => '<img src="{{ src }}" alt="{{ alt }}" width="{{ width }}" height="{{ height }}" class="border-2 rounded" />',
+          '#context' => [
+            'width' => '170px',
+            'height' => '',
+          ] + $value,
+          '#weight' => -10,
+        ];
+      }
+    }
+    if (!empty($element['widget'])) {
+      $element['#title'] = $element['widget']['widget']['#title'];
+      $element['widget']['widget']['#title'] = '';
+      if (!empty($element['widget']['widget']['#field_prefix']['empty_selection']) && FALSE) {
+        $value = [];
+        $value = $this->shape->getConfigShape()->getValue();
+        if (!empty($value['src'])) {
+          unset($element['widget']['widget']['#field_prefix']['empty_selection']);
+          $element['widget']['widget']['#field_prefix']['default'] = [
+            '#type' => 'inline_template',
+            '#template' => '<img src="{{ src }}" alt="{{ alt }}" width="{{ width }}" height="{{ height }}" class="border-2 rounded" />',
+            '#context' => [
+              'width' => '170px',
+              'height' => '',
+            ] + $value,
+            '#weight' => -10,
+          ];
+          $element['widget']['widget']['#field_prefix']['empty_selection'] = [
+            '#markup' => '<div class="description">' . $this->t('Using the default image.') . '</div>',
+          ];
+        }
+      }
+    }
   }
-
-  // /**
-  //  * {@inheritdoc}
-  //  */
-  // public function formAlter(array &$element, FormStateInterface $form_state) {
-  //   // When an image provides a default value, we need to provide a way to
-  //   // toggle it on/off.
-  //   $selectionElement = $element['widget']['selection'] ?? [];
-  //   $element['widget']['hide'] = [
-  //     '#type' => 'checkbox',
-  //     '#title' => $this->t('Hide Default Image'),
-  //     '#default_value' => empty($this->shape->getValue()),
-  //     '#access' => empty(Element::children($selectionElement)) && !empty($this->shape->getDefaultValue()),
-  //   ];
-  // }
-
-  // /**
-  //  * {@inheritdoc}
-  //  */
-  // public function formValuesAlter(array &$values, array $original) {
-  //   $hide = !empty($original['hide']);
-  //   if (!$hide) {
-  //     $values += $this->shape->getDefaultValue();
-  //   }
-  //   if (!empty($values['target_id'])) {
-  //     // If the target ID is set, we remove all other values.
-  //     $values = [
-  //       'target_id' => $values['target_id'],
-  //     ];
-  //   }
-  // }
 
   /**
    * {@inheritdoc}
@@ -192,6 +196,12 @@ final class MediaValueProvider extends ComponentValueProviderPluginBase implemen
         'target_id' => $entity->id(),
       ];
       $this->stopFurtherProcessing();
+    }
+    else {
+      if (!$this->shape->isOptionDefault()) {
+        $this->shape->setOptionEmpty(TRUE);
+        $this->stopFurtherProcessing();
+      }
     }
     return $value;
   }

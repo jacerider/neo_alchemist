@@ -4,13 +4,12 @@ declare(strict_types=1);
 
 namespace Drupal\neo_alchemist\Plugin\ComponentValueProvider;
 
-use Drupal\Component\Utility\Html;
-use Drupal\Component\Utility\NestedArray;
 use Drupal\Core\DependencyInjection\DependencySerializationTrait;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Plugin\ContainerFactoryPluginInterface;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\neo_alchemist\Attribute\ComponentValueProvider;
+use Drupal\neo_alchemist\ComponentShapeChildrenPluginInterface;
 use Drupal\neo_alchemist\ComponentShapePluginInterface;
 use Drupal\neo_alchemist\ComponentValueProviderPluginBase;
 use Drupal\neo_alchemist\FieldMatcher;
@@ -139,10 +138,63 @@ final class EntityValueProvider extends ComponentValueProviderPluginBase impleme
   /**
    * {@inheritdoc}
    */
-  public function provideDefaultValue(mixed $value): mixed {
-    $value = $this->fieldMatcher->getEntityValue($this->shape->getEntity(), $this->configuration['field']);
-    $this->hasEntityValue = !empty($value);
-    $this->stopFurtherProcessing();
+  public function provideOverrideValue(mixed $value): mixed {
+    $overrideEmpty = !empty($this->configuration['override_empty']);
+    $override = !empty($this->configuration['override']);
+    $hasOverrideValue = !empty($this->shape->getOverrideValue());
+
+    $entityValue = $this->fieldMatcher->getEntityValue($this->shape->getEntity(), $this->configuration['field']);
+    $hasValue = !empty($entityValue);
+    $this->hasEntityValue = $hasValue;
+
+    if ($this->shape->isNew() && !$this->shape->isRebuilding()) {
+      // On a brand new component, we set the option default to true so that
+      // it uses the entity value by default.
+      if ($this->shape->accessOptionDefault()) {
+        $this->shape->setOptionDefault(empty($hasOverrideValue));
+      }
+      if ($parentShapes = $this->shape->getParentShapes()) {
+        $parentShape = end($parentShapes);
+        if ($parentShape instanceof ComponentShapeChildrenPluginInterface && $parentShape->isSingleProp()) {
+          if ($parentShape->accessOptionDefault()) {
+            // If we are a single property, we set the parent shape to use the
+            // default.
+            $this->shape->setOptionDefault(empty($hasOverrideValue));
+            $parentShape->setOptionDefault(empty($hasOverrideValue));
+          }
+        }
+      }
+    }
+
+    // No matter what, if we don't allow overrideing, we return the value.
+    if (!$overrideEmpty && !$override) {
+      $this->stopFurtherProcessing();
+      return $entityValue;
+    }
+
+    if ($this->shape->isOptionDefault()) {
+      if (!$overrideEmpty && !$override) {
+        $this->stopFurtherProcessing();
+        return $entityValue;
+      }
+      if (!$overrideEmpty && !$hasValue) {
+        $this->stopFurtherProcessing();
+        return $entityValue;
+      }
+      if (!$override && $hasValue) {
+        $this->stopFurtherProcessing();
+        return $entityValue;
+      }
+      if ($hasValue) {
+        return $entityValue;
+      }
+    }
+
+    if ($hasValue && !$hasOverrideValue) {
+      $this->stopFurtherProcessing();
+      return $entityValue;
+    }
+
     return $value;
   }
 
@@ -162,25 +214,11 @@ final class EntityValueProvider extends ComponentValueProviderPluginBase impleme
    * {@inheritdoc}
    */
   public function formAlter(array &$element, FormStateInterface $form_state) {
-    return;
     $fieldDefinition = $this->fieldMatcher->getFieldDefinition($this->shape, $this->configuration['field']);
-    if (!$fieldDefinition) {
+    if (!$fieldDefinition || !isset($element['_options']['value_default'])) {
       return;
     }
-    $parents = $element['widget']['#parents'];
-    $overrideParents = array_merge(['override'], $parents);
-    $id = Html::getId('widget-container-' . implode('-', $parents));
-    $element = [
-      '#type' => 'fieldset',
-      '#id' => $id,
-      '#title' => $this->shape->getTitle(),
-      '#parents' => $element['#parents'],
-      'widget' => $element,
-    ];
     $entityTypeLabel = (string) $this->shape->getEntity()->getEntityType()->getLabel();
-    $title = $this->t('Override %label Value', [
-      '%label' => $entityTypeLabel,
-    ]);
     $description = [
       $this->t('The default value of this property is provided by the %field field of the %label.', [
         '%label' => strtolower($entityTypeLabel),
@@ -211,67 +249,12 @@ final class EntityValueProvider extends ComponentValueProviderPluginBase impleme
       ]);
     }
     else {
-      $title = $this->t('Set Value');
       $description[] = $this->t('The %field field does not currently have a value. A value can be set for this property that will be used as long as the %field field remains empty.', [
         '%label' => strtolower($entityTypeLabel),
         '%field' => $fieldDefinition->getLabel(),
       ]);
     }
-    $element['#description'] = implode(' ', $description);
-    $element['#element_validate'][] = [static::class, 'widgetFormValidate'];
-
-    $hasOverrideValue = !is_null($this->shape->getOverrideValue());
-    $element['override'] = [
-      '#type' => 'checkbox',
-      '#title' => $title,
-      '#default_value' => $hasOverrideValue,
-      '#weight' => -100,
-      '#parents' => $overrideParents,
-      '#ajax' => [
-        'callback' => [static::class, 'widgetFormAjax'],
-        'wrapper' => $id,
-      ],
-    ];
-    $element['widget']['#access'] = $hasOverrideValue;
-  }
-
-  /**
-   * Ajax callback for the widget form element.
-   *
-   * This method returns the widget form element when the override checkbox is
-   * checked.
-   *
-   * @param array $form
-   *   The form element.
-   * @param \Drupal\Core\Form\FormStateInterface $form_state
-   *   The form state.
-   *
-   * @return array
-   *   The widget form element.
-   */
-  public static function widgetFormAjax(array $form, FormStateInterface $form_state) {
-    $trigger = $form_state->getTriggeringElement();
-    $parents = array_slice($trigger['#parents'], 1);
-    return NestedArray::getValue($form, $parents);
-  }
-
-  /**
-   * Validates the widget form element.
-   *
-   * This method checks the override value of the form element. If the override
-   * value is not set, it unsets the corresponding value in the form state.
-   *
-   * @param array $element
-   *   The form element to validate.
-   * @param \Drupal\Core\Form\FormStateInterface $form_state
-   *   The current state of the form.
-   */
-  public static function widgetFormValidate(array &$element, FormStateInterface $form_state) {
-    $overrideValue = $form_state->getValue($element['override']['#parents']);
-    if (!$overrideValue) {
-      $parents = array_slice($element['override']['#parents'], 1);
-      $form_state->unsetValue($parents);
-    }
+    $element['_options']['value_default']['#description'] = implode(' ', $description);
   }
 
 }

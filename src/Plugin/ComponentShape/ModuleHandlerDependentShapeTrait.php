@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Drupal\neo_alchemist\Plugin\ComponentShape;
 
-use Drupal\Core\Entity\ContentEntityInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Extension\ModuleHandlerInterface;
 use Drupal\Core\Field\WidgetPluginManager;
@@ -28,6 +27,7 @@ trait ModuleHandlerDependentShapeTrait {
     $plugin_id,
     $plugin_definition,
     array $schema,
+    array $settings,
     protected ComponentInterface $component,
     protected EntityTypeManagerInterface $entityTypeManager,
     protected TypedDataManagerInterface $typedDataManager,
@@ -36,7 +36,7 @@ trait ModuleHandlerDependentShapeTrait {
     protected ComponentValueModifierPluginManager $valueModifierManager,
     protected ModuleHandlerInterface $moduleHandler,
   ) {
-    parent::__construct($plugin_id, $plugin_definition, $schema, $component, $entityTypeManager, $typedDataManager, $widgetManager, $valueProviderManager, $valueModifierManager);
+    parent::__construct($plugin_id, $plugin_definition, $schema, $settings, $component, $entityTypeManager, $typedDataManager, $widgetManager, $valueProviderManager, $valueModifierManager);
   }
 
   /**
@@ -47,6 +47,7 @@ trait ModuleHandlerDependentShapeTrait {
       $plugin_id,
       $plugin_definition,
       $configuration['schema'],
+      $configuration['settings'],
       $configuration['component'],
       $container->get('entity_type.manager'),
       $container->get(TypedDataManagerInterface::class),

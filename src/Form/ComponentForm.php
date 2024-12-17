@@ -65,27 +65,6 @@ final class ComponentForm extends EntityForm {
    */
   public function form(array $form, FormStateInterface $form_state): array {
     $component = $this->entity->getComponentDefinition();
-    // /** @var \Drupal\Core\Plugin\Context\ContextInterface[] $contexts */
-    // $contexts = \Drupal::service('context.repository')->getAvailableContexts();
-    // $options = [];
-    // foreach ($contexts as $id => $context) {
-    //   $options[$id] = $context->getContextDefinition()->getLabel() . ' (' . $id . ')';
-    //   $dataDefinition = $context->getContextDefinition()->getDataDefinition();
-    //   if ($dataDefinition instanceof EntityDataDefinitionInterface) {
-    //     ksm($dataDefinition->getEntityTypeId());
-    //   }
-    //   // ksm($context->getContextDefinition()->getDataDefinition()->getLabel());
-    // }
-    // ksm($options);
-
-    // ksm($this->entity->getComponentId());
-    // // ksm(\Drupal::service('context.repository')->getAvailableContexts());
-    // // ksm(\Drupal::service('context.repository')->getRuntimeContexts());
-
-    /** @var \Drupal\Core\Entity\EntityFieldManagerInterface $fieldManager */
-    // $fieldManager = \Drupal::service('entity_field.manager');
-    // $field_map = $fieldManager->getFieldMapByFieldType('neo_component_tree');
-    // ksm($field_map);
 
     $form = parent::form($form, $form_state);
 
@@ -182,7 +161,7 @@ final class ComponentForm extends EntityForm {
         \SAVED_UPDATED => $this->t('Updated example %label.', $message_args),
       }
     );
-    $form_state->setRedirectUrl($this->entity->toUrl('collection'));
+    $form_state->setRedirectUrl($this->entity->toUrl());
     return $result;
   }
 

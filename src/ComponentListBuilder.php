@@ -6,7 +6,6 @@ namespace Drupal\neo_alchemist;
 
 use Drupal\Core\Config\Entity\ConfigEntityListBuilder;
 use Drupal\Core\Entity\EntityInterface;
-use Drupal\Core\Link;
 
 /**
  * Provides a listing of components.

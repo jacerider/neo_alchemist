@@ -26,7 +26,6 @@ use Drupal\neo_alchemist\Plugin\DataType\ComponentPropsValues;
 use Drupal\neo_alchemist\Plugin\DataType\ComponentTreeHydrated;
 use Drupal\neo_alchemist\Plugin\DataType\ComponentTreeStructure;
 use Drupal\neo_alchemist\Plugin\Field\NeoComponentTreeList;
-use Drupal\node\Plugin\views\filter\Access;
 
 /**
  * Plugin implementation of the 'component_tree' field type.

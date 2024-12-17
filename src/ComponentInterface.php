@@ -41,6 +41,26 @@ interface ComponentInterface extends ConfigEntityInterface {
   public function getScope(): string;
 
   /**
+   * Set the component as rebuilding.
+   *
+   * @param bool $rebuilding
+   *   TRUE if the component is rebuilding, FALSE otherwise.
+   *
+   * @return $this
+   */
+  public function setRebuilding(bool $rebuilding): self;
+
+  /**
+   * Checks if the component is rebuilding.
+   *
+   * Will be true if the component is being rebuilt without being saved.
+   *
+   * @return bool
+   *   TRUE if the component is rebuilding, FALSE otherwise.
+   */
+  public function isRebuilding();
+
+  /**
    * Get the component.
    *
    * @return \Drupal\Core\Plugin\Component
