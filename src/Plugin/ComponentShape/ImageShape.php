@@ -4,8 +4,9 @@ declare(strict_types=1);
 
 namespace Drupal\neo_alchemist\Plugin\ComponentShape;
 
-use Drupal\Core\Field\FieldDefinitionInterface;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
+use Drupal\file\FileInterface;
+use Drupal\media\MediaInterface;
 use Drupal\neo_alchemist\Attribute\ComponentShape;
 
 /**
@@ -15,13 +16,13 @@ use Drupal\neo_alchemist\Attribute\ComponentShape;
   prop: 'image',
   label: new TranslatableMarkup('Image'),
 )]
-class ImageShape extends ObjectShape {
+class ImageShape extends MediaShapeBase {
 
   /**
    * {@inheritDoc}
    */
-  public function allowExpanded(): bool {
-    return FALSE;
+  public function getSupportedMediaTypes(): array {
+    return ['image'];
   }
 
   /**
@@ -38,26 +39,45 @@ class ImageShape extends ObjectShape {
   }
 
   /**
-   * Matches the field definition type with the entity field definition type.
-   *
-   * @param \Drupal\Core\Field\FieldDefinitionInterface $entityFieldDefinition
-   *   The field definition of the entity to match against.
-   *
-   * @return bool
-   *   TRUE if the field definition types match, FALSE otherwise.
+   * {@inheritDoc}
    */
-  public function supportsFieldDefinition(FieldDefinitionInterface $entityFieldDefinition): bool {
-    $fieldDefinition = $this->getFieldItemList()->getFieldDefinition();
-    if ($fieldDefinition->getType() === $entityFieldDefinition->getType()) {
-      // ksm($fieldDefinition->getType(), $entityFieldDefinition->getType(), $entityFieldDefinition->getName(), $entityFieldDefinition->getSetting('target_type'));.
-      if ($entityFieldDefinition->getSetting('target_type') === 'media') {
-        $target_bundles = $entityFieldDefinition->getSetting('handler_settings')['target_bundles'] ?? [];
-        if (count($target_bundles) === 1 && isset($target_bundles['image'])) {
-          return TRUE;
-        }
-      }
+  public function getValueFromMedia(MediaInterface $media): array {
+    $source = $media->getSource();
+    $fid = $source->getSourceFieldValue($media);
+    $file = $this->entityTypeManager->getStorage('file')->load($fid);
+    if ($file instanceof FileInterface) {
+      return [
+        'src' => $file->createFileUrl(),
+        'alt' => $source->getMetadata($media, 'thumbnail_alt_value'),
+        'width' => $source->getMetadata($media, 'width'),
+        'height' => $source->getMetadata($media, 'height'),
+        'target_id' => $media->id(),
+      ];
     }
-    return FALSE;
+    return [];
+    // $entity = $this->getFieldItem()->entity;
+    // if ($entity instanceof MediaInterface) {
+    //   $source = $entity->getSource();
+    //   $fid = $source->getSourceFieldValue($entity);
+    //   $file = $this->entityTypeManager->getStorage('file')->load($fid);
+    //   if ($file instanceof FileInterface) {
+    //     $value = [
+    //       'src' => $file->createFileUrl(),
+    //       'alt' => $source->getMetadata($entity, 'thumbnail_alt_value'),
+    //       'width' => $source->getMetadata($entity, 'width'),
+    //       'height' => $source->getMetadata($entity, 'height'),
+    //       'target_id' => $entity->id(),
+    //     ];
+    //     $valueProvider->stopFurtherProcessing();
+    //   }
+    // }
+    // else {
+    //   if (!$this->isOptionDefault()) {
+    //     $this->setOptionEmpty(TRUE);
+    //     $valueProvider->stopFurtherProcessing();
+    //   }
+    // }
+    // return $value;
   }
 
 }

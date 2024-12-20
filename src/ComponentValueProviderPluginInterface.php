@@ -9,7 +9,7 @@ use Drupal\Core\Form\FormStateInterface;
 /**
  * Interface for neo_component_value_provider plugins.
  */
-interface ComponentValueProviderPluginInterface extends ComponentValueBasePluginInterface {
+interface ComponentValueProviderPluginInterface extends ComponentValuePluginInterface {
 
   /**
    * Determines if the component value is editable.

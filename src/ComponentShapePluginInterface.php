@@ -44,6 +44,62 @@ interface ComponentShapePluginInterface extends PluginInspectionInterface, Deriv
   public function init(): self;
 
   /**
+   * Adds a parent shape to the current component shape.
+   *
+   * @param \Drupal\neo_alchemist\ComponentShapePluginInterface $parent
+   *   The parent shape to be added.
+   *
+   * @return $this
+   *   The current instance of the component shape plugin.
+   */
+  public function addParentShape(ComponentShapePluginInterface $parent): self;
+
+  /**
+   * Retrieves the parent shapes of the current component shape.
+   *
+   * @return \Drupal\neo_alchemist\ComponentShapePluginInterface[]
+   *   An array of parent shapes.
+   */
+  public function getAllParentShapes(): array;
+
+  /**
+   * Retrieves the direct parent shape of the current component shape.
+   *
+   * @return ComponentShapePluginInterface|null
+   *   The direct parent shape if it exists, or NULL if there is no parent.
+   */
+  public function getDirectParentShape(): ?ComponentShapePluginInterface;
+
+  /**
+   * Retrieves all expandable shapes recursively.
+   *
+   * @param bool $includeSelf
+   *   Whether to include the current shape in the list.
+   * @param bool $addRefToKey
+   *   Whether to add a reference to the key.
+   *
+   * @return array
+   *   An array of expandable shapes.
+   */
+  public function getAllExpandedableShapes($includeSelf = FALSE, $addRefToKey = FALSE): array;
+
+  /**
+   * Retrieves all child shapes recursively.
+   *
+   * This method collects all child shapes, including nested child shapes,
+   * and returns them in a sorted array.
+   *
+   * @param bool $includeSelf
+   *   Whether to include the current shape in the list.
+   * @param bool $addRefToKey
+   *   Whether to add a reference to the key.
+   *
+   * @return \Drupal\neo_alchemist\ComponentShapePluginInterface[]
+   *   An associative array of all child shapes, keyed by their nested IDs.
+   */
+  public function getAllChildShapes($includeSelf = FALSE, $addRefToKey = FALSE): array;
+
+  /**
    * Retrieves the value provider definitions for the current shape.
    *
    * This method uses the value provider manager to get the filtered definitions
@@ -66,16 +122,6 @@ interface ComponentShapePluginInterface extends PluginInspectionInterface, Deriv
    *   The current instance of the component shape plugin.
    */
   public function addValueProvider(string $providerId, array $settings): self;
-
-  /**
-   * Resets the value providers.
-   *
-   * This method resets the value providers for the current shape instance.
-   *
-   * @return self
-   *   The current instance of the class for method chaining.
-   */
-  public function resetValueProviders(): self;
 
   /**
    * Checks if a value provider is enabled.
@@ -268,6 +314,31 @@ interface ComponentShapePluginInterface extends PluginInspectionInterface, Deriv
   public function isNew(): bool;
 
   /**
+   * Converts the component shape structure to a string expression.
+   *
+   * This method takes the structure of the component shape and converts it
+   * into a string expression where each key-value pair is concatenated with
+   * a period (.) and each pair is separated by a colon (:).
+   *
+   * @return string
+   *   The string expression representing the component shape structure.
+   */
+  public function getExpression(): string;
+
+  /**
+   * Retrieves the structure of the component shape.
+   *
+   * This method constructs an array representing the structure of the component
+   * shape. It includes the nested ID and reference of the current shape. If the
+   * current shape implements the ComponentShapeChildrenPluginInterface, it also
+   * merges the structures of its child shapes.
+   *
+   * @return array
+   *   An associative array representing the structure of the component shape.
+   */
+  public function getStructure(): array;
+
+  /**
    * Checks if the component is rebuilding.
    *
    * Will be true if the component is being rebuilt without being saved.
@@ -276,25 +347,6 @@ interface ComponentShapePluginInterface extends PluginInspectionInterface, Deriv
    *   TRUE if the component is rebuilding, FALSE otherwise.
    */
   public function isRebuilding();
-
-  /**
-   * Adds a parent shape to the current component shape.
-   *
-   * @param \Drupal\neo_alchemist\ComponentShapePluginInterface $parent
-   *   The parent shape to be added.
-   *
-   * @return $this
-   *   The current instance of the component shape plugin.
-   */
-  public function addParentShape(ComponentShapePluginInterface $parent): self;
-
-  /**
-   * Retrieves the parent shapes of the current component shape.
-   *
-   * @return \Drupal\neo_alchemist\ComponentShapePluginInterface[]
-   *   An array of parent shapes.
-   */
-  public function getParentShapes(): array;
 
   /**
    * Checks if the component shape is nested.
@@ -306,6 +358,8 @@ interface ComponentShapePluginInterface extends PluginInspectionInterface, Deriv
 
   /**
    * Retrieves the nested ID by concatenating the elements of the parent path.
+   *
+   * Each parent ID is separated by a period (.).
    *
    * @return string
    *   The concatenated parent ID.
@@ -688,14 +742,6 @@ interface ComponentShapePluginInterface extends PluginInspectionInterface, Deriv
   public function getOverrideValue(): mixed;
 
   /**
-   * Clears the override value.
-   *
-   * @return $this
-   *   The current instance for method chaining.
-   */
-  public function resetOverrideValue(): self;
-
-  /**
    * Get the field item value.
    *
    * @return mixed
@@ -974,17 +1020,6 @@ interface ComponentShapePluginInterface extends PluginInspectionInterface, Deriv
    *   otherwise.
    */
   public function supportsFieldProperty(DataDefinitionInterface $entityFieldProperty): bool;
-
-  /**
-   * Retrieves the default shape for the component.
-   *
-   * The current shape is cloned and its value providers are reset. The default
-   * shape is then returned.
-   *
-   * @return \Drupal\neo_alchemist\Plugin\ComponentShapePluginInterface
-   *   The default shape for the component.
-   */
-  public function getDefaultShape(): ComponentShapePluginInterface;
 
   /**
    * Retrieves the config shape for the component.

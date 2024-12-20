@@ -1,0 +1,22 @@
+uuid: bed24758-285b-438b-b40d-8f91fe8afbca
+langcode: en
+status: true
+dependencies:
+  module:
+    - crop
+    - neo_icon
+third_party_settings:
+  crop:
+    image_field: _none
+  neo_icon:
+    'entity:media_type:image': file-image
+id: image
+label: Image
+description: 'Use local images for reusable media.'
+source: image
+queue_thumbnail_downloads: false
+new_revision: true
+source_configuration:
+  source_field: field_media_image
+field_map:
+  name: name

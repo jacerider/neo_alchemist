@@ -153,8 +153,7 @@ final class EntityValueProvider extends ComponentValueProviderPluginBase impleme
       if ($this->shape->accessOptionDefault()) {
         $this->shape->setOptionDefault(empty($hasOverrideValue));
       }
-      if ($parentShapes = $this->shape->getParentShapes()) {
-        $parentShape = end($parentShapes);
+      if ($parentShape = $this->shape->getDirectParentShape()) {
         if ($parentShape instanceof ComponentShapeChildrenPluginInterface && $parentShape->isSingleProp()) {
           if ($parentShape->accessOptionDefault()) {
             // If we are a single property, we set the parent shape to use the

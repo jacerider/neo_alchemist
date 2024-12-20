@@ -15,6 +15,26 @@ use Drupal\Core\Plugin\Component;
 interface ComponentInterface extends ConfigEntityInterface {
 
   /**
+   * Get the component expression.
+   *
+   * @return string
+   *   The expression.
+   */
+  public function getExpression(): string;
+
+  /**
+   * Generates a combined expression string from the component's shapes.
+   *
+   * This method retrieves all shapes associated with the component, extracts
+   * their individual expressions, sorts them, and then concatenates them into
+   * a single string separated by the '~' character.
+   *
+   * @return string
+   *   The combined expression string.
+   */
+  public function generateExpression(): string;
+
+  /**
    * Checks if the component is published.
    *
    * @return bool
@@ -31,6 +51,38 @@ interface ComponentInterface extends ConfigEntityInterface {
    * @see \Drupal\Core\Plugin\Component::$machineName
    */
   public function getComponentId(): string;
+
+  /**
+   * Get the component.
+   *
+   * @return \Drupal\Core\Plugin\Component
+   *   The component.
+   */
+  public function getComponent(): Component;
+
+  /**
+   * Get the component schema.
+   *
+   * @return array
+   *   The schema.
+   */
+  public function getComponentSchema(): array;
+
+  /**
+   * Gets the thumbnail id.
+   *
+   * @return string|null
+   *   The thumbnail.
+   */
+  public function getThumbnailId(): ?string;
+
+  /**
+   * Retrieves the default thumbnail path for the component.
+   *
+   * @return string|null
+   *   The path to the default thumbnail, or NULL if not available.
+   */
+  public function getDefaultThumbnail(): ?string;
 
   /**
    * Gets the scope of the component.
@@ -59,22 +111,6 @@ interface ComponentInterface extends ConfigEntityInterface {
    *   TRUE if the component is rebuilding, FALSE otherwise.
    */
   public function isRebuilding();
-
-  /**
-   * Get the component.
-   *
-   * @return \Drupal\Core\Plugin\Component
-   *   The component.
-   */
-  public function getComponent(): Component;
-
-  /**
-   * Get the component schema.
-   *
-   * @return mixed
-   *   The schema.
-   */
-  public function getComponentSchema(): mixed;
 
   /**
    * Retrieves the settings for the component.
@@ -206,6 +242,45 @@ interface ComponentInterface extends ConfigEntityInterface {
    *   The prop values.
    */
   public function getPropValues(): array;
+
+  /**
+   * Retrieves all property shape settings.
+   *
+   * This method returns an array of property shape settings from the
+   * component's settings. If no settings are found, an empty array is returned.
+   *
+   * @return array
+   *   An array of property shape settings.
+   */
+  public function getAllPropShapeSettings(): array;
+
+  /**
+   * Retrieves the shape settings for a given property ID.
+   *
+   * @param string $propId
+   *   The ID of the property for which to get the shape settings.
+   *
+   * @return array
+   *   An array of shape settings for the specified property ID. If the property
+   *   ID does not exist, an empty array is returned.
+   */
+  public function getPropShapeSettings(string $propId): array;
+
+  /**
+   * Sets the shape settings for a component.
+   *
+   * This method configures the shape settings for a component by extracting
+   * various properties and plugin configurations from the provided shape
+   * plugin interface. It handles nested shapes and their expanded states,
+   * ensuring that only the relevant settings are retained.
+   *
+   * @param \Drupal\neo_alchemist\Plugin\ComponentShapePluginInterface $shape
+   *   The shape plugin interface from which to extract settings.
+   *
+   * @return $this
+   *   The current instance of the component with updated shape settings.
+   */
+  public function setPropShapeSettings(ComponentShapePluginInterface $shape): self;
 
   /**
    * Converts the component entity to a renderable array.

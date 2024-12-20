@@ -68,7 +68,6 @@ final class ComponentManageForm extends EntityForm {
    */
   public function form(array $form, FormStateInterface $form_state): array {
     $form = parent::form($form, $form_state);
-    // $form['#theme'] = 'neo_component_preview_form';
     $form_state->set('neo_component_form', TRUE);
 
     $form['iframe'] = [
@@ -98,14 +97,14 @@ final class ComponentManageForm extends EntityForm {
         'value_modifiers' => $this->t('Value Modifiers'),
         'operations' => '',
       ],
-      '#style' => [
+      '#neo_style' => [
         'property' => 'heading',
       ],
-      '#size' => [
+      '#neo_size' => [
         'required' => 'min',
         'editable' => 'min',
       ],
-      '#align' => [
+      '#neo_align' => [
         'required' => 'center',
         'editable' => 'center',
       ],
@@ -128,14 +127,14 @@ final class ComponentManageForm extends EntityForm {
       $links['edit'] = [
         'title' => $this->t('Customize'),
         'url' => $this->entity->toUrl('edit-prop-form')->setRouteParameter('prop', $propName),
-        'attributes' => [
-          'class' => ['use-ajax'],
-          'data-dialog-type' => 'modal',
-          'data-dialog-options' => Json::encode([
-            'width' => '100%',
-            'height' => '100%',
-          ]),
-        ],
+        // 'attributes' => [
+        //   'class' => ['use-ajax'],
+        //   'data-dialog-type' => 'modal',
+        //   'data-dialog-options' => Json::encode([
+        //     'width' => '100%',
+        //     'height' => '100%',
+        //   ]),
+        // ],
       ];
       $row['operations'] = [
         '#type' => 'operations',
@@ -143,6 +142,31 @@ final class ComponentManageForm extends EntityForm {
       ];
 
       $form['props'][$propName] = $row;
+    }
+
+    $thumbnailId = $this->entity->getThumbnailId();
+    $form['thumbnail'] = [
+      '#type' => 'neo_config_file',
+      '#title' => $this->t('Thumbnail'),
+      '#extensions' => ['png'],
+      // '#upload_location' => 'public://neo-alchemist/components',
+      '#dependencies' => [
+        $this->entity->getConfigDependencyKey() => [
+          $this->entity->getConfigDependencyName(),
+        ],
+      ],
+      '#default_value' => $thumbnailId,
+    ];
+    if (!$thumbnailId && ($thumbnail = $this->entity->getDefaultThumbnail())) {
+      $form['thumbnail']['#field_prefix'] = [
+        '#theme' => 'image',
+        '#uri' => $thumbnail,
+        '#attributes' => [
+          'style' => 'display: block; max-width: 80px; max-height: 80px',
+        ],
+        '#prefix' => '<div class="flex items-center justify-center pr-2">',
+        '#suffix' => '</div>',
+      ];
     }
 
     if ($this->entity->getTargetEntityTypeId()) {

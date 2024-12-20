@@ -36,7 +36,7 @@ class ComponentPropAccessCheck implements AccessInterface {
     $parameters = $route_match->getParameters();
     if ($parameters->has($entity_type) && $parameters->has($prop)) {
       $entity = $parameters->get($entity_type);
-      if ($entity instanceof ComponentInterface && isset($entity->getComponentSchema()->properties->{$parameters->get($prop)})) {
+      if ($entity instanceof ComponentInterface && isset($entity->getComponentSchema()['properties'][$parameters->get($prop)])) {
         return AccessResult::allowedIfHasPermission($account, 'administer neo_alchemist');
       }
     }

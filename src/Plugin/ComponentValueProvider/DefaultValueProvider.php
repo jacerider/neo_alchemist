@@ -4,11 +4,15 @@ declare(strict_types=1);
 
 namespace Drupal\neo_alchemist\Plugin\ComponentValueProvider;
 
+use Drupal\Core\DependencyInjection\DependencySerializationTrait;
 use Drupal\Core\Form\FormStateInterface;
+use Drupal\Core\Plugin\ContainerFactoryPluginInterface;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\neo_alchemist\Attribute\ComponentValueProvider;
 use Drupal\neo_alchemist\ComponentShapePluginInterface;
+use Drupal\neo_alchemist\ComponentShapePluginManager;
 use Drupal\neo_alchemist\ComponentValueProviderPluginBase;
+use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
  * Plugin implementation of the neo_component_value_provider.
@@ -19,7 +23,9 @@ use Drupal\neo_alchemist\ComponentValueProviderPluginBase;
   description: new TranslatableMarkup('Provide default values for the component.'),
   weight: 15,
 )]
-final class DefaultValueProvider extends ComponentValueProviderPluginBase {
+final class DefaultValueProvider extends ComponentValueProviderPluginBase implements ContainerFactoryPluginInterface {
+
+  use DependencySerializationTrait;
 
   /**
    * The default shape plugin.
@@ -31,9 +37,35 @@ final class DefaultValueProvider extends ComponentValueProviderPluginBase {
   /**
    * {@inheritdoc}
    */
+  public static function create(ContainerInterface $container, array $configuration, $plugin_id, $plugin_definition) {
+    return new static(
+      $plugin_id,
+      $plugin_definition,
+      $configuration['shape'],
+      $configuration['settings'],
+      $container->get('plugin.manager.neo_component_shape'),
+    );
+  }
+
+  /**
+   * Creates a toolbar item instance.
+   */
+  public function __construct(
+    $plugin_id,
+    $plugin_definition,
+    ComponentShapePluginInterface $shape,
+    array $configuration,
+    protected ComponentShapePluginManager $shapeManager
+  ) {
+    parent::__construct($plugin_id, $plugin_definition, $shape, $configuration);
+  }
+
+  /**
+   * {@inheritdoc}
+   */
   public function defaultConfiguration() {
     return [
-      'default' => $this->shape->getDefaultValue(),
+      'default' => $this->getDefaultShape()->getDefaultValue(),
       'options' => [],
     ];
   }
@@ -46,7 +78,11 @@ final class DefaultValueProvider extends ComponentValueProviderPluginBase {
    */
   protected function getDefaultShape(): ComponentShapePluginInterface {
     if (!isset($this->defaultShape)) {
-      $this->defaultShape = $this->shape->getDefaultShape()->setFieldItemValue($this->configuration['default']);
+      $this->defaultShape = $this->shapeManager->getInstance([
+        'schema' => $this->shape->getSchema(),
+        'component' => $this->shape->getComponent(),
+      ]);
+      $this->defaultShape->setOverrideValue($this->configuration['default'] ?? [])->init();
     }
     return $this->defaultShape;
   }

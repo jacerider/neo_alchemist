@@ -4,11 +4,14 @@ declare(strict_types=1);
 
 namespace Drupal\neo_alchemist\Entity;
 
+use Drupal\Component\Serialization\Json;
 use Drupal\Core\Config\Entity\ConfigEntityBase;
 use Drupal\Core\Entity\ContentEntityInterface;
+use Drupal\Core\Entity\EntityStorageInterface;
 use Drupal\Core\Entity\EntityTypeInterface;
 use Drupal\Core\Plugin\Component as ComponentPlugin;
 use Drupal\neo_alchemist\ComponentInterface;
+use Drupal\neo_alchemist\ComponentShapeChildrenPluginInterface;
 use Drupal\neo_alchemist\ComponentShapePluginInterface;
 
 /**
@@ -57,7 +60,10 @@ use Drupal\neo_alchemist\ComponentShapePluginInterface;
  *     "id",
  *     "label",
  *     "description",
+ *     "expression",
+ *     "schema",
  *     "component",
+ *     "thumbnail",
  *     "settings",
  *     "target_entity_type",
  *     "target_entity_bundle",
@@ -88,6 +94,13 @@ class Component extends ConfigEntityBase implements ComponentInterface {
   protected string $description;
 
   /**
+   * The component expression.
+   *
+   * @var string
+   */
+  protected string $expression;
+
+  /**
    * The SDS component.
    *
    * @var string
@@ -95,25 +108,32 @@ class Component extends ConfigEntityBase implements ComponentInterface {
   protected string $component;
 
   /**
+   * The thumbnail.
+   *
+   * @var string|null
+   */
+  protected ?string $thumbnail;
+
+  /**
    * The settings.
    *
    * @var array|null
    */
-  protected ?array $settings = [];
+  protected ?array $settings;
 
   /**
    * The target entity type.
    *
    * @var string|null
    */
-  protected ?string $target_entity_type = '';
+  protected ?string $target_entity_type;
 
   /**
    * The target entity bundle.
    *
    * @var string|null
    */
-  protected ?string $target_entity_bundle = '';
+  protected ?string $target_entity_bundle;
 
   /**
    * The scope of the component.
@@ -134,6 +154,36 @@ class Component extends ConfigEntityBase implements ComponentInterface {
   protected bool $rebuilding = FALSE;
 
   /**
+   * The prop shapes.
+   *
+   * @var \Drupal\neo_alchemist\ComponentShapePluginInterface[]
+   */
+  protected array $propShapes;
+
+  /**
+   * {@inheritdoc}
+   */
+  public function getExpression(): string {
+    return $this->expression;
+  }
+
+  /**
+   * Generates a combined expression string from the component's shapes.
+   *
+   * This method retrieves all shapes associated with the component, extracts
+   * their individual expressions, sorts them, and then concatenates them into
+   * a single string separated by the '~' character.
+   *
+   * @return string
+   *   The combined expression string.
+   */
+  public function generateExpression(): string {
+    $expressions = array_map(fn($shape) => $shape->getExpression(), $this->getPropShapes());
+    ksort($expressions);
+    return implode('~', $expressions);
+  }
+
+  /**
    * {@inheritdoc}
    */
   public function isPublished(): bool {
@@ -145,6 +195,39 @@ class Component extends ConfigEntityBase implements ComponentInterface {
    */
   public function getComponentId(): string {
     return $this->component;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function getComponent(): ComponentPlugin {
+    /** @var \Drupal\Core\Theme\ComponentPluginManager $manager */
+    $manager = \Drupal::service('plugin.manager.sdc');
+    return $manager->find($this->getComponentId());
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function getComponentSchema(): array {
+    return $this->getComponent()->metadata->schema;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function getThumbnailId(): ?string {
+    return $this->thumbnail;
+  }
+
+  /**
+   * Retrieves the default thumbnail path for the component.
+   *
+   * @return string|null
+   *   The path to the default thumbnail, or NULL if not available.
+   */
+  public function getDefaultThumbnail(): ?string {
+    return $this->getComponent()->metadata->getThumbnailPath();
   }
 
   /**
@@ -172,39 +255,6 @@ class Component extends ConfigEntityBase implements ComponentInterface {
   /**
    * {@inheritdoc}
    */
-  public function getComponent(): ComponentPlugin {
-    /** @var \Drupal\Core\Theme\ComponentPluginManager $manager */
-    $manager = \Drupal::service('plugin.manager.sdc');
-    return $manager->find($this->getComponentId());
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function getComponentSchema(): mixed {
-    $component = $this->getComponent();
-    // Get the component based on the ID, so we can get the schema.
-    $prop_schema = $component->metadata->schema;
-    // Encode & decode, so we transform an associative array to an stdClass
-    // recursively.
-    try {
-      $schema = json_decode(
-        json_encode($prop_schema, JSON_THROW_ON_ERROR),
-        FALSE,
-        512,
-        JSON_THROW_ON_ERROR
-      );
-    }
-    catch (\JsonException $e) {
-      $schema = (object) [];
-    }
-
-    return $schema;
-  }
-
-  /**
-   * {@inheritdoc}
-   */
   public function getSettings(): array {
     return $this->settings ?? [];
   }
@@ -220,6 +270,8 @@ class Component extends ConfigEntityBase implements ComponentInterface {
    * {@inheritdoc}
    */
   public function setSetting(string $key, $value): self {
+    // Reload prop shapes.
+    unset($this->propShapes);
     $this->settings[$key] = $value;
     return $this;
   }
@@ -317,28 +369,34 @@ class Component extends ConfigEntityBase implements ComponentInterface {
   /**
    * {@inheritdoc}
    */
-  public function save() {
-    if ($this->isNew()) {
-      $this->set('id', $this->getUniqueId());
-    }
-    return parent::save();
+  public function getValues(): array {
+    return [];
   }
 
   /**
-   * {@inheritdoc}
+   * Load prop shapes.
+   *
+   * @param array $schema
+   *   The schema.
+   *
+   * @return \Drupal\neo_alchemist\ComponentShapePluginInterface[]
+   *   The shapes.
    */
-  public function getValues(): array {
-    return [];
+  protected function loadPropShapes(array $schema): array {
+    /** @var \Drupal\neo_alchemist\ComponentShapePluginManager $manager */
+    $manager = \Drupal::service('plugin.manager.neo_component_shape');
+    // Get shapes and initialize them.
+    return array_map(fn ($v) => $v->init(), $manager->getInstancesFromSchema($schema, $this, $this->getSettings()['props'] ?? [], $this->getValues()));
   }
 
   /**
    * {@inheritdoc}
    */
   public function getPropShapes(): array {
-    /** @var \Drupal\neo_alchemist\ComponentShapePluginManager $manager */
-    $manager = \Drupal::service('plugin.manager.neo_component_shape');
-    // Get shapes and initialize them.
-    return array_map(fn ($v) => $v->init(), $manager->getInstancesFromSchema($this->getComponent()->metadata->schema, $this, $this->getSettings()['props'] ?? [], $this->getValues()));
+    if (!isset($this->propShapes)) {
+      $this->propShapes = $this->loadPropShapes($this->getComponent()->metadata->schema);
+    }
+    return $this->propShapes;
   }
 
   /**
@@ -369,6 +427,91 @@ class Component extends ConfigEntityBase implements ComponentInterface {
   /**
    * {@inheritdoc}
    */
+  public function getAllPropShapeSettings(): array {
+    return $this->getSettings()['props'] ?? [];
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function getPropShapeSettings(string $propId): array {
+    return $this->getAllPropShapeSettings()[$propId] ?? [];
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function setPropShapeSettings(ComponentShapePluginInterface $shape): self {
+    unset($this->propShapes);
+    $expanded = $shape->getExpanded();
+    $settings = [
+      'prop' => $shape->getName(),
+      'shape' => $shape->getPluginId(),
+      'field_type' => $shape->getFieldType(),
+      'expanded' => $expanded,
+      'editable' => $shape->isEditable(),
+      'required' => $shape->isRequired(),
+    ];
+    foreach ($shape->getAllChildShapes(TRUE) as $childShape) {
+      foreach ($childShape->getPluginCollections() as $pluginType => $collection) {
+        foreach ($collection as $plugin) {
+          $pluginSettings = $plugin->getConfiguration();
+          if (!empty($pluginSettings['status'])) {
+            $nestedId = $childShape->getNestedId();
+            if (empty($expanded) && $childShape->isNested()) {
+              // If the shape is not expanded, nested settings are removed.
+              continue;
+            }
+            if (in_array($nestedId, $expanded)) {
+              // If the shape is expanded, the settings are removed.
+              continue;
+            }
+            if ($parent = $childShape->getDirectParentShape()) {
+              if (!in_array($parent->getNestedId(), $expanded)) {
+                // If the parent shape is not expanded, the settings are removed.
+                continue;
+              }
+            }
+            $settings['plugins'][$nestedId][$pluginType][$plugin->getPluginId()] = [
+              'id' => $plugin->getPluginId(),
+              'settings' => $pluginSettings,
+            ];
+          }
+        }
+      }
+    }
+    $this->settings['props'][$shape->getName()] = $settings;
+    return $this;
+  }
+
+  /**
+   * Retrieves a flat array of all shapes keyed by their nested ID.
+   *
+   * This method iterates through the provided shapes and collects them into an
+   * associative array. If a shape has child shapes, it collects those as well.
+   *
+   * @param \Drupal\neo_alchemist\ComponentShapePluginInterface[] $shapes
+   *   An array of shape objects to process.
+   * @param bool $addRefToKey
+   *   (optional) Whether to add the shape's reference to the key. Defaults to
+   *   FALSE.
+   *
+   * @return array
+   *   An associative array of all shapes, with keys being the shape's nested ID
+   *   (and optionally the reference) and values being the shape objects.
+   */
+  protected function getAllPropShapes(array $shapes, $addRefToKey = FALSE): array {
+    $allShapes = [];
+    foreach ($shapes as $shape) {
+      $allShapes += $shape->getAllChildShapes(TRUE, $addRefToKey);
+    }
+    ksort($allShapes);
+    return $allShapes;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
   public function toRenderable() {
     return [
       '#type' => 'component',
@@ -386,8 +529,6 @@ class Component extends ConfigEntityBase implements ComponentInterface {
   public function getUniqueId() {
     $parts = explode(':', $this->getComponentId());
     $suggestion = $parts[1];
-    // $suggestion = str_replace(':', '__', $this->getComponentId());
-
     // Get all the blocks which starts with the suggested machine name.
     $query = $this->entityTypeManager()->getStorage('neo_component')->getQuery();
     $query->condition('id', $suggestion, 'CONTAINS');
@@ -411,6 +552,50 @@ class Component extends ConfigEntityBase implements ComponentInterface {
   /**
    * {@inheritdoc}
    */
+  public function save() {
+    if ($this->isNew()) {
+      $this->set('id', $this->getUniqueId());
+    }
+
+    $currentExpression = $this->getExpression();
+    $newExpression = $this->generateExpression();
+    if ($currentExpression !== $newExpression) {
+      $currentSchema = Json::decode($this->get('schema'));
+      $currentShapes = $this->getAllPropShapes($this->loadPropShapes($currentSchema), TRUE);
+      $newRootShapes = $this->getPropShapes();
+      $newShapes = $this->getAllPropShapes($newRootShapes, TRUE);
+
+      $addedShapes = array_diff_key($newShapes, $currentShapes);
+      $removedShapes = array_diff_key($currentShapes, $newShapes);
+      foreach ($addedShapes as $shape) {
+        $shape->onAdd();
+      }
+      foreach ($removedShapes as $shape) {
+        $shape->onRemove();
+      }
+
+      // Only keep settings for props that are still present.
+      $settings = $this->getAllPropShapeSettings();
+      $settings = array_intersect_key($settings, $newRootShapes);
+      $this->setSetting('props', $settings);
+
+      // Update schema and expression.
+      $this->set('schema', Json::encode($this->getComponentSchema()));
+      $this->set('expression', $newExpression);
+    }
+    return parent::save();
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function preSave(EntityStorageInterface $storage) {
+    parent::preSave($storage);
+  }
+
+  /**
+   * {@inheritdoc}
+   */
   public function calculateDependencies() {
     parent::calculateDependencies();
 
@@ -424,6 +609,13 @@ class Component extends ConfigEntityBase implements ComponentInterface {
     }
 
     return $this;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function __sleep() {
+    return array_diff(parent::__sleep(), ['propShapes']);
   }
 
 }

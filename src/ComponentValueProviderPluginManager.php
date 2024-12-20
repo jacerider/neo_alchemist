@@ -7,13 +7,12 @@ namespace Drupal\neo_alchemist;
 use Drupal\Component\Plugin\Factory\DefaultFactory;
 use Drupal\Core\Cache\CacheBackendInterface;
 use Drupal\Core\Extension\ModuleHandlerInterface;
-use Drupal\Core\Plugin\DefaultPluginManager;
 use Drupal\neo_alchemist\Attribute\ComponentValueProvider;
 
 /**
  * ComponentValueProvider plugin manager.
  */
-final class ComponentValueProviderPluginManager extends DefaultPluginManager {
+final class ComponentValueProviderPluginManager extends ComponentValuePluginManagerBase {
 
   /**
    * Constructs the object.
@@ -25,91 +24,10 @@ final class ComponentValueProviderPluginManager extends DefaultPluginManager {
   }
 
   /**
-   * Filters and sorts component definitions based on the provided shape.
-   *
-   * This method retrieves all component definitions and filters them based on
-   * the type, entity type, and bundle specified by the given shape. It then
-   * sorts the filtered definitions by weight and label.
-   *
-   * @param \Drupal\neo_alchemist\ComponentShapePluginInterface $shape
-   *   The shape plugin interface which provides the type, entity type, and
-   *   bundle.
-   *
-   * @return array
-   *   An array of filtered and sorted component definitions.
+   * {@inheritDoc}
    */
-  public function getFilteredDefinitionsFromShape(ComponentShapePluginInterface $shape) {
-    $filtered = array_filter($this->getDefinitions(), function ($definition) use ($shape) {
-      if (!empty($definition['entity_types'])) {
-        $entityTypeId = $shape->getTargetEntityType();
-        $bundle = $shape->getTargetEntityBundle();
-        $keys = [];
-        if ($entityTypeId) {
-          $keys[] = '*';
-          $keys[] = "$entityTypeId.*";
-          if ($bundle) {
-            $keys[] = "$entityTypeId.$bundle";
-          }
-        }
-        $include = array_filter($definition['entity_types'], fn ($entityType) => substr($entityType, 0, 1) !== '!');
-        $exclude = array_map(fn ($entityType) => substr($entityType, 1), array_filter($definition['entity_types'], fn ($entityType) => substr($entityType, 0, 1) === '!'));
-        if ($include && !array_intersect($keys, $include)) {
-          return FALSE;
-        }
-        if ($exclude && array_intersect($keys, $exclude)) {
-          return FALSE;
-        }
-      }
-      if (!empty($definition['prop_types'])) {
-        $type = $shape->getType();
-        $include = array_filter($definition['prop_types'], fn ($propType) => substr($propType, 0, 1) !== '!');
-        $exclude = array_map(fn ($propType) => substr($propType, 1), array_filter($definition['prop_types'], fn ($propType) => substr($propType, 0, 1) === '!'));
-        if ($include && !in_array($type, $include)) {
-          return FALSE;
-        }
-        if ($exclude && in_array($type, $exclude)) {
-          return FALSE;
-        }
-      }
-      if (!empty($definition['ref_types'])) {
-        $type = $shape->getRef();
-        $include = array_filter($definition['ref_types'], fn ($propType) => substr($propType, 0, 1) !== '!');
-        $exclude = array_map(fn ($propType) => substr($propType, 1), array_filter($definition['ref_types'], fn ($propType) => substr($propType, 0, 1) === '!'));
-        if ($include && !in_array($type, $include)) {
-          return FALSE;
-        }
-        if ($exclude && in_array($type, $exclude)) {
-          return FALSE;
-        }
-      }
-      return TRUE;
-    });
-    uasort($filtered, function ($a, $b) {
-      $a_weight = $a['weight'] ?? 0;
-      $b_weight = $b['weight'] ?? 0;
-      if ($a_weight == $b_weight) {
-        $a_label = $a['label'];
-        $b_label = $b['label'];
-        return strnatcasecmp((string) $a_label, (string) $b_label);
-      }
-      return ($a_weight < $b_weight) ? -1 : 1;
-    });
-    return $filtered;
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function createInstance($plugin_id, array $configuration = []) {
-    $plugin_definition = $this->getDefinition($plugin_id);
-    $plugin_class = DefaultFactory::getPluginClass($plugin_id, $plugin_definition);
-
-    // If the plugin provides a factory method, pass the container to it.
-    if (is_subclass_of($plugin_class, 'Drupal\Core\Plugin\ContainerFactoryPluginInterface')) {
-      return $plugin_class::create(\Drupal::getContainer(), $configuration, $plugin_id, $plugin_definition);
-    }
-
-    return new $plugin_class($plugin_id, $plugin_definition, $configuration['shape'], $configuration['settings'] ?? []);
+  public function label() {
+    return t('Value Providers');
   }
 
 }

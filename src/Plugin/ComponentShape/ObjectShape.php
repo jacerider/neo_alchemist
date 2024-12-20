@@ -17,7 +17,14 @@ use Drupal\neo_alchemist\ComponentShapeExpandedPluginInterface;
   prop: 'object',
   label: new TranslatableMarkup('Object'),
 )]
-class ObjectShape extends ChildrenBaseShape implements ComponentShapeExpandedPluginInterface {
+class ObjectShape extends ChildrenShapeBase implements ComponentShapeExpandedPluginInterface {
+
+  /**
+   * The child shapes.
+   *
+   * @var \Drupal\neo_alchemist\ComponentShapePluginInterface[]
+   */
+  protected $childShapes;
 
   /**
    * {@inheritDoc}
@@ -47,13 +54,26 @@ class ObjectShape extends ChildrenBaseShape implements ComponentShapeExpandedPlu
    * {@inheritDoc}
    */
   public function getChildShapes(int $delta = 0): array {
-    $schema = $this->getSchema();
-    $defaultValue = $this->getDefaultValue();
-    // Merge in any examples to each property.
-    foreach ($schema['properties'] as $propName => &$prop) {
-      $prop['examples'] = $defaultValue[$propName] ?? $schema['examples'][$propName] ?? $prop['examples'] ?? [];
+    if (!isset($this->childShapes)) {
+      $schema = $this->getSchema();
+      $defaultValue = $this->getDefaultValue();
+      // Merge in any examples to each property.
+      foreach ($schema['properties'] as $propName => &$prop) {
+        $prop['examples'] = $defaultValue[$propName] ?? $schema['examples'][$propName] ?? $prop['examples'] ?? [];
+      }
+      $this->childShapes = array_map(function ($shape) {
+        if ($this->isSingleProp()) {
+          $shape->setOptionDefaultAccess(FALSE);
+        }
+        return $shape->init();
+      }, $this->getChildShapesFromSchema($schema));
+
+      // Check if the object has required properties. If so, we allow the prop
+      // to be set as empty.
+      $hasRequired = !empty(array_filter($this->childShapes, fn ($shape) => $shape->isRequired()));
+      $this->setOptionEmptyAccess(!$hasRequired);
     }
-    return $this->getChildShapesFromSchema($schema);
+    return $this->childShapes;
   }
 
   /**
@@ -146,7 +166,11 @@ class ObjectShape extends ChildrenBaseShape implements ComponentShapeExpandedPlu
       if (isset($form[$shapeName]) && is_array($shapeValue)) {
         $subform_state = SubformState::createForSubform($form[$shapeName], $form, $form_state);
         unset($shapeValue['_options']);
-        $values[$shapeName] = $shape->massageFormValues($shapeValue, $original_values[$shapeName] ?? [], $form[$shapeName], $subform_state);
+        $shapeOriginalValues = $original_values[$shapeName] ?? [];
+        if (!is_array($shapeOriginalValues)) {
+          $shapeOriginalValues = [$shapeOriginalValues];
+        }
+        $values[$shapeName] = $shape->massageFormValues($shapeValue, $shapeOriginalValues, $form[$shapeName], $subform_state);
       }
     }
     return parent::massageFormValues($values, $original_values, $form, $form_state);

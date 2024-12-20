@@ -12,6 +12,12 @@ neo_alchemist.neo_component.*:
       type: string
     description:
       type: string
+    expression:
+      type: string
+      label: ''
+    schema:
+      type: string
+      label: ''
     component:
       type: string
       label: 'Single-Directory Component'
@@ -23,6 +29,9 @@ neo_alchemist.neo_component.*:
         PluginExists:
           manager: plugin.manager.sdc
           interface: 'Drupal\Core\Plugin\PluginBase'
+    # thumbnail:
+    #   type: string
+    #   label: 'Thumbnail'
     settings:
       type: mapping
       label: Settings

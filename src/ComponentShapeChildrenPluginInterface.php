@@ -15,7 +15,7 @@ interface ComponentShapeChildrenPluginInterface {
    * @return \Drupal\neo_alchemist\ComponentShapePluginInterface[]
    *   The child shapes.
    */
-  public function getChildShapes(int $delta = 0): array;
+  public function getChildShapes(): array;
 
   /**
    * Check if the schema is a single property.

@@ -30,7 +30,6 @@ final class KernelSubscriber implements EventSubscriberInterface {
    */
   public function onKernelTerminate(TerminateEvent $event): void {
     if ($this->state->get('neo_alchemist.rebuild_needed') === TRUE) {
-      ksm('PURGE');
       $this->routeBuilder->setRebuildNeeded();
       $this->entityTypeManager->clearCachedDefinitions();
       $this->state->delete('neo_alchemist.rebuild_needed');

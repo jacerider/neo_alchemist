@@ -34,6 +34,7 @@ class NeoAlchemistServiceProvider extends ServiceProviderBase {
       $definition = $container->getDefinition('plugin.manager.sdc');
       $definition->setClass('Drupal\neo_alchemist\ComponentPluginManager');
       $definition->addArgument(new Reference('plugin.manager.neo_component_prop_def'));
+      $definition->addArgument(new Reference('entity_type.manager'));
     }
   }
 

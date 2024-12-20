@@ -64,7 +64,7 @@ final class InstanceComponentForm extends ContentEntityForm {
    */
   public function form(array $form, FormStateInterface $form_state): array {
     $form['#parents'] = [];
-    $form['#style'] = 'clean';
+    $form['#neo_style'] = 'clean';
     $form_state->set('neo_component_form', TRUE);
     $this->instance = $form_state->get('neo_component_instance');
     $this->before = $form_state->get('before');

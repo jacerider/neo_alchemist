@@ -7,7 +7,7 @@ namespace Drupal\neo_alchemist;
 /**
  * Interface for neo_component_value_modifier plugins.
  */
-interface ComponentValueModifierPluginInterface extends ComponentValueBasePluginInterface {
+interface ComponentValueModifierPluginInterface extends ComponentValuePluginInterface {
 
   /**
    * Modifies the given value.

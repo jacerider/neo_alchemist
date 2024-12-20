@@ -1,0 +1,19 @@
+uuid: 05c18797-1b08-4dd2-bd77-03547cf20f1f
+langcode: en
+status: true
+dependencies:
+  module:
+    - neo_icon
+third_party_settings:
+  neo_icon:
+    'entity:media_type:document': file-invoice
+id: document
+label: Document
+description: 'An uploaded file or document, such as a PDF.'
+source: file
+queue_thumbnail_downloads: false
+new_revision: true
+source_configuration:
+  source_field: field_media_file
+field_map:
+  name: name

@@ -11,10 +11,8 @@ use Drupal\Core\Entity\EntityTypeBundleInfoInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Form\SubformState;
-use Drupal\neo_alchemist\ComponentShapeChildrenPluginInterface;
-use Drupal\neo_alchemist\ComponentShapeExpandedPluginInterface;
 use Drupal\neo_alchemist\ComponentShapePluginInterface;
-use Drupal\neo_alchemist\ComponentValueBasePluginInterface;
+use Drupal\neo_alchemist\ComponentValuePluginInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
@@ -49,13 +47,6 @@ final class ComponentPropForm extends EntityForm {
    * @var \Drupal\neo_alchemist\ComponentShapePluginInterface
    */
   protected $shape;
-
-  /**
-   * The child shapes.
-   *
-   * @var \Drupal\neo_alchemist\ComponentShapePluginInterface[]
-   */
-  protected $childShapes;
 
   /**
    * {@inheritdoc}
@@ -93,50 +84,19 @@ final class ComponentPropForm extends EntityForm {
   }
 
   /**
-   * Retrieves all child shapes recursively.
+   * Get plugin shapes.
    *
-   * @param \Drupal\neo_alchemist\ComponentShapePluginInterface $shape
-   *   The shape plugin interface.
-   *
-   * @return array
-   *   An array of child shapes.
+   * @return \Drupal\neo_alchemist\ComponentShapePluginInterface[]
+   *   The plugin shapes.
    */
-  public function getChildShapes(ComponentShapePluginInterface $shape): array {
-    if ($shape instanceof ComponentShapeExpandedPluginInterface && !$shape->allowExpanded()) {
-      return [];
-    }
-    $shapes = [
-      $shape->getNestedId() => $shape,
-    ];
-    if ($shape instanceof ComponentShapeChildrenPluginInterface) {
-      foreach ($shape->getChildShapes() as $childShape) {
-        $shapes[$childShape->getNestedId()] = $childShape;
-        $shapes += $this->getChildShapes($childShape);
+  protected function getPluginShapes() {
+    $expanded = $this->shape->getExpanded();
+    return $expanded ? array_filter($this->shape->getAllChildShapes(TRUE), function (ComponentShapePluginInterface $shape) use ($expanded) {
+      if (in_array($shape->getNestedId(), $expanded)) {
+        return FALSE;
       }
-    }
-    return $shapes;
-  }
-
-  /**
-   * Retrieves all parent shapes recursively.
-   *
-   * @param \Drupal\neo_alchemist\ComponentShapePluginInterface $shape
-   *   The shape plugin interface.
-   *
-   * @return array
-   *   An array of parent shapes.
-   */
-  public function getParentShapes(ComponentShapePluginInterface $shape): array {
-    $shapes = [];
-    if ($shape instanceof ComponentShapeChildrenPluginInterface) {
-      if ($shape instanceof ComponentShapeExpandedPluginInterface && $shape->allowExpanded()) {
-        $shapes[$shape->getNestedId()] = $shape;
-      }
-      foreach ($shape->getChildShapes() as $childShape) {
-        $shapes += $this->getParentShapes($childShape);
-      }
-    }
-    return $shapes;
+      return array_intersect($shape->getNestedIds(), $expanded);
+    }) : [$this->shape->getNestedId() => $this->shape];
   }
 
   /**
@@ -144,50 +104,45 @@ final class ComponentPropForm extends EntityForm {
    */
   public function form(array $form, FormStateInterface $form_state): array {
     $form = parent::form($form, $form_state);
-    $expanded = $this->shape->getExpanded();
-    $parentShapes = $this->getParentShapes($this->shape);
-    $childShapes = array_filter($this->getChildShapes($this->shape), function (ComponentShapePluginInterface $shape) use ($expanded) {
-      if (in_array($shape->getNestedId(), $expanded)) {
-        return FALSE;
-      }
-      return array_intersect($shape->getNestedIds(), $expanded);
-    });
+    $shape = $this->shape;
+    $expanded = $shape->getExpanded();
+    $isExpanded = !empty($shape->getExpanded());
+    $pluginShapes = $this->getPluginShapes();
+    $expandedShapes = $shape->getAllExpandedableShapes(TRUE);
+    assert(!empty($pluginShapes), 'No shapes found.');
 
-    $providerGroup = $modifierGroup = 'tabs';
-    if (!$expanded) {
+    if (!$form_state->get('original_prop')) {
+      $props = $this->entity->getSetting('props', []);
+      $form_state->set('original_prop', $props[$this->shape->getName()] ?? []);
+    }
+
+    $pluginManagers = $this->shape->getPluginManagers();
+    if (!$isExpanded) {
       $form['tabs'] = [
         '#type' => 'vertical_tabs',
       ];
     }
     else {
-      $providerGroup = 'tabs_providers';
-      $form[$providerGroup] = [
-        '#title' => $this->t('Value Providers'),
-        '#type' => 'vertical_tabs',
-      ];
-      $modifierGroup = 'tabs_modifiers';
-      $form[$modifierGroup] = [
-        '#title' => $this->t('Value Modifiers'),
-        '#type' => 'vertical_tabs',
-      ];
+      foreach ($pluginManagers as $pluginType => $manager) {
+        $form[$pluginType] = [
+          '#type' => 'vertical_tabs',
+          '#title' => $manager->label(),
+        ];
+      }
     }
 
-    if (!in_array($this->shape->getNestedId(), $expanded)) {
-      $form = $this->buildValueProviderForm($form, $form_state, $this->shape, $providerGroup);
-    }
-    foreach ($childShapes as $childShape) {
-      $form = $this->buildValueProviderForm($form, $form_state, $childShape, $providerGroup);
-    }
-
-    if (!in_array($this->shape->getNestedId(), $expanded)) {
-      $form = $this->buildValueModifierForm($form, $form_state, $this->shape, $modifierGroup);
-    }
-    foreach ($childShapes as $childShape) {
-      $form = $this->buildValueModifierForm($form, $form_state, $childShape, $modifierGroup);
+    foreach ($pluginManagers as $pluginType => $manager) {
+      $group = match(TRUE) {
+        $isExpanded => $pluginType,
+        default => 'tabs',
+      };
+      foreach ($pluginShapes as $pluginShape) {
+        $form = $this->buildPluginForm($form, $form_state, $pluginShape, $pluginType, $group);
+      }
     }
 
-    if ($parentShapes) {
-      $parentShapeOptions = array_map(fn (ComponentShapePluginInterface $shape) => ($shape->isNested() ? $shape->getNestedTitle() : $this->t('All Properties')), $parentShapes);
+    if ($expandedShapes) {
+      $parentShapeOptions = array_map(fn (ComponentShapePluginInterface $shape) => ($shape->isNested() ? $shape->getNestedTitle() : $this->t('All Properties')), $expandedShapes);
       $form['expanded'] = [
         '#type' => 'checkboxes',
         '#title' => $this->t('Expand Properties'),
@@ -218,10 +173,12 @@ final class ComponentPropForm extends EntityForm {
   /**
    * Build value provider form.
    */
-  public function buildValueProviderForm(array $form, FormStateInterface $form_state, ComponentShapePluginInterface $shape, $group = 'tabs'): array {
-    $valueProviderDefinitions = $shape->getValueProviderDefinitions();
-    if (!empty($valueProviderDefinitions)) {
-      $key = $shape->isNested() ? 'providers_' . $shape->getNestedId() : 'providers';
+  public function buildPluginForm(array $form, FormStateInterface $form_state, ComponentShapePluginInterface $shape, string $pluginType, $group = 'tabs'): array {
+    $pluginCollection = $shape->getPluginCollection($pluginType);
+    if (count($pluginCollection)) {
+      $manager = $shape->getPluginManager($pluginType);
+      $nestedId = $shape->getNestedId();
+      $key = $pluginType . '_' . $nestedId;
       $tableId = Html::getId($key);
       $form[$key] = [
         '#type' => 'details',
@@ -230,7 +187,7 @@ final class ComponentPropForm extends EntityForm {
           '@classes' => 'badge bg-primary-500 text-primary-content-500 inline',
           '@title' => $shape->getNestedTitle(FALSE),
         ]) :
-        ($group === 'tabs' ? $this->t('Value Providers') : $this->t('Base')),
+        ($group === 'tabs' ? $manager->label() : $this->t('Base')),
         '#group' => $group,
       ];
       $form[$key]['values'] = [
@@ -250,10 +207,8 @@ final class ComponentPropForm extends EntityForm {
         '#prefix' => '<div id="' . $tableId . '">',
         '#suffix' => '</div>',
       ];
-
-      foreach ($valueProviderDefinitions as $providerId => $definition) {
-        $instance = $shape->getValueProvider($providerId);
-        $form[$key]['values'][$providerId] = [
+      foreach ($pluginCollection as $pluginId => $plugin) {
+        $form[$key]['values'][$pluginId] = [
           '#table_id' => $tableId,
           '#attributes' => [
             'class' => [
@@ -262,64 +217,10 @@ final class ComponentPropForm extends EntityForm {
           ],
           '#parents' => [
             $key,
-            $providerId,
+            $pluginId,
           ],
         ];
-        $form[$key]['values'][$providerId] = $this->buildValueDefinitionForm($form[$key]['values'][$providerId], $form_state, $definition, $instance);
-      }
-    }
-    return $form;
-  }
-
-  /**
-   * Build value modifier form.
-   */
-  public function buildValueModifierForm(array $form, FormStateInterface $form_state, ComponentShapePluginInterface $shape, $group = 'tabs'): array {
-    $valueModifierDefinitions = $shape->getValueModifierDefinitions();
-    if (!empty($valueModifierDefinitions)) {
-      $key = $shape->isNested() ? 'modifiers_' . $shape->getNestedId() : 'modifiers';
-      $tableId = Html::getId($key);
-      $form[$key] = [
-        '#type' => 'details',
-        '#title' => $shape->isNested() ?
-        $this->t('@title', [
-          '@title' => $shape->getNestedTitle(FALSE),
-        ]) :
-        ($group === 'tabs' ? $this->t('Value Modifiers') : $this->t('Base')),
-        '#group' => $group,
-      ];
-      $form[$key]['values'] = [
-        '#type' => 'table',
-        '#header' => [
-          'status' => $this->t('Status'),
-          'settings' => $this->t('Provider'),
-          'weight' => $this->t('Weight'),
-        ],
-        '#tabledrag' => [
-          [
-            'action' => 'order',
-            'relationship' => 'sibling',
-            'group' => 'table-sort-weight',
-          ],
-        ],
-        '#prefix' => '<div id="' . $tableId . '">',
-        '#suffix' => '</div>',
-      ];
-      foreach ($valueModifierDefinitions as $modifierId => $definition) {
-        $instance = $shape->getValueModifier($modifierId);
-        $form[$key]['values'][$modifierId] = [
-          '#table_id' => $tableId,
-          '#attributes' => [
-            'class' => [
-              'draggable',
-            ],
-          ],
-          '#parents' => [
-            $key,
-            $modifierId,
-          ],
-        ];
-        $form[$key]['values'][$modifierId] = $this->buildValueDefinitionForm($form[$key]['values'][$modifierId], $form_state, $definition, $instance);
+        $form[$key]['values'][$pluginId] = $this->buildPluginInstanceForm($form[$key]['values'][$pluginId], $form_state, $plugin);
       }
     }
     return $form;
@@ -328,12 +229,15 @@ final class ComponentPropForm extends EntityForm {
   /**
    * Build value provider definition form.
    */
-  public function buildValueDefinitionForm(array $form, FormStateInterface $form_state, array $definition, ComponentValueBasePluginInterface $instance = NULL): array {
+  public function buildPluginInstanceForm(array $form, FormStateInterface $form_state, ComponentValuePluginInterface $plugin): array {
+    $definition = $plugin->getPluginDefinition();
+    $settings = $plugin->getConfiguration();
+    $status = !empty($settings['status']);
     $form['status'] = [
       '#type' => 'checkbox',
       '#title' => $this->t('Active'),
       '#title_display' => 'invisible',
-      '#default_value' => !empty($instance),
+      '#default_value' => $status,
       '#disabled' => !empty($definition['status_lock']),
       '#ajax' => [
         'callback' => '::refreshAjax',
@@ -341,7 +245,7 @@ final class ComponentPropForm extends EntityForm {
       ],
     ];
 
-    if ($instance) {
+    if ($status) {
       $form['settings'] = [
         '#type' => 'fieldset',
         '#title' => $definition['label'],
@@ -350,7 +254,7 @@ final class ComponentPropForm extends EntityForm {
         '#parents' => array_merge($form['#parents'], ['settings']),
       ];
       $subform_state = SubformState::createForSubform($form['settings'], $form, $form_state);
-      $form['settings'] = $instance->buildConfigurationForm($form['settings'], $subform_state, $form);
+      $form['settings'] = $plugin->buildConfigurationForm($form['settings'], $subform_state, $form);
     }
     else {
       $form['settings']['#markup'] = '<div><span class="font-bold text-base">' . $definition['label'] . '</span>' . ($definition['description'] ? '<br><small class="description">' . $definition['description'] . '</small>' : '') . '</div>';
@@ -367,6 +271,59 @@ final class ComponentPropForm extends EntityForm {
       ],
     ];
     return $form;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function validateForm(array &$form, FormStateInterface $form_state) {
+    parent::validateForm($form, $form_state);
+    if ($form_state->getErrors()) {
+      return;
+    }
+    $pluginShapes = $this->getPluginShapes();
+
+    $shape = $this->shape;
+    $shape->setExpanded(array_values(array_filter($form_state->getValue(['expanded'], []))));
+    $shape->setEditable(!empty($form_state->getValue(['editable'])));
+    $shape->setRequired(!empty($form_state->getValue(['required'])));
+
+    $pluginManager = $shape->getPluginManagers();
+    foreach ($pluginManager as $pluginType => $manager) {
+      foreach ($pluginShapes as $pluginShape) {
+        $collection = $pluginShape->getPluginCollection($pluginType);
+        $nestedId = $pluginShape->getNestedId();
+        $key = $pluginType . '_' . $nestedId;
+        foreach ($form_state->getValue([$key], []) as $pluginId => $value) {
+          $plugin = $collection->get($pluginId);
+          $subform_state = SubformState::createForSubform($form[$key]['values'][$pluginId]['settings'], $form, $form_state);
+          $plugin->validateConfigurationForm($form[$key]['values'][$pluginId]['settings'], $subform_state);
+          $originalPluginSettingsParents = [
+            'original_prop',
+            'plugins',
+            $nestedId,
+            $pluginType,
+            $pluginId,
+            'settings',
+          ];
+          $originalPluginSettings = $form_state->get($originalPluginSettingsParents);
+          $settings = $subform_state->getValues() ?: $originalPluginSettings ?? [];
+          if (!empty($value['status'])) {
+            $settings['status'] = TRUE;
+            $plugin->setConfiguration($settings);
+          }
+          else {
+            $settings['status'] = FALSE;
+            $plugin->setConfiguration($settings);
+          }
+          $form_state->set($originalPluginSettingsParents, $settings);
+        }
+      }
+    }
+
+    if (!$form_state->getErrors()) {
+      $this->entity->setPropShapeSettings($shape);
+    }
   }
 
   /**
@@ -392,92 +349,9 @@ final class ComponentPropForm extends EntityForm {
   /**
    * {@inheritdoc}
    */
-  public function validateForm(array &$form, FormStateInterface $form_state) {
-    parent::validateForm($form, $form_state);
-    if ($form_state->getErrors()) {
-      return;
-    }
-
-    $childShapes = $this->getChildShapes($this->shape);
-    $props = $this->entity->getSetting('props', []);
-    $propName = $this->shape->getName();
-    $props[$propName] = [
-      'prop' => $propName,
-      'shape' => $this->shape->getPluginId(),
-      'field_type' => $this->shape->getFieldType(),
-      'expanded' => array_values(array_filter($form_state->getValue(['expanded'], []))),
-      'editable' => !empty($form_state->getValue(['editable'])),
-      'required' => !empty($form_state->getValue(['required'])),
-    ];
-
-    // Providers.
-    foreach ($form_state->getValue(['providers'], []) as $providerId => $providerValue) {
-      $form_state->set(['providers', $providerId, 'status'], !empty($providerValue['status']));
-      if (!empty($providerValue['status'])) {
-        $instance = $this->shape->getValueProvider($providerId, FALSE);
-        $subform_state = SubformState::createForSubform($form['providers']['values'][$providerId]['settings'], $form, $form_state);
-        $instance->validateConfigurationForm($form['providers']['values'][$providerId]['settings'], $subform_state);
-        $props[$propName]['providers'][$providerId] = [
-          'plugin' => $providerId,
-          'settings' => $subform_state->getValues(),
-        ];
-      }
-    }
-
-    // Modifiers.
-    foreach ($form_state->getValue(['modifiers'], []) as $modifierId => $modifierValue) {
-      $form_state->set(['modifiers', $modifierId, 'status'], !empty($modifierValue['status']));
-      if (!empty($modifierValue['status'])) {
-        $instance = $this->shape->getValueModifier($modifierId, FALSE);
-        $subform_state = SubformState::createForSubform($form['modifiers']['values'][$modifierId]['settings'], $form, $form_state);
-        $instance->validateConfigurationForm($form['modifiers']['values'][$modifierId]['settings'], $subform_state);
-        $props[$propName]['modifiers'][$modifierId] = [
-          'plugin' => $modifierId,
-          'settings' => $subform_state->getValues(),
-        ];
-      }
-    }
-
-    // Nested.
-    foreach ($childShapes as $childShape) {
-      $childKey = 'providers_' . $childShape->getNestedId();
-      foreach ($form_state->getValue([$childKey], []) as $childProviderId => $childProviderValue) {
-        $form_state->set([$childKey, $childProviderId, 'status'], !empty($childProviderValue['status']));
-        if (!empty($childProviderValue['status'])) {
-          $childInstance = $childShape->getValueProvider($childProviderId, FALSE);
-          $subform_state = SubformState::createForSubform($form[$childKey]['values'][$childProviderId]['settings'], $form, $form_state);
-          $childInstance->validateConfigurationForm($form[$childKey]['values'][$childProviderId]['settings'], $subform_state);
-          $props[$propName]['providers_nested'][$childShape->getNestedId()][$childProviderId] = [
-            'plugin' => $childProviderId,
-            'settings' => $subform_state->getValues(),
-          ];
-        }
-      }
-      $childKey = 'modifiers_' . $childShape->getNestedId();
-      foreach ($form_state->getValue([$childKey], []) as $childModifierId => $childProviderValue) {
-        $form_state->set([$childKey, $childModifierId, 'status'], !empty($childProviderValue['status']));
-        if (!empty($childProviderValue['status'])) {
-          $childInstance = $childShape->getValueModifier($childModifierId, FALSE);
-          $subform_state = SubformState::createForSubform($form[$childKey]['values'][$childModifierId]['settings'], $form, $form_state);
-          $childInstance->validateConfigurationForm($form[$childKey]['values'][$childModifierId]['settings'], $subform_state);
-          $props[$propName]['modifiers_nested'][$childShape->getNestedId()][$childModifierId] = [
-            'plugin' => $childModifierId,
-            'settings' => $subform_state->getValues(),
-          ];
-        }
-      }
-    }
-
-    if (!$form_state->getErrors()) {
-      $this->entity->setSetting('props', $props);
-    }
-  }
-
-  /**
-   * {@inheritdoc}
-   */
   public function save(array $form, FormStateInterface $form_state): int {
     $result = parent::save($form, $form_state);
+    // $form_state->setRedirectUrl($this->entity->toUrl());
     return $result;
   }
 

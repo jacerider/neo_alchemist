@@ -19,7 +19,7 @@ use Drupal\neo_alchemist\ComponentShapePluginInterface;
   prop: 'array',
   label: new TranslatableMarkup('Array'),
 )]
-class ArrayShape extends ChildrenBaseShape {
+class ArrayShape extends ChildrenShapeBase {
 
   /**
    * The single prop shape.
@@ -27,6 +27,23 @@ class ArrayShape extends ChildrenBaseShape {
    * @var \Drupal\neo_alchemist\ComponentShapePluginInterface|null
    */
   protected ?ComponentShapePluginInterface $singlePropShape;
+
+  /**
+   * The child shapes keyed by delta.
+   *
+   * @var \Drupal\neo_alchemist\ComponentShapePluginInterface[][]
+   */
+  protected array $childShapes = [];
+
+  /**
+   * {@inheritDoc}
+   */
+  public function init(): self {
+    // $this->setOptionDefaultAccess(FALSE);
+    // We need to look at this because this doesn't make sense for default values.
+    $this->setOptionEmptyAccess(FALSE);
+    return parent::init();
+  }
 
   /**
    * {@inheritDoc}
@@ -46,61 +63,66 @@ class ArrayShape extends ChildrenBaseShape {
   }
 
   /**
-   * {@inheritDoc}
+   * Get keyed child shapes.
+   *
+   * @param array|null $values
+   *   (optional) The values to set on the child shapes. If empty, will use
+   *   the field item value.
+   *
+   * @return array
+   *   The child shapes keyed by delta.
    */
-  public function getChildShapes(int $delta = 0): array {
-    $schema = $this->getSchema();
-    if (empty($schema['items'])) {
-      return [];
-    }
-    if ($this->isSingleProp()) {
-      $schema['items']['properties']['value'] = [
-        'type' => [$schema['items']['type']],
-      ];
-    }
-    // Merge in any examples set on array.
-    foreach ($schema['items']['properties'] as $propName => &$prop) {
-      if ($this->isSingleProp()) {
-        $prop['examples'] = $schema['examples'][$delta] ?? $prop['examples'] ?? [];
-      }
-      else {
-        $prop['examples'] = $schema['examples'][$delta][$propName] ?? $prop['examples'] ?? [];
+  protected function getChildShapeList($values = NULL): array {
+    $keyedShapes = [];
+    $values = $values ?? $this->getFieldItemValue();
+    foreach ($values as $delta => $value) {
+      $shapes = $this->getChildShapes($delta);
+      foreach ($shapes as $shape) {
+        $itemValue = $value[$shape->getName()] ?? ($this->isSingleProp() ? $value : []);
+        $shape->setFieldItemValue($itemValue);
+        $keyedShapes[$delta][$shape->getName()] = $shape;
       }
     }
-    return $this->getChildShapesFromSchema($schema['items']);
-    // ksm($tmp);
+    return $keyedShapes;
+  }
 
-    if (!isset($this->childShapes)) {
-      $this->childShapes = [];
+  /**
+   * {@inheritDoc}
+   *
+   * We add the delta parameter to the method signature. This is because we need
+   * to be able to get the child shapes for a specific delta.
+   *
+   * @param int $delta
+   *   The delta.
+   */
+  public function getChildShapes($delta = 0): array {
+    if (!isset($this->childShapes[$delta])) {
       $schema = $this->getSchema();
-      if (!empty($schema['items'])) {
-        if ($this->isSingleProp()) {
-          $schema['items']['properties']['value'] = [
-            'type' => [$schema['items']['type']],
-          ];
-        }
-        // Merge in any examples set on array.
-        foreach ($schema['items']['properties'] as $propName => &$prop) {
-          if ($this->isSingleProp()) {
-            $prop['examples'] = $schema['examples'][$delta] ?? $prop['examples'] ?? [];
-          }
-          else {
-            $prop['examples'] = $schema['examples'][$delta][$propName] ?? $prop['examples'] ?? [];
-          }
-        }
-        // $value = $this->getFieldItemValue();
-        // $this->childShapes = array_map(function ($shape) use ($value) {
-        //   ksm($value);
-        //   $shape->addParentShape($this)->setOptionDefaultAccess(FALSE);
-        //   // Initialize the shape.
-        //   $shape->init();
-        //   return $shape;
-        // }, $this->shapeManager->getInstancesFromSchema($schema['items'], $this->getComponent()));
-        // ksm($schema['items']);
-        $this->childShapes = array_map(fn ($v) => $v->addParentShape($this)->setOptionDefaultAccess(FALSE)->init(), $this->shapeManager->getInstancesFromSchema($schema['items'], $this->getComponent()));
+      if (empty($schema['items'])) {
+        return [];
       }
+      if ($this->isSingleProp()) {
+        $schema['items']['properties']['value'] = [
+          'type' => [$schema['items']['type']],
+        ];
+      }
+      // Merge in any examples set on array.
+      foreach ($schema['items']['properties'] as $propName => &$prop) {
+        if ($this->isSingleProp()) {
+          $prop['examples'] = $schema['examples'][$delta] ?? $prop['examples'] ?? [];
+        }
+        else {
+          $prop['examples'] = $schema['examples'][$delta][$propName] ?? $prop['examples'] ?? [];
+        }
+      }
+      $this->childShapes[$delta] = array_map(function ($shape) {
+        return $shape
+          // Do not allow setting the shape to default.
+          ->setOptionDefaultAccess(FALSE)
+          ->init();
+      }, $this->getChildShapesFromSchema($schema['items']));
     }
-    return $this->childShapes;
+    return $this->childShapes[$delta];
   }
 
   /**
@@ -138,30 +160,6 @@ class ArrayShape extends ChildrenBaseShape {
    */
   protected function getMinItems(): int {
     return (int) ($this->getSchema()['minItems'] ?? 0);
-  }
-
-  /**
-   * Get keyed child shapes.
-   *
-   * @param array|null $values
-   *   (optional) The values to set on the child shapes. If empty, will use
-   *   the field item value.
-   *
-   * @return array
-   *   The child shapes keyed by delta.
-   */
-  protected function getChildShapeList($values = NULL): array {
-    $keyedShapes = [];
-    $values = $values ?? $this->getFieldItemValue();
-    foreach ($values as $delta => $value) {
-      $shapes = $this->getChildShapes($delta);
-      foreach ($shapes as $shape) {
-        $itemValue = $value[$shape->getName()] ?? ($this->isSingleProp() ? $value : []);
-        $shape->setFieldItemValue($itemValue);
-        $keyedShapes[$delta][$shape->getName()] = $shape;
-      }
-    }
-    return $keyedShapes;
   }
 
   /**
@@ -260,7 +258,6 @@ class ArrayShape extends ChildrenBaseShape {
           $form[$delta][$shape->getName()] = [
             '#parents' => array_merge($form['#parents'], [$delta]),
           ];
-          $shape->setFieldItemValue([]);
           $subform_state = SubformState::createForSubform($form[$delta][$shape->getName()], $form, $form_state);
           $form[$delta][$shape->getName()] = $shape->getForm($form[$delta][$shape->getName()], $subform_state);
         }
@@ -268,10 +265,11 @@ class ArrayShape extends ChildrenBaseShape {
           '#type' => 'submit',
           '#name' => $id . '-remove-' . $delta,
           '#value' => $this->t('Remove'),
+          '#description' => $this->t('Remove this item.'),
           '#widget_parents' => array_merge($form['#parents'], [$delta]),
           '#submit' => [[get_class($this), 'removeItemSubmit']],
           '#attributes' => [
-            'class' => ['btn-xs'],
+            'class' => ['icon-only', 'self-end'],
           ],
           '#limit_validation_errors' => [],
           '#disabled' => $count <= $min,

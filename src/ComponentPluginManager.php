@@ -4,6 +4,7 @@ namespace Drupal\neo_alchemist;
 
 use Drupal\Core\Cache\CacheBackendInterface;
 use Drupal\Core\Config\ConfigFactoryInterface;
+use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Extension\ModuleHandlerInterface;
 use Drupal\Core\Extension\ThemeHandlerInterface;
 use Drupal\Core\File\FileSystemInterface;
@@ -19,37 +20,14 @@ use Drupal\Core\Theme\ThemeManagerInterface;
 class ComponentPluginManager extends ThemeComponentPluginManager {
 
   /**
-   * The prop def manager.
+   * Whether the plugin manager is recursing.
    *
-   * @var \Drupal\neo_alchemist\ComponentPropDefPluginManager
+   * @var bool
    */
-  protected ComponentPropDefPluginManager $propDefManager;
+  protected static bool $isRecursing = FALSE;
 
   /**
-   * Constructs ComponentPluginManager object.
-   *
-   * @param \Drupal\Core\Extension\ModuleHandlerInterface $module_handler
-   *   The module handler.
-   * @param \Drupal\Core\Extension\ThemeHandlerInterface $themeHandler
-   *   The theme handler.
-   * @param \Drupal\Core\Cache\CacheBackendInterface $cacheBackend
-   *   Cache backend instance to use.
-   * @param \Drupal\Core\Config\ConfigFactoryInterface $configFactory
-   *   The configuration factory.
-   * @param \Drupal\Core\Theme\ThemeManagerInterface $themeManager
-   *   The theme manager.
-   * @param \Drupal\Core\Theme\ComponentNegotiator $componentNegotiator
-   *   The component negotiator.
-   * @param \Drupal\Core\File\FileSystemInterface $fileSystem
-   *   The file system service.
-   * @param \Drupal\Core\Theme\Component\SchemaCompatibilityChecker $compatibilityChecker
-   *   The compatibility checker.
-   * @param \Drupal\Core\Theme\Component\ComponentValidator $componentValidator
-   *   The component validator.
-   * @param string $appRoot
-   *   The application root.
-   * @param \Drupal\neo_alchemist\ComponentPropDefPluginManager $prop_def_manager
-   *   The prop def manager.
+   * {@inheritdoc}
    *
    * @phpstan-ignore-next-line
    */
@@ -64,10 +42,45 @@ class ComponentPluginManager extends ThemeComponentPluginManager {
     protected SchemaCompatibilityChecker $compatibilityChecker,
     protected ComponentValidator $componentValidator,
     protected string $appRoot,
-    protected ComponentPropDefPluginManager $prop_def_manager
+    protected readonly ComponentPropDefPluginManager $propDefManager,
+    protected readonly EntityTypeManagerInterface $entityTypeManager,
   ) {
     parent::__construct($module_handler, $themeHandler, $cacheBackend, $configFactory, $themeManager, $componentNegotiator, $fileSystem, $compatibilityChecker, $componentValidator, $appRoot);
-    $this->propDefManager = $prop_def_manager;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  protected function setCachedDefinitions($definitions): array {
+    parent::setCachedDefinitions($definitions);
+
+    // Do not auto-create/update XB configuration when syncing config/deploying.
+    // @todo Introduce a "XB development mode" similar to Twig's: https://www.drupal.org/node/3359728
+    // @phpstan-ignore-next-line
+    if (\Drupal::isConfigSyncing()) {
+      return $definitions;
+    }
+
+    // TRICKY: Component::save() calls SdcPropKeysConstraintValidator, which
+    // will also call this plugin manager! Avoid recursively creating Component
+    // config entities.
+    if (self::$isRecursing) {
+      return $definitions;
+    }
+    self::$isRecursing = TRUE;
+
+    // $components = $this->entityType
+    /** @var \Drupal\neo_alchemist\ComponentInterface[] $components */
+    $components = $this->entityTypeManager->getStorage('neo_component')->loadMultiple();
+    foreach ($components as $component) {
+      if ($component->getExpression() !== $component->generateExpression()) {
+        $component->save();
+      }
+    }
+
+    self::$isRecursing = FALSE;
+
+    return $definitions;
   }
 
   /**
