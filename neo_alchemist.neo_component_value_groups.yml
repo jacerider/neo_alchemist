@@ -1,0 +1,8 @@
+providers:
+  label: 'Value Providers'
+  description: 'Providers change the value of the component prop.'
+  weight: -5
+modifiers:
+  label: 'Value Modifiers'
+  description: 'Modifiers alter the value of the component prop.'
+  weight: 0

@@ -17,7 +17,7 @@ use Drupal\neo_alchemist\ComponentValuePluginBase;
   id: 'number',
   label: new TranslatableMarkup('Format as Number'),
   description: new TranslatableMarkup('Convert value to number.'),
-  group: 'Modifiers',
+  group: 'modifiers',
   prop_types: [
     ComponentShapePluginInterface::STRING,
   ],
@@ -38,7 +38,7 @@ final class NumberValue extends ComponentValuePluginBase {
   /**
    * Configuration form for the value modifier plugin.
    */
-  protected function modifierForm(array $form, FormStateInterface $form_state, array &$complete_form): array {
+  protected function configurationForm(array $form, FormStateInterface $form_state, array &$complete_form): array {
     $form['decimals'] = [
       '#type' => 'number',
       '#title' => $this->t('Decimals'),
@@ -64,7 +64,7 @@ final class NumberValue extends ComponentValuePluginBase {
   /**
    * Form validation for the value provider plugin configuration.
    */
-  protected function modifierValidate(array $form, FormStateInterface $form_state): void {
+  protected function configurationValidate(array $form, FormStateInterface $form_state): void {
     $form_state->setValue('decimals', (int) $form_state->getValue('decimals'));
   }
 

@@ -19,7 +19,6 @@ use Drupal\Core\Field\WidgetInterface;
 use Drupal\Core\Field\WidgetPluginManager;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Plugin\ContainerFactoryPluginInterface;
-use Drupal\Core\Plugin\DefaultLazyPluginCollection;
 use Drupal\Core\Render\Element;
 use Drupal\Core\StringTranslation\StringTranslationTrait;
 use Drupal\Core\TypedData\DataDefinition;
@@ -237,16 +236,19 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
    */
   protected array $allChildShapes;
 
-  protected array $plugins = [];
-
   /**
-   * The plugin definitions.
+   * The shape plugin settings.
    *
    * @var array
    */
-  protected array $pluginDefinitions;
+  protected array $plugins = [];
 
-  // protected array $pluginInstances = [];
+  /**
+   * The value collection.
+   *
+   * @var \Drupal\neo_alchemist\ComponentShapePluginCollection
+   */
+  protected ComponentShapePluginCollection $valueCollection;
 
   /**
    * Constructs a new ComponentShapePluginBase object.
@@ -266,15 +268,15 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
     // Set default options.
     $this->options['empty'] = new ComponentShapePluginOption(FALSE, FALSE);
     $this->options['default'] = new ComponentShapePluginOption(FALSE, TRUE);
-    // Initialize settings.
-    $this->setExpanded($settings['expanded'] ?? []);
-    $this->setEditable($settings['editable'] ?? TRUE);
-    $this->setRequired($settings['required'] ?? FALSE);
-    $this->setOptions($settings['options'] ?? [], TRUE);
-    $this->setOverrideValue($settings['value'] ?? NULL);
+    // Only set settings if the shape has not changed.
     if (isset($settings['shape']) && $settings['shape'] === $this->getPluginId()) {
-      // Only set plugins if the shape has not changed.
-      $this->plugins = $settings['plugins'] ?? [];
+      // Initialize settings.
+      $this->setExpanded($settings['expanded'] ?? []);
+      $this->setEditable($settings['editable'] ?? TRUE);
+      $this->setRequired($settings['required'] ?? FALSE);
+      $this->setOptions($settings['options'] ?? [], TRUE);
+      $this->setOverrideValue($settings['value'] ?? NULL);
+      $this->setPlugins($settings['plugins'] ?? []);
     }
   }
 
@@ -314,14 +316,7 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
     $this->fieldInstanceSettings = $this->getDefaultFieldInstaceSettings();
 
     // Allow value providers to act on the shape.
-    // foreach ($this->getAllowedValueProviders('init') as $key => $instance) {
-    //   $instance->onShapeInit();
-    //   if (!$instance->shouldContinueProcessing()) {
-    //     break;
-    //   }
-    // }
-    // Allow plugins to act on the shape during initilization.
-    foreach ($this->getAllowedPlugins('init') as $key => $instance) {
+    foreach ($this->getValueCollection()->getAllowedInstances('init') as $instance) {
       $instance->onShapeInit();
       if (!$instance->shouldContinueProcessing()) {
         break;
@@ -339,13 +334,14 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
     }
     // Set the value so providers can use it.
     $this->setFieldItemValue($value);
-    foreach ($this->getAllowedValueProviders('value') as $providerId => $instance) {
+    foreach ($this->getValueCollection()->getAllowedInstances('value') as $instance) {
       $value = $instance->provideOverrideValue($value);
       $this->setFieldItemValue($value);
       if (!$instance->shouldContinueProcessing()) {
         break;
       }
     }
+
     // $this->setOptionDefault($this->isNew());
     return $this;
   }
@@ -451,14 +447,28 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
   /**
    * {@inheritDoc}
    */
+  public function getRootParentShape(): ?ComponentShapePluginInterface {
+    return reset($this->parents) ?: NULL;
+  }
+
+  /**
+   * {@inheritDoc}
+   */
   public function getAllExpandedableShapes($includeSelf = FALSE, $addRefToKey = FALSE): array {
-    $shapes = [];
-    foreach ($this->getAllChildShapes($includeSelf, $addRefToKey) as $nestedId => $shape) {
-      if ($shape instanceof ComponentShapeExpandedPluginInterface && $shape->allowExpanded()) {
-        $shapes[$nestedId] = $shape;
-      }
-    }
-    return $shapes;
+    return array_filter(
+      $this->getAllChildShapes($includeSelf, $addRefToKey),
+      fn($shape) => $shape->isExpandable()
+    );
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  public function getAllPluginShapes($includeSelf = FALSE, $addRefToKey = FALSE): array {
+    return array_filter(
+      $this->getAllChildShapes($includeSelf, $addRefToKey),
+      fn($shape) => $shape->allowPlugins()
+    );
   }
 
   /**
@@ -467,9 +477,6 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
   public function getAllChildShapes($includeSelf = FALSE, $addRefToKey = FALSE): array {
     if (!isset($this->allChildShapes)) {
       $shapes = [];
-      if ($includeSelf) {
-        $shapes[$this->getNestedId()] = $this;
-      }
       if ($this instanceof ComponentShapeChildrenPluginInterface) {
         foreach ($this->getChildShapes() as $shape) {
           $shapes += $shape->getAllChildShapes(TRUE);
@@ -477,144 +484,19 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
       }
       $this->allChildShapes = $shapes;
     }
+    $shapes = $this->allChildShapes;
+    if ($includeSelf) {
+      $shapes = array_merge([$this->getNestedId() => $this], $shapes);
+    }
     if ($addRefToKey) {
-      $shapes = [];
-      foreach ($this->allChildShapes as $nestedId => $shape) {
-        $shapes[$nestedId . ':' . $shape->getRef()] = $shape;
+      $refShapes = [];
+      foreach ($shapes as $nestedId => $shape) {
+        $refShapes[$nestedId . ':' . $shape->getRef()] = $shape;
       }
-      return $shapes;
+      $shapes = $refShapes;
     }
 
-    return $this->allChildShapes;
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function getValueProviderDefinitions(): array {
-    if (!isset($this->providerDefinitions)) {
-      $this->providerDefinitions = $this->valueProviderManager->getFilteredDefinitionsFromShape($this);
-    }
-    return $this->providerDefinitions;
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function addValueProvider(string $providerId, array $settings): self {
-    if (isset($this->getValueProviderDefinitions()[$providerId])) {
-      $this->providers[$providerId] = $settings;
-    }
-    return $this;
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function isValueProviderEnabled(string $providerId): bool {
-    return isset($this->providers[$providerId]);
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function getValueProviders(): array {
-    $providers = [];
-    foreach ($this->providers as $providerId => $settings) {
-      if ($instance = $this->getValueProvider($providerId)) {
-        $providers[$providerId] = $instance;
-      }
-    }
-    return $providers;
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function getAllowedValueProviders(string $op): array {
-    // asdf
-    return array_filter($this->getValueProviders(), function (ComponentValueProviderPluginInterface $provider) use ($op) {
-      // Reset the continue flag.
-      return $provider->allowFurtherProcessing()->isAllowed($op);
-    });
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function getValueProvider(string $providerId, bool $checkEnabled = TRUE): ?ComponentValueProviderPluginInterface {
-    if (!isset($this->getValueProviderDefinitions()[$providerId])) {
-      return NULL;
-    }
-    if ($checkEnabled && !$this->isValueProviderEnabled($providerId)) {
-      return NULL;
-    }
-    if (!isset($this->providerInstances[$providerId])) {
-      $this->providerInstances[$providerId] = $this->valueProviderManager->createInstance($providerId, [
-        'shape' => $this,
-        'settings' => $this->providers[$providerId] ?? [],
-      ]);
-    }
-    return $this->providerInstances[$providerId];
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function getValueModifierDefinitions(): array {
-    if (!isset($this->modifierDefinitions)) {
-      $this->modifierDefinitions = $this->valueModifierManager->getFilteredDefinitionsFromShape($this);
-    }
-    return $this->modifierDefinitions;
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function addValueModifier(string $modifierId, array $settings): self {
-    if (isset($this->getValueModifierDefinitions()[$modifierId])) {
-      $this->modifiers[$modifierId] = $settings;
-    }
-    return $this;
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function isValueModifierEnabled(string $modifierId): bool {
-    return isset($this->modifiers[$modifierId]);
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function getValueModifiers(): array {
-    $modifiers = [];
-    foreach ($this->modifiers as $modifierId => $settings) {
-      if ($instance = $this->getValueModifier($modifierId)) {
-        $modifiers[$modifierId] = $instance;
-      }
-    }
-    return $modifiers;
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function getValueModifier(string $modifierId, bool $checkEnabled = TRUE): ?ComponentValueModifierPluginInterface {
-    if (!isset($this->getValueModifierDefinitions()[$modifierId])) {
-      return NULL;
-    }
-    if ($checkEnabled && !$this->isValueModifierEnabled($modifierId)) {
-      return NULL;
-    }
-    if (!isset($this->modifierInstances[$modifierId])) {
-      $this->modifierInstances[$modifierId] = $this->valueModifierManager->createInstance($modifierId, [
-        'shape' => $this,
-        'settings' => $this->modifiers[$modifierId] ?? [],
-      ]);
-    }
-    return $this->modifierInstances[$modifierId];
+    return $shapes;
   }
 
   /**
@@ -649,7 +531,7 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
    * {@inheritDoc}
    */
   public function getTitle(): string {
-    return $this->schema['title'] ?? '';
+    return $this->schema['title'] ?? 'Unnamed Prop';
   }
 
   /**
@@ -711,8 +593,15 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
   /**
    * {@inheritDoc}
    */
+  public function isRoot(): bool {
+    return empty($this->parents);
+  }
+
+  /**
+   * {@inheritDoc}
+   */
   public function isNested(): bool {
-    return !empty($this->parents);
+    return !$this->isRoot();
   }
 
   /**
@@ -767,100 +656,107 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
     return implode(': ', $title);
   }
 
-  protected array $pluginCollections = [];
-
+  /**
+   * {@inheritDoc}
+   */
   public function getPlugins(): array {
     return $this->plugins;
   }
 
-  public function setPlugins(array $plugins): self {
-    $this->pluginCollections = [];
+  /**
+   * Sets the plugins for the component shape.
+   *
+   * @param array $plugins
+   *   An array of plugins to be set.
+   *
+   * @return self
+   *   Returns the instance of the class for method chaining.
+   */
+  protected function setPlugins(array $plugins): self {
     $this->plugins = $plugins;
     return $this;
   }
 
-  // public function getPluginCollection(string $pluginType): ?DefaultLazyPluginCollection {
-  //   if (!isset($this->pluginCollections[$pluginType])) {
-  //     $this->pluginCollections[$pluginType] = NULL;
-  //     if ($this->hasPluginManager($pluginType)) {
-  //       $configurations = [];
-  //       foreach ($this->getPluginDefinitions($pluginType) as $pluginId => $definition) {
-  //         $configurations[$pluginId] = $this->plugins[$this->getNestedId()][$pluginType][$pluginId] ?? [
-  //           'id' => $pluginId,
-  //           'settings' => [],
-  //         ];
-  //       }
-  //       $this->pluginCollections[$pluginType] = new ComponentShapePluginCollection($this, $this->getPluginManager($pluginType), $configurations);
-  //     }
-  //   }
-  //   return $this->pluginCollections[$pluginType];
-  // }
+  /**
+   * {@inheritDoc}
+   */
+  public function setPlugin(string $pluginId, array $settings = [], bool $status = TRUE): self {
+    if ($this->allowPlugins()) {
+      $this->getValueCollection()->setInstanceConfiguration($pluginId, [
+        'id' => $pluginId,
+        'status' => $status,
+        'settings' => $settings,
+      ]);
+    }
+    return $this;
+  }
 
+  /**
+   * {@inheritDoc}
+   */
+  public function allowPlugins(): bool {
+    // If the shape is expanded, it does not allow plugins.
+    if ($this->isExpanded()) {
+      return FALSE;
+    }
+    $expanded = $this->getExpanded();
+    if ($this->isRoot()) {
+      if (!$expanded) {
+        // If we do not have expanded settings, then we allow plugins on root.
+        return TRUE;
+      }
+      ksm($this->getNestedId(), 'hit');
+      return !in_array($this->getNestedId(), $expanded);
+    }
+    if (!$expanded) {
+      // If we do not have expanded settings, then we only allow the root
+      // shape to have plugins.
+      return !$this->isNested();
+    }
+    // Only allow children if the parent shape is expanded.
+    $parent = $this->getDirectParentShape();
+    if ($parent) {
+      // If parent is not expanded, then this is not an expanded child.
+      if (!in_array($parent->getNestedId(), $expanded)) {
+        // If the parent shape is not expanded, the settings are removed.
+        return FALSE;
+      }
+      if ($parent instanceof ComponentShapeExpandedPluginInterface) {
+        // If parent does not allow expansion then this is not an expanded
+        // child.
+        if (!$parent->allowExpanded()) {
+          return FALSE;
+        }
+      }
+      return TRUE;
+    }
+    return FALSE;
+  }
+
+  /**
+   * {@inheritDoc}
+   */
   public function getPluginCollections() {
     return ['value' => $this->getValueCollection()];
   }
 
   /**
-   * The value collection.
-   *
-   * @var \Drupal\neo_alchemist\ComponentShapePluginCollection
+   * {@inheritDoc}
    */
-  protected ComponentShapePluginCollection $valueCollection;
-
-  public function getValuePlugin(string $plugin_id = NULL): ComponentShapePluginCollection|ComponentValuePluginInterface {
+  public function getValueCollection(): ComponentShapePluginCollection {
     if (!isset($this->valueCollection)) {
-      // $this->valueCollection = new ComponentShapePluginCollection($this, )
+      $configurations = [];
+      foreach ($this->valueManager->getFilteredDefinitionsFromShape($this) as $pluginId => $definition) {
+        $configurations[$pluginId] = [
+          'id' => $pluginId,
+          'status' => !empty($this->plugins[$this->getNestedId()][$pluginId]),
+          'settings' => $this->plugins[$this->getNestedId()][$pluginId] ?? [],
+        ];
+      }
+      $this->valueCollection = new ComponentShapePluginCollection($this, $this->valueManager, $configurations);
     }
     return $this->valueCollection;
   }
-
-  public function getAllowedPlugins(string $op): array {
-    $plugins = [];
-    // foreach ($this->getPluginCollections() as $pluginType => $collection) {
-    //   if ($collection) {
-    //     foreach ($collection->getActiveInstances() as $instance) {
-    //       if ($instance->isAllowed($op)) {
-    //         $plugins[$instance->getPluginId()] = $instance;
-    //       }
-    //     }
-    //   }
-    // }
-    return $plugins;
-  }
-
-  // /**
-  //  *
-  //  * @return \Drupal\neo_alchemist\ComponentShapePluginCollection[]
-  //  */
-  // public function getPluginCollections(): array {
-  //   foreach ($this->getPluginManagers() as $pluginType => $pluginManager) {
-  //     $this->getPluginCollection($pluginType);
-  //   }
-  //   return $this->pluginCollections;
-  // }
-
-  // public function getPluginManagers() {
-  //   return [
-  //     'providers' => $this->valueProviderManager,
-  //     'modifiers' => $this->valueModifierManager,
-  //   ];
-  // }
-
-  // public function hasPluginManager(string $pluginType): bool {
-  //   return isset($this->getPluginManagers()[$pluginType]);
-  // }
-
-  // public function getPluginManager(string $pluginType): ?ComponentValuePluginManagerInterface {
-  //   return $this->getPluginManagers()[$pluginType] ?? NULL;
-  // }
-
-  // public function getPluginDefinitions(string $pluginType) {
-  //   if (!isset($this->pluginDefinitions[$pluginType])) {
-  //     $pluginManager = $this->getPluginManager($pluginType);
-  //     $this->pluginDefinitions[$pluginType] = $pluginManager ? $pluginManager->getFilteredDefinitionsFromShape($this) : [];
-  //   }
-  //   return $this->pluginDefinitions[$pluginType];
-  // }
 
   /**
    * {@inheritDoc}
@@ -904,7 +800,24 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
    * {@inheritDoc}
    */
   public function getExpanded(): array {
-    return $this->expanded;
+    // Expanded settings are stored on the root parent shape unless this shape
+    // is not expanded, which means it is the root and has the expanded
+    // settings.
+    return $this->isRoot() ? $this->expanded : $this->getRootParentShape()->getExpanded();
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  public function isExpandable(): bool {
+    return $this instanceof ComponentShapeExpandedPluginInterface && $this->allowExpanded();
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  public function isExpanded(): bool {
+    return $this->isExpandable() && in_array($this->getNestedId(), $this->getExpanded());
   }
 
   /**
@@ -953,7 +866,7 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
    */
   public function isEditable(): bool {
     $editable = $this->editable;
-    foreach ($this->getAllowedValueProviders('edit') as $providerId => $instance) {
+    foreach ($this->getValueCollection()->getAllowedInstances('edit') as $instance) {
       if (!$instance->isEditable()) {
         $editable = FALSE;
       }
@@ -1174,8 +1087,11 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
         $value = $this->getDefaultValue();
       }
     }
-    foreach ($this->getValueModifiers() as $instance) {
+    foreach ($this->getValueCollection()->getAllowedInstances('modify') as $instance) {
       $value = $instance->modifyValue($value);
+      if (!$instance->shouldContinueProcessing()) {
+        break;
+      }
     }
     return $value;
   }
@@ -1216,7 +1132,7 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
   public function getDefaultValue(): mixed {
     if (!isset($this->defaultValue)) {
       $this->defaultValue = $this->schema['examples'] ?? [];
-      foreach ($this->getAllowedValueProviders('default') as $providerId => $instance) {
+      foreach ($this->getValueCollection()->getAllowedInstances('default') as $instance) {
         $this->defaultValue = $instance->provideDefaultValue($this->defaultValue);
         if (!$instance->shouldContinueProcessing()) {
           break;
@@ -1486,9 +1402,12 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
     }
     $form['_options']['#access'] = !empty(Element::children($form['_options']));
 
-    foreach ($this->getAllowedValueProviders('form') as $instance) {
+    foreach ($this->getValueCollection()->getAllowedInstances('form') as $instance) {
       $instance->formAlter($form, $form_state);
     }
+    // foreach ($this->getAllowedValueProviders('form') as $providerId => $instance) {
+    //   $instance->formAlter($form, $form_state);
+    // }
 
     return $form;
   }
@@ -1689,13 +1608,28 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
   }
 
   public function onAdd(): void {
+    $definition = $this->getPluginDefinition();
+    if (!empty($definition['default_plugins'])) {
+      foreach ($definition['default_plugins'] as $pluginId => $settings) {
+        if (!is_array($settings)) {
+          $pluginId = $settings;
+          $settings = [];
+        }
+        $this->setPlugin($pluginId, $settings);
+      }
+    }
+    // ksm('CALLED ON ADD', $this->getNestedId(), $this->getPluginDefinition());
+    // foreach ($this->getValueCollection()->getInstances() as $instance) {
+    //   $definition = $instance->getPluginDefinition();
+    //   ksm('ON ADD', $instance->getPluginId());
+    //   $instance->onPropAdd();
+    // }
   }
 
   public function onRemove(): void {
-    foreach ($this->getPluginCollections() as $pluginType => $collection) {
-      foreach ($collection->getActiveInstances() as $pluginId => $instance) {
-        $instance->onPropRemove();
-      }
+    foreach ($this->getValueCollection()->getActiveInstances() as $instance) {
+      ksm('REMOVE ACTIVE PLUGIN', $this->getNestedId(), $instance->getPluginId());
+      $instance->onPropRemove();
     }
   }
 

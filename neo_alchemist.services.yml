@@ -15,7 +15,11 @@ services:
 
   plugin.manager.neo_component_value:
     class: Drupal\neo_alchemist\ComponentValuePluginManager
-    parent: default_plugin_manager
+    arguments: ['@container.namespaces', '@cache.discovery', '@module_handler', '@plugin.manager.neo_component_value_group']
+
+  plugin.manager.neo_component_value_group:
+    class: Drupal\neo_alchemist\ComponentValueGroupPluginManager
+    arguments: ['@module_handler', '@cache.discovery']
 
   neo_alchemist.field_matcher:
     class: Drupal\neo_alchemist\FieldMatcher

@@ -441,6 +441,59 @@ class Component extends ConfigEntityBase implements ComponentInterface {
   /**
    * {@inheritdoc}
    */
+  public function save() {
+    if ($this->isNew()) {
+      $this->set('id', $this->getUniqueId());
+    }
+
+    $currentExpression = $this->getExpression();
+    $newExpression = $this->generateExpression();
+    if ($currentExpression !== $newExpression) {
+      $currentSchema = Json::decode($this->get('schema'));
+      $currentShapes = $this->getAllPropShapes($this->loadPropShapes($currentSchema), TRUE);
+      $newRootShapes = $this->getPropShapes();
+      $newShapes = $this->getAllPropShapes($newRootShapes, TRUE);
+
+      $addedShapes = array_diff_key($newShapes, $currentShapes);
+      $removedShapes = array_diff_key($currentShapes, $newShapes);
+      foreach ($addedShapes as $shape) {
+        ksm('ADDED PROP', $shape->getNestedId());
+        $shape->onAdd();
+      }
+      foreach ($removedShapes as $shape) {
+        ksm('REMOVED PROP', $shape->getNestedId());
+        $shape->onRemove();
+      }
+
+      $this->setSetting('props', []);
+      foreach ($newRootShapes as $shape) {
+        $this->setPropShapeSettings($shape);
+      }
+      $this->setSetting('props', $this->getAllPropShapeSettings());
+
+      // Only keep settings for props that are still present.
+      // $settings = $this->getAllPropShapeSettings();
+      ksm('final settings', $this->getAllPropShapeSettings());
+      // $settings = array_intersect_key($settings, $newRootShapes);
+      // $this->setSetting('props', $settings);
+
+      // Update schema and expression.
+      $this->set('schema', Json::encode($this->getComponentSchema()));
+      $this->set('expression', $newExpression);
+    }
+    return parent::save();
+  }
+
+  // /**
+  //  * {@inheritdoc}
+  //  */
+  // public function preSave(EntityStorageInterface $storage) {
+  //   parent::preSave($storage);
+  // }
+
+  /**
+   * {@inheritdoc}
+   */
   public function setPropShapeSettings(ComponentShapePluginInterface $shape): self {
     unset($this->propShapes);
     $expanded = $shape->getExpanded();
@@ -453,33 +506,20 @@ class Component extends ConfigEntityBase implements ComponentInterface {
       'required' => $shape->isRequired(),
     ];
     foreach ($shape->getAllChildShapes(TRUE) as $childShape) {
-      foreach ($childShape->getPluginCollections() as $pluginType => $collection) {
-        foreach ($collection as $plugin) {
-          $pluginSettings = $plugin->getConfiguration();
-          if (!empty($pluginSettings['status'])) {
-            $nestedId = $childShape->getNestedId();
-            if (empty($expanded) && $childShape->isNested()) {
-              // If the shape is not expanded, nested settings are removed.
-              continue;
-            }
-            if (in_array($nestedId, $expanded)) {
-              // If the shape is expanded, the settings are removed.
-              continue;
-            }
-            if ($parent = $childShape->getDirectParentShape()) {
-              if (!in_array($parent->getNestedId(), $expanded)) {
-                // If the parent shape is not expanded, the settings are removed.
-                continue;
-              }
-            }
-            $settings['plugins'][$nestedId][$pluginType][$plugin->getPluginId()] = [
-              'id' => $plugin->getPluginId(),
-              'settings' => $pluginSettings,
-            ];
+      $collection = $childShape->getValueCollection();
+      foreach ($collection->getInstances() as $instanceId => $instance) {
+        $instanceSettings = $instance->getConfiguration();
+        if ($collection->getStatus($instanceId)) {
+          if (!$childShape->allowPlugins()) {
+            continue;
           }
+          $nestedId = $childShape->getNestedId();
+          $settings['plugins'][$nestedId][$instance->getPluginId()] = $instanceSettings;
         }
       }
     }
+    // CYLE, the prop changes are not making it to the component for saving.
+    ksm('final shape settings', $shape->getName(), $settings);
     $this->settings['props'][$shape->getName()] = $settings;
     return $this;
   }
@@ -547,50 +587,6 @@ class Component extends ConfigEntityBase implements ComponentInterface {
       $machine_default = $suggestion . '_' . ++$count;
     }
     return $machine_default;
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function save() {
-    if ($this->isNew()) {
-      $this->set('id', $this->getUniqueId());
-    }
-
-    $currentExpression = $this->getExpression();
-    $newExpression = $this->generateExpression();
-    if ($currentExpression !== $newExpression) {
-      $currentSchema = Json::decode($this->get('schema'));
-      $currentShapes = $this->getAllPropShapes($this->loadPropShapes($currentSchema), TRUE);
-      $newRootShapes = $this->getPropShapes();
-      $newShapes = $this->getAllPropShapes($newRootShapes, TRUE);
-
-      $addedShapes = array_diff_key($newShapes, $currentShapes);
-      $removedShapes = array_diff_key($currentShapes, $newShapes);
-      foreach ($addedShapes as $shape) {
-        $shape->onAdd();
-      }
-      foreach ($removedShapes as $shape) {
-        $shape->onRemove();
-      }
-
-      // Only keep settings for props that are still present.
-      $settings = $this->getAllPropShapeSettings();
-      $settings = array_intersect_key($settings, $newRootShapes);
-      $this->setSetting('props', $settings);
-
-      // Update schema and expression.
-      $this->set('schema', Json::encode($this->getComponentSchema()));
-      $this->set('expression', $newExpression);
-    }
-    return parent::save();
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function preSave(EntityStorageInterface $storage) {
-    parent::preSave($storage);
   }
 
   /**

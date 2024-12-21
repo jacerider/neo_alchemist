@@ -2,21 +2,22 @@
 
 declare(strict_types=1);
 
-namespace Drupal\neo_alchemist\Plugin\ComponentValueModifier;
+namespace Drupal\neo_alchemist\Plugin\ComponentValue;
 
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
-use Drupal\neo_alchemist\Attribute\ComponentValueModifier;
+use Drupal\neo_alchemist\Attribute\ComponentValue;
 use Drupal\neo_alchemist\ComponentShapePluginInterface;
-use Drupal\neo_alchemist\ComponentValueModifierPluginBase;
+use Drupal\neo_alchemist\ComponentValuePluginBase;
 
 /**
  * Plugin implementation of the neo_component_value_modifier.
  */
-#[ComponentValueModifier(
-  id: 'prefix',
-  label: new TranslatableMarkup('Prefix'),
-  description: new TranslatableMarkup('Provide a prefix to the value.'),
+#[ComponentValue(
+  id: 'suffix',
+  label: new TranslatableMarkup('Suffix'),
+  description: new TranslatableMarkup('Provide a suffix to the value.'),
+  group: 'modifiers',
   prop_types: [
     ComponentShapePluginInterface::STRING,
     ComponentShapePluginInterface::INTEGER,
@@ -24,7 +25,7 @@ use Drupal\neo_alchemist\ComponentValueModifierPluginBase;
   ],
   weight: 10,
 )]
-final class PrefixValueModifier extends ComponentValueModifierPluginBase {
+final class SuffixValue extends ComponentValuePluginBase {
 
   /**
    * {@inheritdoc}
@@ -38,11 +39,11 @@ final class PrefixValueModifier extends ComponentValueModifierPluginBase {
   /**
    * Configuration form for the value modifier plugin.
    */
-  protected function modifierForm(array $form, FormStateInterface $form_state, array &$complete_form): array {
+  protected function configurationForm(array $form, FormStateInterface $form_state, array &$complete_form): array {
     $form['value'] = [
       '#type' => 'textfield',
-      '#title' => $this->t('Prefix'),
-      '#description' => $this->t('The prefix to add to the value.'),
+      '#title' => $this->t('Suffix'),
+      '#description' => $this->t('The suffix to add to the value.'),
       '#default_value' => $this->configuration['value'],
       '#required' => TRUE,
     ];
@@ -53,8 +54,7 @@ final class PrefixValueModifier extends ComponentValueModifierPluginBase {
    * {@inheritdoc}
    */
   public function modifyValue(mixed $value): mixed {
-    ksm('hit');
-    return $this->configuration['value'] . $value;
+    return $value . $this->configuration['value'];
   }
 
 }

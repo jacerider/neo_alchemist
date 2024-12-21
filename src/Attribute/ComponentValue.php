@@ -51,7 +51,7 @@ final class ComponentValue extends AttributeBase {
     public readonly string $id,
     public readonly ?TranslatableMarkup $label,
     public readonly ?TranslatableMarkup $description = NULL,
-    public readonly ?string $group = 'Value',
+    public readonly ?string $group = NULL,
     public readonly bool $status_default = FALSE,
     public readonly bool $status_lock = FALSE,
     public readonly ?array $prop_types = NULL,

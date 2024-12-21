@@ -32,6 +32,8 @@ final class ComponentShape extends AttributeBase {
    * @param string|null $default_field_widget_with_options
    *   (optional) The default field widget if prop has options (enum). If null,
    *   the $default_field_widget will be used. For example: options_select.
+   * @param array|null $default_plugins
+   *   (optional) The default plugins. For example: ['prefix', 'suffix'].
    * @param array|null $supports_field_types
    *   (optional) The supported field types. For example:
    *   - ['string', 'string_long'].
@@ -48,6 +50,7 @@ final class ComponentShape extends AttributeBase {
     public readonly ?string $default_field_type_with_options = NULL,
     public readonly ?string $default_field_widget = NULL,
     public readonly ?string $default_field_widget_with_options = NULL,
+    public readonly ?array $default_plugins = NULL,
     public readonly ?array $supports_field_types = NULL,
     public readonly ?array $supports_field_props = NULL,
     public readonly ?string $deriver = NULL,

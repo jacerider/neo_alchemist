@@ -20,16 +20,26 @@ interface ComponentValuePluginInterface extends ConfigurableInterface, PluginFor
   public function label(): string;
 
   /**
-   * Called when the shape is initialized.
-   *
-   * Can be used to change the shapes type or other properties.
+   * Return the translated plugin group.
    */
-  public function onShapeInit();
+  public function getGroup(): string;
+
+  /**
+   * Called when a prop is added to a component.
+   */
+  public function onPropAdd(): void;
 
   /**
    * Called when a prop is removed from a component.
    */
   public function onPropRemove(): void;
+
+  /**
+   * Called when the shape is initialized.
+   *
+   * Can be used to change the shapes type or other properties.
+   */
+  public function onShapeInit();
 
   /**
    * Provide a default value for the component.
@@ -52,6 +62,19 @@ interface ComponentValuePluginInterface extends ConfigurableInterface, PluginFor
    *   The override value.
    */
   public function provideOverrideValue(mixed $value): mixed;
+
+  /**
+   * Modifies the given value.
+   *
+   * This method takes a value of any type and returns the modified value.
+   *
+   * @param mixed $value
+   *   The value to be modified.
+   *
+   * @return mixed
+   *   The unmodified value.
+   */
+  public function modifyValue(mixed $value): mixed;
 
   /**
    * Alter the widget form element.
@@ -106,7 +129,7 @@ interface ComponentValuePluginInterface extends ConfigurableInterface, PluginFor
    *
    * @param string $op
    *   The operation being performed. Current operations are 'default', 'value',
-   *   'edit', and 'form'.
+   *   'edit', 'modify' and 'form'.
    *
    * @return bool
    *   TRUE if processing should be allowed, FALSE otherwise.

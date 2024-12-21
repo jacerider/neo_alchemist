@@ -72,6 +72,14 @@ interface ComponentShapePluginInterface extends PluginInspectionInterface, Deriv
   public function getDirectParentShape(): ?ComponentShapePluginInterface;
 
   /**
+   * Retrieves the root parent shape of the current component shape.
+   *
+   * @return ComponentShapePluginInterface|null
+   *   The root parent shape if it exists, or NULL if there is no parent.
+   */
+  public function getRootParentShape(): ?ComponentShapePluginInterface;
+
+  /**
    * Retrieves all expandable shapes recursively.
    *
    * @param bool $includeSelf
@@ -83,6 +91,19 @@ interface ComponentShapePluginInterface extends PluginInspectionInterface, Deriv
    *   An array of expandable shapes.
    */
   public function getAllExpandedableShapes($includeSelf = FALSE, $addRefToKey = FALSE): array;
+
+  /**
+   * Retrieves all shapes that allow plugins recursively.
+   *
+   * @param bool $includeSelf
+   *   Whether to include the current shape in the list.
+   * @param bool $addRefToKey
+   *   Whether to add a reference to the key.
+   *
+   * @return array
+   *   An array of expanded children shapes.
+   */
+  public function getAllPluginShapes($includeSelf = FALSE, $addRefToKey = FALSE): array;
 
   /**
    * Retrieves all child shapes recursively.
@@ -100,133 +121,133 @@ interface ComponentShapePluginInterface extends PluginInspectionInterface, Deriv
    */
   public function getAllChildShapes($includeSelf = FALSE, $addRefToKey = FALSE): array;
 
-  /**
-   * Retrieves the value provider definitions for the current shape.
-   *
-   * This method uses the value provider manager to get the filtered definitions
-   * based on the current shape instance.
-   *
-   * @return array
-   *   An array of value provider definitions.
-   */
-  public function getValueProviderDefinitions(): array;
+  // /**
+  //  * Retrieves the value provider definitions for the current shape.
+  //  *
+  //  * This method uses the value provider manager to get the filtered definitions
+  //  * based on the current shape instance.
+  //  *
+  //  * @return array
+  //  *   An array of value provider definitions.
+  //  */
+  // public function getValueProviderDefinitions(): array;
 
-  /**
-   * Adds a value provider to the component shape.
-   *
-   * @param string $providerId
-   *   The unique identifier for the provider.
-   * @param array $settings
-   *   An associative array of settings for the provider.
-   *
-   * @return self
-   *   The current instance of the component shape plugin.
-   */
-  public function addValueProvider(string $providerId, array $settings): self;
+  // /**
+  //  * Adds a value provider to the component shape.
+  //  *
+  //  * @param string $providerId
+  //  *   The unique identifier for the provider.
+  //  * @param array $settings
+  //  *   An associative array of settings for the provider.
+  //  *
+  //  * @return self
+  //  *   The current instance of the component shape plugin.
+  //  */
+  // public function addValueProvider(string $providerId, array $settings): self;
 
-  /**
-   * Checks if a value provider is enabled.
-   *
-   * @param string $providerId
-   *   The ID of the provider to check.
-   *
-   * @return bool
-   *   TRUE if the provider is enabled, FALSE otherwise.
-   */
-  public function isValueProviderEnabled(string $providerId): bool;
+  // /**
+  //  * Checks if a value provider is enabled.
+  //  *
+  //  * @param string $providerId
+  //  *   The ID of the provider to check.
+  //  *
+  //  * @return bool
+  //  *   TRUE if the provider is enabled, FALSE otherwise.
+  //  */
+  // public function isValueProviderEnabled(string $providerId): bool;
 
-  /**
-   * Retrieves the value providers.
-   *
-   * @return \Drupal\neo_alchemist\ComponentValueProviderPluginInterface[]
-   *   An array of value providers.
-   */
-  public function getValueProviders(): array;
+  // /**
+  //  * Retrieves the value providers.
+  //  *
+  //  * @return \Drupal\neo_alchemist\ComponentValueProviderPluginInterface[]
+  //  *   An array of value providers.
+  //  */
+  // public function getValueProviders(): array;
 
-  /**
-   * Retrieves the allowed value providers.
-   *
-   * This method filters the value providers to return only those that allow
-   * processing.
-   *
-   * @param string $op
-   *   The operation to filter the value providers by.
-   *
-   * @return array
-   *   An array of allowed value providers.
-   */
-  public function getAllowedValueProviders(string $op): array;
+  // /**
+  //  * Retrieves the allowed value providers.
+  //  *
+  //  * This method filters the value providers to return only those that allow
+  //  * processing.
+  //  *
+  //  * @param string $op
+  //  *   The operation to filter the value providers by.
+  //  *
+  //  * @return array
+  //  *   An array of allowed value providers.
+  //  */
+  // public function getAllowedValueProviders(string $op): array;
 
-  /**
-   * Retrieves a value provider instance based on the given provider ID.
-   *
-   * @param string $providerId
-   *   The ID of the value provider to create.
-   * @param bool $checkEnabled
-   *   (optional) Whether to check if the provider is enabled. Defaults to
-   *   FALSE.
-   *
-   * @return \Drupal\neo_alchemist\ComponentValueProviderPluginInterface|null
-   *   The value provider instance.
-   */
-  public function getValueProvider(string $providerId, bool $checkEnabled = TRUE): ?ComponentValueProviderPluginInterface;
+  // /**
+  //  * Retrieves a value provider instance based on the given provider ID.
+  //  *
+  //  * @param string $providerId
+  //  *   The ID of the value provider to create.
+  //  * @param bool $checkEnabled
+  //  *   (optional) Whether to check if the provider is enabled. Defaults to
+  //  *   FALSE.
+  //  *
+  //  * @return \Drupal\neo_alchemist\ComponentValueProviderPluginInterface|null
+  //  *   The value provider instance.
+  //  */
+  // public function getValueProvider(string $providerId, bool $checkEnabled = TRUE): ?ComponentValueProviderPluginInterface;
 
-  /**
-   * Retrieves the value modifier definitions for the current shape.
-   *
-   * This method uses the value modifier manager to get the filtered definitions
-   * based on the current shape instance.
-   *
-   * @return array
-   *   An array of value modifier definitions.
-   */
-  public function getValueModifierDefinitions(): array;
+  // /**
+  //  * Retrieves the value modifier definitions for the current shape.
+  //  *
+  //  * This method uses the value modifier manager to get the filtered definitions
+  //  * based on the current shape instance.
+  //  *
+  //  * @return array
+  //  *   An array of value modifier definitions.
+  //  */
+  // public function getValueModifierDefinitions(): array;
 
-  /**
-   * Adds a value modifier to the component shape.
-   *
-   * @param string $modifierId
-   *   The unique identifier for the modifier.
-   * @param array $settings
-   *   An associative array of settings for the modifier.
-   *
-   * @return self
-   *   The current instance of the component shape plugin.
-   */
-  public function addValueModifier(string $modifierId, array $settings): self;
+  // /**
+  //  * Adds a value modifier to the component shape.
+  //  *
+  //  * @param string $modifierId
+  //  *   The unique identifier for the modifier.
+  //  * @param array $settings
+  //  *   An associative array of settings for the modifier.
+  //  *
+  //  * @return self
+  //  *   The current instance of the component shape plugin.
+  //  */
+  // public function addValueModifier(string $modifierId, array $settings): self;
 
-  /**
-   * Checks if a value modifier is enabled.
-   *
-   * @param string $modifierId
-   *   The ID of the modifier to check.
-   *
-   * @return bool
-   *   TRUE if the modifier is enabled, FALSE otherwise.
-   */
-  public function isValueModifierEnabled(string $modifierId): bool;
+  // /**
+  //  * Checks if a value modifier is enabled.
+  //  *
+  //  * @param string $modifierId
+  //  *   The ID of the modifier to check.
+  //  *
+  //  * @return bool
+  //  *   TRUE if the modifier is enabled, FALSE otherwise.
+  //  */
+  // public function isValueModifierEnabled(string $modifierId): bool;
 
-  /**
-   * Retrieves the value modifiers.
-   *
-   * @return \Drupal\neo_alchemist\ComponentValueModifierPluginInterface[]
-   *   An array of value modifiers.
-   */
-  public function getValueModifiers(): array;
+  // /**
+  //  * Retrieves the value modifiers.
+  //  *
+  //  * @return \Drupal\neo_alchemist\ComponentValueModifierPluginInterface[]
+  //  *   An array of value modifiers.
+  //  */
+  // public function getValueModifiers(): array;
 
-  /**
-   * Retrieves a value modifier instance based on the given modifier ID.
-   *
-   * @param string $modifierId
-   *   The ID of the value modifier to create.
-   * @param bool $checkEnabled
-   *   (optional) Whether to check if the provider is enabled. Defaults to
-   *   TRUE.
-   *
-   * @return \Drupal\neo_alchemist\ComponentValueModifierPluginInterface|null
-   *   The value modifier instance.
-   */
-  public function getValueModifier(string $modifierId, bool $checkEnabled = TRUE): ?ComponentValueModifierPluginInterface;
+  // /**
+  //  * Retrieves a value modifier instance based on the given modifier ID.
+  //  *
+  //  * @param string $modifierId
+  //  *   The ID of the value modifier to create.
+  //  * @param bool $checkEnabled
+  //  *   (optional) Whether to check if the provider is enabled. Defaults to
+  //  *   TRUE.
+  //  *
+  //  * @return \Drupal\neo_alchemist\ComponentValueModifierPluginInterface|null
+  //  *   The value modifier instance.
+  //  */
+  // public function getValueModifier(string $modifierId, bool $checkEnabled = TRUE): ?ComponentValueModifierPluginInterface;
 
   /**
    * Get the schema.
@@ -340,6 +361,59 @@ interface ComponentShapePluginInterface extends PluginInspectionInterface, Deriv
   public function getStructure(): array;
 
   /**
+   * Retrieves the list of plugin settings.
+   *
+   * @return array
+   *   An array of plugins.
+   */
+  public function getPlugins(): array;
+
+  /**
+   * Sets the plugin with the given ID and settings.
+   *
+   * This method unsets the current value collection and assigns the provided
+   * settings to the plugin identified by the given plugin ID within the nested
+   * plugin structure.
+   *
+   * @param string $pluginId
+   *   The ID of the plugin to set.
+   * @param array $settings
+   *   (optional) An associative array of settings for the plugin. Defaults to
+   *   an empty array.
+   * @param bool $status
+   *   (optional) Whether the plugin is enabled. Defaults to TRUE.
+   *
+   * @return $this
+   *   The current instance for method chaining.
+   */
+  public function setPlugin(string $pluginId, array $settings = [], bool $status = TRUE): self;
+
+  /**
+   * Determines if the current shape allows plugins.
+   *
+   * This means the shape's parent is expanded.
+   *
+   * @return bool
+   *   TRUE if the current shape is an expanded child, FALSE otherwise.
+   */
+  public function allowPlugins(): bool;
+
+  /**
+   * Retrieves the collection of component shape plugin values.
+   *
+   * This method initializes the value collection if it has not been set yet.
+   * It gathers the configurations for each plugin by iterating through the
+   * filtered definitions from the shape and checking their status and settings.
+   * The configurations are then used to create a new
+   * ComponentShapePluginCollection instance, which is stored in the
+   * valueCollection property.
+   *
+   * @return \Drupal\neo_alchemist\ComponentShapePluginCollection
+   *   The collection of component shape plugin values.
+   */
+  public function getValueCollection(): ComponentShapePluginCollection;
+
+  /**
    * Checks if the component is rebuilding.
    *
    * Will be true if the component is being rebuilt without being saved.
@@ -348,6 +422,14 @@ interface ComponentShapePluginInterface extends PluginInspectionInterface, Deriv
    *   TRUE if the component is rebuilding, FALSE otherwise.
    */
   public function isRebuilding();
+
+  /**
+   * Checks if the component shape is the root shape.
+   *
+   * @return bool
+   *   TRUE if the component shape is the root shape, FALSE otherwise.
+   */
+  public function isRoot(): bool;
 
   /**
    * Checks if the component shape is nested.
@@ -462,12 +544,35 @@ interface ComponentShapePluginInterface extends PluginInspectionInterface, Deriv
   public function setExpanded(array $expanded): self;
 
   /**
+   * Checks if the component shape is expandable.
+   *
+   * @return bool
+   *   TRUE if the component shape is expandable, FALSE otherwise.
+   */
+  public function isExpandable(): bool;
+
+  /**
    * Get the array of child shape nested ids that are expaneded.
+   *
+   * Expanded settings are stored on the root parent shape unless this shape
+   * is not expanded, which means it is the root and has the expanded settings.
    *
    * @return array
    *   An array of child shape nested ids that are expaneded.
    */
   public function getExpanded(): array;
+
+  /**
+   * Checks if the component shape is expanded.
+   *
+   * This method determines if the current instance implements the
+   * ComponentShapeExpandedPluginInterface, allows expansion, and if the
+   * nested ID of the component is in the list of expanded components.
+   *
+   * @return bool
+   *   TRUE if the component shape is expanded, FALSE otherwise.
+   */
+  public function isExpanded(): bool;
 
   /**
    * Retrieves the nested value modifiers.

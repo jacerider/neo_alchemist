@@ -72,7 +72,8 @@ abstract class ComponentValuePluginBase extends PluginBase implements ComponentV
    */
   protected function baseConfigurationDefaults() {
     return [
-      'status' => FALSE,
+      // 'id' => $this->getPluginId(),
+      // 'status' => FALSE,
     ];
   }
 
@@ -93,12 +94,19 @@ abstract class ComponentValuePluginBase extends PluginBase implements ComponentV
 
   /**
    * {@inheritdoc}
+   */
+  public function getGroup(): string {
+    return $this->pluginDefinition['group'] ?? '';
+  }
+
+  /**
+   * {@inheritdoc}
    *
    * Creates a generic configuration form for all provider types. Individual
    * provider plugins can add elements to this form by overriding
-   * ComponentValuePluginProviderBase::configurationForm(). Most provider plugins
-   * should not override this method unless they need to alter the generic form
-   * elements.
+   * ComponentValuePluginProviderBase::configurationForm(). Most provider
+   * plugins should not override this method unless they need to alter the
+   * generic form elements.
    *
    * @see \Drupal\neo_alchemist\ComponentValuePluginProviderBase::configurationForm()
    */
@@ -124,13 +132,13 @@ abstract class ComponentValuePluginBase extends PluginBase implements ComponentV
    * @see \Drupal\neo_alchemist\ComponentValuePluginProviderBase::validateForm()
    */
   public function validateConfigurationForm(array &$form, FormStateInterface $form_state) {
-    $this->validateForm($form, $form_state);
+    $this->configurationValidate($form, $form_state);
   }
 
   /**
    * Form validation for the value provider plugin configuration.
    */
-  protected function validateForm(array $form, FormStateInterface $form_state): void {}
+  protected function configurationValidate(array $form, FormStateInterface $form_state): void {}
 
   /**
    * {@inheritdoc}
@@ -140,13 +148,19 @@ abstract class ComponentValuePluginBase extends PluginBase implements ComponentV
   /**
    * {@inheritdoc}
    */
-  public function onShapeInit() {
+  public function onPropAdd(): void {
   }
 
   /**
    * {@inheritdoc}
    */
   public function onPropRemove(): void {
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function onShapeInit() {
   }
 
   /**
@@ -160,6 +174,13 @@ abstract class ComponentValuePluginBase extends PluginBase implements ComponentV
    * {@inheritdoc}
    */
   public function provideOverrideValue(mixed $value): mixed {
+    return $value;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function modifyValue(mixed $value): mixed {
     return $value;
   }
 
@@ -189,7 +210,7 @@ abstract class ComponentValuePluginBase extends PluginBase implements ComponentV
    * {@inheritdoc}
    */
   public function shouldContinueProcessing(): bool {
-    return $this->continueProcessing;
+    return $this->continueProcessing === TRUE;
   }
 
   /**

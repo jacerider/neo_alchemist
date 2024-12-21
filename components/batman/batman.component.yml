@@ -11,6 +11,48 @@ props:
   # required:
   #   - color
   properties:
+    # heading:
+    #   type: heading
+    #   title: Heading
+    #   examples:
+    #     - title: 'Component Title'
+    # a:
+    #   type: object
+    #   title: AA
+    #   properties:
+    #     b:
+    #       type: string
+    #       title: B
+    #     bb:
+    #       type: object
+    #       title: BB
+    #       properties:
+    #         c:
+    #           type: string
+    #           title: C
+    #         cc:
+    #           type: object
+    #           title: CC
+    #           properties:
+    #             d:
+    #               type: string
+    #               title: D
+    #             image:
+    #               title: 'Image'
+    #               type: image
+    #               examples:
+    #                 - src: https://placehold.co/300x200.png
+    #                   alt: 'Boring placeholder'
+    #                   width: 300
+    #                   height: 200
+    image:
+      title: 'Image'
+      type: image
+      examples:
+        - src: https://placehold.co/300x200.png
+          alt: 'Boring placeholder'
+          width: 300
+          height: 200
     # tmp:
     #   type: object
     #   title: Tmp
@@ -38,6 +80,14 @@ props:
     #         three:
     #           type: string
     #           title: Three
+    #         image:
+    #           title: 'Image'
+    #           type: image
+    #           examples:
+    #             - src: https://placehold.co/300x200.png
+    #               alt: 'Boring placeholder'
+    #               width: 300
+    #               height: 200
     # tmp_array:
     #   type: array
     #   title: Tmp Array
@@ -61,11 +111,6 @@ props:
     #       url:
     #         type: url
     #         title: URL
-    heading:
-      type: heading
-      title: Heading
-      examples:
-        - title: 'Component Title'
     title:
       type: string
       title: Title
@@ -227,6 +272,7 @@ props:
     #         type: image
     #       wow:
     #         type: object
+    #         title: Wow
     #         properties:
     #           more:
     #             type: string

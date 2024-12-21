@@ -15,6 +15,7 @@ use Drupal\neo_alchemist\Attribute\ComponentShape;
 #[ComponentShape(
   prop: 'image',
   label: new TranslatableMarkup('Image'),
+  default_plugins: ['media'],
 )]
 class ImageShape extends MediaShapeBase {
 

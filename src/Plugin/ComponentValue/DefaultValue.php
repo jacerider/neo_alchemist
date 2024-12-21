@@ -21,8 +21,8 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
   id: 'default',
   label: new TranslatableMarkup('Default'),
   description: new TranslatableMarkup('Provide default values for the component.'),
-  group: 'Value',
-  weight: 15,
+  group: 'providers',
+  weight: 1000,
 )]
 final class DefaultValue extends ComponentValuePluginBase implements ContainerFactoryPluginInterface {
 
@@ -91,7 +91,7 @@ final class DefaultValue extends ComponentValuePluginBase implements ContainerFa
   /**
    * Configuration form for the value provider plugin.
    */
-  protected function providerForm(array $form, FormStateInterface $form_state, array &$complete_form): array {
+  protected function configurationForm(array $form, FormStateInterface $form_state, array &$complete_form): array {
     $defaultShape = $this->getDefaultShape();
     $form = $defaultShape->getForm($form, $form_state);
     return $form;
@@ -100,7 +100,7 @@ final class DefaultValue extends ComponentValuePluginBase implements ContainerFa
   /**
    * Form validation for the value provider plugin configuration.
    */
-  protected function providerValidate(array $form, FormStateInterface $form_state): void {
+  protected function configurationValidate(array $form, FormStateInterface $form_state): void {
     $defaultShape = $this->getDefaultShape();
     $values = $form_state->getValues()[$defaultShape->getName()] ?? [];
     $defaultShape->validateForm($form, $form_state, $values);
@@ -119,8 +119,6 @@ final class DefaultValue extends ComponentValuePluginBase implements ContainerFa
    * {@inheritdoc}
    */
   public function onShapeInit() {
-    ksm('AHHHH!');
-    ksm($this->configuration['options']);
     $this->shape->setOptions($this->configuration['options'] ?? []);
   }
 

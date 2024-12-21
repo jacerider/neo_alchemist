@@ -93,8 +93,8 @@ final class ComponentManageForm extends EntityForm {
         'type' => $this->t('Type'),
         'required' => $this->t('Required'),
         'editable' => $this->t('Editable'),
-        'value_providers' => $this->t('Value Providers'),
-        'value_modifiers' => $this->t('Value Modifiers'),
+        // 'value_providers' => $this->t('Value Providers'),
+        // 'value_modifiers' => $this->t('Value Modifiers'),
         'operations' => '',
       ],
       '#neo_style' => [
@@ -116,12 +116,13 @@ final class ComponentManageForm extends EntityForm {
       $row['type']['#markup'] = $shape->getType() . ' <small>(' . $shape->getRef() . ')</small>';
       $row['required']['#markup'] = $shape->isRequired() ? $this->icon($this->t('Yes'))->iconOnly() : $this->icon($this->t('No'))->iconOnly();
       $row['editable']['#markup'] = $shape->isEditable() ? $this->icon($this->t('Yes'))->iconOnly() : $this->icon($this->t('No'))->iconOnly();
-      $row['value_providers']['#markup'] = implode(', ', array_map(function ($provider) {
-        return $provider->label();
-      }, $shape->getValueProviders()));
-      $row['value_modifiers']['#markup'] = implode(', ', array_map(function ($provider) {
-        return $provider->label();
-      }, $shape->getValueModifiers()));
+      // $instances = $shape->getValueCollection()->getActiveInstances();
+      // $row['value_providers']['#markup'] = implode(', ', array_map(function ($provider) {
+      //   return $provider->label();
+      // }, $shape->getValueCollection()->getValueProviders()));
+      // $row['value_modifiers']['#markup'] = implode(', ', array_map(function ($provider) {
+      //   return $provider->label();
+      // }, $shape->getValueModifiers()));
 
       $links = [];
       $links['edit'] = [

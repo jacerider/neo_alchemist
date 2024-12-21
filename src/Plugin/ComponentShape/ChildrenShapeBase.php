@@ -34,6 +34,17 @@ abstract class ChildrenShapeBase extends ComponentShapePluginBase implements Com
    */
   protected function getChildShapesFromSchema(array $schema): array {
     $value = $this->getFieldItemValue();
+    if ($this->getNestedId() === 'sequence') {
+      // Expiremental code to add media plugin to sequence~image.
+      // $plugins = $this->getPlugins();
+      // $plugins['sequence~image']['media'] = [
+      //   'id' => 'media',
+      //   'settings' => [
+      //     'status' => TRUE,
+      //   ],
+      // ];
+      // $this->setPlugins($plugins);
+    }
     $childShapes = array_map(function ($shape) use ($value) {
       // We add the parent shapes to the child shape.
       foreach ($this->getAllParentShapes() as $parentShape) {

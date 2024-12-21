@@ -16,12 +16,20 @@ use Drupal\neo_alchemist\Attribute\ComponentValue;
 final class ComponentValuePluginManager extends DefaultPluginManager implements ComponentValuePluginManagerInterface {
 
   /**
+   * The group manager.
+   *
+   * @var \Drupal\neo_alchemist\ComponentValueGroupPluginManager
+   */
+  protected ComponentValueGroupPluginManager $groupManager;
+
+  /**
    * Constructs the object.
    */
-  public function __construct(\Traversable $namespaces, CacheBackendInterface $cache_backend, ModuleHandlerInterface $module_handler) {
+  public function __construct(\Traversable $namespaces, CacheBackendInterface $cache_backend, ModuleHandlerInterface $module_handler, ComponentValueGroupPluginManager $group_manager) {
     parent::__construct('Plugin/ComponentValue', $namespaces, $module_handler, ComponentValuePluginInterface::class, ComponentValue::class);
     $this->alterInfo('neo_component_value_info');
     $this->setCacheBackend($cache_backend, 'neo_component_value_plugins');
+    $this->groupManager = $group_manager;
   }
 
   /**
@@ -29,6 +37,22 @@ final class ComponentValuePluginManager extends DefaultPluginManager implements 
    */
   public function label() {
     return t('NOT NEEDED');
+  }
+
+  /**
+   * Performs extra processing on plugin definitions.
+   *
+   * By default we add defaults for the type to the definition. If a type has
+   * additional processing logic they can do that by replacing or extending the
+   * method.
+   */
+  public function processDefinition(&$definition, $plugin_id) {
+    parent::processDefinition($definition, $plugin_id);
+    $definition['group'] = $definition['group'] ?? 'providers';
+
+    if (!$this->groupManager->hasDefinition($definition['group'])) {
+      throw new \InvalidArgumentException(sprintf('The group %s does not exist.', $definition['group']));
+    }
   }
 
   /**
