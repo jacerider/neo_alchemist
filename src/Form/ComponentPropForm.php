@@ -116,30 +116,30 @@ final class ComponentPropForm extends EntityForm {
       $form_state->set('original_prop', $props[$this->shape->getName()] ?? []);
     }
 
-    $pluginManagers = $this->shape->getPluginManagers();
-    if (!$isExpanded) {
-      $form['tabs'] = [
-        '#type' => 'vertical_tabs',
-      ];
-    }
-    else {
-      foreach ($pluginManagers as $pluginType => $manager) {
-        $form[$pluginType] = [
-          '#type' => 'vertical_tabs',
-          '#title' => $manager->label(),
-        ];
-      }
-    }
+    // $pluginManagers = $this->shape->getPluginManagers();
+    // if (!$isExpanded) {
+    //   $form['tabs'] = [
+    //     '#type' => 'vertical_tabs',
+    //   ];
+    // }
+    // else {
+    //   foreach ($pluginManagers as $pluginType => $manager) {
+    //     $form[$pluginType] = [
+    //       '#type' => 'vertical_tabs',
+    //       '#title' => $manager->label(),
+    //     ];
+    //   }
+    // }
 
-    foreach ($pluginManagers as $pluginType => $manager) {
-      $group = match(TRUE) {
-        $isExpanded => $pluginType,
-        default => 'tabs',
-      };
-      foreach ($pluginShapes as $pluginShape) {
-        $form = $this->buildPluginForm($form, $form_state, $pluginShape, $pluginType, $group);
-      }
-    }
+    // foreach ($pluginManagers as $pluginType => $manager) {
+    //   $group = match(TRUE) {
+    //     $isExpanded => $pluginType,
+    //     default => 'tabs',
+    //   };
+    //   foreach ($pluginShapes as $pluginShape) {
+    //     $form = $this->buildPluginForm($form, $form_state, $pluginShape, $pluginType, $group);
+    //   }
+    // }
 
     if ($expandedShapes) {
       $parentShapeOptions = array_map(fn (ComponentShapePluginInterface $shape) => ($shape->isNested() ? $shape->getNestedTitle() : $this->t('All Properties')), $expandedShapes);

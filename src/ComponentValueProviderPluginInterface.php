@@ -22,18 +22,6 @@ interface ComponentValueProviderPluginInterface extends ComponentValuePluginInte
   public function isEditable(): bool;
 
   /**
-   * Determines if this processor should be allowed to process.
-   *
-   * @param string $op
-   *   The operation being performed. Current operations are 'default', 'value',
-   *   'edit', and 'form'.
-   *
-   * @return bool
-   *   TRUE if processing should be allowed, FALSE otherwise.
-   */
-  public function allowProcessing(string $op): bool;
-
-  /**
    * Allow the processing by setting the continue flag to FALSE.
    *
    * This will allow any following value providers to be processed.
@@ -60,13 +48,6 @@ interface ComponentValueProviderPluginInterface extends ComponentValuePluginInte
    *   TRUE if processing should continue, FALSE otherwise.
    */
   public function shouldContinueProcessing(): bool;
-
-  /**
-   * Called when the shape is initialized.
-   *
-   * Can be used to change the shapes type or other properties.
-   */
-  public function onShapeInit();
 
   /**
    * Provide a default value for the component.

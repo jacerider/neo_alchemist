@@ -125,7 +125,7 @@ final class EntityValueProvider extends ComponentValueProviderPluginBase impleme
    *
    * Only allow processing if the entity is not new.
    */
-  public function allowProcessing(string $op): bool {
+  public function isAllowed(string $op): bool {
     return match($this->shape->getScope()) {
       'field' => match($op) {
         'default' => !$this->shape->getEntity()->isNew(),

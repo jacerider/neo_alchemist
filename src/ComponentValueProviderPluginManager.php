@@ -12,7 +12,7 @@ use Drupal\neo_alchemist\Attribute\ComponentValueProvider;
 /**
  * ComponentValueProvider plugin manager.
  */
-final class ComponentValueProviderPluginManager extends ComponentValuePluginManagerBase {
+final class ComponentValueProviderPluginManager extends ComponentValuePluginOldManagerBase {
 
   /**
    * Constructs the object.

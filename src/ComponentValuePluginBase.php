@@ -5,12 +5,13 @@ declare(strict_types=1);
 namespace Drupal\neo_alchemist;
 
 use Drupal\Component\Plugin\PluginBase;
+use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Plugin\PluginWithFormsTrait;
 use Drupal\Core\StringTranslation\StringTranslationTrait;
 use Drupal\neo\Helpers\NestedArray;
 
 /**
- * Base class for neo_component_value_provider plugins.
+ * Base class for neo_component_value plugins.
  */
 abstract class ComponentValuePluginBase extends PluginBase implements ComponentValuePluginInterface {
 
@@ -23,6 +24,13 @@ abstract class ComponentValuePluginBase extends PluginBase implements ComponentV
    * @var \Drupal\neo_alchemist\ComponentShapePluginInterface
    */
   protected ComponentShapePluginInterface $shape;
+
+  /**
+   * Flag to continue processing.
+   *
+   * @var bool
+   */
+  protected $continueProcessing = TRUE;
 
   /**
    * Creates a toolbar item instance.
@@ -85,16 +93,125 @@ abstract class ComponentValuePluginBase extends PluginBase implements ComponentV
 
   /**
    * {@inheritdoc}
+   *
+   * Creates a generic configuration form for all provider types. Individual
+   * provider plugins can add elements to this form by overriding
+   * ComponentValuePluginProviderBase::configurationForm(). Most provider plugins
+   * should not override this method unless they need to alter the generic form
+   * elements.
+   *
+   * @see \Drupal\neo_alchemist\ComponentValuePluginProviderBase::configurationForm()
+   */
+  public function buildConfigurationForm(array $form, FormStateInterface $form_state, array &$complete_form = NULL) {
+    $form += $this->configurationForm($form, $form_state, $complete_form);
+    return $form;
+  }
+
+  /**
+   * Configuration form for the value provider plugin.
+   */
+  protected function configurationForm(array $form, FormStateInterface $form_state, array &$complete_form): array {
+    return $form;
+  }
+
+  /**
+   * {@inheritdoc}
+   *
+   * Most provider plugins should not override this method. To add validation
+   * for specific provider type, override
+   * ComponentValuePluginProviderBase::validateForm().
+   *
+   * @see \Drupal\neo_alchemist\ComponentValuePluginProviderBase::validateForm()
+   */
+  public function validateConfigurationForm(array &$form, FormStateInterface $form_state) {
+    $this->validateForm($form, $form_state);
+  }
+
+  /**
+   * Form validation for the value provider plugin configuration.
+   */
+  protected function validateForm(array $form, FormStateInterface $form_state): void {}
+
+  /**
+   * {@inheritdoc}
+   */
+  public function submitConfigurationForm(array &$form, FormStateInterface $form_state) {}
+
+  /**
+   * {@inheritdoc}
+   */
+  public function onShapeInit() {
+  }
+
+  /**
+   * {@inheritdoc}
    */
   public function onPropRemove(): void {
-    ksm('onRemove value provider', $this->shape->getNestedId(), $this->label());
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function provideDefaultValue(mixed $value): mixed {
+    return $value;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function provideOverrideValue(mixed $value): mixed {
+    return $value;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function formAlter(array &$element, FormStateInterface $form_state) {
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function allowFurtherProcessing(): self {
+    $this->continueProcessing = TRUE;
+    return $this;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function stopFurtherProcessing(): self {
+    $this->continueProcessing = FALSE;
+    return $this;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function shouldContinueProcessing(): bool {
+    return $this->continueProcessing;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function isEditable(): bool {
+    return TRUE;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function isAllowed(string $op): bool {
+    // By default, plugins are allowed to act on all operations.
+    return TRUE;
   }
 
   /**
    * {@inheritdoc}
    */
   public static function isApplicable(ComponentShapePluginInterface $shape) {
-    // By default, providers are available for all shapes.
+    // By default, plugins are available for all shapes.
     return TRUE;
   }
 

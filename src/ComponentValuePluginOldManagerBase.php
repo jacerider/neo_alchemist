@@ -10,7 +10,7 @@ use Drupal\Core\Plugin\DefaultPluginManager;
 /**
  * ComponentValueProvider plugin manager.
  */
-abstract class ComponentValuePluginManagerBase extends DefaultPluginManager implements ComponentValuePluginManagerInterface {
+abstract class ComponentValuePluginOldManagerBase extends DefaultPluginManager implements ComponentValuePluginManagerInterface {
 
   /**
    * {@inheritDoc}

@@ -12,12 +12,13 @@ use Drupal\Core\Field\FieldItemInterface;
 use Drupal\Core\Field\FieldItemListInterface;
 use Drupal\Core\Field\WidgetInterface;
 use Drupal\Core\Form\FormStateInterface;
+use Drupal\Core\Plugin\ObjectWithPluginCollectionInterface;
 use Drupal\Core\TypedData\DataDefinitionInterface;
 
 /**
  * Interface for neo_component_shape plugins.
  */
-interface ComponentShapePluginInterface extends PluginInspectionInterface, DerivativeInspectionInterface {
+interface ComponentShapePluginInterface extends PluginInspectionInterface, DerivativeInspectionInterface, ObjectWithPluginCollectionInterface {
 
   const STRING = 'string';
   const NUMBER = 'number';

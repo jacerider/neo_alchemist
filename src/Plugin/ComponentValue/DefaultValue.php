@@ -2,28 +2,29 @@
 
 declare(strict_types=1);
 
-namespace Drupal\neo_alchemist\Plugin\ComponentValueProvider;
+namespace Drupal\neo_alchemist\Plugin\ComponentValue;
 
 use Drupal\Core\DependencyInjection\DependencySerializationTrait;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Plugin\ContainerFactoryPluginInterface;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
-use Drupal\neo_alchemist\Attribute\ComponentValueProvider;
+use Drupal\neo_alchemist\Attribute\ComponentValue;
 use Drupal\neo_alchemist\ComponentShapePluginInterface;
 use Drupal\neo_alchemist\ComponentShapePluginManager;
-use Drupal\neo_alchemist\ComponentValueProviderPluginBase;
+use Drupal\neo_alchemist\ComponentValuePluginBase;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
  * Plugin implementation of the neo_component_value_provider.
  */
-#[ComponentValueProvider(
+#[ComponentValue(
   id: 'default',
   label: new TranslatableMarkup('Default'),
   description: new TranslatableMarkup('Provide default values for the component.'),
+  group: 'Value',
   weight: 15,
 )]
-final class DefaultValueProvider extends ComponentValueProviderPluginBase implements ContainerFactoryPluginInterface {
+final class DefaultValue extends ComponentValuePluginBase implements ContainerFactoryPluginInterface {
 
   use DependencySerializationTrait;
 

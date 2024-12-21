@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Drupal\neo_alchemist;
 
-use Drupal\Component\Plugin\Factory\DefaultFactory;
 use Drupal\Core\Cache\CacheBackendInterface;
 use Drupal\Core\Extension\ModuleHandlerInterface;
 use Drupal\neo_alchemist\Attribute\ComponentValueModifier;
@@ -12,7 +11,7 @@ use Drupal\neo_alchemist\Attribute\ComponentValueModifier;
 /**
  * ComponentValueModifier plugin manager.
  */
-final class ComponentValueModifierPluginManager extends ComponentValuePluginManagerBase {
+final class ComponentValueModifierPluginManager extends ComponentValuePluginOldManagerBase {
 
   /**
    * Constructs the object.

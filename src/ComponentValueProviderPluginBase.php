@@ -74,13 +74,6 @@ abstract class ComponentValueProviderPluginBase extends ComponentValuePluginBase
   /**
    * {@inheritdoc}
    */
-  public function allowProcessing(string $op): bool {
-    return TRUE;
-  }
-
-  /**
-   * {@inheritdoc}
-   */
   public function allowFurtherProcessing(): self {
     $this->continueProcessing = TRUE;
     return $this;
@@ -99,12 +92,6 @@ abstract class ComponentValueProviderPluginBase extends ComponentValuePluginBase
    */
   public function shouldContinueProcessing(): bool {
     return $this->continueProcessing;
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function onShapeInit() {
   }
 
   /**

@@ -246,7 +246,7 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
    */
   protected array $pluginDefinitions;
 
-  protected array $pluginInstances = [];
+  // protected array $pluginInstances = [];
 
   /**
    * Constructs a new ComponentShapePluginBase object.
@@ -260,8 +260,7 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
     protected EntityTypeManagerInterface $entityTypeManager,
     protected TypedDataManagerInterface $typedDataManager,
     protected WidgetPluginManager $widgetManager,
-    protected ComponentValueProviderPluginManager $valueProviderManager,
-    protected ComponentValueModifierPluginManager $valueModifierManager
+    protected ComponentValuePluginManagerInterface $valueManager
   ) {
     parent::__construct([], $plugin_id, $plugin_definition);
     // Set default options.
@@ -271,6 +270,8 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
     $this->setExpanded($settings['expanded'] ?? []);
     $this->setEditable($settings['editable'] ?? TRUE);
     $this->setRequired($settings['required'] ?? FALSE);
+    $this->setOptions($settings['options'] ?? [], TRUE);
+    $this->setOverrideValue($settings['value'] ?? NULL);
     if (isset($settings['shape']) && $settings['shape'] === $this->getPluginId()) {
       // Only set plugins if the shape has not changed.
       $this->plugins = $settings['plugins'] ?? [];
@@ -290,8 +291,7 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
       $container->get('entity_type.manager'),
       $container->get(TypedDataManagerInterface::class),
       $container->get('plugin.manager.field.widget'),
-      $container->get('plugin.manager.neo_component_value_provider'),
-      $container->get('plugin.manager.neo_component_value_modifier')
+      $container->get('plugin.manager.neo_component_value')
     );
   }
 
@@ -314,7 +314,14 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
     $this->fieldInstanceSettings = $this->getDefaultFieldInstaceSettings();
 
     // Allow value providers to act on the shape.
-    foreach ($this->getAllowedValueProviders('init') as $key => $instance) {
+    // foreach ($this->getAllowedValueProviders('init') as $key => $instance) {
+    //   $instance->onShapeInit();
+    //   if (!$instance->shouldContinueProcessing()) {
+    //     break;
+    //   }
+    // }
+    // Allow plugins to act on the shape during initilization.
+    foreach ($this->getAllowedPlugins('init') as $key => $instance) {
       $instance->onShapeInit();
       if (!$instance->shouldContinueProcessing()) {
         break;
@@ -525,9 +532,10 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
    * {@inheritdoc}
    */
   public function getAllowedValueProviders(string $op): array {
+    // asdf
     return array_filter($this->getValueProviders(), function (ComponentValueProviderPluginInterface $provider) use ($op) {
       // Reset the continue flag.
-      return $provider->allowFurtherProcessing()->allowProcessing($op);
+      return $provider->allowFurtherProcessing()->isAllowed($op);
     });
   }
 
@@ -771,56 +779,88 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
     return $this;
   }
 
-  public function getPluginCollection(string $pluginType): ?DefaultLazyPluginCollection {
-    if (!isset($this->pluginCollections[$pluginType])) {
-      $this->pluginCollections[$pluginType] = NULL;
-      if ($this->hasPluginManager($pluginType)) {
-        $configurations = [];
-        foreach ($this->getPluginDefinitions($pluginType) as $pluginId => $definition) {
-          $configurations[$pluginId] = $this->plugins[$this->getNestedId()][$pluginType][$pluginId] ?? [
-            'id' => $pluginId,
-            'settings' => [],
-          ];
-        }
-        $this->pluginCollections[$pluginType] = new ComponentShapePluginCollection($this, $this->getPluginManager($pluginType), $configurations);
-      }
-    }
-    return $this->pluginCollections[$pluginType];
+  // public function getPluginCollection(string $pluginType): ?DefaultLazyPluginCollection {
+  //   if (!isset($this->pluginCollections[$pluginType])) {
+  //     $this->pluginCollections[$pluginType] = NULL;
+  //     if ($this->hasPluginManager($pluginType)) {
+  //       $configurations = [];
+  //       foreach ($this->getPluginDefinitions($pluginType) as $pluginId => $definition) {
+  //         $configurations[$pluginId] = $this->plugins[$this->getNestedId()][$pluginType][$pluginId] ?? [
+  //           'id' => $pluginId,
+  //           'settings' => [],
+  //         ];
+  //       }
+  //       $this->pluginCollections[$pluginType] = new ComponentShapePluginCollection($this, $this->getPluginManager($pluginType), $configurations);
+  //     }
+  //   }
+  //   return $this->pluginCollections[$pluginType];
+  // }
+
+  public function getPluginCollections() {
+    return ['value' => $this->getValueCollection()];
   }
 
   /**
+   * The value collection.
    *
-   * @return \Drupal\neo_alchemist\ComponentShapePluginCollection[]
+   * @var \Drupal\neo_alchemist\ComponentShapePluginCollection
    */
-  public function getPluginCollections(): array {
-    foreach ($this->getPluginManagers() as $pluginType => $pluginManager) {
-      $this->getPluginCollection($pluginType);
+  protected ComponentShapePluginCollection $valueCollection;
+
+  public function getValuePlugin(string $plugin_id = NULL): ComponentShapePluginCollection|ComponentValuePluginInterface {
+    if (!isset($this->valueCollection)) {
+      // $this->valueCollection = new ComponentShapePluginCollection($this, )
     }
-    return $this->pluginCollections;
+    return $this->valueCollection;
   }
 
-  public function getPluginManagers() {
-    return [
-      'providers' => $this->valueProviderManager,
-      'modifiers' => $this->valueModifierManager,
-    ];
+  public function getAllowedPlugins(string $op): array {
+    $plugins = [];
+    // foreach ($this->getPluginCollections() as $pluginType => $collection) {
+    //   if ($collection) {
+    //     foreach ($collection->getActiveInstances() as $instance) {
+    //       if ($instance->isAllowed($op)) {
+    //         $plugins[$instance->getPluginId()] = $instance;
+    //       }
+    //     }
+    //   }
+    // }
+    return $plugins;
   }
 
-  public function hasPluginManager(string $pluginType): bool {
-    return isset($this->getPluginManagers()[$pluginType]);
-  }
+  // /**
+  //  *
+  //  * @return \Drupal\neo_alchemist\ComponentShapePluginCollection[]
+  //  */
+  // public function getPluginCollections(): array {
+  //   foreach ($this->getPluginManagers() as $pluginType => $pluginManager) {
+  //     $this->getPluginCollection($pluginType);
+  //   }
+  //   return $this->pluginCollections;
+  // }
 
-  public function getPluginManager(string $pluginType): ?ComponentValuePluginManagerInterface {
-    return $this->getPluginManagers()[$pluginType] ?? NULL;
-  }
+  // public function getPluginManagers() {
+  //   return [
+  //     'providers' => $this->valueProviderManager,
+  //     'modifiers' => $this->valueModifierManager,
+  //   ];
+  // }
 
-  public function getPluginDefinitions(string $pluginType) {
-    if (!isset($this->pluginDefinitions[$pluginType])) {
-      $pluginManager = $this->getPluginManager($pluginType);
-      $this->pluginDefinitions[$pluginType] = $pluginManager ? $pluginManager->getFilteredDefinitionsFromShape($this) : [];
-    }
-    return $this->pluginDefinitions[$pluginType];
-  }
+  // public function hasPluginManager(string $pluginType): bool {
+  //   return isset($this->getPluginManagers()[$pluginType]);
+  // }
+
+  // public function getPluginManager(string $pluginType): ?ComponentValuePluginManagerInterface {
+  //   return $this->getPluginManagers()[$pluginType] ?? NULL;
+  // }
+
+  // public function getPluginDefinitions(string $pluginType) {
+  //   if (!isset($this->pluginDefinitions[$pluginType])) {
+  //     $pluginManager = $this->getPluginManager($pluginType);
+  //     $this->pluginDefinitions[$pluginType] = $pluginManager ? $pluginManager->getFilteredDefinitionsFromShape($this) : [];
+  //   }
+  //   return $this->pluginDefinitions[$pluginType];
+  // }
 
   /**
    * {@inheritDoc}
@@ -1583,8 +1623,8 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
   public function accessOptionDefault(): bool {
     if ($this->getNestedId() === 'heading') {
       // We need to consider how we get objects with children to allow empty.
-      ksm($this->isNested());
-      ksm($this->getNestedId());
+      // ksm($this->isNested());
+      // ksm($this->getNestedId());
       // ksm($this->options);
     }
     if ($this->isNested() && $this->getScope() === 'config') {
