@@ -31,6 +31,13 @@ class ComponentShapePluginOption {
   protected ?bool $lockedValue;
 
   /**
+   * The log.
+   *
+   * @var array
+   */
+  protected array $log = [];
+
+  /**
    * Constructs a new ComponentShapePluginOption object.
    *
    * @param bool $value
@@ -44,6 +51,30 @@ class ComponentShapePluginOption {
     $this->value = $value;
     $this->access = $access;
     $this->lockedValue = $lockedValue;
+    $this->addLog('Initialized');
+  }
+
+  /**
+   * Adds a log message.
+   *
+   * @param string $message
+   *   The log message.
+   */
+  protected function addLog(string $message): void {
+    $value = $this->value ? 'TRUE' : 'FALSE';
+    $access = $this->access ? 'TRUE' : 'FALSE';
+    $lockedValue = !isset($this->lockedValue) ? 'NOT LOCKED' : ($this->lockedValue ? 'LOCKED TRUE' : 'LOCKED FALSE');
+    $this->log[] = $message . ' - ' . sprintf('Value %s | Access %s | %s.', $value, $access, $lockedValue);
+  }
+
+  /**
+   * Gets the log.
+   *
+   * @return array
+   *   The log.
+   */
+  public function getLog(): array {
+    return $this->log;
   }
 
   /**
@@ -51,28 +82,79 @@ class ComponentShapePluginOption {
    *
    * @param bool $value
    *   The value of the component shape plugin option.
-   * @param bool $lock
-   *   (optional) Whether to lock the option. Defaults to FALSE.
+   * @param string|null $logMessage
+   *   (optional) The log message.
    *
    * @return self
    *   The current instance of the class for method chaining.
    */
-  public function setValue(bool $value, bool $lock = FALSE): self {
-    if ($lock) {
-      $this->lockedValue = $value;
-    }
+  public function setValue(bool $value, string $logMessage = NULL): self {
     $this->value = $value;
+    if ($logMessage) {
+      $this->addLog($logMessage);
+    }
     return $this;
   }
 
   /**
-   * Gets the value of the component shape plugin option.
+   * Locks the value of the component shape plugin option.
+   *
+   * @param bool $value
+   *   The value to lock.
+   * @param string|null $logMessage
+   *   (optional) The log message.
+   *
+   * @return self
+   *   The current instance of the class for method chaining.
+   */
+  public function setLockedValue(bool $value, string $logMessage = NULL): self {
+    $this->lockedValue = $value;
+    if ($logMessage) {
+      $this->addLog('setLockedValue: ' . $logMessage);
+    }
+    return $this;
+  }
+
+  /**
+   * Allow the option.
+   *
+   * @param bool $access
+   *   Whether to access the option.
+   * @param string|null $logMessage
+   *   (optional) The log message.
+   *
+   * @return self
+   *   The current instance of the class for method chaining.
+   */
+  public function setAccess($access = TRUE, string $logMessage = NULL): self {
+    $this->access = $access;
+    if ($logMessage) {
+      $this->addLog('setAccess: ' . $logMessage);
+    }
+    return $this;
+  }
+
+  /**
+   * Check if option is enabled.
    *
    * @return bool
-   *   The value of the component shape plugin option.
+   *   Will return TRUE if the option is enabled, FALSE otherwise.
    */
-  public function getValue(): bool {
+  public function isEnabled(): bool {
+    if (isset($this->lockedValue)) {
+      return $this->lockedValue;
+    }
     return $this->lockedValue ?? $this->value;
+  }
+
+  /**
+   * Check if option is disabled.
+   *
+   * @return bool
+   *   Will return TRUE if the option is disabled, FALSE otherwise.
+   */
+  public function isDisabled(): bool {
+    return !$this->isEnabled();
   }
 
   /**
@@ -86,26 +168,12 @@ class ComponentShapePluginOption {
   }
 
   /**
-   * Allow the option.
-   *
-   * @param bool $access
-   *   Whether to access the option.
-   *
-   * @return self
-   *   The current instance of the class for method chaining.
-   */
-  public function setAccess($access = TRUE): self {
-    $this->access = $access;
-    return $this;
-  }
-
-  /**
    * Checks if the component shape plugin option is allowed.
    *
    * @return bool
    *   TRUE if the component shape plugin option is allowed, FALSE otherwise.
    */
-  public function access(): bool {
+  public function isAllowed(): bool {
     return $this->access;
   }
 

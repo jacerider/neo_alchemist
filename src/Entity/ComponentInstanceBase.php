@@ -97,6 +97,7 @@ abstract class ComponentInstanceBase extends Component implements ComponentInsta
    * {@inheritDoc}
    */
   public function setValues(array $values): self {
+    unset($this->propShapes);
     $this->values = $values;
     $fieldItem = $this->getFieldItem();
     if ($this->isNew()) {

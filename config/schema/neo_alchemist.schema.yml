@@ -14,10 +14,13 @@ neo_alchemist.neo_component.*:
       type: string
     expression:
       type: string
-      label: ''
+      label: 'Expression'
     schema:
       type: string
-      label: ''
+      label: 'Schema'
+    thumbnail:
+      type: string
+      label: 'Thumbnail'
     component:
       type: string
       label: 'Single-Directory Component'
@@ -29,9 +32,6 @@ neo_alchemist.neo_component.*:
         PluginExists:
           manager: plugin.manager.sdc
           interface: 'Drupal\Core\Plugin\PluginBase'
-    # thumbnail:
-    #   type: string
-    #   label: 'Thumbnail'
     settings:
       type: mapping
       label: Settings
@@ -75,62 +75,57 @@ neo_alchemist.neo_component_settings.props:
       required:
         type: boolean
         title: Required
-      providers:
+      expanded:
         type: sequence
-        label: Providers
+        title: Expanded
         sequence:
-          type: mapping
-          label: Provider
-          mapping:
-            plugin:
-              type: string
-              label: 'Value provider'
-              constraints:
-                Regex:
-                  pattern: '/^[a-z0-9_-]+$/'
-                  message: 'The %value machine name is not valid.'
-                PluginExists:
-                  manager: plugin.manager.neo_component_value_provider
-                  interface: '\Drupal\neo_alchemist\ComponentValueProviderPluginInterface'
-            settings:
-              type: neo_alchemist.neo_component_value_provider.[%parent.plugin]
-              nullable: true
-      modifiers:
+          type: string
+          label: Nested ID
+      plugins:
         type: sequence
-        label: Modifiers
+        label: Plugins
         sequence:
-          type: mapping
-          label: Modifier
-          mapping:
-            plugin:
-              type: string
-              label: 'Value modifier'
-              constraints:
-                Regex:
-                  pattern: '/^[a-z0-9_-]+$/'
-                  message: 'The %value machine name is not valid.'
-                PluginExists:
-                  manager: plugin.manager.neo_component_value_modifier
-                  interface: '\Drupal\neo_alchemist\ComponentValueModifierPluginInterface'
-            settings:
-              type: neo_alchemist.neo_component_value_modifier.[%parent.plugin]
-              nullable: true
+          type: sequence
+          label: Nested ID
+          sequence:
+            type: mapping
+            label: Plugin
+            mapping:
+              id:
+                type: string
+                label: 'Value Plugin'
+                constraints:
+                  Regex:
+                    pattern: '/^[a-z0-9_-]+$/'
+                    message: 'The %value machine name is not valid.'
+                  PluginExists:
+                    manager: plugin.manager.neo_component_value
+                    interface: '\Drupal\neo_alchemist\ComponentValuePluginInterface'
+              settings:
+                type: neo_alchemist.neo_component_value.[%parent.id]
+                nullable: true
 
-neo_alchemist.neo_component_value_provider.*:
+neo_alchemist.neo_component_value.*:
   type: mapping
 
-neo_alchemist.neo_component_value_provider.default:
+neo_alchemist.neo_component_value.default:
   type: mapping
   label: 'Default value provider'
   mapping:
     default:
-      type: field.value.[%parent.%parent.%parent.%parent.field_type]
+      type: field.value.[%parent.%parent.%parent.%parent.%parent.field_type]
+    options:
+      type: mapping
+      label: Options
       mapping:
-        _hide:
+        value_empty:
           type: boolean
-          label: 'If value is set as hidden'
+          label: Treat value as empty
+        value_default:
+          type: boolean
+          label: Treat value as default
 
-neo_alchemist.neo_component_value_provider.entity:
+neo_alchemist.neo_component_value.entity:
   type: mapping
   label: 'Default value provider'
   mapping:
@@ -144,10 +139,19 @@ neo_alchemist.neo_component_value_provider.entity:
       type: boolean
       label: 'Allow override when value is empty'
 
-neo_alchemist.neo_component_value_modifier.*:
+neo_alchemist.neo_component_value.media:
   type: mapping
+  label: 'Default value provider'
+  mapping:
+    default:
+      type: sequence
+      label: Defaults
+      nullable: true
+      sequence:
+        type: string
+        label: 'Config File'
 
-neo_alchemist.neo_component_value_modifier.prefix:
+neo_alchemist.neo_component_value.prefix:
   type: mapping
   label: 'Prefix value modifier'
   mapping:
@@ -155,7 +159,7 @@ neo_alchemist.neo_component_value_modifier.prefix:
       label: Prefix
       type: string
 
-neo_alchemist.neo_component_value_modifier.suffix:
+neo_alchemist.neo_component_value.suffix:
   type: mapping
   label: 'Suffix value modifier'
   mapping:
@@ -163,7 +167,7 @@ neo_alchemist.neo_component_value_modifier.suffix:
       label: Suffix
       type: string
 
-neo_alchemist.neo_component_value_modifier.number:
+neo_alchemist.neo_component_value.number:
   type: mapping
   label: 'Convert value to number'
   mapping:

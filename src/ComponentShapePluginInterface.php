@@ -45,209 +45,14 @@ interface ComponentShapePluginInterface extends PluginInspectionInterface, Deriv
   public function init(): self;
 
   /**
-   * Adds a parent shape to the current component shape.
-   *
-   * @param \Drupal\neo_alchemist\ComponentShapePluginInterface $parent
-   *   The parent shape to be added.
-   *
-   * @return $this
-   *   The current instance of the component shape plugin.
+   * Called when the shape is added to a component.
    */
-  public function addParentShape(ComponentShapePluginInterface $parent): self;
+  public function onAdd(): void;
 
   /**
-   * Retrieves the parent shapes of the current component shape.
-   *
-   * @return \Drupal\neo_alchemist\ComponentShapePluginInterface[]
-   *   An array of parent shapes.
+   * Called when the shape is removed from a component.
    */
-  public function getAllParentShapes(): array;
-
-  /**
-   * Retrieves the direct parent shape of the current component shape.
-   *
-   * @return ComponentShapePluginInterface|null
-   *   The direct parent shape if it exists, or NULL if there is no parent.
-   */
-  public function getDirectParentShape(): ?ComponentShapePluginInterface;
-
-  /**
-   * Retrieves the root parent shape of the current component shape.
-   *
-   * @return ComponentShapePluginInterface|null
-   *   The root parent shape if it exists, or NULL if there is no parent.
-   */
-  public function getRootParentShape(): ?ComponentShapePluginInterface;
-
-  /**
-   * Retrieves all expandable shapes recursively.
-   *
-   * @param bool $includeSelf
-   *   Whether to include the current shape in the list.
-   * @param bool $addRefToKey
-   *   Whether to add a reference to the key.
-   *
-   * @return array
-   *   An array of expandable shapes.
-   */
-  public function getAllExpandedableShapes($includeSelf = FALSE, $addRefToKey = FALSE): array;
-
-  /**
-   * Retrieves all shapes that allow plugins recursively.
-   *
-   * @param bool $includeSelf
-   *   Whether to include the current shape in the list.
-   * @param bool $addRefToKey
-   *   Whether to add a reference to the key.
-   *
-   * @return array
-   *   An array of expanded children shapes.
-   */
-  public function getAllPluginShapes($includeSelf = FALSE, $addRefToKey = FALSE): array;
-
-  /**
-   * Retrieves all child shapes recursively.
-   *
-   * This method collects all child shapes, including nested child shapes,
-   * and returns them in a sorted array.
-   *
-   * @param bool $includeSelf
-   *   Whether to include the current shape in the list.
-   * @param bool $addRefToKey
-   *   Whether to add a reference to the key.
-   *
-   * @return \Drupal\neo_alchemist\ComponentShapePluginInterface[]
-   *   An associative array of all child shapes, keyed by their nested IDs.
-   */
-  public function getAllChildShapes($includeSelf = FALSE, $addRefToKey = FALSE): array;
-
-  // /**
-  //  * Retrieves the value provider definitions for the current shape.
-  //  *
-  //  * This method uses the value provider manager to get the filtered definitions
-  //  * based on the current shape instance.
-  //  *
-  //  * @return array
-  //  *   An array of value provider definitions.
-  //  */
-  // public function getValueProviderDefinitions(): array;
-
-  // /**
-  //  * Adds a value provider to the component shape.
-  //  *
-  //  * @param string $providerId
-  //  *   The unique identifier for the provider.
-  //  * @param array $settings
-  //  *   An associative array of settings for the provider.
-  //  *
-  //  * @return self
-  //  *   The current instance of the component shape plugin.
-  //  */
-  // public function addValueProvider(string $providerId, array $settings): self;
-
-  // /**
-  //  * Checks if a value provider is enabled.
-  //  *
-  //  * @param string $providerId
-  //  *   The ID of the provider to check.
-  //  *
-  //  * @return bool
-  //  *   TRUE if the provider is enabled, FALSE otherwise.
-  //  */
-  // public function isValueProviderEnabled(string $providerId): bool;
-
-  // /**
-  //  * Retrieves the value providers.
-  //  *
-  //  * @return \Drupal\neo_alchemist\ComponentValueProviderPluginInterface[]
-  //  *   An array of value providers.
-  //  */
-  // public function getValueProviders(): array;
-
-  // /**
-  //  * Retrieves the allowed value providers.
-  //  *
-  //  * This method filters the value providers to return only those that allow
-  //  * processing.
-  //  *
-  //  * @param string $op
-  //  *   The operation to filter the value providers by.
-  //  *
-  //  * @return array
-  //  *   An array of allowed value providers.
-  //  */
-  // public function getAllowedValueProviders(string $op): array;
-
-  // /**
-  //  * Retrieves a value provider instance based on the given provider ID.
-  //  *
-  //  * @param string $providerId
-  //  *   The ID of the value provider to create.
-  //  * @param bool $checkEnabled
-  //  *   (optional) Whether to check if the provider is enabled. Defaults to
-  //  *   FALSE.
-  //  *
-  //  * @return \Drupal\neo_alchemist\ComponentValueProviderPluginInterface|null
-  //  *   The value provider instance.
-  //  */
-  // public function getValueProvider(string $providerId, bool $checkEnabled = TRUE): ?ComponentValueProviderPluginInterface;
-
-  // /**
-  //  * Retrieves the value modifier definitions for the current shape.
-  //  *
-  //  * This method uses the value modifier manager to get the filtered definitions
-  //  * based on the current shape instance.
-  //  *
-  //  * @return array
-  //  *   An array of value modifier definitions.
-  //  */
-  // public function getValueModifierDefinitions(): array;
-
-  // /**
-  //  * Adds a value modifier to the component shape.
-  //  *
-  //  * @param string $modifierId
-  //  *   The unique identifier for the modifier.
-  //  * @param array $settings
-  //  *   An associative array of settings for the modifier.
-  //  *
-  //  * @return self
-  //  *   The current instance of the component shape plugin.
-  //  */
-  // public function addValueModifier(string $modifierId, array $settings): self;
-
-  // /**
-  //  * Checks if a value modifier is enabled.
-  //  *
-  //  * @param string $modifierId
-  //  *   The ID of the modifier to check.
-  //  *
-  //  * @return bool
-  //  *   TRUE if the modifier is enabled, FALSE otherwise.
-  //  */
-  // public function isValueModifierEnabled(string $modifierId): bool;
-
-  // /**
-  //  * Retrieves the value modifiers.
-  //  *
-  //  * @return \Drupal\neo_alchemist\ComponentValueModifierPluginInterface[]
-  //  *   An array of value modifiers.
-  //  */
-  // public function getValueModifiers(): array;
-
-  // /**
-  //  * Retrieves a value modifier instance based on the given modifier ID.
-  //  *
-  //  * @param string $modifierId
-  //  *   The ID of the value modifier to create.
-  //  * @param bool $checkEnabled
-  //  *   (optional) Whether to check if the provider is enabled. Defaults to
-  //  *   TRUE.
-  //  *
-  //  * @return \Drupal\neo_alchemist\ComponentValueModifierPluginInterface|null
-  //  *   The value modifier instance.
-  //  */
-  // public function getValueModifier(string $modifierId, bool $checkEnabled = TRUE): ?ComponentValueModifierPluginInterface;
+  public function onRemove(): void;
 
   /**
    * Get the schema.
@@ -386,7 +191,7 @@ interface ComponentShapePluginInterface extends PluginInspectionInterface, Deriv
    * @return $this
    *   The current instance for method chaining.
    */
-  public function setPlugin(string $pluginId, array $settings = [], bool $status = TRUE): self;
+  public function addPlugin(string $pluginId, array $settings = [], bool $status = TRUE): self;
 
   /**
    * Determines if the current shape allows plugins.
@@ -422,6 +227,87 @@ interface ComponentShapePluginInterface extends PluginInspectionInterface, Deriv
    *   TRUE if the component is rebuilding, FALSE otherwise.
    */
   public function isRebuilding();
+
+  /**
+   * Adds a parent shape to the current component shape.
+   *
+   * @param \Drupal\neo_alchemist\ComponentShapePluginInterface $parent
+   *   The parent shape to be added.
+   *
+   * @return $this
+   *   The current instance of the component shape plugin.
+   */
+  public function addParentShape(ComponentShapePluginInterface $parent): self;
+
+  /**
+   * Retrieves the parent shapes of the current component shape.
+   *
+   * The order will be from the first parent to the last parent.
+   *
+   * @return \Drupal\neo_alchemist\ComponentShapePluginInterface[]
+   *   An array of parent shapes.
+   */
+  public function getParentShapes(): array;
+
+  /**
+   * Retrieves the immediate parent shape of the current component shape.
+   *
+   * @return ComponentShapePluginInterface|null
+   *   The immediate parent shape if it exists, or NULL if there is no parent.
+   */
+  public function getParentShape(): ?ComponentShapePluginInterface;
+
+  /**
+   * Retrieves the root parent shape of the current component shape.
+   *
+   * If the shape is the root shape, it will return itself.
+   *
+   * @return ComponentShapePluginInterface
+   *   The root parent shape if it exists, or NULL if there is no parent.
+   */
+  public function getRootShape(): ComponentShapePluginInterface;
+
+  /**
+   * Retrieves all expandable shapes recursively.
+   *
+   * @param bool $includeSelf
+   *   Whether to include the current shape in the list.
+   * @param bool $addRefToKey
+   *   Whether to add a reference to the key.
+   *
+   * @return array
+   *   An array of expandable shapes.
+   */
+  public function getExpandedableShapes($includeSelf = FALSE, $addRefToKey = FALSE): array;
+
+  /**
+   * Retrieves all shapes that allow plugins recursively.
+   *
+   * @param bool $includeSelf
+   *   Whether to include the current shape in the list.
+   * @param bool $addRefToKey
+   *   Whether to add a reference to the key.
+   *
+   * @return array
+   *   An array of expanded children shapes.
+   */
+  public function getPluginShapes($includeSelf = FALSE, $addRefToKey = FALSE): array;
+
+  /**
+   * Retrieves all child shapes recursively.
+   *
+   * This method collects all child shapes, including nested child shapes,
+   * and returns them in a sorted array.
+   *
+   * @param bool $includeSelf
+   *   Whether to include the current shape in the list.
+   * @param bool $addRefToKey
+   *   Whether to add a reference to the key.
+   *
+   * @return \Drupal\neo_alchemist\ComponentShapePluginInterface[]
+   *   An associative array of all child shapes, keyed by their nested IDs.
+   */
+  public function getAllShapes($includeSelf = FALSE, $addRefToKey = FALSE): array;
 
   /**
    * Checks if the component shape is the root shape.
@@ -544,7 +430,22 @@ interface ComponentShapePluginInterface extends PluginInspectionInterface, Deriv
   public function setExpanded(array $expanded): self;
 
   /**
+   * Checks if the component shape supports expansion.
+   *
+   * This is different than isExpandable as this just checks to see if expansion
+   * is possible. The isExpandable method checks if the component has allowed
+   * it.
+   *
+   * @return bool
+   *   TRUE if the component shape supports expansion, FALSE otherwise.
+   */
+  public function supportsExpansion(): bool;
+
+  /**
    * Checks if the component shape is expandable.
+   *
+   * This method checks to see both that the shape supports expansion AND that
+   * the shape has allowed it.
    *
    * @return bool
    *   TRUE if the component shape is expandable, FALSE otherwise.
@@ -825,7 +726,7 @@ interface ComponentShapePluginInterface extends PluginInspectionInterface, Deriv
    * @return array|string
    *   The default value of the field item.
    */
-  public function getFieldItemDefaultValue(): array;
+  public function getDefaultFieldItemValue(): array;
 
   /**
    * Sets the override value.
@@ -936,137 +837,69 @@ interface ComponentShapePluginInterface extends PluginInspectionInterface, Deriv
   public function massageFormValues(array $values, array $original_values, array $form, FormStateInterface $form_state): array;
 
   /**
-   * Sets the access option for empty values.
+   * Retrieves the 'empty' option from the component shape plugin options.
    *
-   * This method allows setting the access control for empty values in the
-   * options.
-   *
-   * @param bool $value
-   *   (optional) The access value to set. Defaults to TRUE.
-   *
-   * @return self
-   *   The current instance for method chaining.
+   * @return \Drupal\neo_alchemist\ComponentShapePluginOption
+   *   The 'empty' option of the component shape plugin.
    */
-  public function setOptionEmptyAccess(bool $value = TRUE): self;
+  public function getOptionEmpty(): ComponentShapePluginOption;
 
   /**
-   * Checks if the 'empty' option is accessible.
+   * Retrieves the 'default' option from the component shape plugin options.
    *
-   * @return bool
-   *   TRUE if the 'empty' option is accessible, FALSE otherwise.
+   * @return \Drupal\neo_alchemist\ComponentShapePluginOption
+   *   The 'default' option of the component shape plugin.
    */
-  public function accessOptionEmpty(): bool;
+  public function getOptionDefault(): ComponentShapePluginOption;
 
   /**
-   * Sets the 'empty' option value.
+   * Sets the options for a given nested ID.
    *
-   * @param bool $value
-   *   The value to set for the 'empty' option. Defaults to TRUE.
-   * @param bool $lock
-   *   Whether to lock the option after setting the value. Defaults to FALSE.
+   * This method sets the options for a nested component shape. If the current
+   * shape is the root, it directly sets the options in the nestedOptions array.
+   * Otherwise, it delegates the setting of options to the root parent shape.
    *
-   * @return self
-   *   The current instance for method chaining.
-   */
-  public function setOptionEmpty(bool $value = TRUE, bool $lock = FALSE): self;
-
-  /**
-   * Checks if the option is empty.
-   *
-   * This method determines if the option is considered empty. An option is
-   * considered empty if it is not required and its value is empty.
-   *
-   * @return bool
-   *   TRUE if the option is empty, FALSE otherwise.
-   */
-  public function isOptionEmpty(): bool;
-
-  /**
-   * Sets the default access option.
-   *
-   * This method sets the access value for the default option in the options
-   * array.
-   *
-   * @param bool $value
-   *   The access value to set. Defaults to TRUE.
-   *
-   * @return self
-   *   The current instance for method chaining.
-   */
-  public function setOptionDefaultAccess(bool $value = TRUE): self;
-
-  /**
-   * Checks if the default option is accessible.
-   *
-   * This method returns a boolean indicating whether the default option
-   * in the options array has access.
-   *
-   * @return bool
-   *   TRUE if the default option is accessible, FALSE otherwise.
-   */
-  public function accessOptionDefault(): bool;
-
-  /**
-   * Sets the default option value and optionally locks it.
-   *
-   * @param bool $value
-   *   The value to set as the default. Defaults to TRUE.
-   * @param bool $lock
-   *   Whether to lock the default value. Defaults to FALSE.
-   *
-   * @return self
-   *   The current instance for method chaining.
-   */
-  public function setOptionDefault(bool $value = TRUE, bool $lock = FALSE): self;
-
-  /**
-   * Checks if the option is set to its default value.
-   *
-   * @return bool
-   *   TRUE if the option is set to its default value, FALSE otherwise.
-   */
-  public function isOptionDefault(): bool;
-
-  /**
-   * Sets the options for the component shape.
-   *
+   * @param string $nestedId
+   *   The identifier for the nested component shape.
    * @param array $options
-   *   An associative array of options to set. Possible keys:
-   *   - value_empty: (bool) Whether the value is empty.
-   *   - value_default: (bool) Whether the value is default.
-   *   - nested: (array) Nested options to set.
-   * @param bool $lock
-   *   (optional) Whether to lock the options. Defaults to FALSE.
+   *   An associative array of options to set for the nested component shape.
    *
    * @return self
-   *   The current instance of the component shape plugin.
+   *   Returns the current instance for method chaining.
    */
-  public function setOptions(array $options, bool $lock = FALSE): self;
+  public function setOptions(string $nestedId, array $options): self;
 
   /**
-   * Sets the nested options for the component shape.
+   * Sets nested options for the component shape.
    *
-   * This method sets the nested options for the component shape if the current
-   * instance implements the ComponentShapeChildrenPluginInterface.
+   * This method sets the nested options for the current component shape. If the
+   * current shape is the root shape, it merges the provided options with the
+   * existing nested options. If the current shape is not the root shape, it
+   * delegates the setting of nested options to the root parent shape.
+   *
+   * The options add to the previously set options. Already set options
+   * cannot be overwritten.
    *
    * @param array $options
    *   An associative array of options to set.
    *
    * @return $this
-   *   The current instance for method chaining.
+   *   The current instance of the component shape with updated nested options.
    */
   public function setNestedOptions(array $options): self;
 
   /**
-   * Retrieves nested options based on the provided nested ID.
+   * Retrieves the nested options for the current shape.
    *
-   * @param string|int $nestedId
-   *   The ID of the nested options to retrieve.
+   * This method returns the nested options based on whether the current shape
+   * is the root shape or not. If the current shape is the root, it returns its
+   * own nested options. Otherwise, it retrieves the nested options from the
+   * root parent shape.
    *
    * @return array
-   *   An array of nested options corresponding to the provided nested ID.
+   *   An array of nested options.
    */
-  public function getNestedOptions($nestedId): array;
+  public function getNestedOptions(): array;
 
   /**
    * Checks if the field definition is supported by the shape.

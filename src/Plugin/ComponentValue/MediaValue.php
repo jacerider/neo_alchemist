@@ -84,6 +84,7 @@ final class MediaValue extends ComponentValuePluginBase implements ContainerFact
    * {@inheritdoc}
    */
   public function onShapeInit() {
+    parent::onShapeInit();
     $shape = $this->shape;
     if (!$shape instanceof ComponentShapeMediaPluginInterface) {
       return;
@@ -168,7 +169,7 @@ final class MediaValue extends ComponentValuePluginBase implements ContainerFact
    * {@inheritdoc}
    */
   public function formAlter(array &$element, FormStateInterface $form_state) {
-    if ($this->shape->isOptionDefault()) {
+    if ($this->shape->getOptionDefault()->isEnabled()) {
       $value = $this->shape->getValue();
       if (!empty($value['src'])) {
         $element['preview']['default'] = [
@@ -267,8 +268,9 @@ final class MediaValue extends ComponentValuePluginBase implements ContainerFact
         return $mediaValue;
       }
     }
-    elseif (!$shape->isOptionDefault()) {
-      $shape->setOptionEmpty(TRUE);
+    elseif ($shape->getOptionDefault()->isDisabled()) {
+      $shape->getOptionEmpty()->setValue(TRUE, 'Set in MediaValue because shape is set to use default.');
+      // $shape->setOptionEmpty(TRUE);
       $this->stopFurtherProcessing();
     }
 

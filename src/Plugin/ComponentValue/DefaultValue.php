@@ -9,6 +9,7 @@ use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Plugin\ContainerFactoryPluginInterface;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\neo_alchemist\Attribute\ComponentValue;
+use Drupal\neo_alchemist\ComponentShapeChildrenPluginInterface;
 use Drupal\neo_alchemist\ComponentShapePluginInterface;
 use Drupal\neo_alchemist\ComponentShapePluginManager;
 use Drupal\neo_alchemist\ComponentValuePluginBase;
@@ -83,7 +84,13 @@ final class DefaultValue extends ComponentValuePluginBase implements ContainerFa
         'schema' => $this->shape->getSchema(),
         'component' => $this->shape->getComponent(),
       ]);
-      $this->defaultShape->setOverrideValue($this->configuration['default'] ?? [])->init();
+      $this->defaultShape->getOptionDefault()->setAccess(FALSE);
+      $this->defaultShape
+        ->setNestedOptions($this->configuration['options'] ?? [])
+        ->setOverrideValue($this->configuration['default'] ?? [])
+        // Send expanded status.
+        ->setExpanded($this->shape->getExpanded())
+        ->init();
     }
     return $this->defaultShape;
   }
@@ -108,18 +115,20 @@ final class DefaultValue extends ComponentValuePluginBase implements ContainerFa
     if (!is_array($originalValues)) {
       $originalValues = [$originalValues];
     }
-    $values = $defaultShape->massageFormValues($values, $originalValues, $form, $form_state);
-    $form_state->setValues([
-      'default' => $values,
-      'options' => $form_state->getValue('_options'),
-    ]);
+    $values = [
+      'default' => $defaultShape->massageFormValues($values, $originalValues, $form, $form_state),
+      // 'options' => $form_state->getValue('_options') ?? [],
+      'options' => $defaultShape->getNestedOptions(),
+    ];
+    $form_state->setValues(array_filter($values));
   }
 
   /**
    * {@inheritdoc}
    */
   public function onShapeInit() {
-    $this->shape->setOptions($this->configuration['options'] ?? []);
+    parent::onShapeInit();
+    $this->shape->setNestedOptions($this->configuration['options'] ?? []);
   }
 
   /**

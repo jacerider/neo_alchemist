@@ -34,62 +34,26 @@ abstract class ChildrenShapeBase extends ComponentShapePluginBase implements Com
    */
   protected function getChildShapesFromSchema(array $schema): array {
     $value = $this->getFieldItemValue();
-    if ($this->getNestedId() === 'sequence') {
-      // Expiremental code to add media plugin to sequence~image.
-      // $plugins = $this->getPlugins();
-      // $plugins['sequence~image']['media'] = [
-      //   'id' => 'media',
-      //   'settings' => [
-      //     'status' => TRUE,
-      //   ],
-      // ];
-      // $this->setPlugins($plugins);
-    }
     $childShapes = array_map(function ($shape) use ($value) {
       // We add the parent shapes to the child shape.
-      foreach ($this->getAllParentShapes() as $parentShape) {
+      foreach ($this->getParentShapes() as $parentShape) {
         $shape->addParentShape($parentShape);
       }
       // Add the current shape as a parent shape.
       $shape->addParentShape($this);
-      // Get nested options from parent shape and set them on the shape.
-      $shape->setOptions($this->getNestedOptions($shape->getNestedId()));
       // Set the override value.
       $shape->setOverrideValue($value[$shape->getName()] ?? NULL);
-      // Get nested value providers from parent shape and set them on the
-      // shape.
-      $shape->setPlugins($this->getPlugins());
-      // foreach ($this->getNestedValueProviders() as $nestedId => $providers) {
-      //   if ($shape->getNestedId() === $nestedId) {
-      //     foreach ($providers as $providerId => $settings) {
-      //       $shape->addValueProvider($providerId, $settings);
-      //     }
-      //   }
-      //   elseif (substr($nestedId, 0, strlen($shape->getNestedId())) === $shape->getNestedId()) {
-      //     foreach ($providers as $providerId => $settings) {
-      //       $shape->addNestedValueProvider($nestedId, $providerId, $settings);
-      //     }
-      //   }
-      // }
-      // Get nested value modifiers from parent shape and set them on the
-      // shape.
-      foreach ($this->getNestedValueModifiers() as $nestedId => $modifiers) {
-        if ($shape->getNestedId() === $nestedId) {
-          foreach ($modifiers as $modifierId => $settings) {
-            $shape->addValueModifier($modifierId, $settings);
-          }
-        }
-        elseif (substr($nestedId, 0, strlen($shape->getNestedId())) === $shape->getNestedId()) {
-          foreach ($modifiers as $modifierId => $settings) {
-            $shape->addNestedValueModifier($nestedId, $modifierId, $settings);
-          }
-        }
+      if ($this->getOptionDefault()->isEnabled()) {
+        $shape->getOptionDefault()->setLockedValue(TRUE, 'Set by parent shape.');
       }
-      if ($this->isOptionDefault()) {
-        $shape->setOptionDefault(TRUE, TRUE);
+      if ($this->getOptionEmpty()->isEnabled()) {
+        $shape->getOptionEmpty()->setLockedValue(TRUE, 'Set by parent shape.');
       }
-      if ($this->isOptionEmpty()) {
-        $shape->setOptionEmpty(TRUE, TRUE);
+      if ($this->getOptionAccess()->isDisabled()) {
+        $shape->getOptionAccess()->setLockedValue(FALSE, 'Set by parent shape.');
+      }
+      if ($this->getScope() === 'config') {
+        $shape->getOptionAccess()->setAccess(TRUE);
       }
       return $shape;
     }, $this->shapeManager->getInstancesFromSchema($schema, $this->getComponent()));

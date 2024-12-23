@@ -102,7 +102,7 @@ final class ComponentPropForm extends EntityForm {
    */
   protected function getPluginShapes() {
     $expanded = $this->shape->getExpanded();
-    return $expanded ? $this->shape->getAllPluginShapes(TRUE) : [$this->shape->getNestedId() => $this->shape];
+    return $expanded ? $this->shape->getPluginShapes(TRUE) : [$this->shape->getNestedId() => $this->shape];
   }
 
   /**
@@ -114,7 +114,7 @@ final class ComponentPropForm extends EntityForm {
     $expanded = $shape->getExpanded();
     $isExpanded = !empty($shape->getExpanded());
     $pluginShapes = $this->getPluginShapes();
-    $expandedShapes = $shape->getAllExpandedableShapes(TRUE);
+    $expandableShapes = $shape->getExpandedableShapes(TRUE);
     assert(!empty($pluginShapes), 'No shapes found.');
 
     if (!$form_state->get('original_prop')) {
@@ -148,8 +148,8 @@ final class ComponentPropForm extends EntityForm {
       }
     }
 
-    if ($expandedShapes) {
-      $parentShapeOptions = array_map(fn (ComponentShapePluginInterface $shape) => ($shape->isNested() ? $shape->getNestedTitle(TRUE) : $this->t('Root')), $expandedShapes);
+    if ($expandableShapes) {
+      $parentShapeOptions = array_map(fn (ComponentShapePluginInterface $shape) => ($shape->isNested() ? $shape->getNestedTitle(TRUE) : $this->t('Root')), $expandableShapes);
       $form['expanded'] = [
         '#type' => 'checkboxes',
         '#title' => $this->t('Expand Properties'),
@@ -293,7 +293,8 @@ final class ComponentPropForm extends EntityForm {
 
     foreach ($pluginShapes as $pluginShape) {
       $nestedId = $pluginShape->getNestedId();
-      foreach ($pluginShape->getValueCollection()->getInstances() as $instanceId => $instance) {
+      $collection = $pluginShape->getValueCollection();
+      foreach ($collection->getInstances() as $instanceId => $instance) {
         $groupId = $instance->getGroup();
         $key = $groupId . '_' . $nestedId;
         $value = $form_state->getValue([$key, $instanceId], []);
@@ -307,18 +308,8 @@ final class ComponentPropForm extends EntityForm {
           'settings',
         ];
         $originalPluginSettings = $form_state->get($originalPluginSettingsParents);
-        $configuration = $instance->getConfiguration();
         $settings = $subform_state->getValues() ?: $originalPluginSettings ?? [];
-        // ksm('AAAH', $configuration, $settings);
-        // if (!empty($value['status'])) {
-        //   $shape->getValueCollection()->setStatus($instanceId, TRUE);
-        // }
-        // else {
-        //   $shape->getValueCollection()->setStatus($instanceId, FALSE);
-        //   // $settings['status'] = FALSE;
-        //   // $instance->setConfiguration($settings);
-        // }
-        $shape->getValueCollection()->setStatus($instanceId, !empty($value['status']));
+        $collection->setStatus($instanceId, !empty($value['status']));
         $instance->setConfiguration($settings);
         $form_state->set($originalPluginSettingsParents, $settings);
       }

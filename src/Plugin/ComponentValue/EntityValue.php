@@ -151,16 +151,18 @@ final class EntityValue extends ComponentValuePluginBase implements ContainerFac
     if ($this->shape->isNew() && !$this->shape->isRebuilding()) {
       // On a brand new component, we set the option default to true so that
       // it uses the entity value by default.
-      if ($this->shape->accessOptionDefault()) {
-        $this->shape->setOptionDefault(empty($hasOverrideValue));
+      $optionDefault = $this->shape->getOptionDefault();
+      if ($optionDefault->isAllowed()) {
+        $optionDefault->setValue(empty($hasOverrideValue));
       }
-      if ($parentShape = $this->shape->getDirectParentShape()) {
+      if ($parentShape = $this->shape->getParentShape()) {
         if ($parentShape instanceof ComponentShapeChildrenPluginInterface && $parentShape->isSingleProp()) {
-          if ($parentShape->accessOptionDefault()) {
+          $parentOptionDefault = $parentShape->getOptionDefault();
+          if ($parentOptionDefault->isAllowed()) {
             // If we are a single property, we set the parent shape to use the
             // default.
-            $this->shape->setOptionDefault(empty($hasOverrideValue));
-            $parentShape->setOptionDefault(empty($hasOverrideValue));
+            $optionDefault->setValue(empty($hasOverrideValue));
+            $parentOptionDefault->setValue(empty($hasOverrideValue));
           }
         }
       }
@@ -172,7 +174,7 @@ final class EntityValue extends ComponentValuePluginBase implements ContainerFac
       return $entityValue;
     }
 
-    if ($this->shape->isOptionDefault()) {
+    if ($this->shape->getOptionDefault()->isEnabled()) {
       if (!$overrideEmpty && !$override) {
         $this->stopFurtherProcessing();
         return $entityValue;

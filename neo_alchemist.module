@@ -48,7 +48,6 @@ function neo_alchemist_theme(): array {
 }
 
 function neo_alchemist_preprocess_page__neo_alchemist_preview(&$variables) {
-  // ksm($variables);
   if (isset($variables['page']['status'])) {
     $variables['page']['status'] = [
       '#type' => 'html_tag',

@@ -215,6 +215,17 @@ interface ComponentInterface extends ConfigEntityInterface {
   public function getTargetPreviewEntity(): ?ContentEntityInterface;
 
   /**
+   * Load prop shapes.
+   *
+   * @param array $schema
+   *   The schema.
+   *
+   * @return \Drupal\neo_alchemist\ComponentShapePluginInterface[]
+   *   The shapes.
+   */
+  public function loadPropShapes(array $schema): array;
+
+  /**
    * Get prop shapes.
    *
    * @return \Drupal\neo_alchemist\ComponentShapePluginInterface[]
@@ -281,6 +292,24 @@ interface ComponentInterface extends ConfigEntityInterface {
    *   The current instance of the component with updated shape settings.
    */
   public function setPropShapeSettings(ComponentShapePluginInterface $shape): self;
+
+  /**
+   * Retrieves a flat array of all shapes keyed by their nested ID.
+   *
+   * This method iterates through the provided shapes and collects them into an
+   * associative array. If a shape has child shapes, it collects those as well.
+   *
+   * @param \Drupal\neo_alchemist\ComponentShapePluginInterface[] $shapes
+   *   An array of shape objects to process.
+   * @param bool $addRefToKey
+   *   (optional) Whether to add the shape's reference to the key. Defaults to
+   *   FALSE.
+   *
+   * @return array
+   *   An associative array of all shapes, with keys being the shape's nested ID
+   *   (and optionally the reference) and values being the shape objects.
+   */
+  public function getAllPropShapes(array $shapes, $addRefToKey = FALSE): array;
 
   /**
    * Converts the component entity to a renderable array.

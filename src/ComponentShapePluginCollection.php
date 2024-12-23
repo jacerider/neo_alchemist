@@ -145,7 +145,7 @@ class ComponentShapePluginCollection extends DefaultLazyPluginCollection {
     $activeInstances = [];
     foreach ($this->instanceIds as $instanceId) {
       $configuration = $this->configurations[$instanceId] ?? [];
-      if (!empty($configuration['settings']['status'])) {
+      if (!empty($configuration['status'])) {
         $activeInstances[$instanceId] = $this->get($instanceId);
       }
     }

@@ -11,11 +11,16 @@ props:
   # required:
   #   - color
   properties:
-    # heading:
-    #   type: heading
-    #   title: Heading
-    #   examples:
-    #     - title: 'Component Title'
+    title:
+      type: string
+      title: Title
+      description: The super title.
+      examples: ['A really cool title']
+    heading:
+      type: heading
+      title: Heading
+      examples:
+        - title: 'Component Title'
     # a:
     #   type: object
     #   title: AA
@@ -45,14 +50,14 @@ props:
     #                   alt: 'Boring placeholder'
     #                   width: 300
     #                   height: 200
-    image:
-      title: 'Image'
-      type: image
-      examples:
-        - src: https://placehold.co/300x200.png
-          alt: 'Boring placeholder'
-          width: 300
-          height: 200
+    # image:
+    #   title: 'Image'
+    #   type: image
+    #   examples:
+    #     - src: https://placehold.co/300x200.png
+    #       alt: 'Boring placeholder'
+    #       width: 300
+    #       height: 200
     # tmp:
     #   type: object
     #   title: Tmp
@@ -111,11 +116,6 @@ props:
     #       url:
     #         type: url
     #         title: URL
-    title:
-      type: string
-      title: Title
-      description: The super title.
-      examples: ['A really cool title']
 
     # email:
     #   type: email

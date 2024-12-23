@@ -11,7 +11,6 @@ use Drupal\Core\Entity\EntityStorageInterface;
 use Drupal\Core\Entity\EntityTypeInterface;
 use Drupal\Core\Plugin\Component as ComponentPlugin;
 use Drupal\neo_alchemist\ComponentInterface;
-use Drupal\neo_alchemist\ComponentShapeChildrenPluginInterface;
 use Drupal\neo_alchemist\ComponentShapePluginInterface;
 
 /**
@@ -374,15 +373,9 @@ class Component extends ConfigEntityBase implements ComponentInterface {
   }
 
   /**
-   * Load prop shapes.
-   *
-   * @param array $schema
-   *   The schema.
-   *
-   * @return \Drupal\neo_alchemist\ComponentShapePluginInterface[]
-   *   The shapes.
+   * {@inheritdoc}
    */
-  protected function loadPropShapes(array $schema): array {
+  public function loadPropShapes(array $schema): array {
     /** @var \Drupal\neo_alchemist\ComponentShapePluginManager $manager */
     $manager = \Drupal::service('plugin.manager.neo_component_shape');
     // Get shapes and initialize them.
@@ -436,6 +429,67 @@ class Component extends ConfigEntityBase implements ComponentInterface {
    */
   public function getPropShapeSettings(string $propId): array {
     return $this->getAllPropShapeSettings()[$propId] ?? [];
+  }
+
+  public function preSave(EntityStorageInterface $storage) {
+    $currentExpression = $this->getExpression();
+    $newExpression = $this->generateExpression();
+
+    // Cyle, we need to figure out what if plugins have been enabled/disabled.
+    // This means we need to  move the currentShapes/newShapes outside of just
+    // the expression check. We may be able to do this just with $this->original
+    // but I'm not sure yet.
+    if (isset($this->original)) {
+      /** @var \Drupal\neo_alchemist\ComponentInterface $original */
+      $original = $this->original;
+      $currentSchema = Json::decode($this->get('schema'));
+      $currentRootShapes = $original->loadPropShapes($currentSchema);
+      $currentShapes = $original->getAllPropShapes($currentRootShapes, TRUE);
+      $newRootShapes = $this->getPropShapes();
+      $newShapes = $this->getAllPropShapes($newRootShapes, TRUE);
+      foreach ($currentRootShapes as $nestedId => $currentShape) {
+        $currentPlugins = $currentShape->getPlugins();
+        $newPlugins = [];
+        if (isset($newRootShapes[$nestedId])) {
+          $newPlugins = $newRootShapes[$nestedId]->getPlugins();
+        }
+        $addedPlugins = array_diff_key($newPlugins, $currentPlugins);
+        $removedPlugins = array_diff_key($currentPlugins, $newPlugins);
+        // ksm('added plugins', $addedPlugins);
+        // ksm('removed plugins', $removedPlugins);
+      }
+
+      if ($currentExpression !== $newExpression) {
+
+        $addedShapes = array_diff_key($newShapes, $currentShapes);
+        $removedShapes = array_diff_key($currentShapes, $newShapes);
+        foreach ($addedShapes as $shape) {
+          ksm('ADDED PROP', $shape->getNestedId());
+          $shape->onAdd();
+        }
+        foreach ($removedShapes as $shape) {
+          ksm('REMOVED PROP', $shape->getNestedId());
+          $shape->onRemove();
+        }
+
+        $this->setSetting('props', []);
+        foreach ($newRootShapes as $shape) {
+          $this->setPropShapeSettings($shape);
+        }
+        $this->setSetting('props', $this->getAllPropShapeSettings());
+
+        // Only keep settings for props that are still present.
+        // $settings = $this->getAllPropShapeSettings();
+        ksm('final settings', $this->getAllPropShapeSettings());
+        // $settings = array_intersect_key($settings, $newRootShapes);
+        // $this->setSetting('props', $settings);
+
+        // Update schema and expression.
+        $this->set('schema', Json::encode($this->getComponentSchema()));
+        $this->set('expression', $newExpression);
+      }
+    }
+    parent::preSave($storage);
   }
 
   /**
@@ -505,7 +559,7 @@ class Component extends ConfigEntityBase implements ComponentInterface {
       'editable' => $shape->isEditable(),
       'required' => $shape->isRequired(),
     ];
-    foreach ($shape->getAllChildShapes(TRUE) as $childShape) {
+    foreach ($shape->getAllShapes(TRUE) as $childShape) {
       $collection = $childShape->getValueCollection();
       foreach ($collection->getInstances() as $instanceId => $instance) {
         $instanceSettings = $instance->getConfiguration();
@@ -514,36 +568,24 @@ class Component extends ConfigEntityBase implements ComponentInterface {
             continue;
           }
           $nestedId = $childShape->getNestedId();
-          $settings['plugins'][$nestedId][$instance->getPluginId()] = $instanceSettings;
+          $settings['plugins'][$nestedId][$instance->getPluginId()] = [
+            'id' => $instance->getPluginId(),
+            'settings' => $instanceSettings,
+          ];
         }
       }
     }
-    // CYLE, the prop changes are not making it to the component for saving.
-    ksm('final shape settings', $shape->getName(), $settings);
     $this->settings['props'][$shape->getName()] = $settings;
     return $this;
   }
 
   /**
-   * Retrieves a flat array of all shapes keyed by their nested ID.
-   *
-   * This method iterates through the provided shapes and collects them into an
-   * associative array. If a shape has child shapes, it collects those as well.
-   *
-   * @param \Drupal\neo_alchemist\ComponentShapePluginInterface[] $shapes
-   *   An array of shape objects to process.
-   * @param bool $addRefToKey
-   *   (optional) Whether to add the shape's reference to the key. Defaults to
-   *   FALSE.
-   *
-   * @return array
-   *   An associative array of all shapes, with keys being the shape's nested ID
-   *   (and optionally the reference) and values being the shape objects.
+   * {@inheritdoc}
    */
-  protected function getAllPropShapes(array $shapes, $addRefToKey = FALSE): array {
+  public function getAllPropShapes(array $shapes, $addRefToKey = FALSE): array {
     $allShapes = [];
     foreach ($shapes as $shape) {
-      $allShapes += $shape->getAllChildShapes(TRUE, $addRefToKey);
+      $allShapes += $shape->getAllShapes(TRUE, $addRefToKey);
     }
     ksort($allShapes);
     return $allShapes;

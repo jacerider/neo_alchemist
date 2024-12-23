@@ -117,13 +117,15 @@ final class InstanceComponentForm extends ContentEntityForm {
     $values = [
       'status' => (int) !empty($form_state->getValue('status')),
     ];
+    // Cyle, if we set for default option we loose the custom value we set.
+    // is this intended?
     $original_values = $form_state->get('original_values') ?? [];
     foreach ($this->instance->getPropShapes() as $propName => $shape) {
       if (isset($form['values'][$propName])) {
         $subform_state = SubformState::createForSubform($form['values'][$propName], $form, $form_state);
         $originalValue = $original_values['props'][$propName]['value'] ?? [];
         $value = $subform_state->getValues();
-        unset($value['_options']);
+        // unset($value['_options']);
         $shape->validateForm($form['values'][$propName], $subform_state, $value);
         $values['props'][$propName]['shape'] = $shape->getPluginId();
         if (is_array($value) && !empty($value)) {
@@ -132,9 +134,10 @@ final class InstanceComponentForm extends ContentEntityForm {
         else {
           $values['props'][$propName]['value'] = $originalValue;
         }
-        $values['props'][$propName]['options'] = $subform_state->getValue('_options', []);
+        $values['props'][$propName]['options'] = $shape->getNestedOptions();
       }
     }
+    ksm($values);
     $this->instance->setValues($values);
     return $this->entity;
   }
@@ -166,6 +169,7 @@ final class InstanceComponentForm extends ContentEntityForm {
    * {@inheritdoc}
    */
   public function save(array $form, FormStateInterface $form_state): int {
+    // return 1;
     $this->instance->setRebuilding(FALSE);
     $form_state->setRedirectUrl($this->instance->toUrl());
 

@@ -29,6 +29,11 @@ class ObjectShape extends ChildrenShapeBase implements ComponentShapeExpandedPlu
   /**
    * {@inheritDoc}
    */
+  protected bool $optionEmptyInitAccess = TRUE;
+
+  /**
+   * {@inheritDoc}
+   */
   protected function getDefaultFieldType(): string {
     return 'map';
   }
@@ -70,8 +75,10 @@ class ObjectShape extends ChildrenShapeBase implements ComponentShapeExpandedPlu
 
       // Check if the object has required properties. If so, we allow the prop
       // to be set as empty.
-      $hasRequired = !empty(array_filter($this->childShapes, fn ($shape) => $shape->isRequired()));
-      $this->setOptionEmptyAccess(!$hasRequired);
+      if (!empty(array_filter($this->childShapes, fn ($shape) => $shape->isRequired()))) {
+        $logMessage = 'Object has children that are required and cannot be set as empty.';
+        $this->getOptionEmpty()->setLockedValue(FALSE, $logMessage)->setAccess(FALSE, $logMessage);
+      }
     }
     return $this->childShapes;
   }
@@ -99,7 +106,8 @@ class ObjectShape extends ChildrenShapeBase implements ComponentShapeExpandedPlu
     $value = [];
     foreach ($this->getChildShapes() as $shape) {
       $value[$shape->getName()] = $shape->getValue();
-      if ($shape->isOptionEmpty() || empty($value[$shape->getName()])) {
+      if ($shape->getOptionEmpty()->isEnabled() || empty($value[$shape->getName()])) {
+        // Do not include empty values or values that are set to empty.
         unset($value[$shape->getName()]);
       }
     }
@@ -122,6 +130,11 @@ class ObjectShape extends ChildrenShapeBase implements ComponentShapeExpandedPlu
       $form['#description'] = $this->getDescription();
       $form['#description_display'] = 'before';
       foreach ($shapes as $shape) {
+        // When in config scope, we only display forms if the child shape allows
+        // plugins.
+        if ($shape->getScope() === 'config' && $shape->allowPlugins()) {
+          continue;
+        }
         // Force values to allow nesting of multiple shapes.
         if ($values[$shape->getName()] ?? NULL) {
           $shape->setFieldItemValue($values[$shape->getName()]);
@@ -141,18 +154,13 @@ class ObjectShape extends ChildrenShapeBase implements ComponentShapeExpandedPlu
    * {@inheritDoc}
    */
   public function validateForm(array $form, FormStateInterface $form_state, array $values): void {
+    parent::validateForm($form, $form_state, $values);
     foreach ($this->getChildShapes() as $shape) {
       if (isset($form[$shape->getName()])) {
         $subform_state = SubformState::createForSubform($form[$shape->getName()], $form, $form_state);
         $shape->validateForm($form[$shape->getName()], $subform_state, $values[$shape->getName()] ?? []);
-        $form_state->setValue([
-          '_options',
-          'nested',
-          $shape->getNestedId(),
-        ], $subform_state->getValue('_options'));
       }
     }
-    parent::validateForm($form, $form_state, $values);
   }
 
   /**

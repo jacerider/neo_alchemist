@@ -41,7 +41,8 @@ class ArrayShape extends ChildrenShapeBase {
   public function init(): self {
     // $this->setOptionDefaultAccess(FALSE);
     // We need to look at this because this doesn't make sense for default values.
-    $this->setOptionEmptyAccess(FALSE);
+    // $this->setOptionEmptyAccess(FALSE);
+    $this->getOptionEmpty()->setAccess(FALSE, 'Array shapes cannot be set as empty.');
     return parent::init();
   }
 
