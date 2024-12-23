@@ -7,7 +7,7 @@ namespace Drupal\neo_alchemist;
 /**
  * Base class for neo_component_shape plugins.
  */
-class ComponentShapePluginOption {
+class ComponentShapeOption {
 
   /**
    * The value of the component shape plugin option.
@@ -38,7 +38,7 @@ class ComponentShapePluginOption {
   protected array $log = [];
 
   /**
-   * Constructs a new ComponentShapePluginOption object.
+   * Constructs a new ComponentShapeOption object.
    *
    * @param bool $value
    *   The value of the component shape plugin option.

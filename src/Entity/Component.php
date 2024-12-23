@@ -444,49 +444,69 @@ class Component extends ConfigEntityBase implements ComponentInterface {
       $original = $this->original;
       $currentSchema = Json::decode($this->get('schema'));
       $currentRootShapes = $original->loadPropShapes($currentSchema);
-      $currentShapes = $original->getAllPropShapes($currentRootShapes, TRUE);
+      $currentShapes = $original->getAllPropShapes($currentRootShapes);
       $newRootShapes = $this->getPropShapes();
-      $newShapes = $this->getAllPropShapes($newRootShapes, TRUE);
-      foreach ($currentRootShapes as $nestedId => $currentShape) {
-        $currentPlugins = $currentShape->getPlugins();
-        $newPlugins = [];
-        if (isset($newRootShapes[$nestedId])) {
-          $newPlugins = $newRootShapes[$nestedId]->getPlugins();
-        }
-        $addedPlugins = array_diff_key($newPlugins, $currentPlugins);
-        $removedPlugins = array_diff_key($currentPlugins, $newPlugins);
-        // ksm('added plugins', $addedPlugins);
-        // ksm('removed plugins', $removedPlugins);
-      }
+      $newShapes = $this->getAllPropShapes($newRootShapes);
 
+      // If a prop has been added/removed/type changed, we need to fire off
+      // events and store the changes.
       if ($currentExpression !== $newExpression) {
+        // We add the shape ref to the key so we can find instances where the
+        // prop name is the same but the shape is different.
+        $currentShapesWithRef = [];
+        foreach ($currentShapes as $nestedId => $shape) {
+          $currentShapesWithRef[$nestedId . ':' . $shape->getRef()] = $shape;
+        }
+        $newShapesWithRef = [];
+        foreach ($newShapes as $nestedId => $shape) {
+          $newShapesWithRef[$nestedId . ':' . $shape->getRef()] = $shape;
+        }
 
-        $addedShapes = array_diff_key($newShapes, $currentShapes);
-        $removedShapes = array_diff_key($currentShapes, $newShapes);
+        $addedShapes = array_diff_key($newShapesWithRef, $currentShapesWithRef);
+        $removedShapes = array_diff_key($currentShapesWithRef, $newShapesWithRef);
         foreach ($addedShapes as $shape) {
-          ksm('ADDED PROP', $shape->getNestedId());
           $shape->onAdd();
         }
         foreach ($removedShapes as $shape) {
-          ksm('REMOVED PROP', $shape->getNestedId());
           $shape->onRemove();
         }
 
+        // Process all props and store the settings.
         $this->setSetting('props', []);
         foreach ($newRootShapes as $shape) {
           $this->setPropShapeSettings($shape);
         }
         $this->setSetting('props', $this->getAllPropShapeSettings());
 
-        // Only keep settings for props that are still present.
-        // $settings = $this->getAllPropShapeSettings();
-        ksm('final settings', $this->getAllPropShapeSettings());
-        // $settings = array_intersect_key($settings, $newRootShapes);
-        // $this->setSetting('props', $settings);
-
         // Update schema and expression.
         $this->set('schema', Json::encode($this->getComponentSchema()));
         $this->set('expression', $newExpression);
+      }
+
+      // Find all prop plugins changes and fire off add/remove events.
+      foreach ($currentRootShapes + $newRootShapes as $nestedId => $shape) {
+        $currentPlugins = [];
+        if (isset($currentRootShapes[$nestedId])) {
+          $currentPlugins = $currentRootShapes[$nestedId]->getPlugins();
+        }
+        $newPlugins = [];
+        if (isset($newRootShapes[$nestedId])) {
+          $newPlugins = $newRootShapes[$nestedId]->getPlugins();
+        }
+        foreach ($currentPlugins as $nestedId => $plugins) {
+          foreach ($plugins as $pluginType => $plugin) {
+            if (!isset($newPlugins[$nestedId][$pluginType])) {
+              $currentShapes[$nestedId]->onPluginRemove($pluginType);
+            }
+          }
+        }
+        foreach ($newPlugins as $nestedId => $plugins) {
+          foreach ($plugins as $pluginType => $plugin) {
+            if (!isset($currentPlugins[$nestedId][$pluginType])) {
+              $newShapes[$nestedId]->onPluginAdd($pluginType);
+            }
+          }
+        }
       }
     }
     parent::preSave($storage);
@@ -499,51 +519,8 @@ class Component extends ConfigEntityBase implements ComponentInterface {
     if ($this->isNew()) {
       $this->set('id', $this->getUniqueId());
     }
-
-    $currentExpression = $this->getExpression();
-    $newExpression = $this->generateExpression();
-    if ($currentExpression !== $newExpression) {
-      $currentSchema = Json::decode($this->get('schema'));
-      $currentShapes = $this->getAllPropShapes($this->loadPropShapes($currentSchema), TRUE);
-      $newRootShapes = $this->getPropShapes();
-      $newShapes = $this->getAllPropShapes($newRootShapes, TRUE);
-
-      $addedShapes = array_diff_key($newShapes, $currentShapes);
-      $removedShapes = array_diff_key($currentShapes, $newShapes);
-      foreach ($addedShapes as $shape) {
-        ksm('ADDED PROP', $shape->getNestedId());
-        $shape->onAdd();
-      }
-      foreach ($removedShapes as $shape) {
-        ksm('REMOVED PROP', $shape->getNestedId());
-        $shape->onRemove();
-      }
-
-      $this->setSetting('props', []);
-      foreach ($newRootShapes as $shape) {
-        $this->setPropShapeSettings($shape);
-      }
-      $this->setSetting('props', $this->getAllPropShapeSettings());
-
-      // Only keep settings for props that are still present.
-      // $settings = $this->getAllPropShapeSettings();
-      ksm('final settings', $this->getAllPropShapeSettings());
-      // $settings = array_intersect_key($settings, $newRootShapes);
-      // $this->setSetting('props', $settings);
-
-      // Update schema and expression.
-      $this->set('schema', Json::encode($this->getComponentSchema()));
-      $this->set('expression', $newExpression);
-    }
     return parent::save();
   }
-
-  // /**
-  //  * {@inheritdoc}
-  //  */
-  // public function preSave(EntityStorageInterface $storage) {
-  //   parent::preSave($storage);
-  // }
 
   /**
    * {@inheritdoc}
@@ -582,10 +559,10 @@ class Component extends ConfigEntityBase implements ComponentInterface {
   /**
    * {@inheritdoc}
    */
-  public function getAllPropShapes(array $shapes, $addRefToKey = FALSE): array {
+  public function getAllPropShapes(array $shapes): array {
     $allShapes = [];
     foreach ($shapes as $shape) {
-      $allShapes += $shape->getAllShapes(TRUE, $addRefToKey);
+      $allShapes += $shape->getAllShapes(TRUE);
     }
     ksort($allShapes);
     return $allShapes;

@@ -27,12 +27,12 @@ interface ComponentValuePluginInterface extends ConfigurableInterface, PluginFor
   /**
    * Called when a prop is added to a component.
    */
-  public function onPropAdd(): void;
+  public function onAdd(): void;
 
   /**
    * Called when a prop is removed from a component.
    */
-  public function onPropRemove(): void;
+  public function onRemove(): void;
 
   /**
    * Called when the shape is initialized.

@@ -301,15 +301,12 @@ interface ComponentInterface extends ConfigEntityInterface {
    *
    * @param \Drupal\neo_alchemist\ComponentShapePluginInterface[] $shapes
    *   An array of shape objects to process.
-   * @param bool $addRefToKey
-   *   (optional) Whether to add the shape's reference to the key. Defaults to
-   *   FALSE.
    *
    * @return array
    *   An associative array of all shapes, with keys being the shape's nested ID
    *   (and optionally the reference) and values being the shape objects.
    */
-  public function getAllPropShapes(array $shapes, $addRefToKey = FALSE): array;
+  public function getAllPropShapes(array $shapes): array;
 
   /**
    * Converts the component entity to a renderable array.

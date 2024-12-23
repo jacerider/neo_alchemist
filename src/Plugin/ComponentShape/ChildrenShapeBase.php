@@ -29,7 +29,7 @@ abstract class ChildrenShapeBase extends ComponentShapePluginBase implements Com
    * @param array $schema
    *   The schema array from which to generate child shapes.
    *
-   * @return array
+   * @return \Drupal\neo_alchemist\ComponentShapePluginInterface[]
    *   An array of child shapes generated from the schema.
    */
   protected function getChildShapesFromSchema(array $schema): array {
@@ -41,7 +41,6 @@ abstract class ChildrenShapeBase extends ComponentShapePluginBase implements Com
       }
       // Add the current shape as a parent shape.
       $shape->addParentShape($this);
-      // Set the override value.
       $shape->setOverrideValue($value[$shape->getName()] ?? NULL);
       if ($this->getOptionDefault()->isEnabled()) {
         $shape->getOptionDefault()->setLockedValue(TRUE, 'Set by parent shape.');

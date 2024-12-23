@@ -3,7 +3,7 @@
   const shade:HTMLElement|null = document.querySelector('#neo-alchemist--shade');
   const overlay:HTMLElement|null = document.querySelector('#neo-alchemist--overlay');
   let component:HTMLElement|null = null;
-  const ops = ['edit', 'sort', 'delete', 'add-before', 'add-after'];
+  const ops = ['edit', 'sort', 'delete', 'clone', 'add-before', 'add-after'];
 
   const messages = document.getElementById('neo-alchemist--messages');
   if (messages) {

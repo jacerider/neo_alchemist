@@ -57,6 +57,7 @@ final class InstanceComponentPreviewController extends ControllerBase {
           'data-component-edit' => $component->access('update') ? 'true' : 'false',
           'data-component-delete' => $component->access('delete') ? 'true' : 'false',
           'data-component-sort' => $component->access('sort') ? 'true' : 'false',
+          'data-component-clone' => $component->access('update') ? 'true' : 'false',
           'data-component-create-before' => $component->access('create') ? 'true' : 'false',
           'data-component-create-after' => $component->access('create') ? 'true' : 'false',
         ]);

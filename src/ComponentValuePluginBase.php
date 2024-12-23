@@ -148,13 +148,13 @@ abstract class ComponentValuePluginBase extends PluginBase implements ComponentV
   /**
    * {@inheritdoc}
    */
-  public function onPropAdd(): void {
+  public function onAdd(): void {
   }
 
   /**
    * {@inheritdoc}
    */
-  public function onPropRemove(): void {
+  public function onRemove(): void {
   }
 
   /**

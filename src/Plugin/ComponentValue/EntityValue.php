@@ -217,7 +217,7 @@ final class EntityValue extends ComponentValuePluginBase implements ContainerFac
    */
   public function formAlter(array &$element, FormStateInterface $form_state) {
     $fieldDefinition = $this->fieldMatcher->getFieldDefinition($this->shape, $this->configuration['field']);
-    if (!$fieldDefinition || !isset($element['_options']['value_default'])) {
+    if (!$fieldDefinition || !isset($element['_options']['default'])) {
       return;
     }
     $entityTypeLabel = (string) $this->shape->getEntity()->getEntityType()->getLabel();
@@ -256,7 +256,7 @@ final class EntityValue extends ComponentValuePluginBase implements ContainerFac
         '%field' => $fieldDefinition->getLabel(),
       ]);
     }
-    $element['_options']['value_default']['#description'] = implode(' ', $description);
+    $element['_options']['default']['#description'] = implode(' ', $description);
   }
 
 }

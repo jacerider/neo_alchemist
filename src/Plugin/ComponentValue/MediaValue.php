@@ -207,7 +207,7 @@ final class MediaValue extends ComponentValuePluginBase implements ContainerFact
   /**
    * {@inheritdoc}
    */
-  public function onPropRemove(): void {
+  public function onRemove(): void {
     foreach (array_filter($this->configuration['default']) as $type => $default) {
       /** @var \Drupal\neo_config_file\ConfigFileInterface $configFile */
       $configFile = $this->entityTypeManager->getStorage('neo_config_file')->load($default);

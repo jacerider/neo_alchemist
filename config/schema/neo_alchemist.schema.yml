@@ -118,10 +118,10 @@ neo_alchemist.neo_component_value.default:
       type: mapping
       label: Options
       mapping:
-        value_empty:
+        empty:
           type: boolean
           label: Treat value as empty
-        value_default:
+        default:
           type: boolean
           label: Treat value as default
 

@@ -117,9 +117,9 @@ class ArrayShape extends ChildrenShapeBase {
         }
       }
       $this->childShapes[$delta] = array_map(function ($shape) {
+        // Do not allow setting the shape to default.
+        $shape->getOptionDefault()->setAccess(FALSE);
         return $shape
-          // Do not allow setting the shape to default.
-          ->setOptionDefaultAccess(FALSE)
           ->init();
       }, $this->getChildShapesFromSchema($schema['items']));
     }

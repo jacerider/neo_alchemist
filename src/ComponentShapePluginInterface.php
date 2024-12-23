@@ -55,6 +55,22 @@ interface ComponentShapePluginInterface extends PluginInspectionInterface, Deriv
   public function onRemove(): void;
 
   /**
+   * Handles the event when a plugin is added to a component prop.
+   *
+   * @param string $pluginId
+   *   The ID of the plugin being added.
+   */
+  public function onPluginAdd($pluginId): void;
+
+  /**
+   * Handles the event when a plugin is removed from a component prop.
+   *
+   * @param string $pluginId
+   *   The ID of the plugin being removed.
+   */
+  public function onPluginRemove($pluginId): void;
+
+  /**
    * Get the schema.
    *
    * @return array
@@ -229,6 +245,16 @@ interface ComponentShapePluginInterface extends PluginInspectionInterface, Deriv
   public function isRebuilding();
 
   /**
+   * Retrieves the root parent shape of the current component shape.
+   *
+   * If the shape is the root shape, it will return itself.
+   *
+   * @return ComponentShapePluginInterface
+   *   The root parent shape if it exists, or NULL if there is no parent.
+   */
+  public function getRootShape(): ComponentShapePluginInterface;
+
+  /**
    * Adds a parent shape to the current component shape.
    *
    * @param \Drupal\neo_alchemist\ComponentShapePluginInterface $parent
@@ -258,40 +284,26 @@ interface ComponentShapePluginInterface extends PluginInspectionInterface, Deriv
   public function getParentShape(): ?ComponentShapePluginInterface;
 
   /**
-   * Retrieves the root parent shape of the current component shape.
-   *
-   * If the shape is the root shape, it will return itself.
-   *
-   * @return ComponentShapePluginInterface
-   *   The root parent shape if it exists, or NULL if there is no parent.
-   */
-  public function getRootShape(): ComponentShapePluginInterface;
-
-  /**
    * Retrieves all expandable shapes recursively.
    *
    * @param bool $includeSelf
    *   Whether to include the current shape in the list.
-   * @param bool $addRefToKey
-   *   Whether to add a reference to the key.
    *
    * @return array
    *   An array of expandable shapes.
    */
-  public function getExpandedableShapes($includeSelf = FALSE, $addRefToKey = FALSE): array;
+  public function getExpandedableShapes($includeSelf = FALSE): array;
 
   /**
    * Retrieves all shapes that allow plugins recursively.
    *
    * @param bool $includeSelf
    *   Whether to include the current shape in the list.
-   * @param bool $addRefToKey
-   *   Whether to add a reference to the key.
    *
    * @return array
    *   An array of expanded children shapes.
    */
-  public function getPluginShapes($includeSelf = FALSE, $addRefToKey = FALSE): array;
+  public function getPluginShapes($includeSelf = FALSE): array;
 
   /**
    * Retrieves all child shapes recursively.
@@ -301,13 +313,11 @@ interface ComponentShapePluginInterface extends PluginInspectionInterface, Deriv
    *
    * @param bool $includeSelf
    *   Whether to include the current shape in the list.
-   * @param bool $addRefToKey
-   *   Whether to add a reference to the key.
    *
    * @return \Drupal\neo_alchemist\ComponentShapePluginInterface[]
    *   An associative array of all child shapes, keyed by their nested IDs.
    */
-  public function getAllShapes($includeSelf = FALSE, $addRefToKey = FALSE): array;
+  public function getAllShapes($includeSelf = FALSE): array;
 
   /**
    * Checks if the component shape is the root shape.
@@ -839,18 +849,26 @@ interface ComponentShapePluginInterface extends PluginInspectionInterface, Deriv
   /**
    * Retrieves the 'empty' option from the component shape plugin options.
    *
-   * @return \Drupal\neo_alchemist\ComponentShapePluginOption
+   * @return \Drupal\neo_alchemist\ComponentShapeOption
    *   The 'empty' option of the component shape plugin.
    */
-  public function getOptionEmpty(): ComponentShapePluginOption;
+  public function getOptionEmpty(): ComponentShapeOption;
 
   /**
    * Retrieves the 'default' option from the component shape plugin options.
    *
-   * @return \Drupal\neo_alchemist\ComponentShapePluginOption
+   * @return \Drupal\neo_alchemist\ComponentShapeOption
    *   The 'default' option of the component shape plugin.
    */
-  public function getOptionDefault(): ComponentShapePluginOption;
+  public function getOptionDefault(): ComponentShapeOption;
+
+  /**
+   * Retrieves the 'access' option from the component shape plugin options.
+   *
+   * @return \Drupal\neo_alchemist\ComponentShapeOption
+   *   The 'access' option of the component shape plugin.
+   */
+  public function getOptionAccess(): ComponentShapeOption;
 
   /**
    * Sets the options for a given nested ID.

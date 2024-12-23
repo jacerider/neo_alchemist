@@ -4,15 +4,25 @@ declare(strict_types=1);
 
 namespace Drupal\neo_alchemist\Entity;
 
+use Drupal\neo_alchemist\ComponentEntityInterface;
+use Drupal\neo_alchemist\ComponentFieldInterface;
+
 /**
  * A component instance.
  */
-final class ComponentEntity extends ComponentInstanceBase {
+final class ComponentEntity extends ComponentInstanceBase implements ComponentEntityInterface {
 
   /**
    * {@inheritdoc}
    */
   protected string $scope = 'entity';
+
+  /**
+   * The field component associated with this entity.
+   *
+   * @var \Drupal\neo_alchemist\ComponentFieldInterface|null
+   */
+  protected ?ComponentFieldInterface $fieldComponent;
 
   /**
    * {@inheritdoc}
@@ -27,6 +37,23 @@ final class ComponentEntity extends ComponentInstanceBase {
       'sort' => $entity->toUrl("alchemist.sort")->setRouteParameter('neo_field', $fieldKey),
       default => $entity->toUrl("alchemist.manage")->setRouteParameter('neo_field', $fieldKey),
     };
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function getFieldComponent(): ?ComponentFieldInterface {
+    if (!isset($this->fieldComponent)) {
+      $this->fieldComponent = NULL;
+      $fieldItem = $this->getFieldDefinition()->getFieldItem();
+      $uuid = $this->uuid();
+      if ($fieldItem->hasComponent($uuid)) {
+        // We load with $noCache to ensure we get the config version of this
+        // component.
+        $this->fieldComponent = $this->getFieldDefinition()->getFieldItem()->getComponent($uuid, TRUE);
+      }
+    }
+    return $this->fieldComponent;
   }
 
 }

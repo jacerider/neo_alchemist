@@ -363,12 +363,14 @@ class ComponentTreeItem extends FieldItemBase implements RenderableInterface {
    *
    * @param string $uuid
    *   The UUID.
+   * @param bool $noCache
+   *   (optional) Whether to bypass the cache. Defaults to FALSE.
    *
    * @return \Drupal\neo_alchemist\ComponentInstanceInterface|null
    *   The Neo component instance.
    */
-  public function getComponent(string $uuid): ?ComponentInstanceInterface {
-    if (!isset(self::$components[$uuid])) {
+  public function getComponent(string $uuid, $noCache = FALSE): ?ComponentInstanceInterface {
+    if (!isset(self::$components[$uuid]) || $noCache) {
       self::$components[$uuid] = NULL;
       $tree = $this->get('tree');
       assert($tree instanceof ComponentTreeStructure);
@@ -384,6 +386,9 @@ class ComponentTreeItem extends FieldItemBase implements RenderableInterface {
           $value['values'] = $props->getComponentPropsSources($uuid);
           $entity_class = $this->getComponentInstanceClass();
           $instance = new $entity_class($value, 'neo_component');
+          if ($noCache) {
+            return $instance;
+          }
           self::$components[$uuid] = $instance;
         }
       }
@@ -410,6 +415,21 @@ class ComponentTreeItem extends FieldItemBase implements RenderableInterface {
       }
     }
     return $components;
+  }
+
+  /**
+   * Checks if the component with the given UUID exists in the tree.
+   *
+   * @param string $uuid
+   *   The UUID of the component to check.
+   *
+   * @return bool
+   *   TRUE if the component exists in the tree, FALSE otherwise.
+   */
+  public function hasComponent(string $uuid): bool {
+    $tree = $this->get('tree');
+    assert($tree instanceof ComponentTreeStructure);
+    return in_array($uuid, $tree->getComponentInstanceUuids());
   }
 
   /**

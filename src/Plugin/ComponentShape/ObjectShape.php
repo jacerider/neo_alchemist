@@ -68,8 +68,12 @@ class ObjectShape extends ChildrenShapeBase implements ComponentShapeExpandedPlu
       }
       $this->childShapes = array_map(function ($shape) {
         if ($this->isSingleProp()) {
-          $shape->setOptionDefaultAccess(FALSE);
+          $shape->getOptionDefault()->setAccess(FALSE, 'Object has a single child property.');
         }
+        // Set the override value.
+        // if ($shape->getOptionDefault()->isEnabled()) {
+        //   ksm($shape->getNestedId());
+        // }
         return $shape->init();
       }, $this->getChildShapesFromSchema($schema));
 
@@ -78,6 +82,8 @@ class ObjectShape extends ChildrenShapeBase implements ComponentShapeExpandedPlu
       if (!empty(array_filter($this->childShapes, fn ($shape) => $shape->isRequired()))) {
         $logMessage = 'Object has children that are required and cannot be set as empty.';
         $this->getOptionEmpty()->setLockedValue(FALSE, $logMessage)->setAccess(FALSE, $logMessage);
+        // $logMessage = 'Object has children that are required so it can be have a default value.';
+        // $this->getOptionDefault()->setLockedValue(TRUE, $logMessage)->setAccess(FALSE, $logMessage);
       }
     }
     return $this->childShapes;
@@ -102,8 +108,19 @@ class ObjectShape extends ChildrenShapeBase implements ComponentShapeExpandedPlu
   /**
    * {@inheritDoc}
    */
-  public function adaptValue(mixed $value): mixed {
-    $value = [];
+  public function getValue(): mixed {
+    $value = parent::getValue();
+    // foreach ($this->getChildShapes() as $shape) {
+    //   $shapeName = $shape->getName();
+    //   if (is_array($value[$shapeName])) {
+    //     $value[$shapeName] = $shape->denormalizeValue($value[$shapeName]);
+    //   }
+    //   if (empty($value[$shape->getName()])) {
+    //     unset($value[$shape->getName()]);
+    //   }
+    // }
+    // return $value;
+    // Cyle, we are not able to pull the default value from the child shapes.
     foreach ($this->getChildShapes() as $shape) {
       $value[$shape->getName()] = $shape->getValue();
       if ($shape->getOptionEmpty()->isEnabled() || empty($value[$shape->getName()])) {
@@ -113,6 +130,24 @@ class ObjectShape extends ChildrenShapeBase implements ComponentShapeExpandedPlu
     }
     return $value;
   }
+
+  /**
+   * {@inheritDoc}
+   */
+  // public function adaptValue(mixed $value): mixed {
+  //   $value = [];
+  //   foreach ($this->getChildShapes() as $shape) {
+  //     $value[$shape->getName()] = $shape->getValue();
+  //     if ($shape->getNestedId() === 'heading~supertitle') {
+  //       ksm($shape->getOptionDefault());
+  //     }
+  //     if ($shape->getOptionEmpty()->isEnabled() || empty($value[$shape->getName()])) {
+  //       // Do not include empty values or values that are set to empty.
+  //       unset($value[$shape->getName()]);
+  //     }
+  //   }
+  //   return $value;
+  // }
 
   /**
    * {@inheritDoc}

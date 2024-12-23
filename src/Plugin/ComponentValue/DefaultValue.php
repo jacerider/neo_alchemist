@@ -84,11 +84,12 @@ final class DefaultValue extends ComponentValuePluginBase implements ContainerFa
         'schema' => $this->shape->getSchema(),
         'component' => $this->shape->getComponent(),
       ]);
-      $this->defaultShape->getOptionDefault()->setAccess(FALSE);
+      if (!$this->defaultShape instanceof ComponentShapeChildrenPluginInterface) {
+        $this->defaultShape->getOptionDefault()->setAccess(FALSE, 'Default shape without child props cannot set default values.');
+      }
       $this->defaultShape
         ->setNestedOptions($this->configuration['options'] ?? [])
         ->setOverrideValue($this->configuration['default'] ?? [])
-        // Send expanded status.
         ->setExpanded($this->shape->getExpanded())
         ->init();
     }
@@ -117,7 +118,6 @@ final class DefaultValue extends ComponentValuePluginBase implements ContainerFa
     }
     $values = [
       'default' => $defaultShape->massageFormValues($values, $originalValues, $form, $form_state),
-      // 'options' => $form_state->getValue('_options') ?? [],
       'options' => $defaultShape->getNestedOptions(),
     ];
     $form_state->setValues(array_filter($values));
@@ -135,7 +135,8 @@ final class DefaultValue extends ComponentValuePluginBase implements ContainerFa
    * {@inheritdoc}
    */
   public function provideDefaultValue(mixed $value): mixed {
-    return $this->configuration['default'];
+    $defaultShape = $this->getDefaultShape();
+    return $defaultShape->getValue();
   }
 
 }

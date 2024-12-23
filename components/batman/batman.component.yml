@@ -28,6 +28,24 @@ props:
     #     b:
     #       type: string
     #       title: B
+    #     c:
+    #       type: string
+    #       title: C
+    #     image:
+    #       title: 'Image'
+    #       type: image
+    #       examples:
+    #         - src: https://placehold.co/300x200.png
+    #           alt: 'Boring placeholder'
+    #           width: 300
+    #           height: 200
+    # a:
+    #   type: object
+    #   title: AA
+    #   properties:
+    #     b:
+    #       type: string
+    #       title: B
     #     bb:
     #       type: object
     #       title: BB
@@ -50,14 +68,14 @@ props:
     #                   alt: 'Boring placeholder'
     #                   width: 300
     #                   height: 200
-    # image:
-    #   title: 'Image'
-    #   type: image
-    #   examples:
-    #     - src: https://placehold.co/300x200.png
-    #       alt: 'Boring placeholder'
-    #       width: 300
-    #       height: 200
+    image:
+      title: 'Image'
+      type: image
+      examples:
+        - src: https://placehold.co/300x200.png
+          alt: 'Boring placeholder'
+          width: 300
+          height: 200
     # tmp:
     #   type: object
     #   title: Tmp
