@@ -11,6 +11,10 @@ props:
   # required:
   #   - color
   properties:
+    markup:
+      type: markup
+      title: Markup
+      examples: <h2>H2</h2><h3>H3</h3><h4>H4</h4><h5>H5</h5><p><strong>Hello</strong> good <a href="#">friend</a></p>
     title:
       type: string
       title: Title

@@ -108,9 +108,11 @@ class ComponentShapeOption {
    *   The current instance of the class for method chaining.
    */
   public function setLockedValue(bool $value, string $logMessage = NULL): self {
-    $this->lockedValue = $value;
-    if ($logMessage) {
-      $this->addLog('setLockedValue: ' . $logMessage);
+    if (!isset($this->lockedValue)) {
+      $this->lockedValue = $value;
+      if ($logMessage) {
+        $this->addLog('setLockedValue: ' . $logMessage);
+      }
     }
     return $this;
   }

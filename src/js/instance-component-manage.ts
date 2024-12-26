@@ -1,24 +1,17 @@
 (function (Drupal, drupalSettings, displace) {
   const iframe = document.getElementById('neo-alchemist--iframe') as HTMLIFrameElement;
-  // iframe.style.maxWidth = '100%';
 
   window.addEventListener('message', function (e) {
     // Get the sent data
     const data = JSON.parse(e.data);
     if (typeof data.type === 'string') {
-      console.log(data);
-      switch (data.type) {
-        case 'edit':
-          return Drupal.behaviors.neoAlchemistInstanceComponentManage.edit(data.uuid);
-        case 'sort':
-          return Drupal.behaviors.neoAlchemistInstanceComponentManage.sort(data.uuid);
-        case 'delete':
-          return Drupal.behaviors.neoAlchemistInstanceComponentManage.delete(data.uuid);
-        case 'add-before':
-          return Drupal.behaviors.neoAlchemistInstanceComponentManage.add(data.uuid, 'before');
-        case 'add-after':
-          return Drupal.behaviors.neoAlchemistInstanceComponentManage.add(data.uuid, 'after');
+      const parts = data.type.split('-');
+      const op = parts[0];
+      const spec = parts[1] ?? null;
+      if (typeof Drupal.behaviors.neoAlchemistInstanceComponentManage[op] !== 'function') {
+        return;
       }
+      Drupal.behaviors.neoAlchemistInstanceComponentManage[op](data.uuid, spec);
     }
   });
 
@@ -54,7 +47,6 @@
               });
               el.classList.add('is-active');
               iframe.style.maxWidth = data.width;
-              // console.log(data, iframe);
             }
           });
         });
@@ -82,6 +74,14 @@
         url: drupalSettings.neoAlchemist.baseUrl + '/delete/' + uuid,
         dialogType: 'modal',
         dialog: modalOptions,
+      }).execute();
+    },
+
+    clone: (uuid: string) => {
+      Drupal.ajax({
+        url: drupalSettings.neoAlchemist.baseUrl + '/clone/' + uuid,
+        // dialogType: 'modal',
+        // dialog: modalOptions,
       }).execute();
     },
 

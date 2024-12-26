@@ -1,14 +1,22 @@
 <div id="neo-alchemist--shade" class="absolute bg-white/50 pointer-events-none transition-opacity opacity-0 z-40 is-active:opacity-100"></div>
 <div id="neo-alchemist--overlay" class="absolute shadow-lg border-2 border-dotted opacity-0 z-40 pointer-events-none transition-opacity is-active:opacity-100 is-active:pointer-events-auto">
-  <div class="absolute bottom-full left-0 right-0 bg-base-900 text-center">
-    <a class="op op-add-before btn btn-xs" href="">{{ icon('plus') }} {{ 'Add Component Before'|t }}</a>
+  <div class="absolute grid grid-cols-2 gap-2 items-center p-2 bottom-full -left-1 -right-1 bg-base-900 text-base-content-900 text-center rounded-t">
+    <div class="flex gap-2">
+      {{ status }}
+      <div class="title text-sm"></div>
+    </div>
+    <div class="flex gap-2 ml-auto">
+      {{ op_add_before }}
+    </div>
   </div>
-  <div class="absolute top-full left-0 right-0 bg-base-900 text-center">
-    <a class="op op-add-after btn btn-xs" href="">{{ icon('plus') }} {{ 'Add Component After'|t }}</a>
+  <div class="absolute grid grid-cols-2 gap-2 items-center p-2 top-full -left-1 -right-1 bg-base-900 text-base-content-900 text-center rounded-b">
+    <div class="flex">
+      {% for op in ops %}
+        {{ op }}
+      {% endfor %}
+    </div>
+    <div class="flex gap-2 ml-auto">
+      {{ op_add_after }}
+    </div>
   </div>
-  <a class="op op-edit btn" href="">Edit</a>
-  <a class="op op-sort btn" href="">Sort</a>
-  <a class="op op-delete btn" href="">Remove</a>
-  <a class="op op-clone btn" href="">Clone</a>
-  <a class="op op-reset btn" href="">Reset</a>
 </div>

@@ -144,6 +144,13 @@ class Component extends ConfigEntityBase implements ComponentInterface {
   protected string $scope = 'config';
 
   /**
+   * The preview status of the component.
+   *
+   * @var bool
+   */
+  protected bool $preview = FALSE;
+
+  /**
    * The rebuilding status of the component.
    *
    * Will be try when the component is rebuilding without being saved.
@@ -234,6 +241,21 @@ class Component extends ConfigEntityBase implements ComponentInterface {
    */
   public function getScope(): string {
     return $this->scope;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function setPreview(bool $preview): self {
+    $this->preview = $preview;
+    return $this;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function isPreview(): bool {
+    return $this->preview;
   }
 
   /**
@@ -431,6 +453,9 @@ class Component extends ConfigEntityBase implements ComponentInterface {
     return $this->getAllPropShapeSettings()[$propId] ?? [];
   }
 
+  /**
+   * {@inheritdoc}
+   */
   public function preSave(EntityStorageInterface $storage) {
     $currentExpression = $this->getExpression();
     $newExpression = $this->generateExpression();

@@ -93,6 +93,25 @@ interface ComponentInterface extends ConfigEntityInterface {
   public function getScope(): string;
 
   /**
+   * Sets the preview status of the component.
+   *
+   * @param bool $preview
+   *   The preview status to set.
+   *
+   * @return $this
+   *   The current instance of the component.
+   */
+  public function setPreview(bool $preview): self;
+
+  /**
+   * Checks if the component is in preview mode.
+   *
+   * @return bool
+   *   TRUE if the component is in preview mode, FALSE otherwise.
+   */
+  public function isPreview(): bool;
+
+  /**
    * Set the component as rebuilding.
    *
    * @param bool $rebuilding

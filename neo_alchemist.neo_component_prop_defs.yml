@@ -13,6 +13,9 @@ heading:
     subtitle:
       title: Subtitle
       type: string
+markup:
+  title: Markup
+  type: string
 image:
   title: Image
   type: object

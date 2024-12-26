@@ -11,6 +11,9 @@
     {{ neo_image_style(image.src, {scaleCrop: {width: 300, height: 200}}, image.alt) }}
   </div>
   <div>
+    {% if markup %}
+      <div class="prose max-w-none">{{ markup }}</div>
+    {% endif %}
     <div class="flex flex-col gap-2">
       {% if tmp %}
         {{ tmp.one }}: {{ tmp.child.two }}

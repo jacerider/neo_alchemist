@@ -1,22 +1,15 @@
-(function(a, o, c) {
-  const i = document.getElementById("neo-alchemist--iframe");
-  window.addEventListener("message", function(t) {
-    const e = JSON.parse(t.data);
-    if (typeof e.type == "string")
-      switch (console.log(e), e.type) {
-        case "edit":
-          return a.behaviors.neoAlchemistInstanceComponentManage.edit(e.uuid);
-        case "sort":
-          return a.behaviors.neoAlchemistInstanceComponentManage.sort(e.uuid);
-        case "delete":
-          return a.behaviors.neoAlchemistInstanceComponentManage.delete(e.uuid);
-        case "add-before":
-          return a.behaviors.neoAlchemistInstanceComponentManage.add(e.uuid, "before");
-        case "add-after":
-          return a.behaviors.neoAlchemistInstanceComponentManage.add(e.uuid, "after");
-      }
+(function(t, i, l) {
+  const s = document.getElementById("neo-alchemist--iframe");
+  window.addEventListener("message", function(e) {
+    const o = JSON.parse(e.data);
+    if (typeof o.type == "string") {
+      const n = o.type.split("-"), a = n[0], d = n[1] ?? null;
+      if (typeof t.behaviors.neoAlchemistInstanceComponentManage[a] != "function")
+        return;
+      t.behaviors.neoAlchemistInstanceComponentManage[a](o.uuid, d);
+    }
   });
-  const n = {
+  const c = {
     width: "100%",
     height: "100%",
     neo: {
@@ -24,53 +17,60 @@
       displaceBottom: "0px"
     }
   };
-  a.behaviors.neoAlchemistInstanceComponentManage = {
+  t.behaviors.neoAlchemistInstanceComponentManage = {
     attach: function() {
-      c && c(!0), [
+      l && l(!0), [
         { id: "sm", width: "440px", active: !1 },
         { id: "md", width: "768px", active: !1 },
         { id: "lg", width: "100%", active: !0 }
-      ].forEach((t) => {
-        once("neo.alchemist", "#neo-alchemist--resize-" + t.id).forEach((e) => {
-          t.active && e.classList.add("is-active"), e.addEventListener("click", (d) => {
-            d.preventDefault(), i && (document.querySelectorAll(".neo-alchemist--resize").forEach((s) => {
-              s.classList.remove("is-active");
-            }), e.classList.add("is-active"), i.style.maxWidth = t.width);
+      ].forEach((e) => {
+        once("neo.alchemist", "#neo-alchemist--resize-" + e.id).forEach((o) => {
+          e.active && o.classList.add("is-active"), o.addEventListener("click", (n) => {
+            n.preventDefault(), s && (document.querySelectorAll(".neo-alchemist--resize").forEach((a) => {
+              a.classList.remove("is-active");
+            }), o.classList.add("is-active"), s.style.maxWidth = e.width);
           });
         });
       });
     },
-    edit: (t) => {
-      a.ajax({
-        url: o.neoAlchemist.baseUrl + "/edit/" + t,
+    edit: (e) => {
+      t.ajax({
+        url: i.neoAlchemist.baseUrl + "/edit/" + e,
         dialogType: "modal",
-        dialog: n
+        dialog: c
       }).execute();
     },
-    sort: (t) => {
-      a.ajax({
-        url: o.neoAlchemist.baseUrl + "/sort?uuid=" + t,
+    sort: (e) => {
+      t.ajax({
+        url: i.neoAlchemist.baseUrl + "/sort?uuid=" + e,
         dialogType: "modal",
-        dialog: n
+        dialog: c
       }).execute();
     },
-    delete: (t) => {
-      a.ajax({
-        url: o.neoAlchemist.baseUrl + "/delete/" + t,
+    delete: (e) => {
+      t.ajax({
+        url: i.neoAlchemist.baseUrl + "/delete/" + e,
         dialogType: "modal",
-        dialog: n
+        dialog: c
       }).execute();
     },
-    add: (t, e) => {
-      a.ajax({
-        url: o.neoAlchemist.baseUrl + `/library?${e}=${t}`,
+    clone: (e) => {
+      t.ajax({
+        url: i.neoAlchemist.baseUrl + "/clone/" + e
+        // dialogType: 'modal',
+        // dialog: modalOptions,
+      }).execute();
+    },
+    add: (e, o) => {
+      t.ajax({
+        url: i.neoAlchemist.baseUrl + `/library?${o}=${e}`,
         dialogType: "modal",
-        dialog: n
+        dialog: c
       }).execute();
     }
-  }, a.AjaxCommands && (a.AjaxCommands.prototype.neoAlchemistInstanceComponentPreviewIframe = function(t, e, d) {
-    var s;
-    i && ((s = i.contentDocument) == null || s.location.reload());
+  }, t.AjaxCommands && (t.AjaxCommands.prototype.neoAlchemistInstanceComponentPreviewIframe = function(e, o, n) {
+    var a;
+    s && ((a = s.contentDocument) == null || a.location.reload());
   });
 })(Drupal, drupalSettings, Drupal.displace);
 //# sourceMappingURL=instance-component-manage.js.map

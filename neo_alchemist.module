@@ -20,6 +20,7 @@ use Drupal\neo_alchemist\Form\InstanceComponentPublishForm;
 use Drupal\neo_alchemist\Form\InstanceComponentResetForm;
 use Drupal\neo_alchemist\Form\InstanceComponentRevertForm;
 use Drupal\neo_alchemist\Form\InstanceComponentSortForm;
+use Drupal\neo_tooltip\Tooltip;
 
 /**
  * Implements hook_theme().
@@ -59,7 +60,61 @@ function neo_alchemist_preprocess_page__neo_alchemist_preview(&$variables) {
       'status' => $variables['page']['status'],
     ];
   }
-  // $variables['wrapper_attributes']['class'][] = 'p-6';
+}
+
+/**
+ * Implements hook_preprocess_HOOK() for neo_alchemist_overlay.
+ */
+function template_preprocess_neo_alchemist_overlay(&$variables) {
+  // $tooltip = new Tooltip();
+  // $tooltip->setContent('Whoa!');
+  // $variables['status'] = $tooltip->buildFromString(t('Loading...'));
+
+  $variables['ops'] = [];
+  foreach ([
+    'edit' => t('Edit'),
+    'sort' => t('Sort'),
+    'clone' => t('Clone'),
+    'delete' => t('Delete'),
+  ] as $op => $label) {
+    $tooltip = new Tooltip($label);
+    $variables['ops'][$op] = [
+      '#type' => 'link',
+      '#title' => neo_admin_icon($label)->iconOnly(),
+      '#url' => Url::fromRoute('<current>'),
+      '#attributes' => [
+        'class' => ['op', 'btn', 'btn-xs'],
+        'data-op' => $op,
+      ],
+    ];
+    $tooltip->applyTo($variables['ops'][$op]);
+  }
+
+  $label = t('Add Component Before');
+  $tooltip = new Tooltip($label);
+  $variables['op_add_before'] = [
+    '#type' => 'link',
+    '#title' => neo_admin_icon($label, 'arrow-to-top')->iconOnly(),
+    '#url' => Url::fromRoute('<current>'),
+    '#attributes' => [
+      'class' => ['op', 'btn', 'btn-xs'],
+      'data-op' => 'add-before',
+    ],
+  ];
+  $tooltip->applyTo($variables['op_add_before']);
+
+  $label = t('Add Component After');
+  $tooltip = new Tooltip($label);
+  $variables['op_add_after'] = [
+    '#type' => 'link',
+    '#title' => neo_admin_icon($label, 'arrow-to-bottom')->iconOnly(),
+    '#url' => Url::fromRoute('<current>'),
+    '#attributes' => [
+      'class' => ['op', 'btn', 'btn-xs'],
+      'data-op' => 'add-after',
+    ],
+  ];
+  $tooltip->applyTo($variables['op_add_after']);
 }
 
 /**
@@ -118,6 +173,7 @@ function neo_alchemist_entity_type_alter(array &$entity_types) {
           $entityType->setLinkTemplate("alchemist.sort", "$canonical/alchemist/{neo_field}/sort");
           $entityType->setLinkTemplate("alchemist.add", "$canonical/alchemist/{neo_field}/add/{neo_component}");
           $entityType->setLinkTemplate("alchemist.edit", "$canonical/alchemist/{neo_field}/edit/{neo_component}");
+          $entityType->setLinkTemplate("alchemist.clone", "$canonical/alchemist/{neo_field}/clone/{neo_component}");
           $entityType->setLinkTemplate("alchemist.delete", "$canonical/alchemist/{neo_field}/delete/{neo_component}");
           $entityType->setFormClass('alchemist', InstanceComponentForm::class);
           $entityType->setFormClass('alchemist_publish', InstanceComponentPublishForm::class);

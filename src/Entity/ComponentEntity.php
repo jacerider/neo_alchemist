@@ -33,6 +33,7 @@ final class ComponentEntity extends ComponentInstanceBase implements ComponentEn
     $entity = $this->getTargetEntity();
     return match($rel) {
       'edit' => $entity->toUrl("alchemist.edit")->setRouteParameter('neo_field', $fieldKey)->setRouteParameter('neo_component', $this->uuid()),
+      'clone' => $entity->toUrl("alchemist.clone")->setRouteParameter('neo_field', $fieldKey)->setRouteParameter('neo_component', $this->uuid()),
       'delete' => $entity->toUrl("alchemist.delete")->setRouteParameter('neo_field', $fieldKey)->setRouteParameter('neo_component', $this->uuid()),
       'sort' => $entity->toUrl("alchemist.sort")->setRouteParameter('neo_field', $fieldKey),
       default => $entity->toUrl("alchemist.manage")->setRouteParameter('neo_field', $fieldKey),

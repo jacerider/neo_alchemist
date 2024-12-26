@@ -297,6 +297,14 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
     $this->options['empty'] = new ComponentShapeOption($this->optionEmptyInitValue, $this->optionEmptyInitAccess);
     $this->options['default'] = new ComponentShapeOption($this->optionDefaultInitValue, $this->optionDefaultInitAccess);
     $this->options['access'] = new ComponentShapeOption(TRUE, FALSE);
+
+    // When previewing a component, we prevent any further changes.
+    if ($this->getComponent()->isPreview()) {
+      $this->options['empty']->setLockedValue(FALSE, 'Preview mode');
+      $this->options['default']->setLockedValue(TRUE, 'Preview mode');
+      $this->options['access']->setLockedValue(TRUE, 'Preview mode');
+    }
+
     // Only set settings if the shape has not changed.
     if (isset($settings['shape']) && $settings['shape'] === $this->getPluginId()) {
       // Initialize settings.

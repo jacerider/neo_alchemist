@@ -1,0 +1,30 @@
+uuid: d70ec926-9f79-49f9-94cd-1a64b883e618
+langcode: en
+status: true
+dependencies:
+  config:
+    - filter.format.neo_simple
+  module:
+    - ckeditor5
+format: neo_simple
+editor: ckeditor5
+settings:
+  toolbar:
+    items:
+      - bold
+      - italic
+      - '|'
+      - link
+      - bulletedList
+      - numberedList
+  plugins:
+    ckeditor5_list:
+      properties:
+        reversed: true
+        startIndex: true
+      multiBlock: true
+    linkit_extension:
+      linkit_enabled: true
+      linkit_profile: default
+image_upload:
+  status: false

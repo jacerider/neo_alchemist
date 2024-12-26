@@ -1,0 +1,50 @@
+uuid: 42d05192-b014-4561-bba4-4449f7b1e483
+langcode: en
+status: true
+dependencies:
+  module:
+    - linkit
+name: 'Neo Simple'
+format: neo_simple
+weight: 0
+filters:
+  filter_align:
+    id: filter_align
+    provider: filter
+    status: false
+    weight: 9
+    settings: {  }
+  filter_autop:
+    id: filter_autop
+    provider: filter
+    status: false
+    weight: 10
+    settings: {  }
+  filter_caption:
+    id: filter_caption
+    provider: filter
+    status: false
+    weight: 15
+    settings: {  }
+  filter_html:
+    id: filter_html
+    provider: filter
+    status: true
+    weight: 0
+    settings:
+      allowed_html: '<br> <p> <strong> <em> <a href data-entity-type data-entity-uuid data-entity-substitution> <ul> <ol reversed start> <li>'
+      filter_html_help: true
+      filter_html_nofollow: false
+  filter_html_escape:
+    id: filter_html_escape
+    provider: filter
+    status: false
+    weight: -50
+    settings: {  }
+  linkit:
+    id: linkit
+    provider: linkit
+    status: true
+    weight: 0
+    settings:
+      title: true

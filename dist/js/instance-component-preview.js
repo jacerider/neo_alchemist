@@ -1,61 +1,70 @@
-(function(m, y) {
+(function(y, f) {
   let r = null;
-  const o = document.querySelector("#neo-alchemist--shade"), e = document.querySelector("#neo-alchemist--overlay");
-  let n = null;
-  const d = ["edit", "sort", "delete", "clone", "add-before", "add-after"], l = document.getElementById("neo-alchemist--messages");
-  l && (setTimeout(() => {
-    l.classList.add("transition-all"), l.classList.remove("opacity-0", "-translate-y-full");
-  }, 100), l.querySelector(".kint-rich") ? l.classList.remove("fixed") : setTimeout(() => {
-    l == null || l.classList.add("opacity-0", "-translate-y-full");
-  }, 4e3)), e && d.forEach((t) => {
-    var s;
-    (s = e.querySelector(`.op-${t}`)) == null || s.addEventListener("click", (c) => {
-      if (c.preventDefault(), n) {
-        const i = n.getAttribute("data-component-uuid"), a = JSON.stringify({
-          type: t,
-          uuid: i,
-          scrollY: window.scrollY,
-          scrollX: window.scrollX
-        });
-        window.parent.postMessage(a, "*");
+  const o = document.querySelector("#neo-alchemist--shade"), t = document.querySelector("#neo-alchemist--overlay");
+  let c = null;
+  const i = document.getElementById("neo-alchemist--messages");
+  i && (setTimeout(() => {
+    i.classList.add("transition-all"), i.classList.remove("opacity-0", "-translate-y-full");
+  }, 100), i.querySelector(".kint-rich") ? i.classList.remove("fixed") : setTimeout(() => {
+    i == null || i.classList.add("opacity-0", "-translate-y-full");
+  }, 4e3)), t && t.querySelectorAll(".op").forEach((s) => {
+    s.addEventListener("click", (a) => {
+      a.preventDefault();
+      const n = s.dataset.op;
+      if (c && n) {
+        const l = JSON.parse(c.dataset.component || "{}");
+        if (l.ops[n]) {
+          const p = JSON.stringify({
+            type: n,
+            uuid: l.uuid,
+            scrollY: window.scrollY,
+            scrollX: window.scrollX
+          });
+          console.log("message", p), window.parent.postMessage(p, "*");
+        }
       }
     });
   });
-  const h = (t) => {
-    n = t, d.forEach((s) => {
-      if (e && n) {
-        const c = e.querySelector(`.op-${s}`);
-        if (c && n.hasAttribute(`data-component-${s}`)) {
-          c.style.display = "";
-          const i = n.getAttribute(`data-component-${s}`) === "true";
-          c.style.display = i ? "" : "none";
+  const h = (e) => {
+    c = e;
+    const s = JSON.parse(c.dataset.component || "{}");
+    if (t && s.uuid) {
+      t.querySelectorAll(".op").forEach((l) => {
+        l.style.display = "none";
+      });
+      const n = t.querySelector(".title");
+      n && (n.innerHTML = s.label), s.ops && Object.keys(s.ops).forEach((l) => {
+        if (s.ops[l]) {
+          const m = t.querySelector(`[data-op="${l}"]`);
+          m && (m.style.display = "");
         }
-      }
-    }), p();
-  }, f = () => {
-    n = null, r = setTimeout(() => {
-      e && (e.classList.remove("is-active"), e.classList.remove("!transition-all")), o && (o.classList.remove("is-active"), o.classList.remove("!transition-all"));
+      });
+    }
+    d();
+  }, v = () => {
+    c = null, r = setTimeout(() => {
+      t && (t.classList.remove("is-active"), t.classList.remove("!transition-all")), o && (o.classList.remove("is-active"), o.classList.remove("!transition-all"));
     }, 100);
-  }, p = () => {
-    if (n) {
+  }, d = () => {
+    if (c) {
       r && clearTimeout(r);
-      const t = n.getBoundingClientRect(), s = t.top + window.scrollY, c = t.bottom + window.scrollY, i = t.left + window.scrollX, a = t.right + window.scrollX;
-      e && (e.style.top = s + "px", e.style.left = i + "px", e.style.width = t.width + "px", e.style.height = t.height + "px", e.classList.add("is-active"), setTimeout(() => {
-        e.classList.add("!transition-all");
-      }), e.addEventListener("mouseleave", u)), o && (o.style.top = "0px", o.style.right = "0px", o.style.bottom = "0px", o.style.left = "0px", o.style.width = document.body.clientWidth + "px", o.style.height = document.body.clientHeight + "px", o.style.clipPath = `polygon(0% 0%, 0% 100%, ${i}px 100%, ${i}px ${s}px, ${a}px ${s}px, ${a}px ${c}px, ${i}px ${c}px, ${i}px 100%, 100% 100%, 100% 0%)`, o.classList.add("is-active"), setTimeout(() => {
+      const e = c.getBoundingClientRect(), s = e.top + window.scrollY, a = e.bottom + window.scrollY, n = e.left + window.scrollX, l = e.right + window.scrollX;
+      t && (t.style.top = s + "px", t.style.left = n + "px", t.style.width = e.width + "px", t.style.height = e.height + "px", t.classList.add("is-active"), setTimeout(() => {
+        t.classList.add("!transition-all");
+      }), t.addEventListener("mouseleave", u)), o && (o.style.top = "0px", o.style.right = "0px", o.style.bottom = "0px", o.style.left = "0px", o.style.width = document.body.clientWidth + "px", o.style.height = document.body.clientHeight + "px", o.style.clipPath = `polygon(0% 0%, 0% 100%, ${n}px 100%, ${n}px ${s}px, ${l}px ${s}px, ${l}px ${a}px, ${n}px ${a}px, ${n}px 100%, 100% 100%, 100% 0%)`, o.classList.add("is-active"), setTimeout(() => {
         o.classList.add("!transition-all");
       }));
     }
-  }, u = (t) => {
-    t.currentTarget.removeEventListener("mouseleave", u), f();
+  }, u = (e) => {
+    e.currentTarget.removeEventListener("mouseleave", u), v();
   };
   setInterval(() => {
-    p();
-  }, 200), m.behaviors.neoAlchemistInstanceComponentPreview = {
+    d();
+  }, 200), y.behaviors.neoAlchemistInstanceComponentPreview = {
     attach: function() {
-      window.parent && y("neo.alchemist", "[data-component-uuid]").forEach((t) => {
-        t.addEventListener("mouseenter", () => {
-          h(t);
+      window.parent && f("neo.alchemist", "[data-component]").forEach((e) => {
+        e.addEventListener("mouseenter", () => {
+          h(e);
         });
       });
     }

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\neo_alchemist\Controller;
 
+use Drupal\Component\Serialization\Json;
 use Drupal\Core\Cache\CacheableMetadata;
 use Drupal\Core\Controller\ControllerBase;
 use Drupal\Core\Render\BareHtmlPageRendererInterface;
@@ -52,20 +53,26 @@ final class InstanceComponentPreviewController extends ControllerBase {
     if (!empty($build['components'][ComponentTreeStructure::ROOT_UUID])) {
       foreach ($build['components'][ComponentTreeStructure::ROOT_UUID] as $uuid => &$componentBuild) {
         $component = $neo_field->getComponent($uuid);
+        $data = [
+          'uuid' => $uuid,
+          'label' => $component->label(),
+          'ops' => [
+            'edit' => $component->access('update'),
+            'delete' => $component->access('delete'),
+            'sort' => $component->access('sort'),
+            'clone' => $component->access('clone'),
+            'add-before' => $component->access('create'),
+            'add-after' => $component->access('create'),
+          ],
+        ];
         $componentBuild['#props']['attributes'] = new Attribute([
-          'data-component-uuid' => $uuid,
-          'data-component-edit' => $component->access('update') ? 'true' : 'false',
-          'data-component-delete' => $component->access('delete') ? 'true' : 'false',
-          'data-component-sort' => $component->access('sort') ? 'true' : 'false',
-          'data-component-clone' => $component->access('update') ? 'true' : 'false',
-          'data-component-create-before' => $component->access('create') ? 'true' : 'false',
-          'data-component-create-after' => $component->access('create') ? 'true' : 'false',
+          'data-component' => Json::encode($data),
         ]);
       }
     }
 
     return $this->bareHtmlPageRenderer->renderBarePage($build, $this->getTitle($neo_field), 'page__neo_alchemist_preview', [
-      '#attributes' => ['class' => ['!p-6']],
+      '#attributes' => ['class' => ['!p-10']],
     ])
       ->addCacheableDependency((new CacheableMetadata())->setCacheMaxAge(0));
   }

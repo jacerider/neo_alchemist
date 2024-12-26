@@ -124,6 +124,7 @@ abstract class ComponentInstanceBase extends Component implements ComponentInsta
       $operation === 'create' && $targetEntityTypeId && $targetEntityTypeId !== $targetEntity->getEntityTypeId() => AccessResult::forbidden('Invalid target entity type.'),
       $operation === 'create' && $targetEntityBundle && $targetEntityBundle !== $targetEntity->bundle() => AccessResult::forbidden('Invalid target entity bundle.'),
       $operation === 'update' => AccessResult::allowedIf($this->isPublished())->andIf($this->getFieldItem()->access('update', $account, TRUE)),
+      $operation === 'clone' => AccessResult::allowedIf($this->isPublished())->andIf($this->getFieldItem()->access('update', $account, TRUE)),
       $operation === 'sort' => AccessResult::allowedIf($this->isPublished())->andIf($this->getFieldItem()->access('sort', $account, TRUE)),
       default => $this->getFieldItem()->access($operation, $account, TRUE),
     };
@@ -142,6 +143,19 @@ abstract class ComponentInstanceBase extends Component implements ComponentInsta
    */
   public function delete() {
     return $this->getFieldItem()->removeComponent($this->uuid())->saveComponents();
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function createDuplicate() {
+    $duplicate = clone $this;
+    $duplicate->uuid = $this->uuidGenerator()->generate();
+    // Automatically add the component.
+    $this->getFieldItem()
+      ->addComponent($duplicate->uuid(), $duplicate->id(), $duplicate->getValues())
+      ->moveComponent($duplicate->uuid(), $this->uuid(), 'after');
+    return $duplicate;
   }
 
 }

@@ -167,6 +167,18 @@ class RouteSubscriber extends RouteSubscriberBase {
               ->setRequirement('_neo_component', "neo_component.update");
             $collection->add("entity.{$entityTypeId}.alchemist.edit", $route);
 
+            // Component clone route.
+            $route = new Route($entityType->getLinkTemplate('alchemist') . "/{neo_field}/clone/{neo_component}");
+            $route
+              ->setDefaults([
+                '_controller' => 'Drupal\neo_alchemist\Controller\InstanceComponentCloneController',
+                'title' => 'Clone',
+              ] + $defaults)
+              ->setOption('parameters', $fieldComponentParameters)
+              ->setOption('_admin_route', TRUE)
+              ->setRequirement('_neo_component', "neo_component.clone");
+            $collection->add("entity.{$entityTypeId}.alchemist.clone", $route);
+
             // Component delete route.
             $route = new Route($entityType->getLinkTemplate('alchemist') . "/{neo_field}/delete/{neo_component}");
             $route
@@ -290,6 +302,16 @@ class RouteSubscriber extends RouteSubscriberBase {
               ->setOptions($fieldComponentOptions)
               ->setRequirement('_neo_component', "neo_component.update");
             $collection->add("entity.{$entityTypeId}.field_ui.alchemist.edit", $route);
+
+            $route = new Route("$path/alchemist/{neo_field}/clone/{neo_component}");
+            $route
+              ->setDefaults([
+                '_controller' => 'Drupal\neo_alchemist\Controller\InstanceComponentCloneController',
+                'title' => 'Clone',
+              ] + $defaults)
+              ->setOptions($fieldComponentOptions)
+              ->setRequirement('_neo_component', "neo_component.clone");
+            $collection->add("entity.{$entityTypeId}.field_ui.alchemist.clone", $route);
 
             $route = new Route("$path/alchemist/{neo_field}/delete/{neo_component}");
             $route

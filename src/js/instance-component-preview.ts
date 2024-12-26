@@ -3,7 +3,7 @@
   const shade:HTMLElement|null = document.querySelector('#neo-alchemist--shade');
   const overlay:HTMLElement|null = document.querySelector('#neo-alchemist--overlay');
   let component:HTMLElement|null = null;
-  const ops = ['edit', 'sort', 'delete', 'clone', 'add-before', 'add-after'];
+  // const ops = ['edit', 'sort', 'delete', 'clone', 'add-before', 'add-after'];
 
   const messages = document.getElementById('neo-alchemist--messages');
   if (messages) {
@@ -23,18 +23,26 @@
   }
 
   if (overlay) {
-    ops.forEach(op => {
-      overlay.querySelector(`.op-${op}`)?.addEventListener('click', (e) => {
+    const opButtons = overlay.querySelectorAll('.op') as NodeListOf<HTMLElement>;
+    opButtons.forEach(opButton => {
+      opButton.addEventListener('click', (e) => {
         e.preventDefault();
-        if (component) {
-          const uuid = component.getAttribute('data-component-uuid');
-          const message = JSON.stringify({
-            type: op,
-            uuid: uuid,
-            scrollY: window.scrollY,
-            scrollX: window.scrollX,
-          });
-          window.parent.postMessage(message, '*');
+        const opKey = opButton.dataset.op;
+        if (component && opKey) {
+          const data = JSON.parse(component.dataset.component || '{}');
+          if (data.ops[opKey]) {
+            // const parts = opKey.split('-');
+            // const op = parts[0];
+            // const spec = parts[1] ?? null;
+            const message = JSON.stringify({
+              type: opKey,
+              uuid: data.uuid,
+              scrollY: window.scrollY,
+              scrollX: window.scrollX,
+            });
+            console.log('message', message);
+            window.parent.postMessage(message, '*');
+          }
         }
       });
     });
@@ -42,16 +50,28 @@
 
   const componentFocus = (el:HTMLElement) => {
     component = el;
-    ops.forEach(op => {
-      if (overlay && component) {
-        const action:HTMLElement|null = overlay.querySelector(`.op-${op}`);
-        if (action && component.hasAttribute(`data-component-${op}`)) {
-          action.style.display = '';
-          const opAccess = component.getAttribute(`data-component-${op}`) === 'true';
-          action.style.display = opAccess ? '' : 'none';
-        }
+    const data = JSON.parse(component.dataset.component || '{}');
+    if (overlay && data.uuid) {
+      const opButtons = overlay.querySelectorAll('.op') as NodeListOf<HTMLElement>;
+      opButtons.forEach(opButton => {
+        opButton.style.display = 'none';
+      });
+      const title = overlay.querySelector('.title');
+      if (title) {
+        title.innerHTML = data.label;
       }
-    });
+      if (data.ops) {
+        Object.keys(data.ops).forEach(opKey => {
+          const status = data.ops[opKey];
+          if (status) {
+            const opButton = overlay.querySelector(`[data-op="${opKey}"]`) as HTMLElement;
+            if (opButton) {
+              opButton.style.display = '';
+            }
+          }
+        });
+      }
+    }
     componentSize();
   }
 
@@ -119,7 +139,7 @@
   Drupal.behaviors.neoAlchemistInstanceComponentPreview = {
     attach: function () {
       if (window.parent) {
-        once('neo.alchemist', '[data-component-uuid]').forEach(el => {
+        once('neo.alchemist', '[data-component]').forEach(el => {
           el.addEventListener('mouseenter', () => {
             componentFocus(el);
           });
