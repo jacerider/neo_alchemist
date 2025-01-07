@@ -6,14 +6,14 @@ namespace Drupal\neo_alchemist\Form;
 
 use Drupal\Core\Entity\ContentEntityForm;
 use Drupal\Core\Form\FormStateInterface;
-use Drupal\neo_alchemist\Ajax\InstanceComponentPreviewIframeHelper;
+use Drupal\neo_alchemist\Ajax\InstanceIframeHelper;
 
 /**
  * Component form.
  */
 final class InstanceComponentSortForm extends ContentEntityForm {
 
-  use InstanceComponentPreviewIframeHelper;
+  use InstanceIframeHelper;
 
   /**
    * Field item.

@@ -48,6 +48,9 @@ final class InstanceComponentPreviewController extends ControllerBase {
     $build['overlay'] = [
       '#theme' => 'neo_alchemist_overlay',
     ];
+
+    // Render in preview mode.
+    $neo_field->setPreview(TRUE);
     $build['components'] = $neo_field->toRenderable();
 
     if (!empty($build['components'][ComponentTreeStructure::ROOT_UUID])) {
@@ -65,9 +68,9 @@ final class InstanceComponentPreviewController extends ControllerBase {
             'add-after' => $component->access('create'),
           ],
         ];
-        $componentBuild['#props']['attributes'] = new Attribute([
-          'data-component' => Json::encode($data),
-        ]);
+
+        $componentBuild['#props']['attributes']->addClass(!$component->isPublished() ? 'opacity-50' : '');
+        $componentBuild['#props']['attributes']->setAttribute('data-component', Json::encode($data));
       }
     }
 

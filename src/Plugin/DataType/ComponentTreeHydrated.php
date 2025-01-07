@@ -10,6 +10,7 @@ use Drupal\Core\Cache\CacheableMetadata;
 use Drupal\Core\Entity\Plugin\DataType\EntityAdapter;
 use Drupal\Core\Render\RenderableInterface;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
+use Drupal\Core\Template\Attribute;
 use Drupal\Core\TypedData\Attribute\DataType;
 use Drupal\Core\TypedData\TypedData;
 use Drupal\neo_alchemist\Plugin\Field\FieldType\ComponentTreeItem;
@@ -56,6 +57,9 @@ class ComponentTreeHydrated extends TypedData implements CacheableDependencyInte
             'component' => $component->getPluginId(),
             'props' => $props,
           ];
+          if (($hydrated[$uuid]['props']['attributes'] ?? NULL) instanceof Attribute) {
+            $hydrated[$uuid]['props']['attributes'] = $hydrated[$uuid]['props']['attributes']->toArray();
+          }
           if (!empty($component->metadata->slots)) {
             $defaultSlotValue = array_map(
               fn (array $s): string => self::getDefaultSlotValue($s),
@@ -149,6 +153,13 @@ class ComponentTreeHydrated extends TypedData implements CacheableDependencyInte
             $build[$component_subtree_uuid][$component_instance_uuid]["#$key"] = $value;
             continue;
           }
+
+          $attributes = new Attribute();
+          if (!empty($build[$component_subtree_uuid][$component_instance_uuid]['#props']['attributes'])) {
+            // Add passed in attributes to an Attribute object.
+            $attributes->merge(new Attribute($build[$component_subtree_uuid][$component_instance_uuid]['#props']['attributes']));
+          }
+          $build[$component_subtree_uuid][$component_instance_uuid]['#props']['attributes'] = $attributes;
 
           $build[$component_subtree_uuid][$component_instance_uuid]["#slots"] = [];
           foreach ($value as $slot => $slot_value) {

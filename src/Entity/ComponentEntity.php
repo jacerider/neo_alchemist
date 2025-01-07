@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Drupal\neo_alchemist\Entity;
 
+use Drupal\Core\Access\AccessResult;
+use Drupal\Core\Session\AccountInterface;
 use Drupal\neo_alchemist\ComponentEntityInterface;
 use Drupal\neo_alchemist\ComponentFieldInterface;
 

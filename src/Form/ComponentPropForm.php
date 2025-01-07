@@ -12,6 +12,7 @@ use Drupal\Core\Entity\EntityTypeBundleInfoInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Form\SubformState;
+use Drupal\neo_alchemist\Ajax\InstanceIframeHelper;
 use Drupal\neo_alchemist\ComponentShapePluginInterface;
 use Drupal\neo_alchemist\ComponentValueGroupPluginManager;
 use Drupal\neo_alchemist\ComponentValuePluginInterface;
@@ -21,6 +22,8 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
  * Component form.
  */
 final class ComponentPropForm extends EntityForm {
+
+  use InstanceIframeHelper;
 
   /**
    * The entity.
@@ -75,6 +78,8 @@ final class ComponentPropForm extends EntityForm {
    *   The entity type bundle info service.
    * @param \Drupal\Core\Entity\EntityTypeManagerInterface $entity_type_manager
    *   The entity manager service.
+   * @param \Drupal\neo_alchemist\ComponentValueGroupPluginManager $groupManager
+   *   The group manager.
    */
   public function __construct(EntityTypeBundleInfoInterface $entity_type_bundle_info, EntityTypeManagerInterface $entity_type_manager, ComponentValueGroupPluginManager $groupManager) {
     $this->entityTypeBundleInfo = $entity_type_bundle_info;
@@ -102,7 +107,13 @@ final class ComponentPropForm extends EntityForm {
    */
   protected function getPluginShapes() {
     $expanded = $this->shape->getExpanded();
-    return $expanded ? $this->shape->getPluginShapes(TRUE) : [$this->shape->getNestedId() => $this->shape];
+    if ($expanded) {
+      return $this->shape->getPluginShapes(TRUE);
+    }
+    if ($this->shape->allowPlugins()) {
+      return [$this->shape->getNestedId() => $this->shape];
+    }
+    return [];
   }
 
   /**
@@ -115,7 +126,6 @@ final class ComponentPropForm extends EntityForm {
     $isExpanded = !empty($shape->getExpanded());
     $pluginShapes = $this->getPluginShapes();
     $expandableShapes = $shape->getExpandedableShapes(TRUE);
-    assert(!empty($pluginShapes), 'No shapes found.');
 
     if (!$form_state->get('original_prop')) {
       $props = $this->entity->getSetting('props', []);
@@ -235,7 +245,6 @@ final class ComponentPropForm extends EntityForm {
    */
   public function buildPluginInstanceForm(array $form, FormStateInterface $form_state, ComponentValuePluginInterface $instance, bool $status): array {
     $definition = $instance->getPluginDefinition();
-    $settings = $instance->getConfiguration();
     $form['status'] = [
       '#type' => 'checkbox',
       '#title' => $this->t('Active'),
@@ -337,6 +346,10 @@ final class ComponentPropForm extends EntityForm {
       '#value' => $this->t('Save'),
       '#submit' => ['::submitForm', '::save'],
     ];
+    if ($this->isAjax()) {
+      $actions['#attached']['library'][] = 'neo_alchemist/instance.ajax';
+      $actions['submit']['#ajax']['callback'] = '::ajaxSubmit';
+    }
     return $actions;
   }
 

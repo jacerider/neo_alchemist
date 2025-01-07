@@ -20,7 +20,7 @@ class ComponentStorage extends ConfigEntityStorage {
    * @param \Drupal\Core\Entity\ContentEntityInterface $entity
    *   The content entity for which to load components.
    *
-   * @return array
+   * @return \Drupal\neo_alchemist\ComponentInterface[]
    *   An array of loaded components, or an empty array if no components are
    *   found.
    */

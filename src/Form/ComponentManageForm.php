@@ -74,6 +74,7 @@ final class ComponentManageForm extends EntityForm {
       '#type' => 'html_tag',
       '#tag' => 'iframe',
       '#attributes' => [
+        'id' => 'neo-alchemist--iframe',
         'src' => $this->entity->toUrl('preview')->toString(),
         'width' => '100%',
         'height' => '300px',
@@ -84,66 +85,7 @@ final class ComponentManageForm extends EntityForm {
       ],
     ];
 
-    $form['props'] = [
-      '#type' => 'table',
-      '#attached' => ['library' => ['core/drupal.dialog.ajax']],
-      '#tree' => TRUE,
-      '#header' => [
-        'property' => $this->t('Property'),
-        'type' => $this->t('Type'),
-        'required' => $this->t('Required'),
-        'editable' => $this->t('Editable'),
-        // 'value_providers' => $this->t('Value Providers'),
-        // 'value_modifiers' => $this->t('Value Modifiers'),
-        'operations' => '',
-      ],
-      '#neo_style' => [
-        'property' => 'heading',
-      ],
-      '#neo_size' => [
-        'required' => 'min',
-        'editable' => 'min',
-      ],
-      '#neo_align' => [
-        'required' => 'center',
-        'editable' => 'center',
-      ],
-    ];
-
-    foreach ($this->entity->getPropShapes() as $propName => $shape) {
-      $row = [];
-      $row['property']['#markup'] = $shape->getTitle() . ' <small>(' . $shape->getName() . ')</small>';
-      $row['type']['#markup'] = $shape->getType() . ' <small>(' . $shape->getRef() . ')</small>';
-      $row['required']['#markup'] = $shape->isRequired() ? $this->icon($this->t('Yes'))->iconOnly() : $this->icon($this->t('No'))->iconOnly();
-      $row['editable']['#markup'] = $shape->isEditable() ? $this->icon($this->t('Yes'))->iconOnly() : $this->icon($this->t('No'))->iconOnly();
-      // $instances = $shape->getValueCollection()->getActiveInstances();
-      // $row['value_providers']['#markup'] = implode(', ', array_map(function ($provider) {
-      //   return $provider->label();
-      // }, $shape->getValueCollection()->getValueProviders()));
-      // $row['value_modifiers']['#markup'] = implode(', ', array_map(function ($provider) {
-      //   return $provider->label();
-      // }, $shape->getValueModifiers()));
-
-      $links = [];
-      $links['edit'] = [
-        'title' => $this->t('Customize'),
-        'url' => $this->entity->toUrl('edit-prop-form')->setRouteParameter('prop', $propName),
-        // 'attributes' => [
-        //   'class' => ['use-ajax'],
-        //   'data-dialog-type' => 'modal',
-        //   'data-dialog-options' => Json::encode([
-        //     'width' => '100%',
-        //     'height' => '100%',
-        //   ]),
-        // ],
-      ];
-      $row['operations'] = [
-        '#type' => 'operations',
-        '#links' => $links,
-      ];
-
-      $form['props'][$propName] = $row;
-    }
+    $form += $this->getValuePropsForm($form, $form_state);
 
     $thumbnailId = $this->entity->getThumbnailId();
     $form['thumbnail'] = [
@@ -200,6 +142,85 @@ final class ComponentManageForm extends EntityForm {
     ];
     // ksm($permissions_by_provider);
 
+    return $form;
+  }
+
+  /**
+   * Build value props form.
+   *
+   * @param array $form
+   *   The form.
+   * @param \Drupal\Core\Form\FormStateInterface $form_state
+   *   The form state.
+   *
+   * @return array
+   *   The form.
+   */
+  protected function getValuePropsForm(array $form, FormStateInterface $form_state): array {
+    $form['props'] = [
+      '#type' => 'table',
+      '#caption' => $this->t('Value Props'),
+      '#attached' => ['library' => ['core/drupal.dialog.ajax']],
+      '#tree' => TRUE,
+      '#header' => [
+        'property' => $this->t('Property'),
+        'type' => $this->t('Type'),
+        'required' => $this->t('Required'),
+        'editable' => $this->t('Editable'),
+        'value_providers' => $this->t('Value Providers'),
+        'value_modifiers' => $this->t('Value Modifiers'),
+        'operations' => '',
+      ],
+      '#neo_style' => [
+        'property' => 'heading',
+      ],
+      '#neo_size' => [
+        'required' => 'min',
+        'editable' => 'min',
+      ],
+      '#neo_align' => [
+        'required' => 'center',
+        'editable' => 'center',
+      ],
+    ];
+
+    foreach ($this->entity->getPropShapes() as $propName => $shape) {
+      if (!$shape->access('manage_value')) {
+        continue;
+      }
+      $row = [];
+      $row['property']['#markup'] = $shape->getTitle() . ' <small>(' . $shape->getName() . ')</small>';
+      $row['type']['#markup'] = $shape->getType() . ' <small>(' . $shape->getRef() . ')</small>';
+      $row['required']['#markup'] = $shape->isRequired() ? $this->icon($this->t('Yes'))->iconOnly() : $this->icon($this->t('No'))->iconOnly();
+      $row['editable']['#markup'] = $shape->isEditable() ? $this->icon($this->t('Yes'))->iconOnly() : $this->icon($this->t('No'))->iconOnly();
+      $plugins = $shape->getValueCollection()->getActiveInstances();
+      $row['value_providers']['#markup'] = implode(', ', array_map(function ($provider) {
+        return $provider->label();
+      }, array_filter($plugins, fn ($plugin) => $plugin->getGroup() === 'providers')));
+      $row['value_modifiers']['#markup'] = implode(', ', array_map(function ($provider) {
+        return $provider->label();
+      }, array_filter($plugins, fn ($plugin) => $plugin->getGroup() === 'modifiers')));
+
+      $links = [];
+      $links['edit'] = [
+        'title' => $this->t('Customize'),
+        'url' => $this->entity->toUrl('edit-prop-form')->setRouteParameter('prop', $propName),
+        'attributes' => [
+          'class' => ['use-ajax'],
+          'data-dialog-type' => 'modal',
+          'data-dialog-options' => Json::encode([
+            'width' => '100%',
+            'height' => '100%',
+          ]),
+        ],
+      ];
+      $row['operations'] = [
+        '#type' => 'operations',
+        '#links' => $links,
+      ];
+
+      $form['props'][$propName] = $row;
+    }
     return $form;
   }
 

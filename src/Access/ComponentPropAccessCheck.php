@@ -31,13 +31,14 @@ class ComponentPropAccessCheck implements AccessInterface {
    */
   public function access(Route $route, RouteMatchInterface $route_match, AccountInterface $account) {
     $requirement = $route->getRequirement('_neo_component_prop');
-    [$entity_type, $prop] = explode('.', $requirement);
+    [$entity_type, $prop, $op] = explode('.', $requirement);
     // If $entity_type parameter is a valid entity, call its own access check.
     $parameters = $route_match->getParameters();
     if ($parameters->has($entity_type) && $parameters->has($prop)) {
       $entity = $parameters->get($entity_type);
-      if ($entity instanceof ComponentInterface && isset($entity->getComponentSchema()['properties'][$parameters->get($prop)])) {
-        return AccessResult::allowedIfHasPermission($account, 'administer neo_alchemist');
+      $prop = $parameters->get($prop);
+      if ($entity instanceof ComponentInterface && isset($entity->getComponentSchema()['properties'][$prop])) {
+        return $entity->getPropShape($prop)->access($op, $account, TRUE);
       }
     }
     // No opinion, so other access checks should decide if access should be

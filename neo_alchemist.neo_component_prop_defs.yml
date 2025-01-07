@@ -1,3 +1,5 @@
+# style:
+#   deriver: 'Drupal\neo_alchemist\Plugin\Derivative\ComponentPropDefStyleDeriver'
 heading:
   title: Heading
   type: object
@@ -72,3 +74,51 @@ url:
     options:
       title: 'Options'
       type: object
+scheme:
+  title: Color Scheme
+  type: string
+style:
+  title: Style
+  type: string
+padding:
+  title: Padding
+  description: The inner-spacing of the component.
+  type: style
+  examples: 'p-1 md:p-4 lg:p-14'
+  styles:
+    xs:
+      label: Extra Small
+      value: p-2 md:p-2 lg:p-2
+    sm:
+      label: Small
+      value: p-2 md:p-4 lg:p-6
+    md:
+      label: Medium
+      value: p-4 md:p-6 lg:p-14
+    lg:
+      label: Large
+      value: p-6 md:p-14 lg:p-24
+    xl:
+      label: Extra Large
+      value: p-12 md:p-20 lg:p-32
+margin:
+  title: Margin
+  description: The outer-spacing of the component.
+  type: style
+  examples: 'm-1 md:m-4 lg:m-14'
+  styles:
+    xs:
+      label: Extra Small
+      value: m-2 md:m-2 lg:m-2
+    sm:
+      label: Small
+      value: m-2 md:m-4 lg:m-6
+    md:
+      label: Medium
+      value: m-4 md:m-6 lg:m-14
+    lg:
+      label: Large
+      value: m-6 md:m-14 lg:m-24
+    xl:
+      label: Extra Large
+      value: m-12 md:m-20 lg:m-32

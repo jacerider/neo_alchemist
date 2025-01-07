@@ -7,6 +7,7 @@ namespace Drupal\neo_alchemist;
 use Drupal\Core\Cache\CacheBackendInterface;
 use Drupal\Core\Extension\ModuleHandlerInterface;
 use Drupal\Core\Plugin\DefaultPluginManager;
+use Drupal\Core\Plugin\Discovery\ContainerDerivativeDiscoveryDecorator;
 use Drupal\Core\Plugin\Discovery\YamlDiscovery;
 use Drupal\Core\Plugin\Factory\ContainerFactory;
 
@@ -60,14 +61,26 @@ final class ComponentPropDefPluginManager extends DefaultPluginManager {
   /**
    * {@inheritdoc}
    */
-  protected function getDiscovery(): YamlDiscovery {
+  protected function getDiscovery() {
     if (!isset($this->discovery)) {
       $discovery = new YamlDiscovery('neo_component_prop_defs', $this->moduleHandler->getModuleDirectories());
       $discovery->addTranslatableProperty('title', 'title_context');
       $discovery->addTranslatableProperty('description', 'description_context');
-      $this->discovery = $discovery;
+      $this->discovery = new ContainerDerivativeDiscoveryDecorator($discovery);
     }
     return $this->discovery;
+  }
+
+  /**
+   * Invokes the hook to alter the definitions if the alter hook is set.
+   *
+   * @param $definitions
+   *   The discovered plugin definitions.
+   */
+  protected function alterDefinitions(&$definitions) {
+    if ($this->alterHook) {
+      $this->moduleHandler->alter($this->alterHook, $definitions);
+    }
   }
 
 }

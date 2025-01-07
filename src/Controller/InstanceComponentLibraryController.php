@@ -6,6 +6,7 @@ namespace Drupal\neo_alchemist\Controller;
 
 use Drupal\Component\Serialization\Json;
 use Drupal\Core\Controller\ControllerBase;
+use Drupal\Core\Template\Attribute;
 use Drupal\neo_alchemist\Plugin\Field\FieldType\ComponentTreeItem;
 use Symfony\Component\HttpFoundation\Request;
 
@@ -58,13 +59,43 @@ final class InstanceComponentLibraryController extends ControllerBase {
       $rows[] = $row;
     }
 
-    $build = [
-      '#type' => 'table',
-      '#header' => [
-        'name' => $this->t('Name'),
-        'operations' => $this->t('Operations'),
-      ],
-      '#rows' => $rows,
+    // $build['table'] = [
+    //   '#type' => 'table',
+    //   '#header' => [
+    //     'name' => $this->t('Name'),
+    //     'operations' => $this->t('Operations'),
+    //   ],
+    //   '#rows' => $rows,
+    //   '#attached' => [
+    //     'library' => ['core/drupal.dialog.ajax'],
+    //   ],
+    // ];
+
+    $components = [];
+    foreach ($storage->loadByEntity($neo_field->getEntity()) as $component) {
+      $components[$component->id()] = [
+        'label' => $component->label(),
+        'description' => $component->getDescription(),
+        'thumbnail' => $component->getThumbnail(),
+        'attributes' => new Attribute([
+          'href' => $neo_field->toUrl('add')->setRouteParameter('neo_component', $component->id())->setOption('query', $query)->toString(),
+          'class' => ['use-ajax'],
+          'data-dialog-type' => 'modal',
+          'data-dialog-options' => Json::encode([
+            'width' => '100%',
+            'height' => '100%',
+            'neo' => [
+              'displaceTop' => '0px',
+              'displaceBottom' => '0px',
+            ],
+          ]),
+        ]),
+      ];
+    }
+
+    $build['library'] = [
+      '#theme' => 'neo_alchemist_library',
+      '#components' => $components,
       '#attached' => [
         'library' => ['core/drupal.dialog.ajax'],
       ],

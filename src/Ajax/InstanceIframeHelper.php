@@ -12,7 +12,7 @@ use Drupal\neo_modal\Ajax\NeoModalCloseCommand;
  *
  * @internal
  */
-trait InstanceComponentPreviewIframeHelper {
+trait InstanceIframeHelper {
 
   use AjaxFormHelperTrait;
 

@@ -45,6 +45,11 @@ function neo_alchemist_theme(): array {
     'neo_alchemist_overlay' => [
       'variables' => [],
     ],
+    'neo_alchemist_library' => [
+      'variables' => [
+        'components' => [],
+      ],
+    ],
   ];
 }
 

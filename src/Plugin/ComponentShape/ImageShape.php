@@ -56,29 +56,6 @@ class ImageShape extends MediaShapeBase {
       ];
     }
     return [];
-    // $entity = $this->getFieldItem()->entity;
-    // if ($entity instanceof MediaInterface) {
-    //   $source = $entity->getSource();
-    //   $fid = $source->getSourceFieldValue($entity);
-    //   $file = $this->entityTypeManager->getStorage('file')->load($fid);
-    //   if ($file instanceof FileInterface) {
-    //     $value = [
-    //       'src' => $file->createFileUrl(),
-    //       'alt' => $source->getMetadata($entity, 'thumbnail_alt_value'),
-    //       'width' => $source->getMetadata($entity, 'width'),
-    //       'height' => $source->getMetadata($entity, 'height'),
-    //       'target_id' => $entity->id(),
-    //     ];
-    //     $valueProvider->stopFurtherProcessing();
-    //   }
-    // }
-    // else {
-    //   if (!$this->isOptionDefault()) {
-    //     $this->setOptionEmpty(TRUE);
-    //     $valueProvider->stopFurtherProcessing();
-    //   }
-    // }
-    // return $value;
   }
 
 }

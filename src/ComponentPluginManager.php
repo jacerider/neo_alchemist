@@ -69,7 +69,6 @@ class ComponentPluginManager extends ThemeComponentPluginManager {
     }
     self::$isRecursing = TRUE;
 
-    // $components = $this->entityType
     /** @var \Drupal\neo_alchemist\ComponentInterface[] $components */
     $components = $this->entityTypeManager->getStorage('neo_component')->loadMultiple();
     foreach ($components as $component) {
@@ -110,21 +109,31 @@ class ComponentPluginManager extends ThemeComponentPluginManager {
       $prop['ref'] = $prop['type'];
       $propDef = $propDefinitions[$prop['type']];
       $propRequired = [
-        'type' => [$propDef['type']],
+        // 'type' => [$this->getRootType($prop['type'], $propDefinitions)],
+        'type' => $propDef['type'],
         'format' => $propDef['format'],
         'pattern' => $propDef['pattern'],
       ];
-      $propOptional = [];
+      $propOptional = [
+        'title' => $propDef['title'] ?? '',
+        'description' => $propDef['description'] ?? '',
+      ];
+      $propOptional = array_diff_key($propDefinitions[$prop['type']], array_flip([
+        'id',
+        'provider',
+        'properties',
+        'required',
+      ]));
       if ($propDef['properties']) {
         $propRequired['properties'] = array_map([__CLASS__, 'alterProp'], $propDef['properties']);
       }
       if ($propDef['required']) {
         $propRequired['required'] = $propDef['required'];
       }
-      if ($propDef['examples']) {
-        $propOptional['examples'] = $propDef['examples'];
-      }
       $prop = $propRequired + $prop + $propOptional;
+      if (isset($propDefinitions[$propDef['type']])) {
+        $prop = $this->alterProp($prop);
+      }
     }
     elseif (isset($prop['properties'])) {
       $prop['properties'] = array_map([__CLASS__, 'alterProp'], $prop['properties']);
@@ -133,6 +142,42 @@ class ComponentPluginManager extends ThemeComponentPluginManager {
       $prop['items']['properties'] = array_map([__CLASS__, 'alterProp'], $prop['items']['properties']);
     }
     return $prop;
+  }
+
+  /**
+   * Gets the root type of a prop.
+   *
+   * @param string $type
+   *   The prop type.
+   * @param array $propDefinitions
+   *   The prop definitions.
+   *
+   * @return string
+   *   The root type.
+   */
+  protected function getRootType($type, $propDefinitions) {
+    if (isset($propDefinitions[$type])) {
+      return $this->getRootType($propDefinitions[$type]['type'], $propDefinitions);
+    }
+    return $type;
+  }
+
+  /**
+   * Gets the root type of a prop.
+   *
+   * @param string $type
+   *   The prop type.
+   * @param array $propDefinitions
+   *   The prop definitions.
+   *
+   * @return string
+   *   The root type.
+   */
+  protected function getRootRef($type, $propDefinitions) {
+    if (isset($propDefinitions[$type])) {
+      return $this->getRootType($propDefinitions[$type]['type'], $propDefinitions);
+    }
+    return $type;
   }
 
 }

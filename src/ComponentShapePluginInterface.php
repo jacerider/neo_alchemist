@@ -6,6 +6,8 @@ namespace Drupal\neo_alchemist;
 
 use Drupal\Component\Plugin\DerivativeInspectionInterface;
 use Drupal\Component\Plugin\PluginInspectionInterface;
+use Drupal\Component\Render\MarkupInterface;
+use Drupal\Core\Access\AccessibleInterface;
 use Drupal\Core\Entity\ContentEntityInterface;
 use Drupal\Core\Field\FieldDefinitionInterface;
 use Drupal\Core\Field\FieldItemInterface;
@@ -13,12 +15,13 @@ use Drupal\Core\Field\FieldItemListInterface;
 use Drupal\Core\Field\WidgetInterface;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Plugin\ObjectWithPluginCollectionInterface;
+use Drupal\Core\Template\Attribute;
 use Drupal\Core\TypedData\DataDefinitionInterface;
 
 /**
  * Interface for neo_component_shape plugins.
  */
-interface ComponentShapePluginInterface extends PluginInspectionInterface, DerivativeInspectionInterface, ObjectWithPluginCollectionInterface {
+interface ComponentShapePluginInterface extends PluginInspectionInterface, DerivativeInspectionInterface, ObjectWithPluginCollectionInterface, AccessibleInterface {
 
   const STRING = 'string';
   const NUMBER = 'number';
@@ -118,7 +121,7 @@ interface ComponentShapePluginInterface extends PluginInspectionInterface, Deriv
    * @return string
    *   The prop title.
    */
-  public function getTitle(): string;
+  public function getTitle(): string|MarkupInterface;
 
   /**
    * Get the prop description.
@@ -128,7 +131,7 @@ interface ComponentShapePluginInterface extends PluginInspectionInterface, Deriv
    * @return string
    *   The prop description.
    */
-  public function getDescription(): string;
+  public function getDescription(): string|MarkupInterface;
 
   /**
    * Get the prop properties.
@@ -775,6 +778,14 @@ interface ComponentShapePluginInterface extends PluginInspectionInterface, Deriv
    * @return $this
    */
   public function setFieldItemValue(mixed $value): self;
+
+  /**
+   * Modify the component attributes.
+   *
+   * @param \Drupal\Core\Template\Attribute $attributes
+   *   The attributes that will be applied to the component.
+   */
+  public function modifyAttributes(Attribute $attributes);
 
   /**
    * Set the widget type.

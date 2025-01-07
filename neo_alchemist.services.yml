@@ -5,6 +5,10 @@ services:
     lazy: true
   Drupal\Core\Render\BareHtmlPageRendererInterface: '@neo_component_page_renderer'
 
+  plugin.manager.neo_component_style:
+    class: Drupal\neo_alchemist\ComponentStylePluginManager
+    parent: default_plugin_manager
+
   plugin.manager.neo_component_prop_def:
     class: Drupal\neo_alchemist\ComponentPropDefPluginManager
     arguments: ['@module_handler', '@cache.discovery']
@@ -75,3 +79,8 @@ services:
     tags:
       - { name: paramconverter }
     arguments: ['@entity_type.manager', '@entity_field.manager']
+
+  neo_alchemist.neo_build_event_subscriber:
+    class: '\Drupal\neo_alchemist\EventSubscriber\NeoBuildEventSubscriber'
+    tags:
+      - { name: 'event_subscriber' }

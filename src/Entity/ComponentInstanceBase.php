@@ -123,9 +123,6 @@ abstract class ComponentInstanceBase extends Component implements ComponentInsta
     $access = match(TRUE) {
       $operation === 'create' && $targetEntityTypeId && $targetEntityTypeId !== $targetEntity->getEntityTypeId() => AccessResult::forbidden('Invalid target entity type.'),
       $operation === 'create' && $targetEntityBundle && $targetEntityBundle !== $targetEntity->bundle() => AccessResult::forbidden('Invalid target entity bundle.'),
-      $operation === 'update' => AccessResult::allowedIf($this->isPublished())->andIf($this->getFieldItem()->access('update', $account, TRUE)),
-      $operation === 'clone' => AccessResult::allowedIf($this->isPublished())->andIf($this->getFieldItem()->access('update', $account, TRUE)),
-      $operation === 'sort' => AccessResult::allowedIf($this->isPublished())->andIf($this->getFieldItem()->access('sort', $account, TRUE)),
       default => $this->getFieldItem()->access($operation, $account, TRUE),
     };
     return $return_as_object ? $access : $access->isAllowed();

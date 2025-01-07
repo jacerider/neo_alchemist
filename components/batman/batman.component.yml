@@ -11,20 +11,68 @@ props:
   # required:
   #   - color
   properties:
-    markup:
-      type: markup
-      title: Markup
-      examples: <h2>H2</h2><h3>H3</h3><h4>H4</h4><h5>H5</h5><p><strong>Hello</strong> good <a href="#">friend</a></p>
+    # markup:
+    #   type: markup
+    #   title: Markup
+    #   examples: <h2>H2</h2><h3>H3</h3><h4>H4</h4><h5>H5</h5><p><strong>Hello</strong> good <a href="#">friend</a></p>
     title:
       type: string
       title: Title
       description: The super title.
-      examples: ['A really cool title']
-    heading:
-      type: heading
-      title: Heading
-      examples:
-        - title: 'Component Title'
+      examples: A really cool title
+    # margin:
+    #   type: style
+    #   title: Margin
+    #   examples: 'my-1 md:my-4 lg:my-14'
+    #   styles:
+    #     Small: 'my-1 md:my-4 lg:my-6'
+    #     Medium: 'my-1 md:my-4 lg:my-14'
+    scheme:
+      type: scheme
+    padding:
+      type: padding
+    margin:
+      type: margin
+    # padding:
+    #   type: style
+    #   title: Padding
+    #   examples: 'py-1 md:py-4 lg:py-14'
+    #   styles:
+    #     Small: 'py-1 md:py-4 lg:py-6'
+    #     Medium: 'py-1 md:py-4 lg:py-14'
+      # enum:
+      #   - py-1 md:py-4 lg:py-6
+      #   - py-1 md:py-4 lg:py-14
+      # oneOf:
+      #   - title: Small
+      #     enum:
+      #       - 'py-1 md:py-4 lg:py-6'
+      #   - title: Medium
+      #     enum:
+      #       - 'py-1 md:py-4 lg:py-14'
+      # type: style
+      # title: Padding
+      # examples: py-1 md:py-4 lg:py-14
+      # oneOf:
+      #   -
+      #     const: 'py-1 md:py-4 lg:py-6'
+      #     title: Small
+      #   -
+      #     const: 'py-1 md:py-4 lg:py-14'
+      #     title: Medium
+      # styles:
+      #   'py-1 md:py-4 lg:py-6': Small
+      #   'py-1 md:py-4 lg:py-6': Medium
+    # heading:
+    #   type: heading
+    #   title: Heading
+    #   examples:
+    #     - title: 'Component Title'
+    # style:
+    #   type: style
+    #   title: Style
+    #   examples:
+    #     padding: py-sm md:py-md lg:py-lg
     # a:
     #   type: object
     #   title: AA
@@ -72,14 +120,14 @@ props:
     #                   alt: 'Boring placeholder'
     #                   width: 300
     #                   height: 200
-    image:
-      title: 'Image'
-      type: image
-      examples:
-        - src: https://placehold.co/300x200.png
-          alt: 'Boring placeholder'
-          width: 300
-          height: 200
+    # image:
+    #   title: 'Image'
+    #   type: image
+    #   examples:
+    #     - src: https://placehold.co/300x200.png
+    #       alt: 'Boring placeholder'
+    #       width: 300
+    #       height: 200
     # tmp:
     #   type: object
     #   title: Tmp

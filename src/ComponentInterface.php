@@ -15,6 +15,14 @@ use Drupal\Core\Plugin\Component;
 interface ComponentInterface extends ConfigEntityInterface {
 
   /**
+   * Get the component description.
+   *
+   * @return string
+   *   The description.
+   */
+  public function getDescription(): string;
+
+  /**
    * Get the component expression.
    *
    * @return string
@@ -83,6 +91,20 @@ interface ComponentInterface extends ConfigEntityInterface {
    *   The path to the default thumbnail, or NULL if not available.
    */
   public function getDefaultThumbnail(): ?string;
+
+  /**
+   * Retrieves the thumbnail URL for the component.
+   *
+   * This method attempts to load a thumbnail image associated with the
+   * component. If a thumbnail image is found, it generates and returns the
+   * absolute URL of the image. If no thumbnail image is found, it returns the
+   * URL of a default thumbnail image.
+   *
+   * @return string|null
+   *   The absolute URL of the thumbnail image, or the URL of the default
+   *   thumbnail image.
+   */
+  public function getThumbnail(): ?string;
 
   /**
    * Gets the scope of the component.

@@ -7,14 +7,14 @@ namespace Drupal\neo_alchemist\Form;
 use Drupal\Core\Entity\ContentEntityForm;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Form\SubformState;
-use Drupal\neo_alchemist\Ajax\InstanceComponentPreviewIframeHelper;
+use Drupal\neo_alchemist\Ajax\InstanceIframeHelper;
 
 /**
  * Component form.
  */
 final class InstanceComponentForm extends ContentEntityForm {
 
-  use InstanceComponentPreviewIframeHelper;
+  use InstanceIframeHelper;
 
   /**
    * Component.
@@ -81,7 +81,7 @@ final class InstanceComponentForm extends ContentEntityForm {
       '#type' => 'container',
     ];
     foreach ($this->instance->getPropShapes() as $propName => $shape) {
-      if (!$shape->isEditable()) {
+      if (!$shape->access('update')) {
         continue;
       }
       $subform = [

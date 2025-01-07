@@ -72,6 +72,13 @@ class ComponentTreeItem extends FieldItemBase implements RenderableInterface {
   protected $draft = FALSE;
 
   /**
+   * Flag to indicate if the item is in preview mode.
+   *
+   * @var bool
+   */
+  protected bool $preview = FALSE;
+
+  /**
    * The Neo component.
    *
    * @var \Drupal\neo_alchemist\ComponentInterface[]
@@ -224,6 +231,30 @@ class ComponentTreeItem extends FieldItemBase implements RenderableInterface {
       default => $this->getEntity()->access($operation, $account, TRUE),
     };
     return $return_as_object ? $access : $access->isAllowed();
+  }
+
+  /**
+   * Sets the preview status of the items.
+   *
+   * @param bool $preview
+   *   The preview status to set.
+   *
+   * @return $this
+   *   The current instance of the component.
+   */
+  public function setPreview(bool $preview): self {
+    $this->preview = $preview;
+    return $this;
+  }
+
+  /**
+   * Checks if the component is in preview mode.
+   *
+   * @return bool
+   *   TRUE if the component is in preview mode, FALSE otherwise.
+   */
+  public function isPreview(): bool {
+    return $this->preview;
   }
 
   /**
@@ -389,6 +420,7 @@ class ComponentTreeItem extends FieldItemBase implements RenderableInterface {
           if ($noCache) {
             return $instance;
           }
+          $instance->setPreview($this->isPreview());
           self::$components[$uuid] = $instance;
         }
       }

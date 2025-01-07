@@ -3,7 +3,7 @@
   const shade:HTMLElement|null = document.querySelector('#neo-alchemist--shade');
   const overlay:HTMLElement|null = document.querySelector('#neo-alchemist--overlay');
   let component:HTMLElement|null = null;
-  // const ops = ['edit', 'sort', 'delete', 'clone', 'add-before', 'add-after'];
+  let componentData:any = null;
 
   const messages = document.getElementById('neo-alchemist--messages');
   if (messages) {
@@ -40,7 +40,6 @@
               scrollY: window.scrollY,
               scrollX: window.scrollX,
             });
-            console.log('message', message);
             window.parent.postMessage(message, '*');
           }
         }
@@ -50,19 +49,19 @@
 
   const componentFocus = (el:HTMLElement) => {
     component = el;
-    const data = JSON.parse(component.dataset.component || '{}');
-    if (overlay && data.uuid) {
+    componentData = JSON.parse(component.dataset.component || '{}');
+    if (overlay && componentData.uuid) {
       const opButtons = overlay.querySelectorAll('.op') as NodeListOf<HTMLElement>;
       opButtons.forEach(opButton => {
         opButton.style.display = 'none';
       });
       const title = overlay.querySelector('.title');
       if (title) {
-        title.innerHTML = data.label;
+        title.innerHTML = componentData.label;
       }
-      if (data.ops) {
-        Object.keys(data.ops).forEach(opKey => {
-          const status = data.ops[opKey];
+      if (componentData.ops) {
+        Object.keys(componentData.ops).forEach(opKey => {
+          const status = componentData.ops[opKey];
           if (status) {
             const opButton = overlay.querySelector(`[data-op="${opKey}"]`) as HTMLElement;
             if (opButton) {
@@ -143,15 +142,6 @@
           el.addEventListener('mouseenter', () => {
             componentFocus(el);
           });
-          // el.addEventListener('click', (e) => {
-          //   e.preventDefault();
-          //   const uuid = el.getAttribute('data-component-uuid');
-          //   const message = JSON.stringify({
-          //     type: 'sort',
-          //     uuid: uuid,
-          //   });
-          //   window.parent.postMessage(message, '*');
-          // });
         });
       }
     }

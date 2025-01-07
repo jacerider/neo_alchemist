@@ -6,8 +6,11 @@ namespace Drupal\neo_alchemist;
 
 use Drupal\Component\Plugin\Factory\DefaultFactory;
 use Drupal\Component\Plugin\PluginBase;
+use Drupal\Component\Render\MarkupInterface;
 use Drupal\Component\Utility\Html;
 use Drupal\Component\Utility\NestedArray;
+use Drupal\Core\Access\AccessResult;
+use Drupal\Core\Access\AccessResultInterface;
 use Drupal\Core\DependencyInjection\DependencySerializationTrait;
 use Drupal\Core\Entity\ContentEntityInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
@@ -20,7 +23,9 @@ use Drupal\Core\Field\WidgetPluginManager;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Plugin\ContainerFactoryPluginInterface;
 use Drupal\Core\Render\Element;
+use Drupal\Core\Session\AccountInterface;
 use Drupal\Core\StringTranslation\StringTranslationTrait;
+use Drupal\Core\Template\Attribute;
 use Drupal\Core\TypedData\DataDefinition;
 use Drupal\Core\TypedData\DataDefinitionInterface;
 use Drupal\Core\TypedData\TypedDataManagerInterface;
@@ -299,11 +304,15 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
     $this->options['access'] = new ComponentShapeOption(TRUE, FALSE);
 
     // When previewing a component, we prevent any further changes.
-    if ($this->getComponent()->isPreview()) {
-      $this->options['empty']->setLockedValue(FALSE, 'Preview mode');
-      $this->options['default']->setLockedValue(TRUE, 'Preview mode');
-      $this->options['access']->setLockedValue(TRUE, 'Preview mode');
-    }
+    // if ($this->getScope() === 'config' && $this->getComponent()->isPreview()) {
+      // We remove this code because it prevents the user from viewing the
+      // correct data in the component. We added this so that we could see the
+      // correct data in the component preview. But it broke field and node
+      // previews.
+      // $this->options['empty']->setLockedValue(FALSE, 'Preview mode');
+      // $this->options['default']->setLockedValue(TRUE, 'Preview mode');
+      // $this->options['access']->setLockedValue(TRUE, 'Preview mode');
+    // }
 
     // Only set settings if the shape has not changed.
     if (isset($settings['shape']) && $settings['shape'] === $this->getPluginId()) {
@@ -387,9 +396,6 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
     if (isset($this->overrideValue)) {
       $value = $this->overrideValue;
     }
-    if (!$this->isNew() && $this->getOptionDefault()->isDisabled()) {
-      $value = $this->overrideValue;
-    }
     // Set the value so providers can use it.
     $this->setFieldItemValue($value);
     foreach ($this->getValueCollection()->getAllowedInstances('value') as $instance) {
@@ -423,6 +429,37 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
       }
     }
     return $this;
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  public function access($operation, ?AccountInterface $account = NULL, $return_as_object = FALSE) {
+    $account = $account ?? \Drupal::currentUser();
+    $access = $this->checkAccess($operation, $account);
+    return $return_as_object ? $access : $access->isAllowed();
+  }
+
+  /**
+   * Performs access checks.
+   *
+   * This method is supposed to be overwritten by extending classes that
+   * do their own custom access checking.
+   *
+   * @param string $operation
+   *   The entity operation.
+   * @param \Drupal\Core\Session\AccountInterface $account
+   *   The user for which to check access.
+   *
+   * @return \Drupal\Core\Access\AccessResultInterface
+   *   The access result.
+   */
+  protected function checkAccess(string $operation, AccountInterface $account): AccessResultInterface {
+    return match($operation) {
+      'manage_value' => $this->getComponent()->access('update', $account, TRUE),
+      'update' => $this->getComponent()->access('update', $account, TRUE)->andIf(AccessResult::allowedIf($this->isEditable())),
+      default => AccessResult::allowed(),
+    };
   }
 
   /**
@@ -562,14 +599,14 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
   /**
    * {@inheritDoc}
    */
-  public function getTitle(): string {
+  public function getTitle(): string|MarkupInterface {
     return $this->schema['title'] ?? 'Unnamed Prop';
   }
 
   /**
    * {@inheritDoc}
    */
-  public function getDescription(): string {
+  public function getDescription(): string|MarkupInterface {
     return $this->schema['description'] ?? '';
   }
 
@@ -1087,10 +1124,13 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
   protected function getDefaultFieldStorageSettings(): array {
     $settings = [];
     if ($options = $this->getFieldOptions()) {
-      $settings['allowed_values'] = array_map(fn ($v) => [
-        'value' => $v,
-        'label' => ucwords(str_replace(['-', '_'], ' ', (string) $v)),
-      ], $options);
+      array_walk($options, function (&$v, $k) {
+        $v = [
+          'value' => $k,
+          'label' => $v,
+        ];
+      });
+      $settings['allowed_values'] = array_values($options);
     }
     return $settings;
   }
@@ -1133,7 +1173,10 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
    */
   public function getFieldOptions(): ?array {
     if (array_key_exists('enum', $this->schema)) {
-      return $this->schema['enum'];
+      return array_map(fn ($v) => [
+        'value' => $v,
+        'label' => ucwords(str_replace(['-', '_'], ' ', (string) $v)),
+      ], $this->schema['enum']);
     }
     return NULL;
   }
@@ -1364,6 +1407,12 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
   /**
    * {@inheritDoc}
    */
+  public function modifyAttributes(Attribute $attributes) {
+  }
+
+  /**
+   * {@inheritDoc}
+   */
   public function setWidget(string $widgetType, array $widgetSettings = []): self {
     $this->widgetType = $widgetType;
     $this->widgetSettings = $widgetSettings;
@@ -1569,30 +1618,34 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
    */
   protected function prepForm(array &$form, FormStateInterface $form_state): void {
     $nestedId = $this->getNestedId();
-    $optionDefaultStatus = $this->getOptionDefault()->isEnabled();
-
-    // Restore previous set values when toggling the default options.
+    // Restore previous set values when toggling ajax options.
     if ($form_state->get(['previous_value', $nestedId]) === NULL) {
       $form_state->set(['previous_value', $nestedId], $this->getFieldItemValue());
-      $form_state->set(['previous_default', $nestedId], $optionDefaultStatus);
     }
-    $previousOptionDefaultStatus = $form_state->get([
-      'previous_default',
-      $nestedId,
-    ]);
-    if ($previousOptionDefaultStatus && !$optionDefaultStatus) {
-      $this->setFieldItemValue($form_state->get(['previous_value', $nestedId]));
+    foreach ($this->options as $type => $option) {
+      $previousKey = 'previous_' . $type;
+      $status = $option->isEnabled();
+      if ($form_state->get([$previousKey, $nestedId]) === NULL) {
+        $form_state->set([$previousKey, $nestedId], $status);
+      }
+      $previousStatus = $form_state->get([
+        $previousKey,
+        $nestedId,
+      ]);
+      if ($previousStatus && !$status) {
+        $this->setFieldItemValue($form_state->get(['previous_value', $nestedId]));
+      }
+      if (!$previousStatus && $status) {
+        $valueParents = array_merge($form['#parents'], [$this->getName()]);
+        array_shift($valueParents);
+        $values = $form_state->getValue($valueParents) ?? [];
+        $form_state->set(['previous_value', $nestedId], $values);
+      }
+      $form_state->set([
+        $previousKey,
+        $nestedId,
+      ], $status);
     }
-    if (!$previousOptionDefaultStatus && $optionDefaultStatus) {
-      $valueParents = array_merge($form['#parents'], [$this->getName()]);
-      array_shift($valueParents);
-      $values = $form_state->getValue($valueParents) ?? [];
-      $form_state->set(['previous_value', $nestedId], $values);
-    }
-    $previousOptionDefaultStatus = $form_state->set([
-      'previous_default',
-      $nestedId,
-    ], $optionDefaultStatus);
   }
 
   /**
@@ -1612,9 +1665,16 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
   protected function form(array $form, FormStateInterface $form_state): array {
     $widget = $this->getWidget();
     if ($widget) {
+      // ksm($form['#parents'], array_slice($form['#parents'], 0, -1), array_merge(array_slice($form['#parents'], 0, -1), ['widget']));
       $form['widget'] = [
-        '#parents' => array_slice($form['#parents'], 0, -1),
+        // '#parents' => array_slice($form['#parents'], 0, -1),
+        // '#parents' => array_merge(array_slice($form['#parents'], 0, -1), ['widget']),
+        '#parents' => $form['#parents'],
+        // '#parents' => array_merge(array_slice($form['#parents'], 0, -1), ['widget']),
       ];
+      // if ($widget->getPluginDefinition()['multiple_values'] ?? FALSE) {
+      //   $form['widget']['#parents'] = array_merge($form['widget']['#parents'], [0]);
+      // }
       $form['widget'] = $widget->form($this->getFieldItemList(), $form['widget'], $form_state);
     }
     return $form;
@@ -1666,10 +1726,9 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
     }
     // Remove options so that they are not processed or stored.
     unset($values['_options']);
-    $widget = $this->getWidget();
     $storedValues = $values;
-    if ($widget) {
-      $massagedValues = $widget->massageFormValues($values, $form, $form_state);
+    if (isset($values[$this->getName()]) && ($widget = $this->getWidget())) {
+      $massagedValues = $widget->massageFormValues($values[$this->getName()], $form, $form_state);
       $massagedValues = $massagedValues[0] ?? [];
       $fieldItem = clone $this->fieldItem;
       $fieldItem->setValue($massagedValues);

@@ -4,7 +4,7 @@ namespace Drupal\neo_alchemist\Form;
 
 use Drupal\Core\Entity\EntityConfirmFormBase;
 use Drupal\Core\Form\FormStateInterface;
-use Drupal\neo_alchemist\Ajax\InstanceComponentPreviewIframeHelper;
+use Drupal\neo_alchemist\Ajax\InstanceIframeHelper;
 
 /**
  * Provides the filter format disable form.
@@ -13,7 +13,7 @@ use Drupal\neo_alchemist\Ajax\InstanceComponentPreviewIframeHelper;
  */
 class InstanceComponentDeleteForm extends EntityConfirmFormBase {
 
-  use InstanceComponentPreviewIframeHelper;
+  use InstanceIframeHelper;
 
   /**
    * The entity being edited.

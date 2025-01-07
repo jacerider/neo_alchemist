@@ -10,6 +10,8 @@ use Drupal\Core\Entity\ContentEntityInterface;
 use Drupal\Core\Entity\EntityStorageInterface;
 use Drupal\Core\Entity\EntityTypeInterface;
 use Drupal\Core\Plugin\Component as ComponentPlugin;
+use Drupal\Core\Template\Attribute;
+use Drupal\Core\Url;
 use Drupal\neo_alchemist\ComponentInterface;
 use Drupal\neo_alchemist\ComponentShapePluginInterface;
 
@@ -169,6 +171,13 @@ class Component extends ConfigEntityBase implements ComponentInterface {
   /**
    * {@inheritdoc}
    */
+  public function getDescription(): string {
+    return $this->description;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
   public function getExpression(): string {
     return $this->expression;
   }
@@ -227,13 +236,24 @@ class Component extends ConfigEntityBase implements ComponentInterface {
   }
 
   /**
-   * Retrieves the default thumbnail path for the component.
-   *
-   * @return string|null
-   *   The path to the default thumbnail, or NULL if not available.
+   * {@inheritdoc}
    */
   public function getDefaultThumbnail(): ?string {
     return $this->getComponent()->metadata->getThumbnailPath();
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function getThumbnail(): ?string {
+    if ($thumbnailId = $this->getThumbnailId()) {
+      /** @var \Drupal\neo_config_file\ConfigFileInterface $configFile */
+      $configFile = $this->entityTypeManager()->getStorage('neo_config_file')->load($thumbnailId);
+      if ($configFile) {
+        return \Drupal::service('file_url_generator')->generateAbsoluteString($configFile->getFile()->getFileUri());
+      }
+    }
+    return '/' . $this->getDefaultThumbnail();
   }
 
   /**
@@ -426,6 +446,7 @@ class Component extends ConfigEntityBase implements ComponentInterface {
    */
   public function getPropValues(): array {
     $values = [];
+    $attributes = new Attribute();
     foreach ($this->getPropShapes() as $shapeId => $shape) {
       $value = $shape->getValue();
       if (is_null($value)) {
@@ -435,7 +456,9 @@ class Component extends ConfigEntityBase implements ComponentInterface {
         continue;
       }
       $values[$shapeId] = $value;
+      $shape->modifyAttributes($attributes);
     }
+    $values['attributes'] = $attributes;
     return $values;
   }
 
