@@ -2,8 +2,17 @@
   let componentBlurTimeout:ReturnType<typeof setTimeout>|null = null;
   const shade:HTMLElement|null = document.querySelector('#neo-alchemist--shade');
   const overlay:HTMLElement|null = document.querySelector('#neo-alchemist--overlay');
+  const ops:NodeListOf<HTMLElement>|undefined = overlay?.querySelectorAll('.neo-alchemist--ops');
   let component:HTMLElement|null = null;
   let componentData:any = null;
+
+  if (overlay) {
+    overlay.addEventListener('click', () => {
+      if (component) {
+        componentFocus(component);
+      }
+    });
+  }
 
   const messages = document.getElementById('neo-alchemist--messages');
   if (messages) {
@@ -47,6 +56,11 @@
     });
   }
 
+  const componentHover = (el:HTMLElement) => {
+    component = el;
+    componentSize(false);
+  }
+
   const componentFocus = (el:HTMLElement) => {
     component = el;
     componentData = JSON.parse(component.dataset.component || '{}');
@@ -71,7 +85,7 @@
         });
       }
     }
-    componentSize();
+    componentSize(true);
   }
 
   const componentBlur = () => {
@@ -88,8 +102,9 @@
     }, 100);
   };
 
-  const componentSize = () => {
+  const componentSize = (isFocused:boolean) => {
     if (component) {
+      isFocused = isFocused ?? false;
       if (componentBlurTimeout) {
         clearTimeout(componentBlurTimeout);
       }
@@ -104,23 +119,47 @@
         overlay.style.width = rect.width + 'px';
         overlay.style.height = rect.height + 'px';
         overlay.classList.add('is-active');
+        if (isFocused) {
+          overlay.classList.remove('cursor-pointer');
+        }
+        else {
+          overlay.classList.add('cursor-pointer');
+        }
         setTimeout(() => {
           overlay.classList.add('!transition-all');
         })
         overlay.addEventListener('mouseleave', onOverlayMouseLeave);
       }
-      if (shade) {
-        shade.style.top = '0px';
-        shade.style.right = '0px';
-        shade.style.bottom = '0px';
-        shade.style.left = '0px';
-        shade.style.width = document.body.clientWidth + 'px';
-        shade.style.height = document.body.clientHeight + 'px';
-        shade.style.clipPath = `polygon(0% 0%, 0% 100%, ${left}px 100%, ${left}px ${top}px, ${right}px ${top}px, ${right}px ${bottom}px, ${left}px ${bottom}px, ${left}px 100%, 100% 100%, 100% 0%)`;
-        shade.classList.add('is-active');
-        setTimeout(() => {
-          shade.classList.add('!transition-all');
-        })
+      if (isFocused) {
+        if (ops) {
+          ops.forEach(op => {
+            op.classList.add('is-active');
+          });
+        }
+        if (shade) {
+          shade.style.top = '0px';
+          shade.style.right = '0px';
+          shade.style.bottom = '0px';
+          shade.style.left = '0px';
+          shade.style.width = document.body.clientWidth + 'px';
+          shade.style.height = document.body.clientHeight + 'px';
+          shade.style.clipPath = `polygon(0% 0%, 0% 100%, ${left}px 100%, ${left}px ${top}px, ${right}px ${top}px, ${right}px ${bottom}px, ${left}px ${bottom}px, ${left}px 100%, 100% 100%, 100% 0%)`;
+          shade.classList.add('is-active');
+          setTimeout(() => {
+            shade.classList.add('!transition-all');
+          })
+        }
+      }
+      else {
+        if (ops) {
+          ops.forEach(op => {
+            op.classList.remove('is-active');
+          });
+        }
+        if (shade) {
+          shade.classList.remove('is-active');
+          shade.classList.remove('!transition-all');
+        }
       }
     }
   };
@@ -132,7 +171,7 @@
   };
 
   setInterval(() => {
-    componentSize();
+    // componentSize(false);
   }, 200);
 
   Drupal.behaviors.neoAlchemistInstanceComponentPreview = {
@@ -140,7 +179,7 @@
       if (window.parent) {
         once('neo.alchemist', '[data-component]').forEach(el => {
           el.addEventListener('mouseenter', () => {
-            componentFocus(el);
+            componentHover(el);
           });
         });
       }

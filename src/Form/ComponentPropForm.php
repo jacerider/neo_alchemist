@@ -221,6 +221,9 @@ final class ComponentPropForm extends EntityForm {
         '#suffix' => '</div>',
       ];
       foreach ($instances as $instanceId => $instance) {
+        if (!$instance->isAllowed('manage')) {
+          continue;
+        }
         $form[$key]['values'][$instanceId] = [
           '#table_id' => $tableId,
           '#attributes' => [
@@ -306,6 +309,9 @@ final class ComponentPropForm extends EntityForm {
       foreach ($collection->getInstances() as $instanceId => $instance) {
         $groupId = $instance->getGroup();
         $key = $groupId . '_' . $nestedId;
+        if (empty($form[$key]['values'][$instanceId]['settings'])) {
+          continue;
+        }
         $value = $form_state->getValue([$key, $instanceId], []);
         $subform_state = SubformState::createForSubform($form[$key]['values'][$instanceId]['settings'], $form, $form_state);
         $instance->validateConfigurationForm($form[$key]['values'][$instanceId]['settings'], $subform_state);

@@ -76,7 +76,6 @@ final class MediaValue extends ComponentValuePluginBase implements ContainerFact
   public function defaultConfiguration() {
     return [
       'default' => [],
-      // 'default' => $this->shape->getDefaultValue(),
     ];
   }
 
@@ -135,17 +134,7 @@ final class MediaValue extends ComponentValuePluginBase implements ContainerFact
       }
     }
 
-    // $this->shape->setFieldItemValue($this->configuration['default']);
-    // $form = $this->shape->getForm($form, $form_state);
     return $form;
-  }
-
-  /**
-   * Form validation for the value provider plugin configuration.
-   */
-  protected function configurationValidate(array $form, FormStateInterface $form_state): void {
-    // $values = $form_state->getValues()[$this->shape->getName()] ?? [];
-    // $this->shape->validateForm($form, $form_state, $values);
   }
 
   /**

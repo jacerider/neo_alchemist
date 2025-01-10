@@ -224,7 +224,11 @@ abstract class ComponentValuePluginBase extends PluginBase implements ComponentV
    * {@inheritdoc}
    */
   public function isAllowed(string $op): bool {
-    // By default, plugins are allowed to act on all operations.
+    if ($op === 'default_shape') {
+      // By default, plugins are not allowed to act on the default shape.
+      return FALSE;
+    }
+    // By default, plugins are allowed to act on all other operations.
     return TRUE;
   }
 

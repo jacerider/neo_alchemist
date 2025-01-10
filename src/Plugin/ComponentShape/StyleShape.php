@@ -7,8 +7,6 @@ namespace Drupal\neo_alchemist\Plugin\ComponentShape;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\Core\Template\Attribute;
 use Drupal\neo_alchemist\Attribute\ComponentShape;
-use Drupal\neo_alchemist\ComponentShapePluginBase;
-use Drupal\neo_alchemist\ComponentShapeStylePluginInterface;
 
 /**
  * Plugin implementation of the neo_component_shape.
@@ -19,31 +17,7 @@ use Drupal\neo_alchemist\ComponentShapeStylePluginInterface;
   default_field_type: 'list_string',
   default_field_widget: 'options_select',
 )]
-class StyleShape extends ComponentShapePluginBase implements ComponentShapeStylePluginInterface {
-
-  // /**
-  //  * {@inheritDoc}
-  //  */
-  // public function allowPlugins(): bool {
-  //   return FALSE;
-  // }
-
-  // /**
-  //  * {@inheritDoc}
-  //  */
-  // public function isExpandable(): bool {
-  //   return FALSE;
-  // }
-
-  // /**
-  //  * {@inheritDoc}
-  //  */
-  // protected function checkAccess(string $op, AccountInterface $account): AccessResultInterface {
-  //   if ($op === 'update') {
-  //     return AccessResult::forbidden('Style shape is not editable.');
-  //   }
-  //   return parent::checkAccess($op, $account);
-  // }
+class StyleShape extends StyleShapeBase {
 
   /**
    * {@inheritDoc}
@@ -60,14 +34,13 @@ class StyleShape extends ComponentShapePluginBase implements ComponentShapeStyle
   /**
    * {@inheritDoc}
    */
-  public function modifyAttributes(Attribute $attributes) {
-    if (array_key_exists('styles', $this->schema)) {
-      if ($value = $this->getValue()) {
-        if (isset($this->schema['styles'][$value]['value'])) {
-          $attributes->addClass($this->schema['styles'][$value]['value']);
-        }
-      }
+  public function getPropValue(): Attribute {
+    $originalValue = parent::getPropValue();
+    $value = new Attribute();
+    if ($originalValue && isset($this->schema['styles'][$originalValue]['value'])) {
+      $value->addClass($this->schema['styles'][$originalValue]['value']);
     }
+    return $value;
   }
 
 }

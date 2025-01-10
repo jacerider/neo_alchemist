@@ -8,6 +8,7 @@ use Drupal\Core\Entity\ContentEntityForm;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Form\SubformState;
 use Drupal\neo_alchemist\Ajax\InstanceIframeHelper;
+use Drupal\neo_alchemist\ComponentShapeStylePluginInterface;
 
 /**
  * Component form.
@@ -62,6 +63,16 @@ final class InstanceComponentForm extends ContentEntityForm {
   /**
    * {@inheritdoc}
    */
+  public function buildForm(array $form, FormStateInterface $form_state) {
+    $form = parent::buildForm($form, $form_state);
+
+    $form['actions']['#weight'] = 1000;
+    return $form;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
   public function form(array $form, FormStateInterface $form_state): array {
     $form['#parents'] = [];
     $form['#neo_style'] = 'clean';
@@ -77,9 +88,16 @@ final class InstanceComponentForm extends ContentEntityForm {
     $form['#process'][] = '::processForm';
     $form['#after_build'][] = '::afterBuild';
 
-    $form['values'] = [
-      '#type' => 'container',
+    $form['advanced'] = [
+      '#type' => 'accordion',
+      '#title' => $this->t('Styles'),
     ];
+
+    $form['values'] = [
+      '#title' => $this->t('Values'),
+      '#type' => 'fieldset',
+    ];
+
     foreach ($this->instance->getPropShapes() as $propName => $shape) {
       if (!$shape->access('update')) {
         continue;
@@ -90,6 +108,11 @@ final class InstanceComponentForm extends ContentEntityForm {
       ];
       $subform_state = SubformState::createForSubform($subform, $form, $form_state);
       $form['values'][$propName] = $shape->getForm($subform, $subform_state);
+      if ($shape instanceof ComponentShapeStylePluginInterface) {
+        $form['values'][$propName]['#type'] = 'details';
+        $form['values'][$propName]['#title'] = $shape->getTitle();
+        $form['values'][$propName]['#group'] = 'advanced';
+      }
     }
 
     $form['status'] = [

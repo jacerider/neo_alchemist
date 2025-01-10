@@ -704,6 +704,19 @@ interface ComponentShapePluginInterface extends PluginInspectionInterface, Deriv
   /**
    * Get the prop value.
    *
+   * It is safe to manipulate this value to something useful for the SDC that
+   * would not be a supported value for the field item.
+   *
+   * This is the value that is passed to the SDC.
+   *
+   * @return mixed
+   *   The prop value.
+   */
+  public function getPropValue(): mixed;
+
+  /**
+   * Get the working prop value.
+   *
    * This value should be able to be passed to the SDC.
    *
    * @return mixed
@@ -806,6 +819,30 @@ interface ComponentShapePluginInterface extends PluginInspectionInterface, Deriv
    *   The widget.
    */
   public function getWidget(): ?WidgetInterface;
+
+  /**
+   * Sets a widget setting.
+   *
+   * @param string $key
+   *   The key of the setting to set.
+   * @param mixed $value
+   *   The value to set for the specified key.
+   *
+   * @return self
+   *   The current instance for method chaining.
+   */
+  public function setWidgetSetting(string $key, mixed $value): self;
+
+  /**
+   * Sets the widget settings.
+   *
+   * @param array $settings
+   *   An associative array of widget settings.
+   *
+   * @return self
+   *   The current instance of the class for method chaining.
+   */
+  public function setWidgetSettings(array $settings): self;
 
   /**
    * Get the widget type options.

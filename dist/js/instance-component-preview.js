@@ -1,68 +1,76 @@
-(function(y, f) {
-  let d = null;
-  const s = document.querySelector("#neo-alchemist--shade"), t = document.querySelector("#neo-alchemist--overlay");
-  let i = null, a = null;
-  const n = document.getElementById("neo-alchemist--messages");
-  n && (setTimeout(() => {
-    n.classList.add("transition-all"), n.classList.remove("opacity-0", "-translate-y-full");
-  }, 100), n.querySelector(".kint-rich") ? n.classList.remove("fixed") : setTimeout(() => {
-    n == null || n.classList.add("opacity-0", "-translate-y-full");
-  }, 4e3)), t && t.querySelectorAll(".op").forEach((l) => {
-    l.addEventListener("click", (c) => {
-      c.preventDefault();
-      const o = l.dataset.op;
-      if (i && o) {
-        const r = JSON.parse(i.dataset.component || "{}");
-        if (r.ops[o]) {
-          const p = JSON.stringify({
-            type: o,
-            uuid: r.uuid,
+(function(h, v) {
+  let u = null;
+  const e = document.querySelector("#neo-alchemist--shade"), t = document.querySelector("#neo-alchemist--overlay"), d = t == null ? void 0 : t.querySelectorAll(".neo-alchemist--ops");
+  let l = null, p = null;
+  t && t.addEventListener("click", () => {
+    l && x(l);
+  });
+  const c = document.getElementById("neo-alchemist--messages");
+  c && (setTimeout(() => {
+    c.classList.add("transition-all"), c.classList.remove("opacity-0", "-translate-y-full");
+  }, 100), c.querySelector(".kint-rich") ? c.classList.remove("fixed") : setTimeout(() => {
+    c == null || c.classList.add("opacity-0", "-translate-y-full");
+  }, 4e3)), t && t.querySelectorAll(".op").forEach((o) => {
+    o.addEventListener("click", (a) => {
+      a.preventDefault();
+      const i = o.dataset.op;
+      if (l && i) {
+        const n = JSON.parse(l.dataset.component || "{}");
+        if (n.ops[i]) {
+          const r = JSON.stringify({
+            type: i,
+            uuid: n.uuid,
             scrollY: window.scrollY,
             scrollX: window.scrollX
           });
-          window.parent.postMessage(p, "*");
+          window.parent.postMessage(r, "*");
         }
       }
     });
   });
-  const h = (e) => {
-    if (i = e, a = JSON.parse(i.dataset.component || "{}"), t && a.uuid) {
-      t.querySelectorAll(".op").forEach((o) => {
-        o.style.display = "none";
+  const L = (s) => {
+    l = s, f(!1);
+  }, x = (s) => {
+    if (l = s, p = JSON.parse(l.dataset.component || "{}"), t && p.uuid) {
+      t.querySelectorAll(".op").forEach((i) => {
+        i.style.display = "none";
       });
-      const c = t.querySelector(".title");
-      c && (c.innerHTML = a.label), a.ops && Object.keys(a.ops).forEach((o) => {
-        if (a.ops[o]) {
-          const p = t.querySelector(`[data-op="${o}"]`);
-          p && (p.style.display = "");
+      const a = t.querySelector(".title");
+      a && (a.innerHTML = p.label), p.ops && Object.keys(p.ops).forEach((i) => {
+        if (p.ops[i]) {
+          const r = t.querySelector(`[data-op="${i}"]`);
+          r && (r.style.display = "");
         }
       });
     }
-    u();
-  }, v = () => {
-    i = null, d = setTimeout(() => {
-      t && (t.classList.remove("is-active"), t.classList.remove("!transition-all")), s && (s.classList.remove("is-active"), s.classList.remove("!transition-all"));
+    f(!0);
+  }, w = () => {
+    l = null, u = setTimeout(() => {
+      t && (t.classList.remove("is-active"), t.classList.remove("!transition-all")), e && (e.classList.remove("is-active"), e.classList.remove("!transition-all"));
     }, 100);
-  }, u = () => {
-    if (i) {
-      d && clearTimeout(d);
-      const e = i.getBoundingClientRect(), l = e.top + window.scrollY, c = e.bottom + window.scrollY, o = e.left + window.scrollX, r = e.right + window.scrollX;
-      t && (t.style.top = l + "px", t.style.left = o + "px", t.style.width = e.width + "px", t.style.height = e.height + "px", t.classList.add("is-active"), setTimeout(() => {
+  }, f = (s) => {
+    if (l) {
+      s = s ?? !1, u && clearTimeout(u);
+      const o = l.getBoundingClientRect(), a = o.top + window.scrollY, i = o.bottom + window.scrollY, n = o.left + window.scrollX, r = o.right + window.scrollX;
+      t && (t.style.top = a + "px", t.style.left = n + "px", t.style.width = o.width + "px", t.style.height = o.height + "px", t.classList.add("is-active"), s ? t.classList.remove("cursor-pointer") : t.classList.add("cursor-pointer"), setTimeout(() => {
         t.classList.add("!transition-all");
-      }), t.addEventListener("mouseleave", m)), s && (s.style.top = "0px", s.style.right = "0px", s.style.bottom = "0px", s.style.left = "0px", s.style.width = document.body.clientWidth + "px", s.style.height = document.body.clientHeight + "px", s.style.clipPath = `polygon(0% 0%, 0% 100%, ${o}px 100%, ${o}px ${l}px, ${r}px ${l}px, ${r}px ${c}px, ${o}px ${c}px, ${o}px 100%, 100% 100%, 100% 0%)`, s.classList.add("is-active"), setTimeout(() => {
-        s.classList.add("!transition-all");
-      }));
+      }), t.addEventListener("mouseleave", y)), s ? (d && d.forEach((m) => {
+        m.classList.add("is-active");
+      }), e && (e.style.top = "0px", e.style.right = "0px", e.style.bottom = "0px", e.style.left = "0px", e.style.width = document.body.clientWidth + "px", e.style.height = document.body.clientHeight + "px", e.style.clipPath = `polygon(0% 0%, 0% 100%, ${n}px 100%, ${n}px ${a}px, ${r}px ${a}px, ${r}px ${i}px, ${n}px ${i}px, ${n}px 100%, 100% 100%, 100% 0%)`, e.classList.add("is-active"), setTimeout(() => {
+        e.classList.add("!transition-all");
+      }))) : (d && d.forEach((m) => {
+        m.classList.remove("is-active");
+      }), e && (e.classList.remove("is-active"), e.classList.remove("!transition-all")));
     }
-  }, m = (e) => {
-    e.currentTarget.removeEventListener("mouseleave", m), v();
+  }, y = (s) => {
+    s.currentTarget.removeEventListener("mouseleave", y), w();
   };
   setInterval(() => {
-    u();
-  }, 200), y.behaviors.neoAlchemistInstanceComponentPreview = {
+  }, 200), h.behaviors.neoAlchemistInstanceComponentPreview = {
     attach: function() {
-      window.parent && f("neo.alchemist", "[data-component]").forEach((e) => {
-        e.addEventListener("mouseenter", () => {
-          h(e);
+      window.parent && v("neo.alchemist", "[data-component]").forEach((s) => {
+        s.addEventListener("mouseenter", () => {
+          L(s);
         });
       });
     }

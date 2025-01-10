@@ -29,8 +29,11 @@ props:
     #     Medium: 'my-1 md:my-4 lg:my-14'
     scheme:
       type: scheme
+      apply: true
+      allow_dark: false
     padding:
       type: padding
+      apply: true
     margin:
       type: margin
     # padding:
@@ -120,14 +123,14 @@ props:
     #                   alt: 'Boring placeholder'
     #                   width: 300
     #                   height: 200
-    # image:
-    #   title: 'Image'
-    #   type: image
-    #   examples:
-    #     - src: https://placehold.co/300x200.png
-    #       alt: 'Boring placeholder'
-    #       width: 300
-    #       height: 200
+    image:
+      title: 'Image'
+      type: image
+      examples:
+        - src: https://placehold.co/300x200.png
+          alt: 'Boring placeholder'
+          width: 300
+          height: 200
     # tmp:
     #   type: object
     #   title: Tmp

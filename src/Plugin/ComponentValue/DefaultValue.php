@@ -80,6 +80,8 @@ final class DefaultValue extends ComponentValuePluginBase implements ContainerFa
    */
   protected function getDefaultShape(): ComponentShapePluginInterface {
     if (!isset($this->defaultShape)) {
+      $plugins = $this->shape->getPlugins();
+      unset($plugins['default']);
       $this->defaultShape = $this->shapeManager->getInstance([
         'schema' => $this->shape->getSchema(),
         'component' => $this->shape->getComponent(),

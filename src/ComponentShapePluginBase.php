@@ -228,6 +228,13 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
   protected array $expanded = [];
 
   /**
+   * The widget.
+   *
+   * @var \Drupal\Core\Field\WidgetInterface|false
+   */
+  protected WidgetInterface|false $widget;
+
+  /**
    * The all child shapes.
    *
    * @var \Drupal\neo_alchemist\ComponentShapePluginInterface[]
@@ -806,7 +813,6 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
    * {@inheritDoc}
    */
   public function getPlugins(): array {
-
     return match($this->isRoot()) {
       TRUE => $this->plugins,
       FALSE => $this->getRootShape()->getPlugins(),
@@ -1227,6 +1233,13 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
   /**
    * {@inheritDoc}
    */
+  public function getPropValue(): mixed {
+    return $this->getValue();
+  }
+
+  /**
+   * {@inheritDoc}
+   */
   public function getValue(): mixed {
     // If the value is set to be empty (which will cause it to be hidden), we
     // don't need to do anything else.
@@ -1423,25 +1436,29 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
    * {@inheritDoc}
    */
   public function getWidget(): ?WidgetInterface {
-    /** @var \Drupal\neo_alchemist\PropSource\FieldStorageDefinition $fieldStorageDefinition */
-    $fieldStorageDefinition = $this->fieldItem->getFieldDefinition();
-    $configuration = [];
-    if ($type = $this->getWidgetType()) {
-      if (!isset($this->getWidgetTypeOptions()[$type])) {
-        return NULL;
+    if (!isset($this->widget)) {
+      /** @var \Drupal\neo_alchemist\PropSource\FieldStorageDefinition $fieldStorageDefinition */
+      $fieldStorageDefinition = $this->fieldItem->getFieldDefinition();
+
+      $configuration = [];
+      if ($type = $this->getWidgetType()) {
+        if (!isset($this->getWidgetTypeOptions()[$type])) {
+          return NULL;
+        }
+        $configuration['type'] = $type;
       }
-      $configuration['type'] = $type;
+      if ($settings = $this->getWidgetSettings()) {
+        $configuration['settings'] = $settings;
+      }
+      $options = [
+        'field_definition' => $fieldStorageDefinition,
+        'configuration' => $configuration,
+      ];
+      $this->widget = $this->widgetManager->getInstance($options + [
+        'prepare' => TRUE,
+      ]) ?: NULL;
     }
-    if ($settings = $this->getWidgetSettings()) {
-      $configuration['settings'] = $settings;
-    }
-    $options = [
-      'field_definition' => $fieldStorageDefinition,
-      'configuration' => $configuration,
-    ];
-    return $this->widgetManager->getInstance($options + [
-      'prepare' => TRUE,
-    ]) ?: NULL;
+    return $this->widget;
   }
 
   /**
@@ -1502,6 +1519,22 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
       $this->widgetSettings = $this->getDefaultWidgetSettings();
     }
     return $this->widgetSettings;
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  public function setWidgetSetting(string $key, mixed $value): self {
+    $this->widgetSettings[$key] = $value;
+    return $this;
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  public function setWidgetSettings(array $settings): self {
+    $this->widgetSettings = $settings;
+    return $this;
   }
 
   /**
@@ -1665,16 +1698,9 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
   protected function form(array $form, FormStateInterface $form_state): array {
     $widget = $this->getWidget();
     if ($widget) {
-      // ksm($form['#parents'], array_slice($form['#parents'], 0, -1), array_merge(array_slice($form['#parents'], 0, -1), ['widget']));
       $form['widget'] = [
-        // '#parents' => array_slice($form['#parents'], 0, -1),
-        // '#parents' => array_merge(array_slice($form['#parents'], 0, -1), ['widget']),
         '#parents' => $form['#parents'],
-        // '#parents' => array_merge(array_slice($form['#parents'], 0, -1), ['widget']),
       ];
-      // if ($widget->getPluginDefinition()['multiple_values'] ?? FALSE) {
-      //   $form['widget']['#parents'] = array_merge($form['widget']['#parents'], [0]);
-      // }
       $form['widget'] = $widget->form($this->getFieldItemList(), $form['widget'], $form_state);
     }
     return $form;
@@ -1951,6 +1977,7 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
   public function __clone() {
     unset($this->fieldItem);
     unset($this->fieldItemList);
+    unset($this->widget);
   }
 
 }

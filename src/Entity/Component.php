@@ -448,7 +448,7 @@ class Component extends ConfigEntityBase implements ComponentInterface {
     $values = [];
     $attributes = new Attribute();
     foreach ($this->getPropShapes() as $shapeId => $shape) {
-      $value = $shape->getValue();
+      $value = $shape->getPropValue();
       if (is_null($value)) {
         continue;
       }

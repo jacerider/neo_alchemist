@@ -127,6 +127,10 @@ final class EntityValue extends ComponentValuePluginBase implements ContainerFac
    * Only allow processing if the entity is not new.
    */
   public function isAllowed(string $op): bool {
+    if ($op === 'manage') {
+      $fieldMatcher = \Drupal::service('neo_alchemist.field_matcher');
+      return !empty($fieldMatcher->getMatchesAsOptions($this->shape));
+    }
     return match($this->shape->getScope()) {
       'field' => match($op) {
         'default' => !$this->shape->getEntity()->isNew(),

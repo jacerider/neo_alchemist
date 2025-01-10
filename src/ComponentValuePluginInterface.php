@@ -128,8 +128,15 @@ interface ComponentValuePluginInterface extends ConfigurableInterface, PluginFor
    * Determines if this plugin should be allowed act on the current operation.
    *
    * @param string $op
-   *   The operation being performed. Current operations are 'default', 'value',
-   *   'edit', 'modify' and 'form'.
+   *   The operation being performed.
+   *
+   *   - default: Can act on the default value.
+   *   - value: Can act on the value.
+   *   - edit: Can control the editability of the prop.
+   *   - modify: Can modify the final value.
+   *   - form: Can alter the form element.
+   *   - manage: Can enable/disable the plugin on a prop.
+   *   - default_shape: Can apply the plugin to the default shape.
    *
    * @return bool
    *   TRUE if processing should be allowed, FALSE otherwise.
