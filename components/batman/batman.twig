@@ -1,6 +1,6 @@
 {%
   set classes = [
-    'card flex flex-col md:flex-row gap-6 items-center bg-base-50 text-base-content-50',
+    'card flex flex-col md:flex-row gap-6 items-center bg-base-0 text-base-content-0',
     color == 'base' ? 'bg-base-200 text-base-content-200',
     color == 'primary' ? 'bg-primary-500 text-primary-content-500',
     color == 'secondary' ? 'bg-secondary-500 text-secondary-content-500',
@@ -28,11 +28,11 @@
       {% endif %}
       {% if heading %}
         {% if heading.supertitle %}<div class="text-xs">{{ heading.supertitle }}</div>{% endif %}
-        <h2 class="text-xl font-bold">{{ heading.title }}</h2>
+        <h2 class="text-xl font-bold text-base-content-0">{{ heading.title }}</h2>
         {% if heading.subtitle %}<div class="text-sm">{{ heading.subtitle }}</div>{% endif %}
       {% endif %}
       {% if title %}
-        <h2 class="text-xl font-bold">{{ title }}</h2>
+        <h2 class="text-xl font-bold text-base-content-0">{{ title }}</h2>
       {% endif %}
       {% if email %}
         <div><a class="btn" href="mailto:{{ email }}">{{ email }}</a></div>
@@ -82,6 +82,15 @@
       {% endfor %}
     </div>
   {% endif %}
+
+  {# <a class="btn">Button</a>
+  <a class="btn btn-outline">Button Outline</a>
+  <a class="btn btn-primary">Primary</a>
+  <a class="btn btn-primary-outline">Primary Outline</a>
+  <a class="btn btn-secondary">Secondary</a>
+  <a class="btn btn-secondary-outline">Secondary Outline</a>
+  <a class="btn btn-accent">Accent</a>
+  <a class="btn btn-accent-outline">Accent Outline</a> #}
   {# <div class="first">
     {% block first %}{% endblock %}
   </div> #}

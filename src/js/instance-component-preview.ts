@@ -12,6 +12,20 @@
         componentFocus(component);
       }
     });
+    const close:HTMLElement|null = overlay.querySelector('.close');
+    if (close) {
+      close.addEventListener('click', e => {
+        e.preventDefault();
+        componentBlur();
+      });
+    }
+  }
+
+  if (shade) {
+    shade.addEventListener('click', e => {
+      e.preventDefault();
+      componentBlur();
+    });
   }
 
   const messages = document.getElementById('neo-alchemist--messages');
@@ -37,6 +51,7 @@
       opButton.addEventListener('click', (e) => {
         e.preventDefault();
         const opKey = opButton.dataset.op;
+        console.log('click', opKey);
         if (component && opKey) {
           const data = JSON.parse(component.dataset.component || '{}');
           if (data.ops[opKey]) {
@@ -128,7 +143,7 @@
         setTimeout(() => {
           overlay.classList.add('!transition-all');
         })
-        overlay.addEventListener('mouseleave', onOverlayMouseLeave);
+        // overlay.addEventListener('mouseleave', onOverlayMouseLeave);
       }
       if (isFocused) {
         if (ops) {
@@ -170,9 +185,9 @@
     componentBlur();
   };
 
-  setInterval(() => {
-    // componentSize(false);
-  }, 200);
+  // setInterval(() => {
+  //   componentSize(false);
+  // }, 200);
 
   Drupal.behaviors.neoAlchemistInstanceComponentPreview = {
     attach: function () {

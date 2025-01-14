@@ -1,5 +1,3 @@
-# style:
-#   deriver: 'Drupal\neo_alchemist\Plugin\Derivative\ComponentPropDefStyleDeriver'
 heading:
   title: Heading
   type: object

@@ -6,7 +6,6 @@ instance.component.manage:
   dependencies:
     - core/drupal
     - core/drupalSettings
-    - core/drupal.ajax
     - core/drupal.displace
     - neo_alchemist/instance.ajax
 
@@ -19,6 +18,15 @@ instance.component.preview:
     - core/once
     - core/drupal
 
+instance.component.form:
+  version: VERSION
+  neo: { group: contrib }
+  js:
+    src/js/instance-component-form.ts: {}
+  dependencies:
+    - core/once
+    - core/drupal
+
 instance.ajax:
   version: VERSION
   neo: { group: contrib }
@@ -26,3 +34,4 @@ instance.ajax:
     src/js/instance-ajax.ts: {}
   dependencies:
     - core/drupal
+    - core/drupal.ajax

@@ -1,15 +1,15 @@
-(function(t, i, l) {
-  const s = document.getElementById("neo-alchemist--iframe");
+(function(i, a, n) {
+  const l = document.getElementById("neo-alchemist--iframe");
   window.addEventListener("message", function(e) {
-    const o = JSON.parse(e.data);
-    if (typeof o.type == "string") {
-      const n = o.type.split("-"), a = n[0], d = n[1] ?? null;
-      if (typeof t.behaviors.neoAlchemistInstanceComponentManage[a] != "function")
+    const t = JSON.parse(e.data);
+    if (typeof t.type == "string") {
+      const s = t.type.split("-"), c = s[0], d = s[1] ?? null;
+      if (typeof i.behaviors.neoAlchemistInstanceComponentManage[c] != "function")
         return;
-      t.behaviors.neoAlchemistInstanceComponentManage[a](o.uuid, d);
+      i.behaviors.neoAlchemistInstanceComponentManage[c](t.uuid, d);
     }
   });
-  const c = {
+  const o = {
     width: "100%",
     height: "100%",
     neo: {
@@ -17,60 +17,57 @@
       displaceBottom: "0px"
     }
   };
-  t.behaviors.neoAlchemistInstanceComponentManage = {
+  i.behaviors.neoAlchemistInstanceComponentManage = {
     attach: function() {
-      l && l(!0), [
+      n && n(!0), [
         { id: "sm", width: "440px", active: !1 },
         { id: "md", width: "768px", active: !1 },
         { id: "lg", width: "100%", active: !0 }
       ].forEach((e) => {
-        once("neo.alchemist", "#neo-alchemist--resize-" + e.id).forEach((o) => {
-          e.active && o.classList.add("is-active"), o.addEventListener("click", (n) => {
-            n.preventDefault(), s && (document.querySelectorAll(".neo-alchemist--resize").forEach((a) => {
-              a.classList.remove("is-active");
-            }), o.classList.add("is-active"), s.style.maxWidth = e.width);
+        once("neo.alchemist", "#neo-alchemist--resize-" + e.id).forEach((t) => {
+          e.active && t.classList.add("is-active"), t.addEventListener("click", (s) => {
+            s.preventDefault(), l && (document.querySelectorAll(".neo-alchemist--resize").forEach((c) => {
+              c.classList.remove("is-active");
+            }), t.classList.add("is-active"), l.style.maxWidth = e.width);
           });
         });
       });
     },
     edit: (e) => {
-      t.ajax({
-        url: i.neoAlchemist.baseUrl + "/edit/" + e,
+      i.ajax({
+        url: a.neoAlchemist.baseUrl + "/edit/" + e,
         dialogType: "modal",
-        dialog: c
+        dialog: o
       }).execute();
     },
     sort: (e) => {
-      t.ajax({
-        url: i.neoAlchemist.baseUrl + "/sort?uuid=" + e,
+      i.ajax({
+        url: a.neoAlchemist.baseUrl + "/sort?uuid=" + e,
         dialogType: "modal",
-        dialog: c
+        dialog: o
       }).execute();
     },
     delete: (e) => {
-      t.ajax({
-        url: i.neoAlchemist.baseUrl + "/delete/" + e,
+      i.ajax({
+        url: a.neoAlchemist.baseUrl + "/delete/" + e,
         dialogType: "modal",
-        dialog: c
+        dialog: o
       }).execute();
     },
     clone: (e) => {
-      t.ajax({
-        url: i.neoAlchemist.baseUrl + "/clone/" + e
+      i.ajax({
+        url: a.neoAlchemist.baseUrl + "/clone/" + e
         // dialogType: 'modal',
         // dialog: modalOptions,
       }).execute();
     },
-    add: (e, o) => {
-      t.ajax({
-        url: i.neoAlchemist.baseUrl + `/library?${o}=${e}`,
+    add: (e, t) => {
+      i.ajax({
+        url: a.neoAlchemist.baseUrl + `/library?${t}=${e}`,
         dialogType: "modal",
-        dialog: c
+        dialog: o
       }).execute();
     }
-  }, t.AjaxCommands && (t.AjaxCommands.prototype.neoAlchemistInstanceComponentPreviewIframe = function(e, o, n) {
-    var a;
-    s && ((a = s.contentDocument) == null || a.location.reload());
-  });
+  };
 })(Drupal, drupalSettings, Drupal.displace);
 //# sourceMappingURL=instance-component-manage.js.map

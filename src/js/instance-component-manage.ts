@@ -94,14 +94,6 @@
     },
   };
 
-  if (Drupal.AjaxCommands) {
-    Drupal.AjaxCommands.prototype.neoAlchemistInstanceComponentPreviewIframe = function (_ajax, _response, _status) {
-      if (iframe) {
-        iframe.contentDocument?.location.reload();
-      }
-    } as drupal.Core.IAjaxCommand;
-  }
-
 })(Drupal, drupalSettings, Drupal.displace);
 
 export {};

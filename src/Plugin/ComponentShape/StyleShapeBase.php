@@ -42,6 +42,14 @@ abstract class StyleShapeBase extends ComponentShapePluginBase implements Compon
   /**
    * {@inheritDoc}
    */
+  public function init(): self {
+    $this->getOptionEmpty()->setAccess(FALSE, 'Styles cannot be empty.');
+    return parent::init();
+  }
+
+  /**
+   * {@inheritDoc}
+   */
   public function modifyAttributes(Attribute $attributes) {
     if (array_key_exists('apply', $this->schema) && !empty($this->schema['apply'])) {
       $value = $this->getPropValue();

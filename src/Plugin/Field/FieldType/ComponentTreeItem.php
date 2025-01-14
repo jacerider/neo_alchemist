@@ -630,19 +630,25 @@ class ComponentTreeItem extends FieldItemBase implements RenderableInterface {
    * The draft key is a string composed of the 'neo_alchemist' prefix, the
    * entity ID, and the field name, concatenated with dots.
    *
+   * @param string|null $uuid
+   *   (optional) The UUID of the component instance.
+   *
    * @return string
    *   The generated draft key.
    *
    * @throws \AssertionError
    *   Thrown if the field does not belong to a field configuration.
    */
-  protected function getDraftKey(): string {
-    assert(!$this->belongsToFieldConfig());
-    return implode('.', [
+  public function getDraftKey(string $uuid = NULL): string {
+    $props = [
       'neo_alchemist',
-      $this->getEntity()->id(),
+      $this->belongsToFieldConfig() ? $this->getFieldDefinition()->getTargetEntityTypeId() : $this->getEntity()->id(),
       $this->getFieldDefinition()->getName(),
-    ]);
+    ];
+    if ($uuid) {
+      $props[] = $uuid;
+    }
+    return implode('.', $props);
   }
 
   /**

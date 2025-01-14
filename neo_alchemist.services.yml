@@ -5,10 +5,6 @@ services:
     lazy: true
   Drupal\Core\Render\BareHtmlPageRendererInterface: '@neo_component_page_renderer'
 
-  plugin.manager.neo_component_style:
-    class: Drupal\neo_alchemist\ComponentStylePluginManager
-    parent: default_plugin_manager
-
   plugin.manager.neo_component_prop_def:
     class: Drupal\neo_alchemist\ComponentPropDefPluginManager
     arguments: ['@module_handler', '@cache.discovery']

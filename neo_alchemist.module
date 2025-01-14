@@ -75,6 +75,17 @@ function template_preprocess_neo_alchemist_overlay(&$variables) {
   // $tooltip->setContent('Whoa!');
   // $variables['status'] = $tooltip->buildFromString(t('Loading...'));
 
+  $tooltip = new Tooltip('Close');
+  $variables['close'] = [
+    '#type' => 'link',
+    '#title' => neo_admin_icon('Close', 'times')->iconOnly(),
+    '#url' => Url::fromRoute('<current>'),
+    '#attributes' => [
+      'class' => ['close', 'btn', 'btn-xs'],
+    ],
+  ];
+  $tooltip->applyTo($variables['close']);
+
   $variables['ops'] = [];
   foreach ([
     'edit' => t('Edit'),
@@ -83,6 +94,7 @@ function template_preprocess_neo_alchemist_overlay(&$variables) {
     'delete' => t('Delete'),
   ] as $op => $label) {
     $tooltip = new Tooltip($label);
+    $tooltip->setPlacementToBottom();
     $variables['ops'][$op] = [
       '#type' => 'link',
       '#title' => neo_admin_icon($label)->iconOnly(),
@@ -97,6 +109,7 @@ function template_preprocess_neo_alchemist_overlay(&$variables) {
 
   $label = t('Add Component Before');
   $tooltip = new Tooltip($label);
+  $tooltip->setPlacementToBottom();
   $variables['op_add_before'] = [
     '#type' => 'link',
     '#title' => neo_admin_icon($label, 'arrow-to-top')->iconOnly(),
@@ -110,6 +123,7 @@ function template_preprocess_neo_alchemist_overlay(&$variables) {
 
   $label = t('Add Component After');
   $tooltip = new Tooltip($label);
+  $tooltip->setPlacementToBottom();
   $variables['op_add_after'] = [
     '#type' => 'link',
     '#title' => neo_admin_icon($label, 'arrow-to-bottom')->iconOnly(),

@@ -4,11 +4,19 @@ declare(strict_types=1);
 
 namespace Drupal\neo_alchemist\Form;
 
+use Drupal\Component\Datetime\TimeInterface;
+use Drupal\Core\Ajax\AjaxResponse;
+use Drupal\Core\Ajax\HtmlCommand;
 use Drupal\Core\Entity\ContentEntityForm;
+use Drupal\Core\Entity\EntityRepositoryInterface;
+use Drupal\Core\Entity\EntityTypeBundleInfoInterface;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Form\SubformState;
+use Drupal\Core\TempStore\PrivateTempStoreFactory;
+use Drupal\neo_alchemist\Ajax\InstanceComponentPreviewIframeCommand;
 use Drupal\neo_alchemist\Ajax\InstanceIframeHelper;
 use Drupal\neo_alchemist\ComponentShapeStylePluginInterface;
+use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
  * Component form.
@@ -16,6 +24,13 @@ use Drupal\neo_alchemist\ComponentShapeStylePluginInterface;
 final class InstanceComponentForm extends ContentEntityForm {
 
   use InstanceIframeHelper;
+
+  /**
+   * Private temporary storage.
+   *
+   * @var \Drupal\Core\TempStore\PrivateTempStore
+   */
+  protected $store;
 
   /**
    * Component.
@@ -41,8 +56,37 @@ final class InstanceComponentForm extends ContentEntityForm {
   /**
    * {@inheritdoc}
    */
+  public static function create(ContainerInterface $container) {
+    return new static(
+      $container->get('entity.repository'),
+      $container->get('entity_type.bundle.info'),
+      $container->get('datetime.time'),
+      $container->get('tempstore.private'),
+    );
+  }
+
+  /**
+   * PatternEditForm constructor.
+   *
+   * @param \Drupal\Core\Entity\EntityRepositoryInterface $entity_repository
+   *   The entity repository service.
+   * @param \Drupal\Core\Entity\EntityTypeBundleInfoInterface $entity_type_bundle_info
+   *   The entity type bundle service.
+   * @param \Drupal\Component\Datetime\TimeInterface $time
+   *   The time service.
+   * @param \Drupal\Core\TempStore\PrivateTempStoreFactory $temp_store_factory
+   *   The temp storage factory.
+   */
+  public function __construct(EntityRepositoryInterface $entity_repository, EntityTypeBundleInfoInterface $entity_type_bundle_info, TimeInterface $time, PrivateTempStoreFactory $temp_store_factory) {
+    parent::__construct($entity_repository, $entity_type_bundle_info, $time);
+    $this->store = $temp_store_factory->get('neo_alchemist');
+  }
+
+  /**
+   * {@inheritdoc}
+   */
   public function getBaseFormId() {
-    $base_form_id = 'neo_compponent_' . $this->entity->getEntityTypeId() . '_form';
+    $base_form_id = 'neo_component_' . $this->entity->getEntityTypeId() . '_form';
     if ($base_form_id == $this->getFormId()) {
       $base_form_id = NULL;
     }
@@ -53,11 +97,25 @@ final class InstanceComponentForm extends ContentEntityForm {
    * {@inheritdoc}
    */
   public function getFormId() {
-    $form_id = 'neo_compponent_' . $this->entity->getEntityTypeId();
+    $form_id = 'neo_component_' . $this->entity->getEntityTypeId();
     if ($this->entity->getEntityType()->hasKey('bundle')) {
       $form_id .= '_' . $this->entity->bundle();
     }
     return $form_id . '_form';
+  }
+
+  /**
+   * Initialize the form state and the entity before the first form build.
+   */
+  protected function init(FormStateInterface $form_state) {
+    parent::init($form_state);
+    $form_state->set('neo_component_form', TRUE);
+    $this->instance = $form_state->get('neo_component_instance');
+    $this->before = $form_state->get('before');
+    $this->after = $form_state->get('after');
+    $form_state->set('original_values', $this->instance->getValues());
+    $this->store->delete($this->instance->getFieldItem()->getDraftKey($this->instance->uuid()));
+    $form_state->set('neo_draft_uuid', $this->instance->uuid());
   }
 
   /**
@@ -75,18 +133,36 @@ final class InstanceComponentForm extends ContentEntityForm {
    */
   public function form(array $form, FormStateInterface $form_state): array {
     $form['#parents'] = [];
+    $form['#id'] = 'neo-alchemist--instance-component-form';
     $form['#neo_style'] = 'clean';
-    $form_state->set('neo_component_form', TRUE);
-    $this->instance = $form_state->get('neo_component_instance');
-    $this->before = $form_state->get('before');
-    $this->after = $form_state->get('after');
-    if (!$form_state->has('original_values')) {
-      $form_state->set('original_values', $this->instance->getValues());
-    }
 
-    // Add #process and #after_build callbacks.
     $form['#process'][] = '::processForm';
-    $form['#after_build'][] = '::afterBuild';
+    $form['#attached']['library'][] = 'neo_alchemist/instance.ajax';
+    $form['#attached']['library'][] = 'neo_alchemist/instance.component.form';
+
+    $form['uuid'] = [
+      '#type' => 'hidden',
+      '#default_value' => $this->instance->uuid(),
+    ];
+
+    $form['iframe'] = [
+      '#type' => 'html_tag',
+      '#tag' => 'iframe',
+      '#id' => 'neo-alchemist--iframe-form',
+      '#attributes' => [
+        'id' => 'neo-alchemist--iframe-form',
+        'src' => $this->instance->toUrl('preview')->setOption('query', [
+          'uuid' => $this->instance->uuid(),
+          'component' => $this->instance->id(),
+        ])->toString(),
+        'width' => '100%',
+        'height' => '300px',
+        'frameborder' => '0',
+        'class' => [
+          'border-2',
+        ],
+      ],
+    ];
 
     $form['advanced'] = [
       '#type' => 'accordion',
@@ -95,7 +171,7 @@ final class InstanceComponentForm extends ContentEntityForm {
 
     $form['values'] = [
       '#title' => $this->t('Values'),
-      '#type' => 'fieldset',
+      '#type' => 'container',
     ];
 
     foreach ($this->instance->getPropShapes() as $propName => $shape) {
@@ -112,6 +188,7 @@ final class InstanceComponentForm extends ContentEntityForm {
         $form['values'][$propName]['#type'] = 'details';
         $form['values'][$propName]['#title'] = $shape->getTitle();
         $form['values'][$propName]['#group'] = 'advanced';
+        $form['values'][$propName]['widget']['widget']['#title'] = '';
       }
     }
 
@@ -119,6 +196,21 @@ final class InstanceComponentForm extends ContentEntityForm {
       '#type' => 'checkbox',
       '#title' => $this->t('Enabled'),
       '#default_value' => $this->instance->isPublished(),
+    ];
+
+    $form['refresh'] = [
+      '#type' => 'submit',
+      // '#name' => 'refresh',
+      '#id' => 'neo-alchemist--refresh',
+      '#value' => $this->t('Refresh'),
+      '#submit' => ['::submitRefresh'],
+      // '#limit_validation_errors' => [],
+      '#ajax' => [
+        'callback' => '::ajaxRefresh',
+      ],
+      '#weight' => -1000,
+      '#prefix' => '<div class="hidden">',
+      '#suffix' => '</div>',
     ];
 
     return $form;
@@ -136,7 +228,6 @@ final class InstanceComponentForm extends ContentEntityForm {
    * {@inheritdoc}
    */
   public function validateForm(array &$form, FormStateInterface $form_state) {
-    $this->instance->setRebuilding(TRUE);
     $values = [
       'status' => (int) !empty($form_state->getValue('status')),
     ];
@@ -207,6 +298,24 @@ final class InstanceComponentForm extends ContentEntityForm {
     }
 
     return $this->instance->save();
+  }
+
+  /**
+   * Submit refresh.
+   */
+  public function submitRefresh(array $form, FormStateInterface $form_state) {
+    $form_state->setRebuild();
+    $this->store->set($this->instance->getFieldItem()->getDraftKey($form_state->getValue('uuid')), $this->instance->getValues());
+  }
+
+  /**
+   * Ajax refresh.
+   */
+  public function ajaxRefresh(array &$form, FormStateInterface $form_state) {
+    $response = new AjaxResponse();
+    $response->addCommand(new HtmlCommand('.region.region--status', ['#type' => 'status_messages']));
+    $response->addCommand(new InstanceComponentPreviewIframeCommand('neo-alchemist--iframe-form'));
+    return $response;
   }
 
 }
