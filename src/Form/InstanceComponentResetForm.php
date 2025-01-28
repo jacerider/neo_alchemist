@@ -73,7 +73,7 @@ class InstanceComponentResetForm extends EntityConfirmFormBase {
    */
   public function submitForm(array &$form, FormStateInterface $form_state) {
     $fieldItem = $this->fieldItem->enforceAsDraft(FALSE)->resetComponents();
-    $form_state->setRedirectUrl($this->getCancelUrl());
+    $form_state->setRedirectUrl($this->entity->toUrl());
     $result = $fieldItem->saveComponents();
     $this->messenger()->addStatus($this->t('Components have been reset successfully on %label: %field_label.', [
       '%label' => $this->entity->label(),

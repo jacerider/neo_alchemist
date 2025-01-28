@@ -75,18 +75,40 @@ url:
 scheme:
   title: Color Scheme
   type: string
+  examples: default
 style:
   title: Style
   type: string
+containment:
+  title: Containment
+  description: The horizontal size of the component.
+  type: style
+  examples: lg
+  styles:
+    xs:
+      label: Extra Small
+      value: max-w-xl !mx-0 lg:!mx-auto
+    sm:
+      label: Small
+      value: max-w-5xl !mx-0 lg:!mx-auto
+    md:
+      label: Medium
+      value: max-w-7xl !mx-0 lg:!mx-auto
+    lg:
+      label: Large
+      value: container !mx-0 lg:!mx-auto
+    full:
+      label: Full
+      value: w-full max-w-full lg:!mx-0
 padding:
   title: Padding
   description: The inner-spacing of the component.
   type: style
-  examples: 'p-1 md:p-4 lg:p-14'
+  examples: md
   styles:
     xs:
       label: Extra Small
-      value: p-2 md:p-2 lg:p-2
+      value: p-2
     sm:
       label: Small
       value: p-2 md:p-4 lg:p-6
@@ -95,15 +117,15 @@ padding:
       value: p-4 md:p-6 lg:p-14
     lg:
       label: Large
-      value: p-6 md:p-14 lg:p-24
+      value: p-10 md:p-16 lg:p-24
     xl:
       label: Extra Large
-      value: p-12 md:p-20 lg:p-32
+      value: p-16 md:p-24 lg:p-32
 margin:
   title: Margin
   description: The outer-spacing of the component.
   type: style
-  examples: 'm-1 md:m-4 lg:m-14'
+  examples: md
   styles:
     xs:
       label: Extra Small

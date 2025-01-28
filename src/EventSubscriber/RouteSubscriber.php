@@ -29,9 +29,13 @@ class RouteSubscriber extends RouteSubscriberBase {
    */
   protected function alterRoutes(RouteCollection $collection) {
     $fields = $this->entityFieldManager->getFieldMapByFieldType('neo_component_tree');
+
+    // $manageRoute = $collection->get('entity.neo_component.canonical')->setOption('_admin_route', FALSE);
+
     foreach ($this->entityTypeManager->getDefinitions() as $entityTypeId => $entityType) {
       if ($entityType->hasLinkTemplate('alchemist')) {
         $baseRoute = $collection->get("entity.{$entityTypeId}.canonical");
+        $baseRoute->setOption('_neo_alchemist', $entityTypeId);
         if ($baseRoute) {
           $route = new Route($entityType->getLinkTemplate('alchemist'));
           $parameters = $baseRoute->getOption('parameters');

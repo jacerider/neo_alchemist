@@ -203,7 +203,7 @@ interface ComponentInterface extends ConfigEntityInterface {
    * @return string
    *   The target entity type ID.
    */
-  public function getTargetEntityTypeId(): string;
+  public function getTargetEntityTypeId(): ?string;
 
   /**
    * Get the target entity type definition.
@@ -219,7 +219,7 @@ interface ComponentInterface extends ConfigEntityInterface {
    * @return string
    *   The target entity bundle.
    */
-  public function getTargetEntityBundle(): string;
+  public function getTargetEntityBundle(): ?string;
 
   /**
    * Retrieves the parent entity.

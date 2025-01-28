@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace Drupal\neo_alchemist\Entity;
 
-use Drupal\Core\Access\AccessResult;
-use Drupal\Core\Session\AccountInterface;
 use Drupal\neo_alchemist\ComponentEntityInterface;
 use Drupal\neo_alchemist\ComponentFieldInterface;
 
@@ -34,11 +32,12 @@ final class ComponentEntity extends ComponentInstanceBase implements ComponentEn
     $fieldKey = ComponentFieldConfig::getKeyFromFieldname($fieldName);
     $entity = $this->getTargetEntity();
     return match($rel) {
-      'edit' => $entity->toUrl("alchemist.edit")->setRouteParameter('neo_field', $fieldKey)->setRouteParameter('neo_component', $this->uuid()),
-      'clone' => $entity->toUrl("alchemist.clone")->setRouteParameter('neo_field', $fieldKey)->setRouteParameter('neo_component', $this->uuid()),
-      'delete' => $entity->toUrl("alchemist.delete")->setRouteParameter('neo_field', $fieldKey)->setRouteParameter('neo_component', $this->uuid()),
-      'sort' => $entity->toUrl("alchemist.sort")->setRouteParameter('neo_field', $fieldKey),
-      default => $entity->toUrl("alchemist.manage")->setRouteParameter('neo_field', $fieldKey),
+      'edit' => $entity->toUrl("alchemist.edit", $options)->setRouteParameter('neo_field', $fieldKey)->setRouteParameter('neo_component', $this->uuid()),
+      'clone' => $entity->toUrl("alchemist.clone", $options)->setRouteParameter('neo_field', $fieldKey)->setRouteParameter('neo_component', $this->uuid()),
+      'delete' => $entity->toUrl("alchemist.delete", $options)->setRouteParameter('neo_field', $fieldKey)->setRouteParameter('neo_component', $this->uuid()),
+      'sort' => $entity->toUrl("alchemist.sort", $options)->setRouteParameter('neo_field', $fieldKey),
+      'preview' => $entity->toUrl("alchemist.preview", $options)->setRouteParameter('neo_field', $fieldKey),
+      default => $entity->toUrl("alchemist.manage", $options)->setRouteParameter('neo_field', $fieldKey),
     };
   }
 

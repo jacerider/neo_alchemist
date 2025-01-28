@@ -48,6 +48,14 @@ interface ComponentShapePluginInterface extends PluginInspectionInterface, Deriv
   public function init(): self;
 
   /**
+   * Checks if the shape is initialized.
+   *
+   * @return bool
+   *   TRUE if the shape is initialized, FALSE otherwise.
+   */
+  public function isInitialized(): bool;
+
+  /**
    * Called when the shape is added to a component.
    */
   public function onAdd(): void;
@@ -395,6 +403,24 @@ interface ComponentShapePluginInterface extends PluginInspectionInterface, Deriv
   public function getNestedTitle($includeRoot = TRUE): string;
 
   /**
+   * Get the nested delta of the shape.
+   *
+   * @return int|null
+   *   The nested delta.
+   */
+  public function getNestedDelta(): ?int;
+
+  /**
+   * Set the nested delta of the shape.
+   *
+   * @param int $delta
+   *   The nested delta.
+   *
+   * @return $this
+   */
+  public function setNestedDelta(int $delta): self;
+
+  /**
    * Adds a nested value provider to the component.
    *
    * @param string|int $nestedId
@@ -595,7 +621,7 @@ interface ComponentShapePluginInterface extends PluginInspectionInterface, Deriv
    * @return string
    *   The entity type.
    */
-  public function getTargetEntityType(): string;
+  public function getTargetEntityType(): ?string;
 
   /**
    * Get the entity bundle.
@@ -607,7 +633,7 @@ interface ComponentShapePluginInterface extends PluginInspectionInterface, Deriv
    * @return string
    *   The entity bundle.
    */
-  public function getTargetEntityBundle(): string;
+  public function getTargetEntityBundle(): ?string;
 
   /**
    * Sets the field type for the component shape.
@@ -737,6 +763,14 @@ interface ComponentShapePluginInterface extends PluginInspectionInterface, Deriv
    *   The adapted value.
    */
   public function adaptValue(mixed $value): mixed;
+
+  /**
+   * Get the default defined in the schema.
+   *
+   * @return mixed
+   *   The default value defined in the schema.
+   */
+  public function getDefaultSchemaValue(): mixed;
 
   /**
    * Get the default value of the prop.

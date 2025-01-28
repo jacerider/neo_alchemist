@@ -58,9 +58,8 @@ final class InstanceComponentPreviewController extends ControllerBase {
     }
 
     return $this->bareHtmlPageRenderer->renderBarePage($build, $this->getTitle($neo_field), 'page__neo_alchemist_preview', [
-      '#attributes' => ['class' => ['!p-10']],
-    ])
-      ->addCacheableDependency((new CacheableMetadata())->setCacheMaxAge(0));
+      '#attributes' => ['class' => ['!p-4']],
+    ])->addCacheableDependency((new CacheableMetadata())->setCacheMaxAge(0));
   }
 
   /**
@@ -70,12 +69,20 @@ final class InstanceComponentPreviewController extends ControllerBase {
    *   The component field.
    * @param string $uuid
    *   The component UUID.
+   * @param string $component
+   *   The component name.
    *
    * @return array
    *   The render array.
    */
   protected function single(ComponentTreeItem $neo_field, string $uuid, string $component) {
-    $build = [];
+    $build = [
+      '#attached' => [
+        'library' => [
+          'neo_alchemist/component.preview',
+        ],
+      ],
+    ];
 
     if (!$neo_field->hasComponent($uuid)) {
       $neo_field->addComponent($uuid, $component);
@@ -129,6 +136,7 @@ final class InstanceComponentPreviewController extends ControllerBase {
         $data = [
           'uuid' => $uuid,
           'label' => $component->label(),
+          'status' => $component->isPublished(),
           'ops' => [
             'edit' => $component->access('update'),
             'delete' => $component->access('delete'),

@@ -4,9 +4,13 @@ declare(strict_types=1);
 
 namespace Drupal\neo_alchemist\Controller;
 
+use Drupal\Core\Ajax\AjaxHelperTrait;
 use Drupal\Core\Controller\ControllerBase;
+use Drupal\Core\Render\BareHtmlPageRendererInterface;
 use Drupal\neo_alchemist\ComponentInterface;
+use Drupal\neo_alchemist\ComponentManageHelper;
 use Drupal\neo_alchemist\Plugin\Field\FieldType\ComponentTreeItem;
+use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\HttpFoundation\Request;
 
 /**
@@ -14,16 +18,55 @@ use Symfony\Component\HttpFoundation\Request;
  */
 final class InstanceComponentAddController extends ControllerBase {
 
+  use AjaxHelperTrait;
+
+  /**
+   * The controller constructor.
+   */
+  public function __construct(
+    private readonly BareHtmlPageRendererInterface $bareHtmlPageRenderer,
+  ) {}
+
+  /**
+   * {@inheritdoc}
+   */
+  public static function create(ContainerInterface $container): self {
+    return new self(
+      $container->get('neo_component_page_renderer'),
+    );
+  }
+
   /**
    * Builds the response.
    */
   public function __invoke(Request $request, ComponentTreeItem $neo_field, ComponentInterface $neo_component) {
     $instance = $neo_field->createComponent($neo_component);
-    return $this->entityFormBuilder()->getForm($instance->getTargetEntity(), 'alchemist', [
+
+    $build = [
+      '#theme' => 'neo_alchemist_manage',
+      '#id' => ComponentManageHelper::getId($instance),
+      '#src' => $instance->toUrl('preview')->setOption('query', [
+        'uuid' => $instance->uuid(),
+        'component' => $instance->id(),
+      ])->toString(),
+      '#attached' => [
+        'library' => ['neo_alchemist/component.manage'],
+      ],
+    ];
+
+    $build['#form'] = $this->entityFormBuilder()->getForm($instance->getTargetEntity(), 'alchemist', [
       'neo_component_instance' => $instance,
       'before' => $request->query->get('before'),
       'after' => $request->query->get('after'),
     ]);
+
+    $build['#top_end'] = ComponentManageHelper::buildIframeOperations($instance);
+
+    if ($this->isAjax()) {
+      return $build;
+    }
+
+    return $this->bareHtmlPageRenderer->renderBarePage($build, 'Manage: ' . $neo_component->label(), 'page__neo_alchemist_preview');
   }
 
   /**

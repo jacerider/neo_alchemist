@@ -79,7 +79,7 @@ class FieldParamConverter implements ParamConverterInterface {
         $neoField = $field->getFieldItem();
       }
     }
-    if (!empty($defaults['neo_draft'])) {
+    if (!empty($neoField) && ($defaults['neo_draft'] ?? FALSE)) {
       $neoField->enforceAsDraft();
     }
     return $neoField;

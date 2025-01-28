@@ -101,6 +101,10 @@ final class MediaValue extends ComponentValuePluginBase implements ContainerFact
     ]);
     $shape->setWidget('media_library_widget');
     $shape->enforceShowForm();
+    $shape->getOptionDefault()->setValue(TRUE, 'Default media to the default value.');
+    // if (empty($shape->getOverrideValue())) {
+    //   $shape->getOptionDefault()->setValue(TRUE, 'Default media to the default value when we have no override.');
+    // }
   }
 
   /**
@@ -163,7 +167,7 @@ final class MediaValue extends ComponentValuePluginBase implements ContainerFact
       if (!empty($value['src'])) {
         $element['preview']['default'] = [
           '#type' => 'inline_template',
-          '#template' => '<img src="{{ src }}" alt="{{ alt }}" width="{{ width }}" height="{{ height }}" class="border-2 rounded object-cover w-36 h-24" />',
+          '#template' => '<div class="media-library-item--preview"><img src="{{ src }}" alt="{{ alt }}" width="{{ width }}" height="{{ height }}" /></div>',
           '#context' => $value,
           '#weight' => -10,
         ];
@@ -174,21 +178,16 @@ final class MediaValue extends ComponentValuePluginBase implements ContainerFact
     }
     if (!empty($element['widget'])) {
       $element['#title'] = $element['widget']['widget']['#title'];
-      $element['widget']['widget']['#title'] = '';
-      if (!empty($element['widget']['widget']['#field_prefix']['empty_selection']) && FALSE) {
-        $value = $this->shape->getConfigShape()->getValue();
-        if (!empty($value['src'])) {
-          unset($element['widget']['widget']['#field_prefix']['empty_selection']);
-          $element['widget']['widget']['#field_prefix']['default'] = [
-            '#type' => 'inline_template',
-            '#template' => '<img src="{{ src }}" alt="{{ alt }}" width="{{ width }}" height="{{ height }}" class="border-2 rounded object-cover w-36 h-24" />',
-            '#context' => $value,
-            '#weight' => -10,
-          ];
-          $element['widget']['widget']['#field_prefix']['empty_selection'] = [
-            '#markup' => '<div class="description">' . $this->t('Using the default image.') . '</div>',
-          ];
-        }
+      if ($element['#type'] === 'fieldset') {
+        $element['widget']['widget']['#title_display'] = 'invisible';
+      }
+      if (!empty($element['widget']['widget']['#required']) && !$form_state->isRebuilding()) {
+        $element['widget']['widget']['#element_validate'] = array_filter($element['widget']['widget']['#element_validate'], function ($callback) {
+          if (is_array($callback) && $callback[1] === 'validateRequired') {
+            return FALSE;
+          }
+          return TRUE;
+        });
       }
     }
   }
@@ -253,14 +252,20 @@ final class MediaValue extends ComponentValuePluginBase implements ContainerFact
     $media = $shape->getFieldItem()->entity;
     if ($media instanceof MediaInterface) {
       if ($mediaValue = $shape->getValueFromMedia($media)) {
+        $shape->getOptionDefault()->setValue(FALSE, 'Show custom value as media found.');
         $this->stopFurtherProcessing();
         return $mediaValue;
       }
     }
-    elseif ($shape->getOptionDefault()->isDisabled()) {
-      $shape->getOptionEmpty()->setValue(TRUE, 'Set in MediaValue because shape is set to use default.');
-      // $shape->setOptionEmpty(TRUE);
-      $this->stopFurtherProcessing();
+    elseif (!$shape->isRequired()) {
+      if ($shape->getOptionDefault()->isDisabled()) {
+        $shape->getOptionEmpty()->setValue(TRUE, 'When settings default is not allowed, set media to empty.');
+        $this->stopFurtherProcessing();
+      }
+      elseif (!$shape->getOptionDefault()->isEnabled()) {
+        $shape->getOptionEmpty()->setValue(TRUE, 'When not using the default, set media to empty.');
+        $this->stopFurtherProcessing();
+      }
     }
 
     return $value;

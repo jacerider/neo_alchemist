@@ -1,5 +1,4 @@
-(function (Drupal, drupalSettings, displace) {
-  const iframe = document.getElementById('neo-alchemist--iframe') as HTMLIFrameElement;
+(function (Drupal, drupalSettings) {
 
   window.addEventListener('message', function (e) {
     // Get the sent data
@@ -25,39 +24,13 @@
   };
 
   Drupal.behaviors.neoAlchemistInstanceComponentManage = {
-    attach: function () {
-      if (displace) {
-        displace(true);
-      }
-
-      [
-        {id: 'sm', width: '440px', active: false},
-        {id: 'md', width: '768px', active: false},
-        {id: 'lg', width: '100%', active: true},
-      ].forEach((data) => {
-        once('neo.alchemist', '#neo-alchemist--resize-' + data.id).forEach(el => {
-          if (data.active) {
-            el.classList.add('is-active');
-          }
-          el.addEventListener('click', (e) => {
-            e.preventDefault();
-            if (iframe) {
-              document.querySelectorAll('.neo-alchemist--resize').forEach((el) => {
-                el.classList.remove('is-active');
-              });
-              el.classList.add('is-active');
-              iframe.style.maxWidth = data.width;
-            }
-          });
-        });
-      });
-    },
-
     edit: (uuid: string) => {
+      const modalOptionsEdit = Object.assign({}, modalOptions);
+      modalOptionsEdit.neo = {...modalOptionsEdit.neo, ...{contentPadding: '0px'}};
       Drupal.ajax({
         url: drupalSettings.neoAlchemist.baseUrl + '/edit/' + uuid,
         dialogType: 'modal',
-        dialog: modalOptions,
+        dialog: modalOptionsEdit,
       }).execute();
     },
 
@@ -73,15 +46,13 @@
       Drupal.ajax({
         url: drupalSettings.neoAlchemist.baseUrl + '/delete/' + uuid,
         dialogType: 'modal',
-        dialog: modalOptions,
+        dialog: {...modalOptions, ...{width: 'auto', height: 'auto'}},
       }).execute();
     },
 
     clone: (uuid: string) => {
       Drupal.ajax({
         url: drupalSettings.neoAlchemist.baseUrl + '/clone/' + uuid,
-        // dialogType: 'modal',
-        // dialog: modalOptions,
       }).execute();
     },
 
@@ -94,6 +65,6 @@
     },
   };
 
-})(Drupal, drupalSettings, Drupal.displace);
+})(Drupal, drupalSettings);
 
 export {};

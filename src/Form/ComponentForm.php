@@ -77,7 +77,7 @@ final class ComponentForm extends EntityForm {
     ];
 
     $entity_types = $this->entityTypeManager->getDefinitions();
-    $target_entity_type_id = $this->entity->getTargetEntityTypeId();
+    $target_entity_type_id = $this->entity->isNew() ? NULL : $this->entity->getTargetEntityTypeId();
     $options = [];
     foreach ($entity_types as $type) {
       if ($type instanceof ContentEntityTypeInterface && $type->hasLinkTemplate('canonical')) {

@@ -13,6 +13,7 @@ use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Form\SubformState;
 use Drupal\neo_alchemist\Ajax\InstanceIframeHelper;
+use Drupal\neo_alchemist\ComponentManageHelper;
 use Drupal\neo_alchemist\ComponentShapePluginInterface;
 use Drupal\neo_alchemist\ComponentValueGroupPluginManager;
 use Drupal\neo_alchemist\ComponentValuePluginInterface;
@@ -91,6 +92,7 @@ final class ComponentPropForm extends EntityForm {
    * {@inheritdoc}
    */
   public function buildForm(array $form, FormStateInterface $form_state, string $prop = NULL) {
+    $form_state->set('neo_component_manage_id', ComponentManageHelper::getId($this->entity));
     $this->shape = $this->entity->getPropShape($prop);
     $form['#title'] = $this->t('Edit %prop_label from %label', [
       '%prop_label' => $this->shape->getTitle(),
@@ -306,6 +308,7 @@ final class ComponentPropForm extends EntityForm {
     foreach ($pluginShapes as $pluginShape) {
       $nestedId = $pluginShape->getNestedId();
       $collection = $pluginShape->getValueCollection();
+      // ksm(array_keys($collection->getActiveInstances()));
       foreach ($collection->getInstances() as $instanceId => $instance) {
         $groupId = $instance->getGroup();
         $key = $groupId . '_' . $nestedId;
@@ -313,6 +316,10 @@ final class ComponentPropForm extends EntityForm {
           continue;
         }
         $value = $form_state->getValue([$key, $instanceId], []);
+        if (empty($value['status'])) {
+          $collection->setStatus($instanceId, !empty($value['status']));
+          continue;
+        }
         $subform_state = SubformState::createForSubform($form[$key]['values'][$instanceId]['settings'], $form, $form_state);
         $instance->validateConfigurationForm($form[$key]['values'][$instanceId]['settings'], $subform_state);
         $originalPluginSettingsParents = [

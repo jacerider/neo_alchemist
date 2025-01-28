@@ -5,7 +5,6 @@
  * Primary module hooks for Neo | Alchemist module.
  */
 
-use Drupal\Core\Config\Entity\ConfigEntityInterface;
 use Drupal\Core\Entity\ContentEntityTypeInterface;
 use Drupal\Core\Entity\EntityInterface;
 use Drupal\Core\Entity\EntityTypeInterface;
@@ -30,12 +29,11 @@ function neo_alchemist_theme(): array {
     'page__neo_alchemist_manage' => [
       'base hook' => 'page',
     ],
-    // 'page__neo_alchemist_preview' => [
-    //   'base hook' => 'page',
-    // ],
     'neo_alchemist_manage' => [
       'variables' => [
+        'id' => '',
         'src' => '',
+        'form' => [],
         'top_start' => [],
         'top_end' => [],
         'bottom_start' => [],
@@ -60,7 +58,7 @@ function neo_alchemist_preprocess_page__neo_alchemist_preview(&$variables) {
       '#tag' => 'div',
       '#attributes' => [
         'id' => 'neo-alchemist--messages',
-        'class' => ['fixed top-0 right-0 left-0 flex items-center justify-center px-4 opacity-0 -translate-y-full z-50'],
+        'class' => ['fixed top-displace-t right-0 left-0 flex items-center justify-center px-4 opacity-0 -translate-y-full z-50'],
       ],
       'status' => $variables['page']['status'],
     ];
@@ -272,4 +270,41 @@ function neo_alchemist_entity_operation(EntityInterface $entity) {
     }
   }
   return $operations;
+}
+
+/**
+ * Implements hook_preprocess_block().
+ */
+function neo_alchemist_preprocess_block(&$variables) {
+  if ($variables['base_plugin_id'] !== 'page_title_block') {
+    return;
+  }
+  $routeMatch = \Drupal::routeMatch();
+  $routeObject = $routeMatch->getRouteObject();
+  $entityTypeId = $routeObject->getOption('_neo_alchemist');
+  if (!$entityTypeId) {
+    return;
+  }
+  if ($entity = $routeMatch->getParameter($entityTypeId)) {
+    $bundle = $entity->bundle();
+    $viewModes = \Drupal::service('entity_display.repository')->getViewModeOptionsByBundle('node', $bundle);
+    if (!$viewModes) {
+      return;
+    }
+    $viewModes = array_combine(array_keys($viewModes), array_keys($viewModes));
+    $viewModeId = $viewModes['full'] ?? $viewModes['default'] ?? NULL;
+    if (!$viewModeId) {
+      return;
+    }
+    $viewMode = \Drupal::service('entity_type.manager')
+      ->getStorage('entity_view_display')
+      ->load($entityTypeId . '.' . $bundle . '.' . $viewModeId);
+    if ($viewMode) {
+      foreach ($viewMode->getComponents() as $field_name => $component) {
+        if ($component['type'] === 'neo_component_tree') {
+          $variables['attributes']['class'][] = 'sr-only';
+        }
+      }
+    }
+  }
 }

@@ -4,22 +4,63 @@ declare(strict_types=1);
 
 namespace Drupal\neo_alchemist\Controller;
 
+use Drupal\Core\Ajax\AjaxHelperTrait;
 use Drupal\Core\Controller\ControllerBase;
+use Drupal\Core\Render\BareHtmlPageRendererInterface;
 use Drupal\neo_alchemist\ComponentInterface;
+use Drupal\neo_alchemist\ComponentManageHelper;
 use Drupal\neo_alchemist\Plugin\Field\FieldType\ComponentTreeItem;
+use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
  * Returns responses for Neo | Alchemist routes.
  */
 final class InstanceComponentEditController extends ControllerBase {
 
+  use AjaxHelperTrait;
+
+  /**
+   * The controller constructor.
+   */
+  public function __construct(
+    private readonly BareHtmlPageRendererInterface $bareHtmlPageRenderer,
+  ) {}
+
+  /**
+   * {@inheritdoc}
+   */
+  public static function create(ContainerInterface $container): self {
+    return new self(
+      $container->get('neo_component_page_renderer'),
+    );
+  }
+
   /**
    * Builds the response.
    */
   public function __invoke(ComponentInterface $neo_component) {
-    return $this->entityFormBuilder()->getForm($neo_component->getTargetEntity(), 'alchemist_edit', [
+    $build = [
+      '#theme' => 'neo_alchemist_manage',
+      '#id' => ComponentManageHelper::getId($neo_component),
+      '#src' => $neo_component->toUrl('preview')->setOption('query', [
+        'uuid' => $neo_component->uuid(),
+        'component' => $neo_component->id(),
+      ])->toString(),
+      '#attached' => [
+        'library' => ['neo_alchemist/component.manage'],
+      ],
+    ];
+
+    $build['#form'] = $this->entityFormBuilder()->getForm($neo_component->getTargetEntity(), 'alchemist_edit', [
       'neo_component_instance' => $neo_component,
     ]);
+
+    $build['#top_end'] = ComponentManageHelper::buildIframeOperations($neo_component);
+
+    if ($this->isAjax()) {
+      return $build;
+    }
+    return $this->bareHtmlPageRenderer->renderBarePage($build, 'Manage: ' . $neo_component->label(), 'page__neo_alchemist_preview');
   }
 
   /**

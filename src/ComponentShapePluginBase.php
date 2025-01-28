@@ -90,6 +90,13 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
   public bool $enforceShowForm = FALSE;
 
   /**
+   * Whether the shape is initialized.
+   *
+   * @var bool
+   */
+  protected bool $initialized = FALSE;
+
+  /**
    * The field type.
    *
    * @var string|null
@@ -214,6 +221,13 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
   protected array $parents = [];
 
   /**
+   * The delta.
+   *
+   * @var int|null
+   */
+  protected int|null $delta = NULL;
+
+  /**
    * The options.
    *
    * @var \Drupal\neo_alchemist\ComponentShapeOption[]
@@ -230,9 +244,9 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
   /**
    * The widget.
    *
-   * @var \Drupal\Core\Field\WidgetInterface|false
+   * @var \Drupal\Core\Field\WidgetInterface|null
    */
-  protected WidgetInterface|false $widget;
+  protected WidgetInterface|null $widget;
 
   /**
    * The all child shapes.
@@ -310,17 +324,6 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
     $this->options['default'] = new ComponentShapeOption($this->optionDefaultInitValue, $this->optionDefaultInitAccess);
     $this->options['access'] = new ComponentShapeOption(TRUE, FALSE);
 
-    // When previewing a component, we prevent any further changes.
-    // if ($this->getScope() === 'config' && $this->getComponent()->isPreview()) {
-      // We remove this code because it prevents the user from viewing the
-      // correct data in the component. We added this so that we could see the
-      // correct data in the component preview. But it broke field and node
-      // previews.
-      // $this->options['empty']->setLockedValue(FALSE, 'Preview mode');
-      // $this->options['default']->setLockedValue(TRUE, 'Preview mode');
-      // $this->options['access']->setLockedValue(TRUE, 'Preview mode');
-    // }
-
     // Only set settings if the shape has not changed.
     if (isset($settings['shape']) && $settings['shape'] === $this->getPluginId()) {
       // Initialize settings.
@@ -390,7 +393,7 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
 
     // If the shape is required, we do not allow it to be empty.
     if ($this->isRequired()) {
-      $this->getOptionEmpty()->setAccess(FALSE);
+      $this->getOptionEmpty()->setAccess(FALSE, 'Shape is required and cannot be empty.');
     }
 
     // Initialize the options.
@@ -412,6 +415,7 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
         break;
       }
     }
+    $this->initialized = TRUE;
     return $this;
   }
 
@@ -436,6 +440,13 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
       }
     }
     return $this;
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  public function isInitialized(): bool {
+    return $this->initialized;
   }
 
   /**
@@ -770,7 +781,12 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
    * {@inheritDoc}
    */
   public function getNestedId(): string {
-    return implode('~', $this->getNestedPath());
+    $id = implode('~', $this->getNestedPath());
+    $delta = $this->getNestedDelta();
+    if ($delta !== NULL) {
+      $id .= "~$delta";
+    }
+    return $id;
   }
 
   /**
@@ -807,6 +823,21 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
       array_shift($titles);
     }
     return implode(': ', $titles);
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  public function getNestedDelta(): ?int {
+    return $this->delta;
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  public function setNestedDelta(int $delta): self {
+    $this->delta = $delta;
+    return $this;
   }
 
   /**
@@ -1064,14 +1095,14 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
   /**
    * {@inheritDoc}
    */
-  public function getTargetEntityType(): string {
+  public function getTargetEntityType(): ?string {
     return $this->getComponent()->getTargetEntityTypeId();
   }
 
   /**
    * {@inheritDoc}
    */
-  public function getTargetEntityBundle(): string {
+  public function getTargetEntityBundle(): ?string {
     return $this->getComponent()->getTargetEntityBundle();
   }
 
@@ -1310,7 +1341,7 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
    */
   public function getDefaultValue(): mixed {
     if (!isset($this->defaultValue)) {
-      $this->defaultValue = $this->schema['examples'] ?? [];
+      $this->defaultValue = $this->getDefaultSchemaValue();
       foreach ($this->getValueCollection()->getAllowedInstances('default') as $instance) {
         $this->defaultValue = $instance->provideDefaultValue($this->defaultValue);
         if (!$instance->shouldContinueProcessing()) {
@@ -1322,6 +1353,13 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
       }
     }
     return $this->defaultValue;
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  public function getDefaultSchemaValue(): mixed {
+    return $this->schema['examples'] ?? [];
   }
 
   /**
@@ -1580,6 +1618,7 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
       '#type' => 'container',
       '#weight' => !empty($form['#title']) ? -10 : 0,
       '#neo_fieldset_region' => 'legend_end',
+      '#access' => FALSE,
       '#attributes' => [
         'class' => [
           'form--inline',
@@ -1600,7 +1639,6 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
       ];
     }
     if ($optionDefault->isAllowed()) {
-      $form['#type'] = 'fieldset';
       if ($optionDefault->isEnabled()) {
         $form['#title'] = $this->t('@label (Default)', ['@label' => $this->getTitle()]);
       }
@@ -1619,7 +1657,6 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
       ];
     }
     if (!$this->enforceShowForm && $optionEmpty->isAllowed()) {
-      $form['#type'] = 'fieldset';
       if ($optionEmpty->isEnabled()) {
         $form['#title'] = $this->t('@label (Hidden)', ['@label' => $this->getTitle()]);
       }
@@ -1637,7 +1674,12 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
         ],
       ];
     }
-    $form['_options']['#access'] = !empty(Element::children($form['_options']));
+
+    if (!empty(Element::children($form['_options']))) {
+      $form['#type'] = 'fieldset';
+      $form['_options']['#access'] = TRUE;
+      $form['#required'] = $this->isRequired();
+    }
 
     foreach ($this->getValueCollection()->getAllowedInstances('form') as $instance) {
       $instance->formAlter($form, $form_state);
@@ -1737,6 +1779,7 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
     // Remove options so that they are not processed or stored.
     $form_state->unsetValue('_options');
     if (empty($values) && $this->isRequired()) {
+      ksm('hit');
       $form_state->setError($form, $this->getTitle() . ' is required.');
     }
   }

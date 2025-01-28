@@ -4,12 +4,42 @@
   const overlay:HTMLElement|null = document.querySelector('#neo-alchemist--overlay');
   const ops:NodeListOf<HTMLElement>|undefined = overlay?.querySelectorAll('.neo-alchemist--ops');
   let component:HTMLElement|null = null;
+  let focus:boolean = false;
   let componentData:any = null;
 
+  function debounce<T extends (...args: any[]) => void>(func: T, delay: number): T {
+    let timeoutId: ReturnType<typeof setTimeout>|null;
+    return function (this: any, ...args: any[]) {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+      timeoutId = setTimeout(() => {
+        func.apply(this, args);
+      }, delay);
+    } as T;
+  }
+
+  document.addEventListener('keydown', (event: KeyboardEvent) => {
+    if (event.key === 'Escape') {
+      componentBlur();
+    }
+  });
+
   if (overlay) {
+    overlay.ondblclick = function(_e: MouseEvent) {
+      if (component) {
+        componentDo('edit');
+      }
+    };
+
     overlay.addEventListener('click', () => {
       if (component) {
         componentFocus(component);
+      }
+    });
+    overlay.addEventListener('mouseleave', () => {
+      if (!focus) {
+        componentBlur();
       }
     });
     const close:HTMLElement|null = overlay.querySelector('.close');
@@ -28,20 +58,18 @@
     });
   }
 
-  const messages = document.getElementById('neo-alchemist--messages');
-  if (messages) {
-    setTimeout(() => {
-      messages.classList.add('transition-all');
-      messages.classList.remove('opacity-0', '-translate-y-full');
-    }, 100);
-    const hasDebug = messages.querySelector('.kint-rich');
-    if (hasDebug) {
-      messages.classList.remove('fixed');
-    }
-    else {
-      setTimeout(() => {
-        messages?.classList.add('opacity-0', '-translate-y-full');
-      }, 4000);
+  const componentDo = (opKey:string) => {
+    if (component && opKey) {
+      const data = JSON.parse(component.dataset.component || '{}');
+      if (data.ops[opKey]) {
+        const message = JSON.stringify({
+          type: opKey,
+          uuid: data.uuid,
+          scrollY: window.scrollY,
+          scrollX: window.scrollX,
+        });
+        window.parent.postMessage(message, '*');
+      }
     }
   }
 
@@ -51,21 +79,8 @@
       opButton.addEventListener('click', (e) => {
         e.preventDefault();
         const opKey = opButton.dataset.op;
-        console.log('click', opKey);
-        if (component && opKey) {
-          const data = JSON.parse(component.dataset.component || '{}');
-          if (data.ops[opKey]) {
-            // const parts = opKey.split('-');
-            // const op = parts[0];
-            // const spec = parts[1] ?? null;
-            const message = JSON.stringify({
-              type: opKey,
-              uuid: data.uuid,
-              scrollY: window.scrollY,
-              scrollX: window.scrollX,
-            });
-            window.parent.postMessage(message, '*');
-          }
+        if (opKey) {
+          componentDo(opKey);
         }
       });
     });
@@ -73,13 +88,19 @@
 
   const componentHover = (el:HTMLElement) => {
     component = el;
-    componentSize(false);
+    componentSize();
   }
 
   const componentFocus = (el:HTMLElement) => {
+    focus = true;
     component = el;
     componentData = JSON.parse(component.dataset.component || '{}');
     if (overlay && componentData.uuid) {
+      component.scrollIntoView({
+        behavior: 'smooth',
+        block: 'center',
+        inline: 'nearest',
+      });
       const opButtons = overlay.querySelectorAll('.op') as NodeListOf<HTMLElement>;
       opButtons.forEach(opButton => {
         opButton.style.display = 'none';
@@ -87,6 +108,9 @@
       const title = overlay.querySelector('.title');
       if (title) {
         title.innerHTML = componentData.label;
+        if (componentData.status !== true) {
+          title.innerHTML += ` <span class="badge bg-alert-500 text-alert-content-500">Draft</span>`;
+        }
       }
       if (componentData.ops) {
         Object.keys(componentData.ops).forEach(opKey => {
@@ -100,26 +124,28 @@
         });
       }
     }
-    componentSize(true);
+    componentSize();
   }
 
   const componentBlur = () => {
-    component = null;
-    componentBlurTimeout = setTimeout(() => {
-      if (overlay) {
-        overlay.classList.remove('is-active');
-        overlay.classList.remove('!transition-all');
-      }
-      if (shade) {
-        shade.classList.remove('is-active');
-        shade.classList.remove('!transition-all');
-      }
-    }, 100);
+    if (component) {
+      focus = false;
+      component = null;
+      componentBlurTimeout = setTimeout(() => {
+        if (overlay) {
+          overlay.classList.remove('is-active');
+          overlay.classList.remove('!transition-all');
+        }
+        if (shade) {
+          shade.classList.remove('is-active');
+          shade.classList.remove('!transition-all');
+        }
+      }, 100);
+    }
   };
 
-  const componentSize = (isFocused:boolean) => {
+  const componentSize = () => {
     if (component) {
-      isFocused = isFocused ?? false;
       if (componentBlurTimeout) {
         clearTimeout(componentBlurTimeout);
       }
@@ -134,7 +160,7 @@
         overlay.style.width = rect.width + 'px';
         overlay.style.height = rect.height + 'px';
         overlay.classList.add('is-active');
-        if (isFocused) {
+        if (focus) {
           overlay.classList.remove('cursor-pointer');
         }
         else {
@@ -143,12 +169,11 @@
         setTimeout(() => {
           overlay.classList.add('!transition-all');
         })
-        // overlay.addEventListener('mouseleave', onOverlayMouseLeave);
       }
-      if (isFocused) {
+      if (focus) {
         if (ops) {
           ops.forEach(op => {
-            op.classList.add('is-active');
+            op.classList.add('is-focus');
           });
         }
         if (shade) {
@@ -168,7 +193,7 @@
       else {
         if (ops) {
           ops.forEach(op => {
-            op.classList.remove('is-active');
+            op.classList.remove('is-focus');
           });
         }
         if (shade) {
@@ -185,17 +210,36 @@
     componentBlur();
   };
 
-  // setInterval(() => {
-  //   componentSize(false);
-  // }, 200);
+  function onPageResize() {
+    if (component && focus) {
+      component.scrollIntoView({
+        behavior: 'smooth',
+        block: 'center',
+        inline: 'nearest',
+      });
+    }
+    componentSize();
+  }
+  const throttlePageObserver = debounce(onPageResize, 50);
 
   Drupal.behaviors.neoAlchemistInstanceComponentPreview = {
     attach: function () {
       if (window.parent) {
+
+        once('neo.alchemist', '.page-wrapper').forEach(el => {
+          const observer = new ResizeObserver((_entries) => {
+            throttlePageObserver();
+          });
+          observer.observe(el);
+        });
+
         once('neo.alchemist', '[data-component]').forEach(el => {
+          if (el.matches(':hover')) {
+            componentHover(el);
+          }
           el.addEventListener('mouseenter', () => {
             componentHover(el);
-          });
+          })
         });
       }
     }

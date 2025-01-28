@@ -49,7 +49,9 @@ class ComponentTreeHydrated extends TypedData implements CacheableDependencyInte
       if (!$instance) {
         continue;
       }
-      if ($instance->isPublished()) {
+      // We allow unpublished components to be rendered, but only if we are
+      // in draft mode.
+      if ($instance->isPublished() || $instance->getFieldItem()->isDraft()) {
         $component = $instance->getComponent();
         if ($component) {
           $hydrated[$uuid] = [
@@ -57,9 +59,7 @@ class ComponentTreeHydrated extends TypedData implements CacheableDependencyInte
             'component' => $component->getPluginId(),
             'props' => $props,
           ];
-          if (($hydrated[$uuid]['props']['attributes'] ?? NULL) instanceof Attribute) {
-            $hydrated[$uuid]['props']['attributes'] = $hydrated[$uuid]['props']['attributes']->toArray();
-          }
+          $hydrated[$uuid]['props'] = $this->convertValuesToAttributePlaceholder($hydrated[$uuid]['props']);
           if (!empty($component->metadata->slots)) {
             $defaultSlotValue = array_map(
               fn (array $s): string => self::getDefaultSlotValue($s),
@@ -147,6 +147,9 @@ class ComponentTreeHydrated extends TypedData implements CacheableDependencyInte
         ];
         foreach ($component_instance as $key => $value) {
           if ($key !== 'slots') {
+            if ($key === 'props') {
+              $value = self::convertAttributePlaceholderToAttribute($value);
+            }
             // Note: this works because `::getValue()` above uses `props` and
             // `slots`, which allow simply prefixing them with `#` to generate the
             // corresponding render array.
@@ -189,20 +192,60 @@ class ComponentTreeHydrated extends TypedData implements CacheableDependencyInte
   }
 
   /**
+   * Converts values to attributes.
+   *
+   * @param array $values
+   *   The prop values.
+   *
+   * @return array
+   *   The prop values with attributes converted to arrays.
+   */
+  private function convertValuesToAttributePlaceholder(array $values) {
+    foreach ($values as $key => $value) {
+      if ($value instanceof Attribute) {
+        $values[$key] = [
+          '_attribute' => $value->toArray(),
+        ];
+      }
+      elseif (is_array($value)) {
+        $values[$key] = $this->convertValuesToAttributePlaceholder($value);
+      }
+    }
+    return $values;
+  }
+
+  /**
+   * Converts attribute placeholders to attributes.
+   *
+   * @param array $values
+   *   The prop values.
+   *
+   * @return array
+   *   The prop values with attributes converted to arrays.
+   */
+  private static function convertAttributePlaceholderToAttribute(array $values) {
+    foreach ($values as $key => $value) {
+      if (is_array($value) && array_key_exists('_attribute', $value)) {
+        $values[$key] = new Attribute($value['_attribute']);
+      }
+      elseif (is_array($value)) {
+        $values[$key] = self::convertAttributePlaceholderToAttribute($value);
+      }
+    }
+    return $values;
+  }
+
+  /**
    * Computes the cacheability of this computed property.
    *
    * @return \Drupal\Core\Cache\CacheableMetadata
    *   The cacheability of the computed value.
    */
   private function getCacheability(): CacheableMetadata {
-    // @todo Once bundle-level defaults for `tree` + `props` are supported, this should also include cacheability of whatever config that is stored in.
-    // @see \Drupal\neo_alchemist\Plugin\Field\FieldType\ComponentTreeItem::preSave()
-
     $root = $this->getRoot();
     if ($root instanceof EntityAdapter) {
       return CacheableMetadata::createFromObject($root->getEntity());
     }
-
     // This appears to be an ephemeral component tree, hence it is uncacheable.
     return (new CacheableMetadata())->setCacheMaxAge(0);
   }

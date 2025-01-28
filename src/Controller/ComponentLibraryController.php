@@ -48,8 +48,9 @@ final class ComponentLibraryController extends ControllerBase {
       $component = $this->pluginManagerSdc->createInstance($definition['id']);
 
       $row = [];
-      $row['thumbnail'] = ['style' => 'width: 100px;'];
+      $row['thumbnail'] = [];
       if ($thumbnail = $component->metadata->getThumbnailPath()) {
+        $row['thumbnail'] = ['style' => 'width: 100px;'];
         $row['thumbnail']['data'] = [
           '#theme' => 'image',
           '#uri' => $thumbnail,

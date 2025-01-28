@@ -22,6 +22,14 @@ class SchemeShape extends StyleShapeBase {
   /**
    * {@inheritDoc}
    */
+  public function init(): self {
+    $this->setRequired(TRUE);
+    return parent::init();
+  }
+
+  /**
+   * {@inheritDoc}
+   */
   public function getPropValue(): mixed {
     $originalValue = parent::getPropValue();
     $value = new Attribute();

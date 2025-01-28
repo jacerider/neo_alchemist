@@ -2,8 +2,8 @@
 
   if (Drupal.AjaxCommands) {
     Drupal.AjaxCommands.prototype.neoAlchemistInstanceComponentPreviewIframe = function (_ajax, response, _status) {
-      const iframe = document.getElementById(response.selector) as HTMLIFrameElement;
-      if (iframe) {
+      const iframe = document.querySelector(response.selector);
+      if (iframe instanceof HTMLIFrameElement) {
         iframe.contentDocument?.location.reload();
       }
     } as drupal.Core.IAjaxCommand;

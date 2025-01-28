@@ -29,48 +29,6 @@ final class InstanceComponentLibraryController extends ControllerBase {
       $query['after'] = $after;
     }
 
-    $rows = [];
-    foreach ($storage->loadByEntity($neo_field->getEntity()) as $component) {
-      $row = [];
-      $row['name'] = $component->label();
-
-      $links = [];
-      $links['add'] = [
-        'title' => $this->t('Select'),
-        'url' => $neo_field->toUrl('add')->setRouteParameter('neo_component', $component->id())->setOption('query', $query),
-        'attributes' => [
-          'class' => ['use-ajax'],
-          'data-dialog-type' => 'modal',
-          'data-dialog-options' => Json::encode([
-            'width' => '100%',
-            'height' => '100%',
-            'neo' => [
-              'displaceTop' => '0px',
-              'displaceBottom' => '0px',
-            ],
-          ]),
-        ],
-      ];
-      $row['operations']['data'] = [
-        '#type' => 'operations',
-        '#links' => $links,
-      ];
-
-      $rows[] = $row;
-    }
-
-    // $build['table'] = [
-    //   '#type' => 'table',
-    //   '#header' => [
-    //     'name' => $this->t('Name'),
-    //     'operations' => $this->t('Operations'),
-    //   ],
-    //   '#rows' => $rows,
-    //   '#attached' => [
-    //     'library' => ['core/drupal.dialog.ajax'],
-    //   ],
-    // ];
-
     $components = [];
     foreach ($storage->loadByEntity($neo_field->getEntity()) as $component) {
       $components[$component->id()] = [
@@ -87,6 +45,7 @@ final class InstanceComponentLibraryController extends ControllerBase {
             'neo' => [
               'displaceTop' => '0px',
               'displaceBottom' => '0px',
+              'contentPadding' => '0px',
             ],
           ]),
         ]),

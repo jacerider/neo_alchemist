@@ -73,7 +73,7 @@ class InstanceComponentRevertForm extends EntityConfirmFormBase {
    */
   public function submitForm(array &$form, FormStateInterface $form_state) {
     $fieldItem = $this->fieldItem->deleteDraft();
-    $form_state->setRedirectUrl($this->getCancelUrl());
+    $form_state->setRedirectUrl($this->entity->toUrl());
     $this->messenger()->addStatus($this->t('Components have been reverted successfully on %label: %field_label.', [
       '%label' => $this->entity->label(),
       '%field_label' => $fieldItem->getFieldDefinition()->getLabel(),

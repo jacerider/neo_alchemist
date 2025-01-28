@@ -1,84 +1,112 @@
-(function(h, v) {
+(function(w, h) {
   let u = null;
-  const e = document.querySelector("#neo-alchemist--shade"), t = document.querySelector("#neo-alchemist--overlay"), d = t == null ? void 0 : t.querySelectorAll(".neo-alchemist--ops");
-  let l = null, p = null;
-  if (t) {
-    t.addEventListener("click", () => {
-      l && x(l);
+  const o = document.querySelector("#neo-alchemist--shade"), t = document.querySelector("#neo-alchemist--overlay"), p = t == null ? void 0 : t.querySelectorAll(".neo-alchemist--ops");
+  let i = null, a = !1, l = null;
+  function L(e, s) {
+    let c;
+    return function(...n) {
+      c && clearTimeout(c), c = setTimeout(() => {
+        e.apply(this, n);
+      }, s);
+    };
+  }
+  if (document.addEventListener("keydown", (e) => {
+    e.key === "Escape" && d();
+  }), t) {
+    t.ondblclick = function(s) {
+      i && v("edit");
+    }, t.addEventListener("click", () => {
+      i && x(i);
+    }), t.addEventListener("mouseleave", () => {
+      a || d();
     });
-    const s = t.querySelector(".close");
-    s && s.addEventListener("click", (o) => {
-      o.preventDefault(), m();
+    const e = t.querySelector(".close");
+    e && e.addEventListener("click", (s) => {
+      s.preventDefault(), d();
     });
   }
-  e && e.addEventListener("click", (s) => {
-    s.preventDefault(), m();
+  o && o.addEventListener("click", (e) => {
+    e.preventDefault(), d();
   });
-  const c = document.getElementById("neo-alchemist--messages");
-  c && (setTimeout(() => {
-    c.classList.add("transition-all"), c.classList.remove("opacity-0", "-translate-y-full");
-  }, 100), c.querySelector(".kint-rich") ? c.classList.remove("fixed") : setTimeout(() => {
-    c == null || c.classList.add("opacity-0", "-translate-y-full");
-  }, 4e3)), t && t.querySelectorAll(".op").forEach((o) => {
-    o.addEventListener("click", (a) => {
-      a.preventDefault();
-      const i = o.dataset.op;
-      if (console.log("click", i), l && i) {
-        const n = JSON.parse(l.dataset.component || "{}");
-        if (n.ops[i]) {
-          const r = JSON.stringify({
-            type: i,
-            uuid: n.uuid,
-            scrollY: window.scrollY,
-            scrollX: window.scrollX
-          });
-          window.parent.postMessage(r, "*");
-        }
+  const v = (e) => {
+    if (i && e) {
+      const s = JSON.parse(i.dataset.component || "{}");
+      if (s.ops[e]) {
+        const c = JSON.stringify({
+          type: e,
+          uuid: s.uuid,
+          scrollY: window.scrollY,
+          scrollX: window.scrollX
+        });
+        window.parent.postMessage(c, "*");
       }
+    }
+  };
+  t && t.querySelectorAll(".op").forEach((s) => {
+    s.addEventListener("click", (c) => {
+      c.preventDefault();
+      const n = s.dataset.op;
+      n && v(n);
     });
   });
-  const L = (s) => {
-    l = s, y(!1);
-  }, x = (s) => {
-    if (l = s, p = JSON.parse(l.dataset.component || "{}"), t && p.uuid) {
-      t.querySelectorAll(".op").forEach((i) => {
-        i.style.display = "none";
+  const y = (e) => {
+    i = e, f();
+  }, x = (e) => {
+    if (a = !0, i = e, l = JSON.parse(i.dataset.component || "{}"), t && l.uuid) {
+      i.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+        inline: "nearest"
+      }), t.querySelectorAll(".op").forEach((n) => {
+        n.style.display = "none";
       });
-      const a = t.querySelector(".title");
-      a && (a.innerHTML = p.label), p.ops && Object.keys(p.ops).forEach((i) => {
-        if (p.ops[i]) {
-          const r = t.querySelector(`[data-op="${i}"]`);
+      const c = t.querySelector(".title");
+      c && (c.innerHTML = l.label, console.log(l)), l.ops && Object.keys(l.ops).forEach((n) => {
+        if (l.ops[n]) {
+          const r = t.querySelector(`[data-op="${n}"]`);
           r && (r.style.display = "");
         }
       });
     }
-    y(!0);
-  }, m = () => {
-    l = null, u = setTimeout(() => {
-      t && (t.classList.remove("is-active"), t.classList.remove("!transition-all")), e && (e.classList.remove("is-active"), e.classList.remove("!transition-all"));
-    }, 100);
-  }, y = (s) => {
-    if (l) {
-      s = s ?? !1, u && clearTimeout(u);
-      const o = l.getBoundingClientRect(), a = o.top + window.scrollY, i = o.bottom + window.scrollY, n = o.left + window.scrollX, r = o.right + window.scrollX;
-      t && (t.style.top = a + "px", t.style.left = n + "px", t.style.width = o.width + "px", t.style.height = o.height + "px", t.classList.add("is-active"), s ? t.classList.remove("cursor-pointer") : t.classList.add("cursor-pointer"), setTimeout(() => {
+    f();
+  }, d = () => {
+    i && (a = !1, i = null, u = setTimeout(() => {
+      t && (t.classList.remove("is-active"), t.classList.remove("!transition-all")), o && (o.classList.remove("is-active"), o.classList.remove("!transition-all"));
+    }, 100));
+  }, f = () => {
+    if (i) {
+      u && clearTimeout(u);
+      const e = i.getBoundingClientRect(), s = e.top + window.scrollY, c = e.bottom + window.scrollY, n = e.left + window.scrollX, m = e.right + window.scrollX;
+      t && (t.style.top = s + "px", t.style.left = n + "px", t.style.width = e.width + "px", t.style.height = e.height + "px", t.classList.add("is-active"), a ? t.classList.remove("cursor-pointer") : t.classList.add("cursor-pointer"), setTimeout(() => {
         t.classList.add("!transition-all");
-      })), s ? (d && d.forEach((f) => {
-        f.classList.add("is-active");
-      }), e && (e.style.top = "0px", e.style.right = "0px", e.style.bottom = "0px", e.style.left = "0px", e.style.width = document.body.clientWidth + "px", e.style.height = document.body.clientHeight + "px", e.style.clipPath = `polygon(0% 0%, 0% 100%, ${n}px 100%, ${n}px ${a}px, ${r}px ${a}px, ${r}px ${i}px, ${n}px ${i}px, ${n}px 100%, 100% 100%, 100% 0%)`, e.classList.add("is-active"), setTimeout(() => {
-        e.classList.add("!transition-all");
-      }))) : (d && d.forEach((f) => {
-        f.classList.remove("is-active");
-      }), e && (e.classList.remove("is-active"), e.classList.remove("!transition-all")));
+      })), a ? (p && p.forEach((r) => {
+        r.classList.add("is-focus");
+      }), o && (o.style.top = "0px", o.style.right = "0px", o.style.bottom = "0px", o.style.left = "0px", o.style.width = document.body.clientWidth + "px", o.style.height = document.body.clientHeight + "px", o.style.clipPath = `polygon(0% 0%, 0% 100%, ${n}px 100%, ${n}px ${s}px, ${m}px ${s}px, ${m}px ${c}px, ${n}px ${c}px, ${n}px 100%, 100% 100%, 100% 0%)`, o.classList.add("is-active"), setTimeout(() => {
+        o.classList.add("!transition-all");
+      }))) : (p && p.forEach((r) => {
+        r.classList.remove("is-focus");
+      }), o && (o.classList.remove("is-active"), o.classList.remove("!transition-all")));
     }
   };
-  h.behaviors.neoAlchemistInstanceComponentPreview = {
+  function b() {
+    i && a && i.scrollIntoView({
+      behavior: "smooth",
+      block: "center",
+      inline: "nearest"
+    }), f();
+  }
+  const g = L(b, 50);
+  w.behaviors.neoAlchemistInstanceComponentPreview = {
     attach: function() {
-      window.parent && v("neo.alchemist", "[data-component]").forEach((s) => {
-        s.addEventListener("mouseenter", () => {
-          L(s);
+      window.parent && (h("neo.alchemist", ".page-wrapper").forEach((e) => {
+        new ResizeObserver((c) => {
+          g();
+        }).observe(e);
+      }), h("neo.alchemist", "[data-component]").forEach((e) => {
+        e.matches(":hover") && y(e), e.addEventListener("mouseenter", () => {
+          y(e);
         });
-      });
+      }));
     }
   };
 })(Drupal, once);

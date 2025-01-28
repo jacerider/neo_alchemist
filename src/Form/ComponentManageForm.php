@@ -9,6 +9,7 @@ use Drupal\Core\Entity\EntityForm;
 use Drupal\Core\Entity\EntityTypeBundleInfoInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Form\FormStateInterface;
+use Drupal\Core\Render\Element;
 use Drupal\neo_icon\IconTranslationTrait;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
@@ -70,20 +71,20 @@ final class ComponentManageForm extends EntityForm {
     $form = parent::form($form, $form_state);
     $form_state->set('neo_component_form', TRUE);
 
-    $form['iframe'] = [
-      '#type' => 'html_tag',
-      '#tag' => 'iframe',
-      '#attributes' => [
-        'id' => 'neo-alchemist--iframe',
-        'src' => $this->entity->toUrl('preview')->toString(),
-        'width' => '100%',
-        'height' => '300px',
-        'frameborder' => '0',
-        'class' => [
-          'border-2',
-        ],
-      ],
-    ];
+    // $form['iframe'] = [
+    //   '#type' => 'html_tag',
+    //   '#tag' => 'iframe',
+    //   '#attributes' => [
+    //     'id' => 'neo-alchemist--iframe',
+    //     'src' => $this->entity->toUrl('preview')->toString(),
+    //     'width' => '100%',
+    //     'height' => '300px',
+    //     'frameborder' => '0',
+    //     'class' => [
+    //       'border-2',
+    //     ],
+    //   ],
+    // ];
 
     $form += $this->getValuePropsForm($form, $form_state);
 
@@ -211,6 +212,10 @@ final class ComponentManageForm extends EntityForm {
           'data-dialog-options' => Json::encode([
             'width' => '100%',
             'height' => '100%',
+            'neo' => [
+              'displaceTop' => '0px',
+              'displaceBottom' => '0px',
+            ],
           ]),
         ],
       ];
@@ -221,6 +226,7 @@ final class ComponentManageForm extends EntityForm {
 
       $form['props'][$propName] = $row;
     }
+    $form['props']['#access'] = !empty(Element::children($form['props']));
     return $form;
   }
 

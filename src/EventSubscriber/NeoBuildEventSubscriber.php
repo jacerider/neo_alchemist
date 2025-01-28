@@ -35,7 +35,7 @@ class NeoBuildEventSubscriber implements EventSubscriberInterface {
           $config['scopes'][$scope]['tailwind']['content'][] = $docRoot . $path . '/' . $id . '.neo_component_prop_defs.yml';
         }
         if (is_dir($path . '/components')) {
-          $config['scopes'][$scope]['tailwind']['content'][] = $docRoot . $path . '/components/**/*.{yml,twig}';
+          $config['tailwind']['content'][] = $docRoot . $path . '/components/**/*.{yml,twig}';
         }
       }
     }

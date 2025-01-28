@@ -6,6 +6,7 @@ namespace Drupal\neo_alchemist;
 
 use Drupal\Core\Entity\ContentEntityInterface;
 use Drupal\Core\Entity\EntityFieldManagerInterface;
+use Drupal\Core\Entity\EntityTypeBundleInfoInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Entity\Plugin\DataType\ConfigEntityAdapter;
 use Drupal\Core\Entity\Plugin\DataType\EntityAdapter;
@@ -32,11 +33,19 @@ final class FieldMatcher {
   use StringTranslationTrait;
 
   /**
+   * The maximum number of levels to match.
+   *
+   * @var int
+   */
+  protected $maxLevels = 1;
+
+  /**
    * Constructs a FieldMatcher object.
    */
   public function __construct(
     private readonly EntityTypeManagerInterface $entityTypeManager,
     private readonly EntityFieldManagerInterface $entityFieldManager,
+    private readonly EntityTypeBundleInfoInterface $entityTypeBundleInfo,
   ) {}
 
   /**
@@ -258,7 +267,7 @@ final class FieldMatcher {
       return $matches;
     }
 
-    $matches = $this->match($entityDataDefinition, $shape, 1);
+    $matches = $this->match($entityDataDefinition, $shape, $this->maxLevels);
 
     uasort($matches, function ($a, $b) {
       $a_weight = $a['weight'] ?? 0;
@@ -352,24 +361,6 @@ final class FieldMatcher {
     $shapeFieldDefinition = $shape->getFieldItemList()->getFieldDefinition();
     $fieldDefinitions = $this->dataDefinitions($entityDataDefinition);
     $fieldDefinitions += $this->entityDefinitions($entityDataDefinition, $shape);
-
-    // $matches += $this->matchEntity($entityDataDefinition, $shape, $level, $parentDefinitions);$entityType = $this->entityTypeManager->getDefinition($entityDataDefinition->getEntityTypeId());
-    // if ($entityType->hasLinkTemplate('canonical')) {
-    //   $fieldDefinition = BaseFieldDefinition::create('link')
-    //     ->setLabel(t('@label Canonical Link', [
-    //       '@label' => $entityDataDefinition->getLabel(),
-    //     ]))
-    //     ->setName('entity')
-    //     ->setTargetEntityTypeId($entityDataDefinition->getEntityTypeId())
-    //     ->setRequired($isRequired);
-    //   $parentFieldDefinitions = array_merge($parentDefinitions, [$fieldDefinition]);
-    //   $matches[$this->key($parentFieldDefinitions, '_link_canonical')] = [
-    //     'title' => $this->label($parentFieldDefinitions),
-    //     'group' => $this->group($parentFieldDefinitions),
-    //     'definition' => $fieldDefinition,
-    //     'weight' => $level,
-    //   ];
-    // }
 
     foreach ($fieldDefinitions as $fieldDefinition) {
       assert($fieldDefinition instanceof FieldDefinitionInterface);
@@ -524,10 +515,10 @@ final class FieldMatcher {
    * @throws \LogicException
    *   Thrown when an unhandled data definition type is encountered.
    */
-  private function dataDefinitions(DataDefinitionInterface $dd): array {
+  private function dataDefinitions(DataDefinitionInterface $dd, bool $allBundles = TRUE): array {
     return match (TRUE) {
       // Entity level.
-      $dd instanceof EntityDataDefinitionInterface => (function ($dd) {
+      $dd instanceof EntityDataDefinitionInterface => (function ($dd) use ($allBundles) {
         if ($dd->getClass() === ConfigEntityAdapter::class) {
           // @todo load config entity type, look at export properties?
           return [];
@@ -540,6 +531,22 @@ final class FieldMatcher {
         // fields.
         if ($dd->getBundles() !== NULL && count($dd->getBundles()) === 1) {
           return $this->entityFieldManager->getFieldDefinitions($entity_type_id, $dd->getBundles()[0]);
+        }
+        if ($allBundles) {
+          $definitions = [];
+          $entity_type = $dd->getConstraint('EntityType');
+          $bundles = $this->entityTypeBundleInfo->getBundleInfo($entity_type);
+          foreach ($bundles as $bundle => $bundle_info) {
+            if ($bundle !== $entity_type) {
+              $bundleEntityDataDefinition = EntityDataDefinition::createFromDataType(implode(':', [
+                'entity',
+                $entity_type,
+                $bundle,
+              ]));
+              $definitions += $this->dataDefinitions($bundleEntityDataDefinition, FALSE);
+            }
+          }
+          return $definitions;
         }
         return $this->entityFieldManager->getBaseFieldDefinitions($entity_type_id);
       })($dd),

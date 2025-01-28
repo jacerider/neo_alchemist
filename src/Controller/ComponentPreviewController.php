@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\neo_alchemist\Controller;
 
+use Drupal\Core\Cache\CacheableMetadata;
 use Drupal\Core\Controller\ControllerBase;
 use Drupal\Core\Render\BareHtmlPageRendererInterface;
 use Drupal\Core\Theme\ComponentPluginManager;
@@ -47,7 +48,10 @@ final class ComponentPreviewController extends ControllerBase {
 
     $neo_component->setPreview(TRUE);
     $build['component'] = $neo_component->toRenderable();
-    return $this->bareHtmlPageRenderer->renderBarePage($build, 'Preview: ' . $neo_component->label(), 'page');
+
+    return $this->bareHtmlPageRenderer->renderBarePage($build, 'Preview: ' . $neo_component->label(), 'page__neo_alchemist_preview', [
+      '#attributes' => ['class' => ['!p-4']],
+    ])->addCacheableDependency((new CacheableMetadata())->setCacheMaxAge(0));
   }
 
 }

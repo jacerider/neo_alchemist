@@ -20,13 +20,6 @@ use Drupal\neo_alchemist\ComponentShapeExpandedPluginInterface;
 class ObjectShape extends ChildrenShapeBase implements ComponentShapeExpandedPluginInterface {
 
   /**
-   * The child shapes.
-   *
-   * @var \Drupal\neo_alchemist\ComponentShapePluginInterface[]
-   */
-  protected $childShapes;
-
-  /**
    * {@inheritDoc}
    */
   protected bool $optionEmptyInitAccess = TRUE;
@@ -36,6 +29,13 @@ class ObjectShape extends ChildrenShapeBase implements ComponentShapeExpandedPlu
    */
   protected function getDefaultFieldType(): string {
     return 'map';
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  public function allowExpanded(): bool {
+    return TRUE;
   }
 
   /**
@@ -51,36 +51,14 @@ class ObjectShape extends ChildrenShapeBase implements ComponentShapeExpandedPlu
   /**
    * {@inheritDoc}
    */
-  public function allowExpanded(): bool {
-    return TRUE;
-  }
-
-  /**
-   * {@inheritDoc}
-   */
-  public function getChildShapes(int $delta = 0): array {
-    if (!isset($this->childShapes)) {
-      $schema = $this->getSchema();
-      $defaultValue = $this->getDefaultValue();
-      // Merge in any examples to each property.
-      foreach ($schema['properties'] as $propName => &$prop) {
-        $prop['examples'] = $defaultValue[$propName] ?? $schema['examples'][$propName] ?? $prop['examples'] ?? [];
-      }
-      $this->childShapes = array_map(function ($shape) {
-        if ($this->isSingleProp()) {
-          $shape->getOptionDefault()->setAccess(FALSE, 'Object has a single child property.');
-        }
-        return $shape->init();
-      }, $this->getChildShapesFromSchema($schema));
-
-      // Check if the object has required properties. If so, we allow the prop
-      // to be set as empty.
-      if (!empty(array_filter($this->childShapes, fn ($shape) => $shape->isRequired()))) {
-        $logMessage = 'Object has children that are required and cannot be set as empty.';
-        $this->getOptionEmpty()->setLockedValue(FALSE, $logMessage)->setAccess(FALSE, $logMessage);
-      }
+  protected function getChildSchema(int|null $delta = NULL): array {
+    $schema = $this->getSchema();
+    $defaultValue = $this->getDefaultValue();
+    // Merge in any examples to each property.
+    foreach ($schema['properties'] as $propName => &$prop) {
+      $prop['examples'] = $defaultValue[$propName] ?? $schema['examples'][$propName] ?? $prop['examples'] ?? [];
     }
-    return $this->childShapes;
+    return $schema;
   }
 
   /**
@@ -104,11 +82,11 @@ class ObjectShape extends ChildrenShapeBase implements ComponentShapeExpandedPlu
    */
   public function getValue(): mixed {
     $value = parent::getValue();
-    foreach ($this->getChildShapes() as $shape) {
-      $value[$shape->getName()] = $shape->getValue();
-      if ($shape->getOptionEmpty()->isEnabled() || empty($value[$shape->getName()])) {
+    foreach ($this->getChildShapes() as $shapeName => $shape) {
+      $value[$shapeName] = $shape->getValue();
+      if ($shape->getOptionEmpty()->isEnabled() || empty($value[$shapeName])) {
         // Do not include empty values or values that are set to empty.
-        unset($value[$shape->getName()]);
+        unset($value[$shapeName]);
       }
     }
     return $value;

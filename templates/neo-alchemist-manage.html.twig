@@ -1,25 +1,41 @@
-{% if top_start or top_end %}
-  <div class="fixed flex gap-4 top-0 left-0 w-full bg-white border-b border-gray-200 px-4 py-2 shadow" data-offset-top>
-    {% if top_start %}
-      <div>{{ top_start }}</div>
-    {% endif %}
-    {% if top_start %}
-      <div class="ml-auto">{{ top_end }}</div>
-    {% endif %}
-  </div>
-{% endif %}
+<div{% if id %} id="{{ id }}"{% endif %} class="fixed flex flex-col top-0 left-0 w-full h-full bg-base-300 z-0 modal:static">
+  {% if top_start or top_end %}
+    <div class="neo-alchemist-manage--top flex-none flex gap-4 w-full bg-white border-b border-gray-200 px-4 py-2 shadow">
+      {% if top_start %}
+        <div class="neo-alchemist-manage--top-start">{{ top_start }}</div>
+      {% endif %}
+      {% if top_end %}
+        <div class="neo-alchemist-manage--top-end ml-auto">{{ top_end }}</div>
+      {% endif %}
+    </div>
+  {% endif %}
 
-<div class="flex items-center justify-center bg-base-300">
-  <iframe id="neo-alchemist--iframe" src="{{ src }}" frameborder="0" class="h-displace w-full transition-all" style="max-width:100%"></iframe>
+  <div id="{{ form ? 'neo-alchemist--iframe-form-wrapper' : 'neo-alchemist--iframe-wrapper' }}" class="flex-auto flex items-center justify-center bg-base-300">
+    <iframe id="{{ form ? 'neo-alchemist--iframe-form' : 'neo-alchemist--iframe' }}" src="{{ src }}" frameborder="0" class="h-full w-full transition-all" style="max-width:100%"></iframe>
+  </div>
+
+  {% if form %}
+    <div class="z-50 top-0 left-0 right-0 flex justify-center text-xs border border-x-0 bg-base-200">
+      {%
+        set sizing = 'py-1 px-4 text-base-800 hover:bg-base-100 hover:text-base-950 is-active:bg-base-0 is-active:text-base-950 is-active:font-bold'
+      %}
+      <a id="neo-alchemist--size-expand" class="neo-alchemist--sizing {{ sizing }}" href="#">{{ icon('arrow-to-top') }} {{ 'Form View'|t }}</a>
+      <a id="neo-alchemist--size-split" class="neo-alchemist--sizing {{ sizing }}" href="#">{{ icon('compress') }} {{ 'Split View'|t }}</a>
+      <a id="neo-alchemist--size-contract" class="neo-alchemist--sizing {{ sizing }}" href="#">{{ icon('arrow-to-bottom') }} {{ 'Preview View'|t }}</a>
+    </div>
+    <div id="neo-alchemist--form" class="flex-auto relative overflow-auto bg-base-0">
+      {{ form }}
+    </div>
+  {% endif %}
+
+  {% if bottom_start or bottom_end %}
+    <div class="neo-alchemist-manage--bottom flex-none flex gap-4 w-full bg-white border-t border-gray-200 px-4 py-2 shadow" data-offset-bottom>
+      {% if bottom_start %}
+        <div class="neo-alchemist-manage--bottom-start">{{ bottom_start }}</div>
+      {% endif %}
+      {% if bottom_end %}
+        <div class="neo-alchemist-manage--bottom-end ml-auto">{{ bottom_end }}</div>
+      {% endif %}
+    </div>
+  {% endif %}
 </div>
-
-{% if bottom_start or bottom_end %}
-  <div class="fixed bottom-0 left-0 w-full bg-white border-t border-gray-200 px-4 py-2 shadow" data-offset-bottom>
-    {% if bottom_start %}
-      <div>{{ bottom_start }}</div>
-    {% endif %}
-    {% if bottom_end %}
-      <div class="ml-auto">{{ bottom_end }}</div>
-    {% endif %}
-  </div>
-{% endif %}

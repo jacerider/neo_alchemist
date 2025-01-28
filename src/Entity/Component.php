@@ -11,7 +11,6 @@ use Drupal\Core\Entity\EntityStorageInterface;
 use Drupal\Core\Entity\EntityTypeInterface;
 use Drupal\Core\Plugin\Component as ComponentPlugin;
 use Drupal\Core\Template\Attribute;
-use Drupal\Core\Url;
 use Drupal\neo_alchemist\ComponentInterface;
 use Drupal\neo_alchemist\ComponentShapePluginInterface;
 
@@ -99,7 +98,7 @@ class Component extends ConfigEntityBase implements ComponentInterface {
    *
    * @var string
    */
-  protected string $expression;
+  protected string $expression = '';
 
   /**
    * The SDS component.
@@ -329,7 +328,7 @@ class Component extends ConfigEntityBase implements ComponentInterface {
   /**
    * {@inheritdoc}
    */
-  public function getTargetEntityTypeId(): string {
+  public function getTargetEntityTypeId(): ?string {
     return $this->get('target_entity_type');
   }
 
@@ -344,7 +343,7 @@ class Component extends ConfigEntityBase implements ComponentInterface {
   /**
    * {@inheritdoc}
    */
-  public function getTargetEntityBundle(): string {
+  public function getTargetEntityBundle(): ?string {
     return $this->get('target_entity_bundle');
   }
 
@@ -480,14 +479,16 @@ class Component extends ConfigEntityBase implements ComponentInterface {
    * {@inheritdoc}
    */
   public function preSave(EntityStorageInterface $storage) {
-    $currentExpression = $this->getExpression();
     $newExpression = $this->generateExpression();
-
     // Cyle, we need to figure out what if plugins have been enabled/disabled.
     // This means we need to  move the currentShapes/newShapes outside of just
     // the expression check. We may be able to do this just with $this->original
     // but I'm not sure yet.
-    if (isset($this->original)) {
+    if (!isset($this->original)) {
+      $this->set('schema', Json::encode($this->getComponentSchema()));
+      $this->set('expression', $newExpression);
+    }
+    else {
       /** @var \Drupal\neo_alchemist\ComponentInterface $original */
       $original = $this->original;
       $currentSchema = Json::decode($this->get('schema'));
@@ -498,6 +499,7 @@ class Component extends ConfigEntityBase implements ComponentInterface {
 
       // If a prop has been added/removed/type changed, we need to fire off
       // events and store the changes.
+      $currentExpression = $this->getExpression();
       if ($currentExpression !== $newExpression) {
         // We add the shape ref to the key so we can find instances where the
         // prop name is the same but the shape is different.

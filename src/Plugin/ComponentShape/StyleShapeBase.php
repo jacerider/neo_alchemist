@@ -15,30 +15,6 @@ use Drupal\neo_alchemist\ComponentShapeStylePluginInterface;
  */
 abstract class StyleShapeBase extends ComponentShapePluginBase implements ComponentShapeStylePluginInterface {
 
-  // /**
-  //  * {@inheritDoc}
-  //  */
-  // public function allowPlugins(): bool {
-  //   return FALSE;
-  // }
-
-  // /**
-  //  * {@inheritDoc}
-  //  */
-  // public function isExpandable(): bool {
-  //   return FALSE;
-  // }
-
-  // /**
-  //  * {@inheritDoc}
-  //  */
-  // protected function checkAccess(string $op, AccountInterface $account): AccessResultInterface {
-  //   if ($op === 'update') {
-  //     return AccessResult::forbidden('Style shape is not editable.');
-  //   }
-  //   return parent::checkAccess($op, $account);
-  // }
-
   /**
    * {@inheritDoc}
    */

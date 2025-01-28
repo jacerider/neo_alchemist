@@ -1,13 +1,31 @@
+component.manage:
+  version: VERSION
+  neo: { group: contrib }
+  js:
+    src/js/component-manage.ts: {}
+  dependencies:
+    - core/once
+    - core/drupal
+    - core/drupal.displace
+
 instance.component.manage:
   version: VERSION
   neo: { group: contrib }
   js:
     src/js/instance-component-manage.ts: {}
   dependencies:
-    - core/drupal
     - core/drupalSettings
-    - core/drupal.displace
+    - neo_alchemist/component.manage
     - neo_alchemist/instance.ajax
+
+component.preview:
+  version: VERSION
+  neo: { group: contrib }
+  js:
+    src/js/component-preview.ts: {}
+  dependencies:
+    - core/once
+    - core/drupal
 
 instance.component.preview:
   version: VERSION
@@ -15,12 +33,14 @@ instance.component.preview:
   js:
     src/js/instance-component-preview.ts: {}
   dependencies:
-    - core/once
-    - core/drupal
+    - neo_alchemist/component.preview
 
 instance.component.form:
   version: VERSION
   neo: { group: contrib }
+  css:
+    component:
+      src/css/instance-component-form.scss: {}
   js:
     src/js/instance-component-form.ts: {}
   dependencies:

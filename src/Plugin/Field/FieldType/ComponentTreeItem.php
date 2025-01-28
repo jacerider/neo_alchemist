@@ -15,6 +15,7 @@ use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Render\RenderableInterface;
 use Drupal\Core\Session\AccountInterface;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
+use Drupal\Core\Template\Attribute;
 use Drupal\Core\Theme\ComponentPluginManager;
 use Drupal\Core\TypedData\DataDefinition;
 use Drupal\Core\Url;
@@ -842,7 +843,17 @@ class ComponentTreeItem extends FieldItemBase implements RenderableInterface {
   public function toRenderable(): array {
     $hydrated = $this->get('hydrated');
     assert($hydrated instanceof ComponentTreeHydrated);
-    return $hydrated->toRenderable();
+    $build = $hydrated->toRenderable();
+    // if (!empty($build[ComponentTreeStructure::ROOT_UUID])) {
+    //   foreach ($build[ComponentTreeStructure::ROOT_UUID] as $uuid => &$componentBuild) {
+    //     // Convert attributes array to Attribute object.
+    //     $componentBuild['#props']['attributes'] = $componentBuild['#props']['attributes'] ?? new Attribute();
+    //     if (isset($componentBuild['#props']['attributes']) && is_array($componentBuild['#props']['attributes'])) {
+    //       $componentBuild['#props']['attributes'] = new Attribute($componentBuild['#props']['attributes']);
+    //     }
+    //   }
+    // }
+    return $build;
   }
 
   /**

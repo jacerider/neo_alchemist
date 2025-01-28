@@ -28,6 +28,12 @@
     attach: function () {
       once('neo.alchemist', '#neo-alchemist--instance-component-form').forEach(el => {
         el.addEventListener('input', throttledInput);
+        const observer = new MutationObserver((mutations) => {
+          mutations.forEach((_mutation) => {
+            throttledInput();
+          });
+        });
+        observer.observe(el, { childList: true, subtree: true });
         refreshButton = el.querySelector('#neo-alchemist--refresh') as HTMLButtonElement;
       });
     }

@@ -33,12 +33,11 @@ class IntegerShape extends ComponentShapePluginBase {
    * {@inheritDoc}
    */
   public function massageFormValues(array $values, array $original_values, array $form, FormStateInterface $form_state): array {
-    // Converty value to proper type.
-    $values = array_map(function ($v) {
-      $v['value'] = (int) $v['value'];
-      return $v;
-    }, $values);
-    return parent::massageFormValues($values, $original_values, $form, $form_state);
+    $values = parent::massageFormValues($values, $original_values, $form, $form_state);
+    if (isset($values['value'])) {
+      $values['value'] = (int) $values['value'];
+    }
+    return $values;
   }
 
 }

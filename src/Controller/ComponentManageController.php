@@ -7,6 +7,7 @@ namespace Drupal\neo_alchemist\Controller;
 use Drupal\Core\Controller\ControllerBase;
 use Drupal\Core\Render\BareHtmlPageRendererInterface;
 use Drupal\neo_alchemist\ComponentInterface;
+use Drupal\neo_alchemist\ComponentManageHelper;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
@@ -34,29 +35,31 @@ final class ComponentManageController extends ControllerBase {
    * Builds the response.
    */
   public function __invoke(ComponentInterface $neo_component) {
-    $build = [];
-    // $build['bla'] = $widget->;
+    $build = [
+      '#theme' => 'neo_alchemist_manage',
+      '#id' => ComponentManageHelper::getId($neo_component),
+      '#src' => $neo_component->toUrl('preview')->toString(),
+      '#attached' => [
+        'library' => ['neo_alchemist/component.manage'],
+      ],
+      '#form' => $this->entityFormBuilder()->getForm($neo_component, 'manage'),
+    ];
 
-    $build['form'] = $this->entityFormBuilder()->getForm($neo_component, 'manage');
-    // $build['iframe'] = [
-    //   '#type' => 'html_tag',
-    //   '#tag' => 'iframe',
-    //   '#attributes' => [
-    //     'src' => $neo_component->toUrl('preview')->toString(),
-    //     'width' => '100%',
-    //     'height' => '800px',
-    //     'frameborder' => '0',
-    //     'class' => [
-    //       'border-2',
-    //     ],
-    //   ],
-    // ];
+    // $build['#bottom_start']['form'] = $this->entityFormBuilder()->getForm($neo_component, 'manage');
 
-    return $build;
+    $build['#top_start']['back'] = [
+      '#type' => 'link',
+      '#title' => neo_admin_icon(t('Back'), 'arrow-circle-left'),
+      '#url' => $neo_component->toUrl('collection'),
+      '#attributes' => [
+        'class' => ['btn', 'btn-xs'],
+      ],
+    ];
 
-    return $this->bareHtmlPageRenderer->renderBarePage($build, 'Manage: ' . $neo_component->label(), 'page', [
-      '#show_messages' => TRUE,
-    ]);
+    // Resize.
+    $build['#top_end'] = ComponentManageHelper::buildIframeOperations($neo_component);
+
+    return $this->bareHtmlPageRenderer->renderBarePage($build, 'Manage: ' . $neo_component->label(), 'page__neo_alchemist_preview');
   }
 
   /**

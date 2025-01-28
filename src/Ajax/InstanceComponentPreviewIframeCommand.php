@@ -16,16 +16,16 @@ class InstanceComponentPreviewIframeCommand implements CommandInterface {
    *
    * @var string|null
    */
-  protected $elementId;
+  protected $selector;
 
   /**
    * Constructs an InsertCommand object.
    *
-   * @param string $element_id
-   *   The iframe ID.
+   * @param string $selector
+   *   The selector.
    */
-  public function __construct($element_id = 'neo-alchemist--iframe') {
-    $this->elementId = $element_id;
+  public function __construct($selector = '#neo-alchemist--iframe') {
+    $this->selector = $selector;
   }
 
   /**
@@ -34,7 +34,7 @@ class InstanceComponentPreviewIframeCommand implements CommandInterface {
   public function render() {
     return [
       'command' => 'neoAlchemistInstanceComponentPreviewIframe',
-      'selector' => $this->elementId,
+      'selector' => $this->selector,
     ];
   }
 

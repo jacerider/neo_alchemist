@@ -1,23 +1,27 @@
-<div id="neo-alchemist--shade" class="absolute bg-white/50 pointer-events-none transition-opacity opacity-0 z-40 is-active:opacity-100 is-active:pointer-events-auto"></div>
+<div id="neo-alchemist--shade" class="absolute bg-base-950/60 pointer-events-none transition-opacity opacity-0 z-40 is-active:opacity-100 is-active:pointer-events-auto"></div>
 <div id="neo-alchemist--overlay" class="absolute shadow-lg border-2 border-dotted opacity-0 z-40 pointer-events-none transition-opacity is-active:opacity-100 is-active:pointer-events-auto">
-  <div class="neo-alchemist--ops absolute hidden grid-cols-2 gap-2 items-center p-2 bottom-full mb-0.5 -left-0.5 -right-0.5 bg-base-900 text-base-content-900 text-center rounded-t is-active:grid">
-    <div class="flex gap-2">
-      {{ status }}
-      <div class="title text-sm"></div>
-    </div>
-    <div class="flex gap-2 ml-auto">
-      {{ close }}
+  <div class="neo-alchemist--ops invisible fixed top-displace-t left-0 right-0 bottom-full  is-focus:visible">
+    <div class="flex gap-2 items-center bg-base-900 text-base-content-900 text-center shadow rounded-t p-2 transition-all -translate-y-full is-focus:translate-y-0">
+      <div class="flex gap-2">
+        {{ status }}
+        <div class="title text-sm"></div>
+      </div>
+      <div class="flex gap-2 ml-auto">
+        {{ close }}
+      </div>
     </div>
   </div>
-  <div class="neo-alchemist--ops absolute hidden grid-cols-2 gap-2 items-center p-2 top-full mt-0.5 -left-0.5 -right-0.5 bg-base-900 text-base-content-900 text-center rounded-b is-active:grid">
-    <div class="flex">
-      {% for op in ops %}
-        {{ op }}
-      {% endfor %}
-    </div>
-    <div class="flex ml-auto">
-      {{ op_add_before }}
-      {{ op_add_after }}
+  <div class="neo-alchemist--ops invisible fixed bottom-displace-b left-0 right-0 is-focus:visible">
+    <div class="flex gap-2 items-center bg-base-900 text-base-content-900 text-center shadow rounded-b p-2 transition-all translate-y-full is-focus:translate-y-0">
+      <div class="flex">
+        {% for op in ops %}
+          {{ op }}
+        {% endfor %}
+      </div>
+      <div class="flex ml-auto">
+        {{ op_add_before }}
+        {{ op_add_after }}
+      </div>
     </div>
   </div>
 </div>

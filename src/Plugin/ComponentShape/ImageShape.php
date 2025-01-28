@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\neo_alchemist\Plugin\ComponentShape;
 
+use Drupal\Component\Utility\UrlHelper;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\file\FileInterface;
 use Drupal\media\MediaInterface;
@@ -24,6 +25,24 @@ class ImageShape extends MediaShapeBase {
    */
   public function getSupportedMediaTypes(): array {
     return ['image'];
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  public function getDefaultSchemaValue(): mixed {
+    $value = parent::getDefaultSchemaValue();
+    if (!empty($value['src'])) {
+      $isExternal = UrlHelper::isExternal($value['src']);
+      if (!$isExternal) {
+        $definition = $this->getComponent()->getComponentDefinition();
+        $path = str_replace(DRUPAL_ROOT, '', $definition['path']) . '/' . ltrim($value['src'], '/');
+        if (file_exists(ltrim($path, '/'))) {
+          $value['src'] = $path;
+        }
+      }
+    }
+    return $value;
   }
 
   /**

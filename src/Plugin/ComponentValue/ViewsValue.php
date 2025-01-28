@@ -14,6 +14,7 @@ use Drupal\Core\Plugin\ContainerFactoryPluginInterface;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\neo_alchemist\Attribute\ComponentValue;
 use Drupal\neo_alchemist\ComponentShapeChildrenPluginInterface;
+use Drupal\neo_alchemist\ComponentShapeInterablePluginInterface;
 use Drupal\neo_alchemist\ComponentShapePluginInterface;
 use Drupal\neo_alchemist\ComponentValuePluginBase;
 use Drupal\neo_alchemist\FieldMatcher;
@@ -31,6 +32,7 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
   group: 'providers',
   prop_types: [
     ComponentShapePluginInterface::ARRAY,
+    ComponentShapePluginInterface::OBJECT,
   ],
   weight: 5,
   provider: 'views',
@@ -90,7 +92,7 @@ final class ViewsValue extends ComponentValuePluginBase implements ContainerFact
     return [
       'view_id' => '',
       'view_display_id' => '',
-      'view_items_per_page' => NULL,
+      'view_items_per_page' => $this->shape->getType() === ComponentShapePluginInterface::OBJECT ? 1 : NULL,
       'shape_fields' => [],
       'continue' => FALSE,
     ];
@@ -103,7 +105,7 @@ final class ViewsValue extends ComponentValuePluginBase implements ContainerFact
     assert($this->shape instanceof ComponentShapeChildrenPluginInterface);
     $options = [];
     foreach (Views::getEnabledViews() as $view) {
-      $options[$view->id()] = $view->label();
+      $options[$view->id()] = $view->label() . ' (' . $view->id() . ')';
     }
     asort($options);
     $wrapperId = Html::getId(implode('-', $form['#parents']));
@@ -162,16 +164,19 @@ final class ViewsValue extends ComponentValuePluginBase implements ContainerFact
         if (isset($viewFilters['type']) && isset($viewFilters['type']->options['value']) && count($viewFilters['type']->options['value']) === 1) {
           $viewEntityBundle = reset($viewFilters['type']->options['value']);
         }
-        if ($view->getDisplay()->usesPager()) {
+        if ($this->shape->getType() !== ComponentShapePluginInterface::OBJECT && $view->getDisplay()->usesPager()) {
           $form['view_items_per_page'] = [
             '#type' => 'number',
             '#title' => $this->t('Override items per page'),
             '#default_value' => $this->configuration['view_items_per_page'] ?? NULL,
             '#min' => 1,
           ];
+          if ($this->shape instanceof ComponentShapeInterablePluginInterface) {
+            $form['view_items_per_page']['#min'] = $this->shape->getMinItems() ?: 1;
+            $form['view_items_per_page']['#max'] = $this->shape->getMaxItems() ?: NULL;
+            $form['view_items_per_page']['#default_value'] = $this->configuration['view_items_per_page'] ?? $form['view_items_per_page']['#max'];
+          }
         }
-        // $viewPagers = $view->getDisplay()->getHandlers('pager');
-        // ksm($view->getDisplay());
 
         $childShapes = $this->shape->getChildShapes();
         if ($childShapes) {
@@ -179,19 +184,24 @@ final class ViewsValue extends ComponentValuePluginBase implements ContainerFact
             '#type' => 'fieldset',
             '#title' => $this->t('Shape Fields'),
           ];
-          foreach ($childShapes as $childShapeId => $childShape) {
+          foreach ($childShapes as $shapeName => $childShape) {
             if ($childShape->getType() === ComponentShapePluginInterface::ARRAY) {
               // Arrays are not currently support for field binding.
               continue;
             }
-            $form['shape_fields'][$childShapeId] = [
+            $form['shape_fields'][$shapeName] = [
               '#type' => 'select',
-              '#title' => $childShape->label(),
+              '#title' => $childShape->getTitle() . ' <small>(' . $childShape->label() . ')</small>',
               '#description' => $childShape->getDescription(),
               '#required' => $childShape->isRequired(),
-              '#options' => $this->fieldMatcher->getMatchesAsOptions($childShape, $viewEntityType->id(), $viewEntityBundle),
-              '#empty_option' => $this->t('- Select -'),
-              '#default_value' => $this->configuration['shape_fields'][$childShapeId] ?? NULL,
+              '#options' => [
+                '- Shape -' => [
+                  '_default' => $this->t('Use Default'),
+                ],
+                // '_default' => $this->t('Use Default'),
+              ] + $this->fieldMatcher->getMatchesAsOptions($childShape, $viewEntityType->id(), $viewEntityBundle),
+              '#empty_option' => $childShape->isRequired() ? $this->t('- Select -') : $this->t('- None -'),
+              '#default_value' => $this->configuration['shape_fields'][$shapeName] ?? NULL,
             ];
           }
         }
@@ -213,8 +223,10 @@ final class ViewsValue extends ComponentValuePluginBase implements ContainerFact
   protected function configurationValidate(array $form, FormStateInterface $form_state): void {
     $form_state->set(implode('_', array_merge($form['#parents'], ['view_id'])), $form_state->getValue('view_id'));
     $form_state->set(implode('_', array_merge($form['#parents'], ['view_display_id'])), $form_state->getValue('view_id'));
-    $itemsPerPage = $form_state->getValue('view_items_per_page');
-    $form_state->setValue('view_items_per_page', $itemsPerPage ? (int) $itemsPerPage : NULL);
+    if ($this->shape->getType() !== ComponentShapePluginInterface::OBJECT) {
+      $itemsPerPage = $form_state->getValue('view_items_per_page');
+      $form_state->setValue('view_items_per_page', $itemsPerPage ? (int) $itemsPerPage : NULL);
+    }
     $form_state->setValue('continue', (bool) $form_state->getValue('continue'));
   }
 
@@ -241,7 +253,7 @@ final class ViewsValue extends ComponentValuePluginBase implements ContainerFact
       return $value;
     }
     if ($this->configuration['view_id'] && $this->configuration['view_display_id']) {
-      $childShapes = $this->shape->getChildShapes();
+      $shapeNames = $this->shape->getChildShapeNames();
       $view = Views::getView($this->configuration['view_id']);
       if ($this->configuration['view_items_per_page'] ?? NULL) {
         $view->setItemsPerPage($this->configuration['view_items_per_page']);
@@ -251,14 +263,29 @@ final class ViewsValue extends ComponentValuePluginBase implements ContainerFact
       foreach ($view->result as $delta => $result) {
         $entity = $result->_entity ?? NULL;
         if ($entity) {
-          foreach ($childShapes as $childShapeId => $childShape) {
-            $results[$delta][$childShapeId] = [];
-            $field = $this->configuration['shape_fields'][$childShapeId] ?? NULL;
+          foreach ($shapeNames as $shapeName) {
+            $results[$delta][$shapeName] = [];
+            $field = $this->configuration['shape_fields'][$shapeName] ?? NULL;
             if ($field) {
-              $results[$delta][$childShapeId] = $this->fieldMatcher->getEntityValue($entity, $field);
+              switch ($field) {
+                case '_default':
+                  $this->shape->defaultChildShape($shapeName);
+                  break;
+
+                default:
+                  $results[$delta][$shapeName] = $this->fieldMatcher->getEntityValue($entity, $field);
+                  break;
+              }
+            }
+            else {
+              // Hide the shape if no field is selected.
+              $this->shape->hideChildShape($shapeName);
             }
           }
         }
+      }
+      if ($this->shape->getType() === ComponentShapePluginInterface::OBJECT) {
+        $results = reset($results) ?: [];
       }
       if (!empty($results) || empty($this->configuration['continue'])) {
         $value = $results;

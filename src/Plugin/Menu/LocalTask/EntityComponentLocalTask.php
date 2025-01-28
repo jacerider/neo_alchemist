@@ -54,7 +54,9 @@ class EntityComponentLocalTask extends LocalTaskDefault implements ContainerFact
     $entity = $this->getEntityFromRouteMatch();
     if ($entity instanceof ContentEntityInterface) {
       $field = $entity->getFieldDefinition($field);
-      return $field->getLabel();
+      if ($field) {
+        return $field->getLabel();
+      }
     }
     return $this->pluginDefinition['title'];
   }

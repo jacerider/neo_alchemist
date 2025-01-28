@@ -10,6 +10,7 @@ use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Form\SubformState;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\neo_alchemist\Attribute\ComponentShape;
+use Drupal\neo_alchemist\ComponentShapeInterablePluginInterface;
 use Drupal\neo_alchemist\ComponentShapePluginInterface;
 
 /**
@@ -19,7 +20,7 @@ use Drupal\neo_alchemist\ComponentShapePluginInterface;
   prop: 'array',
   label: new TranslatableMarkup('Array'),
 )]
-class ArrayShape extends ChildrenShapeBase {
+class ArrayShape extends ChildrenShapeBase implements ComponentShapeInterablePluginInterface {
 
   /**
    * The single prop shape.
@@ -29,19 +30,9 @@ class ArrayShape extends ChildrenShapeBase {
   protected ?ComponentShapePluginInterface $singlePropShape;
 
   /**
-   * The child shapes keyed by delta.
-   *
-   * @var \Drupal\neo_alchemist\ComponentShapePluginInterface[][]
-   */
-  protected array $childShapes = [];
-
-  /**
    * {@inheritDoc}
    */
   public function init(): self {
-    // $this->setOptionDefaultAccess(FALSE);
-    // We need to look at this because this doesn't make sense for default values.
-    // $this->setOptionEmptyAccess(FALSE);
     $this->getOptionEmpty()->setAccess(FALSE, 'Array shapes cannot be set as empty.');
     return parent::init();
   }
@@ -77,11 +68,13 @@ class ArrayShape extends ChildrenShapeBase {
     $keyedShapes = [];
     $values = $values ?? $this->getFieldItemValue();
     foreach ($values as $delta => $value) {
-      $shapes = $this->getChildShapes($delta);
-      foreach ($shapes as $shape) {
-        $itemValue = $value[$shape->getName()] ?? ($this->isSingleProp() ? $value : []);
-        $shape->setFieldItemValue($itemValue);
-        $keyedShapes[$delta][$shape->getName()] = $shape;
+      if (is_int($delta)) {
+        $shapes = $this->getChildShapes((int) $delta);
+        foreach ($shapes as $shapeName => $shape) {
+          // $itemValue = $value[$shapeName] ?? ($this->isSingleProp() ? $value : []);
+          // $shape->setFieldItemValue($itemValue);
+          $keyedShapes[$delta][$shapeName] = $shape;
+        }
       }
     }
     return $keyedShapes;
@@ -89,41 +82,28 @@ class ArrayShape extends ChildrenShapeBase {
 
   /**
    * {@inheritDoc}
-   *
-   * We add the delta parameter to the method signature. This is because we need
-   * to be able to get the child shapes for a specific delta.
-   *
-   * @param int $delta
-   *   The delta.
    */
-  public function getChildShapes($delta = 0): array {
-    if (!isset($this->childShapes[$delta])) {
-      $schema = $this->getSchema();
-      if (empty($schema['items'])) {
-        return [];
-      }
-      if ($this->isSingleProp()) {
-        $schema['items']['properties']['value'] = [
-          'type' => [$schema['items']['type']],
-        ];
-      }
-      // Merge in any examples set on array.
-      foreach ($schema['items']['properties'] as $propName => &$prop) {
-        if ($this->isSingleProp()) {
-          $prop['examples'] = $schema['examples'][$delta] ?? $prop['examples'] ?? [];
-        }
-        else {
-          $prop['examples'] = $schema['examples'][$delta][$propName] ?? $prop['examples'] ?? [];
-        }
-      }
-      $this->childShapes[$delta] = array_map(function ($shape) {
-        // Do not allow setting the shape to default.
-        $shape->getOptionDefault()->setAccess(FALSE);
-        return $shape
-          ->init();
-      }, $this->getChildShapesFromSchema($schema['items']));
+  protected function getChildSchema(int|null $delta = 0): array {
+    $schema = $this->getSchema();
+    $defaultValue = $this->getDefaultValue();
+    if (empty($schema['items'])) {
+      return [];
     }
-    return $this->childShapes[$delta];
+    if ($this->isSingleProp()) {
+      $schema['items']['properties']['value'] = [
+        'type' => [$schema['items']['type']],
+      ];
+    }
+    // Merge in any examples set on array.
+    foreach ($schema['items']['properties'] as $propName => &$prop) {
+      if ($this->isSingleProp()) {
+        $prop['examples'] = $defaultValue[$delta] ?? $schema['examples'][$delta] ?? $prop['examples'] ?? [];
+      }
+      else {
+        $prop['examples'] = $defaultValue[$delta][$propName] ?? $schema['examples'][$delta][$propName] ?? $prop['examples'] ?? [];
+      }
+    }
+    return $schema['items'];
   }
 
   /**
@@ -144,42 +124,62 @@ class ArrayShape extends ChildrenShapeBase {
   }
 
   /**
-   * Get the max number of items.
-   *
-   * @return int
-   *   The max number of items.
+   * {@inheritDoc}
    */
-  protected function getMaxItems(): int {
+  public function getMaxItems(): int {
     return (int) ($this->getSchema()['maxItems'] ?? 0);
   }
 
   /**
-   * Get the min number of items.
-   *
-   * @return int
-   *   The min number of items.
+   * {@inheritDoc}
    */
-  protected function getMinItems(): int {
+  public function getMinItems(): int {
     return (int) ($this->getSchema()['minItems'] ?? 0);
   }
 
   /**
    * {@inheritDoc}
    */
-  public function adaptValue(mixed $values): mixed {
-    $newValues = [];
-    // ksm($values);
-    // die;
+  public function getValue(): mixed {
+    $values = parent::getValue();
+    if ($this->getOptionDefault()->isEnabled()) {
+      return $values;
+    }
     foreach ($this->getChildShapeList() as $delta => $shapes) {
       /** @var \Drupal\neo_alchemist\ComponentShapePluginInterface[] $shapes */
-      foreach ($shapes as $shape) {
+      foreach ($shapes as $shapeName => $shape) {
+        $value = $shape->getValue();
+        if ($value) {
+          if ($this->isSingleProp()) {
+            $values[$delta] = $value;
+          }
+          else {
+            $values[$delta][$shapeName] = $value;
+          }
+        }
+      }
+    }
+    return $values;
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  public function adaptValue(mixed $values): mixed {
+    if ($this->getOptionDefault()->isEnabled()) {
+      return $values;
+    }
+    $newValues = [];
+    foreach ($this->getChildShapeList() as $delta => $shapes) {
+      /** @var \Drupal\neo_alchemist\ComponentShapePluginInterface[] $shapes */
+      foreach ($shapes as $shapeName => $shape) {
         $value = $shape->getValue();
         if ($value) {
           if ($this->isSingleProp()) {
             $newValues[$delta] = $value;
           }
           else {
-            $newValues[$delta][$shape->getName()] = $value;
+            $newValues[$delta][$shapeName] = $value;
           }
         }
       }
@@ -251,10 +251,20 @@ class ArrayShape extends ChildrenShapeBase {
         /** @var \Drupal\neo_alchemist\ComponentShapePluginInterface[] $shapes */
         $form[$delta] = [
           '#type' => 'container',
-          '#attributes' => [
-            'class' => ['form--inline', 'pb-form-item'],
-          ],
         ];
+        if ($min < $count) {
+          $form[$delta]['delta'] = [
+            '#type' => 'html_tag',
+            '#tag' => 'div',
+            '#attributes' => [
+              'class' => ['badge bg-base text-base-content flex-none self-center min-w-8'],
+            ],
+            '#value' => $delta + 1,
+          ];
+        }
+        if ($max > 1) {
+          $form[$delta]['#attributes']['class'][] = 'form--inline mb-form-item';
+        }
         foreach ($shapes as $shape) {
           $form[$delta][$shape->getName()] = [
             '#parents' => array_merge($form['#parents'], [$delta]),
@@ -262,24 +272,27 @@ class ArrayShape extends ChildrenShapeBase {
           $subform_state = SubformState::createForSubform($form[$delta][$shape->getName()], $form, $form_state);
           $form[$delta][$shape->getName()] = $shape->getForm($form[$delta][$shape->getName()], $subform_state);
         }
-        $form[$delta]['remove'] = [
-          '#type' => 'submit',
-          '#name' => $id . '-remove-' . $delta,
-          '#value' => $this->t('Remove'),
-          '#description' => $this->t('Remove this item.'),
-          '#widget_parents' => array_merge($form['#parents'], [$delta]),
-          '#submit' => [[get_class($this), 'removeItemSubmit']],
-          '#attributes' => [
-            'class' => ['icon-only', 'self-end'],
-          ],
-          '#limit_validation_errors' => [],
-          '#disabled' => $count <= $min,
-          '#parents' => array_merge(['remove_shape'], $parents, [$delta]),
-          '#ajax' => [
-            'callback' => [get_class($this), 'removeItemAjax'],
-            'wrapper' => $id,
-          ],
-        ];
+
+        if ($min < $count) {
+          $form[$delta]['remove'] = [
+            '#type' => 'submit',
+            '#name' => $id . '-remove-' . $delta,
+            '#value' => $this->t('Remove'),
+            '#description' => $this->t('Remove this item.'),
+            '#widget_parents' => array_merge($form['#parents'], [$delta]),
+            '#submit' => [[get_class($this), 'removeItemSubmit']],
+            '#attributes' => [
+              'class' => ['icon-only flex-none self-center'],
+            ],
+            '#limit_validation_errors' => [],
+            '#disabled' => $count <= $min,
+            '#parents' => array_merge(['remove_shape'], $parents, [$delta]),
+            '#ajax' => [
+              'callback' => [get_class($this), 'removeItemAjax'],
+              'wrapper' => $id,
+            ],
+          ];
+        }
       }
     }
 
@@ -297,6 +310,45 @@ class ArrayShape extends ChildrenShapeBase {
       ];
     }
     return $form;
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  public function validateForm(array $form, FormStateInterface $form_state, array $values): void {
+    parent::validateForm($form, $form_state, $values);
+    $shapeList = $this->getChildShapeList();
+    foreach ($shapeList as $delta => $shapes) {
+      foreach ($shapes as $shapeName => $shape) {
+        if (isset($form[$delta][$shapeName])) {
+          $subform_state = SubformState::createForSubform($form[$delta][$shapeName], $form, $form_state);
+          $shape->validateForm($form[$delta][$shapeName], $subform_state, $values[$delta][$shapeName] ?? []);
+        }
+      }
+    }
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  public function massageFormValues(array $values, array $original_values, array $form, FormStateInterface $form_state): array {
+    foreach ($values as $delta => $value) {
+      $shapes = $this->getChildShapes((int) $delta);
+      foreach ($shapes as $shapeName => $shape) {
+        $shapeValue = $values[$delta][$shapeName] ?? [];
+        // If the shape value is an array, continue the massage process.
+        if (isset($form[$delta][$shapeName]) && is_array($shapeValue)) {
+          $subform_state = SubformState::createForSubform($form[$delta][$shapeName], $form, $form_state);
+          unset($shapeValue['_options']);
+          $shapeOriginalValues = $original_values[$shapeName] ?? [];
+          if (!is_array($shapeOriginalValues)) {
+            $shapeOriginalValues = [$shapeOriginalValues];
+          }
+          $values[$delta][$shapeName] = $shape->massageFormValues($shapeValue, $shapeOriginalValues, $form[$delta][$shapeName], $subform_state);
+        }
+      }
+    }
+    return parent::massageFormValues($values, $original_values, $form, $form_state);
   }
 
   /**
@@ -367,20 +419,6 @@ class ArrayShape extends ChildrenShapeBase {
     // Go one level up in the form, to the widgets container.
     $element = NestedArray::getValue($form, array_slice($button['#array_parents'], 0, -2));
     return $element;
-  }
-
-  /**
-   * {@inheritDoc}
-   */
-  public function massageFormValues(array $values, array $original_values, array $form, FormStateInterface $form_state): array {
-    $newValues = [];
-    foreach ($values as $delta => $value) {
-      $shapes = $this->getChildShapes($delta);
-      foreach ($shapes as $shape) {
-        $newValues[$delta][$shape->getName()] = $shape->massageFormValues($value[$shape->getName()] ?? [], $original_values[$shape->getName()] ?? [], $form, $form_state);
-      }
-    }
-    return $newValues;
   }
 
   /**

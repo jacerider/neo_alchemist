@@ -15,6 +15,7 @@ use Drupal\Core\Form\SubformState;
 use Drupal\Core\TempStore\PrivateTempStoreFactory;
 use Drupal\neo_alchemist\Ajax\InstanceComponentPreviewIframeCommand;
 use Drupal\neo_alchemist\Ajax\InstanceIframeHelper;
+use Drupal\neo_alchemist\ComponentManageHelper;
 use Drupal\neo_alchemist\ComponentShapeStylePluginInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
@@ -109,10 +110,13 @@ final class InstanceComponentForm extends ContentEntityForm {
    */
   protected function init(FormStateInterface $form_state) {
     parent::init($form_state);
-    $form_state->set('neo_component_form', TRUE);
     $this->instance = $form_state->get('neo_component_instance');
     $this->before = $form_state->get('before');
     $this->after = $form_state->get('after');
+    $form_state->set('neo_component_form', TRUE);
+    // kint(ComponentManageHelper::getId($this->instance->getFieldItem()));
+    // die;
+    $form_state->set('neo_component_manage_id', ComponentManageHelper::getId($this->instance->getFieldItem()));
     $form_state->set('original_values', $this->instance->getValues());
     $this->store->delete($this->instance->getFieldItem()->getDraftKey($this->instance->uuid()));
     $form_state->set('neo_draft_uuid', $this->instance->uuid());
@@ -134,6 +138,7 @@ final class InstanceComponentForm extends ContentEntityForm {
   public function form(array $form, FormStateInterface $form_state): array {
     $form['#parents'] = [];
     $form['#id'] = 'neo-alchemist--instance-component-form';
+    $form['#attributes']['class'][] = 'neo-alchemist--instance-component-form';
     $form['#neo_style'] = 'clean';
 
     $form['#process'][] = '::processForm';
@@ -145,28 +150,10 @@ final class InstanceComponentForm extends ContentEntityForm {
       '#default_value' => $this->instance->uuid(),
     ];
 
-    $form['iframe'] = [
-      '#type' => 'html_tag',
-      '#tag' => 'iframe',
-      '#id' => 'neo-alchemist--iframe-form',
-      '#attributes' => [
-        'id' => 'neo-alchemist--iframe-form',
-        'src' => $this->instance->toUrl('preview')->setOption('query', [
-          'uuid' => $this->instance->uuid(),
-          'component' => $this->instance->id(),
-        ])->toString(),
-        'width' => '100%',
-        'height' => '300px',
-        'frameborder' => '0',
-        'class' => [
-          'border-2',
-        ],
-      ],
-    ];
-
     $form['advanced'] = [
       '#type' => 'accordion',
       '#title' => $this->t('Styles'),
+      '#access' => FALSE,
     ];
 
     $form['values'] = [
@@ -185,6 +172,7 @@ final class InstanceComponentForm extends ContentEntityForm {
       $subform_state = SubformState::createForSubform($subform, $form, $form_state);
       $form['values'][$propName] = $shape->getForm($subform, $subform_state);
       if ($shape instanceof ComponentShapeStylePluginInterface) {
+        $form['advanced']['#access'] = TRUE;
         $form['values'][$propName]['#type'] = 'details';
         $form['values'][$propName]['#title'] = $shape->getTitle();
         $form['values'][$propName]['#group'] = 'advanced';
@@ -200,11 +188,9 @@ final class InstanceComponentForm extends ContentEntityForm {
 
     $form['refresh'] = [
       '#type' => 'submit',
-      // '#name' => 'refresh',
       '#id' => 'neo-alchemist--refresh',
       '#value' => $this->t('Refresh'),
       '#submit' => ['::submitRefresh'],
-      // '#limit_validation_errors' => [],
       '#ajax' => [
         'callback' => '::ajaxRefresh',
       ],
@@ -314,7 +300,7 @@ final class InstanceComponentForm extends ContentEntityForm {
   public function ajaxRefresh(array &$form, FormStateInterface $form_state) {
     $response = new AjaxResponse();
     $response->addCommand(new HtmlCommand('.region.region--status', ['#type' => 'status_messages']));
-    $response->addCommand(new InstanceComponentPreviewIframeCommand('neo-alchemist--iframe-form'));
+    $response->addCommand(new InstanceComponentPreviewIframeCommand('#' . ComponentManageHelper::getId($this->instance) . ' iframe'));
     return $response;
   }
 
