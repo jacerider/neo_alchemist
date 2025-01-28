@@ -1,12 +1,12 @@
 (function(w, h) {
   let u = null;
   const o = document.querySelector("#neo-alchemist--shade"), t = document.querySelector("#neo-alchemist--overlay"), p = t == null ? void 0 : t.querySelectorAll(".neo-alchemist--ops");
-  let i = null, a = !1, l = null;
+  let n = null, a = !1, l = null;
   function L(e, s) {
-    let c;
-    return function(...n) {
-      c && clearTimeout(c), c = setTimeout(() => {
-        e.apply(this, n);
+    let i;
+    return function(...c) {
+      i && clearTimeout(i), i = setTimeout(() => {
+        e.apply(this, c);
       }, s);
     };
   }
@@ -14,9 +14,9 @@
     e.key === "Escape" && d();
   }), t) {
     t.ondblclick = function(s) {
-      i && v("edit");
+      n && v("edit");
     }, t.addEventListener("click", () => {
-      i && x(i);
+      n && b(n);
     }), t.addEventListener("mouseleave", () => {
       a || d();
     });
@@ -29,77 +29,77 @@
     e.preventDefault(), d();
   });
   const v = (e) => {
-    if (i && e) {
-      const s = JSON.parse(i.dataset.component || "{}");
+    if (n && e) {
+      const s = JSON.parse(n.dataset.component || "{}");
       if (s.ops[e]) {
-        const c = JSON.stringify({
+        const i = JSON.stringify({
           type: e,
           uuid: s.uuid,
           scrollY: window.scrollY,
           scrollX: window.scrollX
         });
-        window.parent.postMessage(c, "*");
+        window.parent.postMessage(i, "*");
       }
     }
   };
   t && t.querySelectorAll(".op").forEach((s) => {
-    s.addEventListener("click", (c) => {
-      c.preventDefault();
-      const n = s.dataset.op;
-      n && v(n);
+    s.addEventListener("click", (i) => {
+      i.preventDefault();
+      const c = s.dataset.op;
+      c && v(c);
     });
   });
   const y = (e) => {
-    i = e, f();
-  }, x = (e) => {
-    if (a = !0, i = e, l = JSON.parse(i.dataset.component || "{}"), t && l.uuid) {
-      i.scrollIntoView({
+    n = e, f();
+  }, b = (e) => {
+    if (a = !0, n = e, l = JSON.parse(n.dataset.component || "{}"), t && l.uuid) {
+      n.scrollIntoView({
         behavior: "smooth",
         block: "center",
         inline: "nearest"
-      }), t.querySelectorAll(".op").forEach((n) => {
-        n.style.display = "none";
+      }), t.querySelectorAll(".op").forEach((c) => {
+        c.style.display = "none";
       });
-      const c = t.querySelector(".title");
-      c && (c.innerHTML = l.label, console.log(l)), l.ops && Object.keys(l.ops).forEach((n) => {
-        if (l.ops[n]) {
-          const r = t.querySelector(`[data-op="${n}"]`);
+      const i = t.querySelector(".title");
+      i && (i.innerHTML = l.label, l.status !== !0 && (i.innerHTML += ' <span class="badge bg-alert-500 text-alert-content-500">Draft</span>')), l.ops && Object.keys(l.ops).forEach((c) => {
+        if (l.ops[c]) {
+          const r = t.querySelector(`[data-op="${c}"]`);
           r && (r.style.display = "");
         }
       });
     }
     f();
   }, d = () => {
-    i && (a = !1, i = null, u = setTimeout(() => {
+    n && (a = !1, n = null, u = setTimeout(() => {
       t && (t.classList.remove("is-active"), t.classList.remove("!transition-all")), o && (o.classList.remove("is-active"), o.classList.remove("!transition-all"));
     }, 100));
   }, f = () => {
-    if (i) {
+    if (n) {
       u && clearTimeout(u);
-      const e = i.getBoundingClientRect(), s = e.top + window.scrollY, c = e.bottom + window.scrollY, n = e.left + window.scrollX, m = e.right + window.scrollX;
-      t && (t.style.top = s + "px", t.style.left = n + "px", t.style.width = e.width + "px", t.style.height = e.height + "px", t.classList.add("is-active"), a ? t.classList.remove("cursor-pointer") : t.classList.add("cursor-pointer"), setTimeout(() => {
+      const e = n.getBoundingClientRect(), s = e.top + window.scrollY, i = e.bottom + window.scrollY, c = e.left + window.scrollX, m = e.right + window.scrollX;
+      t && (t.style.top = s + "px", t.style.left = c + "px", t.style.width = e.width + "px", t.style.height = e.height + "px", t.classList.add("is-active"), a ? t.classList.remove("cursor-pointer") : t.classList.add("cursor-pointer"), setTimeout(() => {
         t.classList.add("!transition-all");
       })), a ? (p && p.forEach((r) => {
         r.classList.add("is-focus");
-      }), o && (o.style.top = "0px", o.style.right = "0px", o.style.bottom = "0px", o.style.left = "0px", o.style.width = document.body.clientWidth + "px", o.style.height = document.body.clientHeight + "px", o.style.clipPath = `polygon(0% 0%, 0% 100%, ${n}px 100%, ${n}px ${s}px, ${m}px ${s}px, ${m}px ${c}px, ${n}px ${c}px, ${n}px 100%, 100% 100%, 100% 0%)`, o.classList.add("is-active"), setTimeout(() => {
+      }), o && (o.style.top = "0px", o.style.right = "0px", o.style.bottom = "0px", o.style.left = "0px", o.style.width = document.body.clientWidth + "px", o.style.height = document.body.clientHeight + "px", o.style.clipPath = `polygon(0% 0%, 0% 100%, ${c}px 100%, ${c}px ${s}px, ${m}px ${s}px, ${m}px ${i}px, ${c}px ${i}px, ${c}px 100%, 100% 100%, 100% 0%)`, o.classList.add("is-active"), setTimeout(() => {
         o.classList.add("!transition-all");
       }))) : (p && p.forEach((r) => {
         r.classList.remove("is-focus");
       }), o && (o.classList.remove("is-active"), o.classList.remove("!transition-all")));
     }
   };
-  function b() {
-    i && a && i.scrollIntoView({
+  function x() {
+    n && a && n.scrollIntoView({
       behavior: "smooth",
       block: "center",
       inline: "nearest"
     }), f();
   }
-  const g = L(b, 50);
+  const g = L(x, 50);
   w.behaviors.neoAlchemistInstanceComponentPreview = {
     attach: function() {
       window.parent && (h("neo.alchemist", ".page-wrapper").forEach((e) => {
-        new ResizeObserver((c) => {
+        new ResizeObserver((i) => {
           g();
         }).observe(e);
       }), h("neo.alchemist", "[data-component]").forEach((e) => {

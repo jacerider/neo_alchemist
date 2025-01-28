@@ -21,6 +21,9 @@ services:
     class: Drupal\neo_alchemist\ComponentValueGroupPluginManager
     arguments: ['@module_handler', '@cache.discovery']
 
+  neo_component.slot.factory:
+    class: Drupal\neo_alchemist\ComponentSlotFactory
+
   neo_alchemist.field_matcher:
     class: Drupal\neo_alchemist\FieldMatcher
     arguments: ['@entity_type.manager', '@entity_field.manager', '@entity_type.bundle.info']
@@ -63,6 +66,12 @@ services:
     arguments: ['@entity_field.manager']
     tags:
       - { name: access_check, applies_to: _neo_component_prop }
+
+  neo_alchemist.slot_access_checker:
+    class: Drupal\neo_alchemist\Access\ComponentSlotAccessCheck
+    arguments: ['@entity_field.manager']
+    tags:
+      - { name: access_check, applies_to: _neo_component_slot }
 
   neo_alchemist.field_param_converter:
     class: Drupal\neo_alchemist\Routing\FieldParamConverter

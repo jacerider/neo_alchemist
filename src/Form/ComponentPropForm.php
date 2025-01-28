@@ -73,7 +73,7 @@ final class ComponentPropForm extends EntityForm {
   }
 
   /**
-   * PatternEditForm constructor.
+   * ComponentPropForm constructor.
    *
    * @param \Drupal\Core\Entity\EntityTypeBundleInfoInterface $entity_type_bundle_info
    *   The entity type bundle info service.

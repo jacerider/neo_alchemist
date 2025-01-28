@@ -77,6 +77,14 @@ interface ComponentInterface extends ConfigEntityInterface {
   public function getComponentSchema(): array;
 
   /**
+   * Get the component slots.
+   *
+   * @return array
+   *   The slots.
+   */
+  public function getComponentSlots(): array;
+
+  /**
    * Gets the thumbnail id.
    *
    * @return string|null
@@ -348,6 +356,30 @@ interface ComponentInterface extends ConfigEntityInterface {
    *   (and optionally the reference) and values being the shape objects.
    */
   public function getAllPropShapes(array $shapes): array;
+
+  /**
+   * Retrieves the slots for the component.
+   *
+   * This method initializes the slots array if it is not already set. It uses
+   * the neo_component.slot.factory service to create slot instances based on
+   * the component's slot schema. The slots are then stored in the $slots
+   * property and returned.
+   *
+   * @return \Drupal\neo_alchemist\ComponentSlotInterface[]
+   *   An array of slots for the component.
+   */
+  public function getSlots(): array;
+
+  /**
+   * Retrieves the slot with the given name.
+   *
+   * @param string $slotName
+   *   The name of the slot to retrieve.
+   *
+   * @return \Drupal\neo_alchemist\ComponentSlotInterface|null
+   *   The slot object if found, or NULL if the slot does not exist.
+   */
+  public function getSlot(string $slotName): ?ComponentSlotInterface;
 
   /**
    * Converts the component entity to a renderable array.

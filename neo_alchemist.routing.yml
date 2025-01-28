@@ -60,6 +60,14 @@ entity.neo_component.edit_prop_form:
   requirements:
     _neo_component_prop: neo_component.prop.manage_value
 
+entity.neo_component.edit_slot_form:
+  path: '/admin/config/neo/alchemist/{neo_component}/slot/{slot}'
+  defaults:
+    _entity_form: 'neo_component.slot'
+    _title: 'Edit a component slot'
+  requirements:
+    _neo_component_slot: neo_component.slot.manage_value
+
 entity.neo_component.delete_form:
   path: '/admin/config/neo/alchemist/{neo_component}/delete'
   defaults:

@@ -13,6 +13,7 @@ use Drupal\Core\Plugin\Component as ComponentPlugin;
 use Drupal\Core\Template\Attribute;
 use Drupal\neo_alchemist\ComponentInterface;
 use Drupal\neo_alchemist\ComponentShapePluginInterface;
+use Drupal\neo_alchemist\ComponentSlotInterface;
 
 /**
  * Defines the component entity type.
@@ -35,6 +36,7 @@ use Drupal\neo_alchemist\ComponentShapePluginInterface;
  *       "add" = "Drupal\neo_alchemist\Form\ComponentForm",
  *       "edit" = "Drupal\neo_alchemist\Form\ComponentForm",
  *       "prop" = "Drupal\neo_alchemist\Form\ComponentPropForm",
+ *       "slot" = "Drupal\neo_alchemist\Form\ComponentSlotForm",
  *       "delete" = "Drupal\Core\Entity\EntityDeleteForm",
  *       "manage" = "Drupal\neo_alchemist\Form\ComponentManageForm",
  *     },
@@ -46,6 +48,7 @@ use Drupal\neo_alchemist\ComponentShapePluginInterface;
  *     "add-form" = "/admin/config/neo/alchemist/add/{component}",
  *     "edit-form" = "/admin/config/neo/alchemist/{neo_component}/edit",
  *     "edit-prop-form" = "/admin/config/neo/alchemist/{neo_component}/prop/{prop}",
+ *     "edit-slot-form" = "/admin/config/neo/alchemist/{neo_component}/slot/{slot}",
  *     "delete-form" = "/admin/config/neo/alchemist/{neo_component}/delete",
  *     "canonical" = "/admin/config/neo/alchemist/{neo_component}",
  *     "preview" = "/admin/config/neo/alchemist/{neo_component}/preview",
@@ -168,6 +171,13 @@ class Component extends ConfigEntityBase implements ComponentInterface {
   protected array $propShapes;
 
   /**
+   * The slots.
+   *
+   * @var \Drupal\neo_alchemist\ComponentSlot[]
+   */
+  protected array $slots;
+
+  /**
    * {@inheritdoc}
    */
   public function getDescription(): string {
@@ -225,6 +235,13 @@ class Component extends ConfigEntityBase implements ComponentInterface {
    */
   public function getComponentSchema(): array {
     return $this->getComponent()->metadata->schema;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function getComponentSlots(): array {
+    return $this->getComponent()->metadata->slots ?? [];
   }
 
   /**
@@ -436,8 +453,8 @@ class Component extends ConfigEntityBase implements ComponentInterface {
   /**
    * {@inheritdoc}
    */
-  public function getPropShape(string $propId): ?ComponentShapePluginInterface {
-    return $this->getPropShapes()[$propId] ?? NULL;
+  public function getPropShape(string $propName): ?ComponentShapePluginInterface {
+    return $this->getPropShapes()[$propName] ?? NULL;
   }
 
   /**
@@ -471,8 +488,30 @@ class Component extends ConfigEntityBase implements ComponentInterface {
   /**
    * {@inheritdoc}
    */
-  public function getPropShapeSettings(string $propId): array {
-    return $this->getAllPropShapeSettings()[$propId] ?? [];
+  public function getPropShapeSettings(string $propName): array {
+    return $this->getAllPropShapeSettings()[$propName] ?? [];
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function getSlots(): array {
+    if (!isset($this->slots)) {
+      $this->slots = [];
+      /** @var \Drupal\neo_alchemist\ComponentSlotFactory $factory */
+      $factory = \Drupal::service('neo_component.slot.factory');
+      foreach ($this->getComponentSlots() as $slotName => $schema) {
+        $this->slots[$slotName] = $factory->get($this, $slotName, $schema);
+      }
+    }
+    return $this->slots;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function getSlot(string $slotName): ?ComponentSlotInterface {
+    return $this->getSlots()[$slotName] ?? NULL;
   }
 
   /**
@@ -680,7 +719,7 @@ class Component extends ConfigEntityBase implements ComponentInterface {
    * {@inheritdoc}
    */
   public function __sleep() {
-    return array_diff(parent::__sleep(), ['propShapes']);
+    return array_diff(parent::__sleep(), ['propShapes', 'slots']);
   }
 
 }

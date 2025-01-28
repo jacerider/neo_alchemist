@@ -71,29 +71,14 @@ final class ComponentManageForm extends EntityForm {
     $form = parent::form($form, $form_state);
     $form_state->set('neo_component_form', TRUE);
 
-    // $form['iframe'] = [
-    //   '#type' => 'html_tag',
-    //   '#tag' => 'iframe',
-    //   '#attributes' => [
-    //     'id' => 'neo-alchemist--iframe',
-    //     'src' => $this->entity->toUrl('preview')->toString(),
-    //     'width' => '100%',
-    //     'height' => '300px',
-    //     'frameborder' => '0',
-    //     'class' => [
-    //       'border-2',
-    //     ],
-    //   ],
-    // ];
-
     $form += $this->getValuePropsForm($form, $form_state);
+    $form += $this->getSlotsForm($form, $form_state);
 
     $thumbnailId = $this->entity->getThumbnailId();
     $form['thumbnail'] = [
       '#type' => 'neo_config_file',
       '#title' => $this->t('Thumbnail'),
       '#extensions' => ['png'],
-      // '#upload_location' => 'public://neo-alchemist/components',
       '#dependencies' => [
         $this->entity->getConfigDependencyKey() => [
           $this->entity->getConfigDependencyName(),
@@ -139,9 +124,9 @@ final class ComponentManageForm extends EntityForm {
       '#description' => $this->t('Select the permission required to manage this component. If no permission is selected the component will be available to all users who can make updates to the entity the component is attached to.'),
       '#options' => $permissions_by_provider,
       '#empty_option' => $this->t('- Select -'),
-      // '#multiple' => TRUE,
+      // @todo Add permission support.
+      '#access' => FALSE,
     ];
-    // ksm($permissions_by_provider);
 
     return $form;
   }
@@ -158,75 +143,143 @@ final class ComponentManageForm extends EntityForm {
    *   The form.
    */
   protected function getValuePropsForm(array $form, FormStateInterface $form_state): array {
-    $form['props'] = [
-      '#type' => 'table',
-      '#caption' => $this->t('Value Props'),
-      '#attached' => ['library' => ['core/drupal.dialog.ajax']],
-      '#tree' => TRUE,
-      '#header' => [
-        'property' => $this->t('Property'),
-        'type' => $this->t('Type'),
-        'required' => $this->t('Required'),
-        'editable' => $this->t('Editable'),
-        'value_providers' => $this->t('Value Providers'),
-        'value_modifiers' => $this->t('Value Modifiers'),
-        'operations' => '',
-      ],
-      '#neo_style' => [
-        'property' => 'heading',
-      ],
-      '#neo_size' => [
-        'required' => 'min',
-        'editable' => 'min',
-      ],
-      '#neo_align' => [
-        'required' => 'center',
-        'editable' => 'center',
-      ],
-    ];
-
-    foreach ($this->entity->getPropShapes() as $propName => $shape) {
-      if (!$shape->access('manage_value')) {
-        continue;
-      }
-      $row = [];
-      $row['property']['#markup'] = $shape->getTitle() . ' <small>(' . $shape->getName() . ')</small>';
-      $row['type']['#markup'] = $shape->getType() . ' <small>(' . $shape->getRef() . ')</small>';
-      $row['required']['#markup'] = $shape->isRequired() ? $this->icon($this->t('Yes'))->iconOnly() : $this->icon($this->t('No'))->iconOnly();
-      $row['editable']['#markup'] = $shape->isEditable() ? $this->icon($this->t('Yes'))->iconOnly() : $this->icon($this->t('No'))->iconOnly();
-      $plugins = $shape->getValueCollection()->getActiveInstances();
-      $row['value_providers']['#markup'] = implode(', ', array_map(function ($provider) {
-        return $provider->label();
-      }, array_filter($plugins, fn ($plugin) => $plugin->getGroup() === 'providers')));
-      $row['value_modifiers']['#markup'] = implode(', ', array_map(function ($provider) {
-        return $provider->label();
-      }, array_filter($plugins, fn ($plugin) => $plugin->getGroup() === 'modifiers')));
-
-      $links = [];
-      $links['edit'] = [
-        'title' => $this->t('Customize'),
-        'url' => $this->entity->toUrl('edit-prop-form')->setRouteParameter('prop', $propName),
-        'attributes' => [
-          'class' => ['use-ajax'],
-          'data-dialog-type' => 'modal',
-          'data-dialog-options' => Json::encode([
-            'width' => '100%',
-            'height' => '100%',
-            'neo' => [
-              'displaceTop' => '0px',
-              'displaceBottom' => '0px',
-            ],
-          ]),
+    $shapes = array_filter($this->entity->getPropShapes(), fn ($shape) => $shape->access('manage_value'));
+    if ($shapes) {
+      $form['props'] = [
+        '#type' => 'table',
+        '#caption' => $this->t('Value Props'),
+        '#attached' => ['library' => ['core/drupal.dialog.ajax']],
+        '#tree' => TRUE,
+        '#header' => [
+          'property' => $this->t('Property'),
+          'type' => $this->t('Type'),
+          'required' => $this->t('Required'),
+          'editable' => $this->t('Editable'),
+          'value_providers' => $this->t('Value Providers'),
+          'value_modifiers' => $this->t('Value Modifiers'),
+          'operations' => '',
+        ],
+        '#neo_style' => [
+          'property' => 'heading',
+        ],
+        '#neo_size' => [
+          'required' => 'min',
+          'editable' => 'min',
+        ],
+        '#neo_align' => [
+          'required' => 'center',
+          'editable' => 'center',
         ],
       ];
-      $row['operations'] = [
-        '#type' => 'operations',
-        '#links' => $links,
+
+      foreach ($shapes as $propName => $shape) {
+        $row = [];
+        $row['property']['#markup'] = $shape->getTitle() . ' <small>(' . $shape->getName() . ')</small>';
+        $row['type']['#markup'] = $shape->getType() . ' <small>(' . $shape->getRef() . ')</small>';
+        $row['required']['#markup'] = $shape->isRequired() ? $this->icon($this->t('Yes'))->iconOnly() : $this->icon($this->t('No'))->iconOnly();
+        $row['editable']['#markup'] = $shape->isEditable() ? $this->icon($this->t('Yes'))->iconOnly() : $this->icon($this->t('No'))->iconOnly();
+        $plugins = $shape->getValueCollection()->getActiveInstances();
+        $row['value_providers']['#markup'] = implode(', ', array_map(function ($provider) {
+          return $provider->label();
+        }, array_filter($plugins, fn ($plugin) => $plugin->getGroup() === 'providers')));
+        $row['value_modifiers']['#markup'] = implode(', ', array_map(function ($provider) {
+          return $provider->label();
+        }, array_filter($plugins, fn ($plugin) => $plugin->getGroup() === 'modifiers')));
+
+        $links = [];
+        $links['edit'] = [
+          'title' => $this->t('Customize'),
+          'url' => $this->entity->toUrl('edit-prop-form')->setRouteParameter('prop', $propName),
+          'attributes' => [
+            'class' => ['use-ajax'],
+            'data-dialog-type' => 'modal',
+            'data-dialog-options' => Json::encode([
+              'width' => '100%',
+              'height' => '100%',
+              'neo' => [
+                'displaceTop' => '0px',
+                'displaceBottom' => '0px',
+              ],
+            ]),
+          ],
+        ];
+        $row['operations'] = [
+          '#type' => 'operations',
+          '#links' => $links,
+        ];
+
+        $form['props'][$propName] = $row;
+      }
+      $form['props']['#access'] = !empty(Element::children($form['props']));
+    }
+    return $form;
+  }
+
+  /**
+   * Build value slots form.
+   *
+   * @param array $form
+   *   The form.
+   * @param \Drupal\Core\Form\FormStateInterface $form_state
+   *   The form state.
+   *
+   * @return array
+   *   The form.
+   */
+  protected function getSlotsForm(array $form, FormStateInterface $form_state): array {
+    $slots = $this->entity->getSlots();
+    if ($slots) {
+      $form['slots'] = [
+        '#type' => 'table',
+        '#caption' => $this->t('Slots'),
+        '#attached' => ['library' => ['core/drupal.dialog.ajax']],
+        '#tree' => TRUE,
+        '#header' => [
+          'property' => $this->t('Slot'),
+          'operations' => '',
+        ],
+        '#neo_style' => [
+          'property' => 'heading',
+        ],
+        '#neo_size' => [
+          'required' => 'min',
+          'editable' => 'min',
+        ],
+        '#neo_align' => [
+          'required' => 'center',
+          'editable' => 'center',
+        ],
       ];
 
-      $form['props'][$propName] = $row;
+      foreach ($slots as $slotName => $slot) {
+        $row = [];
+        $row['property']['#markup'] = $slot->getTitle() . ' <small>(' . $slot->getName() . ')</small>';
+
+        $links = [];
+        $links['edit'] = [
+          'title' => $this->t('Customize'),
+          'url' => $this->entity->toUrl('edit-slot-form')->setRouteParameter('slot', $slotName),
+          'attributes' => [
+            'class' => ['use-ajax'],
+            'data-dialog-type' => 'modal',
+            'data-dialog-options' => Json::encode([
+              'width' => '100%',
+              'height' => '100%',
+              'neo' => [
+                'displaceTop' => '0px',
+                'displaceBottom' => '0px',
+              ],
+            ]),
+          ],
+        ];
+        $row['operations'] = [
+          '#type' => 'operations',
+          '#links' => $links,
+        ];
+
+        $form['slots'][$slotName] = $row;
+      }
     }
-    $form['props']['#access'] = !empty(Element::children($form['props']));
     return $form;
   }
 
