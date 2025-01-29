@@ -8,11 +8,12 @@ use Drupal\Core\Config\Entity\ConfigEntityInterface;
 use Drupal\Core\Entity\ContentEntityInterface;
 use Drupal\Core\Entity\EntityTypeInterface;
 use Drupal\Core\Plugin\Component;
+use Drupal\Core\Render\RenderableInterface;
 
 /**
  * Provides an interface defining a component entity type.
  */
-interface ComponentInterface extends ConfigEntityInterface {
+interface ComponentInterface extends ConfigEntityInterface, RenderableInterface {
 
   /**
    * Get the component description.
@@ -380,13 +381,5 @@ interface ComponentInterface extends ConfigEntityInterface {
    *   The slot object if found, or NULL if the slot does not exist.
    */
   public function getSlot(string $slotName): ?ComponentSlotInterface;
-
-  /**
-   * Converts the component entity to a renderable array.
-   *
-   * @return array
-   *   A renderable array representing the component.
-   */
-  public function toRenderable();
 
 }

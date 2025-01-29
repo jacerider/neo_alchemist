@@ -98,9 +98,7 @@ final class ValidComponentTreeConstraintValidator extends ConstraintValidator im
       $neoComponent = Component::load($component_id);
       if ($neoComponent) {
         try {
-          $component = $neoComponent->getComponent();
-          $props_values = $value->resolveComponentProps($component_instance_uuid);
-          $this->componentValidator->validateProps($props_values, $component);
+          $this->componentValidator->validateProps($neoComponent->getPropValues(), $neoComponent->getComponent());
         }
         catch (ComponentNotFoundException) {
           // The violation for a missing component will be added in the validation

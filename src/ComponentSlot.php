@@ -31,20 +31,12 @@ class ComponentSlot implements ComponentSlotInterface {
   protected $schema;
 
   /**
-   * The slot configuration.
-   *
-   * @var array
-   */
-  protected $config;
-
-  /**
    * Constructs a new ComponentSlot object.
    */
-  public function __construct(ComponentInterface $component, string $name, array $schema, array $config = []) {
+  public function __construct(ComponentInterface $component, string $name, array $schema) {
     $this->component = $component;
     $this->name = $name;
     $this->schema = $schema;
-    $this->config = $config;
   }
 
   /**
@@ -73,6 +65,15 @@ class ComponentSlot implements ComponentSlotInterface {
    */
   public function getDescription(): string {
     return $this->schema['description'] ?? 'Unnamed Slot';
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function toRenderable() {
+    return [
+      '#markup' => 'THIS IS A PLACEHOLDER',
+    ];
   }
 
 }

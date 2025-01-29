@@ -308,7 +308,6 @@ final class ComponentPropForm extends EntityForm {
     foreach ($pluginShapes as $pluginShape) {
       $nestedId = $pluginShape->getNestedId();
       $collection = $pluginShape->getValueCollection();
-      // ksm(array_keys($collection->getActiveInstances()));
       foreach ($collection->getInstances() as $instanceId => $instance) {
         $groupId = $instance->getGroup();
         $key = $groupId . '_' . $nestedId;

@@ -661,11 +661,20 @@ class Component extends ConfigEntityBase implements ComponentInterface {
    * {@inheritdoc}
    */
   public function toRenderable() {
-    return [
+    $build = [
       '#type' => 'component',
-      '#component' => $this->getComponent()->getPluginId(),
+      '#cache' => [
+        'tags' => [
+          'config:neo_alchemist.component.' . $this->id(),
+        ],
+      ],
+      '#component' => $this->getComponentId(),
       '#props' => $this->getPropValues(),
     ];
+    if ($slots = $this->getSlots()) {
+      $build['#slots'] = array_map(fn($slot) => $slot->toRenderable(), $slots);
+    }
+    return $build;
   }
 
   /**

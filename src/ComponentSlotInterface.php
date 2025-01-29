@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace Drupal\neo_alchemist;
 
+use Drupal\Core\Render\RenderableInterface;
+
 /**
  * Interface for neo_component_shape plugins.
  */
-interface ComponentSlotInterface {
+interface ComponentSlotInterface extends RenderableInterface {
 
   /**
    * Gets the component.

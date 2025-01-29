@@ -15,7 +15,6 @@ use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Render\RenderableInterface;
 use Drupal\Core\Session\AccountInterface;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
-use Drupal\Core\Template\Attribute;
 use Drupal\Core\Theme\ComponentPluginManager;
 use Drupal\Core\TypedData\DataDefinition;
 use Drupal\Core\Url;
@@ -798,31 +797,6 @@ class ComponentTreeItem extends FieldItemBase implements RenderableInterface {
   }
 
   /**
-   * Resolve the props values for a component instance.
-   *
-   * @param string $component_instance_uuid
-   *   The UUID of a placed component instance.
-   *
-   * @return array
-   *   The props values for the component instance.
-   */
-  public function resolveComponentProps(string $component_instance_uuid): array {
-    $props = $this->get('props');
-    assert($props instanceof ComponentPropsValues);
-    $tree = $this->get('tree');
-    assert($tree instanceof ComponentTreeStructure);
-
-    $neoComponent = $this->getComponent($component_instance_uuid);
-    if (!$neoComponent) {
-      return [];
-    }
-    if (!self::componentHasProps($neoComponent->getComponentId())) {
-      return [];
-    }
-    return $neoComponent->getPropValues();
-  }
-
-  /**
    * Check if a component has props.
    *
    * @param string $component_id
@@ -843,17 +817,7 @@ class ComponentTreeItem extends FieldItemBase implements RenderableInterface {
   public function toRenderable(): array {
     $hydrated = $this->get('hydrated');
     assert($hydrated instanceof ComponentTreeHydrated);
-    $build = $hydrated->toRenderable();
-    // if (!empty($build[ComponentTreeStructure::ROOT_UUID])) {
-    //   foreach ($build[ComponentTreeStructure::ROOT_UUID] as $uuid => &$componentBuild) {
-    //     // Convert attributes array to Attribute object.
-    //     $componentBuild['#props']['attributes'] = $componentBuild['#props']['attributes'] ?? new Attribute();
-    //     if (isset($componentBuild['#props']['attributes']) && is_array($componentBuild['#props']['attributes'])) {
-    //       $componentBuild['#props']['attributes'] = new Attribute($componentBuild['#props']['attributes']);
-    //     }
-    //   }
-    // }
-    return $build;
+    return $hydrated->toRenderable();
   }
 
   /**
