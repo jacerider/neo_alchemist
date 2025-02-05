@@ -25,6 +25,14 @@ interface ComponentValuePluginInterface extends ConfigurableInterface, PluginFor
   public function getGroup(): string;
 
   /**
+   * Check if the plugin is allowed on default shape.
+   *
+   * @return bool
+   *   TRUE if the plugin is allowed on default shape, FALSE otherwise.
+   */
+  public function allowOnDefault(): bool;
+
+  /**
    * Called when a prop is added to a component.
    */
   public function onAdd(): void;

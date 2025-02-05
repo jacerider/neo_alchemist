@@ -7,6 +7,7 @@ namespace Drupal\neo_alchemist\Form;
 use Drupal\Core\Entity\ContentEntityForm;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\neo_alchemist\Ajax\InstanceIframeHelper;
+use Drupal\neo_alchemist\ComponentManageHelper;
 
 /**
  * Component form.
@@ -65,6 +66,8 @@ final class InstanceComponentSortForm extends ContentEntityForm {
    */
   public function form(array $form, FormStateInterface $form_state): array {
     $this->fieldItem = $form_state->get('fieldItem');
+    $form_state->set('neo_component_form', TRUE);
+    $form_state->set('neo_component_manage_id', ComponentManageHelper::getId($this->fieldItem));
     $focusUuid = $form_state->get('uuid');
 
     // Add #process and #after_build callbacks.

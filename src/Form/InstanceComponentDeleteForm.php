@@ -5,6 +5,7 @@ namespace Drupal\neo_alchemist\Form;
 use Drupal\Core\Entity\EntityConfirmFormBase;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\neo_alchemist\Ajax\InstanceIframeHelper;
+use Drupal\neo_alchemist\ComponentManageHelper;
 
 /**
  * Provides the filter format disable form.
@@ -37,6 +38,8 @@ class InstanceComponentDeleteForm extends EntityConfirmFormBase {
    */
   public function form(array $form, FormStateInterface $form_state) {
     $this->instance = $form_state->get('neo_component_instance');
+    $form_state->set('neo_component_form', TRUE);
+    $form_state->set('neo_component_manage_id', ComponentManageHelper::getId($this->instance->getFieldItem()));
     return $form;
   }
 

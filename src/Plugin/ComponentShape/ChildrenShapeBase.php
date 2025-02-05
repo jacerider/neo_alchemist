@@ -39,6 +39,13 @@ abstract class ChildrenShapeBase extends ComponentShapePluginBase implements Com
   protected $defaultChildShapes = [];
 
   /**
+   * A list of child shape plugins.
+   *
+   * @var array[]
+   */
+  protected $childShapePlugins = [];
+
+  /**
    * Retrieves the schema for the child component.
    *
    * This method returns the schema definition for the child component by
@@ -77,6 +84,14 @@ abstract class ChildrenShapeBase extends ComponentShapePluginBase implements Com
    */
   public function defaultChildShape(string $shapeName, $default = TRUE): self {
     $this->defaultChildShapes[$shapeName] = $default;
+    return $this;
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  public function setChildShapePlugins(string $shapeName, array $plugins): self {
+    $this->childShapePlugins[$shapeName] = $plugins;
     return $this;
   }
 
@@ -126,6 +141,11 @@ abstract class ChildrenShapeBase extends ComponentShapePluginBase implements Com
     }
     if (!empty($this->defaultChildShapes[$shape->getName()])) {
       $shape->getOptionDefault()->setLockedValue(TRUE, 'Shape is set as default by parent shape.');
+    }
+    if (!empty($this->childShapePlugins[$shape->getName()])) {
+      foreach ($this->childShapePlugins[$shape->getName()] as $pluginId => $settings) {
+        $shape->addPlugin($pluginId, $settings);
+      }
     }
     if ($delta !== NULL && $count === 1) {
       $shape->getOptionDefault()->setAccess(FALSE, 'Shape has a single prop, so setting as default is not allowed.');

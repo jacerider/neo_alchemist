@@ -176,6 +176,7 @@ final class ComponentPropForm extends EntityForm {
       '#title' => $this->t('Allow Edit'),
       '#description' => $this->t('Allow the default value of this property to be changed per component instance.'),
       '#default_value' => $this->shape->isEditable(),
+      '#disabled' => $this->shape->isLocked(),
     ];
 
     $form['required'] = [
@@ -199,7 +200,7 @@ final class ComponentPropForm extends EntityForm {
     if ($instances) {
       $nestedId = $shape->getNestedId();
       $key = $groupId . '_' . $nestedId;
-      $tableId = Html::getId($key);
+      $wrapperId = Html::getId($key);
       $form[$key] = [
         '#type' => 'details',
         '#title' => $shape->isNested() ? $shape->getNestedTitle(FALSE) : ($tab === 'tabs' ? $this->groupManager->getDefinition($groupId)['label'] : $this->t('Base')),
@@ -219,7 +220,7 @@ final class ComponentPropForm extends EntityForm {
             'group' => 'table-sort-weight',
           ],
         ],
-        '#prefix' => '<div id="' . $tableId . '">',
+        '#prefix' => '<div id="' . $wrapperId . '">',
         '#suffix' => '</div>',
       ];
       foreach ($instances as $instanceId => $instance) {
@@ -227,7 +228,7 @@ final class ComponentPropForm extends EntityForm {
           continue;
         }
         $form[$key]['values'][$instanceId] = [
-          '#table_id' => $tableId,
+          '#wrapper_id' => $wrapperId,
           '#attributes' => [
             'class' => [
               'draggable',
@@ -258,7 +259,7 @@ final class ComponentPropForm extends EntityForm {
       '#disabled' => !empty($definition['status_lock']),
       '#ajax' => [
         'callback' => '::refreshAjax',
-        'wrapper' => $form['#table_id'],
+        'wrapper' => $form['#wrapper_id'],
       ],
     ];
 
@@ -268,6 +269,7 @@ final class ComponentPropForm extends EntityForm {
         '#title' => $definition['label'],
         '#description' => $definition['description'],
         '#description_display' => 'before',
+        '#wrapper_id' => $form['#wrapper_id'],
         '#parents' => array_merge($form['#parents'], ['settings']),
       ];
       $subform_state = SubformState::createForSubform($form['settings'], $form, $form_state);
@@ -358,10 +360,6 @@ final class ComponentPropForm extends EntityForm {
       '#value' => $this->t('Save'),
       '#submit' => ['::submitForm', '::save'],
     ];
-    if ($this->isAjax()) {
-      $actions['#attached']['library'][] = 'neo_alchemist/instance.ajax';
-      $actions['submit']['#ajax']['callback'] = '::ajaxSubmit';
-    }
     return $actions;
   }
 
@@ -370,7 +368,8 @@ final class ComponentPropForm extends EntityForm {
    */
   public function save(array $form, FormStateInterface $form_state): int {
     $result = parent::save($form, $form_state);
-    // $form_state->setRedirectUrl($this->entity->toUrl());
+    $this->messenger()->addStatus($this->t('Updated prop %label.', ['%label' => $this->entity->label()]));
+    $form_state->setRedirectUrl($this->entity->toUrl());
     return $result;
   }
 

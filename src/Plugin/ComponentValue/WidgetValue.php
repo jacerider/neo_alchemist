@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\neo_alchemist\Plugin\ComponentValue;
 
+use Drupal\Component\Utility\NestedArray;
 use Drupal\Core\Form\FormState;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
@@ -18,6 +19,7 @@ use Drupal\neo_alchemist\ComponentValuePluginBase;
   label: new TranslatableMarkup('Widget'),
   description: new TranslatableMarkup('Provide widget form alterations.'),
   group: 'providers',
+  allow_on_default: TRUE,
   weight: 900
 )]
 final class WidgetValue extends ComponentValuePluginBase {
@@ -27,7 +29,7 @@ final class WidgetValue extends ComponentValuePluginBase {
    */
   public function defaultConfiguration() {
     return [
-      'widget' => [],
+      'settings' => [],
     ];
   }
 
@@ -36,9 +38,37 @@ final class WidgetValue extends ComponentValuePluginBase {
    */
   protected function configurationForm(array $form, FormStateInterface $form_state, array &$complete_form): array {
     if ($widget = $this->shape->getWidget()) {
-      $form['widget'] = $widget->settingsForm($form, $form_state);
+      $form['settings'] = $widget->settingsForm($form, $form_state);
+    }
+    if (isset($form['#wrapper_id']) && $this->shape->getValueCollection()->getStatus('default')) {
+      $form['reload'] = [
+        '#type' => 'submit',
+        '#value' => $this->t('Reload default value provider'),
+        '#submit' => [[get_class($this), 'configurationFormWidgetReload']],
+        '#ajax' => [
+          'callback' => [get_class($this), 'configurationFormWidgetAjax'],
+          'wrapper' => $form['#wrapper_id'],
+        ],
+      ];
     }
     return $form;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public static function configurationFormWidgetReload(array &$form, FormStateInterface $form_state): void {
+    $form_state->setRebuild(TRUE);
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public static function configurationFormWidgetAjax(array $form, FormStateInterface $form_state): array {
+    $button = $form_state->getTriggeringElement();
+    $key = array_search('widget', $button['#array_parents']);
+    $parents = array_slice($button['#array_parents'], 0, $key);
+    return NestedArray::getValue($form, $parents);
   }
 
   /**
@@ -47,10 +77,10 @@ final class WidgetValue extends ComponentValuePluginBase {
   protected function configurationValidate(array $form, FormStateInterface $form_state): void {
     $widget = $this->shape->getWidget();
     if ($widget) {
-      $value = $form_state->getValues()['widget'] ?? NULL;
+      $value = $form_state->getValues()['settings'] ?? NULL;
       if ($value) {
-        $widgetValues = $widget->massageFormValues($form_state->getValues()['widget'], $form, $form_state);
-        $form_state->setValue('widget', $widgetValues);
+        $settings = $widget->massageFormValues($form_state->getValues()['settings'], $form, $form_state);
+        $form_state->setValue('settings', $settings);
       }
     }
   }
@@ -60,7 +90,7 @@ final class WidgetValue extends ComponentValuePluginBase {
    */
   public function onShapeInit() {
     parent::onShapeInit();
-    $this->shape->setWidgetSettings($this->configuration['widget']);
+    $this->shape->setWidgetSettings($this->configuration['settings']);
   }
 
   /**

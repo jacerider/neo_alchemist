@@ -17,6 +17,7 @@ use Drupal\neo_alchemist\ComponentShapeChildrenPluginInterface;
 use Drupal\neo_alchemist\ComponentShapeInterablePluginInterface;
 use Drupal\neo_alchemist\ComponentShapePluginInterface;
 use Drupal\neo_alchemist\ComponentValuePluginBase;
+use Drupal\neo_alchemist\ComponentValuePluginManager;
 use Drupal\neo_alchemist\FieldMatcher;
 use Drupal\views\ViewExecutable;
 use Drupal\views\Views;
@@ -40,6 +41,7 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
 final class ViewsValue extends ComponentValuePluginBase implements ContainerFactoryPluginInterface {
 
   use DependencySerializationTrait;
+  use ComponentValueModifierTrait;
 
   /**
    * The entity type manager service.
@@ -47,6 +49,13 @@ final class ViewsValue extends ComponentValuePluginBase implements ContainerFact
    * @var \Drupal\Core\Entity\EntityTypeManagerInterface
    */
   protected EntityTypeManagerInterface $entityTypeManager;
+
+  /**
+   * The component value plugin manager.
+   *
+   * @var \Drupal\neo_alchemist\ComponentValuePluginManager
+   */
+  protected ComponentValuePluginManager $componentValueManager;
 
   /**
    * The field matcher.
@@ -64,10 +73,12 @@ final class ViewsValue extends ComponentValuePluginBase implements ContainerFact
     ComponentShapePluginInterface $shape,
     array $configuration,
     EntityTypeManagerInterface $entity_type_manager,
+    ComponentValuePluginManager $component_value_manager,
     FieldMatcher $field_matcher
   ) {
     parent::__construct($plugin_id, $plugin_definition, $shape, $configuration);
     $this->entityTypeManager = $entity_type_manager;
+    $this->componentValueManager = $component_value_manager;
     $this->fieldMatcher = $field_matcher;
   }
 
@@ -81,6 +92,7 @@ final class ViewsValue extends ComponentValuePluginBase implements ContainerFact
       $configuration['shape'],
       $configuration['settings'],
       $container->get('entity_type.manager'),
+      $container->get('plugin.manager.neo_component_value'),
       $container->get('neo_alchemist.field_matcher')
     );
   }
@@ -93,6 +105,8 @@ final class ViewsValue extends ComponentValuePluginBase implements ContainerFact
       'view_id' => '',
       'view_display_id' => '',
       'view_items_per_page' => $this->shape->getType() === ComponentShapePluginInterface::OBJECT ? 1 : NULL,
+      'view_items_offset' => NULL,
+      'view_arguments' => [],
       'shape_fields' => [],
       'continue' => FALSE,
     ];
@@ -103,14 +117,15 @@ final class ViewsValue extends ComponentValuePluginBase implements ContainerFact
    */
   protected function configurationForm(array $form, FormStateInterface $form_state, array &$complete_form): array {
     assert($this->shape instanceof ComponentShapeChildrenPluginInterface);
+    $wrapperId = Html::getId(implode('-', $form['#parents']) . '-' . $this->getPluginId());
+    $form['#id'] = $wrapperId;
+    $viewId = $this->configuration['view_id'];
+
     $options = [];
     foreach (Views::getEnabledViews() as $view) {
       $options[$view->id()] = $view->label() . ' (' . $view->id() . ')';
     }
     asort($options);
-    $wrapperId = Html::getId(implode('-', $form['#parents']));
-    $form['#id'] = $wrapperId;
-    $viewId = $form_state->get(implode('_', array_merge($form['#parents'], ['view_id']))) ?? $this->configuration['view_id'];
 
     $form['view_id'] = [
       '#type' => 'select',
@@ -138,7 +153,7 @@ final class ViewsValue extends ComponentValuePluginBase implements ContainerFact
         ];
         return $form;
       }
-      $viewDisplayId = $form_state->get(implode('_', array_merge($form['#parents'], ['view_display_id']))) ?? $this->configuration['view_display_id'];
+      $viewDisplayId = $this->configuration['view_display_id'];
       $displayOptions = [];
       foreach ($view->storage->get('display') as $display) {
         $displayOptions[$display['id']] = $display['display_title'];
@@ -159,7 +174,8 @@ final class ViewsValue extends ComponentValuePluginBase implements ContainerFact
 
       if ($viewDisplayId) {
         $view->setDisplay($viewDisplayId);
-        $viewFilters = $view->getDisplay()->getHandlers('filter');
+        $display = $view->getDisplay();
+        $viewFilters = $display->getHandlers('filter');
         $viewEntityBundle = NULL;
         if (isset($viewFilters['type']) && isset($viewFilters['type']->options['value']) && count($viewFilters['type']->options['value']) === 1) {
           $viewEntityBundle = reset($viewFilters['type']->options['value']);
@@ -178,6 +194,42 @@ final class ViewsValue extends ComponentValuePluginBase implements ContainerFact
           }
         }
 
+        $form['view_items_offset'] = [
+          '#type' => 'number',
+          '#title' => $this->t('Offset items'),
+          '#default_value' => $this->configuration['view_items_offset'] ?? NULL,
+          '#min' => 1,
+        ];
+
+        $arguments = $view->getHandlers('argument');
+        if (!empty($arguments)) {
+          $filters = $this->shape->getComponent()->getFilters();
+          if ($filters) {
+            $options = [
+              'all' => $this->t('- Ignore -'),
+            ] + array_map(fn($filter) => $filter->label(), $filters);
+            asort($options);
+            $form['view_arguments'] = [
+              '#type' => 'fieldset',
+              '#title' => $this->t('View Arguments'),
+              '#access' => FALSE,
+            ];
+            foreach ($arguments as $id => $argument) {
+              $handler = $display->getHandler('argument', $id);
+              if ($handler) {
+                $form['view_arguments']['#access'] = TRUE;
+                $form['view_arguments'][$id] = [
+                  '#type' => 'select',
+                  '#title' => $handler->adminLabel(),
+                  '#options' => $options,
+                  '#empty_option' => $this->t('- Select -'),
+                  '#default_value' => $this->configuration['view_arguments'][$id] ?? NULL,
+                ];
+              }
+            }
+          }
+        }
+
         $childShapes = $this->shape->getChildShapes();
         if ($childShapes) {
           $form['shape_fields'] = [
@@ -189,20 +241,48 @@ final class ViewsValue extends ComponentValuePluginBase implements ContainerFact
               // Arrays are not currently support for field binding.
               continue;
             }
+            $childShapeId = $wrapperId . '-' . $shapeName;
+            $childShapeDefaults = $this->configuration['shape_fields'][$shapeName] ?? [];
             $form['shape_fields'][$shapeName] = [
+              '#type' => 'fieldset',
+              '#title' => $childShape->getTitle(),
+              '#attributes' => [
+                'id' => $childShapeId,
+              ],
+              '#parents' => array_merge($form['#parents'], [
+                'shape_fields',
+                $shapeName,
+              ]),
+              '#neo_fieldset_region' => [
+                'legend_end' => [
+                  '#markup' => '<div class="text-xs text-base-400">' . $this->t('Type: %type', [
+                    '%type' => $childShape->getType(),
+                  ]) . '</div>',
+                ],
+              ],
+              '#description_display' => 'before',
+            ];
+            $form['shape_fields'][$shapeName]['field'] = [
               '#type' => 'select',
-              '#title' => $childShape->getTitle() . ' <small>(' . $childShape->label() . ')</small>',
+              '#title' => $this->t('Field'),
               '#description' => $childShape->getDescription(),
               '#required' => $childShape->isRequired(),
               '#options' => [
                 '- Shape -' => [
                   '_default' => $this->t('Use Default'),
                 ],
-                // '_default' => $this->t('Use Default'),
               ] + $this->fieldMatcher->getMatchesAsOptions($childShape, $viewEntityType->id(), $viewEntityBundle),
               '#empty_option' => $childShape->isRequired() ? $this->t('- Select -') : $this->t('- None -'),
-              '#default_value' => $this->configuration['shape_fields'][$shapeName] ?? NULL,
+              '#default_value' => $childShapeDefaults['field'] ?? NULL,
+              '#ajax' => [
+                'callback' => [static::class, 'refreshAjax'],
+                'wrapper' => $childShapeId,
+              ],
             ];
+            if (!empty($childShapeDefaults['field'])) {
+              $modifierDefaults = $childShapeDefaults['modifiers'] ?? [];
+              $form['shape_fields'][$shapeName] = $this->modifierConfigurationForm($childShape, $modifierDefaults, $form['shape_fields'][$shapeName], $form_state, $complete_form);
+            }
           }
         }
       }
@@ -221,12 +301,13 @@ final class ViewsValue extends ComponentValuePluginBase implements ContainerFact
    * Form validation for the value provider plugin configuration.
    */
   protected function configurationValidate(array $form, FormStateInterface $form_state): void {
-    $form_state->set(implode('_', array_merge($form['#parents'], ['view_id'])), $form_state->getValue('view_id'));
-    $form_state->set(implode('_', array_merge($form['#parents'], ['view_display_id'])), $form_state->getValue('view_id'));
     if ($this->shape->getType() !== ComponentShapePluginInterface::OBJECT) {
       $itemsPerPage = $form_state->getValue('view_items_per_page');
       $form_state->setValue('view_items_per_page', $itemsPerPage ? (int) $itemsPerPage : NULL);
     }
+    $offset = $form_state->getValue('view_items_offset');
+    $form_state->setValue('view_items_offset', $offset ? (int) $offset : NULL);
+    $form_state->setValue('view_arguments', array_filter($form_state->getValue('view_arguments', [])));
     $form_state->setValue('continue', (bool) $form_state->getValue('continue'));
   }
 
@@ -234,8 +315,8 @@ final class ViewsValue extends ComponentValuePluginBase implements ContainerFact
    * Ajax callback.
    */
   public static function refreshAjax(array $form, FormStateInterface $form_state) {
-    $button = $form_state->getTriggeringElement();
-    return NestedArray::getValue($form, array_slice($button['#array_parents'], 0, -1));
+    $trigger = $form_state->getTriggeringElement();
+    return NestedArray::getValue($form, array_slice($trigger['#array_parents'], 0, -1));
   }
 
   /**
@@ -253,19 +334,40 @@ final class ViewsValue extends ComponentValuePluginBase implements ContainerFact
       return $value;
     }
     if ($this->configuration['view_id'] && $this->configuration['view_display_id']) {
-      $shapeNames = $this->shape->getChildShapeNames();
       $view = Views::getView($this->configuration['view_id']);
       if ($this->configuration['view_items_per_page'] ?? NULL) {
         $view->setItemsPerPage($this->configuration['view_items_per_page']);
       }
+      if ($this->configuration['view_items_offset'] ?? NULL) {
+        $view->setOffset($this->configuration['view_items_offset']);
+      }
+      if ($this->configuration['view_arguments']) {
+        $arguments = $view->getHandlers('argument');
+        if ($arguments) {
+          $args = [];
+          foreach ($arguments as $id => $argument) {
+            $argValue = NULL;
+            if (!empty($this->configuration['view_arguments'][$id])) {
+              $argValue = 'all';
+              if ($filter = $this->shape->getComponent()->getFilter($this->configuration['view_arguments'][$id])) {
+                $argValue = $filter->getProcessedValue();
+              }
+            }
+            $args[] = $argValue;
+          }
+          $view->setArguments($args);
+        }
+      }
       $view->execute($this->configuration['view_display_id']);
       $results = [];
+      $shapeNames = $this->shape->getChildShapeNames();
       foreach ($view->result as $delta => $result) {
         $entity = $result->_entity ?? NULL;
         if ($entity) {
           foreach ($shapeNames as $shapeName) {
             $results[$delta][$shapeName] = [];
-            $field = $this->configuration['shape_fields'][$shapeName] ?? NULL;
+            $settings = $this->configuration['shape_fields'][$shapeName] ?? [];
+            $field = $settings['field'] ?? NULL;
             if ($field) {
               switch ($field) {
                 case '_default':
@@ -274,6 +376,9 @@ final class ViewsValue extends ComponentValuePluginBase implements ContainerFact
 
                 default:
                   $results[$delta][$shapeName] = $this->fieldMatcher->getEntityValue($entity, $field);
+                  if (!empty($settings['modifiers'])) {
+                    $this->shape->setChildShapePlugins($shapeName, $settings['modifiers'] ?? []);
+                  }
                   break;
               }
             }

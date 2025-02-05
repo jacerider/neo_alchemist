@@ -80,12 +80,22 @@ final class DefaultValue extends ComponentValuePluginBase implements ContainerFa
    */
   protected function getDefaultShape(): ComponentShapePluginInterface {
     if (!isset($this->defaultShape)) {
-      $plugins = $this->shape->getPlugins();
-      unset($plugins['default']);
       $this->defaultShape = $this->shapeManager->getInstance([
         'schema' => $this->shape->getSchema(),
         'component' => $this->shape->getComponent(),
+        'settings' => $this->shape->getSettings(),
       ]);
+
+      $valueCollection = $this->defaultShape->getValueCollection();
+
+      // Never allow the default shape to have the default plugin enabled.
+      $valueCollection->setStatus('default', FALSE);
+
+      // Only allow plugins that are flagged to be allowed on the default shape.
+      foreach ($valueCollection->getActiveInstances() as $pluginId => $plugin) {
+        $valueCollection->setStatus($pluginId, $plugin->allowOnDefault());
+      }
+
       if (!$this->defaultShape instanceof ComponentShapeChildrenPluginInterface) {
         $this->defaultShape->getOptionDefault()->setAccess(FALSE, 'Default shape without child props cannot set default values.');
       }

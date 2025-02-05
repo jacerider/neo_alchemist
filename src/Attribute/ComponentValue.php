@@ -40,6 +40,8 @@ final class ComponentValue extends AttributeBase {
    *   Format: [entity].[bundle] for specific entity-bundle combinations or
    *   [entity].* for all bundles of the entity. If not set, the plugin will be
    *   available universally.
+   * @param bool $allow_on_default
+   *   (optional) Whether the plugin is allowed on the default shape.
    * @param int $weight
    *   The weight of the plugin.
    * @param string|null $provider
@@ -57,6 +59,7 @@ final class ComponentValue extends AttributeBase {
     public readonly ?array $prop_types = NULL,
     public readonly ?array $ref_types = NULL,
     public readonly ?array $entity_types = NULL,
+    public readonly bool $allow_on_default = FALSE,
     public readonly int $weight = 0,
     public ?string $provider = NULL,
     public readonly ?string $deriver = NULL

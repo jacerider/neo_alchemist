@@ -68,6 +68,22 @@ entity.neo_component.edit_slot_form:
   requirements:
     _neo_component_slot: neo_component.slot.manage_value
 
+entity.neo_component.add_filter_form:
+  path: '/admin/config/neo/alchemist/{neo_component}/filter/add'
+  defaults:
+    _title: 'Add a component filter'
+    _controller: '\Drupal\neo_alchemist\Controller\ComponentFilterAddController'
+  requirements:
+    _permission: 'administer neo_alchemist'
+
+entity.neo_component.edit_filter_form:
+  path: '/admin/config/neo/alchemist/{neo_component}/filter/{uuid}'
+  defaults:
+    _title: 'Edit a component filter'
+    _controller: '\Drupal\neo_alchemist\Controller\ComponentFilterEditController'
+  requirements:
+    _permission: 'administer neo_alchemist'
+
 entity.neo_component.delete_form:
   path: '/admin/config/neo/alchemist/{neo_component}/delete'
   defaults:

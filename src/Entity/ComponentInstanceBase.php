@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Drupal\neo_alchemist\Entity;
 
-use Drupal\Component\Utility\NestedArray;
 use Drupal\Core\Access\AccessResult;
 use Drupal\Core\Entity\ContentEntityInterface;
 use Drupal\Core\Session\AccountInterface;
@@ -84,20 +83,11 @@ abstract class ComponentInstanceBase extends Component implements ComponentInsta
   }
 
   /**
-   * {@inheritdoc}
-   */
-  public function getValue($key, mixed $default = NULL): mixed {
-    $exists = NULL;
-    $values = $this->getValues();
-    $value = NestedArray::getValue($values, (array) $key, $exists);
-    return $exists ? $value : $default;
-  }
-
-  /**
    * {@inheritDoc}
    */
   public function setValues(array $values): self {
     unset($this->propShapes);
+    unset($this->filters);
     $this->values = $values;
     $fieldItem = $this->getFieldItem();
     if ($this->isNew()) {

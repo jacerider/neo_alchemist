@@ -58,9 +58,16 @@ function neo_alchemist_preprocess_page__neo_alchemist_preview(&$variables) {
       '#tag' => 'div',
       '#attributes' => [
         'id' => 'neo-alchemist--messages',
-        'class' => ['fixed top-displace-t right-0 left-0 flex items-center justify-center px-4 opacity-0 -translate-y-full z-50'],
+        'class' => ['fixed top-displace-t right-0 left-0 flex items-center justify-center px-4 opacity-0 -translate-y-full z-50 pointer-events-none'],
       ],
-      'status' => $variables['page']['status'],
+      'status' => [
+        '#type' => 'html_tag',
+        '#tag' => 'div',
+        '#attributes' => [
+          'class' => ['pointer-events-auto max-h-screen overflow-auto'],
+        ],
+        'status' => $variables['page']['status'],
+      ]
     ];
   }
 }
@@ -301,7 +308,7 @@ function neo_alchemist_preprocess_block(&$variables) {
       ->load($entityTypeId . '.' . $bundle . '.' . $viewModeId);
     if ($viewMode) {
       foreach ($viewMode->getComponents() as $field_name => $component) {
-        if ($component['type'] === 'neo_component_tree') {
+        if (($component['type'] ?? '') === 'neo_component_tree') {
           $variables['attributes']['class'][] = 'sr-only';
         }
       }

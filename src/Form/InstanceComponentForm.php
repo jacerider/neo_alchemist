@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Drupal\neo_alchemist\Form;
 
 use Drupal\Component\Datetime\TimeInterface;
+use Drupal\Component\Utility\Html;
+use Drupal\Component\Utility\NestedArray;
 use Drupal\Core\Ajax\AjaxResponse;
 use Drupal\Core\Ajax\HtmlCommand;
 use Drupal\Core\Entity\ContentEntityForm;
@@ -114,8 +116,6 @@ final class InstanceComponentForm extends ContentEntityForm {
     $this->before = $form_state->get('before');
     $this->after = $form_state->get('after');
     $form_state->set('neo_component_form', TRUE);
-    // kint(ComponentManageHelper::getId($this->instance->getFieldItem()));
-    // die;
     $form_state->set('neo_component_manage_id', ComponentManageHelper::getId($this->instance->getFieldItem()));
     $form_state->set('original_values', $this->instance->getValues());
     $this->store->delete($this->instance->getFieldItem()->getDraftKey($this->instance->uuid()));
@@ -150,9 +150,15 @@ final class InstanceComponentForm extends ContentEntityForm {
       '#default_value' => $this->instance->uuid(),
     ];
 
-    $form['advanced'] = [
+    $form['styles'] = [
       '#type' => 'accordion',
       '#title' => $this->t('Styles'),
+      '#access' => FALSE,
+    ];
+
+    $form['filters'] = [
+      '#type' => 'accordion',
+      '#title' => $this->t('Filters'),
       '#access' => FALSE,
     ];
 
@@ -172,12 +178,68 @@ final class InstanceComponentForm extends ContentEntityForm {
       $subform_state = SubformState::createForSubform($subform, $form, $form_state);
       $form['values'][$propName] = $shape->getForm($subform, $subform_state);
       if ($shape instanceof ComponentShapeStylePluginInterface) {
-        $form['advanced']['#access'] = TRUE;
+        $form['styles']['#access'] = TRUE;
         $form['values'][$propName]['#type'] = 'details';
         $form['values'][$propName]['#title'] = $shape->getTitle();
-        $form['values'][$propName]['#group'] = 'advanced';
+        $form['values'][$propName]['#group'] = 'styles';
         $form['values'][$propName]['widget']['widget']['#title'] = '';
       }
+    }
+
+    foreach ($this->instance->getFilters() as $uuid => $filter) {
+      if (!$filter->isEditable()) {
+        continue;
+      }
+      $id = Html::getId('filter-' . $uuid);
+      $form['filters']['#access'] = TRUE;
+
+      $allowDefault = $filter->allowDefault();
+      $hasOverrideValue = $filter->hasOverrideValue();
+
+      $subform = [
+        '#type' => 'details',
+        '#title' => $filter->label(),
+        '#group' => 'filters',
+        '#tree' => TRUE,
+        '#open' => !$allowDefault && !$hasOverrideValue,
+        '#attributes' => [
+          'id' => $id,
+        ],
+      ];
+      if ($summary = $filter->valueSummary()) {
+        $subform['#title'] .= ' <span class="badge bg-primary text-primary-content">' . $summary . '</span>';
+      }
+      $subform['value'] = [
+        '#type' => 'container',
+        '#parents' => ['filters', $uuid, 'value'],
+      ];
+      $subform_state = SubformState::createForSubform($subform['value'], $form, $form_state);
+      $subform['value'] = $filter->buildForm($subform['value'], $subform_state);
+
+      if ($allowDefault) {
+        if (!$hasOverrideValue && $form_state->getValue([
+          'filters',
+          $uuid,
+          '_default',
+        ], $hasOverrideValue === FALSE)) {
+          $subform['value']['#prefix'] = '<div class="hidden">';
+          $subform['value']['#suffix'] = '</div>';
+        }
+        $subform['_default'] = [
+          '#type' => 'checkbox',
+          '#title' => $this->t('Default'),
+          '#description' => $this->t('Use the default value of @label', ['@label' => $filter->label()]),
+          '#parents' => ['filters', $uuid, '_default'],
+          '#default_value' => !$hasOverrideValue,
+          '#access' => $allowDefault,
+          '#neo_size' => 'xs',
+          '#ajax' => [
+            'callback' => [get_class($this), 'ajaxFilter'],
+            'wrapper' => $id,
+          ],
+        ];
+      }
+      $form['filters'][$filter->uuid()] = $subform;
     }
 
     $form['status'] = [
@@ -218,6 +280,7 @@ final class InstanceComponentForm extends ContentEntityForm {
       'status' => (int) !empty($form_state->getValue('status')),
     ];
     $original_values = $form_state->get('original_values') ?? [];
+    // Update shapes.
     foreach ($this->instance->getPropShapes() as $propName => $shape) {
       if (isset($form['values'][$propName])) {
         $subform_state = SubformState::createForSubform($form['values'][$propName], $form, $form_state);
@@ -232,6 +295,18 @@ final class InstanceComponentForm extends ContentEntityForm {
           $values['props'][$propName]['value'] = $originalValue;
         }
         $values['props'][$propName]['options'] = $shape->getNestedOptions();
+      }
+    }
+    // Update filters.
+    foreach ($this->instance->getFilters() as $uuid => $filter) {
+      if (isset($form['filters'][$uuid])) {
+        $value = NULL;
+        if (!$form_state->getValue(['filters', $uuid, '_default']) && isset($form['filters'][$uuid]['value'])) {
+          $subform_state = SubformState::createForSubform($form['filters'][$uuid]['value'], $form, $form_state);
+          $filter->validateForm($form['filters'][$uuid]['value'], $subform_state);
+          $value = $filter->massageFormValue($subform_state->getValues(), $form['filters'][$uuid]['value'], $subform_state);
+        }
+        $values['filters'][$uuid]['value'] = $value;
       }
     }
     $this->instance->setValues($values);
@@ -302,6 +377,14 @@ final class InstanceComponentForm extends ContentEntityForm {
     $response->addCommand(new HtmlCommand('.region.region--status', ['#type' => 'status_messages']));
     $response->addCommand(new InstanceComponentPreviewIframeCommand('#' . ComponentManageHelper::getId($this->instance) . ' iframe'));
     return $response;
+  }
+
+  /**
+   * Ajax callback.
+   */
+  public static function ajaxFilter(array $form, FormStateInterface $form_state) {
+    $button = $form_state->getTriggeringElement();
+    return NestedArray::getValue($form, array_slice($button['#array_parents'], 0, -1));
   }
 
 }

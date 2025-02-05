@@ -36,6 +36,14 @@ interface ComponentShapePluginInterface extends PluginInspectionInterface, Deriv
   public function label(): string;
 
   /**
+   * Returns the initial settings for the shape.
+   *
+   * @return array
+   *   An associative array of initial settings for the shape.
+   */
+  public function getSettings(): array;
+
+  /**
    * Initialize the shape and calculates the value of the field item.
    *
    * This method processes the field item value by starting with the schema
@@ -584,6 +592,31 @@ interface ComponentShapePluginInterface extends PluginInspectionInterface, Deriv
    *   TRUE if the component shape is editable, FALSE otherwise.
    */
   public function isEditable(): bool;
+
+  /**
+   * Sets the locked state of the component.
+   *
+   * @param bool $locked
+   *   (optional) The locked state to set. Defaults to TRUE.
+   *
+   * @return $this
+   *   The current instance of the class for method chaining.
+   */
+  public function setLocked(bool $locked = TRUE): self;
+
+  /**
+   * Determines if the component shape is locked.
+   *
+   * This method checks the `locked` property of the current instance and
+   * iterates through all allowed value providers to determine if any of them
+   * are not locked. If any provider is not locked, the component shape
+   * is considered not locked. The iteration stops if a provider indicates
+   * that processing should not continue.
+   *
+   * @return bool
+   *   TRUE if the component shape is locked, FALSE otherwise.
+   */
+  public function isLocked(): bool;
 
   /**
    * Force the widget form to be shown even when the option empty is TRUE.

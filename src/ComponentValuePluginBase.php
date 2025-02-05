@@ -71,10 +71,7 @@ abstract class ComponentValuePluginBase extends PluginBase implements ComponentV
    *   An associative array with the default configuration.
    */
   protected function baseConfigurationDefaults() {
-    return [
-      // 'id' => $this->getPluginId(),
-      // 'status' => FALSE,
-    ];
+    return [];
   }
 
   /**
@@ -97,6 +94,13 @@ abstract class ComponentValuePluginBase extends PluginBase implements ComponentV
    */
   public function getGroup(): string {
     return $this->pluginDefinition['group'] ?? '';
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function allowOnDefault(): bool {
+    return $this->pluginDefinition['allow_on_default'] ?? FALSE;
   }
 
   /**

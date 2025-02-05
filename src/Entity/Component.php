@@ -5,12 +5,14 @@ declare(strict_types=1);
 namespace Drupal\neo_alchemist\Entity;
 
 use Drupal\Component\Serialization\Json;
+use Drupal\Component\Utility\NestedArray;
 use Drupal\Core\Config\Entity\ConfigEntityBase;
 use Drupal\Core\Entity\ContentEntityInterface;
 use Drupal\Core\Entity\EntityStorageInterface;
 use Drupal\Core\Entity\EntityTypeInterface;
 use Drupal\Core\Plugin\Component as ComponentPlugin;
 use Drupal\Core\Template\Attribute;
+use Drupal\neo_alchemist\ComponentFilterInterface;
 use Drupal\neo_alchemist\ComponentInterface;
 use Drupal\neo_alchemist\ComponentShapePluginInterface;
 use Drupal\neo_alchemist\ComponentSlotInterface;
@@ -37,6 +39,7 @@ use Drupal\neo_alchemist\ComponentSlotInterface;
  *       "edit" = "Drupal\neo_alchemist\Form\ComponentForm",
  *       "prop" = "Drupal\neo_alchemist\Form\ComponentPropForm",
  *       "slot" = "Drupal\neo_alchemist\Form\ComponentSlotForm",
+ *       "filter" = "Drupal\neo_alchemist\Form\ComponentFilterForm",
  *       "delete" = "Drupal\Core\Entity\EntityDeleteForm",
  *       "manage" = "Drupal\neo_alchemist\Form\ComponentManageForm",
  *     },
@@ -49,6 +52,8 @@ use Drupal\neo_alchemist\ComponentSlotInterface;
  *     "edit-form" = "/admin/config/neo/alchemist/{neo_component}/edit",
  *     "edit-prop-form" = "/admin/config/neo/alchemist/{neo_component}/prop/{prop}",
  *     "edit-slot-form" = "/admin/config/neo/alchemist/{neo_component}/slot/{slot}",
+ *     "add-filter-form" = "/admin/config/neo/alchemist/{neo_component}/filter/add",
+ *     "edit-filter-form" = "/admin/config/neo/alchemist/{neo_component}/filter/{uuid}",
  *     "delete-form" = "/admin/config/neo/alchemist/{neo_component}/delete",
  *     "canonical" = "/admin/config/neo/alchemist/{neo_component}",
  *     "preview" = "/admin/config/neo/alchemist/{neo_component}/preview",
@@ -178,6 +183,13 @@ class Component extends ConfigEntityBase implements ComponentInterface {
   protected array $slots;
 
   /**
+   * The filters.
+   *
+   * @var \Drupal\neo_alchemist\ComponentFilterInterface[]
+   */
+  protected array $filters;
+
+  /**
    * {@inheritdoc}
    */
   public function getDescription(): string {
@@ -269,7 +281,10 @@ class Component extends ConfigEntityBase implements ComponentInterface {
         return \Drupal::service('file_url_generator')->generateAbsoluteString($configFile->getFile()->getFileUri());
       }
     }
-    return '/' . $this->getDefaultThumbnail();
+    if ($this->getDefaultThumbnail()) {
+      return '/' . $this->getDefaultThumbnail();
+    }
+    return '/' . \Drupal::service('extension.list.module')->getPath('neo_alchemist') . '/images/thumbnail.jpg';
   }
 
   /**
@@ -433,11 +448,21 @@ class Component extends ConfigEntityBase implements ComponentInterface {
   /**
    * {@inheritdoc}
    */
+  public function getValue($key, mixed $default = NULL): mixed {
+    $exists = NULL;
+    $values = $this->getValues();
+    $value = NestedArray::getValue($values, (array) $key, $exists);
+    return $exists ? $value : $default;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
   public function loadPropShapes(array $schema): array {
     /** @var \Drupal\neo_alchemist\ComponentShapePluginManager $manager */
     $manager = \Drupal::service('plugin.manager.neo_component_shape');
     // Get shapes and initialize them.
-    return array_map(fn ($v) => $v->init(), $manager->getInstancesFromSchema($schema, $this, $this->getSettings()['props'] ?? [], $this->getValues()));
+    return array_map(fn ($v) => $v->init(), $manager->getInstancesFromSchema($schema, $this, $this->getSetting('props', []), $this->getValues()));
   }
 
   /**
@@ -495,13 +520,59 @@ class Component extends ConfigEntityBase implements ComponentInterface {
   /**
    * {@inheritdoc}
    */
+  public function setPropShapeSettings(ComponentShapePluginInterface $shape): self {
+    unset($this->propShapes);
+    $expanded = $shape->getExpanded();
+    $settings = [
+      'prop' => $shape->getName(),
+      'shape' => $shape->getPluginId(),
+      'field_type' => $shape->getFieldType(),
+      'expanded' => $expanded,
+      'editable' => $shape->isEditable(),
+      'required' => $shape->isRequired(),
+    ];
+    foreach ($shape->getAllShapes(TRUE) as $childShape) {
+      $collection = $childShape->getValueCollection();
+      foreach ($collection->getInstances() as $instanceId => $instance) {
+        $instanceSettings = $instance->getConfiguration();
+        if ($collection->getStatus($instanceId)) {
+          if (!$childShape->allowPlugins()) {
+            continue;
+          }
+          $nestedId = $childShape->getNestedId();
+          $settings['plugins'][$nestedId][$instance->getPluginId()] = [
+            'id' => $instance->getPluginId(),
+            'settings' => $instanceSettings,
+          ];
+        }
+      }
+    }
+    $this->settings['props'][$shape->getName()] = $settings;
+    return $this;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function getAllPropShapes(array $shapes): array {
+    $allShapes = [];
+    foreach ($shapes as $shape) {
+      $allShapes += $shape->getAllShapes(TRUE);
+    }
+    ksort($allShapes);
+    return $allShapes;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
   public function getSlots(): array {
     if (!isset($this->slots)) {
       $this->slots = [];
       /** @var \Drupal\neo_alchemist\ComponentSlotFactory $factory */
       $factory = \Drupal::service('neo_component.slot.factory');
       foreach ($this->getComponentSlots() as $slotName => $schema) {
-        $this->slots[$slotName] = $factory->get($this, $slotName, $schema);
+        $this->slots[$slotName] = $factory->get($this, $slotName, $schema, $this->settings['slots'][$slotName] ?? []);
       }
     }
     return $this->slots;
@@ -517,12 +588,70 @@ class Component extends ConfigEntityBase implements ComponentInterface {
   /**
    * {@inheritdoc}
    */
+  public function getSlotSettings(ComponentSlotInterface $slot): array {
+    return $this->settings['slots'][$slot->getName()] ?? [];
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function setSlotSettings(ComponentSlotInterface $slot, array $settings): self {
+    $this->settings['slots'][$slot->getName()] = $settings;
+    return $this;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function setFilter(ComponentFilterInterface $filter): ComponentFilterInterface {
+    unset($this->filters);
+    $uuid = $filter->isNew() ? $this->uuidGenerator()->generate() : $filter->uuid();
+    $this->settings['filters'][$uuid] = $filter->toArray();
+    return $this->getFilter($uuid);
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function getFilter(string $uuid): ?ComponentFilterInterface {
+    return $this->getFilters()[$uuid] ?? NULL;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function deleteFilter(string $uuid): self {
+    unset($this->settings['filters'][$uuid]);
+    return $this;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function getFilters(): array {
+    if (!isset($this->filters)) {
+      $this->filters = [];
+      if (!empty($this->settings['filters'])) {
+        $factory = \Drupal::service('neo_component.filter.factory');
+        $values = $this->getValues();
+        foreach ($this->settings['filters'] as $uuid => $data) {
+          $this->filters[$uuid] = $factory->get($this, ['uuid' => $uuid] + $data);
+          if ($this->filters[$uuid]->isEditable()) {
+            if (isset($values['filters'][$uuid]['value']) && $values['filters'][$uuid]['value'] !== NULL) {
+              $this->filters[$uuid]->setOverrideValue($values['filters'][$uuid]['value']);
+            }
+          }
+        }
+      }
+    }
+    return $this->filters;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
   public function preSave(EntityStorageInterface $storage) {
     $newExpression = $this->generateExpression();
-    // Cyle, we need to figure out what if plugins have been enabled/disabled.
-    // This means we need to  move the currentShapes/newShapes outside of just
-    // the expression check. We may be able to do this just with $this->original
-    // but I'm not sure yet.
     if (!isset($this->original)) {
       $this->set('schema', Json::encode($this->getComponentSchema()));
       $this->set('expression', $newExpression);
@@ -614,52 +743,6 @@ class Component extends ConfigEntityBase implements ComponentInterface {
   /**
    * {@inheritdoc}
    */
-  public function setPropShapeSettings(ComponentShapePluginInterface $shape): self {
-    unset($this->propShapes);
-    $expanded = $shape->getExpanded();
-    $settings = [
-      'prop' => $shape->getName(),
-      'shape' => $shape->getPluginId(),
-      'field_type' => $shape->getFieldType(),
-      'expanded' => $expanded,
-      'editable' => $shape->isEditable(),
-      'required' => $shape->isRequired(),
-    ];
-    foreach ($shape->getAllShapes(TRUE) as $childShape) {
-      $collection = $childShape->getValueCollection();
-      foreach ($collection->getInstances() as $instanceId => $instance) {
-        $instanceSettings = $instance->getConfiguration();
-        if ($collection->getStatus($instanceId)) {
-          if (!$childShape->allowPlugins()) {
-            continue;
-          }
-          $nestedId = $childShape->getNestedId();
-          $settings['plugins'][$nestedId][$instance->getPluginId()] = [
-            'id' => $instance->getPluginId(),
-            'settings' => $instanceSettings,
-          ];
-        }
-      }
-    }
-    $this->settings['props'][$shape->getName()] = $settings;
-    return $this;
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function getAllPropShapes(array $shapes): array {
-    $allShapes = [];
-    foreach ($shapes as $shape) {
-      $allShapes += $shape->getAllShapes(TRUE);
-    }
-    ksort($allShapes);
-    return $allShapes;
-  }
-
-  /**
-   * {@inheritdoc}
-   */
   public function toRenderable() {
     $build = [
       '#type' => 'component',
@@ -672,7 +755,7 @@ class Component extends ConfigEntityBase implements ComponentInterface {
       '#props' => $this->getPropValues(),
     ];
     if ($slots = $this->getSlots()) {
-      $build['#slots'] = array_map(fn($slot) => $slot->toRenderable(), $slots);
+      $build['#slots'] = array_filter(array_map(fn($slot) => $slot->toRenderable(), $slots));
     }
     return $build;
   }
@@ -728,7 +811,7 @@ class Component extends ConfigEntityBase implements ComponentInterface {
    * {@inheritdoc}
    */
   public function __sleep() {
-    return array_diff(parent::__sleep(), ['propShapes', 'slots']);
+    return array_diff(parent::__sleep(), ['propShapes', 'slots', 'filters']);
   }
 
 }

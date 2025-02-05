@@ -1,11 +1,13 @@
 <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
 {% for component in components %}
-  <a{{ component.attributes.addClass('card relative overflow-hidden rounded focus hover:border-primary-500')|neo_tooltip_trigger({placement: 'bottom', delay: '[300, 0]'}) }}>
-    <img src="{{ component.thumbnail }}" alt="{{ component.label }}" class="object-cover w-64 h-44" />
+  <a{{ component.attributes.addClass('card relative overflow-hidden rounded focus hover:border-primary-500 transition')|neo_tooltip_trigger({placement: 'bottom', delay: '[300, 0]'}) }}>
+    <img src="{{ component.thumbnail }}" alt="{{ component.label }}" class="object-cover object-top w-full h-44" />
     <div class="flex absolute bottom-0 left-0 right-0 w-full bg-base-900/90 text-base-content-900 text-xs px-2 py-1">
       <div class="truncate">{{ component.label }}</div>
     </div>
-    {{ component.description|neo_tooltip_content }}
+    {% if component.description %}
+      {{ component.description|neo_tooltip_content }}
+    {% endif %}
   </a>
 {% endfor %}
 </div>

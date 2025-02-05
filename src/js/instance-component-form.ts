@@ -26,10 +26,36 @@
 
   Drupal.behaviors.neoAlchemistInstanceComponentForm = {
     attach: function () {
+      once('neo.alchemist', '#neo-alchemist--instance-component-form [data-autocomplete-path]').forEach(el => {
+        jQuery(el).on('autocompleteselect', function (_e) {
+          throttledInput();
+        });
+      });
       once('neo.alchemist', '#neo-alchemist--instance-component-form').forEach(el => {
-        el.addEventListener('input', throttledInput);
+        el.addEventListener('input', function (e) {
+          if (e.target instanceof HTMLInputElement) {
+            if (e.target.dataset.autocompletePath) {
+              return;
+            }
+            if (e.target.dataset.once && e.target.dataset.once.includes('drupal-ajax')) {
+              return;
+            }
+            else {
+              throttledInput();
+            }
+          }
+        });
         const observer = new MutationObserver((mutations) => {
-          mutations.forEach((_mutation) => {
+          mutations.forEach((mutation) => {
+            const target = mutation.target as HTMLElement;
+            if (
+              target.classList.contains('ts-dropdown') ||
+              target.classList.contains('highlight') ||
+              target.closest('.ts-dropdown') ||
+              target.classList.contains('ts-wrapper')
+            ) {
+              return;
+            }
             throttledInput();
           });
         });

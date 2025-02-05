@@ -382,4 +382,78 @@ interface ComponentInterface extends ConfigEntityInterface, RenderableInterface 
    */
   public function getSlot(string $slotName): ?ComponentSlotInterface;
 
+  /**
+   * Retrieves the slot settings for a specific slot.
+   *
+   * @param \Drupal\neo_alchemist\ComponentSlotInterface $slot
+   *   The slot for which the settings are being retrieved.
+   *
+   * @return array
+   *   An associative array of settings for the specified slot.
+   */
+  public function getSlotSettings(ComponentSlotInterface $slot): array;
+
+  /**
+   * Sets the settings for a specific slot.
+   *
+   * @param \Drupal\neo_alchemist\ComponentSlotInterface $slot
+   *   The slot for which the settings are being set.
+   * @param array $settings
+   *   An associative array of settings to be applied to the slot.
+   *
+   * @return $this
+   *   The current instance of the Component entity.
+   */
+  public function setSlotSettings(ComponentSlotInterface $slot, array $settings): self;
+
+  /**
+   * Sets a filter for the component.
+   *
+   * This method assigns a filter to the component. If the filter is new, a UUID
+   * is generated for it; otherwise, the existing UUID of the filter is used.
+   * The filter is then converted to an array and stored in the component's
+   * settings.
+   *
+   * @param \Drupal\neo_alchemist\ComponentFilterInterface $filter
+   *   The filter to be set for the component.
+   *
+   * @return \Drupal\neo_alchemist\ComponentFilterInterface
+   *   The filter.
+   */
+  public function setFilter(ComponentFilterInterface $filter): ComponentFilterInterface;
+
+  /**
+   * Retrieves a filter by its UUID.
+   *
+   * @param string $uuid
+   *   The UUID of the filter to retrieve.
+   *
+   * @return \Drupal\neo_alchemist\ComponentFilterInterface|null
+   *   The filter associated with the given UUID, or NULL if no filter is found.
+   */
+  public function getFilter(string $uuid): ?ComponentFilterInterface;
+
+  /**
+   * Deletes a filter from the settings based on the provided UUID.
+   *
+   * @param string $uuid
+   *   The UUID of the filter to be deleted.
+   *
+   * @return self
+   *   The current instance of the Component entity.
+   */
+  public function deleteFilter(string $uuid): self;
+
+  /**
+   * Retrieves the filters for the component.
+   *
+   * This method initializes the filters if they are not already set. It checks
+   * if there are any filters defined in the settings and uses the neo_component
+   * filter factory service to create filter instances based on the settings.
+   *
+   * @return \Drupal\neo_alchemist\ComponentFilterInterface[]
+   *   An array of filters for the component.
+   */
+  public function getFilters(): array;
+
 }

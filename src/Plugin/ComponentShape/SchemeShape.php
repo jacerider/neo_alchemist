@@ -16,6 +16,13 @@ use Drupal\neo_alchemist\Attribute\ComponentShape;
   label: new TranslatableMarkup('Color Scheme'),
   default_field_type: 'neo_scheme',
   default_field_widget: 'neo_scheme',
+  default_plugins: [
+    'widget' => [
+      'settings' => [
+        'include' => ['default', 'primary', 'secondary', 'accent'],
+      ],
+    ],
+  ],
 )]
 class SchemeShape extends StyleShapeBase {
 

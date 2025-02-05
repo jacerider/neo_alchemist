@@ -82,6 +82,11 @@ class ObjectShape extends ChildrenShapeBase implements ComponentShapeExpandedPlu
    */
   public function getValue(): mixed {
     $value = parent::getValue();
+    if (empty($value)) {
+      // If we have nothing, we return nothing. Otherwise the children will
+      // return their default values.
+      return $value;
+    }
     foreach ($this->getChildShapes() as $shapeName => $shape) {
       $value[$shapeName] = $shape->getValue();
       if ($shape->getOptionEmpty()->isEnabled() || empty($value[$shapeName])) {

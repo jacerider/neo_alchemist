@@ -83,6 +83,13 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
   protected bool $editable = TRUE;
 
   /**
+   * Whether the prop is locked.
+   *
+   * @var bool
+   */
+  protected bool $locked = FALSE;
+
+  /**
    * Whether the form should be shown even when the option empty is TRUE.
    *
    * @var bool
@@ -357,6 +364,13 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
   public function label(): string {
     // Cast the label to a string since it is a TranslatableMarkup object.
     return (string) $this->pluginDefinition['label'];
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function getSettings(): array {
+    return $this->settings;
   }
 
   /**
@@ -1054,15 +1068,37 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
    */
   public function isEditable(): bool {
     $editable = $this->editable;
+    if ($editable && $this->isLocked()) {
+      $editable = FALSE;
+    }
+    return $editable;
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  public function setLocked(bool $locked = TRUE): self {
+    $this->locked = $locked;
+    return $this;
+  }
+
+  /**
+   * Check if the shape is locked.
+   *
+   * @return bool
+   *   Whether the shape is locked.
+   */
+  public function isLocked(): bool {
+    $locked = $this->locked;
     foreach ($this->getValueCollection()->getAllowedInstances('edit') as $instance) {
       if (!$instance->isEditable()) {
-        $editable = FALSE;
+        $locked = TRUE;
       }
       if (!$instance->shouldContinueProcessing()) {
         break;
       }
     }
-    return $editable;
+    return $locked;
   }
 
   /**
@@ -1779,7 +1815,6 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
     // Remove options so that they are not processed or stored.
     $form_state->unsetValue('_options');
     if (empty($values) && $this->isRequired()) {
-      ksm('hit');
       $form_state->setError($form, $this->getTitle() . ' is required.');
     }
   }

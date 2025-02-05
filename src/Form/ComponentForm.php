@@ -157,8 +157,8 @@ final class ComponentForm extends EntityForm {
     $message_args = ['%label' => $this->entity->label()];
     $this->messenger()->addStatus(
       match($result) {
-        \SAVED_NEW => $this->t('Created new example %label.', $message_args),
-        \SAVED_UPDATED => $this->t('Updated example %label.', $message_args),
+        \SAVED_NEW => $this->t('Created new component %label.', $message_args),
+        \SAVED_UPDATED => $this->t('Updated component %label.', $message_args),
       }
     );
     $form_state->setRedirectUrl($this->entity->toUrl());

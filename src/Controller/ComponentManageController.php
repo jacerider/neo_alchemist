@@ -45,8 +45,6 @@ final class ComponentManageController extends ControllerBase {
       '#form' => $this->entityFormBuilder()->getForm($neo_component, 'manage'),
     ];
 
-    // $build['#bottom_start']['form'] = $this->entityFormBuilder()->getForm($neo_component, 'manage');
-
     $build['#top_start']['back'] = [
       '#type' => 'link',
       '#title' => neo_admin_icon(t('Back'), 'arrow-circle-left'),

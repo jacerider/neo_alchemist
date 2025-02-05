@@ -44,6 +44,20 @@ interface ComponentShapeChildrenPluginInterface {
   public function defaultChildShape(string $shapeName, $default = TRUE): self;
 
   /**
+   * Set child shape plugins.
+   *
+   * @param string $shapeName
+   *   The name of the child shape.
+   * @param array $plugins
+   *   The plugins to set. The array should be keyed by the plugin ID and the
+   *   values should be the plugin configuration.
+   *
+   * @return \Drupal\neo_alchemist\ComponentShapePluginInterface
+   *   The child shape.
+   */
+  public function setChildShapePlugins(string $shapeName, array $plugins): self;
+
+  /**
    * Get the names of the child shapes.
    *
    * @return string[]
