@@ -103,6 +103,7 @@ final class EntityFilter extends ComponentFilterPluginBase implements ContainerF
   public function settingsSummary(): array {
     $summary = parent::settingsSummary();
     $summary[] = $this->t('Field type: %type', ['%type' => ucfirst($this->configuration['field_type'])]);
+    $summary[] = $this->t('Allow multiple values: %multiple', ['%multiple' => $this->configuration['multiple'] ? $this->t('Yes') : $this->t('No')]);
     if ($entityTypeId = $this->configuration['entity_type']) {
       if ($entityType = $this->entityTypeManager->getDefinition($entityTypeId)) {
         $summary[] = $this->t('Entity type: %label', ['%label' => $entityType->getLabel()]);
