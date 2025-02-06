@@ -6,12 +6,9 @@ namespace Drupal\neo_alchemist\Plugin\ComponentValue;
 
 use Drupal\Component\Utility\Html;
 use Drupal\Component\Utility\NestedArray;
-use Drupal\Core\DependencyInjection\DependencySerializationTrait;
-use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Form\SubformState;
 use Drupal\neo_alchemist\ComponentShapePluginInterface;
-use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
  * A trait for adding entity type manager.
@@ -30,8 +27,10 @@ trait ComponentValueModifierTrait {
     $instances = $collection->getInstancesByGroup('modifiers');
     if ($instances) {
       $form['modifiers'] = [
-        '#type' => 'fieldset',
+        '#type' => 'details',
         '#title' => $this->t('Modifiers'),
+        '#neo_size' => 'sm',
+        '#open' => !empty($defaults),
         '#element_validate' => [
           [static::class, 'modifierConfigurationValidate'],
         ],
