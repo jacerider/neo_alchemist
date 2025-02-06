@@ -139,7 +139,6 @@ final class InstanceComponentForm extends ContentEntityForm {
     $form['#parents'] = [];
     $form['#id'] = 'neo-alchemist--instance-component-form';
     $form['#attributes']['class'][] = 'neo-alchemist--instance-component-form';
-    $form['#neo_style'] = 'clean';
 
     $form['#process'][] = '::processForm';
     $form['#attached']['library'][] = 'neo_alchemist/instance.ajax';
