@@ -257,12 +257,12 @@ class ArrayShape extends ChildrenShapeBase implements ComponentShapeInterablePlu
             '#type' => 'html_tag',
             '#tag' => 'div',
             '#attributes' => [
-              'class' => ['badge bg-base text-base-content flex-none self-center min-w-8'],
+              'class' => ['badge bg-base text-base-content flex-none self-center !min-w-8'],
             ],
             '#value' => $delta + 1,
           ];
         }
-        if ($max > 1) {
+        if ($max !== 1) {
           $form[$delta]['#attributes']['class'][] = 'form--inline mb-form-item';
         }
         foreach ($shapes as $shape) {
@@ -282,7 +282,7 @@ class ArrayShape extends ChildrenShapeBase implements ComponentShapeInterablePlu
             '#widget_parents' => array_merge($form['#parents'], [$delta]),
             '#submit' => [[get_class($this), 'removeItemSubmit']],
             '#attributes' => [
-              'class' => ['icon-only flex-none self-center'],
+              'class' => ['icon-only flex-none self-center !min-w-8'],
             ],
             '#limit_validation_errors' => [],
             '#disabled' => $count <= $min,
