@@ -523,6 +523,18 @@ interface ComponentShapePluginInterface extends PluginInspectionInterface, Deriv
   public function isExpanded(): bool;
 
   /**
+   * Checks if the component shape belongs to an expanded component.
+   *
+   * This method checks if the current instance is a child of an expanded
+   * component shape or is itself expanded.
+   *
+   * @return bool
+   *   TRUE if the component shape belongs to an expanded component, FALSE
+   *   otherwise.
+   */
+  public function belongsToExpanded(): bool;
+
+  /**
    * Retrieves the nested value modifiers.
    *
    * @return array
@@ -619,14 +631,24 @@ interface ComponentShapePluginInterface extends PluginInspectionInterface, Deriv
   public function isLocked(): bool;
 
   /**
-   * Force the widget form to be shown even when the option empty is TRUE.
+   * Force the widget form to be shown when empty.
    *
-   * @param bool $enforce
-   *   Whether to enforce showing the form.
+   * @param bool $empty
+   *   Whether to enforce showing the form when empty is TRUE.
    *
    * @return $this
    */
-  public function enforceShowForm($enforce = TRUE): self;
+  public function enforceShowFormWhenEmpty(bool $empty = TRUE): self;
+
+  /**
+   * Force the widget form to be shown when default.
+   *
+   * @param bool $default
+   *   Whether to enforce showing the form when the default is TRUE.
+   *
+   * @return $this
+   */
+  public function enforceShowFormWhenDefault(bool $default = TRUE): self;
 
   /**
    * Get the component.
@@ -842,6 +864,14 @@ interface ComponentShapePluginInterface extends PluginInspectionInterface, Deriv
   public function getOverrideValue(): mixed;
 
   /**
+   * Checks if the component shape has an override value.
+   *
+   * @return bool
+   *   TRUE if the component shape has an override value, FALSE otherwise.
+   */
+  public function hasOverrideValue(): bool;
+
+  /**
    * Get the field item value.
    *
    * @return mixed
@@ -986,21 +1016,70 @@ interface ComponentShapePluginInterface extends PluginInspectionInterface, Deriv
   public function getOptionAccess(): ComponentShapeOption;
 
   /**
+   * Sets the default options for a given nested ID.
+   *
+   * These options will be used if no nested options are set for the shape.
+   *
+   * @param array $options
+   *   An associative array of options to set for the nested component shape.
+   * @param string $nestedId
+   *   The identifier for the nested component shape.
+   *
+   * @return self
+   */
+  public function setDefaultOptions(array $options, string $nestedId = NULL): self;
+
+  /**
+   * Sets default nested options for the component shape.
+   *
+   * This method sets the nested options for the current component shape. If the
+   * current shape is the root shape, it merges the provided options with the
+   * existing nested options. If the current shape is not the root shape, it
+   * delegates the setting of nested options to the root parent shape.
+   *
+   * The options add to the previously set options. Already set options
+   * cannot be overwritten.
+   *
+   * @param array $options
+   *   An associative array of options to set.
+   *
+   * @return $this
+   *   The current instance of the component shape with updated nested options.
+   */
+  public function setDefaultNestedOptions(array $options): self;
+
+  /**
    * Sets the options for a given nested ID.
    *
    * This method sets the options for a nested component shape. If the current
    * shape is the root, it directly sets the options in the nestedOptions array.
    * Otherwise, it delegates the setting of options to the root parent shape.
    *
-   * @param string $nestedId
-   *   The identifier for the nested component shape.
    * @param array $options
    *   An associative array of options to set for the nested component shape.
+   * @param string $nestedId
+   *   The identifier for the nested component shape.
    *
    * @return self
    *   Returns the current instance for method chaining.
    */
-  public function setOptions(string $nestedId, array $options): self;
+  public function setOptions(array $options, string $nestedId = NULL): self;
+
+  /**
+   * Retrieves the options for a given nested ID.
+   *
+   * This method retrieves the options for a nested component shape. If the
+   * current shape is the root, it directly retrieves the options from the
+   * nestedOptions array. Otherwise, it delegates the retrieval of options to
+   * the root parent shape.
+   *
+   * @param string $nestedId
+   *   The identifier for the nested component shape.
+   *
+   * @return array
+   *   An associative array of options for the nested component shape.
+   */
+  public function getOptions(string $nestedId = NULL): array;
 
   /**
    * Sets nested options for the component shape.

@@ -82,7 +82,7 @@ class ObjectShape extends ChildrenShapeBase implements ComponentShapeExpandedPlu
    */
   public function getValue(): mixed {
     $value = parent::getValue();
-    if (empty($value)) {
+    if ($this->useParentValues() && empty($value)) {
       // If we have nothing, we return nothing. Otherwise the children will
       // return their default values.
       return $value;
@@ -118,8 +118,9 @@ class ObjectShape extends ChildrenShapeBase implements ComponentShapeExpandedPlu
         if ($shape->getScope() === 'config' && $shape->allowPlugins()) {
           continue;
         }
-        // Force values to allow nesting of multiple shapes.
-        if ($values[$shape->getName()] ?? NULL) {
+        // Force values to allow nesting of multiple shapes. Only do this if the
+        // parent value is an override and the shape is not expanded.
+        if ($this->useParentValues() && ($values[$shape->getName()] ?? NULL)) {
           $shape->setFieldItemValue($values[$shape->getName()]);
         }
         $subform = [

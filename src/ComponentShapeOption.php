@@ -24,6 +24,13 @@ class ComponentShapeOption {
   protected bool $access;
 
   /**
+   * Flag indicating whether any forms connected to this option should show.
+   *
+   * @var bool
+   */
+  protected bool $formForceAccess = FALSE;
+
+  /**
    * Whether the option is locked.
    *
    * @var bool|null
@@ -137,6 +144,23 @@ class ComponentShapeOption {
   }
 
   /**
+   * Force the form to show.
+   *
+   * @param bool $value
+   *   Whether to force the form to show.
+   *
+   * @return self
+   *   The current instance of the class for method chaining.
+   */
+  public function alwaysShowForm(bool $value = TRUE, string $logMessage = NULL): self {
+    $this->formForceAccess = $value;
+    if ($logMessage) {
+      $this->addLog('alwaysShowForm: ' . $logMessage);
+    }
+    return $this;
+  }
+
+  /**
    * Check if option is enabled.
    *
    * @return bool
@@ -146,7 +170,7 @@ class ComponentShapeOption {
     if (isset($this->lockedValue)) {
       return $this->lockedValue;
     }
-    return $this->lockedValue ?? $this->value;
+    return $this->value;
   }
 
   /**
@@ -177,6 +201,16 @@ class ComponentShapeOption {
    */
   public function isAllowed(): bool {
     return $this->access;
+  }
+
+  /**
+   * Checks if the form is force allowed.
+   *
+   * @return bool
+   *   TRUE if the form is allowed, FALSE otherwise.
+   */
+  public function isFormForced(): bool {
+    return $this->formForceAccess;
   }
 
 }

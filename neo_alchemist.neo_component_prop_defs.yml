@@ -142,3 +142,18 @@ margin:
     xl:
       label: Extra Large
       value: m-12 md:m-20 lg:m-32
+text_align:
+  title: Text Alignment
+  description: The alignment of the text.
+  type: style
+  examples: left
+  styles:
+    left:
+      label: Left
+      value: text-left
+    center:
+      label: Center
+      value: text-center
+    right:
+      label: Right
+      value: text-right

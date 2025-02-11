@@ -15,11 +15,11 @@ props:
     #   type: markup
     #   title: Markup
     #   examples: <h2>H2</h2><h3>H3</h3><h4>H4</h4><h5>H5</h5><p><strong>Hello</strong> good <a href="#">friend</a></p>
-    title:
-      type: string
-      title: Title
-      description: The super title.
-      examples: A really cool title
+    # title:
+    #   type: string
+    #   title: Title
+    #   description: The super title.
+    #   examples: A really cool title
     # margin:
     #   type: style
     #   title: Margin
@@ -27,15 +27,15 @@ props:
     #   styles:
     #     Small: 'my-1 md:my-4 lg:my-6'
     #     Medium: 'my-1 md:my-4 lg:my-14'
-    scheme:
-      type: scheme
-      apply: true
-      allow_dark: false
-    padding:
-      type: padding
-      apply: true
-    margin:
-      type: margin
+    # scheme:
+    #   type: scheme
+    #   apply: true
+    #   allow_dark: false
+    # padding:
+    #   type: padding
+    #   apply: true
+    # margin:
+    #   type: margin
     # padding:
     #   type: style
     #   title: Padding
@@ -94,27 +94,27 @@ props:
     #           alt: 'Boring placeholder'
     #           width: 300
     #           height: 200
-    # a:
-    #   type: object
-    #   title: AA
-    #   properties:
-    #     b:
-    #       type: string
-    #       title: B
-    #     bb:
-    #       type: object
-    #       title: BB
-    #       properties:
-    #         c:
-    #           type: string
-    #           title: C
-    #         cc:
-    #           type: object
-    #           title: CC
-    #           properties:
-    #             d:
-    #               type: string
-    #               title: D
+    a:
+      type: object
+      title: AA
+      properties:
+        b:
+          type: string
+          title: B
+        bb:
+          type: object
+          title: BB
+          properties:
+            c:
+              type: string
+              title: C
+            # cc:
+            #   type: object
+            #   title: CC
+            #   properties:
+            #     d:
+            #       type: string
+            #       title: D
     #             image:
     #               title: 'Image'
     #               type: image

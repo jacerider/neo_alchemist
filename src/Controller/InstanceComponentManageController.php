@@ -41,7 +41,9 @@ final class InstanceComponentManageController extends ControllerBase {
       '#type' => 'neo_alchemist_manage',
       '#neo_field' => $neo_field,
     ];
-    return $this->bareHtmlPageRenderer->renderBarePage($build, $this->getTitle($neo_field), 'page__neo_alchemist_preview');
+    return $this->bareHtmlPageRenderer->renderBarePage($build, $this->getTitle($neo_field), 'page__neo_alchemist_preview', [
+      'status' => ['#type' => 'status_messages'],
+    ]);
   }
 
   /**

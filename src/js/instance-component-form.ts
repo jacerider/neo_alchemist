@@ -12,28 +12,66 @@
     } as T;
   }
 
-  let refreshButton = null as HTMLButtonElement|null;
   function handleRefresh() {
-    if (refreshButton) {
-      refreshButton.dispatchEvent(new Event('mousedown', {
-        bubbles: true,
-        cancelable: true
-      }));
+    const form = jQuery('#neo-alchemist--instance-component-form') as any;
+    if (Drupal.Ajax) {
+      // Clear the form id so that the form is not submitted again.
+      formBuildId = null;
+      const options = {
+        callback: '::ajaxRefresh',
+        dialogType: 'ajax',
+        event: 'none',
+        httpMethod: 'POST',
+        keypress: true,
+        selector: '#neo-alchemist--refresh',
+        submit: {
+          js: true,
+          _triggering_element_name: 'op',
+          _triggering_element_value: 'Refresh',
+        },
+        url: form.attr('action') + '?ajax_form=1',
+      };
+      const ajax = Drupal.ajax(options) as any;
+      ajax.element = jQuery('<div>')[0];
+      ajax.$form = form;
+      form.ajaxSubmit(ajax.options);
     }
   }
 
   const throttledInput = debounce(handleRefresh, 250);
+  const formId = 'neo-alchemist--instance-component-form';
+  let formBuildId = null as string|null;
 
   Drupal.behaviors.neoAlchemistInstanceComponentForm = {
     attach: function () {
-      once('neo.alchemist', '#neo-alchemist--instance-component-form [data-autocomplete-path]').forEach(el => {
+      // once('neo.alchemist', '#' + formId + ' select').forEach(el => {
+      //   jQuery(el).on('change', function (_e) {
+      //     console.log('wtf');
+      //     // throttledInput();
+      //   });
+      // });
+      // Watch autocomplete.
+      once('neo.alchemist', '#' + formId + ' [data-autocomplete-path]').forEach(el => {
         jQuery(el).on('autocompleteselect', function (_e) {
           throttledInput();
         });
       });
-      once('neo.alchemist', '#neo-alchemist--instance-component-form').forEach(el => {
+      once('neo.alchemist', '#' + formId).forEach(el => {
+        if (Drupal.CKEditor5Instances) {
+          setTimeout(() => {
+            if (Drupal.CKEditor5Instances.size) {
+              once('neo.alchemist', '#' + formId + ' [data-ckeditor5-id]').forEach(_el => {
+                Drupal.CKEditor5Instances.forEach((values) => {
+                  values.model.document.on( 'change:data', () => {
+                    throttledInput();
+                  });
+                });
+              });
+            }
+          });
+        }
         el.addEventListener('input', function (e) {
-          if (e.target instanceof HTMLInputElement) {
+          if (e.target instanceof HTMLElement) {
             if (e.target.dataset.autocompletePath) {
               return;
             }
@@ -45,23 +83,18 @@
             }
           }
         });
-        const observer = new MutationObserver((mutations) => {
-          mutations.forEach((mutation) => {
-            const target = mutation.target as HTMLElement;
-            if (
-              target.classList.contains('ts-dropdown') ||
-              target.classList.contains('highlight') ||
-              target.closest('.ts-dropdown') ||
-              target.classList.contains('ts-wrapper')
-            ) {
-              return;
-            }
-            throttledInput();
-          });
-        });
-        observer.observe(el, { childList: true, subtree: true });
-        refreshButton = el.querySelector('#neo-alchemist--refresh') as HTMLButtonElement;
       });
+      // Process form on each request.
+      const form = document.getElementById(formId) as HTMLElement;
+      if (form) {
+        const el = form.querySelector('input[name="form_build_id"]') as HTMLInputElement;
+        if (el && el.value !== formBuildId) {
+          if (formBuildId) {
+            throttledInput();
+          }
+          formBuildId = el.value;
+        }
+      }
     }
   };
 

@@ -397,6 +397,7 @@ final class ViewsValue extends ComponentValuePluginBase implements ContainerFact
         $this->stopFurtherProcessing();
       }
     }
+    // ksm($value);
     return $value;
   }
 

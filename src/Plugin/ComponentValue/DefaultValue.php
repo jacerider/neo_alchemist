@@ -67,7 +67,8 @@ final class DefaultValue extends ComponentValuePluginBase implements ContainerFa
    */
   public function defaultConfiguration() {
     return [
-      'default' => $this->getDefaultShape()->getDefaultValue(),
+      // 'default' => $this->getDefaultShape()->getDefaultValue(),
+      'default' => [],
       'options' => [],
     ];
   }
@@ -96,14 +97,31 @@ final class DefaultValue extends ComponentValuePluginBase implements ContainerFa
         $valueCollection->setStatus($pluginId, $plugin->allowOnDefault());
       }
 
-      if (!$this->defaultShape instanceof ComponentShapeChildrenPluginInterface) {
-        $this->defaultShape->getOptionDefault()->setAccess(FALSE, 'Default shape without child props cannot set default values.');
-      }
+      // if (!$this->shape->getOptionEmpty()->isAllowed()) {
+      //   $this->defaultShape->getOptionEmpty()->setAccess(FALSE, 'Default shape without child props cannot set empty values.');
+      // }
+      // if (!$this->defaultShape instanceof ComponentShapeChildrenPluginInterface) {
+      //   $this->defaultShape->getOptionDefault()->setAccess(FALSE, 'Default shape without child props cannot set default values.');
+      // }
       $this->defaultShape
-        ->setNestedOptions($this->configuration['options'] ?? [])
         ->setOverrideValue($this->configuration['default'] ?? [])
-        ->setExpanded($this->shape->getExpanded())
-        ->init();
+        ->setExpanded($this->shape->getExpanded());
+      foreach ($this->shape->getParentShapes() as $parentShape) {
+        $this->defaultShape->addParentShape($parentShape);
+      }
+      $this->defaultShape->setDefaultNestedOptions($this->configuration['options'] ?? []);
+      // $this->defaultShape->setDefaultOptions($this->configuration['options'] ?? []);
+      $this->defaultShape->init();
+      $this->defaultShape->getOptionDefault()->alwaysShowForm(TRUE, 'Always show form when default.');
+      $this->defaultShape->getOptionEmpty()->alwaysShowForm(TRUE, 'Always show form when default.');
+      if ($this->defaultShape instanceof ComponentShapeChildrenPluginInterface) {
+        foreach ($this->defaultShape->getAllShapes() as $childShape) {
+          $childShape->getOptionDefault()->alwaysShowForm(TRUE, 'Always show form when default.');
+          $childShape->getOptionEmpty()->alwaysShowForm(TRUE, 'Always show form when default.');
+          // $childShape->enforceShowFormWhenDefault();
+          // $childShape->enforceShowFormWhenEmpty();
+        }
+      }
     }
     return $this->defaultShape;
   }
@@ -132,6 +150,7 @@ final class DefaultValue extends ComponentValuePluginBase implements ContainerFa
       'default' => $defaultShape->massageFormValues($values, $originalValues, $form, $form_state),
       'options' => $defaultShape->getNestedOptions(),
     ];
+    // ksm($defaultShape->getNestedOptions());
     $form_state->setValues(array_filter($values));
   }
 
@@ -140,15 +159,14 @@ final class DefaultValue extends ComponentValuePluginBase implements ContainerFa
    */
   public function onShapeInit() {
     parent::onShapeInit();
-    $this->shape->setNestedOptions($this->configuration['options'] ?? []);
+    $this->shape->setDefaultNestedOptions($this->configuration['options'] ?? []);
   }
 
   /**
    * {@inheritdoc}
    */
   public function provideDefaultValue(mixed $value): mixed {
-    $defaultShape = $this->getDefaultShape();
-    return $defaultShape->getValue();
+    return $this->configuration['default'];
   }
 
 }

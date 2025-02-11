@@ -7,15 +7,17 @@
   ]
 %}
 <div{{ attributes.addClass(classes) }}>
+  {% if a %}
+    {{ a.b }}<br>
+    {{ a.bb.c }}<br>
+    {{ a.bb.cc.d }}
+  {% endif %}
   {% if image %}
     <div>
       {{ neo_image_style(image.src, {scaleCrop: {width: 300, height: 200}}, image.alt) }}
     </div>
   {% endif %}
   <div>
-    {% if a %}
-      <div class="prose max-w-none">{{ a.b }} {{ a.bb.c }}</div>
-    {% endif %}
     {% if markup %}
       <div class="prose max-w-none">{{ markup }}</div>
     {% endif %}

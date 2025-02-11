@@ -94,7 +94,14 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
    *
    * @var bool
    */
-  public bool $enforceShowForm = FALSE;
+  public bool $enforceShowFormWhenEmpty = FALSE;
+
+  /**
+   * Whether the form should be shown even when the option default is TRUE.
+   *
+   * @var bool
+   */
+  public bool $enforceShowFormWhenDefault = FALSE;
 
   /**
    * Whether the shape is initialized.
@@ -268,6 +275,13 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
    * @var array
    */
   protected array $plugins = [];
+
+  /**
+   * The default nested options.
+   *
+   * @var array
+   */
+  protected array $defaultNestedOptions = [];
 
   /**
    * The nested options.
@@ -1019,7 +1033,24 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
    * {@inheritDoc}
    */
   public function isExpanded(): bool {
+    foreach ($this->getParentShapes() as $shape) {
+      if ($shape->isExpanded()) {
+        // return TRUE;
+      }
+    }
     return $this->isExpandable() && in_array($this->getNestedId(), $this->getExpanded());
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  public function belongsToExpanded(): bool {
+    foreach ($this->getParentShapes() as $shape) {
+      if ($shape->isExpanded()) {
+        return TRUE;
+      }
+    }
+    return $this->isExpanded();
   }
 
   /**
@@ -1083,10 +1114,7 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
   }
 
   /**
-   * Check if the shape is locked.
-   *
-   * @return bool
-   *   Whether the shape is locked.
+   * {@inheritDoc}
    */
   public function isLocked(): bool {
     $locked = $this->locked;
@@ -1102,15 +1130,18 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
   }
 
   /**
-   * Force the widget form to be shown even when the option empty is TRUE.
-   *
-   * @param bool $enforce
-   *   Whether to enforce showing the form.
-   *
-   * @return $this
+   * {@inheritDoc}
    */
-  public function enforceShowForm($enforce = TRUE): self {
-    $this->enforceShowForm = $enforce;
+  public function enforceShowFormWhenEmpty(bool $empty = TRUE): self {
+    $this->enforceShowFormWhenEmpty = $empty;
+    return $this;
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  public function enforceShowFormWhenDefault(bool $default = TRUE): self {
+    $this->enforceShowFormWhenDefault = $default;
     return $this;
   }
 
@@ -1457,6 +1488,13 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
   /**
    * {@inheritDoc}
    */
+  public function hasOverrideValue(): bool {
+    return isset($this->overrideValue);
+  }
+
+  /**
+   * {@inheritDoc}
+   */
   public function getFieldItemValue(): array {
     return !$this->isFieldItemEmpty() ? $this->fieldItem->getValue() : [];
   }
@@ -1646,7 +1684,11 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
     $form['#parents'] = $parents;
     $form['#id'] = $id;
 
-    if (($this->enforceShowForm || $optionEmpty->isDisabled()) && $optionDefault->isDisabled()) {
+    if (
+      ($optionEmpty->isDisabled() || $optionDefault->isFormForced())
+      &&
+      ($optionDefault->isDisabled() || $optionEmpty->isFormForced())
+    ) {
       $form = $this->form($form, $form_state);
     }
 
@@ -1674,17 +1716,17 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
         '#neo_size' => 'xs',
       ];
     }
-    if ($optionDefault->isAllowed()) {
+    $states = [];
+    if ((!$optionEmpty->isFormForced() || $optionDefault->isFormForced()) && $optionDefault->isAllowed()) {
       if ($optionDefault->isEnabled()) {
-        $form['#title'] = $this->t('@label (Default)', ['@label' => $this->getTitle()]);
+        $states[] = $this->t('Default');
       }
-
       $form['_options']['default'] = [
         '#type' => 'checkbox',
         '#title' => $this->t('Default'),
         '#description' => $this->t('Use the default value of @label', ['@label' => $this->getTitle()]),
         '#default_value' => $optionDefault->isEnabled(),
-        '#access' => $this->enforceShowForm || $optionEmpty->isDisabled(),
+        '#access' => $optionDefault->isFormForced() || $optionEmpty->isDisabled(),
         '#neo_size' => 'xs',
         '#ajax' => [
           'callback' => [get_class($this), 'ajaxRefresh'],
@@ -1692,9 +1734,9 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
         ],
       ];
     }
-    if (!$this->enforceShowForm && $optionEmpty->isAllowed()) {
+    if ((!$optionDefault->isFormForced() || $optionEmpty->isFormForced()) && $optionEmpty->isAllowed()) {
       if ($optionEmpty->isEnabled()) {
-        $form['#title'] = $this->t('@label (Hidden)', ['@label' => $this->getTitle()]);
+        $states[] = $this->t('Hidden');
       }
       $form['_options']['empty'] = [
         '#type' => 'checkbox',
@@ -1702,7 +1744,7 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
         '#description' => $this->t('Do not show @label', ['@label' => $this->getTitle()]),
         '#tooltip' => TRUE,
         '#default_value' => $optionEmpty->isEnabled(),
-        '#access' => $optionDefault->isDisabled(),
+        '#access' => $optionEmpty->isFormForced() || $optionDefault->isDisabled(),
         '#neo_size' => 'xs',
         '#ajax' => [
           'callback' => [get_class($this), 'ajaxRefresh'],
@@ -1712,6 +1754,15 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
     }
 
     if (!empty(Element::children($form['_options']))) {
+      if ($optionDefault->isFormForced() || $optionEmpty->isFormForced()) {
+        $form['#title'] = $this->getTitle();
+      }
+      if ($states) {
+        $form['#title'] = $this->t('@label (@states)', [
+          '@label' => $this->getTitle(),
+          '@states' => implode(' & ', $states),
+        ]);
+      }
       $form['#type'] = 'fieldset';
       $form['_options']['#access'] = TRUE;
       $form['#required'] = $this->isRequired();
@@ -1747,7 +1798,7 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
         $this->setFieldItemValue($form_state->get(['previous_value', $nestedId]));
       }
       if (!$previousStatus && $status) {
-        $valueParents = array_merge($form['#parents'], [$this->getName()]);
+        $valueParents = array_merge($form['#parents'], [$this->getName(), $this->getName()]);
         array_shift($valueParents);
         $values = $form_state->getValue($valueParents) ?? [];
         $form_state->set(['previous_value', $nestedId], $values);
@@ -1803,15 +1854,15 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
   public function validateForm(array $form, FormStateInterface $form_state, array $values): void {
     $options = $form_state->getValue('_options') ?? [];
     if (isset($options['default'])) {
-      $options['default'] = (bool) $options['default'];
+      $options['default'] = (int) $options['default'];
     }
     if (isset($values['empty'])) {
-      $options['empty'] = (bool) $options['empty'];
+      $options['empty'] = (int) $options['empty'];
     }
     if (isset($values['access'])) {
-      $options['access'] = (bool) $options['access'];
+      $options['access'] = (int) $options['access'];
     }
-    $this->setOptions($this->getNestedId(), $options);
+    $this->setOptions($options);
     // Remove options so that they are not processed or stored.
     $form_state->unsetValue('_options');
     if (empty($values) && $this->isRequired()) {
@@ -1823,7 +1874,7 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
    * {@inheritDoc}
    */
   public function massageFormValues(array $values, array $original_values, array $form, FormStateInterface $form_state): array {
-    if ($this->getOptionDefault()->isEnabled()) {
+    if ($this->getOptionDefault()->isEnabled() && !$this->getOptionDefault()->isFormForced()) {
       // We marked as default, we continue to store the value so that it can
       // be restored by the user.
       return $original_values;
@@ -1867,12 +1918,44 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
   /**
    * {@inheritDoc}
    */
-  public function setOptions(string $nestedId, array $options): self {
+  public function setDefaultOptions(array $options, string $nestedId = NULL): self {
+    $nestedId = $nestedId ?? $this->getNestedId();
     match ($this->isRoot()) {
-      TRUE => $this->nestedOptions[$nestedId] = $options,
-      FALSE => $this->getRootShape()->setOptions($nestedId, $options),
+      TRUE => $this->defaultNestedOptions[$nestedId] = $options,
+      FALSE => $this->getRootShape()->setDefaultOptions($options, $nestedId),
     };
     return $this;
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  public function setDefaultNestedOptions(array $options): self {
+    match ($this->isRoot()) {
+      TRUE => $this->defaultNestedOptions = NestedArray::mergeDeep($options, $this->defaultNestedOptions),
+      FALSE => $this->getRootShape()->setDefaultNestedOptions($options),
+    };
+    return $this;
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  public function setOptions(array $options, string $nestedId = NULL): self {
+    $nestedId = $nestedId ?? $this->getNestedId();
+    match ($this->isRoot()) {
+      TRUE => $this->nestedOptions[$nestedId] = $options,
+      FALSE => $this->getRootShape()->setOptions($options, $nestedId),
+    };
+    return $this;
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  public function getOptions(string $nestedId = NULL): array {
+    $nestedId = $nestedId ?? $this->getNestedId();
+    return $this->getNestedOptions()[$nestedId] ?? [];
   }
 
   /**
@@ -1891,16 +1974,9 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
    */
   public function getNestedOptions(): array {
     return match ($this->isRoot()) {
-      TRUE => $this->nestedOptions,
+      TRUE => $this->nestedOptions + $this->defaultNestedOptions,
       FALSE => $this->getRootShape()->getNestedOptions(),
     };
-  }
-
-  /**
-   * {@inheritDoc}
-   */
-  public function getOptions(string $nestedId): array {
-    return $this->getNestedOptions()[$nestedId] ?? [];
   }
 
   /**

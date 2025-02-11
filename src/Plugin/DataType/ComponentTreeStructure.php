@@ -289,9 +289,9 @@ class ComponentTreeStructure extends TypedData {
    *
    * @see \Drupal\experience_builder\Entity\Component
    */
-  public function getComponentId(string $component_instance_uuid): string {
+  public function getComponentId(string $component_instance_uuid): ?string {
     if (!in_array($component_instance_uuid, $this->getComponentInstanceUuids(), TRUE)) {
-      throw new \OutOfRangeException(sprintf('No component stored for %s. Caused by either incorrect logic or `props` being out of sync with `tree`.', $component_instance_uuid));
+      return NULL;
     }
     $components = $this->getComponents();
 

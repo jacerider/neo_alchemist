@@ -655,6 +655,21 @@ class Component extends ConfigEntityBase implements ComponentInterface {
     if (!isset($this->original)) {
       $this->set('schema', Json::encode($this->getComponentSchema()));
       $this->set('expression', $newExpression);
+      $rootShapes = $this->getPropShapes();
+      foreach ($rootShapes as $shape) {
+        $shape->onAdd();
+        foreach ($shape->getPlugins() as $nestedId => $plugins) {
+          foreach ($plugins as $pluginType => $plugin) {
+            $shape->onPluginAdd($pluginType);
+          }
+        }
+        // Process all props and store the settings.
+        $this->setSetting('props', []);
+        foreach ($rootShapes as $shape) {
+          $this->setPropShapeSettings($shape);
+        }
+        $this->setSetting('props', $this->getAllPropShapeSettings());
+      }
     }
     else {
       /** @var \Drupal\neo_alchemist\ComponentInterface $original */
@@ -728,6 +743,24 @@ class Component extends ConfigEntityBase implements ComponentInterface {
       }
     }
     parent::preSave($storage);
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public static function preDelete(EntityStorageInterface $storage, array $entities) {
+    parent::preDelete($storage, $entities);
+    /** @var \Drupal\neo_alchemist\ComponentInterface[] $entities */
+    foreach ($entities as $entity) {
+      foreach ($entity->getPropShapes() as $shape) {
+        $shape->onRemove();
+        foreach ($shape->getPlugins() as $nestedId => $plugins) {
+          foreach ($plugins as $pluginType => $plugin) {
+            $shape->onPluginRemove($pluginType);
+          }
+        }
+      }
+    }
   }
 
   /**

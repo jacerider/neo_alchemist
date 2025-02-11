@@ -57,7 +57,9 @@ final class ComponentManageController extends ControllerBase {
     // Resize.
     $build['#top_end'] = ComponentManageHelper::buildIframeOperations($neo_component);
 
-    return $this->bareHtmlPageRenderer->renderBarePage($build, 'Manage: ' . $neo_component->label(), 'page__neo_alchemist_preview');
+    return $this->bareHtmlPageRenderer->renderBarePage($build, 'Manage: ' . $neo_component->label(), 'page__neo_alchemist_preview', [
+      'status' => ['#type' => 'status_messages'],
+    ]);
   }
 
   /**

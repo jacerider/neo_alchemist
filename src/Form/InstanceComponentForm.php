@@ -372,8 +372,9 @@ final class InstanceComponentForm extends ContentEntityForm {
    * Ajax refresh.
    */
   public function ajaxRefresh(array &$form, FormStateInterface $form_state) {
+    $form['#old_build_id'] = $form['#build_id'];
     $response = new AjaxResponse();
-    $response->addCommand(new HtmlCommand('.region.region--status', ['#type' => 'status_messages']));
+    // $response->addCommand(new HtmlCommand('.region.region--status', ['#type' => 'status_messages']));
     $response->addCommand(new InstanceComponentPreviewIframeCommand('#' . ComponentManageHelper::getId($this->instance) . ' iframe'));
     return $response;
   }

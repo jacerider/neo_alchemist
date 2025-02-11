@@ -142,23 +142,30 @@ abstract class ChildrenShapeBase extends ComponentShapePluginBase implements Com
     if (!empty($this->defaultChildShapes[$shape->getName()])) {
       $shape->getOptionDefault()->setLockedValue(TRUE, 'Shape is set as default by parent shape.');
     }
-    if (!empty($this->childShapePlugins[$shape->getName()])) {
-      foreach ($this->childShapePlugins[$shape->getName()] as $pluginId => $settings) {
-        $shape->addPlugin($pluginId, $settings);
-      }
-    }
     if ($delta !== NULL && $count === 1) {
       $shape->getOptionDefault()->setAccess(FALSE, 'Shape has a single prop, so setting as default is not allowed.');
       $shape->getOptionEmpty()->setAccess(FALSE, 'Shape has a single prop, so setting as default is not allowed.');
     }
     elseif ($this->isSingleProp()) {
-      $shape->getOptionDefault()->setAccess(FALSE, 'Shape has a single prop, so setting as default is not allowed.');
+      // $shape->getOptionDefault()->setAccess(FALSE, 'Shape has a single prop, so setting as default is not allowed.');
+      $shape->getOptionEmpty()->setAccess(FALSE, 'Shape has a single prop, so setting as empty is not allowed.');
     }
     if ($this->getOptionDefault()->isEnabled()) {
-      $shape->getOptionDefault()->setLockedValue(TRUE, 'Root shape is set as default, so set child shape as default.');
+      $shape->getOptionDefault()->setLockedValue(TRUE, 'Parent shape is set as default, so set child shape as default.');
     }
     if ($this->getOptionEmpty()->isEnabled()) {
-      $shape->getOptionEmpty()->setLockedValue(TRUE, 'Root shape is set as empty, so set child shape as empty.');
+      $shape->getOptionEmpty()->setLockedValue(TRUE, 'Parent shape is set as empty, so set child shape as empty.');
+    }
+    if ($this->getOptionAccess()->isDisabled()) {
+      $shape->getOptionAccess()->setLockedValue(FALSE, 'Parent shape is disabled.');
+    }
+    if ($this->getScope() === 'config') {
+      $shape->getOptionAccess()->setAccess(TRUE, 'Scope is config.');
+    }
+    if (!empty($this->childShapePlugins[$shape->getName()])) {
+      foreach ($this->childShapePlugins[$shape->getName()] as $pluginId => $settings) {
+        $shape->addPlugin($pluginId, $settings);
+      }
     }
     $shape->init();
   }
@@ -198,24 +205,26 @@ abstract class ChildrenShapeBase extends ComponentShapePluginBase implements Com
       if ($delta !== NULL) {
         $shape->setNestedDelta((int) $delta);
       }
-      if (array_key_exists($shapeName, $value)) {
+      // Set the override value. Only do this if the parent value is an
+      // override and the shape is not expanded.
+      if ($this->useParentValues() && array_key_exists($shapeName, $value)) {
         $shape->setOverrideValue($value[$shapeName]);
-      }
-      if ($this->getOptionDefault()->isEnabled()) {
-        $shape->getOptionDefault()->setLockedValue(TRUE, 'Set by parent shape.');
-      }
-      if ($this->getOptionEmpty()->isEnabled()) {
-        $shape->getOptionEmpty()->setLockedValue(TRUE, 'Set by parent shape.');
-      }
-      if ($this->getOptionAccess()->isDisabled()) {
-        $shape->getOptionAccess()->setLockedValue(FALSE, 'Set by parent shape.');
-      }
-      if ($this->getScope() === 'config') {
-        $shape->getOptionAccess()->setAccess(TRUE);
       }
       return $shape;
     }, $this->shapeManager->getInstancesFromSchema($schema, $this->getComponent()));
     return $childShapes;
+  }
+
+  /**
+   * Check if parent values should be overlayed on top of child values.
+   *
+   * @return bool
+   */
+  protected function useParentValues(): bool {
+    if ($this->belongsToExpanded()) {
+      return $this->hasOverrideValue();
+    }
+    return TRUE;
   }
 
 }

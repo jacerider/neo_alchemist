@@ -118,7 +118,6 @@ final class FormattedTextValue extends ComponentValuePluginBase implements Conta
    * {@inheritdoc}
    */
   public function formAlter(array &$element, FormStateInterface $form_state) {
-    // $element['widget']['widget'][0]['#format'] = $this->configuration['format'];
     $element['widget']['widget']['#after_build'][] = [
       static::class,
       'afterBuild',
