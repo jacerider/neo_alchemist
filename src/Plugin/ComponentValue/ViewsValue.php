@@ -18,7 +18,7 @@ use Drupal\neo_alchemist\ComponentShapeInterablePluginInterface;
 use Drupal\neo_alchemist\ComponentShapePluginInterface;
 use Drupal\neo_alchemist\ComponentValuePluginBase;
 use Drupal\neo_alchemist\ComponentValuePluginManager;
-use Drupal\neo_alchemist\FieldMatcher;
+use Drupal\neo_alchemist\MatcherField;
 use Drupal\views\ViewExecutable;
 use Drupal\views\Views;
 use Symfony\Component\DependencyInjection\ContainerInterface;
@@ -60,9 +60,9 @@ final class ViewsValue extends ComponentValuePluginBase implements ContainerFact
   /**
    * The field matcher.
    *
-   * @var \Drupal\neo_alchemist\FieldMatcher
+   * @var \Drupal\neo_alchemist\MatcherField
    */
-  protected FieldMatcher $fieldMatcher;
+  protected MatcherField $matcherField;
 
   /**
    * {@inheritdoc}
@@ -74,12 +74,12 @@ final class ViewsValue extends ComponentValuePluginBase implements ContainerFact
     array $configuration,
     EntityTypeManagerInterface $entity_type_manager,
     ComponentValuePluginManager $component_value_manager,
-    FieldMatcher $field_matcher
+    MatcherField $matcher_field
   ) {
     parent::__construct($plugin_id, $plugin_definition, $shape, $configuration);
     $this->entityTypeManager = $entity_type_manager;
     $this->componentValueManager = $component_value_manager;
-    $this->fieldMatcher = $field_matcher;
+    $this->matcherField = $matcher_field;
   }
 
   /**
@@ -93,7 +93,7 @@ final class ViewsValue extends ComponentValuePluginBase implements ContainerFact
       $configuration['settings'],
       $container->get('entity_type.manager'),
       $container->get('plugin.manager.neo_component_value'),
-      $container->get('neo_alchemist.field_matcher')
+      $container->get('neo_alchemist.matcher_field')
     );
   }
 
@@ -271,7 +271,7 @@ final class ViewsValue extends ComponentValuePluginBase implements ContainerFact
                 '- Shape -' => [
                   '_default' => $this->t('Use Default'),
                 ],
-              ] + $this->fieldMatcher->getMatchesAsOptions($childShape, $viewEntityType->id(), $viewEntityBundle),
+              ] + $this->matcherField->getMatchesAsOptions($childShape, $viewEntityType->id(), $viewEntityBundle),
               '#empty_option' => $childShape->isRequired() ? $this->t('- Select -') : $this->t('- None -'),
               '#default_value' => $childShapeDefaults['field'] ?? NULL,
               '#ajax' => [
@@ -375,7 +375,7 @@ final class ViewsValue extends ComponentValuePluginBase implements ContainerFact
                   break;
 
                 default:
-                  $results[$delta][$shapeName] = $this->fieldMatcher->getEntityValue($entity, $field);
+                  $results[$delta][$shapeName] = $this->matcherField->getEntityValue($entity, $field);
                   if (!empty($settings['modifiers'])) {
                     $this->shape->setChildShapePlugins($shapeName, $settings['modifiers'] ?? []);
                   }
@@ -394,10 +394,10 @@ final class ViewsValue extends ComponentValuePluginBase implements ContainerFact
       }
       if (!empty($results) || empty($this->configuration['continue'])) {
         $value = $results;
+        // $this->shape->enforceOverrideValue();
         $this->stopFurtherProcessing();
       }
     }
-    // ksm($value);
     return $value;
   }
 

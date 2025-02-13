@@ -37,8 +37,12 @@ services:
     class: Drupal\neo_alchemist\ComponentFilterFactory
     arguments: ['@plugin.manager.neo_component_filter']
 
-  neo_alchemist.field_matcher:
-    class: Drupal\neo_alchemist\FieldMatcher
+  neo_alchemist.matcher_field:
+    class: Drupal\neo_alchemist\MatcherField
+    arguments: ['@entity_type.manager', '@entity_field.manager', '@entity_type.bundle.info']
+
+  neo_alchemist.matcher_reference:
+    class: Drupal\neo_alchemist\MatcherReference
     arguments: ['@entity_type.manager', '@entity_field.manager', '@entity_type.bundle.info']
 
   neo_alchemist.route_subscriber:

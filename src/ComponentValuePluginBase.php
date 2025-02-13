@@ -184,6 +184,13 @@ abstract class ComponentValuePluginBase extends PluginBase implements ComponentV
   /**
    * {@inheritdoc}
    */
+  public function modifyOverrideValue(mixed $value): mixed {
+    return $value;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
   public function modifyValue(mixed $value): mixed {
     return $value;
   }

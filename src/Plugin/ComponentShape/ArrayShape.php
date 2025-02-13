@@ -71,8 +71,6 @@ class ArrayShape extends ChildrenShapeBase implements ComponentShapeInterablePlu
       if (is_int($delta)) {
         $shapes = $this->getChildShapes((int) $delta);
         foreach ($shapes as $shapeName => $shape) {
-          // $itemValue = $value[$shapeName] ?? ($this->isSingleProp() ? $value : []);
-          // $shape->setFieldItemValue($itemValue);
           $keyedShapes[$delta][$shapeName] = $shape;
         }
       }
@@ -429,6 +427,12 @@ class ArrayShape extends ChildrenShapeBase implements ComponentShapeInterablePlu
       // Use the single prop shape field definition.
       return $singlePropShape->getFieldItem()->getFieldDefinition();
     }
+    // $definintions = [];
+    // foreach ($this->getChildShapes() as $shape) {
+    //   $definition = $shape->getFieldItem()->getFieldDefinition();
+    //   $definintions[$definition->getName()] = $definition;
+    // }
+    // return $definitions;
     return parent::getFieldDefinitionForSupportCheck();
   }
 

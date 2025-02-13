@@ -58,7 +58,11 @@ abstract class ComponentInstanceBase extends Component implements ComponentInsta
    * {@inheritDoc}
    */
   public function getTargetEntity(): ContentEntityInterface {
-    return $this->getFieldItem()->getEntity();
+    $entity = $this->getFieldItem()->getEntity();
+    if ($entity->isNew() && ($preview = $this->getTargetPreviewEntity())) {
+      return $preview;
+    }
+    return $entity;
   }
 
   /**

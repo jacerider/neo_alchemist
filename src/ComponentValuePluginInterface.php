@@ -72,6 +72,20 @@ interface ComponentValuePluginInterface extends ConfigurableInterface, PluginFor
   public function provideOverrideValue(mixed $value): mixed;
 
   /**
+   * Modifies the override value.
+   *
+   * This method takes a value of any type and returns the modified value.
+   * Calling prevent further processing does not impact this method.
+   *
+   * @param mixed $value
+   *   The value to be modified.
+   *
+   * @return mixed
+   *   The unmodified value.
+   */
+  public function modifyOverrideValue(mixed $value): mixed;
+
+  /**
    * Modifies the given value.
    *
    * This method takes a value of any type and returns the modified value.

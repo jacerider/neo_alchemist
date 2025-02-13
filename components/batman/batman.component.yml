@@ -11,6 +11,14 @@ props:
   # required:
   #   - color
   properties:
+    image:
+      title: 'Image'
+      type: image
+      examples:
+        - src: https://placehold.co/300x200.png
+          alt: 'Boring placeholder'
+          width: 300
+          height: 200
     # markup:
     #   type: markup
     #   title: Markup
@@ -123,14 +131,6 @@ props:
     #                   alt: 'Boring placeholder'
     #                   width: 300
     #                   height: 200
-    image:
-      title: 'Image'
-      type: image
-      examples:
-        - src: https://placehold.co/300x200.png
-          alt: 'Boring placeholder'
-          width: 300
-          height: 200
     # tmp:
     #   type: object
     #   title: Tmp

@@ -140,6 +140,7 @@ class ComponentSlot implements ComponentSlotInterface {
   public function addPlugin(string $plugin_id, $settings = []): ComponentSlotPluginInterface {
     $plugins = $this->getPlugins();
     $plugin = $this->manager->createInstance($plugin_id, [
+      'component' => $this->component,
       'uuid' => \Drupal::service('uuid')->generate(),
       'settings' => $settings,
     ]);

@@ -205,8 +205,7 @@ abstract class ChildrenShapeBase extends ComponentShapePluginBase implements Com
       if ($delta !== NULL) {
         $shape->setNestedDelta((int) $delta);
       }
-      // Set the override value. Only do this if the parent value is an
-      // override and the shape is not expanded.
+      // Set the override value.
       if ($this->useParentValues() && array_key_exists($shapeName, $value)) {
         $shape->setOverrideValue($value[$shapeName]);
       }

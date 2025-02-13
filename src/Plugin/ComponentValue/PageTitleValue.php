@@ -14,7 +14,7 @@ use Drupal\neo_alchemist\Attribute\ComponentValue;
 use Drupal\neo_alchemist\ComponentShapeChildrenPluginInterface;
 use Drupal\neo_alchemist\ComponentShapePluginInterface;
 use Drupal\neo_alchemist\ComponentValuePluginBase;
-use Drupal\neo_alchemist\FieldMatcher;
+use Drupal\neo_alchemist\MatcherField;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\HttpFoundation\Request;
 

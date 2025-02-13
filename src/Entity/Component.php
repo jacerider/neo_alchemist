@@ -405,6 +405,9 @@ class Component extends ConfigEntityBase implements ComponentInterface {
           ]);
         }
       }
+      else {
+        $entity = $entityTypeManager->getStorage($entityTypeId)->create();
+      }
     }
     if (!$entity) {
       $entity = $entityTypeManager->getStorage('node')->create([

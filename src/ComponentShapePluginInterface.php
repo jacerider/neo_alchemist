@@ -614,7 +614,7 @@ interface ComponentShapePluginInterface extends PluginInspectionInterface, Deriv
    * @return $this
    *   The current instance of the class for method chaining.
    */
-  public function setLocked(bool $locked = TRUE): self;
+  public function enforceLocked(bool $locked = TRUE): self;
 
   /**
    * Determines if the component shape is locked.
@@ -629,26 +629,6 @@ interface ComponentShapePluginInterface extends PluginInspectionInterface, Deriv
    *   TRUE if the component shape is locked, FALSE otherwise.
    */
   public function isLocked(): bool;
-
-  /**
-   * Force the widget form to be shown when empty.
-   *
-   * @param bool $empty
-   *   Whether to enforce showing the form when empty is TRUE.
-   *
-   * @return $this
-   */
-  public function enforceShowFormWhenEmpty(bool $empty = TRUE): self;
-
-  /**
-   * Force the widget form to be shown when default.
-   *
-   * @param bool $default
-   *   Whether to enforce showing the form when the default is TRUE.
-   *
-   * @return $this
-   */
-  public function enforceShowFormWhenDefault(bool $default = TRUE): self;
 
   /**
    * Get the component.

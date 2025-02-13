@@ -101,8 +101,10 @@ final class MediaValue extends ComponentValuePluginBase implements ContainerFact
     ]);
     $shape->setWidget('media_library_widget');
     $shape->getOptionDefault()->alwaysShowForm(TRUE, 'Media always allows default value.');
-    // $shape->enforceShowFormWhenEmpty(TRUE);
-    $shape->getOptionDefault()->setValue(TRUE, 'Default media to the default value.');
+    // ksm($shape->hasOverrideValue());
+    // if (!$shape->hasOverrideValue()) {
+    //   $shape->getOptionDefault()->setValue(TRUE, 'Default media to the default value when no override is provided.');
+    // }
   }
 
   /**
@@ -241,27 +243,17 @@ final class MediaValue extends ComponentValuePluginBase implements ContainerFact
   /**
    * {@inheritdoc}
    */
-  public function provideOverrideValue(mixed $value): mixed {
+  public function modifyOverrideValue(mixed $value): mixed {
     $shape = $this->shape;
-    if (!$shape instanceof ComponentShapeMediaPluginInterface) {
-      return $value;
-    }
-
-    $media = $shape->getFieldItem()->entity;
-    if ($media instanceof MediaInterface && $shape->getOptionDefault()->isDisabled()) {
-      if ($mediaValue = $shape->getValueFromMedia($media)) {
-        $shape->getOptionDefault()->setValue(FALSE, 'Show custom value as media found.');
-        $this->stopFurtherProcessing();
-        return $mediaValue;
+    if ($shape instanceof ComponentShapeMediaPluginInterface) {
+      $media = $shape->getFieldItem()->entity;
+      if ($media instanceof MediaInterface) {
+        if ($mediaValue = $shape->getValueFromMedia($media)) {
+          $shape->getOptionDefault()->setValue(FALSE, 'Show custom value as media found.');
+          $value = $mediaValue;
+        }
       }
     }
-    elseif (!$shape->isRequired()) {
-      if ($shape->getOptionDefault()->isDisabled()) {
-        $shape->getOptionEmpty()->setValue(TRUE, 'When option default is disabled, set media to empty.');
-        $this->stopFurtherProcessing();
-      }
-    }
-
     return $value;
   }
 

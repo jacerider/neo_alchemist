@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Drupal\neo_alchemist\Plugin\ComponentValue;
 
+use Drupal\Component\Utility\Html;
+use Drupal\Component\Utility\NestedArray;
 use Drupal\Core\DependencyInjection\DependencySerializationTrait;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Plugin\ContainerFactoryPluginInterface;
@@ -12,7 +14,7 @@ use Drupal\neo_alchemist\Attribute\ComponentValue;
 use Drupal\neo_alchemist\ComponentShapeChildrenPluginInterface;
 use Drupal\neo_alchemist\ComponentShapePluginInterface;
 use Drupal\neo_alchemist\ComponentValuePluginBase;
-use Drupal\neo_alchemist\FieldMatcher;
+use Drupal\neo_alchemist\MatcherField;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
@@ -43,9 +45,9 @@ final class EntityValue extends ComponentValuePluginBase implements ContainerFac
   /**
    * The field matcher.
    *
-   * @var \Drupal\neo_alchemist\FieldMatcher
+   * @var \Drupal\neo_alchemist\MatcherField
    */
-  protected FieldMatcher $fieldMatcher;
+  protected MatcherField $matcherField;
 
   /**
    * {@inheritdoc}
@@ -55,10 +57,10 @@ final class EntityValue extends ComponentValuePluginBase implements ContainerFac
     $plugin_definition,
     ComponentShapePluginInterface $shape,
     array $configuration,
-    FieldMatcher $field_matcher
+    MatcherField $matcher_field
   ) {
     parent::__construct($plugin_id, $plugin_definition, $shape, $configuration);
-    $this->fieldMatcher = $field_matcher;
+    $this->matcherField = $matcher_field;
   }
 
   /**
@@ -70,7 +72,7 @@ final class EntityValue extends ComponentValuePluginBase implements ContainerFac
       $plugin_definition,
       $configuration['shape'],
       $configuration['settings'],
-      $container->get('neo_alchemist.field_matcher')
+      $container->get('neo_alchemist.matcher_field')
     );
   }
 
@@ -80,6 +82,7 @@ final class EntityValue extends ComponentValuePluginBase implements ContainerFac
   public function defaultConfiguration() {
     return [
       'field' => '',
+      'field_properties' => [],
       'override' => FALSE,
       'override_empty' => FALSE,
     ];
@@ -89,15 +92,52 @@ final class EntityValue extends ComponentValuePluginBase implements ContainerFac
    * Configuration form for the value provider plugin.
    */
   protected function configurationForm(array $form, FormStateInterface $form_state, array &$complete_form): array {
+    $wrapperId = Html::getId(implode('-', $form['#parents']) . '-' . $this->getPluginId());
+    $form['#id'] = $wrapperId;
+
+    $field = $this->configuration['field'];
     $form['field'] = [
       '#type' => 'select',
       '#title' => $this->t('Field'),
       '#description' => $this->t('Select the field to use as the value.'),
-      '#options' => $this->fieldMatcher->getMatchesAsOptions($this->shape),
+      '#options' => $this->matcherField->getMatchesAsOptions($this->shape),
       '#empty_option' => $this->t('- Select -'),
-      '#default_value' => $this->configuration['field'],
+      '#default_value' => $field,
       '#required' => TRUE,
+      '#ajax' => [
+        'callback' => [static::class, 'refreshAjax'],
+        'wrapper' => $wrapperId,
+      ],
     ];
+
+    if ($field && $this->shape instanceof ComponentShapeChildrenPluginInterface) {
+      $fieldDefinition = $this->matcherField->getFieldDefinition($this->shape, $field);
+      $fieldProperties = $fieldDefinition->getFieldStorageDefinition()->getPropertyDefinitions();
+      if (count($fieldProperties)) {
+        $form['field_properties'] = [
+          '#type' => 'fieldset',
+          '#title' => $this->t('Field Properties'),
+        ];
+        foreach ($this->shape->getChildShapes() as $name => $childShape) {
+          $shapeProperties = $childShape->getFieldItem()->getFieldDefinition()->getFieldStorageDefinition()->getPropertyDefinitions();
+          $shapeProperty = reset($shapeProperties);
+          $options = array_map(function ($property) {
+            return $property->getLabel();
+          }, array_filter($fieldProperties, function ($property) use ($shapeProperty) {
+            return $property->getDataType() === $shapeProperty->getDataType();
+          }));
+          $form['field_properties'][$name] = [
+            '#type' => 'select',
+            '#title' => $childShape->getTitle(),
+            '#default_value' => $this->configuration['field_properties'][$name] ?? '',
+            '#options' => $options,
+            '#empty_option' => $this->t('- Select -'),
+            '#required' => $childShape->isRequired(),
+          ];
+        }
+      }
+    }
+
     $form['override'] = [
       '#type' => 'checkbox',
       '#title' => $this->t('Allow override when value is found'),
@@ -114,9 +154,18 @@ final class EntityValue extends ComponentValuePluginBase implements ContainerFac
   }
 
   /**
+   * Ajax callback.
+   */
+  public static function refreshAjax(array $form, FormStateInterface $form_state) {
+    $trigger = $form_state->getTriggeringElement();
+    return NestedArray::getValue($form, array_slice($trigger['#array_parents'], 0, -1));
+  }
+
+  /**
    * Form validation for the value provider plugin configuration.
    */
   protected function configurationValidate(array $form, FormStateInterface $form_state): void {
+    $form_state->setValue('field_properties', array_filter($form_state->getValue('field_properties', [])));
     $form_state->setValue('override', !empty($form_state->getValue('override')));
     $form_state->setValue('override_empty', !empty($form_state->getValue('override_empty')));
   }
@@ -128,8 +177,8 @@ final class EntityValue extends ComponentValuePluginBase implements ContainerFac
    */
   public function isAllowed(string $op): bool {
     if ($op === 'manage') {
-      $fieldMatcher = \Drupal::service('neo_alchemist.field_matcher');
-      return !empty($fieldMatcher->getMatchesAsOptions($this->shape));
+      $matcherField = \Drupal::service('neo_alchemist.matcher_field');
+      return !empty($matcherField->getMatchesAsOptions($this->shape));
     }
     return match($this->shape->getScope()) {
       'field' => match($op) {
@@ -148,7 +197,7 @@ final class EntityValue extends ComponentValuePluginBase implements ContainerFac
     $override = !empty($this->configuration['override']);
     $hasOverrideValue = !empty($this->shape->getOverrideValue());
 
-    $entityValue = $this->fieldMatcher->getEntityValue($this->shape->getEntity(), $this->configuration['field']);
+    $entityValue = $this->matcherField->getEntityValue($this->shape->getEntity(), $this->configuration['field'], $this->configuration['field_properties']);
     $hasValue = !empty($entityValue);
     $this->hasEntityValue = $hasValue;
 
@@ -220,7 +269,7 @@ final class EntityValue extends ComponentValuePluginBase implements ContainerFac
    * {@inheritdoc}
    */
   public function formAlter(array &$element, FormStateInterface $form_state) {
-    $fieldDefinition = $this->fieldMatcher->getFieldDefinition($this->shape, $this->configuration['field']);
+    $fieldDefinition = $this->matcherField->getFieldDefinition($this->shape, $this->configuration['field']);
     if (!$fieldDefinition || !isset($element['_options']['default'])) {
       return;
     }

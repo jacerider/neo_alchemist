@@ -109,10 +109,10 @@ final class ComponentManageForm extends EntityForm {
         '#target_type' => $this->entity->getTargetEntityTypeId(),
         '#default_value' => $this->entity->getTargetPreviewEntity(),
         '#selection_handler' => 'default',
-        '#selection_settings' => [
-          'target_bundles' => [$this->entity->getTargetEntityBundle()],
-        ],
       ];
+      if ($target_bundle = $this->entity->getTargetEntityBundle()) {
+        $form['entity_preview']['#selection_settings']['target_bundles'] = [$target_bundle];
+      }
     }
 
     $permissions = \Drupal::service('user.permissions')->getPermissions();

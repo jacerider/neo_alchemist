@@ -87,21 +87,14 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
    *
    * @var bool
    */
-  protected bool $locked = FALSE;
+  protected bool $locked;
 
   /**
-   * Whether the form should be shown even when the option empty is TRUE.
+   * Enforce as locked.
    *
    * @var bool
    */
-  public bool $enforceShowFormWhenEmpty = FALSE;
-
-  /**
-   * Whether the form should be shown even when the option default is TRUE.
-   *
-   * @var bool
-   */
-  public bool $enforceShowFormWhenDefault = FALSE;
+  protected bool $enforceLocked = FALSE;
 
   /**
    * Whether the shape is initialized.
@@ -226,6 +219,13 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
    * @var mixed
    */
   protected mixed $overrideValue = NULL;
+
+  /**
+   * Enforce override value.
+   *
+   * @var bool
+   */
+  protected bool $enforceOverrideValue = FALSE;
 
   /**
    * The parent shapes.
@@ -436,13 +436,20 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
     }
     // Set the value so providers can use it.
     $this->setFieldItemValue($value);
-    foreach ($this->getValueCollection()->getAllowedInstances('value') as $instance) {
+    $instances = $this->getValueCollection()->getAllowedInstances('value');
+    foreach ($instances as $instance) {
       $value = $instance->provideOverrideValue($value);
       $this->setFieldItemValue($value);
       if (!$instance->shouldContinueProcessing()) {
         break;
       }
     }
+    // Allow providers to modify the final override value.
+    foreach ($instances as $instance) {
+      $value = $instance->modifyOverrideValue($value);
+    }
+    $this->setFieldItemValue($value);
+
     $this->initialized = TRUE;
     return $this;
   }
@@ -1108,8 +1115,8 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
   /**
    * {@inheritDoc}
    */
-  public function setLocked(bool $locked = TRUE): self {
-    $this->locked = $locked;
+  public function enforceLocked(bool $locked = TRUE): self {
+    $this->enforceLocked = $locked;
     return $this;
   }
 
@@ -1117,32 +1124,21 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
    * {@inheritDoc}
    */
   public function isLocked(): bool {
-    $locked = $this->locked;
-    foreach ($this->getValueCollection()->getAllowedInstances('edit') as $instance) {
-      if (!$instance->isEditable()) {
-        $locked = TRUE;
+    if (!isset($this->locked)) {
+      if (!$this->isRoot()) {
+        return $this->getRootShape()->isLocked();
       }
-      if (!$instance->shouldContinueProcessing()) {
-        break;
+      $this->locked = $this->enforceLocked;
+      foreach ($this->getValueCollection()->getAllowedInstances('edit') as $instance) {
+        if (!$instance->isEditable()) {
+          $this->locked = TRUE;
+        }
+        if (!$instance->shouldContinueProcessing()) {
+          break;
+        }
       }
     }
-    return $locked;
-  }
-
-  /**
-   * {@inheritDoc}
-   */
-  public function enforceShowFormWhenEmpty(bool $empty = TRUE): self {
-    $this->enforceShowFormWhenEmpty = $empty;
-    return $this;
-  }
-
-  /**
-   * {@inheritDoc}
-   */
-  public function enforceShowFormWhenDefault(bool $default = TRUE): self {
-    $this->enforceShowFormWhenDefault = $default;
-    return $this;
+    return $this->locked;
   }
 
   /**
@@ -1489,7 +1485,16 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
    * {@inheritDoc}
    */
   public function hasOverrideValue(): bool {
-    return isset($this->overrideValue);
+    return $this->enforceOverrideValue ?? isset($this->overrideValue);
+  }
+
+  public function enforceOverrideValue(): self {
+    $this->enforceOverrideValue = TRUE;
+    return $this;
+  }
+
+  public function getEnforceOverrideValue(): bool {
+    return $this->enforceOverrideValue;
   }
 
   /**
@@ -2037,6 +2042,29 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
         // When both the shape and the field have only one property, we can
         // match them directly.
         return $this->supportsShapeFieldProperty(reset($shapeFieldProperties), reset($entityFieldProperties));
+      }
+    }
+    else {
+      if (isset($entityFieldProperties['type']) && isset($entityFieldProperties['value'])) {
+        $properties = [];
+        if ($this instanceof ComponentShapeChildrenPluginInterface) {
+          foreach ($this->getChildShapes() as $childShape) {
+            $properties[$childShape->getName()] = $childShape->getFieldItem()->getFieldDefinition()->getFieldStorageDefinition()->getPropertyDefinitions();
+          }
+        }
+        $needs = array_values(array_unique(array_map(fn ($v) => $v->getDataType(), $entityFieldProperties)));
+        $has = array_values(array_unique(array_map(fn ($v) => reset($v)->getDataType(), $properties)));
+        return !empty(array_intersect($needs, $has));
+        ksm($needs, $has, array_intersect($needs, $has));
+        // foreach ($entityFieldProperties as $name => $entityFieldProperty) {
+        //   ksm($name, $entityFieldProperty->getDataType());
+        // }
+        foreach ($properties as $name => $property) {
+          $property = reset($property);
+          ksm('shape', $name, $property->getDataType());
+        }
+        // $shapeFieldProperties = $this->getFieldDefinitionForSupportCheck();
+        ksm(array_keys($entityFieldProperties), $properties);
       }
     }
     return FALSE;
