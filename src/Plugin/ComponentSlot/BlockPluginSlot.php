@@ -128,7 +128,7 @@ final class BlockPluginSlot extends ComponentSlotPluginBase implements Container
 
     $form['block_plugin'] = [
       '#type' => 'select',
-      '#title' => $this->t('Block Plugin') . time(),
+      '#title' => $this->t('Block Plugin'),
       '#options' => $options,
       '#default_value' => $block_plugin,
       '#required' => TRUE,
