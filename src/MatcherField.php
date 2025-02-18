@@ -5,10 +5,6 @@ declare(strict_types=1);
 namespace Drupal\neo_alchemist;
 
 use Drupal\Core\Entity\ContentEntityInterface;
-use Drupal\Core\Entity\EntityFieldManagerInterface;
-use Drupal\Core\Entity\EntityInterface;
-use Drupal\Core\Entity\EntityTypeBundleInfoInterface;
-use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Entity\Plugin\DataType\EntityReference;
 use Drupal\Core\Entity\TypedData\EntityDataDefinition;
 use Drupal\Core\Entity\TypedData\EntityDataDefinitionInterface;
@@ -32,7 +28,7 @@ final class MatcherField extends MatcherBase {
    *
    * @var int
    */
-  protected $maxLevels = 1;
+  protected $maxLevels = 2;
 
   /**
    * Retrieves the field definition for a given key from the component shape.
