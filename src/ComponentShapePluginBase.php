@@ -2060,16 +2060,6 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
         $needs = array_values(array_unique(array_map(fn ($v) => $v->getDataType(), $entityFieldProperties)));
         $has = array_values(array_unique(array_map(fn ($v) => reset($v)->getDataType(), $properties)));
         return !empty(array_intersect($needs, $has));
-        ksm($needs, $has, array_intersect($needs, $has));
-        // foreach ($entityFieldProperties as $name => $entityFieldProperty) {
-        //   ksm($name, $entityFieldProperty->getDataType());
-        // }
-        foreach ($properties as $name => $property) {
-          $property = reset($property);
-          ksm('shape', $name, $property->getDataType());
-        }
-        // $shapeFieldProperties = $this->getFieldDefinitionForSupportCheck();
-        ksm(array_keys($entityFieldProperties), $properties);
       }
     }
     return FALSE;

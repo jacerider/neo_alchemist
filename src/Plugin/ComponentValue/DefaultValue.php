@@ -150,7 +150,6 @@ final class DefaultValue extends ComponentValuePluginBase implements ContainerFa
       'default' => $defaultShape->massageFormValues($values, $originalValues, $form, $form_state),
       'options' => $defaultShape->getNestedOptions(),
     ];
-    // ksm($defaultShape->getNestedOptions());
     $form_state->setValues(array_filter($values));
   }
 

@@ -101,10 +101,6 @@ final class MediaValue extends ComponentValuePluginBase implements ContainerFact
     ]);
     $shape->setWidget('media_library_widget');
     $shape->getOptionDefault()->alwaysShowForm(TRUE, 'Media always allows default value.');
-    // ksm($shape->hasOverrideValue());
-    // if (!$shape->hasOverrideValue()) {
-    //   $shape->getOptionDefault()->setValue(TRUE, 'Default media to the default value when no override is provided.');
-    // }
   }
 
   /**

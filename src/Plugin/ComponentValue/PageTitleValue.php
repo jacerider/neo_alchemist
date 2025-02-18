@@ -156,9 +156,6 @@ final class PageTitleValue extends ComponentValuePluginBase implements Container
   public function provideOverrideValue(mixed $value): mixed {
     $isDefault = $this->shape->getOptionDefault()->isEnabled();
     if ($isDefault) {
-      // $isPreview = $this->shape->getComponent()->isPreview();
-      // $value = $this->titleResolver->getTitle($this->request, $this->routeMatch->getRouteObject());
-      // ksm($value);
       $this->stopFurtherProcessing();
     }
     return $value;

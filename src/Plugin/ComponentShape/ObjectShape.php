@@ -113,7 +113,6 @@ class ObjectShape extends ChildrenShapeBase implements ComponentShapeExpandedPlu
       $form['#description'] = $this->getDescription();
       $form['#description_display'] = 'before';
       foreach ($shapes as $shape) {
-        ksm($shape->getNestedId(), $shape->isEditable());
         if (!$shape->isEditable()) {
           continue;
         }
