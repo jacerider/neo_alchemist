@@ -1,39 +1,39 @@
 (function(b, h) {
   let u = null;
-  const s = document.querySelector("#neo-alchemist--shade"), t = document.querySelector("#neo-alchemist--overlay"), p = t == null ? void 0 : t.querySelectorAll(".neo-alchemist--ops");
+  const s = document.querySelector("#neo-alchemist--shade"), e = document.querySelector("#neo-alchemist--overlay"), p = e == null ? void 0 : e.querySelectorAll(".neo-alchemist--ops");
   let n = null, a = !1, l = null;
-  function w(e, o) {
+  function w(t, o) {
     let i;
     return function(...c) {
       i && clearTimeout(i), i = setTimeout(() => {
-        e.apply(this, c);
+        t.apply(this, c);
       }, o);
     };
   }
-  if (document.addEventListener("keydown", (e) => {
-    e.key === "Escape" && d();
-  }), t) {
-    t.ondblclick = function(o) {
+  if (document.addEventListener("keydown", (t) => {
+    t.key === "Escape" && d();
+  }), e) {
+    e.ondblclick = function(o) {
       n && v("edit");
-    }, t.addEventListener("click", () => {
+    }, e.addEventListener("click", () => {
       n && L(n);
-    }), t.addEventListener("mouseleave", () => {
+    }), e.addEventListener("mouseleave", () => {
       a || d();
     });
-    const e = t.querySelector(".close");
-    e && e.addEventListener("click", (o) => {
+    const t = e.querySelector(".close");
+    t && t.addEventListener("click", (o) => {
       o.preventDefault(), d();
     });
   }
-  s && s.addEventListener("click", (e) => {
-    e.preventDefault(), d();
+  s && s.addEventListener("click", (t) => {
+    t.preventDefault(), d();
   });
-  const v = (e) => {
-    if (n && e) {
+  const v = (t) => {
+    if (n && t) {
       const o = JSON.parse(n.dataset.component || "{}");
-      if (o.ops[e]) {
+      if (o.ops[t]) {
         const i = JSON.stringify({
-          type: e,
+          type: t,
           uuid: o.uuid,
           scrollY: window.scrollY,
           scrollX: window.scrollX
@@ -42,28 +42,28 @@
       }
     }
   };
-  t && t.querySelectorAll(".op").forEach((o) => {
+  e && e.querySelectorAll(".op").forEach((o) => {
     o.addEventListener("click", (i) => {
       i.preventDefault();
       const c = o.dataset.op;
       c && v(c);
     });
   });
-  const y = (e) => {
-    n = e, f();
-  }, L = (e) => {
-    if (a = !0, n = e, l = JSON.parse(n.dataset.component || "{}"), t && l.uuid) {
+  const y = (t) => {
+    n = t, f();
+  }, L = (t) => {
+    if (a = !0, n = t, l = JSON.parse(n.dataset.component || "{}"), e && l.uuid) {
       n.scrollIntoView({
         behavior: "smooth",
         block: "center",
         inline: "nearest"
-      }), t.querySelectorAll(".op").forEach((c) => {
+      }), e.querySelectorAll(".op").forEach((c) => {
         c.style.display = "none";
       });
-      const i = t.querySelector(".title");
+      const i = e.querySelector(".title");
       i && (i.innerHTML = l.label, l.status !== !0 && (i.innerHTML += ' <span class="badge bg-alert-500 text-alert-content-500">Draft</span>')), l.ops && Object.keys(l.ops).forEach((c) => {
         if (l.ops[c]) {
-          const r = t.querySelector(`[data-op="${c}"]`);
+          const r = e.querySelector(`[data-op="${c}"]`);
           r && (r.style.display = "");
         }
       });
@@ -71,14 +71,14 @@
     f();
   }, d = () => {
     n && (a = !1, n = null, u = setTimeout(() => {
-      t && (t.classList.remove("is-active"), t.classList.remove("!transition-all")), s && (s.classList.remove("is-active"), s.classList.remove("!transition-all"));
+      e && (e.classList.remove("is-active"), e.classList.remove("!transition-all")), s && (s.classList.remove("is-active"), s.classList.remove("!transition-all"));
     }, 100));
   }, f = () => {
     if (n) {
       u && clearTimeout(u);
-      const e = n.getBoundingClientRect(), o = e.top + window.scrollY, i = e.bottom + window.scrollY, c = e.left + window.scrollX, m = e.right + window.scrollX;
-      t && (t.style.top = o + "px", t.style.left = c + "px", t.style.width = e.width + "px", t.style.height = e.height + "px", t.classList.add("is-active"), a ? t.classList.remove("cursor-pointer") : t.classList.add("cursor-pointer"), setTimeout(() => {
-        t.classList.add("!transition-all");
+      const t = n.getBoundingClientRect(), o = t.top + window.scrollY, i = t.bottom + window.scrollY, c = t.left + window.scrollX, m = t.right + window.scrollX;
+      e && (e.style.top = o + "px", e.style.left = c + "px", e.style.width = t.width + "px", e.style.height = t.height + "px", e.classList.add("is-active"), a ? e.classList.remove("cursor-pointer") : e.classList.add("cursor-pointer"), setTimeout(() => {
+        e.classList.add("!transition-all");
       })), a ? (p && p.forEach((r) => {
         r.classList.add("is-focus");
       }), s && (s.style.top = "0px", s.style.right = "0px", s.style.bottom = "0px", s.style.left = "0px", s.style.width = document.body.clientWidth + "px", s.style.height = document.body.clientHeight + "px", s.style.clipPath = `polygon(0% 0%, 0% 100%, ${c}px 100%, ${c}px ${o}px, ${m}px ${o}px, ${m}px ${i}px, ${c}px ${i}px, ${c}px 100%, 100% 100%, 100% 0%)`, s.classList.add("is-active"), setTimeout(() => {
@@ -98,17 +98,17 @@
   const g = w(x, 50);
   b.behaviors.neoAlchemistInstanceComponentPreview = {
     attach: function() {
-      window.parent && (h("neo.alchemist", ".page-wrapper").forEach((e) => {
+      window.parent && (h("neo.alchemist", ".page-wrapper").forEach((t) => {
         new ResizeObserver((i) => {
           g();
-        }).observe(e);
-      }), h("neo.alchemist", "[data-component]").forEach((e) => {
-        if (e.clientHeight === 0) {
-          const o = JSON.parse(e.dataset.component || "{}");
-          e.innerHTML = '<div class="text-center text-sm bg-base-200 p-4"><strong><em>' + o.label + "</em></strong> has no visible content.</div>";
+        }).observe(t);
+      }), h("neo.alchemist", "[data-component]").forEach((t) => {
+        if (t.style.display = "block", t.clientHeight === 0) {
+          const o = JSON.parse(t.dataset.component || "{}");
+          t.innerHTML = '<div class="text-center text-sm bg-base-200 p-4"><strong><em>' + o.label + "</em></strong> has no visible content.</div>";
         }
-        e.matches(":hover") && y(e), e.addEventListener("mouseenter", () => {
-          y(e);
+        t.style.display = "", t.matches(":hover") && y(t), t.addEventListener("mouseenter", () => {
+          y(t);
         });
       }));
     }
