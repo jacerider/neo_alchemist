@@ -326,7 +326,7 @@ function neo_alchemist_route_is_alchemist() {
   }
   if ($entity = $routeMatch->getParameter($entityTypeId)) {
     $bundle = $entity->bundle();
-    $viewModes = \Drupal::service('entity_display.repository')->getViewModeOptionsByBundle('node', $bundle);
+    $viewModes = \Drupal::service('entity_display.repository')->getViewModeOptionsByBundle($entityTypeId, $bundle);
     if (!$viewModes) {
       return;
     }

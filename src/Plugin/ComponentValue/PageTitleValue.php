@@ -142,6 +142,9 @@ final class PageTitleValue extends ComponentValuePluginBase implements Container
     }
     elseif ($route = $this->routeMatch->getRouteObject()) {
       $value = $this->titleResolver->getTitle($this->request, $route);
+      if (is_array($value) && isset($value['#markup']) && is_string($value['#markup'])) {
+        $value = $value['#markup'];
+      }
     }
     $this->stopFurtherProcessing();
     return $value;

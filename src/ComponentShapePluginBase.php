@@ -1106,7 +1106,7 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
    */
   public function isEditable(): bool {
     $editable = $this->editable;
-    if ($editable && $this->isLocked()) {
+    if ($this->isLocked()) {
       $editable = FALSE;
     }
     return $editable;
@@ -1125,9 +1125,6 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
    */
   public function isLocked(): bool {
     if (!isset($this->locked)) {
-      if (!$this->isRoot()) {
-        return $this->getRootShape()->isLocked();
-      }
       $this->locked = $this->enforceLocked;
       foreach ($this->getValueCollection()->getAllowedInstances('edit') as $instance) {
         if (!$instance->isEditable()) {
@@ -1135,6 +1132,14 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
         }
         if (!$instance->shouldContinueProcessing()) {
           break;
+        }
+      }
+      // If we are still not locked, check to see if root is locked.
+      if (!$this->locked) {
+        foreach ($this->getParentShapes() as $shape) {
+          if ($shape->isLocked()) {
+            $this->locked = TRUE;
+          }
         }
       }
     }
@@ -2143,7 +2148,7 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
    * {@inheritDoc}
    */
   public function isIterable(): bool {
-    return !$this->isScalar();
+    return $this->getType() === self::ARRAY;
   }
 
   /**

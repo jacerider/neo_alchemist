@@ -427,12 +427,6 @@ class ArrayShape extends ChildrenShapeBase implements ComponentShapeInterablePlu
       // Use the single prop shape field definition.
       return $singlePropShape->getFieldItem()->getFieldDefinition();
     }
-    // $definintions = [];
-    // foreach ($this->getChildShapes() as $shape) {
-    //   $definition = $shape->getFieldItem()->getFieldDefinition();
-    //   $definintions[$definition->getName()] = $definition;
-    // }
-    // return $definitions;
     return parent::getFieldDefinitionForSupportCheck();
   }
 

@@ -82,6 +82,7 @@ final class EntityValue extends ComponentValuePluginBase implements ContainerFac
   public function defaultConfiguration() {
     return [
       'field' => '',
+      'field_assign' => FALSE,
       'field_properties' => [],
       'override' => FALSE,
       'override_empty' => FALSE,
@@ -110,30 +111,46 @@ final class EntityValue extends ComponentValuePluginBase implements ContainerFac
       ],
     ];
 
-    if ($field && $this->shape instanceof ComponentShapeChildrenPluginInterface) {
+    if (
+      $field &&
+      $this->shape instanceof ComponentShapeChildrenPluginInterface
+    ) {
       $fieldDefinition = $this->matcherField->getFieldDefinition($this->shape, $field);
       $fieldProperties = $fieldDefinition->getFieldStorageDefinition()->getPropertyDefinitions();
       if (count($fieldProperties)) {
-        $form['field_properties'] = [
-          '#type' => 'fieldset',
-          '#title' => $this->t('Field Properties'),
+        $assign = $this->configuration['field_assign'];
+        $form['field_assign'] = [
+          '#type' => 'checkbox',
+          '#title' => $this->t('Manually assign properties'),
+          '#description' => $this->t('Will allow you to assign properties to the field values.'),
+          '#default_value' => $assign,
+          '#ajax' => [
+            'callback' => [static::class, 'refreshAjax'],
+            'wrapper' => $wrapperId,
+          ],
         ];
-        foreach ($this->shape->getChildShapes() as $name => $childShape) {
-          $shapeProperties = $childShape->getFieldItem()->getFieldDefinition()->getFieldStorageDefinition()->getPropertyDefinitions();
-          $shapeProperty = reset($shapeProperties);
-          $options = array_map(function ($property) {
-            return $property->getLabel();
-          }, array_filter($fieldProperties, function ($property) use ($shapeProperty) {
-            return $property->getDataType() === $shapeProperty->getDataType();
-          }));
-          $form['field_properties'][$name] = [
-            '#type' => 'select',
-            '#title' => $childShape->getTitle(),
-            '#default_value' => $this->configuration['field_properties'][$name] ?? '',
-            '#options' => $options,
-            '#empty_option' => $this->t('- Select -'),
-            '#required' => $childShape->isRequired(),
+        if ($assign) {
+          $form['field_properties'] = [
+            '#type' => 'fieldset',
+            '#title' => $this->t('Field Properties'),
           ];
+          foreach ($this->shape->getChildShapes() as $name => $childShape) {
+            $shapeProperties = $childShape->getFieldItem()->getFieldDefinition()->getFieldStorageDefinition()->getPropertyDefinitions();
+            $shapeProperty = reset($shapeProperties);
+            $options = array_map(function ($property) {
+              return $property->getLabel();
+            }, array_filter($fieldProperties, function ($property) use ($shapeProperty) {
+              return $property->getDataType() === $shapeProperty->getDataType();
+            }));
+            $form['field_properties'][$name] = [
+              '#type' => 'select',
+              '#title' => $childShape->getTitle(),
+              '#default_value' => $this->configuration['field_properties'][$name] ?? '',
+              '#options' => $options,
+              '#empty_option' => $this->t('- Select -'),
+              '#required' => $childShape->isRequired(),
+            ];
+          }
         }
       }
     }
@@ -165,7 +182,9 @@ final class EntityValue extends ComponentValuePluginBase implements ContainerFac
    * Form validation for the value provider plugin configuration.
    */
   protected function configurationValidate(array $form, FormStateInterface $form_state): void {
-    $form_state->setValue('field_properties', array_filter($form_state->getValue('field_properties', [])));
+    $assign = (int) $form_state->getValue('field_assign', FALSE);
+    $form_state->setValue('field_assign', $assign);
+    $form_state->setValue('field_properties', $assign ? array_filter($form_state->getValue('field_properties', [])) : []);
     $form_state->setValue('override', !empty($form_state->getValue('override')));
     $form_state->setValue('override_empty', !empty($form_state->getValue('override_empty')));
   }
@@ -197,7 +216,8 @@ final class EntityValue extends ComponentValuePluginBase implements ContainerFac
     $override = !empty($this->configuration['override']);
     $hasOverrideValue = !empty($this->shape->getOverrideValue());
 
-    $entityValue = $this->matcherField->getEntityValue($this->shape->getEntity(), $this->configuration['field'], $this->configuration['field_properties']);
+    $properties = $this->configuration['field_assign'] ? $this->configuration['field_properties'] : [];
+    $entityValue = $this->matcherField->getEntityValue($this->shape->getEntity(), $this->configuration['field'], $properties);
     $hasValue = !empty($entityValue);
     $this->hasEntityValue = $hasValue;
 
