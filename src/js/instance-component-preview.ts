@@ -234,10 +234,12 @@
         });
 
         once('neo.alchemist', '[data-component]').forEach(el => {
+          el.style.display = 'block';
           if (el.clientHeight === 0) {
             const data = JSON.parse(el.dataset.component || '{}');
             el.innerHTML = '<div class="text-center text-sm bg-base-200 p-4"><strong><em>' + data.label + '</em></strong> has no visible content.</div>';
           }
+          el.style.display = '';
           if (el.matches(':hover')) {
             componentHover(el);
           }
