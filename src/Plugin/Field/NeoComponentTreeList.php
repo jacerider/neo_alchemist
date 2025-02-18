@@ -52,7 +52,7 @@ class NeoComponentTreeList extends FieldItemList {
    */
   public function __construct(DataDefinitionInterface $definition, $name = NULL, ?TypedDataInterface $parent = NULL) {
     parent::__construct($definition, $name, $parent);
-    if (!$this->belongsToFieldConfig() && $this->getFieldDefinition()->hasComponentValues()) {
+    if ((!$this->getFieldDefinition()->allowCustom() || !$this->belongsToFieldConfig()) && $this->getFieldDefinition()->hasComponentValues()) {
       // When the field value is empty and we are acting on an actual entity,
       // we need to populate the field with the default component values.
       $this->appendItem($this->getFieldDefinition()->getComponentValues());
