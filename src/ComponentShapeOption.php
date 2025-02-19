@@ -148,6 +148,8 @@ class ComponentShapeOption {
    *
    * @param bool $value
    *   Whether to force the form to show.
+   * @param string|null $logMessage
+   *   (optional) The log message.
    *
    * @return self
    *   The current instance of the class for method chaining.
