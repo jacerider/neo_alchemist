@@ -6,6 +6,7 @@ use Drupal\Component\Serialization\Json;
 use Drupal\Core\Field\FieldItemList;
 use Drupal\Core\TypedData\DataDefinitionInterface;
 use Drupal\Core\TypedData\TypedDataInterface;
+use Drupal\neo_alchemist\ComponentFieldConfigInterface;
 use Drupal\neo_alchemist\Plugin\DataType\ComponentTreeStructure;
 
 /**
@@ -59,10 +60,13 @@ class NeoComponentTreeList extends FieldItemList {
    */
   public function __construct(DataDefinitionInterface $definition, $name = NULL, ?TypedDataInterface $parent = NULL) {
     parent::__construct($definition, $name, $parent);
-    if ((!$this->getFieldDefinition()->allowCustom() || !$this->belongsToFieldConfig()) && $this->getFieldDefinition()->hasComponentValues()) {
+    if (!$definition instanceof ComponentFieldConfigInterface) {
+      return;
+    }
+    if ((!$definition->allowCustom() || !$this->belongsToFieldConfig()) && $definition->hasComponentValues()) {
       // When the field value is empty and we are acting on an actual entity,
       // we need to populate the field with the default component values.
-      $this->appendItem($this->getFieldDefinition()->getComponentValues());
+      $this->appendItem($definition->getComponentValues());
     }
   }
 
@@ -106,9 +110,13 @@ class NeoComponentTreeList extends FieldItemList {
    * {@inheritDoc}
    */
   public function setValue($values, $notify = TRUE) {
+    $definition = $this->getFieldDefinition();
+    if (!$definition instanceof ComponentFieldConfigInterface) {
+      return;
+    }
     if (!$this->belongsToFieldConfig()) {
       $this->isDefault = FALSE;
-      if (!$this->getFieldDefinition()->allowCustom()) {
+      if (!$definition->allowCustom()) {
         // If custom is not allowed. Do not allow the field to be set. Note that
         // the defaults have already been loaded.
         return;
@@ -120,7 +128,7 @@ class NeoComponentTreeList extends FieldItemList {
   /**
    * Set scope as field config.
    *
-   * @return self
+   * @return $this
    */
   public function setAsFieldConfig(): self {
     $this->scope = 'config';
