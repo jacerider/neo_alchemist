@@ -1345,15 +1345,16 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
     if ($this->getOptionEmpty()->isEnabled()) {
       return [];
     }
-    if ($this->getScope() !== 'config' && $this->getOptionAccess()->isDisabled()) {
-      $value = $this->getDefaultFieldItemValue();
-    }
-    elseif ($this->getOptionDefault()->isEnabled()) {
-      $value = $this->getDefaultFieldItemValue();
-    }
-    else {
-      $value = $this->getFieldItemValue();
-    }
+    $value = match (TRUE) {
+      // If we are not in config scope and item has no access, use default
+      // values
+      $this->getScope() !== 'config' && $this->getOptionAccess()->isDisabled() => $this->getDefaultFieldItemValue(),
+      // If item is set as default, use default values if item is not config
+      // and is editable, otherwise use the field item value.
+      $this->getOptionDefault()->isEnabled() => $this->getScope() !== 'config' && !$this->isEditable() ? $this->getFieldItemValue() : $this->getDefaultFieldItemValue(),
+      // All other cases use the field item value.
+      default => $this->getFieldItemValue(),
+    };
     $value = $this->denormalizeValue($value);
     if (is_null($value)) {
       return [];
@@ -1447,9 +1448,7 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
       $component = $this->getComponent();
       if ($component instanceof ComponentEntityInterface) {
         if ($fieldComponent = $component->getFieldComponent()) {
-          if ($fieldComponent) {
-            $value = $fieldComponent->getPropShape($this->getName())->getValue();
-          }
+          $value = $fieldComponent->getPropShape($this->getName())->getValue();
         }
       }
     }
