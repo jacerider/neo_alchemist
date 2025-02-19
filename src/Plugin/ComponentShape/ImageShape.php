@@ -74,6 +74,9 @@ class ImageShape extends MediaShapeBase {
     }
     $source = $media->getSource();
     $fid = $source->getSourceFieldValue($media);
+    if (!$fid) {
+      return [];
+    }
     $file = $this->entityTypeManager->getStorage('file')->load($fid);
     if ($file instanceof FileInterface) {
       return [
