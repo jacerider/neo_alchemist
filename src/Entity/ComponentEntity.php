@@ -47,12 +47,12 @@ final class ComponentEntity extends ComponentInstanceBase implements ComponentEn
   public function getFieldComponent(): ?ComponentFieldInterface {
     if (!isset($this->fieldComponent)) {
       $this->fieldComponent = NULL;
-      $fieldItem = $this->getFieldDefinition()->getFieldItem();
+      $fieldItem = $this->getFieldDefinition()->getFieldItem($this->getTargetEntity());
       $uuid = $this->uuid();
       if ($fieldItem->hasComponent($uuid)) {
         // We load with $noCache to ensure we get the config version of this
         // component.
-        $this->fieldComponent = $this->getFieldDefinition()->getFieldItem()->getComponent($uuid, TRUE);
+        $this->fieldComponent = $fieldItem->getComponent($uuid, TRUE);
       }
     }
     return $this->fieldComponent;

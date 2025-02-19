@@ -334,11 +334,6 @@ class ComponentTreeItem extends FieldItemBase implements RenderableInterface {
   /**
    * Checks if the item belongs to a field config.
    *
-   * Currently, we just check if the associated content entity is new. If it is,
-   * we know it was dynamically created and is therefore not attached to a real
-   * entity. We therefore assume it belongs to a field config and should be
-   * treated as such.
-   *
    * @return bool
    *   TRUE if the item belongs to an actual entity, FALSE otherwise.
    */

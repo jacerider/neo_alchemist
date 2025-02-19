@@ -28,6 +28,13 @@ class NeoComponentTreeList extends FieldItemList {
   protected $isDefault = TRUE;
 
   /**
+   * The list scope.
+   *
+   * @var string
+   */
+  protected $scope = 'entity';
+
+  /**
    * {@inheritdoc}
    *
    * @return \Drupal\neo_alchemist\Entity\ComponentFieldConfig
@@ -111,18 +118,23 @@ class NeoComponentTreeList extends FieldItemList {
   }
 
   /**
-   * Checks if the item belongs to a field config.
+   * Set scope as field config.
    *
-   * Currently, we just check if the associated content entity is new. If it is,
-   * we know it was dynamically created and is therefore not attached to a real
-   * entity. We therefore assume it belongs to a field config and should be
-   * treated as such.
+   * @return self
+   */
+  public function setAsFieldConfig(): self {
+    $this->scope = 'config';
+    return $this;
+  }
+
+  /**
+   * Checks if the item belongs to a field config.
    *
    * @return bool
    *   TRUE if the item belongs to an actual entity, FALSE otherwise.
    */
   public function belongsToFieldConfig(): bool {
-    return $this->getEntity()->isNew();
+    return $this->scope === 'config';
   }
 
 }

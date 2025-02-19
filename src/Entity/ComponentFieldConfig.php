@@ -4,6 +4,8 @@ namespace Drupal\neo_alchemist\Entity;
 
 use Drupal\Component\Serialization\Json;
 use Drupal\Core\Access\AccessResult;
+use Drupal\Core\Entity\ContentEntityInterface;
+use Drupal\Core\Entity\EntityInterface;
 use Drupal\Core\Entity\EntityMalformedException;
 use Drupal\Core\Session\AccountInterface;
 use Drupal\Core\Url;
@@ -72,17 +74,21 @@ class ComponentFieldConfig extends FieldConfig implements ComponentFieldConfigIn
   /**
    * {@inheritdoc}
    */
-  public function getFieldItem(): ComponentTreeItem {
-    /** @var \Drupal\Core\Entity\ContentEntityInterface $entity */
-    $entityType = $this->entityTypeManager()->getDefinition($this->getTargetEntityTypeId());
-    $values = [];
-    if ($entityType->getKey('bundle')) {
-      $values[$entityType->getKey('bundle')] = $this->getTargetBundle();
+  public function getFieldItem(ContentEntityInterface $entity = NULL): ComponentTreeItem {
+    if (!$entity) {
+      $entityType = $this->entityTypeManager()->getDefinition($this->getTargetEntityTypeId());
+      $values = [];
+      if ($entityType->getKey('bundle')) {
+        $values[$entityType->getKey('bundle')] = $this->getTargetBundle();
+      }
+      /** @var \Drupal\Core\Entity\ContentEntityInterface $entity */
+      $entity = $this->entityTypeManager()->getStorage($this->getTargetEntityTypeId())->create($values);
     }
-    /** @var \Drupal\Core\Entity\ContentEntityInterface $entity */
-    $entity = $this->entityTypeManager()->getStorage($this->getTargetEntityTypeId())->create($values);
 
+    /** @var \Drupal\neo_alchemist\Plugin\Field\NeoComponentTreeList $list */
     $list = $entity->get($this->getName());
+    // Set scope as config.
+    $list->setAsFieldConfig();
     if ($list->isEmpty()) {
       $list->appendItem([]);
     }
