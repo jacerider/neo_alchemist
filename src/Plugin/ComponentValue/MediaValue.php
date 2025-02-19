@@ -244,10 +244,8 @@ final class MediaValue extends ComponentValuePluginBase implements ContainerFact
     if ($shape instanceof ComponentShapeMediaPluginInterface) {
       $media = $shape->getFieldItem()->entity;
       if ($media instanceof MediaInterface) {
-        if ($mediaValue = $shape->getValueFromMedia($media)) {
-          $shape->getOptionDefault()->setValue(FALSE, 'Show custom value as media found.');
-          $value = $mediaValue;
-        }
+        $shape->getOptionDefault()->setValue(FALSE, 'Show custom value as media found.');
+        $value = $shape->getValueFromMedia($media);
       }
     }
     return $value;
