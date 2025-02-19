@@ -8,9 +8,11 @@
 declare(strict_types=1);
 
 use Drupal\Core\Entity\ContentEntityTypeInterface;
+use Drupal\Core\Entity\Display\EntityViewDisplayInterface;
 use Drupal\Core\Entity\EntityInterface;
 use Drupal\Core\Entity\EntityTypeInterface;
 use Drupal\Core\Form\FormStateInterface;
+use Drupal\Core\Render\Element;
 use Drupal\Core\Url;
 use Drupal\field\FieldConfigInterface;
 use Drupal\field\FieldStorageConfigInterface;
@@ -34,6 +36,9 @@ function neo_alchemist_theme(): array {
     'field__neo_component_tree' => [
       'base hook' => 'field',
     ],
+    'neo_alchemist_entity' => [
+      'render element' => 'elements',
+    ],
     'neo_alchemist_manage' => [
       'variables' => [
         'id' => '',
@@ -56,6 +61,9 @@ function neo_alchemist_theme(): array {
   ];
 }
 
+/**
+ * Implements hook_preprocess_HOOK() for page__neo_alchemist_preview.
+ */
 function neo_alchemist_preprocess_page__neo_alchemist_preview(&$variables) {
   if (isset($variables['page']['status'])) {
     $variables['page']['status'] = [
@@ -303,6 +311,45 @@ function neo_alchemist_preprocess_region__content(&$variables) {
   $variables['alchemist'] = FALSE;
   if (neo_alchemist_route_is_alchemist()) {
     $variables['alchemist'] = TRUE;
+  }
+}
+
+/**
+ * Prepares variables for product templates.
+ *
+ * Default template: commerce-product.html.twig.
+ *
+ * @param array $variables
+ *   An associative array containing:
+ *   - elements: An associative array containing rendered fields.
+ *   - attributes: HTML attributes for the containing element.
+ */
+function template_preprocess_neo_alchemist_entity(array &$variables) {
+  foreach (Element::children($variables['elements']) as $key) {
+    // Only add alchemist fields.
+    if (!empty($variables['elements'][$key]['#field_type']) && $variables['elements'][$key]['#field_type'] === 'neo_component_tree') {
+      $variables['content'][$key] = $variables['elements'][$key];
+    }
+  }
+}
+
+/**
+ * Implements hook_entity_view_alter().
+ */
+function neo_alchemist_entity_view_alter(array &$build, EntityInterface $entity, EntityViewDisplayInterface $display) {
+  // We consider only fieldable fields.
+  $fieldableFields = array_filter($build, function ($key) {
+    return substr($key, 0, 6) === 'field_';
+  }, ARRAY_FILTER_USE_KEY);
+  // If we only have one fieldable field and it is a component tree field, we
+  // render the entity using the neo_alchemist_entity theme.
+  if (count($fieldableFields) === 1) {
+    $isAlchemistField = !empty(array_filter($fieldableFields, function ($field) {
+      return isset($field['#field_type']) && $field['#field_type'] === 'neo_component_tree';
+    }));
+    if ($isAlchemistField) {
+      $build['#theme'] = 'neo_alchemist_entity';
+    }
   }
 }
 
