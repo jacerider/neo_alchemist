@@ -123,6 +123,8 @@ final class ComponentPropForm extends EntityForm {
    */
   public function form(array $form, FormStateInterface $form_state): array {
     $form = parent::form($form, $form_state);
+    $wrapperId = Html::getId('alchemist-component-prop-form');
+    $form['#id'] = $wrapperId;
     $shape = $this->shape;
     $expanded = $shape->getExpanded();
     $isExpanded = !empty($shape->getExpanded());
@@ -168,6 +170,10 @@ final class ComponentPropForm extends EntityForm {
         '#description' => $this->t('These props contain nested properties. Expanding these properties will allow you to configure value providers and modifiers for each nested property.'),
         '#default_value' => $expanded,
         '#options' => $parentShapeOptions,
+        '#ajax' => [
+          'callback' => '::refreshFormAjax',
+          'wrapper' => $wrapperId,
+        ],
       ];
     }
 
@@ -341,6 +347,13 @@ final class ComponentPropForm extends EntityForm {
     if (!$form_state->getErrors()) {
       $this->entity->setPropShapeSettings($shape);
     }
+  }
+
+  /**
+   * Ajax callback.
+   */
+  public static function refreshFormAjax(array $form, FormStateInterface $form_state) {
+    return $form;
   }
 
   /**

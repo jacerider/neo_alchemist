@@ -199,17 +199,6 @@ abstract class ChildrenShapeBase extends ComponentShapePluginBase implements Com
     if ($this->getOptionEmpty()->isFormForced()) {
       $shape->getOptionEmpty()->alwaysShowForm(TRUE, 'Parent shape has empty form forced.');
     }
-    // if ($this->getScope() !== 'config') {
-    //   if ($this->getOptionDefault()->isEnabled()) {
-    //     $shape->getOptionDefault()->setLockedValue(TRUE, 'Parent shape is set as default, so set child shape as default.');
-    //   }
-    //   if ($this->getOptionEmpty()->isEnabled()) {
-    //     $shape->getOptionEmpty()->setLockedValue(TRUE, 'Parent shape is set as empty, so set child shape as empty.');
-    //   }
-    //   if ($this->getOptionAccess()->isDisabled()) {
-    //     $shape->getOptionAccess()->setLockedValue(FALSE, 'Parent shape is disabled.');
-    //   }
-    // }
     if ($this->getScope() === 'config') {
       $shape->getOptionAccess()->setAccess(TRUE, 'Scope is config.');
     }

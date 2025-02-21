@@ -97,12 +97,6 @@ final class DefaultValue extends ComponentValuePluginBase implements ContainerFa
         $valueCollection->setStatus($pluginId, $plugin->allowOnDefault());
       }
 
-      // if (!$this->shape->getOptionEmpty()->isAllowed()) {
-      //   $this->defaultShape->getOptionEmpty()->setAccess(FALSE, 'Default shape without child props cannot set empty values.');
-      // }
-      // if (!$this->defaultShape instanceof ComponentShapeChildrenPluginInterface) {
-      //   $this->defaultShape->getOptionDefault()->setAccess(FALSE, 'Default shape without child props cannot set default values.');
-      // }
       $this->defaultShape
         ->setOverrideValue($this->configuration['default'] ?? NULL)
         ->setExpanded($this->shape->getExpanded());
@@ -110,22 +104,9 @@ final class DefaultValue extends ComponentValuePluginBase implements ContainerFa
         $this->defaultShape->addParentShape($parentShape);
       }
       $this->defaultShape->setDefaultNestedOptions($this->configuration['options'] ?? []);
-      // $this->defaultShape->setDefaultOptions($this->configuration['options'] ?? []);
       $this->defaultShape->init();
       $this->defaultShape->getOptionDefault()->alwaysShowForm(TRUE, 'Always show form when default.');
       $this->defaultShape->getOptionEmpty()->alwaysShowForm(TRUE, 'Always show form when default.');
-      // if ($this->defaultShape instanceof ComponentShapeChildrenPluginInterface) {
-      //   foreach ($this->defaultShape->getAllShapes() as $childShape) {
-      //     if (!$this->defaultShape->isExpandable() && $this->defaultShape->getOptionDefault()->isEnabled()) {
-      //       // If parent shape is default and set as default, lock the children.
-      //       $childShape->enforceLocked(TRUE);
-      //     }
-      //     else {
-      //       $childShape->getOptionDefault()->alwaysShowForm(TRUE, 'Always show form when default.');
-      //       $childShape->getOptionEmpty()->alwaysShowForm(TRUE, 'Always show form when default.');
-      //     }
-      //   }
-      // }
     }
     return $this->defaultShape;
   }

@@ -663,7 +663,7 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
    * {@inheritDoc}
    */
   public function onPluginRemove($pluginId): void {
-    if ($this->allowPlugins()) {
+    if ($this->allowPlugins() && $this->getValueCollection()->has($pluginId)) {
       $this->getValueCollection()->get($pluginId)->onRemove();
     }
   }
@@ -1353,22 +1353,6 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
       return [];
     }
     $value = $this->getFieldItemValue();
-    // if (
-    //   ($this->getScope() !== 'config' && $this->isEditable() && $this->getOptionDefault()->isEnabled()) ||
-    //   ($this->getScope() !== 'config' && $this->getOptionAccess()->isDisabled())
-    // ) {
-    //   $value = $this->getDefaultFieldItemValue() + $value;
-    // }
-    // $value = match (TRUE) {
-    //   // If we are not in config scope and item has no access, use default
-    //   // values.
-    //   $this->getScope() !== 'config' && $this->getOptionAccess()->isDisabled() => $this->getDefaultFieldItemValue(),
-    //   // If item is set as default, use default values if item is not config
-    //   // and is editable, otherwise use the field item value.
-    //   $this->getOptionDefault()->isEnabled() => $this->getScope() !== 'config' && !$this->isEditable() ? $this->getFieldItemValue() : $this->getDefaultFieldItemValue(),
-    //   // All other cases use the field item value.
-    //   default => $this->getFieldItemValue(),
-    // };
     $value = $this->denormalizeValue($value);
     if (is_null($value)) {
       return [];
@@ -1386,9 +1370,6 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
         break;
       }
     }
-    // if (str_starts_with($this->id(), 'image')) {
-    //   ksm($this->id(), 'FINAL', $value, $this->getOverrideValue());
-    // }
     return $value;
   }
 
