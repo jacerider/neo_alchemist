@@ -21,7 +21,7 @@ abstract class ChildrenShapeBase extends ComponentShapePluginBase implements Com
   /**
    * The child schema.
    */
-  protected array $childSchema;
+  protected array $childSchema = [];
 
   /**
    * The child shapes.
@@ -77,10 +77,10 @@ abstract class ChildrenShapeBase extends ComponentShapePluginBase implements Com
    */
   protected function getChildSchema(int|null $delta = NULL): array {
     assert($this->isInitialized(), 'Shape must be initialized before calling getChildShapes().');
-    if (!isset($this->childSchema)) {
-      $this->childSchema = $this->loadChildSchema($delta);
+    if (!isset($this->childSchema[$delta]) || TRUE) {
+      $this->childSchema[$delta] = $this->loadChildSchema($delta);
     }
-    return $this->childSchema;
+    return $this->childSchema[$delta];
   }
 
   /**
