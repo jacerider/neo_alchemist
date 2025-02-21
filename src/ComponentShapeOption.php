@@ -10,11 +10,25 @@ namespace Drupal\neo_alchemist;
 class ComponentShapeOption {
 
   /**
+   * The default value of the component shape plugin option.
+   *
+   * @var bool
+   */
+  protected bool $defaultValue;
+
+  /**
    * The value of the component shape plugin option.
    *
    * @var bool
    */
   protected bool $value;
+
+  /**
+   * The default access of the component shape plugin option.
+   *
+   * @var bool
+   */
+  protected bool $defaultAccess;
 
   /**
    * Whether the option is accessed.
@@ -24,11 +38,11 @@ class ComponentShapeOption {
   protected bool $access;
 
   /**
-   * Flag indicating whether any forms connected to this option should show.
+   * The default locked value of the component shape plugin option.
    *
    * @var bool
    */
-  protected bool $formForceAccess = FALSE;
+  protected ?bool $defaultLockedValue;
 
   /**
    * Whether the option is locked.
@@ -36,6 +50,13 @@ class ComponentShapeOption {
    * @var bool|null
    */
   protected ?bool $lockedValue;
+
+  /**
+   * Flag indicating whether any forms connected to this option should show.
+   *
+   * @var bool
+   */
+  protected bool $formForceAccess = FALSE;
 
   /**
    * The log.
@@ -55,9 +76,9 @@ class ComponentShapeOption {
    *   (optional) The locked value. This value will override the base value.
    */
   public function __construct(bool $value, bool $access, ?bool $lockedValue = NULL) {
-    $this->value = $value;
-    $this->access = $access;
-    $this->lockedValue = $lockedValue;
+    $this->defaultValue = $value;
+    $this->defaultAccess = $access;
+    $this->defaultLockedValue = $lockedValue;
     $this->addLog('Initialized');
   }
 
@@ -68,9 +89,24 @@ class ComponentShapeOption {
    *   The log message.
    */
   protected function addLog(string $message): void {
-    $value = $this->value ? 'TRUE' : 'FALSE';
-    $access = $this->access ? 'TRUE' : 'FALSE';
-    $lockedValue = !isset($this->lockedValue) ? 'NOT LOCKED' : ($this->lockedValue ? 'LOCKED TRUE' : 'LOCKED FALSE');
+    if (isset($this->value)) {
+      $value = $this->value ? '1' : '0';
+    }
+    else {
+      $value = $this->defaultValue ? 'DEFAULT 1' : 'DEFAULT 0';
+    }
+    if (isset($this->access)) {
+      $access = $this->access ? '1' : '0';
+    }
+    else {
+      $access = $this->defaultAccess ? 'DEFAULT 1' : 'DEFAULT 0';
+    }
+    if (isset($this->lockedValue)) {
+      $lockedValue = $this->lockedValue ? 'LOCKED TRUE' : 'LOCKED FALSE';
+    }
+    else {
+      $lockedValue = $this->defaultLockedValue ? 'DEFAULT LOCKED TRUE' : 'DEFAULT LOCKED FALSE';
+    }
     $this->log[] = $message . ' - ' . sprintf('Value %s | Access %s | %s.', $value, $access, $lockedValue);
   }
 
@@ -169,10 +205,11 @@ class ComponentShapeOption {
    *   Will return TRUE if the option is enabled, FALSE otherwise.
    */
   public function isEnabled(): bool {
-    if (isset($this->lockedValue)) {
-      return $this->lockedValue;
+    $locked = $this->isLocked();
+    if (!is_null($locked)) {
+      return $locked;
     }
-    return $this->value;
+    return $this->value ?? $this->defaultValue;
   }
 
   /**
@@ -192,7 +229,7 @@ class ComponentShapeOption {
    *   The locked value if the option is locked, NULL otherwise.
    */
   public function isLocked(): ?bool {
-    return $this->lockedValue;
+    return $this->lockedValue ?? $this->defaultLockedValue ?? NULL;
   }
 
   /**
@@ -202,7 +239,7 @@ class ComponentShapeOption {
    *   TRUE if the component shape plugin option is allowed, FALSE otherwise.
    */
   public function isAllowed(): bool {
-    return $this->access;
+    return $this->access ?? $this->defaultAccess;
   }
 
   /**

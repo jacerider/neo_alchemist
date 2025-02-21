@@ -203,7 +203,7 @@ abstract class ChildrenShapeBase extends ComponentShapePluginBase implements Com
       $shape->addParentShape($this);
       // Add the delta.
       if ($delta !== NULL) {
-        $shape->setNestedDelta((int) $delta);
+        $shape->setDelta((int) $delta);
       }
       // Set the override value.
       if ($this->useParentValues() && array_key_exists($shapeName, $value)) {

@@ -113,7 +113,7 @@ final class ComponentPropForm extends EntityForm {
       return $this->shape->getPluginShapes(TRUE);
     }
     if ($this->shape->allowPlugins()) {
-      return [$this->shape->getNestedId() => $this->shape];
+      return [$this->shape->id() => $this->shape];
     }
     return [];
   }
@@ -198,7 +198,7 @@ final class ComponentPropForm extends EntityForm {
     $instances = $collection->getInstancesByGroup($groupId);
 
     if ($instances) {
-      $nestedId = $shape->getNestedId();
+      $nestedId = $shape->id();
       $key = $groupId . '_' . $nestedId;
       $wrapperId = Html::getId($key);
       $form[$key] = [
@@ -308,7 +308,7 @@ final class ComponentPropForm extends EntityForm {
     $shape->setRequired(!empty($form_state->getValue(['required'])));
 
     foreach ($pluginShapes as $pluginShape) {
-      $nestedId = $pluginShape->getNestedId();
+      $nestedId = $pluginShape->id();
       $collection = $pluginShape->getValueCollection();
       foreach ($collection->getInstances() as $instanceId => $instance) {
         $groupId = $instance->getGroup();

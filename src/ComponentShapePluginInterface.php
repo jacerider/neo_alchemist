@@ -36,6 +36,49 @@ interface ComponentShapePluginInterface extends PluginInspectionInterface, Deriv
   public function label(): string;
 
   /**
+   * Retrieves the nested ID by concatenating the elements of the parent path.
+   *
+   * Each parent ID is separated by a period (.).
+   *
+   * @return string
+   *   The concatenated parent ID.
+   */
+  public function id(): string;
+
+  /**
+   * Retrieves the path of parent component nested ids.
+   *
+   * This method iterates through the list of parent components and collects
+   * their nested ids into an array.
+   *
+   * @param bool $includeRoot
+   *   (optional) Whether to include the current component in the path. Defaults
+   *   to TRUE.
+   *
+   * @return array
+   *   An array of parent component nested ids.
+   */
+  public function ids($includeRoot = TRUE): array;
+
+  /**
+   * Get the nested delta of the shape.
+   *
+   * @return int|null
+   *   The nested delta.
+   */
+  public function getDelta(): ?int;
+
+  /**
+   * Set the nested delta of the shape.
+   *
+   * @param int $delta
+   *   The nested delta.
+   *
+   * @return $this
+   */
+  public function setDelta(int $delta): self;
+
+  /**
    * Returns the initial settings for the shape.
    *
    * @return array
@@ -355,31 +398,6 @@ interface ComponentShapePluginInterface extends PluginInspectionInterface, Deriv
   public function isNested(): bool;
 
   /**
-   * Retrieves the nested ID by concatenating the elements of the parent path.
-   *
-   * Each parent ID is separated by a period (.).
-   *
-   * @return string
-   *   The concatenated parent ID.
-   */
-  public function getNestedId(): string;
-
-  /**
-   * Retrieves the path of parent component nested ids.
-   *
-   * This method iterates through the list of parent components and collects
-   * their nested ids into an array.
-   *
-   * @param bool $includeRoot
-   *   (optional) Whether to include the current component in the path. Defaults
-   *   to TRUE.
-   *
-   * @return array
-   *   An array of parent component nested ids.
-   */
-  public function getNestedIds($includeRoot = TRUE): array;
-
-  /**
    * Retrieves the path of parent component names.
    *
    * This method iterates through the list of parent components and collects
@@ -409,24 +427,6 @@ interface ComponentShapePluginInterface extends PluginInspectionInterface, Deriv
    *   The concatenated title string of the current component and its parents.
    */
   public function getNestedTitle($includeRoot = TRUE): string;
-
-  /**
-   * Get the nested delta of the shape.
-   *
-   * @return int|null
-   *   The nested delta.
-   */
-  public function getNestedDelta(): ?int;
-
-  /**
-   * Set the nested delta of the shape.
-   *
-   * @param int $delta
-   *   The nested delta.
-   *
-   * @return $this
-   */
-  public function setNestedDelta(int $delta): self;
 
   /**
    * Adds a nested value provider to the component.
@@ -1005,7 +1005,7 @@ interface ComponentShapePluginInterface extends PluginInspectionInterface, Deriv
    * @param string $nestedId
    *   The identifier for the nested component shape.
    *
-   * @return self
+   * @return $this
    */
   public function setDefaultOptions(array $options, string $nestedId = NULL): self;
 

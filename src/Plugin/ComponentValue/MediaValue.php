@@ -121,7 +121,7 @@ final class MediaValue extends ComponentValuePluginBase implements ContainerFact
           $form['default'][$sourceId] = [
             '#type' => 'neo_config_file',
             '#title' => $mediaType->label(),
-            '#filename' => Html::getClass($shape->getComponent()->id() . '-' . $shape->getNestedId()),
+            '#filename' => Html::getClass($shape->getComponent()->id() . '-' . $shape->id()),
             '#extensions' => ['png'],
             '#dependencies' => [
               $component->getConfigDependencyKey() => [

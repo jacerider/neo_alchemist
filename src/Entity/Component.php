@@ -542,7 +542,7 @@ class Component extends ConfigEntityBase implements ComponentInterface {
           if (!$childShape->allowPlugins()) {
             continue;
           }
-          $nestedId = $childShape->getNestedId();
+          $nestedId = $childShape->id();
           $settings['plugins'][$nestedId][$instance->getPluginId()] = [
             'id' => $instance->getPluginId(),
             'settings' => $instanceSettings,

@@ -381,6 +381,45 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
   }
 
   /**
+   * {@inheritDoc}
+   */
+  public function id(): string {
+    $id = implode('~', $this->getNestedPath());
+    $delta = $this->getDelta();
+    if ($delta !== NULL) {
+      $id .= "~$delta";
+    }
+    return $id;
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  public function ids($includeRoot = TRUE): array {
+    $ids = array_map(fn($parent) => $parent->id(), $this->parents);
+    $ids[] = $this->id();
+    if (!$includeRoot) {
+      array_shift($ids);
+    }
+    return $ids;
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  public function getDelta(): ?int {
+    return $this->delta;
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  public function setDelta(int $delta): self {
+    $this->delta = $delta;
+    return $this;
+  }
+
+  /**
    * {@inheritdoc}
    */
   public function getSettings(): array {
@@ -466,7 +505,7 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
    */
   protected function initOptions(): self {
     $logMessage = 'Set by initOptions() in shape.';
-    if ($options = $this->getOptions($this->getNestedId())) {
+    if ($options = $this->getOptions($this->id())) {
       foreach (array_keys($this->options) as $optionType) {
         if (isset($options[$optionType])) {
           $option = $this->options[$optionType];
@@ -740,11 +779,11 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
   public function getParentShapes($includeSelf = FALSE): array {
     $shapes = [];
     foreach ($this->parents as $shape) {
-      $key = $shape->getNestedId();
+      $key = $shape->id();
       $shapes[$key] = $shape;
     }
     if ($includeSelf) {
-      $shapes[$this->getNestedId()] = $this;
+      $shapes[$this->id()] = $this;
     }
     return $shapes;
   }
@@ -758,7 +797,7 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
       $allow = $shape->isExpandable();
       if ($allow) {
         foreach ($expanded as $nestedId) {
-          if ($nestedId !== $shape->getNestedId() && strpos($nestedId, $shape->getNestedId() . '~') !== 0) {
+          if ($nestedId !== $shape->id() && strpos($nestedId, $shape->id() . '~') !== 0) {
             $allow = FALSE;
             break;
           }
@@ -793,7 +832,7 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
     }
     $shapes = $this->allChildShapes;
     if ($includeSelf) {
-      $shapes = array_merge([$this->getNestedId() => $this], $shapes);
+      $shapes = array_merge([$this->id() => $this], $shapes);
     }
     return $shapes;
   }
@@ -810,30 +849,6 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
    */
   public function isNested(): bool {
     return !$this->isRoot();
-  }
-
-  /**
-   * {@inheritDoc}
-   */
-  public function getNestedId(): string {
-    $id = implode('~', $this->getNestedPath());
-    $delta = $this->getNestedDelta();
-    if ($delta !== NULL) {
-      $id .= "~$delta";
-    }
-    return $id;
-  }
-
-  /**
-   * {@inheritDoc}
-   */
-  public function getNestedIds($includeRoot = TRUE): array {
-    $nestedIds = array_map(fn($parent) => $parent->getNestedId(), $this->parents);
-    $nestedIds[] = $this->getNestedId();
-    if (!$includeRoot) {
-      array_shift($nestedIds);
-    }
-    return $nestedIds;
   }
 
   /**
@@ -858,21 +873,6 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
       array_shift($titles);
     }
     return implode(': ', $titles);
-  }
-
-  /**
-   * {@inheritDoc}
-   */
-  public function getNestedDelta(): ?int {
-    return $this->delta;
-  }
-
-  /**
-   * {@inheritDoc}
-   */
-  public function setNestedDelta(int $delta): self {
-    $this->delta = $delta;
-    return $this;
   }
 
   /**
@@ -923,7 +923,7 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
       return $isRoot;
     }
     if ($isRoot) {
-      return !in_array($this->getNestedId(), $expanded);
+      return !in_array($this->id(), $expanded);
     }
     // If the shape is expanded, it does not allow plugins.
     if ($this->isExpanded() || $this->isExpandable()) {
@@ -965,8 +965,8 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
       foreach ($this->valueManager->getFilteredDefinitionsFromShape($this) as $pluginId => $definition) {
         $configurations[$pluginId] = [
           'id' => $pluginId,
-          'status' => !empty($plugins[$this->getNestedId()][$pluginId]),
-          'settings' => $plugins[$this->getNestedId()][$pluginId]['settings'] ?? [],
+          'status' => !empty($plugins[$this->id()][$pluginId]),
+          'settings' => $plugins[$this->id()][$pluginId]['settings'] ?? [],
         ];
       }
       $this->valueCollection = new ComponentShapePluginCollection($this, $this->valueManager, $configurations);
@@ -1045,7 +1045,7 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
         // return TRUE;
       }
     }
-    return $this->isExpandable() && in_array($this->getNestedId(), $this->getExpanded());
+    return $this->isExpandable() && in_array($this->id(), $this->getExpanded());
   }
 
   /**
@@ -1347,7 +1347,7 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
     }
     $value = match (TRUE) {
       // If we are not in config scope and item has no access, use default
-      // values
+      // values.
       $this->getScope() !== 'config' && $this->getOptionAccess()->isDisabled() => $this->getDefaultFieldItemValue(),
       // If item is set as default, use default values if item is not config
       // and is editable, otherwise use the field item value.
@@ -1788,7 +1788,7 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
    * Prepare form.
    */
   protected function prepForm(array &$form, FormStateInterface $form_state): void {
-    $nestedId = $this->getNestedId();
+    $nestedId = $this->id();
     // Restore previous set values when toggling ajax options.
     if ($form_state->get(['previous_value', $nestedId]) === NULL) {
       $form_state->set(['previous_value', $nestedId], $this->getFieldItemValue());
@@ -1928,7 +1928,7 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
    * {@inheritDoc}
    */
   public function setDefaultOptions(array $options, string $nestedId = NULL): self {
-    $nestedId = $nestedId ?? $this->getNestedId();
+    $nestedId = $nestedId ?? $this->id();
     match ($this->isRoot()) {
       TRUE => $this->defaultNestedOptions[$nestedId] = $options,
       FALSE => $this->getRootShape()->setDefaultOptions($options, $nestedId),
@@ -1951,7 +1951,7 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
    * {@inheritDoc}
    */
   public function setOptions(array $options, string $nestedId = NULL): self {
-    $nestedId = $nestedId ?? $this->getNestedId();
+    $nestedId = $nestedId ?? $this->id();
     match ($this->isRoot()) {
       TRUE => $this->nestedOptions[$nestedId] = $options,
       FALSE => $this->getRootShape()->setOptions($options, $nestedId),
@@ -1963,7 +1963,7 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
    * {@inheritDoc}
    */
   public function getOptions(string $nestedId = NULL): array {
-    $nestedId = $nestedId ?? $this->getNestedId();
+    $nestedId = $nestedId ?? $this->id();
     return $this->getNestedOptions()[$nestedId] ?? [];
   }
 
