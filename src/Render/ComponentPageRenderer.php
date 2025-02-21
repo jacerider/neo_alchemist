@@ -79,8 +79,6 @@ class ComponentPageRenderer extends BareHtmlPageRenderer {
       ] + $page_additions,
     ];
 
-    // kint($html['page'], $page_additions);
-    // die;
     $html['page']['status'] = ['#type' => 'status_messages'];
 
     // For backwards compatibility.

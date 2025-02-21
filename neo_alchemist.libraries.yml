@@ -27,6 +27,13 @@ component.preview:
     - core/once
     - core/drupal
 
+component.form:
+  version: VERSION
+  neo: { group: contrib }
+  css:
+    component:
+      src/css/component-form.scss: {}
+
 instance.component.preview:
   version: VERSION
   neo: { group: contrib }
@@ -38,9 +45,6 @@ instance.component.preview:
 instance.component.form:
   version: VERSION
   neo: { group: contrib }
-  css:
-    component:
-      src/css/instance-component-form.scss: {}
   js:
     src/js/instance-component-form.ts: {}
   dependencies:

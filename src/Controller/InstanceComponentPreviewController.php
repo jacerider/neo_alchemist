@@ -94,17 +94,19 @@ final class InstanceComponentPreviewController extends ControllerBase {
       $neo_field->updateComponent($uuid, $data);
     }
 
-    $componentsBuild = $neo_field->toRenderable();
-    if (isset($componentsBuild[ComponentTreeStructure::ROOT_UUID][$uuid])) {
-      $build[$uuid] = $componentsBuild[ComponentTreeStructure::ROOT_UUID][$uuid];
-    }
-    else {
-      // This is a new component.
-      $build['na'] = [
-        '#markup' => $this->t('Component could not be found.'),
-      ];
-    }
-    return $build;
+    $component = $neo_field->getComponent($uuid);
+    return $component->toRenderable();
+    // $componentsBuild = $neo_field->toRenderable();
+    // if (isset($componentsBuild[ComponentTreeStructure::ROOT_UUID][$uuid])) {
+    //   $build[$uuid] = $componentsBuild[ComponentTreeStructure::ROOT_UUID][$uuid];
+    // }
+    // else {
+    //   // This is a new component.
+    //   $build['na'] = [
+    //     '#markup' => $this->t('Component could not be found.'),
+    //   ];
+    // }
+    // return $build;
   }
 
   /**

@@ -10,8 +10,10 @@
   {% if a %}
     {{ a.b }}<br>
     {{ a.bb.c }}<br>
+    {{ a.bb.image.src }}<br>
     {{ a.bb.cc.d }}
   {% endif %}
+
   {% if image %}
     <div>
       {{ neo_image_style(image.src, {scaleCrop: {width: 300, height: 200}}, image.alt) }}

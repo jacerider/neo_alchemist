@@ -81,9 +81,18 @@ class ArrayShape extends ChildrenShapeBase implements ComponentShapeInterablePlu
   /**
    * {@inheritDoc}
    */
-  protected function getChildSchema(int|null $delta = 0): array {
+  protected function getChildSchemaProperties(): array {
     $schema = $this->getSchema();
-    $defaultValue = $this->getDefaultValue();
+    return $schema['items']['properties'] ?? [];
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  protected function loadChildSchema(int|null $delta = 0): array {
+    $schema = $this->getSchema();
+    $defaultValue = $this->getFieldItemValue();
+
     if (empty($schema['items'])) {
       return [];
     }
@@ -329,7 +338,7 @@ class ArrayShape extends ChildrenShapeBase implements ComponentShapeInterablePlu
   /**
    * {@inheritDoc}
    */
-  public function massageFormValues(array $values, array $original_values, array $form, FormStateInterface $form_state): array {
+  public function massageFormValues(array $values, array $original_values, array $form, FormStateInterface $form_state): ?array {
     foreach ($values as $delta => $value) {
       $shapes = $this->getChildShapes((int) $delta);
       foreach ($shapes as $shapeName => $shape) {

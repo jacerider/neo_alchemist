@@ -329,7 +329,7 @@ final class ViewsValue extends ComponentValuePluginBase implements ContainerFact
   /**
    * {@inheritdoc}
    */
-  public function provideOverrideValue(mixed $value): mixed {
+  public function provideOverrideValue(mixed $value, mixed $defaultValue): mixed {
     if (!$this->shape instanceof ComponentShapeChildrenPluginInterface) {
       return $value;
     }
@@ -371,7 +371,8 @@ final class ViewsValue extends ComponentValuePluginBase implements ContainerFact
             if ($field) {
               switch ($field) {
                 case '_default':
-                  $this->shape->defaultChildShape($shapeName);
+                  // Will fall back to the default value.
+                  $results[$delta][$shapeName] = NULL;
                   break;
 
                 default:
@@ -394,7 +395,6 @@ final class ViewsValue extends ComponentValuePluginBase implements ContainerFact
       }
       if (!empty($results) || empty($this->configuration['continue'])) {
         $value = $results;
-        // $this->shape->enforceOverrideValue();
         $this->stopFurtherProcessing();
       }
     }

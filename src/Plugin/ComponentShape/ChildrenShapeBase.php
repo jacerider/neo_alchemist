@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Drupal\neo_alchemist\Plugin\ComponentShape;
 
 use Drupal\neo_alchemist\ComponentShapeChildrenPluginInterface;
+use Drupal\neo_alchemist\ComponentShapeExpandedPluginInterface;
 use Drupal\neo_alchemist\ComponentShapePluginBase;
 use Drupal\neo_alchemist\ComponentShapePluginInterface;
 
@@ -16,6 +17,11 @@ use Drupal\neo_alchemist\ComponentShapePluginInterface;
 abstract class ChildrenShapeBase extends ComponentShapePluginBase implements ComponentShapeChildrenPluginInterface {
 
   use ShapeManagerDependentShapeTrait;
+
+  /**
+   * The child schema.
+   */
+  protected array $childSchema;
 
   /**
    * The child shapes.
@@ -46,6 +52,38 @@ abstract class ChildrenShapeBase extends ComponentShapePluginBase implements Com
   protected $childShapePlugins = [];
 
   /**
+   * Get the schema properties.
+   *
+   * Can be called before the child has been initialized.
+   *
+   * @return array
+   *   The schema properties.
+   */
+  abstract protected function getChildSchemaProperties(): array;
+
+  /**
+   * Retrieves the cached schema for the child component.
+   *
+   * This method returns the schema definition for the child component by
+   * calling the `getSchema` method.
+   *
+   * Can only be called after the child has been initialized.
+   *
+   * @param int|null $delta
+   *   The delta of the field item, if applicable.
+   *
+   * @return array
+   *   The schema definition array for the child component.
+   */
+  protected function getChildSchema(int|null $delta = NULL): array {
+    assert($this->isInitialized(), 'Shape must be initialized before calling getChildShapes().');
+    if (!isset($this->childSchema)) {
+      $this->childSchema = $this->loadChildSchema($delta);
+    }
+    return $this->childSchema;
+  }
+
+  /**
    * Retrieves the schema for the child component.
    *
    * This method returns the schema definition for the child component by
@@ -57,13 +95,12 @@ abstract class ChildrenShapeBase extends ComponentShapePluginBase implements Com
    * @return array
    *   The schema definition array for the child component.
    */
-  abstract protected function getChildSchema(int|null $delta = NULL): array;
+  abstract protected function loadChildSchema(int|null $delta = NULL): array;
 
   /**
    * {@inheritDoc}
    */
   public function getChildShapes(int|null $delta = NULL): array {
-    assert($this->isInitialized(), 'Shape must be initialized before calling getChildShapes().');
     $key = $delta ?? ($this->getType() === ComponentShapePluginInterface::ARRAY ? 0 : 'all');
     if (!isset($this->childShapes[$key])) {
       $this->childShapes[$key] = $this->loadChildShapes($delta);
@@ -99,7 +136,7 @@ abstract class ChildrenShapeBase extends ComponentShapePluginBase implements Com
    * {@inheritDoc}
    */
   public function getChildShapeNames(): array {
-    return array_keys($this->getChildSchema()['properties']);
+    return array_keys($this->getChildSchemaProperties());
   }
 
   /**
@@ -118,7 +155,11 @@ abstract class ChildrenShapeBase extends ComponentShapePluginBase implements Com
   protected function loadChildShapes(int|null $delta = NULL): array {
     $shapes = $this->getChildShapesFromSchema($this->getChildSchema($delta), $delta);
     $count = count($shapes);
-    array_walk($shapes, fn ($shape) => $this->initChildShape($shape, $count, $delta));
+    $value = $this->getOverrideValue();
+    if ($delta !== NULL) {
+      $value = $value[$delta] ?? [];
+    }
+    array_walk($shapes, fn ($shape) => $this->initChildShape($shape, $count, $delta, $value));
     return $shapes;
   }
 
@@ -134,8 +175,11 @@ abstract class ChildrenShapeBase extends ComponentShapePluginBase implements Com
    *   The number of child shapes.
    * @param int|null $delta
    *   The delta of the field item, if applicable.
+   * @param mixed $value
+   *   The override value of the parent shape.
    */
-  protected function initChildShape(ComponentShapePluginInterface $shape, int $count, int|null $delta = NULL) {
+  protected function initChildShape(ComponentShapePluginInterface $shape, int $count, int|null $delta = NULL, $value) {
+    $shapeName = $shape->getName();
     if (!empty($this->hideChildShapes[$shape->getName()])) {
       $shape->getOptionEmpty()->setLockedValue(TRUE, 'Shape is hidden by parent shape.');
     }
@@ -147,25 +191,41 @@ abstract class ChildrenShapeBase extends ComponentShapePluginBase implements Com
       $shape->getOptionEmpty()->setAccess(FALSE, 'Shape has a single prop, so setting as default is not allowed.');
     }
     elseif ($this->isSingleProp()) {
-      // $shape->getOptionDefault()->setAccess(FALSE, 'Shape has a single prop, so setting as default is not allowed.');
       $shape->getOptionEmpty()->setAccess(FALSE, 'Shape has a single prop, so setting as empty is not allowed.');
     }
-    if ($this->getOptionDefault()->isEnabled()) {
-      $shape->getOptionDefault()->setLockedValue(TRUE, 'Parent shape is set as default, so set child shape as default.');
+    if ($this->getOptionDefault()->isFormForced()) {
+      $shape->getOptionDefault()->alwaysShowForm(TRUE, 'Parent shape has default form forced.');
     }
-    if ($this->getOptionEmpty()->isEnabled()) {
-      $shape->getOptionEmpty()->setLockedValue(TRUE, 'Parent shape is set as empty, so set child shape as empty.');
+    if ($this->getOptionEmpty()->isFormForced()) {
+      $shape->getOptionEmpty()->alwaysShowForm(TRUE, 'Parent shape has empty form forced.');
     }
-    if ($this->getOptionAccess()->isDisabled()) {
-      $shape->getOptionAccess()->setLockedValue(FALSE, 'Parent shape is disabled.');
-    }
+    // if ($this->getScope() !== 'config') {
+    //   if ($this->getOptionDefault()->isEnabled()) {
+    //     $shape->getOptionDefault()->setLockedValue(TRUE, 'Parent shape is set as default, so set child shape as default.');
+    //   }
+    //   if ($this->getOptionEmpty()->isEnabled()) {
+    //     $shape->getOptionEmpty()->setLockedValue(TRUE, 'Parent shape is set as empty, so set child shape as empty.');
+    //   }
+    //   if ($this->getOptionAccess()->isDisabled()) {
+    //     $shape->getOptionAccess()->setLockedValue(FALSE, 'Parent shape is disabled.');
+    //   }
+    // }
     if ($this->getScope() === 'config') {
       $shape->getOptionAccess()->setAccess(TRUE, 'Scope is config.');
+    }
+    if ($this instanceof ComponentShapeExpandedPluginInterface && !$this->allowExpanded()) {
+      $shape->getOptionDefault()->setAccess(FALSE, 'Parent shape is not expandable.');
+      $shape->getOptionEmpty()->setAccess(FALSE, 'Parent shape is not expandable.');
+      $shape->getOptionAccess()->setAccess(FALSE, 'Parent shape is not expandable.');
     }
     if (!empty($this->childShapePlugins[$shape->getName()])) {
       foreach ($this->childShapePlugins[$shape->getName()] as $pluginId => $settings) {
         $shape->addPlugin($pluginId, $settings);
       }
+    }
+    // Set the override value.
+    if (isset($value[$shapeName])) {
+      $shape->setOverrideValue($value[$shapeName] ?? []);
     }
     $shape->init();
   }
@@ -189,12 +249,7 @@ abstract class ChildrenShapeBase extends ComponentShapePluginBase implements Com
    *   An array of child shapes generated from the schema.
    */
   protected function getChildShapesFromSchema(array $schema, $delta = NULL): array {
-    $value = $this->getFieldItemValue();
-    if ($delta !== NULL) {
-      $value = $value[$delta] ?? [];
-    }
-    $childShapes = array_map(function ($shape) use ($value, $delta) {
-      $shapeName = $shape->getName();
+    $childShapes = array_map(function ($shape) use ($delta) {
       // We add the parent shapes to the child shape.
       foreach ($this->getParentShapes() as $parentShape) {
         $shape->addParentShape($parentShape);
@@ -205,10 +260,6 @@ abstract class ChildrenShapeBase extends ComponentShapePluginBase implements Com
       if ($delta !== NULL) {
         $shape->setDelta((int) $delta);
       }
-      // Set the override value.
-      if ($this->useParentValues() && array_key_exists($shapeName, $value)) {
-        $shape->setOverrideValue($value[$shapeName]);
-      }
       return $shape;
     }, $this->shapeManager->getInstancesFromSchema($schema, $this->getComponent()));
     return $childShapes;
@@ -218,6 +269,8 @@ abstract class ChildrenShapeBase extends ComponentShapePluginBase implements Com
    * Check if parent values should be overlayed on top of child values.
    *
    * @return bool
+   *   TRUE if parent values should be overlayed on top of child values, FALSE
+   *   otherwise.
    */
   protected function useParentValues(): bool {
     if ($this->belongsToExpanded()) {

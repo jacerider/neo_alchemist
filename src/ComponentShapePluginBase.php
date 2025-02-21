@@ -221,11 +221,11 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
   protected mixed $overrideValue = NULL;
 
   /**
-   * Enforce override value.
+   * Flag indicating if shape has an override value.
    *
    * @var bool
    */
-  protected bool $enforceOverrideValue = FALSE;
+  protected bool $hasOverrideValue = FALSE;
 
   /**
    * The parent shapes.
@@ -468,26 +468,34 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
 
     // Create the field item.
     $this->fieldItem = $this->buildFieldItem($this->getFieldType(), $this->getFieldStorageSettings(), $this->getFieldInstanceSettings());
-    $value = $this->getDefaultValue();
+    $defaultValue = $this->getDefaultValue();
+    $this->setFieldItemValue($defaultValue);
+
+    $overrideValue = NULL;
     // Overlay the field/entity value.
-    if (isset($this->overrideValue)) {
-      $value = $this->overrideValue;
+    if (isset($this->overrideValue) && $this->getOptionDefault()->isDisabled()) {
+      $overrideValue = $this->overrideValue;
     }
     // Set the value so providers can use it.
-    $this->setFieldItemValue($value);
+    $this->setFieldItemValue($defaultValue);
     $instances = $this->getValueCollection()->getAllowedInstances('value');
     foreach ($instances as $instance) {
-      $value = $instance->provideOverrideValue($value);
-      $this->setFieldItemValue($value);
+      $overrideValue = $instance->provideOverrideValue($overrideValue, $defaultValue);
+      if ($overrideValue) {
+        $this->setFieldItemValue($overrideValue);
+      }
       if (!$instance->shouldContinueProcessing()) {
         break;
       }
     }
-    // Allow providers to modify the final override value.
-    foreach ($instances as $instance) {
-      $value = $instance->modifyOverrideValue($value);
+    if (!is_null($overrideValue)) {
+      // Allow providers to modify the final override value.
+      foreach ($instances as $instance) {
+        $overrideValue = $instance->alterValue($overrideValue, 'override');
+      }
+      $this->hasOverrideValue = TRUE;
+      $this->setFieldItemValue($overrideValue);
     }
-    $this->setFieldItemValue($value);
 
     $this->initialized = TRUE;
     return $this;
@@ -796,8 +804,8 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
     return array_filter($this->getAllShapes($includeSelf), function ($shape) use ($expanded) {
       $allow = $shape->isExpandable();
       if ($allow) {
-        foreach ($expanded as $nestedId) {
-          if ($nestedId !== $shape->id() && strpos($nestedId, $shape->id() . '~') !== 0) {
+        foreach ($expanded as $id) {
+          if ($id !== $shape->id() && strpos($id, $shape->id() . '~') !== 0) {
             $allow = FALSE;
             break;
           }
@@ -930,7 +938,7 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
       return FALSE;
     }
     $parentShapes = $this->getParentShapes();
-    foreach ($parentShapes as $nestedId => $shape) {
+    foreach ($parentShapes as $id => $shape) {
       // If shape belongs to a parent that support expansion but does not allow
       // it, we do not allow plugins.
       if ($shape->supportsExpansion() && !$shape->isExpandable()) {
@@ -940,8 +948,8 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
     // After we have searched parent shapes for expandable support, we now
     // can assume that any shape that has a parent in the expanded list is
     // expanded.
-    foreach ($parentShapes as $nestedId => $shape) {
-      if (in_array($nestedId, $expanded)) {
+    foreach ($parentShapes as $id => $shape) {
+      if (in_array($id, $expanded)) {
         return TRUE;
       }
     }
@@ -977,8 +985,8 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
   /**
    * {@inheritDoc}
    */
-  public function addNestedValueProvider($nestedId, string $providerId, array $settings): self {
-    $this->providersNested[$nestedId][$providerId] = $settings;
+  public function addNestedValueProvider($id, string $providerId, array $settings): self {
+    $this->providersNested[$id][$providerId] = $settings;
     return $this;
   }
 
@@ -992,8 +1000,8 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
   /**
    * {@inheritDoc}
    */
-  public function addNestedValueModifier($nestedId, string $modifierId, array $settings): self {
-    $this->modifiersNested[$nestedId][$modifierId] = $settings;
+  public function addNestedValueModifier($id, string $modifierId, array $settings): self {
+    $this->modifiersNested[$id][$modifierId] = $settings;
     return $this;
   }
 
@@ -1040,11 +1048,6 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
    * {@inheritDoc}
    */
   public function isExpanded(): bool {
-    foreach ($this->getParentShapes() as $shape) {
-      if ($shape->isExpanded()) {
-        // return TRUE;
-      }
-    }
     return $this->isExpandable() && in_array($this->id(), $this->getExpanded());
   }
 
@@ -1126,6 +1129,10 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
   public function isLocked(): bool {
     if (!isset($this->locked)) {
       $this->locked = $this->enforceLocked;
+      if ($this->locked) {
+        // If we are already locked, no reason to continue.
+        return TRUE;
+      }
       foreach ($this->getValueCollection()->getAllowedInstances('edit') as $instance) {
         if (!$instance->isEditable()) {
           $this->locked = TRUE;
@@ -1345,16 +1352,23 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
     if ($this->getOptionEmpty()->isEnabled()) {
       return [];
     }
-    $value = match (TRUE) {
-      // If we are not in config scope and item has no access, use default
-      // values.
-      $this->getScope() !== 'config' && $this->getOptionAccess()->isDisabled() => $this->getDefaultFieldItemValue(),
-      // If item is set as default, use default values if item is not config
-      // and is editable, otherwise use the field item value.
-      $this->getOptionDefault()->isEnabled() => $this->getScope() !== 'config' && !$this->isEditable() ? $this->getFieldItemValue() : $this->getDefaultFieldItemValue(),
-      // All other cases use the field item value.
-      default => $this->getFieldItemValue(),
-    };
+    $value = $this->getFieldItemValue();
+    // if (
+    //   ($this->getScope() !== 'config' && $this->isEditable() && $this->getOptionDefault()->isEnabled()) ||
+    //   ($this->getScope() !== 'config' && $this->getOptionAccess()->isDisabled())
+    // ) {
+    //   $value = $this->getDefaultFieldItemValue() + $value;
+    // }
+    // $value = match (TRUE) {
+    //   // If we are not in config scope and item has no access, use default
+    //   // values.
+    //   $this->getScope() !== 'config' && $this->getOptionAccess()->isDisabled() => $this->getDefaultFieldItemValue(),
+    //   // If item is set as default, use default values if item is not config
+    //   // and is editable, otherwise use the field item value.
+    //   $this->getOptionDefault()->isEnabled() => $this->getScope() !== 'config' && !$this->isEditable() ? $this->getFieldItemValue() : $this->getDefaultFieldItemValue(),
+    //   // All other cases use the field item value.
+    //   default => $this->getFieldItemValue(),
+    // };
     $value = $this->denormalizeValue($value);
     if (is_null($value)) {
       return [];
@@ -1372,6 +1386,9 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
         break;
       }
     }
+    // if (str_starts_with($this->id(), 'image')) {
+    //   ksm($this->id(), 'FINAL', $value, $this->getOverrideValue());
+    // }
     return $value;
   }
 
@@ -1410,16 +1427,24 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
    */
   public function getDefaultValue(): mixed {
     if (!isset($this->defaultValue)) {
-      $this->defaultValue = $this->getDefaultSchemaValue();
-      foreach ($this->getValueCollection()->getAllowedInstances('default') as $instance) {
-        $this->defaultValue = $instance->provideDefaultValue($this->defaultValue);
+      $value = $this->getDefaultSchemaValue();
+      $instances = $this->getValueCollection()->getAllowedInstances('default');
+      foreach ($instances as $instance) {
+        $value = $instance->provideDefaultValue($value);
         if (!$instance->shouldContinueProcessing()) {
           break;
         }
       }
-      if ($value = $this->getFieldDefaultValue()) {
-        $this->defaultValue = $value;
+      if ($fieldDefaultValue = $this->getFieldDefaultValue()) {
+        $value = $fieldDefaultValue;
       }
+      // Set the value so providers can use it.
+      $this->setFieldItemValue($value);
+      // Allow providers to modify the final default value.
+      foreach ($instances as $instance) {
+        $value = $instance->alterValue($value, 'default');
+      }
+      $this->defaultValue = $value;
     }
     return $this->defaultValue;
   }
@@ -1489,16 +1514,7 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
    * {@inheritDoc}
    */
   public function hasOverrideValue(): bool {
-    return $this->enforceOverrideValue ?? isset($this->overrideValue);
-  }
-
-  public function enforceOverrideValue(): self {
-    $this->enforceOverrideValue = TRUE;
-    return $this;
-  }
-
-  public function getEnforceOverrideValue(): bool {
-    return $this->enforceOverrideValue;
+    return $this->hasOverrideValue;
   }
 
   /**
@@ -1682,6 +1698,9 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
       return $form;
     }
 
+    $form['#attributes']['class'][] = 'neo-alchemist--component-form';
+    $form['#attached']['library'][] = 'neo_alchemist/component.form';
+
     $this->prepForm($form, $form_state);
 
     $parents = array_merge($form['#parents'], [$this->getName()]);
@@ -1788,33 +1807,40 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
    * Prepare form.
    */
   protected function prepForm(array &$form, FormStateInterface $form_state): void {
-    $nestedId = $this->id();
+    $id = $this->id();
     // Restore previous set values when toggling ajax options.
-    if ($form_state->get(['previous_value', $nestedId]) === NULL) {
-      $form_state->set(['previous_value', $nestedId], $this->getFieldItemValue());
+    if ($form_state->get(['previous_value', $id]) === NULL) {
+      $form_state->set(['previous_value', $id], $this->getFieldItemValue());
     }
     foreach ($this->options as $type => $option) {
       $previousKey = 'previous_' . $type;
       $status = $option->isEnabled();
-      if ($form_state->get([$previousKey, $nestedId]) === NULL) {
-        $form_state->set([$previousKey, $nestedId], $status);
+      if ($form_state->get([$previousKey, $id]) === NULL) {
+        $form_state->set([$previousKey, $id], $status);
       }
       $previousStatus = $form_state->get([
         $previousKey,
-        $nestedId,
+        $id,
       ]);
       if ($previousStatus && !$status) {
-        $this->setFieldItemValue($form_state->get(['previous_value', $nestedId]));
+        $this->setFieldItemValue($form_state->get(['previous_value', $id]));
       }
       if (!$previousStatus && $status) {
-        $valueParents = array_merge($form['#parents'], [$this->getName(), $this->getName()]);
+        $valueParents = array_merge($form['#parents'], [
+          $this->getName(),
+          $this->getName()
+        ]);
         array_shift($valueParents);
         $values = $form_state->getValue($valueParents) ?? [];
-        $form_state->set(['previous_value', $nestedId], $values);
+        $widget = $this->getWidget();
+        if ($widget) {
+          $values = $widget->massageFormValues($values, $form, $form_state)[0] ?? [];
+          $form_state->set(['previous_value', $id], $values);
+        }
       }
       $form_state->set([
         $previousKey,
-        $nestedId,
+        $id,
       ], $status);
     }
   }
@@ -1864,12 +1890,15 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
     $options = $form_state->getValue('_options') ?? [];
     if (isset($options['default'])) {
       $options['default'] = (int) $options['default'];
+      // $this->getOptionDefault()->setLockedValue((bool) $options['default'], 'Set in validateForm to later be used in massageFormValues.');
     }
     if (isset($values['empty'])) {
       $options['empty'] = (int) $options['empty'];
+      // $this->getOptionEmpty()->setLockedValue((bool) $options['empty'], 'Set in validateForm to later be used in massageFormValues.');
     }
     if (isset($values['access'])) {
       $options['access'] = (int) $options['access'];
+      // $this->getOptionAccess()->setLockedValue((bool) $options['access'], 'Set in validateForm to later be used in massageFormValues.');
     }
     $this->setOptions($options);
     // Remove options so that they are not processed or stored.
@@ -1882,7 +1911,7 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
   /**
    * {@inheritDoc}
    */
-  public function massageFormValues(array $values, array $original_values, array $form, FormStateInterface $form_state): array {
+  public function massageFormValues(array $values, array $original_values, array $form, FormStateInterface $form_state): ?array {
     if ($this->getOptionDefault()->isEnabled() && !$this->getOptionDefault()->isFormForced()) {
       // We marked as default, we continue to store the value so that it can
       // be restored by the user.
@@ -1899,6 +1928,10 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
       $fieldItem->preSave();
       $actualValues = $fieldItem->getValue();
       $storedValues = array_intersect_key($actualValues, $fieldItem->getProperties(FALSE));
+    }
+
+    foreach ($this->getValueCollection()->getAllowedInstances('form') as $instance) {
+      $instance->massageValuesAlter($storedValues, $original_values, $form, $form_state);
     }
     return $storedValues;
   }
@@ -1927,11 +1960,11 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
   /**
    * {@inheritDoc}
    */
-  public function setDefaultOptions(array $options, string $nestedId = NULL): self {
-    $nestedId = $nestedId ?? $this->id();
+  public function setDefaultOptions(array $options, string $id = NULL): self {
+    $id = $id ?? $this->id();
     match ($this->isRoot()) {
-      TRUE => $this->defaultNestedOptions[$nestedId] = $options,
-      FALSE => $this->getRootShape()->setDefaultOptions($options, $nestedId),
+      TRUE => $this->defaultNestedOptions[$id] = $options,
+      FALSE => $this->getRootShape()->setDefaultOptions($options, $id),
     };
     return $this;
   }
@@ -1950,11 +1983,11 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
   /**
    * {@inheritDoc}
    */
-  public function setOptions(array $options, string $nestedId = NULL): self {
-    $nestedId = $nestedId ?? $this->id();
+  public function setOptions(array $options, string $id = NULL): self {
+    $id = $id ?? $this->id();
     match ($this->isRoot()) {
-      TRUE => $this->nestedOptions[$nestedId] = $options,
-      FALSE => $this->getRootShape()->setOptions($options, $nestedId),
+      TRUE => $this->nestedOptions[$id] = $options,
+      FALSE => $this->getRootShape()->setOptions($options, $id),
     };
     return $this;
   }
@@ -1962,9 +1995,9 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
   /**
    * {@inheritDoc}
    */
-  public function getOptions(string $nestedId = NULL): array {
-    $nestedId = $nestedId ?? $this->id();
-    return $this->getNestedOptions()[$nestedId] ?? [];
+  public function getOptions(string $id = NULL): array {
+    $id = $id ?? $this->id();
+    return $this->getNestedOptions()[$id] ?? [];
   }
 
   /**

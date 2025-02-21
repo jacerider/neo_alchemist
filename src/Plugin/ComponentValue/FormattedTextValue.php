@@ -138,7 +138,7 @@ final class FormattedTextValue extends ComponentValuePluginBase implements Conta
   /**
    * {@inheritdoc}
    */
-  public function provideOverrideValue(mixed $value): mixed {
+  public function alterValue(mixed $value, string $type): mixed {
     if (is_array($value) && isset($value['format'])) {
       $value['format'] = $this->configuration['format'];
     }

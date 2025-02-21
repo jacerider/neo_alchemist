@@ -32,7 +32,7 @@ class NumberShape extends ComponentShapePluginBase {
   /**
    * {@inheritDoc}
    */
-  public function massageFormValues(array $values, array $original_values, array $form, FormStateInterface $form_state): array {
+  public function massageFormValues(array $values, array $original_values, array $form, FormStateInterface $form_state): ?array {
     $values = parent::massageFormValues($values, $original_values, $form, $form_state);
     if (isset($values['value'])) {
       $values['value'] = (int) $values['value'];

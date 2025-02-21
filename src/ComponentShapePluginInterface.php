@@ -431,7 +431,7 @@ interface ComponentShapePluginInterface extends PluginInspectionInterface, Deriv
   /**
    * Adds a nested value provider to the component.
    *
-   * @param string|int $nestedId
+   * @param string|int $id
    *   The ID of the nested element.
    * @param string $providerId
    *   The ID of the provider.
@@ -441,7 +441,7 @@ interface ComponentShapePluginInterface extends PluginInspectionInterface, Deriv
    * @return self
    *   Returns the instance of the class for method chaining.
    */
-  public function addNestedValueProvider($nestedId, string $providerId, array $settings): self;
+  public function addNestedValueProvider($id, string $providerId, array $settings): self;
 
   /**
    * Retrieves the nested value providers.
@@ -454,7 +454,7 @@ interface ComponentShapePluginInterface extends PluginInspectionInterface, Deriv
   /**
    * Adds a nested value provider to the component.
    *
-   * @param string|int $nestedId
+   * @param string|int $id
    *   The ID of the nested element.
    * @param string $providerId
    *   The ID of the provider.
@@ -464,7 +464,7 @@ interface ComponentShapePluginInterface extends PluginInspectionInterface, Deriv
    * @return self
    *   Returns the instance of the class for method chaining.
    */
-  public function addNestedValueModifier($nestedId, string $providerId, array $settings): self;
+  public function addNestedValueModifier($id, string $providerId, array $settings): self;
 
   /**
    * Set the array of child shape nested ids that are expaneded.
@@ -966,10 +966,10 @@ interface ComponentShapePluginInterface extends PluginInspectionInterface, Deriv
    * @param \Drupal\Core\Form\FormStateInterface $form_state
    *   The parent form state.
    *
-   * @return array
+   * @return array|null
    *   The massaged form values.
    */
-  public function massageFormValues(array $values, array $original_values, array $form, FormStateInterface $form_state): array;
+  public function massageFormValues(array $values, array $original_values, array $form, FormStateInterface $form_state): ?array;
 
   /**
    * Retrieves the 'empty' option from the component shape plugin options.
@@ -1002,12 +1002,12 @@ interface ComponentShapePluginInterface extends PluginInspectionInterface, Deriv
    *
    * @param array $options
    *   An associative array of options to set for the nested component shape.
-   * @param string $nestedId
+   * @param string $id
    *   The identifier for the nested component shape.
    *
    * @return $this
    */
-  public function setDefaultOptions(array $options, string $nestedId = NULL): self;
+  public function setDefaultOptions(array $options, string $id = NULL): self;
 
   /**
    * Sets default nested options for the component shape.
@@ -1037,13 +1037,13 @@ interface ComponentShapePluginInterface extends PluginInspectionInterface, Deriv
    *
    * @param array $options
    *   An associative array of options to set for the nested component shape.
-   * @param string $nestedId
+   * @param string $id
    *   The identifier for the nested component shape.
    *
    * @return self
    *   Returns the current instance for method chaining.
    */
-  public function setOptions(array $options, string $nestedId = NULL): self;
+  public function setOptions(array $options, string $id = NULL): self;
 
   /**
    * Retrieves the options for a given nested ID.
@@ -1053,13 +1053,13 @@ interface ComponentShapePluginInterface extends PluginInspectionInterface, Deriv
    * nestedOptions array. Otherwise, it delegates the retrieval of options to
    * the root parent shape.
    *
-   * @param string $nestedId
+   * @param string $id
    *   The identifier for the nested component shape.
    *
    * @return array
    *   An associative array of options for the nested component shape.
    */
-  public function getOptions(string $nestedId = NULL): array;
+  public function getOptions(string $id = NULL): array;
 
   /**
    * Sets nested options for the component shape.

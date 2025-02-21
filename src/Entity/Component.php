@@ -542,8 +542,8 @@ class Component extends ConfigEntityBase implements ComponentInterface {
           if (!$childShape->allowPlugins()) {
             continue;
           }
-          $nestedId = $childShape->id();
-          $settings['plugins'][$nestedId][$instance->getPluginId()] = [
+          $id = $childShape->id();
+          $settings['plugins'][$id][$instance->getPluginId()] = [
             'id' => $instance->getPluginId(),
             'settings' => $instanceSettings,
           ];
@@ -661,7 +661,7 @@ class Component extends ConfigEntityBase implements ComponentInterface {
       $rootShapes = $this->getPropShapes();
       foreach ($rootShapes as $shape) {
         $shape->onAdd();
-        foreach ($shape->getPlugins() as $nestedId => $plugins) {
+        foreach ($shape->getPlugins() as $id => $plugins) {
           foreach ($plugins as $pluginType => $plugin) {
             $shape->onPluginAdd($pluginType);
           }
@@ -690,12 +690,12 @@ class Component extends ConfigEntityBase implements ComponentInterface {
         // We add the shape ref to the key so we can find instances where the
         // prop name is the same but the shape is different.
         $currentShapesWithRef = [];
-        foreach ($currentShapes as $nestedId => $shape) {
-          $currentShapesWithRef[$nestedId . ':' . $shape->getRef()] = $shape;
+        foreach ($currentShapes as $id => $shape) {
+          $currentShapesWithRef[$id . ':' . $shape->getRef()] = $shape;
         }
         $newShapesWithRef = [];
-        foreach ($newShapes as $nestedId => $shape) {
-          $newShapesWithRef[$nestedId . ':' . $shape->getRef()] = $shape;
+        foreach ($newShapes as $id => $shape) {
+          $newShapesWithRef[$id . ':' . $shape->getRef()] = $shape;
         }
 
         $addedShapes = array_diff_key($newShapesWithRef, $currentShapesWithRef);
@@ -720,26 +720,26 @@ class Component extends ConfigEntityBase implements ComponentInterface {
       }
 
       // Find all prop plugins changes and fire off add/remove events.
-      foreach ($currentRootShapes + $newRootShapes as $nestedId => $shape) {
+      foreach ($currentRootShapes + $newRootShapes as $id => $shape) {
         $currentPlugins = [];
-        if (isset($currentRootShapes[$nestedId])) {
-          $currentPlugins = $currentRootShapes[$nestedId]->getPlugins();
+        if (isset($currentRootShapes[$id])) {
+          $currentPlugins = $currentRootShapes[$id]->getPlugins();
         }
         $newPlugins = [];
-        if (isset($newRootShapes[$nestedId])) {
-          $newPlugins = $newRootShapes[$nestedId]->getPlugins();
+        if (isset($newRootShapes[$id])) {
+          $newPlugins = $newRootShapes[$id]->getPlugins();
         }
-        foreach ($currentPlugins as $nestedId => $plugins) {
+        foreach ($currentPlugins as $id => $plugins) {
           foreach ($plugins as $pluginType => $plugin) {
-            if (!isset($newPlugins[$nestedId][$pluginType])) {
-              $currentShapes[$nestedId]->onPluginRemove($pluginType);
+            if (!isset($newPlugins[$id][$pluginType])) {
+              $currentShapes[$id]->onPluginRemove($pluginType);
             }
           }
         }
-        foreach ($newPlugins as $nestedId => $plugins) {
+        foreach ($newPlugins as $id => $plugins) {
           foreach ($plugins as $pluginType => $plugin) {
-            if (!isset($currentPlugins[$nestedId][$pluginType])) {
-              $newShapes[$nestedId]->onPluginAdd($pluginType);
+            if (!isset($currentPlugins[$id][$pluginType])) {
+              $newShapes[$id]->onPluginAdd($pluginType);
             }
           }
         }
@@ -757,7 +757,7 @@ class Component extends ConfigEntityBase implements ComponentInterface {
     foreach ($entities as $entity) {
       foreach ($entity->getPropShapes() as $shape) {
         $shape->onRemove();
-        foreach ($shape->getPlugins() as $nestedId => $plugins) {
+        foreach ($shape->getPlugins() as $id => $plugins) {
           foreach ($plugins as $pluginType => $plugin) {
             $shape->onPluginRemove($pluginType);
           }

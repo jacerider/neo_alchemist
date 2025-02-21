@@ -287,12 +287,13 @@ final class InstanceComponentForm extends ContentEntityForm {
         $value = $subform_state->getValues();
         $shape->validateForm($form['values'][$propName], $subform_state, $value);
         $values['props'][$propName]['shape'] = $shape->getPluginId();
-        if (is_array($value) && !empty($value)) {
-          $values['props'][$propName]['value'] = $shape->massageFormValues($value, $originalValue, $form['values'][$propName], $subform_state);
-        }
-        else {
-          $values['props'][$propName]['value'] = $originalValue;
-        }
+        $values['props'][$propName]['value'] = $shape->massageFormValues($value, $originalValue, $form['values'][$propName], $subform_state) + $originalValue;
+        // if (is_array($value) && !empty($value)) {
+        //   $values['props'][$propName]['value'] = $shape->massageFormValues($value, $originalValue, $form['values'][$propName], $subform_state);
+        // }
+        // else {
+        //   $values['props'][$propName]['value'] = $originalValue;
+        // }
         $values['props'][$propName]['options'] = $shape->getNestedOptions();
       }
     }

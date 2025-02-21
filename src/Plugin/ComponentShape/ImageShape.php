@@ -67,11 +67,6 @@ class ImageShape extends MediaShapeBase {
    * {@inheritDoc}
    */
   public function getValueFromMedia(MediaInterface $media): array {
-    // If media is set to default and is editable, return an empty array so
-    // that the default value is used.
-    if ($this->getOptionDefault()->isEnabled() && $this->isEditable()) {
-      return [];
-    }
     $source = $media->getSource();
     $fid = $source->getSourceFieldValue($media);
     if (!$fid) {

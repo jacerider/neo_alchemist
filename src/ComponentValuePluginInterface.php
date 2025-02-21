@@ -43,6 +43,21 @@ interface ComponentValuePluginInterface extends ConfigurableInterface, PluginFor
   public function onRemove(): void;
 
   /**
+   * Massages the form value using the plugin if available.
+   *
+   * @param array $values
+   *   The form values to be massaged.
+   * @param array $form
+   *   The form array.
+   * @param \Drupal\Core\Form\FormStateInterface $form_state
+   *   The current state of the form.
+   *
+   * @return string|null
+   *   The massaged form values.
+   */
+  public function massageFormValue(array $values, array $form, FormStateInterface $form_state): array;
+
+  /**
    * Called when the shape is initialized.
    *
    * Can be used to change the shapes type or other properties.
@@ -64,26 +79,32 @@ interface ComponentValuePluginInterface extends ConfigurableInterface, PluginFor
    * Provide an override value for the component.
    *
    * @param mixed $value
-   *   The value to provide an override for.
+   *   The value to provide an override for. May be NULL if no override value
+   *   has yet been set.
+   * @param mixed $defaultValue
+   *   The default value.
    *
    * @return mixed
    *   The override value.
    */
-  public function provideOverrideValue(mixed $value): mixed;
+  public function provideOverrideValue(mixed $value, mixed $defaultValue): mixed;
 
   /**
-   * Modifies the override value.
+   * Modifies the default/override value.
    *
-   * This method takes a value of any type and returns the modified value.
-   * Calling prevent further processing does not impact this method.
+   * This method is called twice. After the default values are built and then
+   * after the override values are built. This allows the plugin to modify the
+   * values before they are used.
    *
    * @param mixed $value
    *   The value to be modified.
+   * @param string $type
+   *   Either 'default' or 'override'.
    *
    * @return mixed
    *   The unmodified value.
    */
-  public function modifyOverrideValue(mixed $value): mixed;
+  public function alterValue(mixed $value, string $type): mixed;
 
   /**
    * Modifies the given value.
@@ -107,6 +128,20 @@ interface ComponentValuePluginInterface extends ConfigurableInterface, PluginFor
    *   The form state.
    */
   public function formAlter(array &$element, FormStateInterface $form_state);
+
+  /**
+   * Massage the form values.
+   *
+   * @param array $values
+   *   The form values.
+   * @param array $original_values
+   *   The original values.
+   * @param array $form
+   *   The parent form.
+   * @param \Drupal\Core\Form\FormStateInterface $form_state
+   *   The parent form state.
+   */
+  public function massageValuesAlter(array &$values, array $original_values, array $form, FormStateInterface $form_state): void;
 
   /**
    * Allow the processing by setting the continue flag to FALSE.

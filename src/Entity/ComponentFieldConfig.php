@@ -87,6 +87,10 @@ class ComponentFieldConfig extends FieldConfig implements ComponentFieldConfigIn
 
     /** @var \Drupal\neo_alchemist\Plugin\Field\NeoComponentTreeList $list */
     $list = $entity->get($this->getName());
+    // We clone it so that it does not affect the actual entity field.
+    if (!$entity->isNew()) {
+      $list = clone $list;
+    }
     // Set scope as config.
     $list->setAsFieldConfig();
     if ($list->isEmpty()) {

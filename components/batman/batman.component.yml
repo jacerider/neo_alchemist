@@ -116,6 +116,14 @@ props:
             c:
               type: string
               title: C
+            image:
+              title: 'Image'
+              type: image
+              examples:
+                - src: https://placehold.co/300x200.png
+                  alt: 'Boring placeholder'
+                  width: 300
+                  height: 200
             # cc:
             #   type: object
             #   title: CC

@@ -153,7 +153,7 @@ final class PageTitleValue extends ComponentValuePluginBase implements Container
   /**
    * {@inheritdoc}
    */
-  public function provideOverrideValue(mixed $value): mixed {
+  public function provideOverrideValue(mixed $value, mixed $defaultValue): mixed {
     $isDefault = $this->shape->getOptionDefault()->isEnabled();
     if ($isDefault) {
       $this->stopFurtherProcessing();

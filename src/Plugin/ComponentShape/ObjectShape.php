@@ -51,9 +51,18 @@ class ObjectShape extends ChildrenShapeBase implements ComponentShapeExpandedPlu
   /**
    * {@inheritDoc}
    */
-  protected function getChildSchema(int|null $delta = NULL): array {
+  protected function getChildSchemaProperties(): array {
     $schema = $this->getSchema();
-    $defaultValue = $this->getDefaultValue();
+    return $schema['properties'] ?? [];
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  protected function loadChildSchema(int|null $delta = NULL): array {
+    $schema = $this->getSchema();
+    // Use complete value instead of the getDefaultValue().
+    $defaultValue = $this->getFieldItemValue();
     // Merge in any examples to each property.
     foreach ($schema['properties'] as $propName => &$prop) {
       $prop['examples'] = $defaultValue[$propName] ?? $schema['examples'][$propName] ?? $prop['examples'] ?? [];
@@ -82,14 +91,14 @@ class ObjectShape extends ChildrenShapeBase implements ComponentShapeExpandedPlu
    */
   public function getValue(): mixed {
     $value = parent::getValue();
-    if ($this->useParentValues() && empty($value)) {
-      // If we have nothing, we return nothing. Otherwise the children will
-      // return their default values.
+    if (empty($value) && !$this->allowExpanded()) {
+      // When the parent value is empty and this shape cannot be expanded,
+      // we return an empty value so none of the children get populted.
       return $value;
     }
     foreach ($this->getChildShapes() as $shapeName => $shape) {
       $value[$shapeName] = $shape->getValue();
-      if ($shape->getOptionEmpty()->isEnabled() || empty($value[$shapeName])) {
+      if (empty($value[$shapeName])) {
         // Do not include empty values or values that are set to empty.
         unset($value[$shapeName]);
       }
@@ -123,7 +132,7 @@ class ObjectShape extends ChildrenShapeBase implements ComponentShapeExpandedPlu
         }
         // Force values to allow nesting of multiple shapes. Only do this if the
         // parent value is an override and the shape is not expanded.
-        if ($this->useParentValues() && ($values[$shape->getName()] ?? NULL)) {
+        if ($values[$shape->getName()] ?? NULL) {
           $shape->setFieldItemValue($values[$shape->getName()]);
         }
         $subform = [
@@ -153,7 +162,8 @@ class ObjectShape extends ChildrenShapeBase implements ComponentShapeExpandedPlu
   /**
    * {@inheritDoc}
    */
-  public function massageFormValues(array $values, array $original_values, array $form, FormStateInterface $form_state): array {
+  public function massageFormValues(array $values, array $original_values, array $form, FormStateInterface $form_state): ?array {
+    $values = parent::massageFormValues($values, $original_values, $form, $form_state);
     foreach ($this->getChildShapes() as $shape) {
       $shapeName = $shape->getName();
       $shapeValue = $values[$shapeName] ?? [];
@@ -168,7 +178,7 @@ class ObjectShape extends ChildrenShapeBase implements ComponentShapeExpandedPlu
         $values[$shapeName] = $shape->massageFormValues($shapeValue, $shapeOriginalValues, $form[$shapeName], $subform_state);
       }
     }
-    return parent::massageFormValues($values, $original_values, $form, $form_state);
+    return $values;
   }
 
 }

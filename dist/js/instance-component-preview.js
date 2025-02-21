@@ -105,7 +105,7 @@
       }), h("neo.alchemist", "[data-component]").forEach((t) => {
         if (t.style.display = "block", t.clientHeight === 0) {
           const o = JSON.parse(t.dataset.component || "{}");
-          t.innerHTML = '<div class="text-center text-sm bg-base-200 p-4"><strong><em>' + o.label + "</em></strong> has no visible content.</div>";
+          t.innerHTML = '<div class="w-full text-center text-sm bg-base-200 p-4"><strong><em>' + o.label + "</em></strong> has no visible content.</div>";
         }
         t.style.display = "", t.matches(":hover") && y(t), t.addEventListener("mouseenter", () => {
           y(t);

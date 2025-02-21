@@ -158,16 +158,18 @@ final class MediaValue extends ComponentValuePluginBase implements ContainerFact
    * {@inheritdoc}
    */
   public function formAlter(array &$element, FormStateInterface $form_state) {
+    $preview = NULL;
+    // ksm('default', $this->shape->getOptionDefault()->isEnabled(), $this->shape->getValue());
     if ($this->shape->getOptionDefault()->isEnabled()) {
       $value = $this->shape->getValue();
       if (!empty($value['src'])) {
-        $element['preview']['default'] = [
+        $preview['default'] = [
           '#type' => 'inline_template',
           '#template' => '<div class="media-library-item--preview"><img src="{{ src }}" alt="{{ alt }}" width="{{ width }}" height="{{ height }}" /></div>',
           '#context' => $value,
           '#weight' => -10,
         ];
-        $element['preview']['empty_selection'] = [
+        $preview['empty_selection'] = [
           '#markup' => '<div class="description">' . $this->t('Using the default image.') . '</div>',
         ];
       }
@@ -184,6 +186,35 @@ final class MediaValue extends ComponentValuePluginBase implements ContainerFact
           }
           return TRUE;
         });
+      }
+      if (empty($element['widget']['widget']['selection'][0])) {
+        $element['widget']['widget']['preview'] = $preview;
+      }
+    }
+    else {
+      $element['preview'] = $preview;
+    }
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function massageValuesAlter(&$values, $original_values, $form, $form_state): void {
+    $shape = $this->shape;
+    if ($shape->getScope() === 'config') {
+      if (empty($values)) {
+        $values = NULL;
+      }
+      // Remove the value if the user has removed the item so that the widget
+      // will be switched back to default. This only needs to happen when in
+      // config scope as default option is always toggleable.
+      $trigger = $form_state->getTriggeringElement();
+      if (isset($trigger['#media_id'])) {
+        foreach ($trigger['#submit'] ?? [] as $submit) {
+          if (is_array($submit) && $submit[1] === 'removeItem') {
+            $values = NULL;
+          }
+        }
       }
     }
   }
@@ -233,18 +264,25 @@ final class MediaValue extends ComponentValuePluginBase implements ContainerFact
         return $mediaValue;
       }
     }
+    if (!$shape->getOptionDefault()->isEnabled()) {
+      // When default is not enabled and we have not found media, return an
+      // empty array so that the image will not be shown.
+      return [];
+    }
     return $value;
   }
 
   /**
    * {@inheritdoc}
+   *
+   * We use alterValue so that the image is always replaced with the
+   * media value.
    */
-  public function modifyOverrideValue(mixed $value): mixed {
+  public function alterValue(mixed $value, string $type): mixed {
     $shape = $this->shape;
     if ($shape instanceof ComponentShapeMediaPluginInterface) {
       $media = $shape->getFieldItem()->entity;
       if ($media instanceof MediaInterface) {
-        $shape->getOptionDefault()->setValue(FALSE, 'Show custom value as media found.');
         $value = $shape->getValueFromMedia($media);
       }
     }

@@ -147,6 +147,20 @@ abstract class ComponentValuePluginBase extends PluginBase implements ComponentV
   /**
    * {@inheritdoc}
    */
+  public function massageFormValue(array $values, array $form, FormStateInterface $form_state): array {
+    return $this->configurationMassage($values, $form, $form_state);
+  }
+
+  /**
+   * Massage the form values.
+   */
+  protected function configurationMassage(array $values, array $form, FormStateInterface $form_state): array {
+    return $values;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
   public function submitConfigurationForm(array &$form, FormStateInterface $form_state) {}
 
   /**
@@ -177,14 +191,14 @@ abstract class ComponentValuePluginBase extends PluginBase implements ComponentV
   /**
    * {@inheritdoc}
    */
-  public function provideOverrideValue(mixed $value): mixed {
+  public function provideOverrideValue(mixed $value, mixed $defaultValue): mixed {
     return $value;
   }
 
   /**
    * {@inheritdoc}
    */
-  public function modifyOverrideValue(mixed $value): mixed {
+  public function alterValue(mixed $value, string $type): mixed {
     return $value;
   }
 
@@ -199,6 +213,12 @@ abstract class ComponentValuePluginBase extends PluginBase implements ComponentV
    * {@inheritdoc}
    */
   public function formAlter(array &$element, FormStateInterface $form_state) {
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function massageValuesAlter(array &$values, $original_values, $form, $form_state): void {
   }
 
   /**

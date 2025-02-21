@@ -198,8 +198,8 @@ final class ComponentPropForm extends EntityForm {
     $instances = $collection->getInstancesByGroup($groupId);
 
     if ($instances) {
-      $nestedId = $shape->id();
-      $key = $groupId . '_' . $nestedId;
+      $id = $shape->id();
+      $key = $groupId . '_' . $id;
       $wrapperId = Html::getId($key);
       $form[$key] = [
         '#type' => 'details',
@@ -308,11 +308,11 @@ final class ComponentPropForm extends EntityForm {
     $shape->setRequired(!empty($form_state->getValue(['required'])));
 
     foreach ($pluginShapes as $pluginShape) {
-      $nestedId = $pluginShape->id();
+      $id = $pluginShape->id();
       $collection = $pluginShape->getValueCollection();
       foreach ($collection->getInstances() as $instanceId => $instance) {
         $groupId = $instance->getGroup();
-        $key = $groupId . '_' . $nestedId;
+        $key = $groupId . '_' . $id;
         if (empty($form[$key]['values'][$instanceId]['settings'])) {
           continue;
         }
@@ -326,12 +326,12 @@ final class ComponentPropForm extends EntityForm {
         $originalPluginSettingsParents = [
           'original_prop',
           'plugins',
-          $nestedId,
+          $id,
           $instanceId,
           'settings',
         ];
         $originalPluginSettings = $form_state->get($originalPluginSettingsParents);
-        $settings = $subform_state->getValues() ?: $originalPluginSettings ?? [];
+        $settings = $instance->massageFormValue($subform_state->getValues(), $form[$key]['values'][$instanceId]['settings'], $subform_state) ?: $originalPluginSettings ?? [];
         $collection->setStatus($instanceId, !empty($value['status']));
         $instance->setConfiguration($settings);
         $form_state->set($originalPluginSettingsParents, $settings);

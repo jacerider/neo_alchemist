@@ -208,10 +208,15 @@ final class EntityValue extends ComponentValuePluginBase implements ContainerFac
     };
   }
 
+  // public function alterValue(mixed $value): mixed {
+  //   ksm('hit');
+  //   return $value;
+  // }
+
   /**
    * {@inheritdoc}
    */
-  public function provideOverrideValue(mixed $value): mixed {
+  public function provideOverrideValue(mixed $value, mixed $defaultValue): mixed {
     $overrideEmpty = !empty($this->configuration['override_empty']);
     $override = !empty($this->configuration['override']);
     $hasOverrideValue = !empty($this->shape->getOverrideValue());
@@ -241,9 +246,10 @@ final class EntityValue extends ComponentValuePluginBase implements ContainerFac
       }
     }
 
-    // No matter what, if we don't allow overrideing, we return the value.
+    // No matter what, if we don't allow overriding, we return the value.
     if (!$overrideEmpty && !$override) {
       $this->stopFurtherProcessing();
+      // $this->shape->getOptionDefault()->setLockedValue(FALSE, 'Entity provided the value and cannot override.');
       return $entityValue;
     }
 
