@@ -51,11 +51,14 @@ class MarkupShape extends ComponentShapePluginBase implements ComponentShapeText
    * {@inheritDoc}
    */
   public function adaptValue(mixed $value): mixed {
-    return [
-      '#type' => 'processed_text',
-      '#text' => $value,
-      '#format' => $this->getTextFormat(),
-    ];
+    if ($value) {
+      return [
+        '#type' => 'processed_text',
+        '#text' => $value,
+        '#format' => $this->getTextFormat(),
+      ];
+    }
+    return $value;
   }
 
 }
