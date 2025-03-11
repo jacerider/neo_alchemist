@@ -189,7 +189,7 @@ final class BlockPluginSlot extends ComponentSlotPluginBase implements Container
       }
       $build = [];
       $render = $plugin->build();
-      if ($render && is_array($render) && !empty(Element::getVisibleChildren($render))) {
+      if ($render && is_array($render) && Element::isVisibleElement($render)) {
         $build = $render;
         // Add the cache tags/contexts.
         $this->renderer->addCacheableDependency($build, $plugin);
