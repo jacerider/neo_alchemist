@@ -780,6 +780,16 @@ class Component extends ConfigEntityBase implements ComponentInterface {
    * {@inheritdoc}
    */
   public function toRenderable() {
+    if ($this->isPreview()) {
+      // When rendering as preview, we need to set the target entity so that
+      // shapes and slots that utilize route parameters will have something
+      // to work with.
+      $entity = $this->getTargetEntity();
+      $parameters = \Drupal::routeMatch()->getParameters();
+      if (!$parameters->has($entity->getEntityTypeId())) {
+        $parameters->set($entity->getEntityTypeId(), $entity);
+      }
+    }
     $build = [
       '#type' => 'component',
       '#cache' => [
