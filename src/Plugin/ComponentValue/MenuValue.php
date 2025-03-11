@@ -193,20 +193,22 @@ final class MenuValue extends ComponentValuePluginBase implements ContainerFacto
     $tree = $this->menuTree->transform($tree, $manipulators);
     $menu = $this->menuTree->build($tree);
 
-    foreach ($menu['#items'] as $item) {
-      /** @var \Drupal\Core\Url $url */
-      $url = $item['url'];
-      $icon = $url->getOptions('attributes')['attributes']['data-icon'] ?? '';
-      $description = $url->getOptions('attributes')['attributes']['title'] ?? '';
-      $value[] = [
-        'title' => $item['title'],
-        'description' => $description,
-        'icon' => $icon,
-        'url' => [
+    if (!empty($menu['#items'])) {
+      foreach ($menu['#items'] as $item) {
+        /** @var \Drupal\Core\Url $url */
+        $url = $item['url'];
+        $icon = $url->getOptions('attributes')['attributes']['data-icon'] ?? '';
+        $description = $url->getOptions('attributes')['attributes']['title'] ?? '';
+        $value[] = [
           'title' => $item['title'],
-          'uri' => $item['url']->toString(),
-        ],
-      ];
+          'description' => $description,
+          'icon' => $icon,
+          'url' => [
+            'title' => $item['title'],
+            'uri' => $item['url']->toString(),
+          ],
+        ];
+      }
     }
     return $value;
   }
