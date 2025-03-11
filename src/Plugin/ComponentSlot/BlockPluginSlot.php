@@ -163,7 +163,7 @@ final class BlockPluginSlot extends ComponentSlotPluginBase implements Container
     if (!empty($form['block_settings'])) {
       $plugin = $this->blockManager->createInstance($this->configuration['block_plugin'], $this->configuration['block_settings']);
       $subform_state = SubformState::createForSubform($form['block_settings'], $form, $form_state);
-      $plugin->validateConfigurationForm($form['block_settings'], $form_state);
+      $plugin->validateConfigurationForm($form['block_settings'], $subform_state);
     }
   }
 
@@ -187,10 +187,14 @@ final class BlockPluginSlot extends ComponentSlotPluginBase implements Container
       if (is_object($access_result) && $access_result->isForbidden() || is_bool($access_result) && !$access_result) {
         return NULL;
       }
+      $build = [];
       $render = $plugin->build();
-      // Add the cache tags/contexts.
-      $this->renderer->addCacheableDependency($render, $plugin);
-      return $plugin->build();
+      if ($render && is_array($render) && !empty(Element::getVisibleChildren($render))) {
+        $build = $render;
+        // Add the cache tags/contexts.
+        $this->renderer->addCacheableDependency($build, $plugin);
+      }
+      return $build;
     }
     return NULL;
   }

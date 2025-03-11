@@ -85,6 +85,8 @@ abstract class MatcherBase {
    *
    * @param \Drupal\Core\TypedData\DataDefinitionInterface $dd
    *   The data definition to process.
+   * @param bool $allBundles
+   *   Whether to process all bundles or only the base fields.
    *
    * @return array
    *   An array of data definitions based on the type of the provided data
@@ -110,15 +112,20 @@ abstract class MatcherBase {
         if ($dd->getBundles() !== NULL && count($dd->getBundles()) === 1) {
           return $this->entityFieldManager->getFieldDefinitions($entity_type_id, $dd->getBundles()[0]);
         }
+        $entityTypeId = $dd->getConstraint('EntityType');
+        $entityType = $this->entityTypeManager->getDefinition($entityTypeId);
+        if (empty($entityType->getBundleEntityType())) {
+          // For entity types without bundles, return the base fields.
+          return $this->entityFieldManager->getBaseFieldDefinitions($entity_type_id, $entity_type_id);
+        }
         if ($allBundles) {
+          $bundles = $this->entityTypeBundleInfo->getBundleInfo($entityTypeId);
           $definitions = [];
-          $entity_type = $dd->getConstraint('EntityType');
-          $bundles = $this->entityTypeBundleInfo->getBundleInfo($entity_type);
           foreach ($bundles as $bundle => $bundle_info) {
-            if ($bundle !== $entity_type) {
+            if ($bundle !== $entityTypeId) {
               $bundleEntityDataDefinition = EntityDataDefinition::createFromDataType(implode(':', [
                 'entity',
-                $entity_type,
+                $entityTypeId,
                 $bundle,
               ]));
               $definitions += $this->dataDefinitions($bundleEntityDataDefinition, FALSE);

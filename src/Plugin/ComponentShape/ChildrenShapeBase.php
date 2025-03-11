@@ -140,6 +140,15 @@ abstract class ChildrenShapeBase extends ComponentShapePluginBase implements Com
   }
 
   /**
+   * {@inheritDoc}
+   */
+  public function getChildShapeRefs(): array {
+    return array_map(function ($property) {
+      return $property['ref'] ?? $property['type'];
+    }, $this->getChildSchemaProperties());
+  }
+
+  /**
    * Load the child shapes.
    *
    * This method loads the child shapes from the schema, initializing them

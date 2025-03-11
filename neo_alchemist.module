@@ -376,17 +376,11 @@ function neo_alchemist_route_is_alchemist() {
   if (!$entityTypeId) {
     return;
   }
+  $entityView = $routeObject->getDefault('_entity_view') ?? $entityTypeId . '.default';
+  [, $viewModeId] = explode('.', $entityView);
   if ($entity = $routeMatch->getParameter($entityTypeId)) {
     $bundle = $entity->bundle();
-    $viewModes = \Drupal::service('entity_display.repository')->getViewModeOptionsByBundle($entityTypeId, $bundle);
-    if (!$viewModes) {
-      return;
-    }
-    $viewModes = array_combine(array_keys($viewModes), array_keys($viewModes));
-    $viewModeId = $viewModes['full'] ?? $viewModes['default'] ?? NULL;
-    if (!$viewModeId) {
-      return;
-    }
+    $viewModeId = $viewModeId === 'full' ? 'default' : $viewModeId;
     $viewMode = \Drupal::service('entity_type.manager')
       ->getStorage('entity_view_display')
       ->load($entityTypeId . '.' . $bundle . '.' . $viewModeId);

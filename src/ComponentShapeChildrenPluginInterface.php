@@ -66,6 +66,14 @@ interface ComponentShapeChildrenPluginInterface {
   public function getChildShapeNames(): array;
 
   /**
+   * Get the refs of the child shapes.
+   *
+   * @return string[]
+   *   The refs of the child shapes.
+   */
+  public function getChildShapeRefs(): array;
+
+  /**
    * Check if the schema is a single property.
    *
    * @return bool

@@ -57,6 +57,8 @@ final class MatcherField extends MatcherBase {
    *   The content entity from which to retrieve the field value.
    * @param string $key
    *   The dot-separated string representing the field path.
+   * @param array $properties
+   *   (optional) An associative array of properties to retrieve from the field.
    *
    * @return mixed
    *   The value of the specified field.
@@ -75,6 +77,8 @@ final class MatcherField extends MatcherBase {
    *   An array representing the path to the field. Each element in the array
    *   should be a string in the format 'field_name:property', where 'property'
    *   is optional.
+   * @param array $properties
+   *   (optional) An associative array of properties to retrieve from the field.
    *
    * @return mixed
    *   The value of the field or property, or an empty array if the field or
@@ -250,7 +254,7 @@ final class MatcherField extends MatcherBase {
       $dataType = implode(':', array_filter([
         'entity',
         $entityType,
-        $shape->getTargetEntityBundle(),
+        $shape->getTargetEntityBundle() ?? $entityType,
       ]));
       $entityDataDefinition = EntityDataDefinition::createFromDataType($dataType);
     }
@@ -395,6 +399,16 @@ final class MatcherField extends MatcherBase {
         ];
         continue;
       }
+      uasort($matches, function ($a, $b) {
+        $a_weight = $a['weight'] ?? 0;
+        $b_weight = $b['weight'] ?? 0;
+        if ($a_weight == $b_weight) {
+          $a_label = $a['title'];
+          $b_label = $b['title'];
+          return strnatcasecmp((string) $a_label, (string) $b_label);
+        }
+        return ($a_weight < $b_weight) ? 1 : -1;
+      });
       foreach ($properties as $propertyName => $property) {
         $isReference = $this->isReference($property);
         if ($isReference === NULL) {
@@ -444,45 +458,31 @@ final class MatcherField extends MatcherBase {
     $entityType = $this->entityTypeManager->getDefinition($entityDataDefinition->getEntityTypeId());
     if ($entityType->hasKey('label')) {
       $fieldName = '_entity:label';
+      $label = $entityDataDefinition->getLabel();
+      $label = ($label ? '(' . $label . ') ' : '') . $this->t('Label');
       $fieldDefinitions[$fieldName] = BaseFieldDefinition::create('string')
-        ->setLabel(t('(@label) Label', [
-          '@label' => $entityDataDefinition->getLabel(),
-        ]))
+        ->setLabel($label)
         ->setName($fieldName)
         ->setTargetEntityTypeId($entityDataDefinition->getEntityTypeId())
         ->setRequired($isRequired);
     }
     foreach ($entityType->getLinkTemplates() as $templateId => $template) {
+      if (substr($templateId, 0, 10) === 'alchemist.') {
+        continue;
+      }
       $fieldName = '_entity:link:' . $templateId;
+      $label = $entityDataDefinition->getLabel();
+      $label = '(' . $this->t('Link') . ') ' . ucwords(str_replace([
+        '-',
+        '_',
+        '.',
+      ], ' ', $templateId));
       $fieldDefinitions[$fieldName] = BaseFieldDefinition::create('link')
-        ->setLabel(t('(@label) @link Link', [
-          '@label' => $entityDataDefinition->getLabel(),
-          '@link' => ucwords(str_replace(['-', '_', '.'], ' ', $templateId)),
-        ]))
+        ->setLabel($label)
         ->setName($fieldName)
         ->setTargetEntityTypeId($entityDataDefinition->getEntityTypeId())
         ->setRequired($isRequired);
     }
-    // if ($entityType->hasLinkTemplate('canonical')) {
-    //   $fieldName = '_entity:link_canonical';
-    //   $fieldDefinitions[$fieldName] = BaseFieldDefinition::create('link')
-    //     ->setLabel(t('(@label) Canonical Link', [
-    //       '@label' => $entityDataDefinition->getLabel(),
-    //     ]))
-    //     ->setName($fieldName)
-    //     ->setTargetEntityTypeId($entityDataDefinition->getEntityTypeId())
-    //     ->setRequired($isRequired);
-    // }
-    // if ($entityType->hasLinkTemplate('edit-form')) {
-    //   $fieldName = '_entity:link_canonical';
-    //   $fieldDefinitions[$fieldName] = BaseFieldDefinition::create('link')
-    //     ->setLabel(t('(@label) Canonical Link', [
-    //       '@label' => $entityDataDefinition->getLabel(),
-    //     ]))
-    //     ->setName($fieldName)
-    //     ->setTargetEntityTypeId($entityDataDefinition->getEntityTypeId())
-    //     ->setRequired($isRequired);
-    // }
     return $fieldDefinitions;
   }
 

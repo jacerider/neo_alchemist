@@ -17,7 +17,6 @@ use Drupal\neo_alchemist\ComponentShapeChildrenPluginInterface;
 use Drupal\neo_alchemist\ComponentShapeInterablePluginInterface;
 use Drupal\neo_alchemist\ComponentShapePluginInterface;
 use Drupal\neo_alchemist\ComponentValuePluginBase;
-use Drupal\neo_alchemist\ComponentValuePluginManager;
 use Drupal\neo_alchemist\MatcherField;
 use Drupal\views\ViewExecutable;
 use Drupal\views\Views;
@@ -51,13 +50,6 @@ final class ViewsValue extends ComponentValuePluginBase implements ContainerFact
   protected EntityTypeManagerInterface $entityTypeManager;
 
   /**
-   * The component value plugin manager.
-   *
-   * @var \Drupal\neo_alchemist\ComponentValuePluginManager
-   */
-  protected ComponentValuePluginManager $componentValueManager;
-
-  /**
    * The field matcher.
    *
    * @var \Drupal\neo_alchemist\MatcherField
@@ -73,12 +65,10 @@ final class ViewsValue extends ComponentValuePluginBase implements ContainerFact
     ComponentShapePluginInterface $shape,
     array $configuration,
     EntityTypeManagerInterface $entity_type_manager,
-    ComponentValuePluginManager $component_value_manager,
     MatcherField $matcher_field
   ) {
     parent::__construct($plugin_id, $plugin_definition, $shape, $configuration);
     $this->entityTypeManager = $entity_type_manager;
-    $this->componentValueManager = $component_value_manager;
     $this->matcherField = $matcher_field;
   }
 
@@ -92,7 +82,6 @@ final class ViewsValue extends ComponentValuePluginBase implements ContainerFact
       $configuration['shape'],
       $configuration['settings'],
       $container->get('entity_type.manager'),
-      $container->get('plugin.manager.neo_component_value'),
       $container->get('neo_alchemist.matcher_field')
     );
   }
@@ -237,7 +226,7 @@ final class ViewsValue extends ComponentValuePluginBase implements ContainerFact
             '#title' => $this->t('Shape Fields'),
           ];
           foreach ($childShapes as $shapeName => $childShape) {
-            if ($childShape->getType() === ComponentShapePluginInterface::ARRAY) {
+            if ($childShape->isIterable()) {
               // Arrays are not currently support for field binding.
               continue;
             }

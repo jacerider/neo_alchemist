@@ -43,6 +43,9 @@ email:
   title: Email
   type: string
   pattern: ^[a-zA-Z0-9.!#$%&\'*+\/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$
+icon:
+  title: Icon
+  type: string
 uri:
   title: URI
   type: string
@@ -72,6 +75,46 @@ url:
     options:
       title: 'Options'
       type: object
+
+menu:
+  title: Menu
+  type: array
+  examples:
+    - title: Title 1
+      description: Description 1
+      icon: acorn
+      url: internal:/
+    - title: Title 2
+      description: Description 2
+      icon: acorn
+      url: internal:/
+    - title: Title 3
+      description: Description 3
+      icon: acorn
+      url: internal:/
+  items:
+    title: Menu Items
+    type: object
+    required:
+      - title
+      - url
+    properties:
+      title:
+        title: Title
+        type: string
+      description:
+        title: Description
+        type: string
+      icon:
+        title: Icon
+        type: icon
+      url:
+        title: URI
+        type: url
+      target:
+        title: Open in new window
+        type: boolean
+
 scheme:
   title: Color Scheme
   type: string
@@ -114,7 +157,7 @@ padding:
       value: p-component-sm
     md:
       label: Medium
-      value: p-m-componentd
+      value: p-component
     lg:
       label: Large
       value: p-component-lg
