@@ -38,6 +38,10 @@ neo_alchemist.neo_component.*:
       mapping:
         props:
           type: neo_alchemist.neo_component_settings.props
+        filters:
+          type: neo_alchemist.neo_component_settings.filters
+        slots:
+          type: neo_alchemist.neo_component_settings.slots
     target_entity_type:
       type: string
       label: 'Target Entity Type'
@@ -108,22 +112,46 @@ neo_alchemist.neo_component_settings.props:
 neo_alchemist.neo_component_value.*:
   type: mapping
 
+neo_alchemist.neo_component_value.widget:
+  type: mapping
+  label: 'Widget value provider'
+  mapping:
+    settings:
+      type: field.widget.settings.[%parent.%parent.%parent.%parent.%parent.field_type]
+      label: 'Settings'
+
+neo_alchemist.neo_component_value.menu:
+  type: mapping
+  label: 'Menu value provider'
+  mapping:
+    menu_id:
+      type: string
+      label: Menu ID
+
 neo_alchemist.neo_component_value.default:
   type: mapping
   label: 'Default value provider'
   mapping:
     default:
       type: field.value.[%parent.%parent.%parent.%parent.%parent.field_type]
+      # type: neo_alchemist.neo_component_shape.*
     options:
-      type: mapping
+      type: sequence
       label: Options
-      mapping:
-        empty:
-          type: boolean
-          label: Treat value as empty
-        default:
-          type: boolean
-          label: Treat value as default
+      sequence:
+        type: mapping
+        label: Option
+        mapping:
+          empty:
+            type: boolean
+            label: Treat value as empty
+          default:
+            type: boolean
+            label: Treat value as default
+
+field.value.map:
+  type: sequence
+  label: 'Map value'
 
 neo_alchemist.neo_component_value.entity:
   type: mapping
@@ -132,12 +160,81 @@ neo_alchemist.neo_component_value.entity:
     field:
       type: string
       label: 'The field to get the value from'
+    field_assign:
+      type: boolean
+      label: Manually assign properties
+    field_properties:
+      type: sequence
+      label: Assigned properties
+      sequence:
+        type: string
+        label: Property
     override:
       type: boolean
       label: 'Allow override when value is found'
     override_empty:
       type: boolean
       label: 'Allow override when value is empty'
+
+neo_alchemist.neo_component_value.formatted_text:
+  type: mapping
+  label: 'Formatted text value provider'
+  mapping:
+    format:
+      type: string
+      label: 'The format'
+
+neo_alchemist.neo_component_value.page_title:
+  type: mapping
+  label: 'Page title value provider'
+  mapping:
+    override:
+      type: boolean
+      label: 'Allow override'
+
+neo_alchemist.neo_component_value.views:
+  type: mapping
+  label: 'Views value provider'
+  mapping:
+    view_id:
+      type: string
+      label: 'The view id'
+    view_display_id:
+      type: string
+      label: 'The view display id'
+    view_items_per_page:
+      type: integer
+      label: 'The view items per page'
+    view_items_offset:
+      type: integer
+      label: 'The view items offset'
+    view_arguments:
+      type: sequence
+      label: The view arguments
+      nullable: true
+      sequence:
+        type: string
+        label: 'Argument'
+    shape_fields:
+      type: sequence
+      label: The shape fields
+      sequence:
+        type: mapping
+        mapping:
+          title:
+            type: string
+            label: Title
+          field:
+            type: string
+            label: Field
+          modifiers:
+            type: sequence
+            label: Modifiers
+            sequence:
+              type: neo_alchemist_neo_component_value.[%key]
+    continue:
+      type: boolean
+      label: 'Continue'
 
 neo_alchemist.neo_component_value.media:
   type: mapping
@@ -184,3 +281,178 @@ neo_alchemist.neo_component_value.number:
     thousands_separator:
       label: Thousands Separator
       type: string
+
+neo_alchemist.neo_component_settings.filters:
+  type: sequence
+  label: 'Filters'
+  sequence:
+    type: mapping
+    label: 'Filter'
+    mapping:
+      title:
+        type: string
+        label: Title
+      description:
+        type: string
+        label: Description
+      plugin_id:
+        type: string
+        label: Plugin ID
+        constraints:
+          PluginExists:
+            manager: plugin.manager.neo_component_filter
+            interface: '\Drupal\neo_alchemist\ComponentFilterPluginInterface'
+      plugin_settings:
+        type: neo_alchemist.neo_component_filter.[%parent.plugin_id]
+        nullable: true
+      value:
+        type: string
+        label: Value
+      editable:
+        type: boolean
+        label: Editable
+      required:
+        type: boolean
+        label: Required
+
+neo_alchemist.neo_component_filter.*:
+  type: mapping
+
+neo_alchemist.neo_component_filter.entity:
+  type: mapping
+  label: 'Default value provider'
+  mapping:
+    field_type:
+      type: string
+      label: Field Type
+    multiple:
+      type: boolean
+      label: Multiple
+    multiple_operator:
+      type: string
+      label: Multiple Operator
+    entity_type:
+      type: string
+      label: Entity Type
+    bundles:
+      type: sequence
+      label: Bundles
+      nullable: true
+      sequence:
+        type: string
+        label: 'Bundle'
+
+neo_alchemist.neo_component_settings.slots:
+  type: sequence
+  label: 'Slots'
+  sequence:
+    type: mapping
+    label: 'Slot'
+    mapping:
+      plugins:
+        type: sequence
+        label: Plugins
+        sequence:
+          type: mapping
+          label: Plugin
+          mapping:
+            plugin:
+              type: string
+              label: Plugin ID
+              constraints:
+                PluginExists:
+                  manager: plugin.manager.neo_component_slot
+                  interface: '\Drupal\neo_alchemist\ComponentSlotPluginInterface'
+            settings:
+              type: neo_alchemist.neo_component_slot.[%parent.plugin]
+              nullable: true
+
+neo_alchemist.neo_component_slot.*:
+  type: mapping
+
+neo_alchemist.neo_component_slot.block_plugin:
+  type: mapping
+  label: 'Block plugin slot provider'
+  mapping:
+    block_plugin:
+      type: string
+      label: 'Block plugin'
+      constraints:
+        PluginExists:
+          manager: plugin.manager.block
+          interface: Drupal\Core\Block\BlockPluginInterface
+          # Block plugin IDs may not be valid in blocks that are backed by
+          # block_content entities that don't exist yet. Therefore, it's okay
+          # to consider the fallback plugin ID as valid.
+          allowFallback: true
+    block_settings:
+      type: block.settings.[%parent.block_plugin]
+
+# field.formatter.settings.
+neo_alchemist.neo_component_slot.entity_field:
+  type: mapping
+  label: 'Entity field slot provider'
+  mapping:
+    entity:
+      type: string
+      label: Entity
+    field:
+      type: string
+      label: Field Label
+    field_label:
+      type: string
+      label: Field Label
+    field_plugin:
+      type: string
+      label: Field Plugin
+    field_settings:
+      type: field.formatter.settings.[%parent.field_plugin]
+      label: 'Settings'
+    field_third_party_settings:
+      # Third party settings are always optional: they're an optional extension
+      # point.
+      requiredKey: false
+      type: sequence
+      label: 'Third party settings'
+      sequence:
+        type: theme_settings.third_party.[%key]
+  #   block_plugin:
+  #     type: string
+  #     label: 'Block plugin'
+  #     constraints:
+  #       PluginExists:
+  #         manager: plugin.manager.block
+  #         interface: Drupal\Core\Block\BlockPluginInterface
+  #         # Block plugin IDs may not be valid in blocks that are backed by
+  #         # block_content entities that don't exist yet. Therefore, it's okay
+  #         # to consider the fallback plugin ID as valid.
+  #         allowFallback: true
+  #   block_settings:
+  #     type: block.settings.[%parent.block_plugin]
+
+  #   mapping:
+  #     title:
+  #       type: string
+  #       label: Title
+  #     description:
+  #       type: string
+  #       label: Description
+  #     plugin_id:
+  #       type: string
+  #       label: Plugin ID
+  #       constraints:
+  #         PluginExists:
+  #           manager: plugin.manager.neo_component_filter
+  #           interface: '\Drupal\neo_alchemist\ComponentFilterPluginInterface'
+  #     plugin_settings:
+  #       type: neo_alchemist.neo_component_filter.[%parent.plugin_id]
+  #       nullable: true
+  #     value:
+  #       type: string
+  #       label: Value
+  #     editable:
+  #       type: boolean
+  #       label: Editable
+  #     required:
+  #       type: boolean
+  #       label: Required
