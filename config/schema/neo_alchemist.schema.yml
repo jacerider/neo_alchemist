@@ -192,6 +192,28 @@ neo_alchemist.neo_component_value.page_title:
       type: boolean
       label: 'Allow override'
 
+neo_alchemist.neo_component_value.entity_query:
+  type: mapping
+  label: 'Views value provider'
+  mapping:
+    entity_type:
+      type: string
+      label: The entity type
+    bundle:
+      type: string
+      label: The bundle
+    start:
+      type: integer
+      label: The first record from the result set to return
+    length:
+      type: integer
+      label: The maximum number of results
+    shape_fields:
+      type: neo_alchemist.neo_component_shape_fields
+    continue:
+      type: boolean
+      label: 'Continue'
+
 neo_alchemist.neo_component_value.views:
   type: mapping
   label: 'Views value provider'
@@ -216,25 +238,11 @@ neo_alchemist.neo_component_value.views:
         type: string
         label: 'Argument'
     shape_fields:
-      type: sequence
-      label: The shape fields
-      sequence:
-        type: mapping
-        mapping:
-          title:
-            type: string
-            label: Title
-          field:
-            type: string
-            label: Field
-          modifiers:
-            type: sequence
-            label: Modifiers
-            sequence:
-              type: neo_alchemist_neo_component_value.[%key]
+      type: neo_alchemist.neo_component_shape_fields
     continue:
       type: boolean
       label: 'Continue'
+
 
 neo_alchemist.neo_component_value.media:
   type: mapping
@@ -456,3 +464,21 @@ neo_alchemist.neo_component_slot.entity_field:
   #     required:
   #       type: boolean
   #       label: Required
+
+neo_alchemist.neo_component_shape_fields:
+  type: sequence
+  label: The shape fields
+  sequence:
+    type: mapping
+    mapping:
+      title:
+        type: string
+        label: Title
+      field:
+        type: string
+        label: Field
+      modifiers:
+        type: sequence
+        label: Modifiers
+        sequence:
+          type: neo_alchemist_neo_component_value.[%key]
