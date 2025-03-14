@@ -7,7 +7,7 @@ namespace Drupal\neo_alchemist;
 /**
  * Interface for neo_component_shape plugins.
  */
-interface ComponentShapeChildrenPluginInterface {
+interface ComponentShapeChildrenPluginInterface extends ComponentShapePluginInterface {
 
   /**
    * Get child shapes.
