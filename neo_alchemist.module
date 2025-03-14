@@ -395,3 +395,38 @@ function neo_alchemist_route_is_alchemist() {
   }
   return $isAlchemistRoute;
 }
+
+/**
+ * Implements hook_config_schema_info_alter().
+ */
+function neo_alchemist_config_schema_info_alter(&$definitions) {
+  // $defs = \Drupal::service('plugin.manager.sdc')->getDefinitions();
+  // ksm($defs);
+  // $propDefs = \Drupal::service('plugin.manager.neo_component_prop_def')->getDefinitions();
+  // ksm($propDefs);
+  // // foreach ($propDefs as $key => $def) {
+  // //   $definitions['neo_alchemist.neo_component_shape.' . $key]
+  // // }
+  // // ksm($propDefs);
+  // $shapes = \Drupal::service('plugin.manager.neo_component_shape')->getDefinitions();
+  // ksm($shapes);
+  // foreach ($shapes as $shape) {
+  //   ksm($shape);
+  //   // $shape->alterConfigSchema($definitions);
+  // }
+  // ksm($definitions);
+  if (isset($definitions['block_settings'])) {
+    foreach ($definitions as $key => $definition) {
+      if (($definition['type'] ?? NULL) === 'block_settings') {
+        $definitions[$key]['mapping']['label_display'] = [
+          'type' => 'string',
+          'label' => 'Label display',
+        ];
+      }
+    }
+    // $definitions['block_settings']['mapping']['label_display'] = [
+    //   'type' => 'string',
+    //   'label' => 'Label display',
+    // ];
+  }
+}
