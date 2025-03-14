@@ -20,7 +20,7 @@ trait ComponentValueModifierTrait {
   /**
    * Configuration form for the value provider plugin.
    */
-  protected function modifierConfigurationForm(ComponentShapePluginInterface $shape, array $defaults, $form, FormStateInterface $form_state, array &$complete_form): array {
+  protected function buildModifierConfigurationForm(ComponentShapePluginInterface $shape, array $defaults, $form, FormStateInterface $form_state): array {
     assert(!empty($form['#parents']), 'The form element must have a #parents key.');
     $wrapperId = Html::getId('modifiers-' . $shape->getName());
     $collection = $shape->getValueCollection();
