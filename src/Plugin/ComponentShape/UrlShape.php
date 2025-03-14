@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\neo_alchemist\Plugin\ComponentShape;
 
+use Drupal\Core\Field\FieldDefinitionInterface;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\neo_alchemist\Attribute\ComponentShape;
 use Drupal\neo_alchemist\ComponentShapePluginBase;
@@ -41,6 +42,19 @@ class UrlShape extends ComponentShapePluginBase {
     return [
       'title' => FALSE,
     ];
+  }
+
+  /**
+   * Matches the field definition type with the entity field definition type.
+   *
+   * @param \Drupal\Core\Field\FieldDefinitionInterface $entityFieldDefinition
+   *   The field definition of the entity to match against.
+   *
+   * @return bool
+   *   TRUE if the field definition types match, FALSE otherwise.
+   */
+  public function supportsFieldDefinition(FieldDefinitionInterface $entityFieldDefinition): bool {
+    return parent::supportsFieldDefinition($entityFieldDefinition);
   }
 
 }
