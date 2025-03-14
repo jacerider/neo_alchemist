@@ -105,7 +105,7 @@ final class ComponentForm extends EntityForm {
       '#prefix' => '<div id="component-target-entity-bundles">',
       '#suffix' => '</div>',
     ];
-    if ($target_entity_type_id) {
+    if ($target_entity_type_id && isset($entity_types[$target_entity_type_id])) {
       $target_entity_type = $entity_types[$target_entity_type_id];
       if ($target_entity_type->hasKey('bundle') && ($bundles = $this->entityTypeBundleInfo->getBundleInfo($target_entity_type_id))) {
         $options = array_map(
