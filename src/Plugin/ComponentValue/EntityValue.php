@@ -208,11 +208,6 @@ final class EntityValue extends ComponentValuePluginBase implements ContainerFac
     };
   }
 
-  // public function alterValue(mixed $value): mixed {
-  //   ksm('hit');
-  //   return $value;
-  // }
-
   /**
    * {@inheritdoc}
    */
