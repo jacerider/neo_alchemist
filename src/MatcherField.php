@@ -243,6 +243,10 @@ final class MatcherField extends MatcherBase {
     $matches = [];
 
     if ($entityTypeId) {
+      $entityType = $this->entityTypeManager->getDefinition($entityTypeId);
+      if (!$entityType->getKey('bundle')) {
+        $entityBundle = $entityTypeId;
+      }
       $dataType = implode(':', array_filter([
         'entity',
         $entityTypeId,
