@@ -76,6 +76,7 @@ final class WidgetValue extends ComponentValuePluginBase {
    */
   protected function configurationValidate(array $form, FormStateInterface $form_state): void {
     $widget = $this->shape->getWidget();
+    $form_state->unsetValue('reload');
     if ($widget) {
       $value = $form_state->getValues()['settings'] ?? NULL;
       if ($value) {
