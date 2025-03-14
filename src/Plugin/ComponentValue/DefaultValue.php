@@ -9,7 +9,6 @@ use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Plugin\ContainerFactoryPluginInterface;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\neo_alchemist\Attribute\ComponentValue;
-use Drupal\neo_alchemist\ComponentShapeChildrenPluginInterface;
 use Drupal\neo_alchemist\ComponentShapePluginInterface;
 use Drupal\neo_alchemist\ComponentShapePluginManager;
 use Drupal\neo_alchemist\ComponentValuePluginBase;
@@ -67,7 +66,6 @@ final class DefaultValue extends ComponentValuePluginBase implements ContainerFa
    */
   public function defaultConfiguration() {
     return [
-      // 'default' => $this->getDefaultShape()->getDefaultValue(),
       'default' => [],
       'options' => [],
     ];
