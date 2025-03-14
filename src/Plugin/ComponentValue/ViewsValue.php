@@ -40,7 +40,7 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
 final class ViewsValue extends ComponentValuePluginBase implements ContainerFactoryPluginInterface {
 
   use DependencySerializationTrait;
-  use ComponentValueModifierTrait;
+  use ComponentValueChildrenMatchTrait;
 
   /**
    * The entity type manager service.
@@ -219,61 +219,8 @@ final class ViewsValue extends ComponentValuePluginBase implements ContainerFact
           }
         }
 
-        $childShapes = $this->shape->getChildShapes();
-        if ($childShapes) {
-          $form['shape_fields'] = [
-            '#type' => 'fieldset',
-            '#title' => $this->t('Shape Fields'),
-          ];
-          foreach ($childShapes as $shapeName => $childShape) {
-            if ($childShape->isIterable()) {
-              // Arrays are not currently support for field binding.
-              continue;
-            }
-            $childShapeId = $wrapperId . '-' . $shapeName;
-            $childShapeDefaults = $this->configuration['shape_fields'][$shapeName] ?? [];
-            $form['shape_fields'][$shapeName] = [
-              '#type' => 'fieldset',
-              '#title' => $childShape->getTitle(),
-              '#attributes' => [
-                'id' => $childShapeId,
-              ],
-              '#parents' => array_merge($form['#parents'], [
-                'shape_fields',
-                $shapeName,
-              ]),
-              '#neo_fieldset_region' => [
-                'legend_end' => [
-                  '#markup' => '<div class="text-xs text-base-400">' . $this->t('Type: %type', [
-                    '%type' => $childShape->getType(),
-                  ]) . '</div>',
-                ],
-              ],
-              '#description_display' => 'before',
-            ];
-            $form['shape_fields'][$shapeName]['field'] = [
-              '#type' => 'select',
-              '#title' => $this->t('Field'),
-              '#description' => $childShape->getDescription(),
-              '#required' => $childShape->isRequired(),
-              '#options' => [
-                '- Shape -' => [
-                  '_default' => $this->t('Use Default'),
-                ],
-              ] + $this->matcherField->getMatchesAsOptions($childShape, $viewEntityType->id(), $viewEntityBundle),
-              '#empty_option' => $childShape->isRequired() ? $this->t('- Select -') : $this->t('- None -'),
-              '#default_value' => $childShapeDefaults['field'] ?? NULL,
-              '#ajax' => [
-                'callback' => [static::class, 'refreshAjax'],
-                'wrapper' => $childShapeId,
-              ],
-            ];
-            if (!empty($childShapeDefaults['field'])) {
-              $modifierDefaults = $childShapeDefaults['modifiers'] ?? [];
-              $form['shape_fields'][$shapeName] = $this->modifierConfigurationForm($childShape, $modifierDefaults, $form['shape_fields'][$shapeName], $form_state, $complete_form);
-            }
-          }
-        }
+        // Add shape fields.
+        $form += $this->buildShapeMatcherConfigurationForm($this->shape, $form, $form_state, $viewEntityType->id(), $viewEntityBundle);
       }
       $form['continue'] = [
         '#type' => 'checkbox',
@@ -349,39 +296,8 @@ final class ViewsValue extends ComponentValuePluginBase implements ContainerFact
       }
       $view->execute($this->configuration['view_display_id']);
       $results = [];
-      $shapeNames = $this->shape->getChildShapeNames();
-      foreach ($view->result as $delta => $result) {
-        $entity = $result->_entity ?? NULL;
-        if ($entity) {
-          foreach ($shapeNames as $shapeName) {
-            $results[$delta][$shapeName] = [];
-            $settings = $this->configuration['shape_fields'][$shapeName] ?? [];
-            $field = $settings['field'] ?? NULL;
-            if ($field) {
-              switch ($field) {
-                case '_default':
-                  // Will fall back to the default value.
-                  $results[$delta][$shapeName] = NULL;
-                  break;
-
-                default:
-                  $results[$delta][$shapeName] = $this->matcherField->getEntityValue($entity, $field);
-                  if (!empty($settings['modifiers'])) {
-                    $this->shape->setChildShapePlugins($shapeName, $settings['modifiers'] ?? []);
-                  }
-                  break;
-              }
-            }
-            else {
-              // Hide the shape if no field is selected.
-              $this->shape->hideChildShape($shapeName);
-            }
-          }
-        }
-      }
-      if ($this->shape->getType() === ComponentShapePluginInterface::OBJECT) {
-        $results = reset($results) ?: [];
-      }
+      $entities = array_map(fn($row) => $row->_entity, $view->result);
+      $results = $this->getShapeMatcherValues($this->shape, $entities);
       if (!empty($results) || empty($this->configuration['continue'])) {
         $value = $results;
         $this->stopFurtherProcessing();
