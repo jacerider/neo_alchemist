@@ -217,7 +217,8 @@ abstract class MatcherBase {
     if (!empty($definitions)) {
       $group[0] .= ' (' . $first->getName() . ')';
       foreach ($definitions as $definition) {
-        $group[] = ucwords(str_replace('_', ' ', $definition->getTargetEntityTypeId())) . ' (' . $definition->getName() . ')';
+        $group[] = ucwords(str_replace('_', ' ', $definition->getTargetEntityTypeId()));
+        // $group[] = ucwords(str_replace('_', ' ', $definition->getTargetEntityTypeId())) . ' (' . $definition->getName() . ')';
       }
     }
     return implode(' → ', $group);
