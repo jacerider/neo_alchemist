@@ -1,0 +1,128 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Drupal\neo_alchemist\Plugin\ComponentValue;
+
+use Drupal\Core\DependencyInjection\DependencySerializationTrait;
+use Drupal\Core\Form\FormStateInterface;
+use Drupal\Core\Plugin\ContainerFactoryPluginInterface;
+use Drupal\Core\StringTranslation\TranslatableMarkup;
+use Drupal\neo_alchemist\Attribute\ComponentValue;
+use Drupal\neo_alchemist\ComponentShapePluginInterface;
+use Drupal\neo_alchemist\ComponentValuePluginBase;
+use Drupal\neo_alchemist\MatcherField;
+use Symfony\Component\DependencyInjection\ContainerInterface;
+
+/**
+ * Plugin implementation of the neo_component_value_provider.
+ */
+#[ComponentValue(
+  id: 'entity_has_value',
+  label: new TranslatableMarkup('Entity has Value'),
+  description: new TranslatableMarkup('Check if an entity field has a value.'),
+  group: 'providers',
+  ref_types: [
+    ComponentShapePluginInterface::BOOLEAN,
+  ],
+  entity_types: ['*'],
+  weight: -5,
+)]
+final class EntityHasValue extends ComponentValuePluginBase implements ContainerFactoryPluginInterface {
+
+  use DependencySerializationTrait;
+
+  /**
+   * The field matcher.
+   *
+   * @var \Drupal\neo_alchemist\MatcherField
+   */
+  protected MatcherField $matcherField;
+
+  /**
+   * {@inheritdoc}
+   */
+  public function __construct(
+    $plugin_id,
+    $plugin_definition,
+    ComponentShapePluginInterface $shape,
+    array $configuration,
+    MatcherField $matcher_field
+  ) {
+    parent::__construct($plugin_id, $plugin_definition, $shape, $configuration);
+    $this->matcherField = $matcher_field;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public static function create(ContainerInterface $container, array $configuration, $plugin_id, $plugin_definition): self {
+    return new static(
+      $plugin_id,
+      $plugin_definition,
+      $configuration['shape'],
+      $configuration['settings'],
+      $container->get('neo_alchemist.matcher_field')
+    );
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function defaultConfiguration() {
+    return [
+      'field' => '',
+    ];
+  }
+
+  /**
+   * Configuration form for the value provider plugin.
+   */
+  protected function configurationForm(array $form, FormStateInterface $form_state, array &$complete_form): array {
+    $form['field'] = [
+      '#type' => 'select',
+      '#title' => $this->t('Field'),
+      '#description' => $this->t('Select the field to use as the value.'),
+      '#options' => $this->matcherField->getMatchesAsOptions($this->shape, NULL, NULL, TRUE),
+      '#empty_option' => $this->t('- Select -'),
+      '#default_value' => $this->configuration['field'],
+      '#required' => TRUE,
+    ];
+    return $form;
+  }
+
+  /**
+   * {@inheritdoc}
+   *
+   * Only allow processing if the entity is not new.
+   */
+  public function isAllowed(string $op): bool {
+    return match($this->shape->getScope()) {
+      'field' => match($op) {
+        'default' => !$this->shape->getEntity()->isNew(),
+        default => TRUE,
+      },
+      default => !$this->shape->getEntity()->isNew(),
+    };
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function provideOverrideValue(mixed $value, mixed $defaultValue): mixed {
+    $isEmpty = !empty($this->matcherField->getEntityValue($this->shape->getEntity(), $this->configuration['field']));
+    if (!$isEmpty) {
+      $this->stopFurtherProcessing();
+      return FALSE;
+    }
+    return $value;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function isEditable(): bool {
+    return FALSE;
+  }
+
+}
