@@ -236,9 +236,12 @@ class Component extends ConfigEntityBase implements ComponentInterface {
   /**
    * {@inheritdoc}
    */
-  public function getComponent(): ComponentPlugin {
+  public function getComponent(): ?ComponentPlugin {
     /** @var \Drupal\Core\Theme\ComponentPluginManager $manager */
     $manager = \Drupal::service('plugin.manager.sdc');
+    if (!$manager->hasDefinition($this->getComponentId())) {
+      return NULL;
+    }
     return $manager->find($this->getComponentId());
   }
 
@@ -473,7 +476,10 @@ class Component extends ConfigEntityBase implements ComponentInterface {
    */
   public function getPropShapes(): array {
     if (!isset($this->propShapes)) {
-      $this->propShapes = $this->loadPropShapes($this->getComponent()->metadata->schema);
+      $this->propShapes = [];
+      if ($component = $this->getComponent()) {
+        $this->propShapes = $this->loadPropShapes($component->metadata->schema);
+      }
     }
     return $this->propShapes;
   }
