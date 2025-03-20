@@ -41,6 +41,7 @@ final class ComponentLibraryController extends ControllerBase {
    */
   public function __invoke(): array {
     $definitions = $this->pluginManagerSdc->getDefinitions();
+    uasort($definitions, fn($a, $b) => strnatcasecmp($a['name'], $b['name']));
 
     $rows = [];
     foreach ($definitions as $definition) {
@@ -49,7 +50,11 @@ final class ComponentLibraryController extends ControllerBase {
 
       $row = [];
       $row['thumbnail'] = [];
-      if ($thumbnail = $component->metadata->getThumbnailPath()) {
+      $thumbnail = $component->metadata->getThumbnailPath();
+      if (!$thumbnail) {
+        $thumbnail = \Drupal::moduleHandler()->getModule('neo_alchemist')->getPath() . '/images/thumbnail.jpg';
+      }
+      if ($thumbnail) {
         $row['thumbnail'] = ['style' => 'width: 100px;'];
         $row['thumbnail']['data'] = [
           '#theme' => 'image',
