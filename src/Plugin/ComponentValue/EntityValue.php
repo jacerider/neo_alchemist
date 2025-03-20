@@ -196,8 +196,7 @@ final class EntityValue extends ComponentValuePluginBase implements ContainerFac
    */
   public function isAllowed(string $op): bool {
     if ($op === 'manage') {
-      $matcherField = \Drupal::service('neo_alchemist.matcher_field');
-      return !empty($matcherField->getMatchesAsOptions($this->shape));
+      return !empty($this->matcherField->getMatchesAsOptions($this->shape));
     }
     return match($this->shape->getScope()) {
       'field' => match($op) {
