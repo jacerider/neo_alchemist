@@ -59,13 +59,15 @@ final class MatcherField extends MatcherBase {
    *   The dot-separated string representing the field path.
    * @param array $properties
    *   (optional) An associative array of properties to retrieve from the field.
+   * @param mixed $default
+   *   (optional) The default value to return if the field does not exist.
    *
    * @return mixed
    *   The value of the specified field.
    */
-  public function getEntityValue(ContentEntityInterface $entity, string $key, array $properties = []): mixed {
+  public function getEntityValue(ContentEntityInterface $entity, string $key, array $properties = [], $default = []): mixed {
     $path = explode('.', $key);
-    return $this->recurseEntity($entity, $path, $properties);
+    return $this->recurseEntity($entity, $path, $properties, $default);
   }
 
   /**
@@ -79,13 +81,15 @@ final class MatcherField extends MatcherBase {
    *   is optional.
    * @param array $properties
    *   (optional) An associative array of properties to retrieve from the field.
+   * @param mixed $default
+   *   (optional) The default value to return if the field does not exist.
    *
    * @return mixed
    *   The value of the field or property, or an empty array if the field or
    *   property does not exist or is empty.
    */
-  private function recurseEntity(ContentEntityInterface $entity, array $path, array $properties = []): mixed {
-    $value = [];
+  private function recurseEntity(ContentEntityInterface $entity, array $path, array $properties = [], $default = []): mixed {
+    $value = $default;
     $key = array_shift($path);
     [$fieldName, $property, $subProperty] = explode(':', $key . '::');
     if ($fieldName === '_entity' && $property) {
@@ -109,7 +113,7 @@ final class MatcherField extends MatcherBase {
     elseif ($field instanceof FieldItemListInterface) {
       $value = $field->getValue();
       if ($property) {
-        $value = $value[0][$property] ?? [];
+        $value = $value[0][$property] ?? $default;
       }
     }
     if ($properties && is_array($value)) {
@@ -197,6 +201,8 @@ final class MatcherField extends MatcherBase {
    *   (optional) The entity type ID to match against. Defaults to NULL.
    * @param string|null $entityBundle
    *   (optional) The entity bundle to match against. Defaults to NULL.
+   * @param bool $all
+   *   (optional) Whether to match all fields. Defaults to FALSE.
    *
    * @return array
    *   An associative array of options, grouped by their respective group names.
@@ -209,9 +215,9 @@ final class MatcherField extends MatcherBase {
    *     ...
    *   ]
    */
-  public function getMatchesAsOptions(ComponentShapePluginInterface $shape, string $entityTypeId = NULL, string $entityBundle = NULL): array {
+  public function getMatchesAsOptions(ComponentShapePluginInterface $shape, string $entityTypeId = NULL, string $entityBundle = NULL, bool $all = FALSE): array {
     $options = [];
-    $matches = $this->getMatches($shape, $entityTypeId, $entityBundle);
+    $matches = $this->getMatches($shape, $entityTypeId, $entityBundle, $all);
     foreach ($matches as $key => [
       'title' => $title,
       'group' => $group,
@@ -235,11 +241,13 @@ final class MatcherField extends MatcherBase {
    *   (optional) The entity type ID to match against. Defaults to NULL.
    * @param string|null $entityBundle
    *   (optional) The entity bundle to match against. Defaults to NULL.
+   * @param bool $all
+   *   (optional) Whether to match all fields. Defaults to FALSE.
    *
    * @return array
    *   An array of matches, sorted by weight and title.
    */
-  public function getMatches(ComponentShapePluginInterface $shape, string $entityTypeId = NULL, string $entityBundle = NULL): array {
+  public function getMatches(ComponentShapePluginInterface $shape, string $entityTypeId = NULL, string $entityBundle = NULL, bool $all = FALSE): array {
     $matches = [];
 
     if ($entityTypeId) {
@@ -266,7 +274,12 @@ final class MatcherField extends MatcherBase {
       return $matches;
     }
 
-    $matches = $this->match($entityDataDefinition, $shape, $this->maxLevels);
+    if ($all) {
+      $matches = $this->matchAll($entityDataDefinition, 1);
+    }
+    else {
+      $matches = $this->match($entityDataDefinition, $shape, $this->maxLevels);
+    }
 
     uasort($matches, function ($a, $b) {
       $a_weight = $a['weight'] ?? 0;
@@ -326,8 +339,8 @@ final class MatcherField extends MatcherBase {
    *   (optional) An array of parent definitions for context. Defaults to an
    *   empty array.
    *
-   * @return mixed
-   *   The result of the matchScalar method.
+   * @return array
+   *   An array of matched definitions.
    */
   private function matchIterable(EntityDataDefinitionInterface $entityDataDefinition, ComponentShapePluginInterface $shape, int $level, array $parentDefinitions = []) {
     return $this->matchScalar($entityDataDefinition, $shape, $level, $parentDefinitions);
@@ -441,6 +454,59 @@ final class MatcherField extends MatcherBase {
       }
     }
 
+    return $matches;
+  }
+
+  /**
+   * Get all nested fields within an entity defintition.
+   *
+   * @param \Drupal\Core\Entity\TypedData\EntityDataDefinitionInterface $entityDataDefinition
+   *   The entity data definition to match.
+   * @param int $level
+   *   The current level of matching.
+   * @param array $parentDefinitions
+   *   (optional) An array of parent definitions for context. Defaults to an
+   *   empty array.
+   *
+   * @return array
+   *   An array of matched definitions.
+   */
+  private function matchAll(EntityDataDefinitionInterface $entityDataDefinition, int $level, array $parentDefinitions = []): array {
+    $matches = [];
+    $fieldDefinitions = $this->dataDefinitions($entityDataDefinition);
+    foreach ($fieldDefinitions as $fieldDefinition) {
+      assert($fieldDefinition instanceof FieldDefinitionInterface);
+      if ($fieldDefinition instanceof ComponentFieldConfigInterface) {
+        continue;
+      }
+      $parentFieldDefinitions = array_merge($parentDefinitions, [$fieldDefinition]);
+      // ksm($this->group($parentFieldDefinitions));
+      $matches[$this->key($parentFieldDefinitions)] = [
+        'title' => $this->label($parentFieldDefinitions),
+        'group' => $this->group($parentFieldDefinitions),
+        'definition' => $fieldDefinition,
+        'weight' => $level,
+      ];
+
+      $properties = $this->dataDefinitions($fieldDefinition);
+      foreach ($properties as $propertyName => $property) {
+        $isReference = $this->isReference($property);
+        if ($isReference === NULL) {
+          // Neither a reference nor a primitive.
+          continue;
+        }
+        if ($isReference) {
+          if ($level === 0) {
+            continue;
+          }
+          if ($property instanceof DataReferenceDefinitionInterface && is_a($property->getClass(), EntityReference::class, TRUE)) {
+            $target = $property->getTargetDefinition();
+            assert($target instanceof EntityDataDefinitionInterface);
+            $matches += $this->matchAll($target, $level - 1, $parentFieldDefinitions);
+          }
+        }
+      }
+    }
     return $matches;
   }
 
