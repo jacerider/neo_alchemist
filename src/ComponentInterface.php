@@ -67,7 +67,7 @@ interface ComponentInterface extends ConfigEntityInterface, RenderableInterface 
    * @return \Drupal\Core\Plugin\Component
    *   The component.
    */
-  public function getComponent(): Component;
+  public function getComponent(): ?Component;
 
   /**
    * Get the component schema.
