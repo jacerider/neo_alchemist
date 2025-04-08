@@ -197,6 +197,13 @@ class Component extends ConfigEntityBase implements ComponentInterface {
   protected array $filters;
 
   /**
+   * The component access.
+   *
+   * @var array
+   */
+  protected array $access;
+
+  /**
    * {@inheritdoc}
    */
   public function getDescription(): string {
@@ -937,7 +944,12 @@ class Component extends ConfigEntityBase implements ComponentInterface {
    * {@inheritdoc}
    */
   public function __sleep() {
-    return array_diff(parent::__sleep(), ['propShapes', 'slots', 'filters']);
+    return array_diff(parent::__sleep(), [
+      'propShapes',
+      'slots',
+      'filters',
+      'access',
+    ]);
   }
 
 }
