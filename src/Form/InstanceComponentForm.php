@@ -8,14 +8,13 @@ use Drupal\Component\Datetime\TimeInterface;
 use Drupal\Component\Utility\Html;
 use Drupal\Component\Utility\NestedArray;
 use Drupal\Core\Ajax\AjaxResponse;
-use Drupal\Core\Ajax\HtmlCommand;
 use Drupal\Core\Entity\ContentEntityForm;
 use Drupal\Core\Entity\EntityRepositoryInterface;
 use Drupal\Core\Entity\EntityTypeBundleInfoInterface;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Form\SubformState;
 use Drupal\Core\TempStore\PrivateTempStoreFactory;
-use Drupal\neo_alchemist\Ajax\InstanceComponentPreviewIframeCommand;
+use Drupal\neo_alchemist\Ajax\InstanceComponentManageIframeCommand;
 use Drupal\neo_alchemist\Ajax\InstanceIframeHelper;
 use Drupal\neo_alchemist\ComponentManageHelper;
 use Drupal\neo_alchemist\ComponentShapeStylePluginInterface;
@@ -116,10 +115,11 @@ final class InstanceComponentForm extends ContentEntityForm {
     $this->before = $form_state->get('before');
     $this->after = $form_state->get('after');
     $form_state->set('neo_component_form', TRUE);
+
     $form_state->set('neo_component_manage_id', ComponentManageHelper::getId($this->instance->getFieldItem()));
     $form_state->set('original_values', $this->instance->getValues());
     $this->store->delete($this->instance->getFieldItem()->getDraftKey($this->instance->uuid()));
-    $form_state->set('neo_draft_uuid', $this->instance->uuid());
+    $form_state->set('neo_component_uuid', $this->instance->uuid());
   }
 
   /**
@@ -127,6 +127,26 @@ final class InstanceComponentForm extends ContentEntityForm {
    */
   public function buildForm(array $form, FormStateInterface $form_state) {
     $form = parent::buildForm($form, $form_state);
+
+    $form['footer']['status'] = [
+      '#type' => 'checkbox',
+      '#title' => $this->t('Enabled'),
+      '#neo_size' => 'xs',
+      '#default_value' => $this->instance->isPublished(),
+    ];
+
+    $form['footer']['refresh'] = [
+      '#type' => 'submit',
+      '#id' => 'neo-alchemist--refresh',
+      '#value' => $this->t('Refresh'),
+      '#submit' => ['::submitRefresh'],
+      '#ajax' => [
+        'callback' => '::ajaxRefresh',
+      ],
+      '#weight' => -1000,
+      '#prefix' => '<div class="hidden">',
+      '#suffix' => '</div>',
+    ];
 
     $form['actions']['#weight'] = 1000;
     return $form;
@@ -139,10 +159,12 @@ final class InstanceComponentForm extends ContentEntityForm {
     $form['#parents'] = [];
     $form['#id'] = 'neo-alchemist--instance-component-form';
     $form['#attributes']['class'][] = 'neo-alchemist--instance-component-form';
+    $form['#neo_style'] = 'default';
+    $form['#neo_size'] = 'sm';
 
     $form['#process'][] = '::processForm';
-    $form['#attached']['library'][] = 'neo_alchemist/instance.ajax';
-    $form['#attached']['library'][] = 'neo_alchemist/instance.component.form';
+    $form['#attached']['library'][] = 'neo_alchemist/component.ajax';
+    $form['#attached']['library'][] = 'neo_alchemist/component.ajax.form';
 
     $form['uuid'] = [
       '#type' => 'hidden',
@@ -241,25 +263,6 @@ final class InstanceComponentForm extends ContentEntityForm {
       $form['filters'][$filter->uuid()] = $subform;
     }
 
-    $form['status'] = [
-      '#type' => 'checkbox',
-      '#title' => $this->t('Enabled'),
-      '#default_value' => $this->instance->isPublished(),
-    ];
-
-    $form['refresh'] = [
-      '#type' => 'submit',
-      '#id' => 'neo-alchemist--refresh',
-      '#value' => $this->t('Refresh'),
-      '#submit' => ['::submitRefresh'],
-      '#ajax' => [
-        'callback' => '::ajaxRefresh',
-      ],
-      '#weight' => -1000,
-      '#prefix' => '<div class="hidden">',
-      '#suffix' => '</div>',
-    ];
-
     return $form;
   }
 
@@ -288,12 +291,6 @@ final class InstanceComponentForm extends ContentEntityForm {
         $shape->validateForm($form['values'][$propName], $subform_state, $value);
         $values['props'][$propName]['shape'] = $shape->getPluginId();
         $values['props'][$propName]['value'] = $shape->massageFormValues($value, $originalValue, $form['values'][$propName], $subform_state) + $originalValue;
-        // if (is_array($value) && !empty($value)) {
-        //   $values['props'][$propName]['value'] = $shape->massageFormValues($value, $originalValue, $form['values'][$propName], $subform_state);
-        // }
-        // else {
-        //   $values['props'][$propName]['value'] = $originalValue;
-        // }
         $values['props'][$propName]['options'] = $shape->getNestedOptions();
       }
     }
@@ -322,9 +319,6 @@ final class InstanceComponentForm extends ContentEntityForm {
       '#value' => $this->t('Save'),
       '#submit' => ['::submitForm', '::save'],
     ];
-    if ($this->isAjax()) {
-      $actions['submit']['#ajax']['callback'] = '::ajaxSubmit';
-    }
     $actions['cancel'] = [
       '#type' => 'link',
       '#title' => $this->t('Cancel'),
@@ -333,6 +327,11 @@ final class InstanceComponentForm extends ContentEntityForm {
         'data-neo-modal-close' => '1',
       ],
     ];
+    $actions['submit']['#attributes']['class'][] = 'btn btn-primary btn-xs';
+    $actions['cancel']['#attributes']['class'][] = 'btn btn-outline btn-xs';
+    if ($this->isAjax()) {
+      $actions['submit']['#ajax']['callback'] = '::ajaxSubmit';
+    }
     return $actions;
   }
 
@@ -375,8 +374,7 @@ final class InstanceComponentForm extends ContentEntityForm {
   public function ajaxRefresh(array &$form, FormStateInterface $form_state) {
     $form['#old_build_id'] = $form['#build_id'];
     $response = new AjaxResponse();
-    // $response->addCommand(new HtmlCommand('.region.region--status', ['#type' => 'status_messages']));
-    $response->addCommand(new InstanceComponentPreviewIframeCommand('#' . ComponentManageHelper::getId($this->instance) . ' iframe'));
+    $response->addCommand(new InstanceComponentManageIframeCommand('#' . ComponentManageHelper::getId($this->instance) . ' iframe'));
     return $response;
   }
 

@@ -1,7 +1,7 @@
 (function (Drupal) {
 
   if (Drupal.AjaxCommands) {
-    Drupal.AjaxCommands.prototype.neoAlchemistInstanceComponentPreviewIframe = function (_ajax, response, _status) {
+    Drupal.AjaxCommands.prototype.neoAlchemistComponentAjax = function (_ajax, response, _status) {
       const iframe = document.querySelector(response.selector);
       if (iframe instanceof HTMLIFrameElement) {
         iframe.contentDocument?.location.reload();

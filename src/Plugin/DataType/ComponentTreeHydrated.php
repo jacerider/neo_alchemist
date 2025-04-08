@@ -124,6 +124,10 @@ class ComponentTreeHydrated extends TypedData implements RenderableInterface {
       foreach ($component_instances as $component_instance_uuid => $component_instance) {
         $instance = $item->getComponent($component_instance_uuid);
         $cacheableMetadata->addCacheableDependency($instance);
+        if (!$instance->access('view')) {
+          // Skip components that are not accessible.
+          continue;
+        }
         $build[$component_subtree_uuid][$component_instance_uuid] = $instance->toRenderable();
       }
     }

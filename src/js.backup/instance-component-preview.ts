@@ -181,8 +181,8 @@
           shade.style.right = '0px';
           shade.style.bottom = '0px';
           shade.style.left = '0px';
-          shade.style.width = document.body.clientWidth + 'px';
-          shade.style.height = document.body.clientHeight + 'px';
+          shade.style.width = document.documentElement.scrollWidth + 'px';
+          shade.style.height = document.documentElement.scrollHeight + 'px';
           shade.style.clipPath = `polygon(0% 0%, 0% 100%, ${left}px 100%, ${left}px ${top}px, ${right}px ${top}px, ${right}px ${bottom}px, ${left}px ${bottom}px, ${left}px 100%, 100% 100%, 100% 0%)`;
           shade.classList.add('is-active');
           setTimeout(() => {

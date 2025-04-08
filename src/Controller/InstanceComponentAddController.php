@@ -44,13 +44,14 @@ final class InstanceComponentAddController extends ControllerBase {
 
     $build = [
       '#theme' => 'neo_alchemist_manage',
+      '#form_position' => 'side',
       '#id' => ComponentManageHelper::getId($instance),
-      '#src' => $instance->toUrl('preview')->setOption('query', [
+      '#iframe_url' => $instance->toUrl('preview')->setOption('query', [
         'uuid' => $instance->uuid(),
         'component' => $instance->id(),
-      ])->toString(),
+      ]),
       '#attached' => [
-        'library' => ['neo_alchemist/component.manage'],
+        'library' => ['neo_alchemist/component.parent'],
       ],
     ];
 
@@ -66,9 +67,7 @@ final class InstanceComponentAddController extends ControllerBase {
       return $build;
     }
 
-    return $this->bareHtmlPageRenderer->renderBarePage($build, 'Manage: ' . $neo_component->label(), 'page__neo_alchemist_preview', [
-      'status' => ['#type' => 'status_messages'],
-    ]);
+    return $this->bareHtmlPageRenderer->renderBarePage($build, 'Manage: ' . $neo_component->label(), 'page__neo_alchemist_preview');
   }
 
   /**

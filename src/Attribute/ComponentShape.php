@@ -40,6 +40,9 @@ final class ComponentShape extends AttributeBase {
    * @param array|null $supports_field_props
    *   (optional) The supported field properties. For example:
    *   - ['integer', 'float', 'decimal'].
+   * @param array|null $formats
+   *   (optional) The supported formats. For example:
+   *   - ['textarea' => ['default_field_type' => 'string_long']].
    * @param class-string|null $deriver
    *   (optional) The deriver class.
    */
@@ -53,6 +56,7 @@ final class ComponentShape extends AttributeBase {
     public readonly ?array $default_plugins = NULL,
     public readonly ?array $supports_field_types = NULL,
     public readonly ?array $supports_field_props = NULL,
+    public readonly ?array $formats = NULL,
     public readonly ?string $deriver = NULL,
   ) {}
 

@@ -1,0 +1,54 @@
+{#
+/**
+ * @file
+ * Default theme implementation for the basic structure of a single Drupal page.
+ *
+ * Variables:
+ * - logged_in: A flag indicating if user is logged in.
+ * - root_path: The root path of the current page (e.g., node, admin, user).
+ * - node_type: The content type for the current node, if the page is a node.
+ * - head_title: List of text elements that make up the head_title variable.
+ *   May contain one or more of the following:
+ *   - title: The title of the page.
+ *   - name: The name of the site.
+ *   - slogan: The slogan of the site.
+ * - page_top: Initial rendered markup. This should be printed before 'page'.
+ * - page: The rendered page markup.
+ * - page_bottom: Closing rendered markup. This variable should be printed after
+ *   'page'.
+ * - db_offline: A flag indicating if the database is offline.
+ * - placeholder_token: The token for generating head, css, js and js-bottom
+ *   placeholders.
+ *
+ * @see template_preprocess_html()
+ *
+ * @ingroup themeable
+ */
+#}
+<!DOCTYPE html>
+{# drag flex items-center justify-center min-h-full bg-base-100 cursor-move [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] #}
+<html{{ html_attributes.addClass('bg-base-0') }}>
+  <head>
+    <head-placeholder token="{{ placeholder_token }}">
+    <title>{{ head_title|safe_join(' | ') }}</title>
+    <css-placeholder token="{{ placeholder_token }}">
+    <js-placeholder token="{{ placeholder_token }}">
+  </head>
+  {# drag bg-base-100 flex-auto p-6 container #}
+  <body{{ attributes.addClass('bg-base-0') }}>
+    {{ status }}
+    {{ page_top }}
+    {{ page|without('status') }}
+    {% if page.status %}
+      <div class="fixed flex flex-col items-center top-0 z-50 w-full">
+        <div class="max-w-3xl w-full">
+          <div class="alchemist-messages flex flex-col gap-2 invisible opacity-0 transition-opacity">
+            {{ page.status }}
+          </div>
+        </div>
+      </div>
+    {% endif %}
+    {{ page_bottom }}
+    <js-bottom-placeholder token="{{ placeholder_token }}">
+  </body>
+</html>

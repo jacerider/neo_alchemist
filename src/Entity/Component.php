@@ -6,12 +6,16 @@ namespace Drupal\neo_alchemist\Entity;
 
 use Drupal\Component\Serialization\Json;
 use Drupal\Component\Utility\NestedArray;
+use Drupal\Core\Access\AccessResult;
+use Drupal\Core\Access\AccessResultInterface;
 use Drupal\Core\Config\Entity\ConfigEntityBase;
 use Drupal\Core\Entity\ContentEntityInterface;
 use Drupal\Core\Entity\EntityStorageInterface;
 use Drupal\Core\Entity\EntityTypeInterface;
 use Drupal\Core\Plugin\Component as ComponentPlugin;
+use Drupal\Core\Session\AccountInterface;
 use Drupal\Core\Template\Attribute;
+use Drupal\neo_alchemist\ComponentAccessInterface;
 use Drupal\neo_alchemist\ComponentFilterInterface;
 use Drupal\neo_alchemist\ComponentInterface;
 use Drupal\neo_alchemist\ComponentShapePluginInterface;
@@ -40,6 +44,7 @@ use Drupal\neo_alchemist\ComponentSlotInterface;
  *       "prop" = "Drupal\neo_alchemist\Form\ComponentPropForm",
  *       "slot" = "Drupal\neo_alchemist\Form\ComponentSlotForm",
  *       "filter" = "Drupal\neo_alchemist\Form\ComponentFilterForm",
+ *       "access" = "Drupal\neo_alchemist\Form\ComponentAccessForm",
  *       "delete" = "Drupal\Core\Entity\EntityDeleteForm",
  *       "manage" = "Drupal\neo_alchemist\Form\ComponentManageForm",
  *     },
@@ -54,6 +59,8 @@ use Drupal\neo_alchemist\ComponentSlotInterface;
  *     "edit-slot-form" = "/admin/config/neo/alchemist/{neo_component}/slot/{slot}",
  *     "add-filter-form" = "/admin/config/neo/alchemist/{neo_component}/filter/add",
  *     "edit-filter-form" = "/admin/config/neo/alchemist/{neo_component}/filter/{uuid}",
+ *     "add-access-form" = "/admin/config/neo/alchemist/{neo_component}/access/add",
+ *     "edit-access-form" = "/admin/config/neo/alchemist/{neo_component}/access/{uuid}",
  *     "delete-form" = "/admin/config/neo/alchemist/{neo_component}/delete",
  *     "canonical" = "/admin/config/neo/alchemist/{neo_component}",
  *     "preview" = "/admin/config/neo/alchemist/{neo_component}/preview",
@@ -248,7 +255,7 @@ class Component extends ConfigEntityBase implements ComponentInterface {
   /**
    * {@inheritdoc}
    */
-  public function getComponentSchema(): array {
+  public function getComponentSchema(): ?array {
     return $this->getComponent()->metadata->schema;
   }
 
@@ -654,6 +661,73 @@ class Component extends ConfigEntityBase implements ComponentInterface {
       }
     }
     return $this->filters;
+  }
+
+  /**
+   * Check access plugins for access.
+   *
+   * @param string $operation
+   *   The operation to check access for, e.g., 'view', 'update', 'manage'.
+   * @param \Drupal\Core\Session\AccountInterface|null $account
+   *   The user account to check access for.
+   *
+   * @return \Drupal\Core\Access\AccessResultInterface
+   *   The access result object indicating whether the operation is allowed.
+   */
+  protected function checkAccess(string $operation, ?AccountInterface $account = NULL): AccessResultInterface {
+    if (!in_array($operation, array_keys(ComponentAccessInterface::OPS))) {
+      return AccessResult::neutral();
+    }
+    foreach ($this->getAccessInstances() as $accessInstance) {
+      $access = $accessInstance->access($operation, $account ?? \Drupal::currentUser());
+      // If any access plugin denies access, we deny access to the component
+      // instance.
+      if ($access->isForbidden()) {
+        return $access;
+      }
+    }
+    return AccessResult::neutral();
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function setAccess(ComponentAccessInterface $access): ComponentAccessInterface {
+    unset($this->access);
+    $uuid = $access->isNew() ? $this->uuidGenerator()->generate() : $access->uuid();
+    $this->settings['access'][$uuid] = $access->toArray();
+    return $this->getAccess($uuid);
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function getAccess(string $uuid): ?ComponentAccessInterface {
+    return $this->getAccessInstances()[$uuid] ?? NULL;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function deleteAccess(string $uuid): self {
+    unset($this->settings['access'][$uuid]);
+    return $this;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function getAccessInstances(): array {
+    if (!isset($this->access)) {
+      $this->access = [];
+      if (!empty($this->settings['access'])) {
+        $factory = \Drupal::service('neo_component.access.factory');
+        foreach ($this->settings['access'] as $uuid => $data) {
+          $this->access[$uuid] = $factory->get($this, ['uuid' => $uuid] + $data);
+        }
+      }
+    }
+    return $this->access;
   }
 
   /**

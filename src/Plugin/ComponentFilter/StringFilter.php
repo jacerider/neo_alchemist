@@ -9,7 +9,7 @@ use Drupal\neo_alchemist\Attribute\ComponentFilter;
 use Drupal\neo_alchemist\ComponentFilterPluginBase;
 
 /**
- * Plugin implementation of the neo_component_slot.
+ * Plugin implementation of the neo_component_filter.
  */
 #[ComponentFilter(
   id: 'string',

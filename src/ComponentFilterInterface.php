@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Drupal\neo_alchemist;
 
 use Drupal\Core\Form\FormStateInterface;
-use Drupal\Core\StringTranslation\TranslatableMarkup;
 
 /**
  * Interface for neo_component_shape plugins.

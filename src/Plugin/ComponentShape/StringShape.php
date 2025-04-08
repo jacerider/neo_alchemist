@@ -19,6 +19,12 @@ use Drupal\neo_alchemist\ComponentShapePluginBase;
   default_field_widget: 'string_textfield',
   default_field_widget_with_options: 'options_select',
   supports_field_props: ['string', 'integer', 'float', 'decimal', 'email'],
+  formats: [
+    'textarea' => [
+      'default_field_type' => 'string_long',
+      'default_field_widget' => 'string_textarea',
+    ],
+  ]
 )]
 class StringShape extends ComponentShapePluginBase {
 

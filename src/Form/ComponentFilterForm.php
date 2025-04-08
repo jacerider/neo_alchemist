@@ -79,6 +79,9 @@ final class ComponentFilterForm extends EntityForm {
     $form = parent::form($form, $form_state);
     $id = Html::getId('neo-component-filter-' . $this->filter->uuid());
     $form['#id'] = $id;
+    if (!$form_state->get('new')) {
+      $form_state->set('new', $this->filter->isNew());
+    }
 
     $form['title'] = [
       '#type' => 'textfield',
@@ -227,7 +230,7 @@ final class ComponentFilterForm extends EntityForm {
       '#value' => $this->t('Save'),
       '#submit' => ['::submitForm', '::save'],
     ];
-    if (!$this->filter->isNew()) {
+    if (!$form_state->get('new')) {
       $actions['delete'] = [
         '#type' => 'submit',
         '#value' => $this->t('Delete'),
@@ -244,7 +247,7 @@ final class ComponentFilterForm extends EntityForm {
   public function save(array $form, FormStateInterface $form_state): int {
     $result = parent::save($form, $form_state);
     $this->messenger()->addStatus($this->t('@op filter %label.', [
-      '@op' => $this->filter->isNew() ? $this->t('Added') : $this->t('Updated'),
+      '@op' => $form_state->get('new') ? $this->t('Added') : $this->t('Updated'),
       '%label' => $this->entity->label(),
     ]));
     $form_state->setRedirectUrl($this->entity->toUrl());

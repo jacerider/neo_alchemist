@@ -39,9 +39,10 @@ final class ComponentPreviewController extends ControllerBase {
    */
   public function __invoke(ComponentInterface $neo_component) {
     $build = [
+      '#theme' => 'neo_alchemist_component_preview',
       '#attached' => [
         'library' => [
-          'neo_alchemist/component.preview',
+          'neo_alchemist/component.child',
         ],
       ],
     ];
@@ -49,9 +50,7 @@ final class ComponentPreviewController extends ControllerBase {
     $neo_component->setPreview(TRUE);
     $build['component'] = $neo_component->toRenderable();
 
-    return $this->bareHtmlPageRenderer->renderBarePage($build, 'Preview: ' . $neo_component->label(), 'page__neo_alchemist_preview', [
-      '#attributes' => ['class' => ['!p-4']],
-    ])->addCacheableDependency((new CacheableMetadata())->setCacheMaxAge(0));
+    return $this->bareHtmlPageRenderer->renderBarePage($build, 'Preview: ' . $neo_component->label(), 'page__neo_alchemist_preview')->addCacheableDependency((new CacheableMetadata())->setCacheMaxAge(0));
   }
 
 }

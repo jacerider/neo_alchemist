@@ -45,6 +45,28 @@ class ArrayShape extends ChildrenShapeBase implements ComponentShapeInterablePlu
   }
 
   /**
+   * {@inheritDoc}
+   */
+  public function getDefaultSchemaValue(): mixed {
+    $examples = parent::getDefaultSchemaValue();
+    if ($examples) {
+      // Arrays can supply defaults on the array itself OR the property can
+      // supply defaults. If the array supplies the defaults, we merge in
+      // the property defaults.
+      foreach ($this->schema['items']['properties'] as $propName => $prop) {
+        if ($prop['examples'] ?? FALSE) {
+          foreach ($examples as $delta => $example) {
+            if (!isset($example[$propName])) {
+              $examples[$delta][$propName] = $prop['examples'];
+            }
+          }
+        }
+      }
+    }
+    return $examples;
+  }
+
+  /**
    * Check if the schema is a single property.
    *
    * @return bool
@@ -149,49 +171,20 @@ class ArrayShape extends ChildrenShapeBase implements ComponentShapeInterablePlu
    */
   public function getValue(): mixed {
     $values = parent::getValue();
-    if ($this->getOptionDefault()->isEnabled()) {
-      return $values;
-    }
     foreach ($this->getChildShapeList() as $delta => $shapes) {
       /** @var \Drupal\neo_alchemist\ComponentShapePluginInterface[] $shapes */
       foreach ($shapes as $shapeName => $shape) {
-        $value = $shape->getValue();
-        if ($value) {
-          if ($this->isSingleProp()) {
-            $values[$delta] = $value;
-          }
-          else {
-            $values[$delta][$shapeName] = $value;
-          }
+        $values[$delta][$shapeName] = $shape->getValue();
+        if (empty($values[$delta][$shapeName])) {
+          // Do not include empty values or values that are set to empty.
+          unset($values[$delta][$shapeName]);
+        }
+        elseif ($this->isSingleProp()) {
+          $values[$delta] = $values[$delta][$shapeName];
         }
       }
     }
     return $values;
-  }
-
-  /**
-   * {@inheritDoc}
-   */
-  public function adaptValue(mixed $values): mixed {
-    if ($this->getOptionDefault()->isEnabled()) {
-      return $values;
-    }
-    $newValues = [];
-    foreach ($this->getChildShapeList() as $delta => $shapes) {
-      /** @var \Drupal\neo_alchemist\ComponentShapePluginInterface[] $shapes */
-      foreach ($shapes as $shapeName => $shape) {
-        $value = $shape->getValue();
-        if ($value) {
-          if ($this->isSingleProp()) {
-            $newValues[$delta] = $value;
-          }
-          else {
-            $newValues[$delta][$shapeName] = $value;
-          }
-        }
-      }
-    }
-    return $newValues;
   }
 
   /**

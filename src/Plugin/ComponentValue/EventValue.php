@@ -78,8 +78,9 @@ final class EventValue extends ComponentValuePluginBase implements ContainerFact
    */
   protected function configurationForm(array $form, FormStateInterface $form_state, array &$complete_form): array {
     $form['info'] = [
-      '#markup' => $this->t('This plugin fires an event (%name) to get the value.', [
+      '#markup' => $this->t('This plugin fires an event (%name) via (%class) to get the value.', [
         '%name' => ComponentValueEvent::EVENT_NAME,
+        '%class' => ComponentValueEvent::class,
       ]),
     ];
     return $form;

@@ -16,7 +16,7 @@ use Drupal\neo_alchemist\ComponentFilterPluginBase;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
- * Plugin implementation of the neo_component_slot.
+ * Plugin implementation of the neo_component_filter.
  */
 #[ComponentFilter(
   id: 'entity',

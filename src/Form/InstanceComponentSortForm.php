@@ -66,6 +66,7 @@ final class InstanceComponentSortForm extends ContentEntityForm {
    */
   public function form(array $form, FormStateInterface $form_state): array {
     $this->fieldItem = $form_state->get('fieldItem');
+    $form_state->set('neo_component_instance', $this->fieldItem);
     $form_state->set('neo_component_form', TRUE);
     $form_state->set('neo_component_manage_id', ComponentManageHelper::getId($this->fieldItem));
     $focusUuid = $form_state->get('uuid');

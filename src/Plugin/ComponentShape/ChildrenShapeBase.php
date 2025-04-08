@@ -78,7 +78,21 @@ abstract class ChildrenShapeBase extends ComponentShapePluginBase implements Com
   protected function getChildSchema(int|null $delta = NULL): array {
     assert($this->isInitialized(), 'Shape must be initialized before calling getChildShapes().');
     if (!isset($this->childSchema[$delta]) || TRUE) {
-      $this->childSchema[$delta] = $this->loadChildSchema($delta);
+      $childSchema = $this->loadChildSchema($delta);
+      if (!empty($childSchema['required'])) {
+        foreach ($childSchema['properties'] as $propName => &$prop) {
+          if (in_array($propName, $childSchema['required'])) {
+            if (empty($prop['examples'])) {
+              // When a property is required and the default value is empty,
+              // we set the examples to the default value.
+              // This is to ensure that the required property has a value.
+              $defaultValue = $this->getDefaultFieldItemValue();
+              $prop['examples'] = !is_null($delta) ? $defaultValue[$delta][$propName] ?? [] : $defaultValue[$propName] ?? [];
+            }
+          }
+        }
+      }
+      $this->childSchema[$delta] = $childSchema;
     }
     return $this->childSchema[$delta];
   }
@@ -207,6 +221,20 @@ abstract class ChildrenShapeBase extends ComponentShapePluginBase implements Com
     }
     if ($this->getOptionEmpty()->isFormForced()) {
       $shape->getOptionEmpty()->alwaysShowForm(TRUE, 'Parent shape has empty form forced.');
+    }
+    if ($this->getScope() !== 'config') {
+      // This has been removed and now restored. This means it may cause issues
+      // somewhere else. But we need it for things like a heading shape so that
+      // children are hidden.
+      if ($this->getOptionDefault()->isEnabled()) {
+        $shape->getOptionDefault()->setLockedValue(TRUE, 'Parent shape is set as default, so set child shape as default.');
+      }
+      if ($this->getOptionEmpty()->isEnabled()) {
+        $shape->getOptionEmpty()->setLockedValue(TRUE, 'Parent shape is set as empty, so set child shape as empty.');
+      }
+      if ($this->getOptionAccess()->isDisabled()) {
+        $shape->getOptionAccess()->setLockedValue(FALSE, 'Parent shape is disabled.');
+      }
     }
     if ($this->getScope() === 'config') {
       $shape->getOptionAccess()->setAccess(TRUE, 'Scope is config.');

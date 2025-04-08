@@ -2,7 +2,6 @@
 
 namespace Drupal\neo_alchemist\Render;
 
-use Drupal\Component\Utility\NestedArray;
 use Drupal\Core\Extension\ModuleHandlerInterface;
 use Drupal\Core\Render\AttachmentsResponseProcessorInterface;
 use Drupal\Core\Render\BareHtmlPageRenderer;
@@ -65,26 +64,19 @@ class ComponentPageRenderer extends BareHtmlPageRenderer {
 
     $wrapper_attributes = $page_additions['#wrapper_attributes'] ?? [];
     $wrapper_attributes['class'][] = str_replace('_', '-', $page_theme_property);
-    $attributes = $page_additions['#attributes'] ?? [];
 
     $html = [
       '#type' => 'html',
       '#attributes' => $wrapper_attributes,
+      '#is_alchemist' => TRUE,
       'page' => [
-        '#type' => 'page',
-        '#theme' => $page_theme_property,
-        '#title' => $title,
         'content' => $content,
-        '#attributes' => $attributes,
       ] + $page_additions,
     ];
 
-    $html['page']['status'] = ['#type' => 'status_messages'];
-
-    // For backwards compatibility.
-    // @todo In Drupal 9, add a $show_messages function parameter.
+    // $html['page']['status'] = ['#type' => 'status_messages'];
     if (!isset($page_additions['#show_messages']) || $page_additions['#show_messages'] === TRUE) {
-      $html['page']['highlighted'] = ['#type' => 'status_messages'];
+      $html['page']['status'] = ['#type' => 'status_messages'];
     }
 
     $htmlHead = [];

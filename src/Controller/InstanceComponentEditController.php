@@ -41,13 +41,14 @@ final class InstanceComponentEditController extends ControllerBase {
   public function __invoke(ComponentInterface $neo_component) {
     $build = [
       '#theme' => 'neo_alchemist_manage',
+      '#form_position' => 'side',
       '#id' => ComponentManageHelper::getId($neo_component),
-      '#src' => $neo_component->toUrl('preview')->setOption('query', [
+      '#iframe_url' => $neo_component->toUrl('preview')->setOption('query', [
         'uuid' => $neo_component->uuid(),
         'component' => $neo_component->id(),
-      ])->toString(),
+      ]),
       '#attached' => [
-        'library' => ['neo_alchemist/component.manage'],
+        'library' => ['neo_alchemist/component.parent'],
       ],
     ];
 
@@ -60,9 +61,7 @@ final class InstanceComponentEditController extends ControllerBase {
     if ($this->isAjax()) {
       return $build;
     }
-    return $this->bareHtmlPageRenderer->renderBarePage($build, 'Manage: ' . $neo_component->label(), 'page__neo_alchemist_preview', [
-      'status' => ['#type' => 'status_messages'],
-    ]);
+    return $this->bareHtmlPageRenderer->renderBarePage($build, 'Manage: ' . $neo_component->label(), 'page__neo_alchemist_preview');
   }
 
   /**

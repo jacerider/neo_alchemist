@@ -1,28 +1,34 @@
-component.manage:
+components.parent:
   version: VERSION
   neo: { group: contrib }
   js:
-    src/js/component-manage.ts: {}
+    src/js/components-parent.ts: {}
+  dependencies:
+    - neo_alchemist/component.parent
+    - neo_alchemist/component.ajax
+
+components.child:
+  version: VERSION
+  neo: { group: contrib }
+  js:
+    src/js/components-child.ts: {}
+  dependencies:
+    - neo_alchemist/component.child
+
+component.parent:
+  version: VERSION
+  neo: { group: contrib }
+  js:
+    src/js/component-parent.ts: {}
   dependencies:
     - core/once
     - core/drupal
-    - core/drupal.displace
 
-instance.component.manage:
+component.child:
   version: VERSION
   neo: { group: contrib }
   js:
-    src/js/instance-component-manage.ts: {}
-  dependencies:
-    - core/drupalSettings
-    - neo_alchemist/component.manage
-    - neo_alchemist/instance.ajax
-
-component.preview:
-  version: VERSION
-  neo: { group: contrib }
-  js:
-    src/js/component-preview.ts: {}
+    src/js/component-child.ts: {}
   dependencies:
     - core/once
     - core/drupal
@@ -34,28 +40,20 @@ component.form:
     component:
       src/css/component-form.scss: {}
 
-instance.component.preview:
+component.ajax.form:
   version: VERSION
   neo: { group: contrib }
   js:
-    src/js/instance-component-preview.ts: {}
-  dependencies:
-    - neo_alchemist/component.preview
-
-instance.component.form:
-  version: VERSION
-  neo: { group: contrib }
-  js:
-    src/js/instance-component-form.ts: {}
+    src/js/component-ajax-form.ts: {}
   dependencies:
     - core/once
     - core/drupal
 
-instance.ajax:
+component.ajax:
   version: VERSION
   neo: { group: contrib }
   js:
-    src/js/instance-ajax.ts: {}
+    src/js/component-ajax.ts: {}
   dependencies:
     - core/drupal
     - core/drupal.ajax

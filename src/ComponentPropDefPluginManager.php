@@ -45,7 +45,6 @@ final class ComponentPropDefPluginManager extends DefaultPluginManager {
     'properties' => [],
     'format' => '',
     'pattern' => '',
-    'examples' => [],
   ];
 
   /**
@@ -74,7 +73,7 @@ final class ComponentPropDefPluginManager extends DefaultPluginManager {
   /**
    * Invokes the hook to alter the definitions if the alter hook is set.
    *
-   * @param $definitions
+   * @param array $definitions
    *   The discovered plugin definitions.
    */
   protected function alterDefinitions(&$definitions) {

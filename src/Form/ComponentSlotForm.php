@@ -341,7 +341,7 @@ final class ComponentSlotForm extends EntityForm {
       '#submit' => ['::submitForm', '::save'],
     ];
     if ($this->isAjax()) {
-      $actions['#attached']['library'][] = 'neo_alchemist/instance.ajax';
+      $actions['#attached']['library'][] = 'neo_alchemist/component.ajax';
       $actions['submit']['#ajax']['callback'] = '::ajaxSubmit';
     }
     return $actions;

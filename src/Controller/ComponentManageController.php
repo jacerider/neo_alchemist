@@ -38,9 +38,9 @@ final class ComponentManageController extends ControllerBase {
     $build = [
       '#theme' => 'neo_alchemist_manage',
       '#id' => ComponentManageHelper::getId($neo_component),
-      '#src' => $neo_component->toUrl('preview')->toString(),
+      '#iframe_url' => $neo_component->toUrl('preview'),
       '#attached' => [
-        'library' => ['neo_alchemist/component.manage'],
+        'library' => ['neo_alchemist/component.parent'],
       ],
       '#form' => $this->entityFormBuilder()->getForm($neo_component, 'manage'),
     ];
@@ -57,9 +57,7 @@ final class ComponentManageController extends ControllerBase {
     // Resize.
     $build['#top_end'] = ComponentManageHelper::buildIframeOperations($neo_component);
 
-    return $this->bareHtmlPageRenderer->renderBarePage($build, 'Manage: ' . $neo_component->label(), 'page__neo_alchemist_preview', [
-      'status' => ['#type' => 'status_messages'],
-    ]);
+    return $this->bareHtmlPageRenderer->renderBarePage($build, 'Manage: ' . $neo_component->label(), 'page__neo_alchemist_preview');
   }
 
   /**

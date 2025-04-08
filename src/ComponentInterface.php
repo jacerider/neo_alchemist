@@ -75,7 +75,7 @@ interface ComponentInterface extends ConfigEntityInterface, RenderableInterface 
    * @return array
    *   The schema.
    */
-  public function getComponentSchema(): array;
+  public function getComponentSchema(): ?array;
 
   /**
    * Get the component slots.
@@ -455,5 +455,55 @@ interface ComponentInterface extends ConfigEntityInterface, RenderableInterface 
    *   An array of filters for the component.
    */
   public function getFilters(): array;
+
+  /**
+   * Sets a access for the component.
+   *
+   * This method assigns a access to the component. If the access is new, a UUID
+   * is generated for it; otherwise, the existing UUID of the access is used.
+   * The access is then converted to an array and stored in the component's
+   * settings.
+   *
+   * @param \Drupal\neo_alchemist\ComponentAccessInterface $access
+   *   The access to be set for the component.
+   *
+   * @return \Drupal\neo_alchemist\ComponentAccessInterface
+   *   The access.
+   */
+  public function setAccess(ComponentAccessInterface $access): ComponentAccessInterface;
+
+  /**
+   * Retrieves a access by its UUID.
+   *
+   * @param string $uuid
+   *   The UUID of the access to retrieve.
+   *
+   * @return \Drupal\neo_alchemist\ComponentAccessInterface|null
+   *   The access associated with the given UUID, or NULL if no access is found.
+   */
+  public function getAccess(string $uuid): ?ComponentAccessInterface;
+
+  /**
+   * Deletes a access from the settings based on the provided UUID.
+   *
+   * @param string $uuid
+   *   The UUID of the access to be deleted.
+   *
+   * @return self
+   *   The current instance of the Component entity.
+   */
+  public function deleteAccess(string $uuid): self;
+
+  /**
+   * Retrieves the accesss for the component.
+   *
+   * This method initializes the accesss if they are not already set. It checks
+   * if there are any accesss defined in the settings and uses the neo_component
+   * access factory service to create access instances based on the settings.
+   *
+   * @return \Drupal\neo_alchemist\ComponentAccessInterface[]
+   *   An array of accesss for the component.
+   */
+  public function getAccessInstances(): array;
 
 }

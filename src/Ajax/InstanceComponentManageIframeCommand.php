@@ -9,7 +9,7 @@ use Drupal\Core\Ajax\CommandInterface;
  *
  * @ingroup ajax
  */
-class InstanceComponentPreviewIframeCommand implements CommandInterface {
+class InstanceComponentManageIframeCommand implements CommandInterface {
 
   /**
    * A iframe ID.
@@ -33,7 +33,7 @@ class InstanceComponentPreviewIframeCommand implements CommandInterface {
    */
   public function render() {
     return [
-      'command' => 'neoAlchemistInstanceComponentPreviewIframe',
+      'command' => 'neoAlchemistComponentIframeReload',
       'selector' => $this->selector,
     ];
   }

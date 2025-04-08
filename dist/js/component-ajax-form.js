@@ -30,7 +30,7 @@
   }
   const a = l(m, 250), i = "neo-alchemist--instance-component-form";
   let c = null;
-  o.behaviors.neoAlchemistInstanceComponentForm = {
+  o.behaviors.neoAlchemistInstanceComponentAjaxForm = {
     attach: function() {
       r("neo.alchemist", "#" + i + " [data-autocomplete-path]").forEach((t) => {
         jQuery(t).on("autocompleteselect", function(e) {
@@ -61,4 +61,4 @@
     }
   };
 })(Drupal, once);
-//# sourceMappingURL=instance-component-form.js.map
+//# sourceMappingURL=component-ajax-form.js.map

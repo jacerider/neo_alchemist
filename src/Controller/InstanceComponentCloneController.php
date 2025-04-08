@@ -7,7 +7,7 @@ namespace Drupal\neo_alchemist\Controller;
 use Drupal\Core\Ajax\AjaxHelperTrait;
 use Drupal\Core\Ajax\AjaxResponse;
 use Drupal\Core\Controller\ControllerBase;
-use Drupal\neo_alchemist\Ajax\InstanceComponentPreviewIframeCommand;
+use Drupal\neo_alchemist\Ajax\InstanceComponentManageIframeCommand;
 use Drupal\neo_alchemist\ComponentInstanceInterface;
 
 /**
@@ -34,7 +34,7 @@ final class InstanceComponentCloneController extends ControllerBase {
 
     if ($this->isAjax()) {
       $response = new AjaxResponse();
-      $response->addCommand(new InstanceComponentPreviewIframeCommand());
+      $response->addCommand(new InstanceComponentManageIframeCommand());
       return $response;
     }
     $url = $neo_component->toUrl();

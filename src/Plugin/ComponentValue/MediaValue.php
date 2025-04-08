@@ -159,7 +159,6 @@ final class MediaValue extends ComponentValuePluginBase implements ContainerFact
    */
   public function formAlter(array &$element, FormStateInterface $form_state) {
     $preview = NULL;
-    // ksm('default', $this->shape->getOptionDefault()->isEnabled(), $this->shape->getValue());
     if ($this->shape->getOptionDefault()->isEnabled()) {
       $value = $this->shape->getValue();
       if (!empty($value['src'])) {

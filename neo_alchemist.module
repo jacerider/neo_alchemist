@@ -30,6 +30,9 @@ use Drupal\neo_tooltip\Tooltip;
  */
 function neo_alchemist_theme(): array {
   return [
+    'html__neo_alchemist' => [
+      'base hook' => 'html',
+    ],
     'page__neo_alchemist_manage' => [
       'base hook' => 'page',
     ],
@@ -42,8 +45,11 @@ function neo_alchemist_theme(): array {
     'neo_alchemist_manage' => [
       'variables' => [
         'id' => '',
-        'src' => '',
+        'iframe_url' => '',
+        'iframe_start' => [],
+        'iframe_end' => [],
         'form' => [],
+        'form_position' => 'footer',
         'top_start' => [],
         'top_end' => [],
         'bottom_start' => [],
@@ -52,6 +58,9 @@ function neo_alchemist_theme(): array {
     ],
     'neo_alchemist_overlay' => [
       'variables' => [],
+    ],
+    'neo_alchemist_component_preview' => [
+      'render element' => 'elements',
     ],
     'neo_alchemist_library' => [
       'variables' => [
@@ -64,24 +73,49 @@ function neo_alchemist_theme(): array {
 /**
  * Implements hook_preprocess_HOOK() for page__neo_alchemist_preview.
  */
-function neo_alchemist_preprocess_page__neo_alchemist_preview(&$variables) {
-  if (isset($variables['page']['status'])) {
-    $variables['page']['status'] = [
-      '#type' => 'html_tag',
-      '#tag' => 'div',
-      '#attributes' => [
-        'id' => 'neo-alchemist--messages',
-        'class' => ['fixed top-displace-t right-0 left-0 flex items-center justify-center px-4 opacity-0 -translate-y-full z-50 pointer-events-none'],
-      ],
-      'status' => [
-        '#type' => 'html_tag',
-        '#tag' => 'div',
-        '#attributes' => [
-          'class' => ['pointer-events-auto max-h-screen overflow-auto'],
-        ],
-        'status' => $variables['page']['status'],
-      ]
-    ];
+function neo_alchemist_preprocess_html__neo_alchemist(&$variables) {
+  // kint($variables);
+  // die;
+}
+
+/**
+ * Implements hook_theme_suggestions_HOOK_alter() for html.
+ */
+function neo_alchemist_theme_suggestions_html_alter(array &$suggestions, array $variables) {
+  if ($variables['html']['#is_alchemist'] ?? FALSE) {
+    $suggestions = ['html__neo_alchemist'];
+  }
+}
+
+/**
+ * Implements hook_preprocess_HOOK() for neo_alchemist_manage.
+ */
+function template_preprocess_neo_alchemist_manage(&$variables) {
+  $iframeUrl = $variables['iframe_url'] ?? '';
+  if ($iframeUrl) {
+    $sizes = ['desktop', 'tablet', 'mobile'];
+    $options = $iframeUrl->getOptions();
+    $options['query']['id'] = $variables['id'] ?? '';
+    foreach ($sizes as $size) {
+      $options['query']['size'] = $size;
+      $iframeUrl->setOptions($options);
+      $variables["src_$size"] = $iframeUrl->toString();
+    }
+  }
+}
+
+/**
+ * Implements hook_preprocess_HOOK() for neo_alchemist_component_preview.
+ */
+function template_preprocess_neo_alchemist_component_preview(&$variables) {
+  $variables['content'] = [];
+  $elements = $variables['elements'];
+  foreach (Element::children($elements) as $child) {
+    $variables['content'][$child] = $elements[$child];
+  }
+  $size = \Drupal::request()->query->get('size');
+  if ($size) {
+    $variables['attributes']['data-size'] = $size;
   }
 }
 
@@ -89,10 +123,6 @@ function neo_alchemist_preprocess_page__neo_alchemist_preview(&$variables) {
  * Implements hook_preprocess_HOOK() for neo_alchemist_overlay.
  */
 function template_preprocess_neo_alchemist_overlay(&$variables) {
-  // $tooltip = new Tooltip();
-  // $tooltip->setContent('Whoa!');
-  // $variables['status'] = $tooltip->buildFromString(t('Loading...'));
-
   $tooltip = new Tooltip('Close');
   $variables['close'] = [
     '#type' => 'link',
@@ -112,7 +142,7 @@ function template_preprocess_neo_alchemist_overlay(&$variables) {
     'delete' => t('Delete'),
   ] as $op => $label) {
     $tooltip = new Tooltip($label);
-    $tooltip->setPlacementToBottom();
+    $tooltip->setPlacementToTop();
     $variables['ops'][$op] = [
       '#type' => 'link',
       '#title' => neo_admin_icon($label)->iconOnly(),
@@ -127,13 +157,13 @@ function template_preprocess_neo_alchemist_overlay(&$variables) {
 
   $label = t('Add Component Before');
   $tooltip = new Tooltip($label);
-  $tooltip->setPlacementToBottom();
+  $tooltip->setPlacementToTop();
   $variables['op_add_before'] = [
     '#type' => 'link',
-    '#title' => neo_admin_icon($label, 'arrow-to-top')->iconOnly(),
+    '#title' => neo_admin_icon($label, 'plus')->iconOnly(),
     '#url' => Url::fromRoute('<current>'),
     '#attributes' => [
-      'class' => ['op', 'btn', 'btn-xs'],
+      'class' => ['op'],
       'data-op' => 'add-before',
     ],
   ];
@@ -144,10 +174,10 @@ function template_preprocess_neo_alchemist_overlay(&$variables) {
   $tooltip->setPlacementToBottom();
   $variables['op_add_after'] = [
     '#type' => 'link',
-    '#title' => neo_admin_icon($label, 'arrow-to-bottom')->iconOnly(),
+    '#title' => neo_admin_icon($label, 'plus')->iconOnly(),
     '#url' => Url::fromRoute('<current>'),
     '#attributes' => [
-      'class' => ['op', 'btn', 'btn-xs'],
+      'class' => ['op'],
       'data-op' => 'add-after',
     ],
   ];
@@ -400,21 +430,6 @@ function neo_alchemist_route_is_alchemist() {
  * Implements hook_config_schema_info_alter().
  */
 function neo_alchemist_config_schema_info_alter(&$definitions) {
-  // $defs = \Drupal::service('plugin.manager.sdc')->getDefinitions();
-  // ksm($defs);
-  // $propDefs = \Drupal::service('plugin.manager.neo_component_prop_def')->getDefinitions();
-  // ksm($propDefs);
-  // // foreach ($propDefs as $key => $def) {
-  // //   $definitions['neo_alchemist.neo_component_shape.' . $key]
-  // // }
-  // // ksm($propDefs);
-  // $shapes = \Drupal::service('plugin.manager.neo_component_shape')->getDefinitions();
-  // ksm($shapes);
-  // foreach ($shapes as $shape) {
-  //   ksm($shape);
-  //   // $shape->alterConfigSchema($definitions);
-  // }
-  // ksm($definitions);
   if (isset($definitions['block_settings'])) {
     foreach ($definitions as $key => $definition) {
       if (($definition['type'] ?? NULL) === 'block_settings') {
@@ -424,9 +439,5 @@ function neo_alchemist_config_schema_info_alter(&$definitions) {
         ];
       }
     }
-    // $definitions['block_settings']['mapping']['label_display'] = [
-    //   'type' => 'string',
-    //   'label' => 'Label display',
-    // ];
   }
 }

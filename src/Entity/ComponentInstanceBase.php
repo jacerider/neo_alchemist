@@ -111,6 +111,16 @@ abstract class ComponentInstanceBase extends Component implements ComponentInsta
    * {@inheritDoc}
    */
   public function access($operation, ?AccountInterface $account = NULL, $return_as_object = FALSE) {
+    // When in preview, all components are allowed to be viewed.
+    if ($operation === 'view' && $this->isPreview()) {
+      return AccessResult::allowed();
+    }
+    // Check plugin access.
+    $access = $this->checkAccess($operation, $account);
+    if ($access->isForbidden()) {
+      return $return_as_object ? $access : FALSE;
+    }
+    // Check field item access.
     $targetEntity = $this->getTargetEntity();
     $targetEntityTypeId = $this->getTargetEntityTypeId();
     $targetEntityBundle = $this->getTargetEntityBundle();

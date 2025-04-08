@@ -476,8 +476,7 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
     if (isset($this->overrideValue) && $this->getOptionDefault()->isDisabled()) {
       $overrideValue = $this->overrideValue;
     }
-    // Set the value so providers can use it.
-    $this->setFieldItemValue($defaultValue);
+
     $instances = $this->getValueCollection()->getAllowedInstances('value');
     foreach ($instances as $instance) {
       $overrideValue = $instance->provideOverrideValue($overrideValue, $defaultValue);
@@ -488,6 +487,7 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
         break;
       }
     }
+
     if (!is_null($overrideValue)) {
       // Allow providers to modify the final override value.
       foreach ($instances as $instance) {
@@ -1182,6 +1182,30 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
   }
 
   /**
+   * Retrieves the format configuration for the current schema.
+   *
+   * This method checks if the schema has a defined format and if that format
+   * exists in the plugin definition's formats. If both conditions are met,
+   * it returns the corresponding format configuration. Otherwise, it returns
+   * NULL.
+   *
+   * @param string|null $prop
+   *   The property to retrieve from the format configuration. If NULL,
+   *   the entire format configuration will be returned.
+   *
+   * @return array|string|null
+   *   The format configuration as an associative array if available, or NULL
+   *   if the format is not defined or does not exist in the plugin definition.
+   */
+  protected function getFormat(string $prop = NULL): array|string|null {
+    if (!empty($this->schema['format']) && isset($this->pluginDefinition['formats'][$this->schema['format']])) {
+      $format = $this->pluginDefinition['formats'][$this->schema['format']];
+      return $prop ? $format[$prop] ?? NULL : $format;
+    }
+    return NULL;
+  }
+
+  /**
    * {@inheritDoc}
    */
   public function setFieldType(string $fieldType): self {
@@ -1205,6 +1229,9 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
    */
   protected function getDefaultFieldType(): string {
     $fieldType = $this->pluginDefinition['default_field_type'] ?? $this->pluginDefinition['prop'];
+    if ($formatFieldType = $this->getFormat('default_field_type')) {
+      $fieldType = $formatFieldType;
+    }
     if ($this->getFieldOptions()) {
       $fieldType = $this->pluginDefinition['default_field_type_with_options'] ?? $fieldType;
     }
@@ -1620,6 +1647,9 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
    */
   protected function getDefaultWidgetType(): ?string {
     $widgetType = $this->pluginDefinition['default_field_widget'] ?? NULL;
+    if ($formatWidgetType = $this->getFormat('default_field_widget')) {
+      $widgetType = $formatWidgetType;
+    }
     if ($this->getFieldOptions()) {
       $widgetType = $this->pluginDefinition['default_field_widget_with_options'] ?? $widgetType;
     }

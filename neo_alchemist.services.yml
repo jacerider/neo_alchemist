@@ -29,6 +29,10 @@ services:
     class: Drupal\neo_alchemist\ComponentFilterPluginManager
     parent: default_plugin_manager
 
+  plugin.manager.neo_component_access:
+    class: Drupal\neo_alchemist\ComponentAccessPluginManager
+    parent: default_plugin_manager
+
   neo_component.slot.factory:
     class: Drupal\neo_alchemist\ComponentSlotFactory
     arguments: ['@plugin.manager.neo_component_slot']
@@ -36,6 +40,10 @@ services:
   neo_component.filter.factory:
     class: Drupal\neo_alchemist\ComponentFilterFactory
     arguments: ['@plugin.manager.neo_component_filter']
+
+  neo_component.access.factory:
+    class: Drupal\neo_alchemist\ComponentAccessFactory
+    arguments: ['@plugin.manager.neo_component_access']
 
   neo_alchemist.matcher_field:
     class: Drupal\neo_alchemist\MatcherField

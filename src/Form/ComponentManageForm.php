@@ -76,6 +76,7 @@ final class ComponentManageForm extends EntityForm {
     $form += $this->buildPropsForm($form, $form_state);
     $form += $this->buildSlotsForm($form, $form_state);
     $form += $this->buildFiltersForm($form, $form_state);
+    $form += $this->buildAccessForm($form, $form_state);
 
     $thumbnailId = $this->entity->getThumbnailId();
     $form['thumbnail'] = [
@@ -408,6 +409,110 @@ final class ComponentManageForm extends EntityForm {
       ];
 
       $form['filters'][$uuid] = $row;
+    }
+
+    return $form;
+  }
+
+  /**
+   * Build value props form.
+   *
+   * @param array $form
+   *   The form.
+   * @param \Drupal\Core\Form\FormStateInterface $form_state
+   *   The form state.
+   *
+   * @return array
+   *   The form.
+   */
+  protected function buildAccessForm(array $form, FormStateInterface $form_state): array {
+    $instances = $this->entity->getAccessInstances();
+    $form['access'] = [
+      '#type' => 'table',
+      '#caption' => [
+        '#type' => 'html_tag',
+        '#tag' => 'div',
+        '#attributes' => ['class' => ['flex', 'items-center']],
+        'title' => [
+          '#markup' => $this->t('Access'),
+        ],
+        'add' => [
+          '#type' => 'link',
+          '#title' => $this->t('Add Access'),
+          '#url' => $this->entity->toUrl('add-access-form'),
+          '#attributes' => [
+            'class' => ['use-ajax', 'btn btn-xs ml-auto'],
+            'data-dialog-type' => 'modal',
+            'data-dialog-options' => Json::encode([
+              'width' => '100%',
+              'height' => '100%',
+              'neo' => [
+                'displaceTop' => '0px',
+                'displaceBottom' => '0px',
+              ],
+            ]),
+          ],
+        ],
+      ],
+      '#empty' => $this->t('No accesss have been added yet.'),
+      '#attached' => ['library' => ['core/drupal.dialog.ajax']],
+      '#tree' => TRUE,
+      '#header' => [
+        'property' => $this->t('Access'),
+        'summary' => $this->t('Summary'),
+        'operations' => '',
+      ],
+      '#neo_style' => [
+        'property' => 'heading',
+        'summary' => 'xs',
+      ],
+      '#neo_size' => [
+        'operations' => 'min',
+        'required' => 'min',
+        'editable' => 'min',
+      ],
+      '#neo_align' => [
+        'required' => 'center',
+        'editable' => 'center',
+      ],
+    ];
+
+    foreach ($instances as $uuid => $access) {
+      $row = [];
+      $row['property']['#markup'] = $access->label();
+      $row['summary'] = [];
+      $summary = $access->settingsSummary();
+      if (!empty($summary)) {
+        $row['summary'] = [
+          '#type' => 'inline_template',
+          '#template' => '<div class="slot-plugin-summary">{{ summary|safe_join("<br />") }}</div>',
+          '#context' => ['summary' => $summary],
+        ];
+      }
+
+      $links = [];
+      $links['edit'] = [
+        'title' => $this->t('Customize'),
+        'url' => $this->entity->toUrl('edit-access-form')->setRouteParameter('uuid', $uuid),
+        'attributes' => [
+          'class' => ['use-ajax'],
+          'data-dialog-type' => 'modal',
+          'data-dialog-options' => Json::encode([
+            'width' => '100%',
+            'height' => '100%',
+            'neo' => [
+              'displaceTop' => '0px',
+              'displaceBottom' => '0px',
+            ],
+          ]),
+        ],
+      ];
+      $row['operations'] = [
+        '#type' => 'operations',
+        '#links' => $links,
+      ];
+
+      $form['access'][$uuid] = $row;
     }
 
     return $form;

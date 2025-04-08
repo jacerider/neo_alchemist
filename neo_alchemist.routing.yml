@@ -84,6 +84,22 @@ entity.neo_component.edit_filter_form:
   requirements:
     _permission: 'administer neo_alchemist'
 
+entity.neo_component.add_access_form:
+  path: '/admin/config/neo/alchemist/{neo_component}/access/add'
+  defaults:
+    _title: 'Add a component access'
+    _controller: '\Drupal\neo_alchemist\Controller\ComponentAccessAddController'
+  requirements:
+    _permission: 'administer neo_alchemist'
+
+entity.neo_component.edit_access_form:
+  path: '/admin/config/neo/alchemist/{neo_component}/access/{uuid}'
+  defaults:
+    _title: 'Edit a component access'
+    _controller: '\Drupal\neo_alchemist\Controller\ComponentAccessEditController'
+  requirements:
+    _permission: 'administer neo_alchemist'
+
 entity.neo_component.delete_form:
   path: '/admin/config/neo/alchemist/{neo_component}/delete'
   defaults:

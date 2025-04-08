@@ -480,7 +480,6 @@ final class MatcherField extends MatcherBase {
         continue;
       }
       $parentFieldDefinitions = array_merge($parentDefinitions, [$fieldDefinition]);
-      // ksm($this->group($parentFieldDefinitions));
       $matches[$this->key($parentFieldDefinitions)] = [
         'title' => $this->label($parentFieldDefinitions),
         'group' => $this->group($parentFieldDefinitions),

@@ -48,20 +48,58 @@ class ComponentManageHelper {
    *   The operations.
    */
   public static function buildIframeOperations(ComponentTreeItem|ComponentInterface $instance) {
-    $build = [];
-    // Resize.
+    $build = [
+      '#type' => 'html_tag',
+      '#tag' => 'div',
+      '#attributes' => [
+        'class' => ['flex gap-4'],
+      ],
+    ];
+
+    $build['scale'] = [
+      '#type' => 'html_tag',
+      '#tag' => 'div',
+      '#attributes' => [
+        'class' => ['btn-group'],
+      ],
+    ];
+    // Scale.
     foreach ([
-      'sm' => neo_admin_icon(t('Mobile'), 'mobile'),
-      'md' => neo_admin_icon(t('Tablet'), 'tablet'),
-      'lg' => neo_admin_icon(t('Desktop'), 'desktop'),
+      'full' => neo_admin_icon(t('100%'), 'expand'),
+      '75' => neo_admin_icon(t('75%'), 'compress'),
+      '50' => neo_admin_icon(t('50%'), 'compress-arrows-alt'),
     ] as $key => $label) {
-      $build[$key] = [
+      $build['scale'][$key] = [
         '#type' => 'link',
         '#title' => $label,
         '#url' => $instance->toUrl('collection'),
         '#attributes' => [
-          'id' => 'neo-alchemist--resize-' . $key,
-          'class' => ['neo-alchemist--resize', 'btn', 'btn-xs', 'btn-outline'],
+          'class' => ['neo-alchemist--scale', 'btn', 'btn-xs', 'btn-outline'],
+          'data-size' => $key,
+        ],
+      ];
+    }
+
+    $build['size'] = [
+      '#type' => 'html_tag',
+      '#tag' => 'div',
+      '#attributes' => [
+        'class' => ['btn-group'],
+      ],
+    ];
+    // Resize.
+    foreach ([
+      'desktop' => neo_admin_icon(t('Desktop'), 'desktop'),
+      'tablet' => neo_admin_icon(t('Tablet'), 'tablet'),
+      'mobile' => neo_admin_icon(t('Mobile'), 'mobile'),
+    ] as $key => $label) {
+      $build['size'][$key] = [
+        '#type' => 'link',
+        '#title' => $label,
+        '#url' => $instance->toUrl('collection'),
+        '#attributes' => [
+          'class' => ['neo-alchemist--focus', 'btn', 'btn-xs', 'btn-outline'],
+          'data-size' => $key,
         ],
       ];
     }
@@ -93,7 +131,7 @@ class ComponentManageHelper {
         '#title' => neo_admin_icon(t('Add')),
         '#url' => $instance->toUrl('library'),
         '#attributes' => [
-          'class' => ['use-ajax', 'btn'],
+          'class' => ['use-ajax', 'btn', 'btn-primary', 'btn-xs'],
         ],
         '#modal' => $modalSettings,
       ];
@@ -104,7 +142,7 @@ class ComponentManageHelper {
         '#title' => neo_admin_icon(t('Sort')),
         '#url' => $instance->toUrl('sort'),
         '#attributes' => [
-          'class' => ['use-ajax', 'btn', 'btn-outline'],
+          'class' => ['use-ajax', 'btn', 'btn-outline', 'btn-xs'],
         ],
         '#modal' => $modalSettings,
       ];

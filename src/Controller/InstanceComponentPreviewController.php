@@ -58,10 +58,7 @@ final class InstanceComponentPreviewController extends ControllerBase {
     else {
       $build = $this->all($neo_field);
     }
-
-    return $this->bareHtmlPageRenderer->renderBarePage($build, $this->getTitle($neo_field), 'page__neo_alchemist_preview', [
-      '#attributes' => ['class' => ['!p-4']],
-    ])->addCacheableDependency((new CacheableMetadata())->setCacheMaxAge(0));
+    return $this->bareHtmlPageRenderer->renderBarePage($build, $this->getTitle($neo_field), 'page__neo_alchemist_preview')->addCacheableDependency((new CacheableMetadata())->setCacheMaxAge(0));
   }
 
   /**
@@ -78,14 +75,6 @@ final class InstanceComponentPreviewController extends ControllerBase {
    *   The render array.
    */
   protected function single(ComponentTreeItem $neo_field, string $uuid, string $component) {
-    $build = [
-      '#attached' => [
-        'library' => [
-          'neo_alchemist/component.preview',
-        ],
-      ],
-    ];
-
     if (!$neo_field->hasComponent($uuid)) {
       $neo_field->addComponent($uuid, $component);
     }
@@ -95,18 +84,15 @@ final class InstanceComponentPreviewController extends ControllerBase {
     }
 
     $component = $neo_field->getComponent($uuid);
-    return $component->toRenderable();
-    // $componentsBuild = $neo_field->toRenderable();
-    // if (isset($componentsBuild[ComponentTreeStructure::ROOT_UUID][$uuid])) {
-    //   $build[$uuid] = $componentsBuild[ComponentTreeStructure::ROOT_UUID][$uuid];
-    // }
-    // else {
-    //   // This is a new component.
-    //   $build['na'] = [
-    //     '#markup' => $this->t('Component could not be found.'),
-    //   ];
-    // }
-    // return $build;
+    return [
+      '#theme' => 'neo_alchemist_component_preview',
+      '#attached' => [
+        'library' => [
+          'neo_alchemist/component.child',
+        ],
+      ],
+      'component' => $component->toRenderable(),
+    ];
   }
 
   /**
@@ -122,7 +108,7 @@ final class InstanceComponentPreviewController extends ControllerBase {
     $build = [
       '#attached' => [
         'library' => [
-          'neo_alchemist/instance.component.preview',
+          'neo_alchemist/components.child',
         ],
       ],
     ];
@@ -131,12 +117,12 @@ final class InstanceComponentPreviewController extends ControllerBase {
     ];
 
     $build['components'] = $neo_field->toRenderable();
+    $build['components']['#theme'] = 'neo_alchemist_component_preview';
 
     if (!empty($build['components'][ComponentTreeStructure::ROOT_UUID])) {
       foreach ($build['components'][ComponentTreeStructure::ROOT_UUID] as $uuid => &$componentBuild) {
         $component = $neo_field->getComponent($uuid);
         $data = [
-          'uuid' => $uuid,
           'label' => $component->label(),
           'status' => $component->isPublished(),
           'ops' => [
@@ -151,6 +137,7 @@ final class InstanceComponentPreviewController extends ControllerBase {
 
         $componentBuild['#props']['attributes']->addClass('[&>*]:pointer-events-none');
         $componentBuild['#props']['attributes']->addClass(!$component->isPublished() ? 'opacity-50' : '');
+        $componentBuild['#props']['attributes']->setAttribute('data-component-uuid', $uuid);
         $componentBuild['#props']['attributes']->setAttribute('data-component', Json::encode($data));
       }
     }

@@ -30,7 +30,12 @@ final class InstanceComponentLibraryController extends ControllerBase {
     }
 
     $components = [];
-    foreach ($storage->loadByEntity($neo_field->getEntity()) as $component) {
+    foreach (array_map(function ($component) use ($neo_field) {
+      return $neo_field->createComponent($component);
+    }, $storage->loadByEntity($neo_field->getEntity())) as $component) {
+      if (!$component->access('create')) {
+        continue;
+      }
       $components[$component->id()] = [
         'label' => $component->label(),
         'description' => $component->getDescription(),
@@ -51,6 +56,10 @@ final class InstanceComponentLibraryController extends ControllerBase {
         ]),
       ];
     }
+
+    uasort($components, function ($a, $b) {
+      return strnatcasecmp($a['label'], $b['label']);
+    });
 
     $build['library'] = [
       '#theme' => 'neo_alchemist_library',

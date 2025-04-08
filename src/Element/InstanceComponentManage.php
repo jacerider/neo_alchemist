@@ -47,10 +47,13 @@ class InstanceComponentManage extends RenderElementBase {
   public static function preRenderManage($element) {
     $neoField = $element['#neo_field'];
     assert($neoField instanceof ComponentTreeItem);
-    $element['#attached']['library'][] = 'neo_alchemist/instance.component.manage';
+    $element['#attached']['library'][] = 'neo_alchemist/components.parent';
     $element['#attached']['drupalSettings']['neoAlchemist']['baseUrl'] = $neoField->toUrl()->toString();
     $element['#id'] = ComponentManageHelper::getId($neoField);
-    $element['#src'] = $neoField->toUrl('preview')->toString();
+    $element['#iframe_url'] = $neoField->toUrl('preview');
+    $element['#iframe_start'] = [
+      '#theme' => 'neo_alchemist_overlay',
+    ];
     $element['#top_start'] = [];
     $element['#top_end'] = [];
 

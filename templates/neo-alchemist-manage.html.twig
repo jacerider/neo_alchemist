@@ -1,6 +1,6 @@
-<div{% if id %} id="{{ id }}"{% endif %} class="fixed flex flex-col top-0 left-0 w-full h-full bg-base-300 z-0 modal:static">
+<div{% if id %} id="{{ id }}"{% endif %} class="neo-alchemist-manage fixed flex flex-col top-0 left-0 w-full h-full bg-base-300 z-0 modal:relative">
   {% if top_start or top_end %}
-    <div class="neo-alchemist-manage--top flex-none flex gap-4 w-full bg-white border-b border-gray-200 px-4 py-2 shadow">
+    <div class="neo-alchemist-manage--top relative flex-none flex gap-4 w-full bg-white border-b border-gray-200 px-4 py-2 shadow z-50" data-alchemist-offset-top>
       {% if top_start %}
         <div class="neo-alchemist-manage--top-start">{{ top_start }}</div>
       {% endif %}
@@ -10,26 +10,98 @@
     </div>
   {% endif %}
 
-  <div id="{{ form ? 'neo-alchemist--iframe-form-wrapper' : 'neo-alchemist--iframe-wrapper' }}" class="flex-auto flex items-center justify-center bg-base-300">
-    <iframe id="{{ form ? 'neo-alchemist--iframe-form' : 'neo-alchemist--iframe' }}" src="{{ src }}" frameborder="0" class="h-full w-full transition-all" style="max-width:100%"></iframe>
+  <div class="flex flex-col flex-auto relative overflow-hidden">
+
+    <div class="neo-alchemist-manage--wrapper relative flex-auto flex bg-base-100 overflow-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]" style="visibility: hidden">
+      <div class="neo-alchemist-manage--drag flex items-start justify-center cursor-grab">
+        {{ iframe_start }}
+        {# <div class="flex scale-75 origin-top"> #}
+        <div class="neo-alchemist-manage--scale flex">
+          {# <div class="flex flex-col gap-4"> #}
+          <div class="flex items-start justify-center gap-12 px-16">
+            {%
+              set wrap_classes = 'neo-alchemist--iframe-wrapper py-16 flex flex-col gap-2'
+            %}
+            {%
+              set header_classes = 'flex items-center gap-2 p-2 bg-base-200 text-base-700 text-xs border rounded'
+            %}
+            {%
+              set label_classes = 'flex items-center gap-2'
+            %}
+            {%
+              set icon_classes = 'p-1 w-6 h-6 text-center rounded bg-base-500 text-base-content-500'
+            %}
+            {%
+              set size_classes = 'neo-alchemist--iframe-size text-xs text-base-400 ml-auto'
+            %}
+            {%
+              set content_classes = 'border rounded bg-base-0'
+            %}
+            <div class="{{ wrap_classes }}" style="width:1538px">
+              <div class="{{ header_classes}}">
+                <div class="{{ label_classes }}">
+                  <div class="{{ icon_classes }}">{{ icon('desktop') }}</div><div>Desktop</div>
+                </div>
+                <div class="{{ size_classes }}"></div>
+              </div>
+              <div class="{{ content_classes }}">
+                <iframe class="neo-alchemist--iframe w-full" data-size="desktop" src="{{ src_desktop }}" frameborder="0"></iframe>
+              </div>
+            </div>
+            <div class="{{ wrap_classes }}" style="width:770px">
+              <div class="{{ header_classes}}">
+                <div class="{{ label_classes }}">
+                  <div class="{{ icon_classes }}">{{ icon('tablet') }}</div><div>Tablet</div>
+                </div>
+                <div class="{{ size_classes }}"></div>
+              </div>
+              <div class="{{ content_classes }}">
+                <iframe class="neo-alchemist--iframe w-full" data-size="tablet" src="{{ src_tablet }}" frameborder="0"></iframe>
+              </div>
+            </div>
+            <div class="{{ wrap_classes }}" style="width:440px">
+              <div class="{{ header_classes}}">
+                <div class="{{ label_classes }}">
+                  <div class="{{ icon_classes }}">{{ icon('mobile') }}</div><div>Mobile</div>
+                </div>
+                <div class="{{ size_classes }}"></div>
+              </div>
+              <div class="{{ content_classes }}">
+                <iframe class="neo-alchemist--iframe w-full" data-size="mobile" src="{{ src_mobile }}" frameborder="0"></iframe>
+              </div>
+            </div>
+          </div>
+        </div>
+        {{ iframe_end }}
+      </div>
+    </div>
+
+    {% if form and form_position == 'footer' %}
+      <div class="neo-alchemist--form-footer z-50 top-0 left-0 right-0 flex justify-center text-xs border border-x-0 bg-base-200">
+        {%
+          set sizing = 'py-1 px-4 text-base-800 hover:bg-base-100 hover:text-base-950 is-active:bg-base-0 is-active:text-base-950 is-active:font-bold'
+        %}
+        <a class="neo-alchemist-manage--size-expand neo-alchemist--sizing {{ sizing }}" href="#">{{ icon('arrow-to-top') }} {{ 'Form View'|t }}</a>
+        <a class="neo-alchemist-manage--size-split neo-alchemist--sizing {{ sizing }}" href="#">{{ icon('compress') }} {{ 'Split View'|t }}</a>
+        <a class="neo-alchemist-manage--size-contract neo-alchemist--sizing {{ sizing }}" href="#">{{ icon('arrow-to-bottom') }} {{ 'Preview View'|t }}</a>
+      </div>
+      <div class="neo-alchemist-manage--form flex-auto overflow-auto bg-base-0">
+        {{ form }}
+      </div>
+    {% endif %}
+
+    {% if form and form_position == 'side' %}
+      <div class="neo-alchemist-manage--form neo-alchemist--form-side absolute flex right-4 w-96 py-4" style="top: var(--alchemist-displace-offset-top, 0px); bottom: var(--alchemist-displace-offset-bottom, 0px);">
+        <div class="bg-base-0 overflow-y-scroll rounded-lg shadow-lg w-full p-4 pb-0">
+          {{ form|neo_class('p-0')|neo_class('mt-0', 'inner_attributes') }}
+        </div>
+      </div>
+    {% endif %}
+
   </div>
 
-  {% if form %}
-    <div class="z-50 top-0 left-0 right-0 flex justify-center text-xs border border-x-0 bg-base-200">
-      {%
-        set sizing = 'py-1 px-4 text-base-800 hover:bg-base-100 hover:text-base-950 is-active:bg-base-0 is-active:text-base-950 is-active:font-bold'
-      %}
-      <a id="neo-alchemist--size-expand" class="neo-alchemist--sizing {{ sizing }}" href="#">{{ icon('arrow-to-top') }} {{ 'Form View'|t }}</a>
-      <a id="neo-alchemist--size-split" class="neo-alchemist--sizing {{ sizing }}" href="#">{{ icon('compress') }} {{ 'Split View'|t }}</a>
-      <a id="neo-alchemist--size-contract" class="neo-alchemist--sizing {{ sizing }}" href="#">{{ icon('arrow-to-bottom') }} {{ 'Preview View'|t }}</a>
-    </div>
-    <div id="neo-alchemist--form" class="flex-auto relative overflow-auto bg-base-0">
-      {{ form|neo_class('p-6') }}
-    </div>
-  {% endif %}
-
   {% if bottom_start or bottom_end %}
-    <div class="neo-alchemist-manage--bottom flex-none flex gap-4 w-full bg-white border-t border-gray-200 px-4 py-2 shadow" data-offset-bottom>
+    <div class="neo-alchemist-manage--bottom relative flex-none flex gap-4 w-full bg-white border-t border-gray-200 px-4 py-2 shadow z-50" data-alchemist-offset-bottom>
       {% if bottom_start %}
         <div class="neo-alchemist-manage--bottom-start">{{ bottom_start }}</div>
       {% endif %}

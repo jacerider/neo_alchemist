@@ -109,7 +109,6 @@ class ComponentPluginManager extends ThemeComponentPluginManager {
       $prop['ref'] = $prop['type'];
       $propDef = $propDefinitions[$prop['type']];
       $propRequired = [
-        // 'type' => [$this->getRootType($prop['type'], $propDefinitions)],
         'type' => $propDef['type'],
         'format' => $propDef['format'],
         'pattern' => $propDef['pattern'],

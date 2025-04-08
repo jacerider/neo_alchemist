@@ -130,19 +130,19 @@ containment:
   styles:
     xs:
       label: Extra Small
-      value: max-w-xl !mx-0 md:!mx-auto
+      value: container mx-auto xl:max-w-xl
     sm:
       label: Small
-      value: max-w-5xl !mx-0 md:!mx-auto
+      value: container mx-auto xl:max-w-5xl
     md:
       label: Medium
-      value: max-w-7xl !mx-0 md:!mx-auto
+      value: container mx-auto xl:max-w-7xl
     lg:
       label: Large
-      value: container !mx-0 md:!mx-auto
+      value: container mx-auto
     full:
       label: Full
-      value: w-full max-w-full md:!mx-0
+      value: w-full max-w-full
 padding:
   title: Padding
   description: The inner-spacing of the component.
