@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\neo_alchemist;
 
+use Drupal\Core\Cache\CacheableMetadata;
 use Drupal\Core\Entity\ContentEntityInterface;
 use Drupal\Core\Entity\Plugin\DataType\EntityReference;
 use Drupal\Core\Entity\TypedData\EntityDataDefinition;
@@ -61,13 +62,15 @@ final class MatcherField extends MatcherBase {
    *   (optional) An associative array of properties to retrieve from the field.
    * @param mixed $default
    *   (optional) The default value to return if the field does not exist.
+   * @param \Drupal\Core\Cache\CacheableMetadata|null $cacheableMetadata
+   *   (optional) Cacheable metadata to attach to the field value.
    *
    * @return mixed
    *   The value of the specified field.
    */
-  public function getEntityValue(ContentEntityInterface $entity, string $key, array $properties = [], $default = []): mixed {
+  public function getEntityValue(ContentEntityInterface $entity, string $key, array $properties = [], $default = [], CacheableMetadata $cacheableMetadata = NULL): mixed {
     $path = explode('.', $key);
-    return $this->recurseEntity($entity, $path, $properties, $default);
+    return $this->recurseEntity($entity, $path, $properties, $default, $cacheableMetadata);
   }
 
   /**
@@ -83,12 +86,17 @@ final class MatcherField extends MatcherBase {
    *   (optional) An associative array of properties to retrieve from the field.
    * @param mixed $default
    *   (optional) The default value to return if the field does not exist.
+   * @param \Drupal\Core\Cache\CacheableMetadata|null $cacheableMetadata
+   *   (optional) Cacheable metadata to attach to the field value.
    *
    * @return mixed
    *   The value of the field or property, or an empty array if the field or
    *   property does not exist or is empty.
    */
-  private function recurseEntity(ContentEntityInterface $entity, array $path, array $properties = [], $default = []): mixed {
+  private function recurseEntity(ContentEntityInterface $entity, array $path, array $properties = [], $default = [], CacheableMetadata $cacheableMetadata = NULL): mixed {
+    if ($cacheableMetadata) {
+      $cacheableMetadata->addCacheableDependency($entity);
+    }
     $value = $default;
     $key = array_shift($path);
     [$fieldName, $property, $subProperty] = explode(':', $key . '::');
@@ -108,7 +116,7 @@ final class MatcherField extends MatcherBase {
       if (!$field->entity) {
         return $value;
       }
-      $value = $this->recurseEntity($field->entity, $path);
+      $value = $this->recurseEntity($field->entity, $path, $properties, $default, $cacheableMetadata);
     }
     elseif ($field instanceof FieldItemListInterface) {
       $value = $field->getValue();

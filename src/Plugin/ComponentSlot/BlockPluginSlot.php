@@ -7,6 +7,7 @@ namespace Drupal\neo_alchemist\Plugin\ComponentSlot;
 use Drupal\Component\Utility\Html;
 use Drupal\Component\Utility\NestedArray;
 use Drupal\Core\Block\BlockManagerInterface;
+use Drupal\Core\Cache\CacheableMetadata;
 use Drupal\Core\DependencyInjection\DependencySerializationTrait;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Form\SubformState;
@@ -189,6 +190,10 @@ final class BlockPluginSlot extends ComponentSlotPluginBase implements Container
       }
       $build = [];
       $render = $plugin->build();
+
+      $cacheableMetadata = CacheableMetadata::createFromRenderArray($render);
+      $this->addCacheableDependency($cacheableMetadata);
+
       if ($render && is_array($render) && Element::isVisibleElement($render)) {
         $build = $render;
         // Add the cache tags/contexts.

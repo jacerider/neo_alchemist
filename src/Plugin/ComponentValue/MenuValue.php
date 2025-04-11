@@ -176,6 +176,10 @@ final class MenuValue extends ComponentValuePluginBase implements ContainerFacto
     if (!$menu) {
       return $value;
     }
+
+    // Cache based on the menu.
+    $this->shape->addCacheableDependency($menu);
+
     $menu_id = $this->configuration['menu_id'];
     // Build the typical default set of menu tree parameters.
     $parameters = $this->menuTree->getCurrentRouteMenuTreeParameters($menu_id);

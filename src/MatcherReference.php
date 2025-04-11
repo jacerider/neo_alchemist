@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\neo_alchemist;
 
+use Drupal\Core\Cache\CacheableMetadata;
 use Drupal\Core\Entity\ContentEntityInterface;
 use Drupal\Core\Entity\EntityInterface;
 use Drupal\Core\Entity\Plugin\DataType\EntityReference;
@@ -141,11 +142,13 @@ final class MatcherReference extends MatcherBase {
    * @param bool $force
    *   Whether to force the return of a new entity if an existing entity is not
    *   found.
+   * @param \Drupal\Core\Cache\CacheableMetadata|null $cacheableMetadata
+   *   The cacheable metadata to attach to the reference entity.
    *
    * @return \Drupal\Core\Entity\EntityInterface|null
    *   The reference entity, if found.
    */
-  public function getReferenceEntity(ContentEntityInterface $entity, string $key, bool $force = FALSE): ?EntityInterface {
+  public function getReferenceEntity(ContentEntityInterface $entity, string $key, bool $force = FALSE, CacheableMetadata $cacheableMetadata = NULL): ?EntityInterface {
     if ($entity->isNew() || $force) {
       $references = $this->getReferences($entity->getEntityTypeId());
       if (isset($references[$key])) {
@@ -164,7 +167,7 @@ final class MatcherReference extends MatcherBase {
     }
     else {
       $path = explode('.', $key);
-      $existingEntity = $this->recursiveReferenceEntity($entity, $path);
+      $existingEntity = $this->recursiveReferenceEntity($entity, $path, $cacheableMetadata);
       if (!$existingEntity && $force) {
         return $this->getReferenceEntity($entity, $key, TRUE);
       }
@@ -180,11 +183,16 @@ final class MatcherReference extends MatcherBase {
    *   The content entity.
    * @param array $path
    *   The path to the reference entity.
+   * @param \Drupal\Core\Cache\CacheableMetadata|null $cacheableMetadata
+   *   The cacheable metadata to attach to the reference entity.
    *
    * @return \Drupal\Core\Entity\EntityInterface|null
    *   The reference entity, if found.
    */
-  private function recursiveReferenceEntity(ContentEntityInterface $entity, array $path): ?EntityInterface {
+  private function recursiveReferenceEntity(ContentEntityInterface $entity, array $path, CacheableMetadata $cacheableMetadata = NULL): ?EntityInterface {
+    if ($cacheableMetadata) {
+      $cacheableMetadata->addCacheableDependency($entity);
+    }
     $value = NULL;
     $key = array_shift($path);
     [$fieldName] = explode(':', $key . ':');
@@ -201,7 +209,7 @@ final class MatcherReference extends MatcherBase {
         return $value;
       }
       if (!empty($path)) {
-        $value = $this->recursiveReferenceEntity($field->entity, $path);
+        $value = $this->recursiveReferenceEntity($field->entity, $path, $cacheableMetadata);
       }
       else {
         $value = $field->entity;

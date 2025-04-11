@@ -258,6 +258,7 @@ final class MediaValue extends ComponentValuePluginBase implements ContainerFact
       }
     }
     if ($media instanceof MediaInterface) {
+      $shape->addCacheableDependency($media);
       if ($mediaValue = $shape->getValueFromMedia($media)) {
         $this->stopFurtherProcessing();
         return $mediaValue;

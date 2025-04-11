@@ -247,7 +247,7 @@ final class EntityValue extends ComponentValuePluginBase implements ContainerFac
     $hasOverrideValue = !empty($this->shape->getOverrideValue());
 
     $properties = $this->configuration['field_assign'] ? $this->configuration['field_properties'] : [];
-    $entityValue = $this->matcherField->getEntityValue($this->shape->getEntity(), $this->configuration['field'], $properties);
+    $entityValue = $this->matcherField->getEntityValue($this->shape->getEntity(), $this->configuration['field'], $properties, [], $this->shape->getCacheableMetadata());
     $hasValue = !empty($entityValue);
     $this->hasEntityValue = $hasValue;
 

@@ -74,6 +74,7 @@ final class BlockSlot extends ComponentSlotPluginBase implements ContainerFactor
     if (!$block) {
       return NULL;
     }
+    $this->addCacheableDependency($block);
     return $this->entityTypeManager->getViewBuilder('block')->view($block);
   }
 

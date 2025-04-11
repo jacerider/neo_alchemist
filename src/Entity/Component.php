@@ -8,6 +8,7 @@ use Drupal\Component\Serialization\Json;
 use Drupal\Component\Utility\NestedArray;
 use Drupal\Core\Access\AccessResult;
 use Drupal\Core\Access\AccessResultInterface;
+use Drupal\Core\Cache\CacheableMetadata;
 use Drupal\Core\Config\Entity\ConfigEntityBase;
 use Drupal\Core\Entity\ContentEntityInterface;
 use Drupal\Core\Entity\EntityStorageInterface;
@@ -202,6 +203,13 @@ class Component extends ConfigEntityBase implements ComponentInterface {
    * @var array
    */
   protected array $access;
+
+  /**
+   * The cacheable metadata.
+   *
+   * @var \Drupal\Core\Cache\CacheableMetadata
+   */
+  protected CacheableMetadata $cachaeableMetadata;
 
   /**
    * {@inheritdoc}
@@ -468,6 +476,24 @@ class Component extends ConfigEntityBase implements ComponentInterface {
   /**
    * {@inheritdoc}
    */
+  public function getCacheableMetadata(): CacheableMetadata {
+    if (!isset($this->cachaeableMetadata)) {
+      $this->cachaeableMetadata = new CacheableMetadata();
+      $this->cachaeableMetadata->addCacheableDependency($this);
+    }
+    return $this->cachaeableMetadata;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function addCacheableDependency($dependency) {
+    $this->getCacheableMetadata()->addCacheableDependency($dependency);
+  }
+
+  /**
+   * {@inheritdoc}
+   */
   public function getValue($key, mixed $default = NULL): mixed {
     $exists = NULL;
     $values = $this->getValues();
@@ -511,6 +537,7 @@ class Component extends ConfigEntityBase implements ComponentInterface {
   public function getPropValues(): array {
     $values = [];
     $attributes = new Attribute();
+    $cacheableMetadata = $this->getCacheableMetadata();
     foreach ($this->getPropShapes() as $shapeId => $shape) {
       $value = $shape->getPropValue();
       if (is_null($value)) {
@@ -521,6 +548,7 @@ class Component extends ConfigEntityBase implements ComponentInterface {
       }
       $values[$shapeId] = $value;
       $shape->modifyAttributes($attributes);
+      $cacheableMetadata->addCacheableDependency($shape->getCacheableMetadata());
     }
     $values['attributes'] = $attributes;
     return $values;
@@ -879,17 +907,16 @@ class Component extends ConfigEntityBase implements ComponentInterface {
     }
     $build = [
       '#type' => 'component',
-      '#cache' => [
-        'tags' => [
-          'config:neo_alchemist.component.' . $this->id(),
-        ],
-      ],
       '#component' => $this->getComponentId(),
       '#props' => $this->getPropValues(),
     ];
     if ($slots = $this->getSlots()) {
       $build['#slots'] = array_filter(array_map(fn($slot) => $slot->toRenderable(), $slots));
     }
+
+    $cacheableMetadata = $this->getCacheableMetadata();
+    $cacheableMetadata->applyTo($build);
+
     return $build;
   }
 

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\neo_alchemist;
 
+use Drupal\Core\Cache\CacheableResponseInterface;
 use Drupal\Core\Config\Entity\ConfigEntityInterface;
 use Drupal\Core\Entity\ContentEntityInterface;
 use Drupal\Core\Entity\EntityTypeInterface;
@@ -13,7 +14,7 @@ use Drupal\Core\Render\RenderableInterface;
 /**
  * Provides an interface defining a component entity type.
  */
-interface ComponentInterface extends ConfigEntityInterface, RenderableInterface {
+interface ComponentInterface extends ConfigEntityInterface, RenderableInterface, CacheableResponseInterface {
 
   /**
    * Get the component description.

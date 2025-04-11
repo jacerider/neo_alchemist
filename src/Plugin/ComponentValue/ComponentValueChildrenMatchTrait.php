@@ -107,6 +107,7 @@ trait ComponentValueChildrenMatchTrait {
     $delta = 0;
     if ($entities) {
       foreach ($entities as $entity) {
+        $shape->addCacheableDependency($entity);
         foreach ($shapeNames as $shapeName) {
           $values[$delta][$shapeName] = [];
           $settings = $this->configuration['shape_fields'][$shapeName] ?? [];
@@ -119,7 +120,7 @@ trait ComponentValueChildrenMatchTrait {
                 break;
 
               default:
-                $values[$delta][$shapeName] = $this->matcherField->getEntityValue($entity, $field);
+                $values[$delta][$shapeName] = $this->matcherField->getEntityValue($entity, $field, [], [], $shape->getCacheableMetadata());
                 if (!empty($settings['modifiers'])) {
                   $this->shape->setChildShapePlugins($shapeName, $settings['modifiers'] ?? []);
                 }

@@ -8,6 +8,7 @@ use Drupal\Component\Plugin\DerivativeInspectionInterface;
 use Drupal\Component\Plugin\PluginInspectionInterface;
 use Drupal\Component\Render\MarkupInterface;
 use Drupal\Core\Access\AccessibleInterface;
+use Drupal\Core\Cache\CacheableResponseInterface;
 use Drupal\Core\Entity\ContentEntityInterface;
 use Drupal\Core\Field\FieldDefinitionInterface;
 use Drupal\Core\Field\FieldItemInterface;
@@ -21,7 +22,7 @@ use Drupal\Core\TypedData\DataDefinitionInterface;
 /**
  * Interface for neo_component_shape plugins.
  */
-interface ComponentShapePluginInterface extends PluginInspectionInterface, DerivativeInspectionInterface, ObjectWithPluginCollectionInterface, AccessibleInterface {
+interface ComponentShapePluginInterface extends PluginInspectionInterface, DerivativeInspectionInterface, ObjectWithPluginCollectionInterface, AccessibleInterface, CacheableResponseInterface {
 
   const STRING = 'string';
   const NUMBER = 'number';

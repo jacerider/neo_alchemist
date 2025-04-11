@@ -6,13 +6,14 @@ namespace Drupal\neo_alchemist;
 
 use Drupal\Component\Plugin\ConfigurableInterface;
 use Drupal\Component\Plugin\PluginInspectionInterface;
+use Drupal\Core\Cache\CacheableResponseInterface;
 use Drupal\Core\Plugin\PluginFormInterface;
 use Drupal\Core\Render\RenderableInterface;
 
 /**
  * Interface for neo_component_slot plugins.
  */
-interface ComponentSlotPluginInterface extends ConfigurableInterface, PluginFormInterface, PluginInspectionInterface, RenderableInterface {
+interface ComponentSlotPluginInterface extends ConfigurableInterface, PluginFormInterface, PluginInspectionInterface, RenderableInterface, CacheableResponseInterface {
 
   /**
    * Returns the translated plugin label.

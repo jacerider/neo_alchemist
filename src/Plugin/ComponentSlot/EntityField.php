@@ -281,7 +281,7 @@ final class EntityField extends ComponentSlotPluginBase implements ContainerFact
     if ($fieldName = $this->configuration['field']) {
       $entity = $this->component->getTargetEntity();
       if ($entityKey = $this->configuration['entity']) {
-        $entity = $this->matcherReference->getReferenceEntity($this->component->getTargetEntity(), $entityKey) ?? $entity;
+        $entity = $this->matcherReference->getReferenceEntity($this->component->getTargetEntity(), $entityKey, FALSE, $this->getCacheableMetadata()) ?? $entity;
       }
       if ($entity instanceof ContentEntityInterface && $entity->hasField($fieldName) && !$entity->get($fieldName)->isEmpty()) {
         return $entity->get($fieldName)->view([

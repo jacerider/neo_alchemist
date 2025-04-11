@@ -6,6 +6,7 @@ namespace Drupal\neo_alchemist;
 
 use Drupal\Component\Plugin\PluginBase;
 use Drupal\Component\Utility\NestedArray;
+use Drupal\Core\Cache\CacheableMetadata;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Plugin\PluginWithFormsTrait;
 use Drupal\Core\StringTranslation\StringTranslationTrait;
@@ -31,6 +32,13 @@ abstract class ComponentSlotPluginBase extends PluginBase implements ComponentSl
    * @var string
    */
   protected string $uuid;
+
+  /**
+   * The cacheable metadata.
+   *
+   * @var \Drupal\Core\Cache\CacheableMetadata
+   */
+  protected CacheableMetadata $cachaeableMetadata;
 
   /**
    * Creates a toolbar item instance.
@@ -150,6 +158,20 @@ abstract class ComponentSlotPluginBase extends PluginBase implements ComponentSl
    * {@inheritdoc}
    */
   public function submitConfigurationForm(array &$form, FormStateInterface $form_state) {}
+
+  /**
+   * {@inheritdoc}
+   */
+  public function getCacheableMetadata(): CacheableMetadata {
+    return $this->component->getCacheableMetadata();
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function addCacheableDependency($dependency) {
+    $this->getCacheableMetadata()->addCacheableDependency($dependency);
+  }
 
   /**
    * {@inheritdoc}

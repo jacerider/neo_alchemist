@@ -271,6 +271,10 @@ final class ViewsValue extends ComponentValuePluginBase implements ContainerFact
     }
     if ($this->configuration['view_id'] && $this->configuration['view_display_id']) {
       $view = Views::getView($this->configuration['view_id']);
+      if (!$view) {
+        return $value;
+      }
+      $this->shape->addCacheableDependency($view);
       if ($this->configuration['view_items_per_page'] ?? NULL) {
         $view->setItemsPerPage($this->configuration['view_items_per_page']);
       }

@@ -11,6 +11,7 @@ use Drupal\Component\Utility\Html;
 use Drupal\Component\Utility\NestedArray;
 use Drupal\Core\Access\AccessResult;
 use Drupal\Core\Access\AccessResultInterface;
+use Drupal\Core\Cache\CacheableMetadata;
 use Drupal\Core\DependencyInjection\DependencySerializationTrait;
 use Drupal\Core\Entity\ContentEntityInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
@@ -319,6 +320,13 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
   protected bool $optionDefaultInitAccess = TRUE;
 
   /**
+   * The cacheable metadata.
+   *
+   * @var \Drupal\Core\Cache\CacheableMetadata
+   */
+  protected CacheableMetadata $cachaeableMetadata;
+
+  /**
    * The value collection.
    *
    * @var \Drupal\neo_alchemist\ComponentShapePluginCollection
@@ -424,6 +432,23 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
    */
   public function getSettings(): array {
     return $this->settings;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function getCacheableMetadata(): CacheableMetadata {
+    if (!isset($this->cachaeableMetadata)) {
+      $this->cachaeableMetadata = new CacheableMetadata();
+    }
+    return $this->cachaeableMetadata;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function addCacheableDependency($dependency) {
+    $this->getCacheableMetadata()->addCacheableDependency($dependency);
   }
 
   /**
