@@ -22,7 +22,7 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
  */
 #[ComponentValue(
   id: 'entity',
-  label: new TranslatableMarkup('Entity'),
+  label: new TranslatableMarkup('Entity Field'),
   description: new TranslatableMarkup('Provide values from entity fields.'),
   group: 'providers',
   ref_types: [
@@ -95,21 +95,52 @@ final class EntityValue extends ComponentValuePluginBase implements ContainerFac
   protected function configurationForm(array $form, FormStateInterface $form_state, array &$complete_form): array {
     $wrapperId = Html::getId(implode('-', $form['#parents']) . '-' . $this->getPluginId());
     $form['#id'] = $wrapperId;
-
     $field = $this->configuration['field'];
-    $form['field'] = [
+
+    $options = $this->matcherField->getMatchesAsOptions($this->shape);
+    $groups = array_keys($options);
+    $groups = array_combine($groups, $groups);
+    $group = $form_state->getValue('group', NULL);
+    if (!$group) {
+      foreach ($options as $optionGroup => $ops) {
+        foreach ($ops as $key => $label) {
+          if ($key === $field) {
+            $group = $optionGroup;
+            break 2;
+          }
+        }
+      }
+    }
+    $form['group'] = [
       '#type' => 'select',
-      '#title' => $this->t('Field'),
-      '#description' => $this->t('Select the field to use as the value.'),
-      '#options' => $this->matcherField->getMatchesAsOptions($this->shape),
+      '#title' => $this->t('Group'),
+      '#description' => $this->t('Select the group to use as the value.'),
+      '#options' => $groups,
       '#empty_option' => $this->t('- Select -'),
-      '#default_value' => $field,
+      '#default_value' => $group,
       '#required' => TRUE,
       '#ajax' => [
         'callback' => [static::class, 'refreshAjax'],
         'wrapper' => $wrapperId,
       ],
     ];
+
+    if ($group) {
+      $suboptions = $options[$group];
+      $form['field'] = [
+        '#type' => 'select',
+        '#title' => $this->t('Field'),
+        '#description' => $this->t('Select the field to use as the value.'),
+        '#options' => $suboptions,
+        '#empty_option' => $this->t('- Select -'),
+        '#default_value' => $field,
+        '#required' => TRUE,
+        '#ajax' => [
+          'callback' => [static::class, 'refreshAjax'],
+          'wrapper' => $wrapperId,
+        ],
+      ];
+    }
 
     if (
       $field &&

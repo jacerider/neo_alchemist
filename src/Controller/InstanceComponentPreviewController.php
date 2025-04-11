@@ -11,6 +11,7 @@ use Drupal\Core\Render\BareHtmlPageRendererInterface;
 use Drupal\Core\TempStore\PrivateTempStoreFactory;
 use Drupal\neo_alchemist\Plugin\DataType\ComponentTreeStructure;
 use Drupal\neo_alchemist\Plugin\Field\FieldType\ComponentTreeItem;
+use Drupal\neo_icon\IconTranslationTrait;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\HttpFoundation\Request;
 
@@ -18,6 +19,8 @@ use Symfony\Component\HttpFoundation\Request;
  * Returns responses for Neo | Alchemist routes.
  */
 final class InstanceComponentPreviewController extends ControllerBase {
+
+  use IconTranslationTrait;
 
   /**
    * Private temporary storage.
@@ -118,6 +121,18 @@ final class InstanceComponentPreviewController extends ControllerBase {
 
     $build['components'] = $neo_field->toRenderable();
     $build['components']['#theme'] = 'neo_alchemist_component_preview';
+
+    if (!$neo_field->getComponents()) {
+      $build['components']['empty'] = [
+        '#type' => 'inline_template',
+        '#template' => '<div class="text-xs p-3 bg-base-100 text-base-700 border border-dashed text-center">{{ icon("info-circle") }}{{ empty_message }}</div>',
+        '#context' => [
+          'empty_message' => $this->t('No components have been added to this layout. Use the <strong>@add</strong> button in the footer to add a component.', [
+            '@add' => $this->icon('Add', 'plus'),
+          ]),
+        ],
+      ];
+    }
 
     if (!empty($build['components'][ComponentTreeStructure::ROOT_UUID])) {
       foreach ($build['components'][ComponentTreeStructure::ROOT_UUID] as $uuid => &$componentBuild) {

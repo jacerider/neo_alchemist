@@ -145,13 +145,34 @@ final class EntityField extends ComponentSlotPluginBase implements ContainerFact
     if ($entityId = $this->configuration['entity']) {
       $references = $this->matcherReference->getReferences($this->component->getTargetEntityTypeId(), $this->component->getTargetEntityBundle());
       if (isset($references[$entityId])) {
-        $summary[] = $this->t('Target Entity: @group → @title', ['@group' => $references[$entityId]['group'], '@title' => $references[$entityId]['title']]);
+        $summary[] = $this->t('Target Entity: @group → @title', [
+          '@group' => $references[$entityId]['group'],
+          '@title' => $references[$entityId]['title'],
+        ]);
       }
     }
     if ($fieldName = $this->configuration['field']) {
       $field = $this->getField($fieldName);
       if ($field) {
-        $summary[] = $this->t('Field: @label (@name)', ['@label' => $field->getLabel(), '@name' => $fieldName]);
+        $summary[] = $this->t('Field: @label (@name)', [
+          '@label' => $field->getLabel(),
+          '@name' => $fieldName,
+        ]);
+      }
+      if ($pluginId = $this->configuration['field_plugin']) {
+        $pluginOptions = $this->getApplicablePluginOptions($field);
+        if (isset($pluginOptions[$pluginId])) {
+          $summary[] = $this->t('Display format: @label', [
+            '@label' => $pluginOptions[$pluginId],
+          ]);
+
+          $plugin = $this->getFormatterPlugin($pluginId, $field);
+          if ($plugin) {
+            if ($settingsSummary = $plugin->settingsSummary()) {
+              $summary = array_merge($summary, $settingsSummary);
+            }
+          }
+        }
       }
     }
     return $summary;
@@ -217,37 +238,28 @@ final class EntityField extends ComponentSlotPluginBase implements ContainerFact
           ],
         ];
         if ($pluginId && $this->pluginManager->hasDefinition($pluginId)) {
-          $plugin = $this->pluginManager->getInstance([
-            'field_definition' => $field,
-            'view_mode' => 'full',
-            'prepare' => FALSE,
-            'configuration' => [
-              'type' => $pluginId,
-              'label' => $this->configuration['field_label'],
-              'settings' => $this->configuration['field_settings'],
-              'third_party_settings' => $this->configuration['field_third_party_settings'],
-              'region' => 'content',
-            ],
-          ]);
-          $form['field_settings'] = $plugin->settingsForm($form, $form_state);
+          $plugin = $this->getFormatterPlugin($pluginId, $field);
+          if ($plugin) {
+            $form['field_settings'] = $plugin->settingsForm($form, $form_state);
 
-          $settings_form = [];
-          // Invoke hook_field_widget_third_party_settings_form(), keying resulting
-          // subforms by module name.
-          $this->moduleHandler->invokeAllWith(
-            'field_formatter_third_party_settings_form',
-            function (callable $hook, string $module) use (&$settings_form, $plugin, $field, &$form, $form_state) {
-              $settings_form[$module] = $hook(
-                $plugin,
-                $field,
-                'full',
-                $form,
-                $form_state
-              );
-            }
-          );
+            $settings_form = [];
+            // Invoke hook_field_widget_third_party_settings_form(), keying
+            // resulting subforms by module name.
+            $this->moduleHandler->invokeAllWith(
+              'field_formatter_third_party_settings_form',
+              function (callable $hook, string $module) use (&$settings_form, $plugin, $field, &$form, $form_state) {
+                $settings_form[$module] = $hook(
+                  $plugin,
+                  $field,
+                  'full',
+                  $form,
+                  $form_state
+                );
+              }
+            );
 
-          $form['field_third_party_settings'] = $settings_form;
+            $form['field_third_party_settings'] = $settings_form;
+          }
         }
       }
     }
@@ -335,6 +347,32 @@ final class EntityField extends ComponentSlotPluginBase implements ContainerFact
       }
     }
     return $applicable_options;
+  }
+
+  /**
+   * Get the formatter plugin.
+   *
+   * @param string $pluginId
+   *   The plugin ID.
+   * @param \Drupal\Core\Field\FieldDefinitionInterface $field
+   *   The field definition.
+   *
+   * @return \Drupal\Core\Field\FormatterInterface|false
+   *   The formatter plugin.
+   */
+  protected function getFormatterPlugin(string $pluginId, FieldDefinitionInterface $field) {
+    return $this->pluginManager->getInstance([
+      'field_definition' => $field,
+      'view_mode' => 'full',
+      'prepare' => FALSE,
+      'configuration' => [
+        'type' => $pluginId,
+        'label' => $this->configuration['field_label'],
+        'settings' => $this->configuration['field_settings'],
+        'third_party_settings' => $this->configuration['field_third_party_settings'],
+        'region' => 'content',
+      ],
+    ]);
   }
 
 }

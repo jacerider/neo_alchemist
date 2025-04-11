@@ -14,7 +14,7 @@
     {{ op_add_after|neo_class(['rounded-b', op_classes]) }}
   </div>
 </div>
-<div class="neo-alchemist--ops invisible fixed left-0 right-0 bottom-full z-40 cursor-default is-focus:visible" data-placement="top" data-alchemist-ignore>
+<div class="neo-alchemist--ops invisible fixed left-0 right-0 bottom-full z-40 cursor-default is-focus:visible" style="display:none !important;" data-placement="top" data-alchemist-ignore>
   <div class="flex gap-2 items-center bg-base-900 text-base-content-900 text-center shadow py-2 px-4 transition-all -translate-y-full is-focus:translate-y-0">
     <div class="flex gap-2">
       {{ status }}
@@ -25,7 +25,7 @@
     </div>
   </div>
 </div>
-<div class="neo-alchemist--ops invisible fixed left-0 right-0 z-40 cursor-default is-focus:visible" data-placement="bottom" data-alchemist-ignore>
+<div class="neo-alchemist--ops invisible fixed left-0 right-0 z-40 cursor-default is-focus:visible" style="display:none !important;" data-placement="bottom" data-alchemist-ignore>
   <div class="flex gap-2 items-center bg-base-900 text-base-content-900 text-center shadow py-2 px-4 transition-all translate-y-full is-focus:translate-y-0">
     <div class="flex">
       {% for op in ops %}

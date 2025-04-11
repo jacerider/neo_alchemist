@@ -544,6 +544,7 @@ final class ComponentManageForm extends EntityForm {
     $form_state->unsetValue('props');
     $form_state->unsetValue('slots');
     $form_state->unsetValue('filters');
+    $form_state->unsetValue('access');
     parent::copyFormValuesToEntity($entity, $form, $form_state);
   }
 

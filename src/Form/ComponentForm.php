@@ -80,7 +80,7 @@ final class ComponentForm extends EntityForm {
     $target_entity_type_id = $this->entity->getTargetEntityTypeId();
     $options = [];
     foreach ($entity_types as $type) {
-      if ($type instanceof ContentEntityTypeInterface && $type->hasLinkTemplate('canonical')) {
+      if ($type instanceof ContentEntityTypeInterface) {
         $options[$type->id()] = $type->getLabel();
       }
     }

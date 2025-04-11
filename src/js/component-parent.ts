@@ -188,7 +188,7 @@
     const operations:any = {
       size: function (data:any) {
         const size = data.size;
-        const height = Math.max(data.height, 200);
+        const height = Math.max(data.height, 0);
         const iframe = Array.from(iframes).find(el =>
           el.getAttribute('data-size') === size
         );

@@ -245,7 +245,7 @@ final class ComponentPropForm extends EntityForm {
             $instanceId,
           ],
         ];
-        $form[$key]['values'][$instanceId] = $this->buildPluginInstanceForm($form[$key]['values'][$instanceId], $form_state, $instance, $collection->getStatus($instanceId));
+        $form[$key]['values'][$instanceId] = $this->buildPluginInstanceForm($form[$key]['values'][$instanceId], $form_state, $form, $instance, $collection->getStatus($instanceId));
       }
 
     }
@@ -255,7 +255,7 @@ final class ComponentPropForm extends EntityForm {
   /**
    * Build value provider definition form.
    */
-  public function buildPluginInstanceForm(array $form, FormStateInterface $form_state, ComponentValuePluginInterface $instance, bool $status): array {
+  protected function buildPluginInstanceForm(array $form, FormStateInterface $form_state, array $complete_form, ComponentValuePluginInterface $instance, bool $status): array {
     $definition = $instance->getPluginDefinition();
     $form['status'] = [
       '#type' => 'checkbox',
@@ -278,7 +278,8 @@ final class ComponentPropForm extends EntityForm {
         '#wrapper_id' => $form['#wrapper_id'],
         '#parents' => array_merge($form['#parents'], ['settings']),
       ];
-      $subform_state = SubformState::createForSubform($form['settings'], $form, $form_state);
+      $complete_form = $complete_form + ['#parents' => []];
+      $subform_state = SubformState::createForSubform($form['settings'], $complete_form, $form_state);
       $form['settings'] = $instance->buildConfigurationForm($form['settings'], $subform_state, $form);
     }
     else {

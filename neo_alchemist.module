@@ -222,33 +222,41 @@ function neo_alchemist_field_widget_single_element_media_library_widget_form_alt
  */
 function neo_alchemist_entity_type_alter(array &$entity_types) {
   /** @var \Drupal\Core\Entity\EntityTypeInterface[] $entity_types */
+  $configFactory = \Drupal::configFactory();
   foreach ($entity_types as $entityType) {
-    if ($entityType instanceof ContentEntityTypeInterface && $entityType->hasLinkTemplate('canonical')) {
-      $configFactory = \Drupal::configFactory();
+    if ($entityType instanceof ContentEntityTypeInterface) {
       $entityTypeId = $entityType->id();
       $names = $configFactory->listAll('field.field.' . $entityTypeId);
       foreach ($configFactory->loadMultiple($names) as $config) {
         if ($config->get('field_type') === 'neo_component_tree') {
-          $canonical = $entityType->getLinkTemplate('canonical');
-          $entityType->setLinkTemplate('alchemist', $canonical . '/alchemist');
-          $entityType->setLinkTemplate("alchemist.manage", "$canonical/alchemist/{neo_field}");
-          $entityType->setLinkTemplate("alchemist.preview", "$canonical/alchemist/{neo_field}/preview");
-          $entityType->setLinkTemplate("alchemist.library", "$canonical/alchemist/{neo_field}/library");
-          $entityType->setLinkTemplate("alchemist.publish", "$canonical/alchemist/{neo_field}/publish");
-          $entityType->setLinkTemplate("alchemist.revert", "$canonical/alchemist/{neo_field}/revert");
-          $entityType->setLinkTemplate("alchemist.reset", "$canonical/alchemist/{neo_field}/reset");
-          $entityType->setLinkTemplate("alchemist.sort", "$canonical/alchemist/{neo_field}/sort");
-          $entityType->setLinkTemplate("alchemist.add", "$canonical/alchemist/{neo_field}/add/{neo_component}");
-          $entityType->setLinkTemplate("alchemist.edit", "$canonical/alchemist/{neo_field}/edit/{neo_component}");
-          $entityType->setLinkTemplate("alchemist.clone", "$canonical/alchemist/{neo_field}/clone/{neo_component}");
-          $entityType->setLinkTemplate("alchemist.delete", "$canonical/alchemist/{neo_field}/delete/{neo_component}");
-          $entityType->setFormClass('alchemist', InstanceComponentForm::class);
-          $entityType->setFormClass('alchemist_publish', InstanceComponentPublishForm::class);
-          $entityType->setFormClass('alchemist_revert', InstanceComponentRevertForm::class);
-          $entityType->setFormClass('alchemist_reset', InstanceComponentResetForm::class);
-          $entityType->setFormClass('alchemist_sort', InstanceComponentSortForm::class);
-          $entityType->setFormClass('alchemist_edit', InstanceComponentForm::class);
-          $entityType->setFormClass('alchemist_delete', InstanceComponentDeleteForm::class);
+          $baseRoute = NULL;
+          if ($entityType->hasLinkTemplate('canonical')) {
+            $baseRoute = $entityType->getLinkTemplate('canonical');
+          }
+          elseif ($entityType->hasLinkTemplate('edit-form')) {
+            $baseRoute = $entityType->getLinkTemplate('edit-form');
+          }
+          if ($baseRoute) {
+            $entityType->setLinkTemplate('alchemist', $baseRoute . '/alchemist');
+            $entityType->setLinkTemplate("alchemist.manage", "$baseRoute/alchemist/{neo_field}");
+            $entityType->setLinkTemplate("alchemist.preview", "$baseRoute/alchemist/{neo_field}/preview");
+            $entityType->setLinkTemplate("alchemist.library", "$baseRoute/alchemist/{neo_field}/library");
+            $entityType->setLinkTemplate("alchemist.publish", "$baseRoute/alchemist/{neo_field}/publish");
+            $entityType->setLinkTemplate("alchemist.revert", "$baseRoute/alchemist/{neo_field}/revert");
+            $entityType->setLinkTemplate("alchemist.reset", "$baseRoute/alchemist/{neo_field}/reset");
+            $entityType->setLinkTemplate("alchemist.sort", "$baseRoute/alchemist/{neo_field}/sort");
+            $entityType->setLinkTemplate("alchemist.add", "$baseRoute/alchemist/{neo_field}/add/{neo_component}");
+            $entityType->setLinkTemplate("alchemist.edit", "$baseRoute/alchemist/{neo_field}/edit/{neo_component}");
+            $entityType->setLinkTemplate("alchemist.clone", "$baseRoute/alchemist/{neo_field}/clone/{neo_component}");
+            $entityType->setLinkTemplate("alchemist.delete", "$baseRoute/alchemist/{neo_field}/delete/{neo_component}");
+            $entityType->setFormClass('alchemist', InstanceComponentForm::class);
+            $entityType->setFormClass('alchemist_publish', InstanceComponentPublishForm::class);
+            $entityType->setFormClass('alchemist_revert', InstanceComponentRevertForm::class);
+            $entityType->setFormClass('alchemist_reset', InstanceComponentResetForm::class);
+            $entityType->setFormClass('alchemist_sort', InstanceComponentSortForm::class);
+            $entityType->setFormClass('alchemist_edit', InstanceComponentForm::class);
+            $entityType->setFormClass('alchemist_delete', InstanceComponentDeleteForm::class);
+          }
           break;
         }
       }

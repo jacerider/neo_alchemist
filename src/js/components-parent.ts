@@ -532,6 +532,7 @@
         }
 
         op.classList.add('is-focus');
+        op.style.display = '';
       });
     }
 
