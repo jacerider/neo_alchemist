@@ -489,6 +489,7 @@ class Component extends ConfigEntityBase implements ComponentInterface {
    */
   public function addCacheableDependency($dependency) {
     $this->getCacheableMetadata()->addCacheableDependency($dependency);
+    return $this;
   }
 
   /**

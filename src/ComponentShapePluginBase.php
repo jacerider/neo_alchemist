@@ -345,7 +345,7 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
     protected EntityTypeManagerInterface $entityTypeManager,
     protected TypedDataManagerInterface $typedDataManager,
     protected WidgetPluginManager $widgetManager,
-    protected ComponentValuePluginManagerInterface $valueManager
+    protected ComponentValuePluginManagerInterface $valueManager,
   ) {
     parent::__construct([], $plugin_id, $plugin_definition);
     // Set default options.
@@ -449,6 +449,7 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
    */
   public function addCacheableDependency($dependency) {
     $this->getCacheableMetadata()->addCacheableDependency($dependency);
+    return $this;
   }
 
   /**
@@ -1222,7 +1223,7 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
    *   The format configuration as an associative array if available, or NULL
    *   if the format is not defined or does not exist in the plugin definition.
    */
-  protected function getFormat(string $prop = NULL): array|string|null {
+  protected function getFormat(?string $prop = NULL): array|string|null {
     if (!empty($this->schema['format']) && isset($this->pluginDefinition['formats'][$this->schema['format']])) {
       $format = $this->pluginDefinition['formats'][$this->schema['format']];
       return $prop ? $format[$prop] ?? NULL : $format;
@@ -1864,7 +1865,7 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
       if (!$previousStatus && $status) {
         $valueParents = array_merge($form['#parents'], [
           $this->getName(),
-          $this->getName()
+          $this->getName(),
         ]);
         array_shift($valueParents);
         $values = $form_state->getValue($valueParents) ?? [];
@@ -1926,15 +1927,12 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
     $options = $form_state->getValue('_options') ?? [];
     if (isset($options['default'])) {
       $options['default'] = (int) $options['default'];
-      // $this->getOptionDefault()->setLockedValue((bool) $options['default'], 'Set in validateForm to later be used in massageFormValues.');
     }
     if (isset($values['empty'])) {
       $options['empty'] = (int) $options['empty'];
-      // $this->getOptionEmpty()->setLockedValue((bool) $options['empty'], 'Set in validateForm to later be used in massageFormValues.');
     }
     if (isset($values['access'])) {
       $options['access'] = (int) $options['access'];
-      // $this->getOptionAccess()->setLockedValue((bool) $options['access'], 'Set in validateForm to later be used in massageFormValues.');
     }
     $this->setOptions($options);
     // Remove options so that they are not processed or stored.
@@ -1996,7 +1994,7 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
   /**
    * {@inheritDoc}
    */
-  public function setDefaultOptions(array $options, string $id = NULL): self {
+  public function setDefaultOptions(array $options, ?string $id = NULL): self {
     $id = $id ?? $this->id();
     match ($this->isRoot()) {
       TRUE => $this->defaultNestedOptions[$id] = $options,
@@ -2019,7 +2017,7 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
   /**
    * {@inheritDoc}
    */
-  public function setOptions(array $options, string $id = NULL): self {
+  public function setOptions(array $options, ?string $id = NULL): self {
     $id = $id ?? $this->id();
     match ($this->isRoot()) {
       TRUE => $this->nestedOptions[$id] = $options,
@@ -2031,7 +2029,7 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
   /**
    * {@inheritDoc}
    */
-  public function getOptions(string $id = NULL): array {
+  public function getOptions(?string $id = NULL): array {
     $id = $id ?? $this->id();
     return $this->getNestedOptions()[$id] ?? [];
   }

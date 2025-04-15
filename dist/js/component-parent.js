@@ -72,7 +72,7 @@
     let d = 0;
     const g = {
       size: function(t) {
-        const e = t.size, i = Math.max(t.height, 200), o = Array.from(a).find(
+        const e = t.size, i = Math.max(t.height, 0), o = Array.from(a).find(
           (r) => r.getAttribute("data-size") === e
         );
         if (o instanceof HTMLIFrameElement) {

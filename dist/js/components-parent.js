@@ -208,7 +208,7 @@
             e.style.bottom = `${n}px`;
             break;
         }
-        e.classList.add("is-focus");
+        e.classList.add("is-focus"), e.style.display = "";
       });
     }
     function q() {

@@ -65,7 +65,7 @@ final class ViewsValue extends ComponentValuePluginBase implements ContainerFact
     ComponentShapePluginInterface $shape,
     array $configuration,
     EntityTypeManagerInterface $entity_type_manager,
-    MatcherField $matcher_field
+    MatcherField $matcher_field,
   ) {
     parent::__construct($plugin_id, $plugin_definition, $shape, $configuration);
     $this->entityTypeManager = $entity_type_manager;

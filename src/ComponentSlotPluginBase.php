@@ -124,7 +124,7 @@ abstract class ComponentSlotPluginBase extends PluginBase implements ComponentSl
    *
    * @see \Drupal\neo_alchemist\ComponentValuePluginProviderBase::configurationForm()
    */
-  public function buildConfigurationForm(array $form, FormStateInterface $form_state, array &$complete_form = NULL) {
+  public function buildConfigurationForm(array $form, FormStateInterface $form_state, ?array &$complete_form = NULL) {
     $form += $this->configurationForm($form, $form_state, $complete_form);
     return $form;
   }
@@ -171,6 +171,7 @@ abstract class ComponentSlotPluginBase extends PluginBase implements ComponentSl
    */
   public function addCacheableDependency($dependency) {
     $this->getCacheableMetadata()->addCacheableDependency($dependency);
+    return $this;
   }
 
   /**
