@@ -62,7 +62,7 @@ final class ComponentValue extends AttributeBase {
     public readonly bool $allow_on_default = FALSE,
     public readonly int $weight = 0,
     public ?string $provider = NULL,
-    public readonly ?string $deriver = NULL
+    public readonly ?string $deriver = NULL,
   ) {}
 
 }

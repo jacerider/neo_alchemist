@@ -1,6 +1,6 @@
 <?php
 
-declare(strict_types = 1);
+declare(strict_types=1);
 
 namespace Drupal\neo_alchemist\Plugin\Menu\LocalTask;
 
@@ -28,7 +28,7 @@ class FieldComponentLocalTask extends LocalTaskDefault implements ContainerFacto
     $plugin_id,
     $plugin_definition,
     private readonly RouteMatchInterface $routeMatch,
-    private readonly EntityFieldManagerInterface $entityFieldManager
+    private readonly EntityFieldManagerInterface $entityFieldManager,
   ) {
     parent::__construct($configuration, $plugin_id, $plugin_definition);
   }
@@ -49,7 +49,7 @@ class FieldComponentLocalTask extends LocalTaskDefault implements ContainerFacto
   /**
    * {@inheritdoc}
    */
-  public function getTitle(Request $request = NULL) {
+  public function getTitle(?Request $request = NULL) {
     $route = $this->routeProvider()->getRouteByName($this->getRouteName());
     $route->compile();
     $routeParameters = $this->getRouteParameters($this->routeMatch);

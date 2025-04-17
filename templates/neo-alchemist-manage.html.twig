@@ -2,10 +2,10 @@
   {% if top_start or top_end %}
     <div class="neo-alchemist-manage--top relative flex-none flex gap-4 w-full bg-white border-b border-gray-200 px-4 py-2 shadow z-50" data-alchemist-offset-top>
       {% if top_start %}
-        <div class="neo-alchemist-manage--top-start">{{ top_start }}</div>
+        <div class="neo-alchemist-manage--top-start flex items-center gap-2">{{ top_start }}</div>
       {% endif %}
       {% if top_end %}
-        <div class="neo-alchemist-manage--top-end ml-auto">{{ top_end }}</div>
+        <div class="neo-alchemist-manage--top-end ml-auto flex items-center gap-2">{{ top_end }}</div>
       {% endif %}
     </div>
   {% endif %}
@@ -103,10 +103,10 @@
   {% if bottom_start or bottom_end %}
     <div class="neo-alchemist-manage--bottom relative flex-none flex gap-4 w-full bg-white border-t border-gray-200 px-4 py-2 shadow z-50" data-alchemist-offset-bottom>
       {% if bottom_start %}
-        <div class="neo-alchemist-manage--bottom-start">{{ bottom_start }}</div>
+        <div class="neo-alchemist-manage--bottom-start flex items-center gap-2">{{ bottom_start }}</div>
       {% endif %}
       {% if bottom_end %}
-        <div class="neo-alchemist-manage--bottom-end ml-auto">{{ bottom_end }}</div>
+        <div class="neo-alchemist-manage--bottom-end ml-auto flex items-center gap-2">{{ bottom_end }}</div>
       {% endif %}
     </div>
   {% endif %}

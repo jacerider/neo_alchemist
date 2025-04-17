@@ -1,18 +1,21 @@
 <?php
 
-declare(strict_types = 1);
+declare(strict_types=1);
 
 namespace Drupal\neo_alchemist\Event;
 
 use Drupal\Component\EventDispatcher\Event;
+use Drupal\Core\Cache\RefinableCacheableDependencyInterface;
+use Drupal\Core\Cache\RefinableCacheableDependencyTrait;
 use Drupal\Core\Entity\ContentEntityInterface;
-use Drupal\Core\Entity\Query\QueryInterface;
 use Drupal\neo_alchemist\ComponentShapePluginInterface;
 
 /**
  * Event that is fired when a component value is generated with an entity query.
  */
-class ComponentValueEvent extends Event {
+class ComponentValueEvent extends Event implements RefinableCacheableDependencyInterface {
+
+  use RefinableCacheableDependencyTrait;
 
   const EVENT_NAME = 'neo_component_value';
 

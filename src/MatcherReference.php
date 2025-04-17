@@ -30,7 +30,7 @@ final class MatcherReference extends MatcherBase {
    * @return array
    *   An array of field definitions.
    */
-  public function getReferences(string $entityTypeId, string $entityBundle = NULL): array {
+  public function getReferences(string $entityTypeId, ?string $entityBundle = NULL): array {
     $references = [];
     $dataType = implode(':', array_filter([
       'entity',
@@ -69,7 +69,7 @@ final class MatcherReference extends MatcherBase {
    *     ...
    *   ]
    */
-  public function getReferencesAsOptions($entityTypeId = NULL, string $entityBundle = NULL): array {
+  public function getReferencesAsOptions($entityTypeId = NULL, ?string $entityBundle = NULL): array {
     $options = [];
     $matches = $this->getReferences($entityTypeId, $entityBundle);
     foreach ($matches as $key => [
@@ -148,7 +148,7 @@ final class MatcherReference extends MatcherBase {
    * @return \Drupal\Core\Entity\EntityInterface|null
    *   The reference entity, if found.
    */
-  public function getReferenceEntity(ContentEntityInterface $entity, string $key, bool $force = FALSE, CacheableMetadata $cacheableMetadata = NULL): ?EntityInterface {
+  public function getReferenceEntity(ContentEntityInterface $entity, string $key, bool $force = FALSE, ?CacheableMetadata $cacheableMetadata = NULL): ?EntityInterface {
     if ($entity->isNew() || $force) {
       $references = $this->getReferences($entity->getEntityTypeId());
       if (isset($references[$key])) {
@@ -189,7 +189,7 @@ final class MatcherReference extends MatcherBase {
    * @return \Drupal\Core\Entity\EntityInterface|null
    *   The reference entity, if found.
    */
-  private function recursiveReferenceEntity(ContentEntityInterface $entity, array $path, CacheableMetadata $cacheableMetadata = NULL): ?EntityInterface {
+  private function recursiveReferenceEntity(ContentEntityInterface $entity, array $path, ?CacheableMetadata $cacheableMetadata = NULL): ?EntityInterface {
     if ($cacheableMetadata) {
       $cacheableMetadata->addCacheableDependency($entity);
     }

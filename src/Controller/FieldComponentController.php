@@ -19,7 +19,7 @@ final class FieldComponentController extends ControllerBase {
    * The controller constructor.
    */
   public function __construct(
-    private readonly EntityFieldManagerInterface $entityFieldManager
+    private readonly EntityFieldManagerInterface $entityFieldManager,
   ) {}
 
   /**

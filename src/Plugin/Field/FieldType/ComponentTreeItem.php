@@ -634,7 +634,7 @@ class ComponentTreeItem extends FieldItemBase implements RenderableInterface {
    * @throws \AssertionError
    *   Thrown if the field does not belong to a field configuration.
    */
-  public function getDraftKey(string $uuid = NULL): string {
+  public function getDraftKey(?string $uuid = NULL): string {
     $props = [
       'neo_alchemist',
       $this->belongsToFieldConfig() ? $this->getFieldDefinition()->getTargetEntityTypeId() : $this->getEntity()->id(),

@@ -103,7 +103,7 @@ trait ComponentValueChildrenMatchTrait {
   protected function getShapeMatcherValues(ComponentShapeChildrenPluginInterface $shape, array $entities) {
     $values = [];
     /** @var \Drupal\Core\Entity\ContentEntityInterface[] $entities */
-    $shapeNames = $this->shape->getChildShapeNames();
+    $shapeNames = $shape->getChildShapeNames();
     $delta = 0;
     if ($entities) {
       foreach ($entities as $entity) {
@@ -122,14 +122,14 @@ trait ComponentValueChildrenMatchTrait {
               default:
                 $values[$delta][$shapeName] = $this->matcherField->getEntityValue($entity, $field, [], [], $shape->getCacheableMetadata());
                 if (!empty($settings['modifiers'])) {
-                  $this->shape->setChildShapePlugins($shapeName, $settings['modifiers'] ?? []);
+                  $shape->setChildShapePlugins($shapeName, $settings['modifiers'] ?? []);
                 }
                 break;
             }
           }
           else {
             // Hide the shape if no field is selected.
-            $this->shape->hideChildShape($shapeName);
+            $shape->hideChildShape($shapeName);
           }
         }
         $delta++;
@@ -140,7 +140,7 @@ trait ComponentValueChildrenMatchTrait {
       // the shape will not be shown.
       foreach ($shapeNames as $shapeName) {
         $values[$delta][$shapeName] = [];
-        $this->shape->hideChildShape($shapeName);
+        $shape->hideChildShape($shapeName);
       }
     }
     if ($shape->getType() === ComponentShapePluginInterface::OBJECT) {

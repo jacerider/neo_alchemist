@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\neo_alchemist;
 
+use Drupal\Component\Utility\NestedArray;
 use Drupal\Core\Cache\CacheableMetadata;
 use Drupal\Core\Entity\ContentEntityInterface;
 use Drupal\Core\Entity\Plugin\DataType\EntityReference;
@@ -16,6 +17,7 @@ use Drupal\Core\Field\FieldItemListInterface;
 use Drupal\Core\StringTranslation\StringTranslationTrait;
 use Drupal\Core\TypedData\DataReferenceDefinitionInterface;
 use Drupal\Core\Url;
+use Drupal\neo_icon\IconTranslationTrait;
 
 /**
  * Provides methods for matching fields between content entities and shapes.
@@ -23,6 +25,7 @@ use Drupal\Core\Url;
 final class MatcherField extends MatcherBase {
 
   use StringTranslationTrait;
+  use IconTranslationTrait;
 
   /**
    * The maximum number of levels to match.
@@ -68,7 +71,7 @@ final class MatcherField extends MatcherBase {
    * @return mixed
    *   The value of the specified field.
    */
-  public function getEntityValue(ContentEntityInterface $entity, string $key, array $properties = [], $default = [], CacheableMetadata $cacheableMetadata = NULL): mixed {
+  public function getEntityValue(ContentEntityInterface $entity, string $key, array $properties = [], $default = [], ?CacheableMetadata $cacheableMetadata = NULL): mixed {
     $path = explode('.', $key);
     return $this->recurseEntity($entity, $path, $properties, $default, $cacheableMetadata);
   }
@@ -93,7 +96,7 @@ final class MatcherField extends MatcherBase {
    *   The value of the field or property, or an empty array if the field or
    *   property does not exist or is empty.
    */
-  private function recurseEntity(ContentEntityInterface $entity, array $path, array $properties = [], $default = [], CacheableMetadata $cacheableMetadata = NULL): mixed {
+  private function recurseEntity(ContentEntityInterface $entity, array $path, array $properties = [], $default = [], ?CacheableMetadata $cacheableMetadata = NULL): mixed {
     if ($cacheableMetadata) {
       $cacheableMetadata->addCacheableDependency($entity);
     }
@@ -124,6 +127,10 @@ final class MatcherField extends MatcherBase {
         $value = $value[0][$property] ?? $default;
       }
     }
+    if ($subProperty) {
+      $parts = explode('~', $subProperty);
+      $value = NestedArray::getValue($value, $parts);
+    }
     if ($properties && is_array($value)) {
       $v = [];
       foreach ($value as $delta => $val) {
@@ -149,7 +156,7 @@ final class MatcherField extends MatcherBase {
    * @return array
    *   The value of the specified entity definition property.
    */
-  private function getEntityDefinitionValue(ContentEntityInterface $entity, string $property, string $subProperty = NULL): array {
+  private function getEntityDefinitionValue(ContentEntityInterface $entity, string $property, ?string $subProperty = NULL): array {
     return match ($property) {
       'label' => [$entity->label()],
       'link' => $this->getEntityDefinitionLink($entity, $subProperty),
@@ -187,10 +194,14 @@ final class MatcherField extends MatcherBase {
       'canonical' => $route->getDefault('_title') ?? $entity->label(),
       default => $route->getDefault('_title') ?? ucwords(str_replace($titleReplacements, ' ', str_replace('-form', '', $property))),
     };
+    $options = [];
+    if ($icon = $this->adminIcon($title)->getIcon()) {
+      $options['attributes']['data-icon'] = $icon->getName();
+    }
     return [
       'title' => $title,
       'uri' => $url->toUriString(),
-      'options' => [],
+      'options' => $options,
     ];
   }
 
@@ -223,7 +234,7 @@ final class MatcherField extends MatcherBase {
    *     ...
    *   ]
    */
-  public function getMatchesAsOptions(ComponentShapePluginInterface $shape, string $entityTypeId = NULL, string $entityBundle = NULL, bool $all = FALSE): array {
+  public function getMatchesAsOptions(ComponentShapePluginInterface $shape, ?string $entityTypeId = NULL, ?string $entityBundle = NULL, bool $all = FALSE): array {
     $options = [];
     $matches = $this->getMatches($shape, $entityTypeId, $entityBundle, $all);
     foreach ($matches as $key => [
@@ -255,7 +266,7 @@ final class MatcherField extends MatcherBase {
    * @return array
    *   An array of matches, sorted by weight and title.
    */
-  public function getMatches(ComponentShapePluginInterface $shape, string $entityTypeId = NULL, string $entityBundle = NULL, bool $all = FALSE): array {
+  public function getMatches(ComponentShapePluginInterface $shape, ?string $entityTypeId = NULL, ?string $entityBundle = NULL, bool $all = FALSE): array {
     $matches = [];
 
     if ($entityTypeId) {
@@ -415,7 +426,7 @@ final class MatcherField extends MatcherBase {
 
       $properties = $this->dataDefinitions($fieldDefinition);
       // Check if all field properties are supported.
-      if ($shape->supportsFieldProperties($properties)) {
+      if ($shape->supportsFieldProperties($fieldDefinition, $properties)) {
         $matches[$this->key($parentFieldDefinitions)] = [
           'title' => $this->label($parentFieldDefinitions),
           'group' => $this->group($parentFieldDefinitions),
@@ -434,6 +445,7 @@ final class MatcherField extends MatcherBase {
         }
         return ($a_weight < $b_weight) ? 1 : -1;
       });
+
       foreach ($properties as $propertyName => $property) {
         $isReference = $this->isReference($property);
         if ($isReference === NULL) {
@@ -451,7 +463,7 @@ final class MatcherField extends MatcherBase {
           }
         }
         // Check if single field property is supported.
-        elseif ($shape->supportsFieldProperty($property)) {
+        elseif ($shape->supportsFieldProperty($fieldDefinition, $property)) {
           $matches[$this->key($parentFieldDefinitions, $propertyName)] = [
             'title' => $this->label($parentFieldDefinitions, $property->getLabel()),
             'group' => $this->group($parentFieldDefinitions),
@@ -459,6 +471,15 @@ final class MatcherField extends MatcherBase {
             'weight' => $level,
           ];
         }
+      }
+
+      foreach ($shape->getMatches($fieldDefinition) as $match => $label) {
+        $matches[$this->key($parentFieldDefinitions, $match)] = [
+          'title' => $this->label($parentFieldDefinitions, $label),
+          'group' => $this->group($parentFieldDefinitions),
+          'definition' => $fieldDefinition,
+          'weight' => $level,
+        ];
       }
     }
 

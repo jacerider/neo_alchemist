@@ -34,7 +34,7 @@ final class InstanceComponentPreviewController extends ControllerBase {
    */
   public function __construct(
     private readonly BareHtmlPageRendererInterface $bareHtmlPageRenderer,
-    PrivateTempStoreFactory $temp_store_factory
+    PrivateTempStoreFactory $temp_store_factory,
   ) {
     $this->store = $temp_store_factory->get('neo_alchemist');
   }

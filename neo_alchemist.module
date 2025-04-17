@@ -33,9 +33,6 @@ function neo_alchemist_theme(): array {
     'html__neo_alchemist' => [
       'base hook' => 'html',
     ],
-    'page__neo_alchemist_manage' => [
-      'base hook' => 'page',
-    ],
     'field__neo_component_tree' => [
       'base hook' => 'field',
     ],

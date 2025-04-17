@@ -20,7 +20,7 @@ class RouteSubscriber extends RouteSubscriberBase {
    */
   public function __construct(
     private EntityTypeManagerInterface $entityTypeManager,
-    private EntityFieldManagerInterface $entityFieldManager
+    private EntityFieldManagerInterface $entityFieldManager,
   ) {
   }
 

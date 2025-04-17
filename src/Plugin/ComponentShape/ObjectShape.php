@@ -94,7 +94,7 @@ class ObjectShape extends ChildrenShapeBase implements ComponentShapeExpandedPlu
       // properties, we set the examples to the default value.
       // if (empty($prop['examples']) && isset($schema['required']) && in_array($propName, $schema['required'])) {
       //   $prop['examples'] = $defaultValue[$propName] ?? $prop['examples'];
-      // }
+      // }.
     }
     return $schema;
   }

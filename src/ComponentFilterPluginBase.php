@@ -114,7 +114,7 @@ abstract class ComponentFilterPluginBase extends PluginBase implements Component
    *
    * @see \Drupal\neo_alchemist\ComponentValuePluginProviderBase::configurationForm()
    */
-  public function buildConfigurationForm(array $form, FormStateInterface $form_state, array &$complete_form = NULL) {
+  public function buildConfigurationForm(array $form, FormStateInterface $form_state, ?array &$complete_form = NULL) {
     $form += $this->configurationForm($form, $form_state, $complete_form);
     return $form;
   }
@@ -181,7 +181,7 @@ abstract class ComponentFilterPluginBase extends PluginBase implements Component
   /**
    * {@inheritdoc}
    */
-  public function getValue(string $value = NULL): mixed {
+  public function getValue(?string $value = NULL): mixed {
     return $value;
   }
 

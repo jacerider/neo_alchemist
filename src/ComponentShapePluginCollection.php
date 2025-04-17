@@ -144,7 +144,7 @@ class ComponentShapePluginCollection extends DefaultLazyPluginCollection {
    * @return \Drupal\neo_alchemist\ComponentValuePluginInterface[]
    *   The active instances.
    */
-  public function getActiveInstances(string $groupId = NULL): array {
+  public function getActiveInstances(?string $groupId = NULL): array {
     $activeInstances = [];
     foreach ($this->instanceIds as $instanceId) {
       $configuration = $this->configurations[$instanceId] ?? [];

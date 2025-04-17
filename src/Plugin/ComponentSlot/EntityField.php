@@ -94,7 +94,7 @@ final class EntityField extends ComponentSlotPluginBase implements ContainerFact
     EntityFieldManagerInterface $entity_field_manager,
     FormatterPluginManager $formatter_manager,
     ModuleHandlerInterface $module_handler,
-    MatcherReference $matcher_reference
+    MatcherReference $matcher_reference,
   ) {
     parent::__construct($plugin_id, $plugin_definition, $component, $uuid, $configuration);
     $this->entityTypeManager = $entity_type_manager;

@@ -1,6 +1,6 @@
 <?php
 
-declare(strict_types = 1);
+declare(strict_types=1);
 
 namespace Drupal\neo_alchemist\Plugin\Derivative;
 
@@ -22,7 +22,7 @@ class ComponentTasksDeriver extends DeriverBase implements ContainerDeriverInter
    */
   public function __construct(
     private readonly EntityTypeManagerInterface $entityTypeManager,
-    private readonly EntityFieldManagerInterface $entityFieldManager
+    private readonly EntityFieldManagerInterface $entityFieldManager,
   ) {
   }
 

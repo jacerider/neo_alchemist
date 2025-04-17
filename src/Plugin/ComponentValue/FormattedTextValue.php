@@ -51,7 +51,7 @@ final class FormattedTextValue extends ComponentValuePluginBase implements Conta
     $plugin_definition,
     ComponentShapePluginInterface $shape,
     array $configuration,
-    EntityTypeManagerInterface $entity_type_manager
+    EntityTypeManagerInterface $entity_type_manager,
   ) {
     parent::__construct($plugin_id, $plugin_definition, $shape, $configuration);
     $this->entityTypeManager = $entity_type_manager;

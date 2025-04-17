@@ -11,10 +11,8 @@ use Drupal\Core\Plugin\ContainerFactoryPluginInterface;
 use Drupal\Core\Routing\RouteMatchInterface;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\neo_alchemist\Attribute\ComponentValue;
-use Drupal\neo_alchemist\ComponentShapeChildrenPluginInterface;
 use Drupal\neo_alchemist\ComponentShapePluginInterface;
 use Drupal\neo_alchemist\ComponentValuePluginBase;
-use Drupal\neo_alchemist\MatcherField;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\HttpFoundation\Request;
 
@@ -65,7 +63,7 @@ final class PageTitleValue extends ComponentValuePluginBase implements Container
     array $configuration,
     Request $request,
     RouteMatchInterface $route_match,
-    TitleResolverInterface $title_resolver
+    TitleResolverInterface $title_resolver,
   ) {
     parent::__construct($plugin_id, $plugin_definition, $shape, $configuration);
     $this->request = $request;

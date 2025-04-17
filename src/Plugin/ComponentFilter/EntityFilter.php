@@ -50,7 +50,7 @@ final class EntityFilter extends ComponentFilterPluginBase implements ContainerF
     ComponentFilterInterface $filter,
     array $configuration,
     EntityTypeManagerInterface $entity_type_manager,
-    EntityTypeBundleInfoInterface $entity_type_bundle_info
+    EntityTypeBundleInfoInterface $entity_type_bundle_info,
   ) {
     parent::__construct($plugin_id, $plugin_definition, $filter, $configuration);
     $this->entityTypeManager = $entity_type_manager;
@@ -278,7 +278,7 @@ final class EntityFilter extends ComponentFilterPluginBase implements ContainerF
   /**
    * {@inheritdoc}
    */
-  public function getValue(string $value = NULL): mixed {
+  public function getValue(?string $value = NULL): mixed {
     return $value;
   }
 

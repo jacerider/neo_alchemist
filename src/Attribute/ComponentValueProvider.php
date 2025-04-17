@@ -56,7 +56,7 @@ final class ComponentValueProvider extends AttributeBase {
     public readonly ?array $entity_types = NULL,
     public readonly int $weight = 0,
     public ?string $provider = NULL,
-    public readonly ?string $deriver = NULL
+    public readonly ?string $deriver = NULL,
   ) {}
 
 }

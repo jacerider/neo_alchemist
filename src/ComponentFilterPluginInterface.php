@@ -94,6 +94,6 @@ interface ComponentFilterPluginInterface extends ConfigurableInterface, PluginFo
    * @return mixed
    *   The value of the filter.
    */
-  public function getValue(string $value = NULL): mixed;
+  public function getValue(?string $value = NULL): mixed;
 
 }

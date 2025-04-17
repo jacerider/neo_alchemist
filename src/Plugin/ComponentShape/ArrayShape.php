@@ -251,19 +251,46 @@ class ArrayShape extends ChildrenShapeBase implements ComponentShapeInterablePlu
         /** @var \Drupal\neo_alchemist\ComponentShapePluginInterface[] $shapes */
         $form[$delta] = [
           '#type' => 'container',
+          '#attributes' => [
+            'class' => ['border rounded p-form-item bg-base-50'],
+          ],
         ];
         if ($min < $count) {
-          $form[$delta]['delta'] = [
+          $form[$delta]['header'] = [
+            '#type' => 'container',
+            '#attributes' => [
+              'class' => ['flex flex-row items-center justify-between'],
+            ],
+          ];
+          $form[$delta]['header']['delta'] = [
             '#type' => 'html_tag',
             '#tag' => 'div',
             '#attributes' => [
-              'class' => ['badge bg-base text-base-content flex-none self-center !min-w-8'],
+              'class' => ['badge bg-base text-base-content flex-none self-center px-2'],
             ],
-            '#value' => $delta + 1,
+            '#value' => $this->t('Item @delta', ['@delta' => $delta + 1]),
+          ];
+          $form[$delta]['header']['remove'] = [
+            '#type' => 'submit',
+            '#name' => $id . '-remove-' . $delta,
+            '#value' => $this->t('Remove'),
+            '#description' => $this->t('Remove this item.'),
+            '#widget_parents' => array_merge($form['#parents'], [$delta]),
+            '#submit' => [[get_class($this), 'removeItemSubmit']],
+            '#attributes' => [
+              'class' => ['icon-only btn btn-xs'],
+            ],
+            '#limit_validation_errors' => [],
+            '#disabled' => $count <= $min,
+            '#parents' => array_merge(['remove_shape'], $parents, [$delta]),
+            '#ajax' => [
+              'callback' => [get_class($this), 'removeItemAjax'],
+              'wrapper' => $id,
+            ],
           ];
         }
         if ($max !== 1) {
-          $form[$delta]['#attributes']['class'][] = 'form--inline mb-form-item';
+          // $form[$delta]['#attributes']['class'][] = 'form--inline mb-form-item';
         }
         foreach ($shapes as $shape) {
           $form[$delta][$shape->getName()] = [
@@ -274,24 +301,6 @@ class ArrayShape extends ChildrenShapeBase implements ComponentShapeInterablePlu
         }
 
         if ($min < $count) {
-          $form[$delta]['remove'] = [
-            '#type' => 'submit',
-            '#name' => $id . '-remove-' . $delta,
-            '#value' => $this->t('Remove'),
-            '#description' => $this->t('Remove this item.'),
-            '#widget_parents' => array_merge($form['#parents'], [$delta]),
-            '#submit' => [[get_class($this), 'removeItemSubmit']],
-            '#attributes' => [
-              'class' => ['icon-only flex-none self-center !min-w-8'],
-            ],
-            '#limit_validation_errors' => [],
-            '#disabled' => $count <= $min,
-            '#parents' => array_merge(['remove_shape'], $parents, [$delta]),
-            '#ajax' => [
-              'callback' => [get_class($this), 'removeItemAjax'],
-              'wrapper' => $id,
-            ],
-          ];
         }
       }
     }
@@ -384,13 +393,13 @@ class ArrayShape extends ChildrenShapeBase implements ComponentShapeInterablePlu
    */
   public static function removeItemSubmit(array $form, FormStateInterface $form_state) {
     $button = $form_state->getTriggeringElement();
-    $parents = array_slice($button['#array_parents'], 0, -2);
+    $parents = array_slice($button['#array_parents'], 0, -3);
     $rowParents = $button['#widget_parents'];
     $parents = array_slice($rowParents, 0, -1);
     $delta = end($rowParents);
 
     // Go one level up in the form, to the widgets container.
-    $element = NestedArray::getValue($form, array_slice($button['#array_parents'], 0, -2));
+    $element = NestedArray::getValue($form, $parents);
     $form_state->set($element['#id'] . '-remove', $delta);
 
     // Decrement the count.
@@ -417,7 +426,7 @@ class ArrayShape extends ChildrenShapeBase implements ComponentShapeInterablePlu
     $button = $form_state->getTriggeringElement();
 
     // Go one level up in the form, to the widgets container.
-    $element = NestedArray::getValue($form, array_slice($button['#array_parents'], 0, -2));
+    $element = NestedArray::getValue($form, array_slice($button['#array_parents'], 0, -3));
     return $element;
   }
 

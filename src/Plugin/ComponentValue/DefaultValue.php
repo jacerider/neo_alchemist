@@ -56,7 +56,7 @@ final class DefaultValue extends ComponentValuePluginBase implements ContainerFa
     $plugin_definition,
     ComponentShapePluginInterface $shape,
     array $configuration,
-    protected ComponentShapePluginManager $shapeManager
+    protected ComponentShapePluginManager $shapeManager,
   ) {
     parent::__construct($plugin_id, $plugin_definition, $shape, $configuration);
   }

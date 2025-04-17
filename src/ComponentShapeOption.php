@@ -131,7 +131,7 @@ class ComponentShapeOption {
    * @return self
    *   The current instance of the class for method chaining.
    */
-  public function setValue(bool $value, string $logMessage = NULL): self {
+  public function setValue(bool $value, ?string $logMessage = NULL): self {
     $this->value = $value;
     if ($logMessage) {
       $this->addLog($logMessage);
@@ -150,7 +150,7 @@ class ComponentShapeOption {
    * @return self
    *   The current instance of the class for method chaining.
    */
-  public function setLockedValue(bool $value, string $logMessage = NULL): self {
+  public function setLockedValue(bool $value, ?string $logMessage = NULL): self {
     if (!isset($this->lockedValue)) {
       $this->lockedValue = $value;
       if ($logMessage) {
@@ -171,7 +171,7 @@ class ComponentShapeOption {
    * @return self
    *   The current instance of the class for method chaining.
    */
-  public function setAccess($access = TRUE, string $logMessage = NULL): self {
+  public function setAccess($access = TRUE, ?string $logMessage = NULL): self {
     $this->access = $access;
     if ($logMessage) {
       $this->addLog('setAccess: ' . $logMessage);
@@ -190,7 +190,7 @@ class ComponentShapeOption {
    * @return self
    *   The current instance of the class for method chaining.
    */
-  public function alwaysShowForm(bool $value = TRUE, string $logMessage = NULL): self {
+  public function alwaysShowForm(bool $value = TRUE, ?string $logMessage = NULL): self {
     $this->formForceAccess = $value;
     if ($logMessage) {
       $this->addLog('alwaysShowForm: ' . $logMessage);

@@ -114,7 +114,7 @@ abstract class ComponentValuePluginBase extends PluginBase implements ComponentV
    *
    * @see \Drupal\neo_alchemist\ComponentValuePluginProviderBase::configurationForm()
    */
-  public function buildConfigurationForm(array $form, FormStateInterface $form_state, array &$complete_form = NULL) {
+  public function buildConfigurationForm(array $form, FormStateInterface $form_state, ?array &$complete_form = NULL) {
     $form += $this->configurationForm($form, $form_state, $complete_form);
     return $form;
   }

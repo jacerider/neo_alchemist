@@ -79,7 +79,7 @@ final class EntityQueryValue extends ComponentValuePluginBase implements Contain
     EntityTypeManagerInterface $entity_type_manager,
     EntityTypeBundleInfoInterface $entity_type_bundle_info,
     EventDispatcherInterface $event_dispatcher,
-    MatcherField $matcher_field
+    MatcherField $matcher_field,
   ) {
     parent::__construct($plugin_id, $plugin_definition, $shape, $configuration);
     $this->entityTypeManager = $entity_type_manager;

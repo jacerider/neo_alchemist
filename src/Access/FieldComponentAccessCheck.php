@@ -22,7 +22,7 @@ class FieldComponentAccessCheck implements AccessInterface {
    *   Entity Field Manager Service.
    */
   public function __construct(
-    private readonly EntityFieldManagerInterface $entityFieldManager
+    private readonly EntityFieldManagerInterface $entityFieldManager,
   ) {}
 
   /**

@@ -21,7 +21,7 @@ final class ComponentPreviewController extends ControllerBase {
    */
   public function __construct(
     private readonly BareHtmlPageRendererInterface $bareHtmlPageRenderer,
-    private readonly ComponentPluginManager $componentPluginManager
+    private readonly ComponentPluginManager $componentPluginManager,
   ) {}
 
   /**

@@ -66,7 +66,7 @@ final class ComponentSlotForm extends EntityForm {
   /**
    * {@inheritdoc}
    */
-  public function buildForm(array $form, FormStateInterface $form_state, string $slot = NULL) {
+  public function buildForm(array $form, FormStateInterface $form_state, ?string $slot = NULL) {
     $form_state->set('neo_component_manage_id', ComponentManageHelper::getId($this->entity));
     $this->slot = $this->entity->getSlot($slot);
     $form['#title'] = $this->t('Edit %prop_label from %label', [

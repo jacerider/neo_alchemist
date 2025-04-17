@@ -1,12 +1,11 @@
 <?php
 
-declare(strict_types = 1);
+declare(strict_types=1);
 
 namespace Drupal\neo_alchemist\Event;
 
 use Drupal\Component\EventDispatcher\Event;
 use Drupal\Core\Entity\Query\QueryInterface;
-use Drupal\neo_alchemist\ComponentInterface;
 use Drupal\neo_alchemist\ComponentShapePluginInterface;
 
 /**

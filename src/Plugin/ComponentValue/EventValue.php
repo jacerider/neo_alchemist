@@ -23,7 +23,6 @@ use Symfony\Component\EventDispatcher\EventDispatcherInterface;
   label: new TranslatableMarkup('Event'),
   description: new TranslatableMarkup('Fires an event to get value.'),
   group: 'providers',
-  entity_types: ['*'],
   weight: -5,
 )]
 final class EventValue extends ComponentValuePluginBase implements ContainerFactoryPluginInterface {
@@ -45,7 +44,7 @@ final class EventValue extends ComponentValuePluginBase implements ContainerFact
     $plugin_definition,
     ComponentShapePluginInterface $shape,
     array $configuration,
-    EventDispatcherInterface $event_dispatcher
+    EventDispatcherInterface $event_dispatcher,
   ) {
     parent::__construct($plugin_id, $plugin_definition, $shape, $configuration);
     $this->eventDispatcher = $event_dispatcher;
@@ -93,6 +92,7 @@ final class EventValue extends ComponentValuePluginBase implements ContainerFact
     $event = new ComponentValueEvent($this->shape, $value, $defaultValue);
     $this->eventDispatcher->dispatch($event, ComponentValueEvent::EVENT_NAME);
     $value = $event->getValue();
+    $this->shape->addCacheableDependency($event);
     if (!$event->continueProcessing) {
       $this->stopFurtherProcessing();
     }

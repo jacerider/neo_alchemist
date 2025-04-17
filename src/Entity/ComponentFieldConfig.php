@@ -5,7 +5,6 @@ namespace Drupal\neo_alchemist\Entity;
 use Drupal\Component\Serialization\Json;
 use Drupal\Core\Access\AccessResult;
 use Drupal\Core\Entity\ContentEntityInterface;
-use Drupal\Core\Entity\EntityInterface;
 use Drupal\Core\Entity\EntityMalformedException;
 use Drupal\Core\Session\AccountInterface;
 use Drupal\Core\Url;
@@ -74,7 +73,7 @@ class ComponentFieldConfig extends FieldConfig implements ComponentFieldConfigIn
   /**
    * {@inheritdoc}
    */
-  public function getFieldItem(ContentEntityInterface $entity = NULL): ComponentTreeItem {
+  public function getFieldItem(?ContentEntityInterface $entity = NULL): ComponentTreeItem {
     if (!$entity) {
       $entityType = $this->entityTypeManager()->getDefinition($this->getTargetEntityTypeId());
       $values = [];

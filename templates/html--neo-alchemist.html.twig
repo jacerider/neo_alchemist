@@ -26,7 +26,6 @@
  */
 #}
 <!DOCTYPE html>
-{# drag flex items-center justify-center min-h-full bg-base-100 cursor-move [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] #}
 <html{{ html_attributes.addClass('bg-base-0') }}>
   <head>
     <head-placeholder token="{{ placeholder_token }}">
@@ -34,14 +33,13 @@
     <css-placeholder token="{{ placeholder_token }}">
     <js-placeholder token="{{ placeholder_token }}">
   </head>
-  {# drag bg-base-100 flex-auto p-6 container #}
-  <body{{ attributes.addClass('bg-base-0') }}>
+  <body{{ attributes.addClass('bg-base-0 font-primary') }}>
     {{ status }}
     {{ page_top }}
     {{ page|without('status') }}
     {% if page.status %}
-      <div class="fixed flex flex-col items-center top-0 z-50 w-full">
-        <div class="max-w-3xl w-full">
+      <div class="fixed flex flex-col items-center top-0 z-50 w-full pointer-events-none">
+        <div class="max-w-3xl w-full pointer-events-auto">
           <div class="alchemist-messages flex flex-col gap-2 invisible opacity-0 transition-opacity">
             {{ page.status }}
           </div>

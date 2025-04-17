@@ -1008,7 +1008,7 @@ interface ComponentShapePluginInterface extends PluginInspectionInterface, Deriv
    *
    * @return $this
    */
-  public function setDefaultOptions(array $options, string $id = NULL): self;
+  public function setDefaultOptions(array $options, ?string $id = NULL): self;
 
   /**
    * Sets default nested options for the component shape.
@@ -1044,7 +1044,7 @@ interface ComponentShapePluginInterface extends PluginInspectionInterface, Deriv
    * @return self
    *   Returns the current instance for method chaining.
    */
-  public function setOptions(array $options, string $id = NULL): self;
+  public function setOptions(array $options, ?string $id = NULL): self;
 
   /**
    * Retrieves the options for a given nested ID.
@@ -1060,7 +1060,7 @@ interface ComponentShapePluginInterface extends PluginInspectionInterface, Deriv
    * @return array
    *   An associative array of options for the nested component shape.
    */
-  public function getOptions(string $id = NULL): array;
+  public function getOptions(?string $id = NULL): array;
 
   /**
    * Sets nested options for the component shape.
@@ -1125,13 +1125,15 @@ interface ComponentShapePluginInterface extends PluginInspectionInterface, Deriv
    * Returning TRUE means that all requirements of the shape are met by the
    * properties of this field.
    *
+   * @param \Drupal\Core\Field\FieldDefinitionInterface $entityFieldDefinition
+   *   The field definition of the entity to match against.
    * @param \Drupal\Core\TypedData\DataDefinitionInterface[] $entityFieldProperties
    *   An array of field properties keyed by name.
    *
    * @return bool
    *   Returns TRUE if ALL field properties are supported, FALSE otherwise.
    */
-  public function supportsFieldProperties(array $entityFieldProperties): bool;
+  public function supportsFieldProperties(FieldDefinitionInterface $entityFieldDefinition, array $entityFieldProperties): bool;
 
   /**
    * Checks if the given entity field property is supported by the shape.
@@ -1144,6 +1146,8 @@ interface ComponentShapePluginInterface extends PluginInspectionInterface, Deriv
    * field properties and checks if the shape field property supports the given
    * entity field property.
    *
+   * @param \Drupal\Core\Field\FieldDefinitionInterface $entityFieldDefinition
+   *   The field definition of the entity to match against.
    * @param \Drupal\Core\TypedData\DataDefinitionInterface $entityFieldProperty
    *   The entity field property to check.
    *
@@ -1151,7 +1155,23 @@ interface ComponentShapePluginInterface extends PluginInspectionInterface, Deriv
    *   TRUE if the shape supports the given entity field property, FALSE
    *   otherwise.
    */
-  public function supportsFieldProperty(DataDefinitionInterface $entityFieldProperty): bool;
+  public function supportsFieldProperty(FieldDefinitionInterface $entityFieldDefinition, DataDefinitionInterface $entityFieldProperty): bool;
+
+  /**
+   * Provide custom matches for the field definition.
+   *
+   * @param \Drupal\Core\Field\FieldDefinitionInterface $entityFieldDefinition
+   *   The field definition of the entity to match against.
+   *
+   * @return array
+   *   An array of field keys => labels.
+   *   For example, you can grant access to a link's option icon by returning
+   *   the following:
+   *     [
+   *      'options:attributes~data-icon' => $this->t('Icon'),
+   *     ]
+   */
+  public function getMatches(FieldDefinitionInterface $entityFieldDefinition);
 
   /**
    * Retrieves the config shape for the component.

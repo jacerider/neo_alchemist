@@ -21,7 +21,7 @@ final class InstanceComponentManageController extends ControllerBase {
    * The controller constructor.
    */
   public function __construct(
-    private readonly BareHtmlPageRendererInterface $bareHtmlPageRenderer
+    private readonly BareHtmlPageRendererInterface $bareHtmlPageRenderer,
   ) {}
 
   /**

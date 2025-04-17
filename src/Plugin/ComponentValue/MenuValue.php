@@ -67,7 +67,7 @@ final class MenuValue extends ComponentValuePluginBase implements ContainerFacto
     array $configuration,
     EntityTypeManagerInterface $entity_type_manager,
     MenuLinkTreeInterface $menu_link_tree,
-    MatcherField $matcher_field
+    MatcherField $matcher_field,
   ) {
     parent::__construct($plugin_id, $plugin_definition, $shape, $configuration);
     $this->entityTypeManager = $entity_type_manager;

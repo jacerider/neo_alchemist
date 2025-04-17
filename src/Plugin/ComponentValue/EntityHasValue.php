@@ -47,7 +47,7 @@ final class EntityHasValue extends ComponentValuePluginBase implements Container
     $plugin_definition,
     ComponentShapePluginInterface $shape,
     array $configuration,
-    MatcherField $matcher_field
+    MatcherField $matcher_field,
   ) {
     parent::__construct($plugin_id, $plugin_definition, $shape, $configuration);
     $this->matcherField = $matcher_field;

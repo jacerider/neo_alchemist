@@ -33,7 +33,7 @@ trait EntityManagerDependentFilterTrait {
     $plugin_definition,
     ComponentFilterInterface $filter,
     array $configuration,
-    EntityTypeManagerInterface $entity_type_manager
+    EntityTypeManagerInterface $entity_type_manager,
   ) {
     parent::__construct($plugin_id, $plugin_definition, $filter, $configuration);
     $this->entityTypeManager = $entity_type_manager;

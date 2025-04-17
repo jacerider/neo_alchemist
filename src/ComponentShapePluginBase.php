@@ -2106,7 +2106,7 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
   /**
    * {@inheritDoc}
    */
-  public function supportsFieldProperties(array $entityFieldProperties): bool {
+  public function supportsFieldProperties(FieldDefinitionInterface $entityFieldDefinition, array $entityFieldProperties): bool {
     if (count($entityFieldProperties) === 1) {
       $shapeFieldProperties = $this->getFieldDefinitionForSupportCheck()->getFieldStorageDefinition()->getPropertyDefinitions();
       if (count($shapeFieldProperties) === 1) {
@@ -2134,14 +2134,14 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
   /**
    * {@inheritDoc}
    */
-  public function supportsFieldProperty(DataDefinitionInterface $entityFieldProperty): bool {
+  public function supportsFieldProperty(FieldDefinitionInterface $entityFieldDefinition, DataDefinitionInterface $entityFieldProperty): bool {
     $shapeFieldProperties = $this->getFieldDefinitionForSupportCheck()->getFieldStorageDefinition()->getPropertyDefinitions();
     if (count($shapeFieldProperties) > 1) {
       // This shape has more than one property and cannot by matched by a single
       // property.
       return FALSE;
     }
-    foreach ($shapeFieldProperties as $shapeFieldPropertyName => $shapeFieldProperty) {
+    foreach ($shapeFieldProperties as $shapeFieldProperty) {
       if ($this->supportsShapeFieldProperty($shapeFieldProperty, $entityFieldProperty)) {
         return TRUE;
       }
@@ -2165,6 +2165,13 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
    */
   protected function supportsShapeFieldProperty(DataDefinitionInterface $shapeFieldProperty, DataDefinitionInterface $entityFieldProperty): bool {
     return in_array($entityFieldProperty->getDataType(), $this->getSupportedFieldPropertyTypes());
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  public function getMatches(FieldDefinitionInterface $entityFieldDefinition) {
+    return [];
   }
 
   /**

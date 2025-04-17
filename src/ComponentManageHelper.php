@@ -26,7 +26,7 @@ class ComponentManageHelper {
    * @return string
    *   The element ID.
    */
-  public static function getId(ComponentTreeItem|ComponentInterface $instance = NULL): string {
+  public static function getId(ComponentTreeItem|ComponentInterface|null $instance = NULL): string {
     $id = static::$id;
     if ($instance instanceof ComponentInterface) {
       return $id . '-' . Html::getId($instance->isNew() ? $instance->id() : $instance->uuid());

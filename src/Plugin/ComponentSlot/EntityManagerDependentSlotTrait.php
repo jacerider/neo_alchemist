@@ -34,7 +34,7 @@ trait EntityManagerDependentSlotTrait {
     ComponentInterface $component,
     string $uuid,
     array $configuration,
-    EntityTypeManagerInterface $entity_type_manager
+    EntityTypeManagerInterface $entity_type_manager,
   ) {
     parent::__construct($plugin_id, $plugin_definition, $component, $uuid, $configuration);
     $this->entityTypeManager = $entity_type_manager;

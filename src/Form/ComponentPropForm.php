@@ -91,7 +91,7 @@ final class ComponentPropForm extends EntityForm {
   /**
    * {@inheritdoc}
    */
-  public function buildForm(array $form, FormStateInterface $form_state, string $prop = NULL) {
+  public function buildForm(array $form, FormStateInterface $form_state, ?string $prop = NULL) {
     $form_state->set('neo_component_manage_id', ComponentManageHelper::getId($this->entity));
     $this->shape = $this->entity->getPropShape($prop);
     $form['#title'] = $this->t('Edit %prop_label from %label', [
