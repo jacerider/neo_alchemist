@@ -300,12 +300,15 @@ function neo_alchemist_entity_bundle_field_info_alter(&$fields, EntityTypeInterf
  */
 function neo_alchemist_entity_operation(EntityInterface $entity) {
   $operations = [];
-  if ($entity->hasLinkTemplate('alchemist')) {
-    $operations['alchemist'] = [
-      'title' => t('Layout'),
-      'url' => $entity->toUrl('alchemist'),
-      'weight' => 50,
-    ];
+  if ($entity->hasLinkTemplate('alchemist') && $entity->access('update')) {
+    $url = $entity->toUrl('alchemist');
+    if ($url->access()) {
+      $operations['alchemist'] = [
+        'title' => t('Layout'),
+        'url' => $entity->toUrl('alchemist'),
+        'weight' => 50,
+      ];
+    }
   }
   else {
     $info = $entity->getEntityType();
