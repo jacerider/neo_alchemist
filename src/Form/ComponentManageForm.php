@@ -102,6 +102,25 @@ final class ComponentManageForm extends EntityForm {
       ];
     }
 
+    if (!$thumbnailId) {
+      $form['thumbnail_generate'] = [
+        '#type' => 'button',
+        '#value' => $this->t('Capture Automatic Thumbnail'),
+        '#id' => 'neo-alchemist-thumbnail-generate-button',
+        '#attributes' => [
+          'class' => ['btn', 'btn-xs', 'mt-2'],
+        ],
+      ];
+      $form['thumbnail_generate_data'] = [
+        '#type' => 'textarea',
+        '#title' => $this->t('Thumbnail Data'),
+        '#id' => 'neo-alchemist-thumbnail-generate-data',
+        '#wrapper_attributes' => [
+          'class' => ['hidden'],
+        ],
+      ];
+    }
+
     if ($this->entity->getTargetEntityTypeId()) {
       $form['entity_preview'] = [
         '#type' => 'entity_autocomplete',
@@ -555,6 +574,21 @@ final class ComponentManageForm extends EntityForm {
     if ($entityPreview = $form_state->getValue('entity_preview')) {
       $this->entity->setTargetPreviewEntity($entityPreview);
     }
+
+    // Save the generated thumbnail.
+    $thumbnailData = trim($form_state->getValue('thumbnail_generate_data', ''));
+    if (!empty($thumbnailData)) {
+      $data = explode(',', $thumbnailData);
+      if (!empty($data[1])) {
+        /** @var \Drupal\neo_config_file\ConfigFileGenerator $generator */
+        $generator = \Drupal::service('neo_config_file.generator');
+        $configFile = $generator->createFromBase64($data[1], 'component-' . str_replace('_', '-', $this->entity->id()) . '.png', 500, 320, 500, 320);
+        if ($configFile) {
+          $this->entity->set('thumbnail', $configFile->id());
+        }
+      }
+    }
+
     $result = parent::save($form, $form_state);
     $this->messenger()->addStatus($this->t('Updated component %label.', ['%label' => $this->entity->label()]));
     return $result;

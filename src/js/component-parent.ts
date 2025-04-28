@@ -108,6 +108,20 @@
       dragInit(drag);
     }
 
+    const screenshotButton = document.getElementById('neo-alchemist-thumbnail-generate-button');
+    if (screenshotButton) {
+      screenshotButton.addEventListener('click', (e) => {
+        e.preventDefault();
+        screenshotButton.setAttribute('disabled', 'disabled');
+        const iframe = getIframe('desktop');
+        if (iframe && iframe.contentWindow) {
+          iframe.contentWindow.postMessage({
+            type: 'screenshot',
+          }, "*");
+        }
+      });
+    }
+
     if (messages) {
       setTimeout(() => {
         messages.classList.add('opacity-100');
@@ -216,6 +230,18 @@
           setTimeout(() => {
             fadeOutAndRemove(messagesContent);
           }, 3000);
+        }
+      },
+
+      screenshot: function (data:any) {
+        const screenshotButton = document.getElementById('neo-alchemist-thumbnail-generate-button');
+        if (screenshotButton instanceof HTMLButtonElement) {
+          // set button value to 'awesome'
+          screenshotButton.innerHTML = 'Image Generated <small>Save component to finish capture</small>';
+        }
+        const screenshotData = document.getElementById('neo-alchemist-thumbnail-generate-data') as HTMLTextAreaElement;
+        if (screenshotData) {
+          screenshotData.value = data.dataUrl;
         }
       },
     };

@@ -7,8 +7,8 @@
         if (e) {
           const t = e.querySelector(".sf-dump") || e.querySelector(".kint-rich");
           if (t) {
-            const o = document.querySelector(".alchemist-messages");
-            o && (o.classList.add("opacity-100"), o.classList.remove("invisible", "opacity-0"));
+            const r = document.querySelector(".alchemist-messages");
+            r && (r.classList.add("opacity-100"), r.classList.remove("invisible", "opacity-0"));
           } else
             i === "desktop" && (t || window.parent.postMessage({
               type: "messages",
@@ -18,7 +18,7 @@
             }, "*")), e.remove();
         }
         new ResizeObserver((t) => {
-          for (const o of t)
+          for (const r of t)
             window.parent.postMessage({
               type: "size",
               id: a,
@@ -30,7 +30,7 @@
     }
   };
   const l = (s) => {
-    const e = (r) => r.button === 0 ? (r.preventDefault(), console.log("Global left click disabled"), !1) : !0;
+    const e = (o) => o.button === 0 ? (o.preventDefault(), !1) : !0;
     s.addEventListener("click", e, { capture: !0 });
   };
 })(Drupal, once);

@@ -65,7 +65,6 @@
       // Check if it's a left click (button property is 0 for left clicks)
       if (event.button === 0) {
         event.preventDefault();
-        console.log('Global left click disabled');
         return false;
       }
       return true;

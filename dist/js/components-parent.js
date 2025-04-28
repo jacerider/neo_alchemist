@@ -103,7 +103,7 @@
             d();
           }, 200));
         }), n.addEventListener("click", (c) => {
-          c.preventDefault(), n.removeEventListener("dblclick", H), b === l.uuid && (console.log("add dbl"), n.addEventListener("dblclick", H)), W(), i && f.behaviors.neoAlchemistComponentParent.scrollElementIntoView(n.getBoundingClientRect(), i, 100);
+          c.preventDefault(), n.removeEventListener("dblclick", H), b === l.uuid && n.addEventListener("dblclick", H), W(), i && f.behaviors.neoAlchemistComponentParent.scrollElementIntoView(n.getBoundingClientRect(), i, 100);
         }), e.insertAdjacentElement("afterend", n), g[o] = n;
         const s = t.cloneNode(!0);
         s.id = `neo-alchemist--shade-${o}`, s.addEventListener("click", (c) => {

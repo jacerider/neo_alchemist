@@ -61,7 +61,7 @@ final class InstanceComponentEditController extends ControllerBase {
     if ($this->isAjax()) {
       return $build;
     }
-    return $this->bareHtmlPageRenderer->renderBarePage($build, 'Manage: ' . $neo_component->label(), 'page__neo_alchemist_preview');
+    return $this->bareHtmlPageRenderer->renderBarePage($build, 'Manage: ' . $neo_component->label(), 'back');
   }
 
   /**

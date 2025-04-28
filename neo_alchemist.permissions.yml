@@ -1,2 +1,5 @@
 administer neo_alchemist:
   title: 'Administer alchemist'
+
+use protected components:
+  title: 'Use (add/update/remove) protected components'

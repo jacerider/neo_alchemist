@@ -55,7 +55,7 @@ class ComponentPageRenderer extends BareHtmlPageRenderer {
   /**
    * {@inheritdoc}
    */
-  public function renderBarePage(array $content, $title, $page_theme_property, array $page_additions = []) {
+  public function renderBarePage(array $content, $title, $scope, array $page_additions = []) {
 
     // Allow hooks to add attachments to $page['#attached'].
     $this->renderer->executeInRenderContext(new RenderContext(), function () use (&$content) {
@@ -63,7 +63,12 @@ class ComponentPageRenderer extends BareHtmlPageRenderer {
     });
 
     $wrapper_attributes = $page_additions['#wrapper_attributes'] ?? [];
-    $wrapper_attributes['class'][] = str_replace('_', '-', $page_theme_property);
+    $wrapper_attributes['class'][] = 'scope-' . str_replace('_', '-', $scope);
+
+    // Add primary font on front scope only.
+    if ($scope === 'front') {
+      $wrapper_attributes['class'][] = 'font-primary';
+    }
 
     $html = [
       '#type' => 'html',

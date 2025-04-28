@@ -49,6 +49,14 @@ component.ajax.form:
     - core/once
     - core/drupal
 
+component.screenshot:
+  version: VERSION
+  neo: { group: contrib }
+  js:
+    src/js/component-screenshot.ts: {}
+  dependencies:
+    - neo_alchemist/library.html2canvas
+
 component.ajax:
   version: VERSION
   neo: { group: contrib }
@@ -57,3 +65,14 @@ component.ajax:
   dependencies:
     - core/drupal
     - core/drupal.ajax
+
+# Libraries
+
+library.html2canvas:
+  version: 1.5.8
+  license:
+    name: MIT
+    url: https://github.com/yorickshan/html2canvas-pro/blob/main/LICENSE
+    gpl-compatible: true
+  js:
+    dist/js/library.html2canvas.min.js: { minified: true, attributes: { defer: true } }

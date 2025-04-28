@@ -47,10 +47,15 @@ final class ComponentPreviewController extends ControllerBase {
       ],
     ];
 
+    $size = \Drupal::request()->query->get('size');
+    if ($size) {
+      $build['#attached']['library'][] = 'neo_alchemist/component.screenshot';
+    }
+
     $neo_component->setPreview(TRUE);
     $build['component'] = $neo_component->toRenderable();
 
-    return $this->bareHtmlPageRenderer->renderBarePage($build, 'Preview: ' . $neo_component->label(), 'page__neo_alchemist_preview')->addCacheableDependency((new CacheableMetadata())->setCacheMaxAge(0));
+    return $this->bareHtmlPageRenderer->renderBarePage($build, 'Preview: ' . $neo_component->label(), 'front')->addCacheableDependency((new CacheableMetadata())->setCacheMaxAge(0));
   }
 
 }

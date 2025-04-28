@@ -297,7 +297,6 @@
 
           cloneOverlay.removeEventListener('dblclick', onOverlayDblClick);
           if (componentLastFocus === component.uuid) {
-            console.log('add dbl');
             cloneOverlay.addEventListener('dblclick', onOverlayDblClick);
           }
 

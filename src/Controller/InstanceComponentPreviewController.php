@@ -61,7 +61,7 @@ final class InstanceComponentPreviewController extends ControllerBase {
     else {
       $build = $this->all($neo_field);
     }
-    return $this->bareHtmlPageRenderer->renderBarePage($build, $this->getTitle($neo_field), 'page__neo_alchemist_preview')->addCacheableDependency((new CacheableMetadata())->setCacheMaxAge(0));
+    return $this->bareHtmlPageRenderer->renderBarePage($build, $this->getTitle($neo_field), 'front')->addCacheableDependency((new CacheableMetadata())->setCacheMaxAge(0));
   }
 
   /**
