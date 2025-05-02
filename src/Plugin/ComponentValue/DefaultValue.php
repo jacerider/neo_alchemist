@@ -66,7 +66,7 @@ final class DefaultValue extends ComponentValuePluginBase implements ContainerFa
    */
   public function defaultConfiguration() {
     return [
-      'default' => [],
+      'default' => NULL,
       'options' => [],
     ];
   }
@@ -96,7 +96,7 @@ final class DefaultValue extends ComponentValuePluginBase implements ContainerFa
       }
 
       $this->defaultShape
-        ->setOverrideValue($this->configuration['default'] ?? NULL)
+        ->setOverrideValue($this->configuration['default'] ?? $this->shape->getDefaultValue())
         ->setExpanded($this->shape->getExpanded());
       foreach ($this->shape->getParentShapes() as $parentShape) {
         $this->defaultShape->addParentShape($parentShape);
@@ -125,16 +125,21 @@ final class DefaultValue extends ComponentValuePluginBase implements ContainerFa
   protected function configurationMassage(array $values, array $form, FormStateInterface $form_state): array {
     $defaultShape = $this->getDefaultShape();
     $values = $values[$defaultShape->getName()] ?? [];
-    $defaultShape->validateForm($form, $form_state, $values);
-    $originalValues = $this->configuration['default'];
-    if (!is_array($originalValues)) {
-      $originalValues = [$originalValues];
+    if (isset($form['widget'])) {
+      $defaultShape->validateForm($form, $form_state, $values);
+      $originalValues = $this->configuration['default'] ?? [];
+      if (!is_array($originalValues)) {
+        $originalValues = [$originalValues];
+      }
+      $values = [
+        'default' => $defaultShape->massageFormValues($values, $originalValues, $form, $form_state),
+        'options' => $defaultShape->getNestedOptions(),
+      ];
+      if ($values['default'] === '_default') {
+        $values['default'] = NULL;
+      }
     }
-    $values = [
-      'default' => $defaultShape->massageFormValues($values, $originalValues, $form, $form_state),
-      'options' => $defaultShape->getNestedOptions(),
-    ];
-    return array_filter($values);
+    return $values;
   }
 
   /**
@@ -149,7 +154,7 @@ final class DefaultValue extends ComponentValuePluginBase implements ContainerFa
    * {@inheritdoc}
    */
   public function provideDefaultValue(mixed $value): mixed {
-    return $this->configuration['default'];
+    return $this->configuration['default'] ?? NULL;
   }
 
 }

@@ -25,14 +25,6 @@
         // Dispatch the event on the element
         container.dispatchEvent(customEvent);
       }
-      // const iframes = document.querySelectorAll(response.selector);
-      // iframes.forEach(iframe => {
-      //   if (iframe instanceof HTMLIFrameElement) {
-      //     if (iframe instanceof HTMLIFrameElement) {
-      //       iframe.contentDocument?.location.reload();
-      //     }
-      //   }
-      // });
     } as drupal.Core.IAjaxCommand;
   }
 

@@ -57,6 +57,10 @@ final class ComponentShapePluginManager extends DefaultPluginManager {
         if (isset($prop['examples']) && is_array($prop['examples']) && !in_array('array', $prop['type'])) {
           $prop['examples'] = $prop['examples'][0] ?? $prop['examples'];
         }
+
+        // If ($propName === 'margin') {
+        //   ksm($prop, $schema['properties']);
+        // }.
         $required = in_array($propName, $schema['required'] ?? [], TRUE);
         if ($shape = $this->getInstance([
           'schema' => $prop,

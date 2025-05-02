@@ -48,6 +48,7 @@ use Drupal\neo_alchemist\ComponentSlotInterface;
  *       "access" = "Drupal\neo_alchemist\Form\ComponentAccessForm",
  *       "delete" = "Drupal\Core\Entity\EntityDeleteForm",
  *       "manage" = "Drupal\neo_alchemist\Form\ComponentManageForm",
+ *       "style" = "Drupal\neo_alchemist\Form\ComponentStyleForm",
  *     },
  *   },
  *   config_prefix = "neo_component",
@@ -464,6 +465,50 @@ class Component extends ConfigEntityBase implements ComponentInterface {
       return \Drupal::entityTypeManager()->getStorage($this->getTargetEntityTypeId())->load($entityId);
     }
     return NULL;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function hasPreviewStyles(): bool {
+    return !empty($this->getPreviewStyles());
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function getPreviewStyles(): array {
+    $cache = \Drupal::cache();
+    if ($data = $cache->get('neo_alchemist.' . $this->id() . '.preview_style')) {
+      return $data->data;
+    }
+    return [];
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function setPreviewStyle(string $shapeId, string $shapeValue): self {
+    $cache = \Drupal::cache();
+    $styles = $this->getPreviewStyles();
+    $styles[$shapeId] = $shapeValue;
+    $cache->set('neo_alchemist.' . $this->id() . '.preview_style', $styles, strtotime('+10 minutes'));
+    return $this;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function getPreviewStyle(string $shapeId): ?string {
+    return $this->getPreviewStyles()[$shapeId] ?? NULL;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function resetPreviewStyle(): self {
+    \Drupal::cache()->delete('neo_alchemist.' . $this->id() . '.preview_style');
+    return $this;
   }
 
   /**

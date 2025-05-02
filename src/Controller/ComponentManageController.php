@@ -54,6 +54,8 @@ final class ComponentManageController extends ControllerBase {
       ],
     ];
 
+    $build['#top_start']['style'] = $this->entityFormBuilder()->getForm($neo_component, 'style');
+
     // Resize.
     $build['#top_end'] = ComponentManageHelper::buildIframeOperations($neo_component);
 

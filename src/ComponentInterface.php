@@ -266,6 +266,54 @@ interface ComponentInterface extends ConfigEntityInterface, RenderableInterface,
   public function getTargetPreviewEntity(): ?ContentEntityInterface;
 
   /**
+   * Check if the component has preview styles.
+   *
+   * @return bool
+   *   TRUE if the component has preview styles, FALSE otherwise.
+   */
+  public function hasPreviewStyles(): bool;
+
+  /**
+   * Get the preview styles for the component.
+   *
+   * @return array
+   *   An associative array of preview styles.
+   */
+  public function getPreviewStyles(): array;
+
+  /**
+   * Set the preview style for a specific shape ID.
+   *
+   * @param string $shapeId
+   *   The shape ID.
+   * @param string $shapeValue
+   *   The shape value.
+   *
+   * @return $this
+   *   The current object for method chaining.
+   */
+  public function setPreviewStyle(string $shapeId, string $shapeValue): self;
+
+  /**
+   * Get the preview style for a specific shape ID.
+   *
+   * @param string $shapeId
+   *   The shape ID.
+   *
+   * @return string|null
+   *   The preview style for the shape ID, or NULL if not set.
+   */
+  public function getPreviewStyle(string $shapeId): ?string;
+
+  /**
+   * Delete the preview style for this component.
+   *
+   * @return $this
+   *   The current object for method chaining.
+   */
+  public function resetPreviewStyle(): self;
+
+  /**
    * Load prop shapes.
    *
    * @param array $schema

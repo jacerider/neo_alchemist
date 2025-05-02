@@ -117,6 +117,7 @@ menu:
 
 scheme:
   title: Color Scheme
+  description: The color scheme of the component.
   type: string
   examples: default
 style:
@@ -130,19 +131,19 @@ containment:
   styles:
     xs:
       label: Extra Small
-      value: container mx-auto xl:max-w-xl
+      value: container mx-auto xl:max-w-screen-sm
     sm:
       label: Small
-      value: container mx-auto xl:max-w-5xl
+      value: container mx-auto xl:max-w-screen-md
     md:
       label: Medium
-      value: container mx-auto xl:max-w-7xl
+      value: container mx-auto xl:max-w-screen-lg
     lg:
       label: Large
-      value: container mx-auto
+      value: container mx-auto xl:max-w-screen-2xl
     full:
       label: Full
-      value: w-full max-w-full
+      value: mx-0 max-w-none
 padding:
   title: Padding
   description: The inner-spacing of the component.

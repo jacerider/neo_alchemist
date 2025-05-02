@@ -7,6 +7,7 @@ namespace Drupal\neo_alchemist\Plugin\ComponentShape;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\Core\Template\Attribute;
 use Drupal\neo_alchemist\Attribute\ComponentShape;
+use Drupal\neo_color\Element\Scheme;
 
 /**
  * Plugin implementation of the neo_component_shape.
@@ -37,12 +38,31 @@ class SchemeShape extends StyleShapeBase {
   /**
    * {@inheritDoc}
    */
+  public function getFieldOptions(): ?array {
+    $options = parent::getFieldOptions();
+
+    if ($this->isInitialized()) {
+      $config = $this->getWidgetSettings();
+      $schemes = Scheme::getSchemes($config['allow_dark'] ?? TRUE, $config['allow_color'] ?? TRUE, $config['include'] ?? [], $config['exclude'] ?? []);
+      foreach ($schemes as $scheme) {
+        $options[$scheme->id()] = $scheme->label();
+      }
+    }
+
+    return $options;
+  }
+
+  /**
+   * {@inheritDoc}
+   */
   public function getPropValue(): mixed {
     $originalValue = parent::getPropValue();
     $value = new Attribute();
-    if (!empty($originalValue['target_id'])) {
+
+    $target_id = $originalValue['target_id'] ?? $originalValue;
+    if ($target_id && is_string($target_id)) {
       /** @var \Drupal\neo_color\SchemeInterface $scheme */
-      $scheme = $this->entityTypeManager->getStorage('neo_scheme')->load($originalValue['target_id']);
+      $scheme = $this->entityTypeManager->getStorage('neo_scheme')->load($target_id);
       if ($scheme) {
         $value->addClass($scheme->getSelector());
       }

@@ -1,0 +1,173 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Drupal\neo_alchemist\Form;
+
+use Drupal\Core\Ajax\AjaxResponse;
+use Drupal\Core\Ajax\CssCommand;
+use Drupal\Core\Entity\EntityForm;
+use Drupal\Core\Form\FormStateInterface;
+use Drupal\neo_alchemist\Ajax\InstanceComponentManageIframeCommand;
+use Drupal\neo_alchemist\ComponentManageHelper;
+use Drupal\neo_alchemist\ComponentShapeStylePluginInterface;
+use Drupal\neo_icon\IconTranslationTrait;
+
+/**
+ * Component form.
+ */
+final class ComponentStyleForm extends EntityForm {
+
+  use IconTranslationTrait;
+
+  /**
+   * The entity.
+   *
+   * @var \Drupal\neo_alchemist\ComponentInterface
+   */
+  protected $entity;
+
+  /**
+   * {@inheritdoc}
+   */
+  public function form(array $form, FormStateInterface $form_state): array {
+    $form = parent::form($form, $form_state);
+    $form_state->set('neo_component_manage_id', ComponentManageHelper::getId($this->entity));
+    $form['#attached']['library'][] = 'neo_alchemist/component.ajax';
+    $form['#neo_style'] = 'default';
+    $form['#neo_size'] = 'xs';
+    $form['#attributes']['class'][] = 'border-l-2 pl-2';
+    return $form;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function buildForm(array $form, FormStateInterface $form_state) {
+    $form = parent::buildForm($form, $form_state);
+    $form['#id'] = 'neo-component-style-form';
+    $form['#no_entity_edit_form'] = TRUE;
+
+    $form['styles'] = [
+      '#type' => 'container',
+      '#tree' => TRUE,
+      '#neo_align' => 'inline',
+      '#neo_size' => 'min',
+    ];
+    $shapes = array_filter($this->entity->getPropShapes(), fn ($shape) => $shape->access('manage_value'));
+    foreach ($shapes as $propName => $shape) {
+      if ($shape instanceof ComponentShapeStylePluginInterface) {
+        $options = $shape->getFieldOptions();
+        if (!$shape->isRequired()) {
+          $options = array_merge(['' => $this->t('None')], $options);
+        }
+        if ($options) {
+          $form['styles'][$propName] = [
+            '#type' => 'select',
+            '#title' => $shape->getTitle(),
+            '#options' => $options,
+            '#default_value' => $shape->getValue(),
+            '#description' => $shape->getDescription(),
+            '#shape_id' => $shape->id(),
+            '#neo_align' => 'inline',
+            '#neo_size' => 'xs',
+            '#ajax' => [
+              'callback' => '::ajaxStyle',
+            ],
+          ];
+        }
+      }
+    }
+
+    $form['styles']['reset'] = [
+      '#type' => 'submit',
+      '#value' => $this->icon('Reset Preview Styles', 'undo')->iconOnly(),
+      // '#value' => 'Reset Preview Styles',
+      '#description' => $this->t('Reset Preview Styles'),
+      // '#tooltip' => TRUE,
+      '#neo_size' => 'xs',
+      '#submit' => ['::submitReset'],
+      '#attributes' => [
+        'class' => ['neo-component-style-form--reset'],
+      ],
+    ];
+
+    if (!$this->entity->hasPreviewStyles()) {
+      $form['styles']['reset']['#attributes']['style'] = 'display: none;';
+    }
+    elseif (!$form_state->isSubmitted()) {
+      $this->messenger()->addWarning($this->t('The component is being previewed with style overrides. You can click the @icon button to reset the preview styles.', [
+        '@icon' => $this->icon('Reset Preview Styles', 'undo')->iconOnly(),
+      ]));
+    }
+
+    return $form;
+  }
+
+  /**
+   * Ajax callback for the style form.
+   */
+  public function ajaxStyle(array $form, FormStateInterface $form_state) {
+    $response = new AjaxResponse();
+    $form_state->setRebuild(TRUE);
+
+    if ($manageId = $form_state->get('neo_component_manage_id')) {
+      $trigger = $form_state->getTriggeringElement();
+      $shapeId = $trigger['#shape_id'] ?? NULL;
+      $shapeValue = $form_state->getValue($trigger['#parents'], NULL);
+      if ($shapeId && $shapeValue !== NULL) {
+        $this->entity->setPreviewStyle($shapeId, $shapeValue);
+        $response->addCommand(new InstanceComponentManageIframeCommand('#' . $manageId . ' iframe'));
+      }
+    }
+
+    $response->addCommand(new CssCommand('.neo-component-style-form--reset', [
+      'display' => 'block',
+    ]));
+
+    return $response;
+  }
+
+  /**
+   * Ajax callback for the style form.
+   */
+  public function submitReset(array $form, FormStateInterface $form_state) {
+    $this->entity->resetPreviewStyle();
+    $form_state->setRedirectUrl($this->entity->toUrl());
+  }
+
+  /**
+   * Ajax callback for the style form.
+   */
+  public function submitForm(array &$form, FormStateInterface $form_state) {
+    die;
+  }
+
+  /**
+   * Returns the action form element for the current entity form.
+   */
+  protected function actionsElement(array $form, FormStateInterface $form_state) {
+    return NULL;
+  }
+
+  // /**
+  //  * {@inheritdoc}
+  //  */
+  // protected function copyFormValuesToEntity(EntityInterface $entity, array $form, FormStateInterface $form_state) {
+  //   $form_state->unsetValue('props');
+  //   $form_state->unsetValue('slots');
+  //   $form_state->unsetValue('filters');
+  //   $form_state->unsetValue('access');
+  //   parent::copyFormValuesToEntity($entity, $form, $form_state);
+  // }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function save(array $form, FormStateInterface $form_state): int {
+
+    $this->messenger()->addStatus($this->t('Updated component %label.', ['%label' => $this->entity->label()]));
+    return 1;
+  }
+
+}
