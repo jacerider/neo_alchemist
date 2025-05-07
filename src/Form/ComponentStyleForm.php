@@ -95,7 +95,8 @@ final class ComponentStyleForm extends EntityForm {
     if (!$this->entity->hasPreviewStyles()) {
       $form['styles']['reset']['#attributes']['style'] = 'display: none;';
     }
-    elseif (!$form_state->isSubmitted()) {
+    elseif (!$form_state->get('neo_component_style_changed')) {
+      $form_state->set('neo_component_style_changed', TRUE);
       $this->messenger()->addWarning($this->t('The component is being previewed with style overrides. You can click the @icon button to reset the preview styles.', [
         '@icon' => $this->icon('Reset Preview Styles', 'undo')->iconOnly(),
       ]));
@@ -109,7 +110,9 @@ final class ComponentStyleForm extends EntityForm {
    */
   public function ajaxStyle(array $form, FormStateInterface $form_state) {
     $response = new AjaxResponse();
-    $form_state->setRebuild(TRUE);
+
+    // Delete all status messages.
+    $this->messenger()->deleteByType('warning');
 
     if ($manageId = $form_state->get('neo_component_manage_id')) {
       $trigger = $form_state->getTriggeringElement();
@@ -140,7 +143,7 @@ final class ComponentStyleForm extends EntityForm {
    * Ajax callback for the style form.
    */
   public function submitForm(array &$form, FormStateInterface $form_state) {
-    die;
+    // There is no submit action for this form.
   }
 
   /**
@@ -148,26 +151,6 @@ final class ComponentStyleForm extends EntityForm {
    */
   protected function actionsElement(array $form, FormStateInterface $form_state) {
     return NULL;
-  }
-
-  // /**
-  //  * {@inheritdoc}
-  //  */
-  // protected function copyFormValuesToEntity(EntityInterface $entity, array $form, FormStateInterface $form_state) {
-  //   $form_state->unsetValue('props');
-  //   $form_state->unsetValue('slots');
-  //   $form_state->unsetValue('filters');
-  //   $form_state->unsetValue('access');
-  //   parent::copyFormValuesToEntity($entity, $form, $form_state);
-  // }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function save(array $form, FormStateInterface $form_state): int {
-
-    $this->messenger()->addStatus($this->t('Updated component %label.', ['%label' => $this->entity->label()]));
-    return 1;
   }
 
 }
