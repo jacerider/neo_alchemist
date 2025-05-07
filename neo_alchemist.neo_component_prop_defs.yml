@@ -140,7 +140,7 @@ containment:
       value: container mx-auto xl:max-w-screen-lg
     lg:
       label: Large
-      value: container mx-auto xl:max-w-screen-2xl
+      value: container mx-auto
     full:
       label: Full
       value: mx-0 max-w-none
