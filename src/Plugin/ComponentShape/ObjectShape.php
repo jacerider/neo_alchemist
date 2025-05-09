@@ -31,29 +31,6 @@ class ObjectShape extends ChildrenShapeBase implements ComponentShapeExpandedPlu
     return 'map';
   }
 
-  // /**
-  //  * {@inheritDoc}
-  //  */
-  // public function getDefaultSchemaValue(): mixed {
-  //   $examples = parent::getDefaultSchemaValue();
-  //   kint($examples);
-  //   // if ($examples) {
-  //   //   // Arrays can supply defaults on the array itself OR the property can
-  //   //   // supply defaults. If the array supplies the defaults, we merge in
-  //   //   // the property defaults.
-  //   //   foreach ($this->schema['items']['properties'] as $propName => $prop) {
-  //   //     if ($prop['examples'] ?? FALSE) {
-  //   //       foreach ($examples as $delta => $example) {
-  //   //         if (!isset($example[$propName])) {
-  //   //           $examples[$delta][$propName] = $prop['examples'];
-  //   //         }
-  //   //       }
-  //   //     }
-  //   //   }
-  //   // }
-  //   return $examples;
-  // }
-
   /**
    * {@inheritDoc}
    */
@@ -85,16 +62,10 @@ class ObjectShape extends ChildrenShapeBase implements ComponentShapeExpandedPlu
   protected function loadChildSchema(int|null $delta = NULL): array {
     $schema = $this->getSchema();
     // Use complete value instead of the getDefaultValue().
-    $defaultValue = $this->getDefaultFieldItemValue();
     $value = $this->getFieldItemValue();
     // Merge in any examples to each property.
     foreach ($schema['properties'] as $propName => &$prop) {
       $prop['examples'] = $value[$propName] ?? $schema['examples'][$propName] ?? $prop['examples'] ?? [];
-      // If the property has no examples, but the schema has required
-      // properties, we set the examples to the default value.
-      // if (empty($prop['examples']) && isset($schema['required']) && in_array($propName, $schema['required'])) {
-      //   $prop['examples'] = $defaultValue[$propName] ?? $prop['examples'];
-      // }.
     }
     return $schema;
   }
