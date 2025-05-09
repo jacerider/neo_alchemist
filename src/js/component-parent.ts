@@ -54,13 +54,17 @@
         // Element is above the visible area, scroll up
         scrollTop += elementTop - offsets.top;
         needsScroll = true;
-        // // Element is below the visible area, scroll down
-        // scrollTop += elementBottom - containerVisibleBottom;
-        // needsScroll = true;
       }
 
       // Determine if horizontal scrolling is needed
-      if (elementLeft < containerVisibleLeft) {
+      if (containerRect.width < elementRect.width) {
+        // We need to center the element
+        const elementCenter = (elementLeft + elementRight) / 2;
+        const containerCenter = (containerVisibleLeft + containerVisibleRight) / 2;
+        const offsetLeft = elementCenter - containerCenter;
+        scrollLeft += offsetLeft;
+        needsScroll = true;
+      } else if (elementLeft < containerVisibleLeft) {
         // Element is to the left of the visible area, scroll left
         scrollLeft += elementLeft - offsets.left;
         needsScroll = true;

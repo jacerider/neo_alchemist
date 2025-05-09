@@ -128,6 +128,13 @@ final class InstanceComponentForm extends ContentEntityForm {
   public function buildForm(array $form, FormStateInterface $form_state) {
     $form = parent::buildForm($form, $form_state);
 
+    $form['footer'] = [
+      '#type' => 'container',
+      '#attributes' => [
+        'class' => ['sticky bottom-0 bg-base-0 p-3 translate-y-4 border-t !mt-0'],
+      ],
+    ];
+
     $form['footer']['status'] = [
       '#type' => 'checkbox',
       '#title' => $this->t('Enabled'),

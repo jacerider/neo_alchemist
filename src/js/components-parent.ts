@@ -4,7 +4,8 @@
   interface Component {
     uuid: string;
     label: string;
-    status: boolean;
+    alerts: string[];
+    warnings: string[];
     ops?: Record<string, boolean>;
   }
 
@@ -235,7 +236,17 @@
             // Set component label
             const label = overlay.querySelector('.label');
             if (label) {
-              label.innerHTML = component.label;
+              label.innerHTML = `<span class="px-1">${component.label}</span>`;
+              if (component.warnings && component.warnings.length > 0) {
+                component.warnings.forEach(warning => {
+                  label.innerHTML = ` <span class="badge rounded-sm bg-warning-500 text-warning-content-500">${warning}</span>` + label.innerHTML;
+                });
+              }
+              if (component.alerts && component.alerts.length > 0) {
+                component.alerts.forEach(warning => {
+                  label.innerHTML = ` <span class="badge rounded-sm bg-alert-500 text-alert-content-500">${warning}</span>` + label.innerHTML;
+                });
+              }
             }
 
             // Add transition after positioning
@@ -478,9 +489,16 @@
 
       const title = wrapper.querySelector('.title');
       if (title) {
-        title.innerHTML = component.label;
-        if (component.status !== true) {
-          title.innerHTML += ` <span class="badge bg-alert-500 text-alert-content-500">Draft</span>`;
+        title.innerHTML = `<span>${component.label}</span>`;
+        if (component.warnings && component.warnings.length > 0) {
+          component.warnings.forEach(warning => {
+            title.innerHTML = `<span class="badge px-2 rounded bg-warning-500 text-warning-content-500">${warning}</span>` + title.innerHTML;
+          });
+        }
+        if (component.alerts && component.alerts.length > 0) {
+          component.alerts.forEach(warning => {
+            title.innerHTML = `<span class="badge px-2 rounded bg-alert-500 text-alert-content-500">${warning}</span>` + title.innerHTML;
+          });
         }
       }
     }

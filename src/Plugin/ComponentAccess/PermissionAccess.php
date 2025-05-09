@@ -7,7 +7,7 @@ namespace Drupal\neo_alchemist\Plugin\ComponentAccess;
 use Drupal\Core\Access\AccessResult;
 use Drupal\Core\Access\AccessResultInterface;
 use Drupal\Core\DependencyInjection\DependencySerializationTrait;
-use Drupal\Core\Entity\EntityTypeManagerInterface;
+use Drupal\Core\Extension\ModuleExtensionList;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Plugin\ContainerFactoryPluginInterface;
 use Drupal\Core\Session\AccountInterface;
@@ -16,27 +16,35 @@ use Drupal\neo_alchemist\Attribute\ComponentAccess;
 use Drupal\neo_alchemist\ComponentAccessInterface;
 use Drupal\neo_alchemist\ComponentAccessPluginBase;
 use Drupal\neo_icon\IconTranslationTrait;
+use Drupal\user\PermissionHandlerInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
  * Plugin implementation of the neo_component_access.
  */
 #[ComponentAccess(
-  id: 'role',
-  label: new TranslatableMarkup('Role'),
-  description: new TranslatableMarkup('Check if the user has specific role(s).'),
+  id: 'permission',
+  label: new TranslatableMarkup('Permission'),
+  description: new TranslatableMarkup('Check if the user has specific permission(s).'),
 )]
-final class RoleAccess extends ComponentAccessPluginBase implements ContainerFactoryPluginInterface {
+final class PermissionAccess extends ComponentAccessPluginBase implements ContainerFactoryPluginInterface {
 
   use DependencySerializationTrait;
   use IconTranslationTrait;
 
   /**
-   * The entity type manager.
+   * The permission handler.
    *
-   * @var \Drupal\Core\Entity\EntityTypeManagerInterface
+   * @var \Drupal\user\PermissionHandlerInterface
    */
-  protected EntityTypeManagerInterface $entityTypeManager;
+  protected PermissionHandlerInterface $permissionHandler;
+
+  /**
+   * Module extension list.
+   *
+   * @var \Drupal\Core\Extension\ModuleExtensionList
+   */
+  protected ModuleExtensionList $moduleExtensionList;
 
   /**
    * {@inheritdoc}
@@ -46,10 +54,12 @@ final class RoleAccess extends ComponentAccessPluginBase implements ContainerFac
     $plugin_definition,
     ComponentAccessInterface $access,
     array $configuration,
-    EntityTypeManagerInterface $entityTypeManager,
+    PermissionHandlerInterface $permission_handler,
+    ModuleExtensionList $module_extension_list,
   ) {
     parent::__construct($plugin_id, $plugin_definition, $access, $configuration);
-    $this->entityTypeManager = $entityTypeManager;
+    $this->permissionHandler = $permission_handler;
+    $this->moduleExtensionList = $module_extension_list;
   }
 
   /**
@@ -61,7 +71,8 @@ final class RoleAccess extends ComponentAccessPluginBase implements ContainerFac
       $plugin_definition,
       $configuration['access'],
       $configuration['settings'],
-      $container->get('entity_type.manager'),
+      $container->get('user.permissions'),
+      $container->get('extension.list.module'),
     );
   }
 
@@ -80,14 +91,13 @@ final class RoleAccess extends ComponentAccessPluginBase implements ContainerFac
   public function settingsSummary(): array {
     $summary = parent::settingsSummary();
 
-    $roles = $this->getRoles();
+    // $roles = $this->getRoles();
     foreach (ComponentAccessInterface::OPS as $op => $info) {
       $config = $this->configuration['ops'][$op] ?? [];
       if ($config) {
-        $opRoles = array_intersect_key($roles, array_flip(array_filter($config['roles'])));
         $summary[] = strtoupper($info['label']);
-        $summary[] = '- ' . $this->t('Roles: @roles', [
-          '@roles' => implode(', ', $opRoles),
+        $summary[] = '- ' . $this->t('Permissions: @permissions', [
+          '@permissions' => '[' . implode('], [', $config['permissions']) . ']',
         ]);
         $summary[] = '- ' . $this->t('Match: @match', [
           '@match' => $config['match'] === 'any' ? $this->t('Any') : $this->t('All'),
@@ -102,7 +112,7 @@ final class RoleAccess extends ComponentAccessPluginBase implements ContainerFac
    * Configuration form for the value provider plugin.
    */
   protected function configurationForm(array $form, FormStateInterface $form_state, array &$complete_form): array {
-    $roles = $this->getRoles();
+    $permissionOptions = $this->getPermissionsAsOptions();
 
     $form['ops'] = [
       '#type' => 'container',
@@ -115,11 +125,12 @@ final class RoleAccess extends ComponentAccessPluginBase implements ContainerFac
         '#description_display' => 'before',
         '#open' => !empty($this->configuration['ops'][$op]),
       ];
-      $row['roles'] = [
-        '#type' => 'checkboxes',
-        '#title' => $this->t('Roles'),
-        '#options' => $roles,
-        '#default_value' => $this->configuration['ops'][$op]['roles'] ?? [],
+      $row['permissions'] = [
+        '#type' => 'select',
+        '#title' => $this->t('Permissions'),
+        '#options' => $permissionOptions,
+        '#default_value' => $this->configuration['ops'][$op]['permissions'] ?? [],
+        '#multiple' => TRUE,
       ];
       $row['match'] = [
         '#type' => 'radios',
@@ -141,9 +152,9 @@ final class RoleAccess extends ComponentAccessPluginBase implements ContainerFac
    */
   protected function configurationValidate(array $form, FormStateInterface $form_state): void {
     foreach (ComponentAccessInterface::OPS as $op => $info) {
-      $roles = array_filter($form_state->getValue(['ops', $op, 'roles'], []));
-      if ($roles) {
-        $form_state->setValue(['ops', $op, 'roles'], $roles);
+      $permissions = array_filter($form_state->getValue(['ops', $op, 'permissions'], []));
+      if ($permissions) {
+        $form_state->setValue(['ops', $op, 'permissions'], $permissions);
       }
       else {
         $form_state->unsetValue(['ops', $op]);
@@ -152,17 +163,20 @@ final class RoleAccess extends ComponentAccessPluginBase implements ContainerFac
   }
 
   /**
-   * Returns a list of available roles.
+   * Returns a list of available permissions.
    *
    * @return array
-   *   An associative array of role IDs and labels.
+   *   An associative array of permission IDs and labels.
    */
-  protected function getRoles() {
-    $roles = [];
-    foreach ($this->entityTypeManager->getStorage('user_role')->loadMultiple() as $role) {
-      $roles[$role->id()] = $role->label();
+  protected function getPermissionsAsOptions() {
+    $perms = [];
+    $permissions = $this->permissionHandler->getPermissions();
+    foreach ($permissions as $perm => $perm_item) {
+      $provider = $perm_item['provider'];
+      $display_name = $this->moduleExtensionList->getName($provider);
+      $perms[$display_name][$perm] = strip_tags((string) $perm_item['title']);
     }
-    return $roles;
+    return $perms;
   }
 
   /**
@@ -170,21 +184,9 @@ final class RoleAccess extends ComponentAccessPluginBase implements ContainerFac
    */
   public function access(string $op, AccountInterface $account): AccessResultInterface {
     if (!empty($this->configuration['ops'][$op])) {
-      $roles = $account->getRoles();
-      $hasRoles = FALSE;
       $config = $this->configuration['ops'][$op];
-      switch ($config['match']) {
-        case 'any':
-          $hasRoles = !empty(array_intersect($roles, $config['roles']));
-          break;
-
-        case 'all':
-          $hasRoles = empty(array_diff($config['roles'], $roles));
-          break;
-      }
-      if (!$hasRoles) {
-        return AccessResult::forbidden()->cachePerPermissions();
-      }
+      $access = AccessResult::allowedIfHasPermissions($account, $config['permissions'], $config['match'] === 'any' ? 'OR' : 'AND');
+      return AccessResult::forbiddenIf(!$access->isAllowed())->cachePerPermissions();
     }
     return AccessResult::neutral();
   }

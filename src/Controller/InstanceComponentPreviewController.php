@@ -137,9 +137,18 @@ final class InstanceComponentPreviewController extends ControllerBase {
     if (!empty($build['components'][ComponentTreeStructure::ROOT_UUID])) {
       foreach ($build['components'][ComponentTreeStructure::ROOT_UUID] as $uuid => &$componentBuild) {
         $component = $neo_field->getComponent($uuid);
+        $alerts = [];
+        $warnings = [];
+        if (!$component->isPublished()) {
+          $alerts[] = $this->adminIcon('Disabled', 'ban');
+        }
+        if ($component->getAccessInstances()) {
+          $warnings[] = $this->adminIcon('Limited Access', 'lock');
+        }
         $data = [
           'label' => $component->label(),
-          'status' => $component->isPublished(),
+          'alerts' => $alerts,
+          'warnings' => $warnings,
           'ops' => [
             'edit' => $component->access('update'),
             'delete' => $component->access('delete'),

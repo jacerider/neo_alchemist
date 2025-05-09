@@ -1,15 +1,19 @@
-(function(q, E) {
+(function(q, L) {
   q.behaviors.neoAlchemistComponentParent = {
     scale: 1,
     attach: function() {
-      E("neo.alchemist.component.parent", ".neo-alchemist-manage").forEach((o) => {
+      L("neo.alchemist.component.parent", ".neo-alchemist-manage").forEach((o) => {
         B(o);
       });
     },
-    scrollElementIntoView: function(o, l = document.documentElement, a = 0, i = "smooth") {
-      const c = l.getBoundingClientRect(), f = o instanceof DOMRect ? o : o.getBoundingClientRect(), r = typeof a == "number" ? { top: a, bottom: a, left: a, right: a } : { top: 0, bottom: 0, left: 0, right: 0, ...a }, d = l === document.documentElement, g = f.top - (d ? 0 : c.top), L = f.bottom - (d ? 0 : c.top), b = d ? 0 : r.top, S = (d ? window.innerHeight : c.height) - r.bottom, z = f.left - (d ? 0 : c.left), y = f.right - (d ? 0 : c.left), T = 0, v = d ? window.innerWidth : c.width;
-      let t = l.scrollTop, e = l.scrollLeft, s = !1;
-      (g < b || L > S) && (t += g - r.top, s = !0), z < T ? (e += z - r.left, s = !0) : y > v && (e += y - v + r.right, s = !0), s && l.scrollTo({
+    scrollElementIntoView: function(o, a = document.documentElement, r = 0, i = "smooth") {
+      const c = a.getBoundingClientRect(), f = o instanceof DOMRect ? o : o.getBoundingClientRect(), m = typeof r == "number" ? { top: r, bottom: r, left: r, right: r } : { top: 0, bottom: 0, left: 0, right: 0, ...r }, d = a === document.documentElement, g = f.top - (d ? 0 : c.top), b = f.bottom - (d ? 0 : c.top), S = d ? 0 : m.top, w = (d ? window.innerHeight : c.height) - m.bottom, E = f.left - (d ? 0 : c.left), p = f.right - (d ? 0 : c.left), z = 0, y = d ? window.innerWidth : c.width;
+      let t = a.scrollTop, e = a.scrollLeft, s = !1;
+      if ((g < S || b > w) && (t += g - m.top, s = !0), c.width < f.width) {
+        const n = (E + p) / 2, l = (z + y) / 2, u = n - l;
+        e += u, s = !0;
+      } else E < z ? (e += E - m.left, s = !0) : p > y && (e += p - y + m.right, s = !0);
+      s && a.scrollTo({
         top: t,
         left: e,
         behavior: i
@@ -20,18 +24,18 @@
     window.addEventListener("message", function(t) {
       const e = t.data;
       if (typeof e.id == "string" && e.id === o.id && typeof e.type == "string") {
-        if (typeof L[e.type] != "function")
+        if (typeof b[e.type] != "function")
           return;
-        L[e.type](e);
+        b[e.type](e);
       }
     });
-    let l = !1;
-    const a = o.querySelectorAll("iframe"), i = o.querySelector(".neo-alchemist-manage--wrapper"), c = document.querySelector(".alchemist-messages"), f = o.querySelector(".neo-alchemist-manage--drag");
-    f && T(f);
-    const r = document.getElementById("neo-alchemist-thumbnail-generate-button");
-    r && r.addEventListener("click", (t) => {
-      t.preventDefault(), r.setAttribute("disabled", "disabled");
-      const e = v("desktop");
+    let a = !1;
+    const r = o.querySelectorAll("iframe"), i = o.querySelector(".neo-alchemist-manage--wrapper"), c = document.querySelector(".alchemist-messages"), f = o.querySelector(".neo-alchemist-manage--drag");
+    f && z(f);
+    const m = document.getElementById("neo-alchemist-thumbnail-generate-button");
+    m && m.addEventListener("click", (t) => {
+      t.preventDefault(), m.setAttribute("disabled", "disabled");
+      const e = y("desktop");
       e && e.contentWindow && e.contentWindow.postMessage({
         type: "screenshot"
       }, "*");
@@ -47,11 +51,11 @@
       { id: "split", contentHeight: "50%", formHeight: "50%", hideIframe: !1, hideForm: !1, active: !0 },
       { id: "contract", contentHeight: "100%", formHeight: "0%", hideIframe: !1, hideForm: !0, active: !1 }
     ].forEach((t) => {
-      E("neo.alchemist", ".neo-alchemist-manage--size-" + t.id, o).forEach((e) => {
+      L("neo.alchemist", ".neo-alchemist-manage--size-" + t.id, o).forEach((e) => {
         const s = o.querySelector(".neo-alchemist-manage--wrapper"), n = o.querySelector(".neo-alchemist-manage--form");
-        t.active && (e.classList.add("is-active"), s.style.height = t.contentHeight, n.style.height = t.formHeight), s.style.transition = "all 500ms", n.style.transition = "all 500ms", e.addEventListener("click", (m) => {
-          m.preventDefault(), o.querySelectorAll(".neo-alchemist--sizing").forEach((w) => {
-            w.classList.remove("is-active");
+        t.active && (e.classList.add("is-active"), s.style.height = t.contentHeight, n.style.height = t.formHeight), s.style.transition = "all 500ms", n.style.transition = "all 500ms", e.addEventListener("click", (l) => {
+          l.preventDefault(), o.querySelectorAll(".neo-alchemist--sizing").forEach((T) => {
+            T.classList.remove("is-active");
           }), e.classList.add("is-active"), s.style.height = t.contentHeight, s.style.transform = t.hideIframe ? "scale(0.5)" : "", s.style.opacity = t.hideIframe ? "0" : "", n.style.height = t.formHeight, n.style.transform = t.hideForm ? "scale(0.5)" : "", n.style.opacity = t.hideForm ? "0" : "";
         });
       });
@@ -62,14 +66,14 @@
       { size: "tablet", active: !1 },
       { size: "mobile", active: !1 }
     ].forEach((t) => {
-      E("neo.alchemist", '.neo-alchemist--focus[data-size="' + t.size + '"]').forEach((e) => {
+      L("neo.alchemist", '.neo-alchemist--focus[data-size="' + t.size + '"]').forEach((e) => {
         t.active && e.classList.add("is-active"), e.addEventListener("click", (s) => {
-          var m;
+          var l;
           s.preventDefault();
-          const n = v(t.size);
-          n && (d.forEach((h) => {
-            h.classList.remove("is-active");
-          }), e.classList.add("is-active"), (m = n.closest(".neo-alchemist--iframe-wrapper")) == null || m.scrollIntoView({
+          const n = y(t.size);
+          n && (d.forEach((u) => {
+            u.classList.remove("is-active");
+          }), e.classList.add("is-active"), (l = n.closest(".neo-alchemist--iframe-wrapper")) == null || l.scrollIntoView({
             behavior: "smooth",
             block: "start",
             inline: "center"
@@ -78,15 +82,15 @@
       });
     });
     let g = 0;
-    const L = {
+    const b = {
       size: function(t) {
-        const e = t.size, s = Math.max(t.height, 0), n = Array.from(a).find(
-          (m) => m.getAttribute("data-size") === e
+        const e = t.size, s = Math.max(t.height, 0), n = Array.from(r).find(
+          (l) => l.getAttribute("data-size") === e
         );
         if (n instanceof HTMLIFrameElement) {
           g++, n.style.height = s + "px";
-          const m = n.closest(".neo-alchemist--iframe-wrapper"), h = m == null ? void 0 : m.querySelector(".neo-alchemist--iframe-size");
-          h && (h.innerHTML = n.clientWidth + "×" + s), i && g === a.length && (i.style.visibility = "");
+          const l = n.closest(".neo-alchemist--iframe-wrapper"), u = l == null ? void 0 : l.querySelector(".neo-alchemist--iframe-size");
+          u && (u.innerHTML = n.clientWidth + "×" + s), i && g === r.length && (i.style.visibility = "");
         }
       },
       messages: function(t) {
@@ -104,34 +108,34 @@
         const s = document.getElementById("neo-alchemist-thumbnail-generate-data");
         s && (s.value = t.dataUrl);
       }
-    }, b = document.body.clientWidth / 3;
-    f.style.paddingLeft = b + "px", f.style.paddingRight = b + "px";
-    const S = localStorage.getItem("neo-alchemist-scale") || "1", z = o.querySelectorAll(".neo-alchemist--scale");
+    }, S = document.body.clientWidth / 3;
+    f.style.paddingLeft = S + "px", f.style.paddingRight = S + "px";
+    const w = localStorage.getItem("neo-alchemist-scale") || "1", E = o.querySelectorAll(".neo-alchemist--scale");
     [
       { size: "full", scale: "1" },
       { size: "75", scale: "0.75" },
       { size: "50", scale: "0.5" }
     ].forEach((t) => {
-      E("neo.alchemist", '.neo-alchemist--scale[data-size="' + t.size + '"]').forEach((e) => {
-        S === t.scale && e.classList.add("is-active"), e.addEventListener("click", (s) => {
-          s.preventDefault(), z.forEach((n) => {
+      L("neo.alchemist", '.neo-alchemist--scale[data-size="' + t.size + '"]').forEach((e) => {
+        w === t.scale && e.classList.add("is-active"), e.addEventListener("click", (s) => {
+          s.preventDefault(), E.forEach((n) => {
             n.classList.remove("is-active");
-          }), e.classList.add("is-active"), y(t.scale);
+          }), e.classList.add("is-active"), p(t.scale);
         });
       });
-    }), y(S);
-    function y(t) {
+    }), p(w);
+    function p(t) {
       const e = o.querySelector(".neo-alchemist-manage--scale");
       if (e) {
-        if (l || (e.style.transformOrigin = "top left"), e.style.transform = `scale(${t})`, i) {
+        if (a || (e.style.transformOrigin = "top left"), e.style.transform = `scale(${t})`, i) {
           const n = e.getBoundingClientRect();
           i.scrollTo({
             top: 0,
             left: n.left + i.scrollLeft,
-            behavior: l ? "smooth" : "auto"
+            behavior: a ? "smooth" : "auto"
           });
         }
-        l || (e.style.transition = "transform 0.2s ease-in-out");
+        a || (e.style.transition = "transform 0.2s ease-in-out");
       }
       localStorage.setItem("neo-alchemist-scale", t);
       const s = new CustomEvent("alchemistManageScale", {
@@ -143,44 +147,44 @@
       });
       o.dispatchEvent(s);
     }
-    function T(t) {
-      let e, s, n, m;
-      t.addEventListener("mousedown", h);
-      function h(u) {
-        i && (i.style.userSelect = "none", t.style.cursor = "grabbing", e = u.clientX, s = u.clientY, n = i.scrollLeft, m = i.scrollTop, document.addEventListener("mouseup", H), document.addEventListener("mousemove", w), a.forEach((p) => {
-          p instanceof HTMLIFrameElement && (p.style.pointerEvents = "none");
-        }), d.forEach((p) => {
-          p.classList.remove("is-active");
+    function z(t) {
+      let e, s, n, l;
+      t.addEventListener("mousedown", u);
+      function u(h) {
+        i && (i.style.userSelect = "none", t.style.cursor = "grabbing", e = h.clientX, s = h.clientY, n = i.scrollLeft, l = i.scrollTop, document.addEventListener("mouseup", H), document.addEventListener("mousemove", T), r.forEach((v) => {
+          v instanceof HTMLIFrameElement && (v.style.pointerEvents = "none");
+        }), d.forEach((v) => {
+          v.classList.remove("is-active");
         }));
       }
-      function w(u) {
+      function T(h) {
         if (i) {
-          const p = u.clientX - e, M = u.clientY - s;
-          i.style.userSelect = "", i.scrollLeft = n - p, i.scrollTop = m - M;
+          const v = h.clientX - e, C = h.clientY - s;
+          i.style.userSelect = "", i.scrollLeft = n - v, i.scrollTop = l - C;
         }
       }
       function H() {
-        t.style.cursor = "grab", document.removeEventListener("mouseup", H), document.removeEventListener("mousemove", w), a.forEach((u) => {
-          u instanceof HTMLIFrameElement && (u.style.pointerEvents = "");
+        t.style.cursor = "grab", document.removeEventListener("mouseup", H), document.removeEventListener("mousemove", T), r.forEach((h) => {
+          h instanceof HTMLIFrameElement && (h.style.pointerEvents = "");
         });
       }
     }
-    function v(t) {
-      return Array.from(a).find((e) => e.getAttribute("data-size") === t);
+    function y(t) {
+      return Array.from(r).find((e) => e.getAttribute("data-size") === t);
     }
-    l = !0;
+    a = !0;
   }
-  function I(o, l = 500, a) {
+  function I(o, a = 500, r) {
     const i = typeof o == "string" ? document.getElementById(o) : o;
     if (!i) {
       console.error(`Element ${typeof o == "string" ? o : "provided"} not found`);
       return;
     }
     const c = window.getComputedStyle(i).opacity;
-    i.style.opacity = c, window.getComputedStyle(i).position === "static" && (i.style.position = "relative"), i.style.transition = `opacity ${l}ms ease, transform ${l}ms ease`, i.style.opacity = "0", i.style.transform = "translateY(-1rem)", setTimeout(() => {
-      var r;
-      (r = i.parentNode) == null || r.removeChild(i);
-    }, l);
+    i.style.opacity = c, window.getComputedStyle(i).position === "static" && (i.style.position = "relative"), i.style.transition = `opacity ${a}ms ease, transform ${a}ms ease`, i.style.opacity = "0", i.style.transform = "translateY(-1rem)", setTimeout(() => {
+      var m;
+      (m = i.parentNode) == null || m.removeChild(i);
+    }, a);
   }
 })(Drupal, once);
 //# sourceMappingURL=component-parent.js.map
