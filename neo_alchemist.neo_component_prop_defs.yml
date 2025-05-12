@@ -142,13 +142,13 @@ containment:
   styles:
     xs:
       label: Extra Small
-      value: container mx-auto xl:max-w-screen-sm
+      value: container mx-auto xl:max-w-screen-md
     sm:
       label: Small
-      value: container mx-auto xl:max-w-screen-md
+      value: container mx-auto xl:max-w-screen-lg
     md:
       label: Medium
-      value: container mx-auto xl:max-w-screen-lg
+      value: container mx-auto xl:max-w-screen-xl
     lg:
       label: Large
       value: container mx-auto
