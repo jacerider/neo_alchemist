@@ -266,7 +266,7 @@ class ArrayShape extends ChildrenShapeBase implements ComponentShapeInterablePlu
             '#type' => 'html_tag',
             '#tag' => 'div',
             '#attributes' => [
-              'class' => ['badge bg-base text-base-content flex-none self-center px-2'],
+              'class' => ['badge bg-base-700 text-base-content-700 rounded text-base-content flex-none self-center px-2'],
             ],
             '#value' => $this->t('Item @delta', ['@delta' => $delta + 1]),
           ];
@@ -288,9 +288,6 @@ class ArrayShape extends ChildrenShapeBase implements ComponentShapeInterablePlu
               'wrapper' => $id,
             ],
           ];
-        }
-        if ($max !== 1) {
-          // $form[$delta]['#attributes']['class'][] = 'form--inline mb-form-item';
         }
         foreach ($shapes as $shape) {
           $form[$delta][$shape->getName()] = [
