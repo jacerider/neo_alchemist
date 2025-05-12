@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Drupal\neo_alchemist\Plugin\ComponentShape;
 
-use Drupal\Core\Field\FieldDefinitionInterface;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\neo_alchemist\Attribute\ComponentShape;
 use Drupal\neo_alchemist\ComponentShapePluginBase;
@@ -16,20 +15,22 @@ use Drupal\neo_alchemist\ComponentShapePluginBase;
   prop: 'url',
   label: new TranslatableMarkup('Url'),
   default_field_type: 'link',
-  default_field_widget: 'link_default',
+  default_field_widget: 'neo_link',
 )]
 class UrlShape extends ComponentShapePluginBase {
 
-  use ModuleHandlerDependentShapeTrait;
-
   /**
-   * {@inheritDoc}
+   * Get the default widget settings.
+   *
+   * @return array
+   *   The default widget settings.
    */
-  protected function getWidgetType(): ?string {
-    if ($this->moduleHandler->moduleExists('linkit')) {
-      return 'linkit';
-    }
-    return parent::getWidgetType();
+  protected function getDefaultWidgetSettings(): array {
+    return [
+      'icon' => FALSE,
+      'wrapper_type' => 'container',
+      'target' => TRUE,
+    ];
   }
 
   /**
@@ -45,16 +46,15 @@ class UrlShape extends ComponentShapePluginBase {
   }
 
   /**
-   * Matches the field definition type with the entity field definition type.
-   *
-   * @param \Drupal\Core\Field\FieldDefinitionInterface $entityFieldDefinition
-   *   The field definition of the entity to match against.
-   *
-   * @return bool
-   *   TRUE if the field definition types match, FALSE otherwise.
+   * {@inheritDoc}
    */
-  public function supportsFieldDefinition(FieldDefinitionInterface $entityFieldDefinition): bool {
-    return parent::supportsFieldDefinition($entityFieldDefinition);
+  public function adaptValue(mixed $value): mixed {
+    // Use target if passed in with the options.
+    if (empty($value['target']) && !empty($value['options']['attributes']['target'])) {
+      $value['target'] = $value['options']['attributes']['target'];
+    }
+    $value['target'] = $value['target'] ?? '_self';
+    return $value;
   }
 
 }

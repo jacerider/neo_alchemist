@@ -13,9 +13,11 @@ heading:
     subtitle:
       title: Subtitle
       type: string
+
 markup:
   title: Markup
   type: string
+
 image:
   title: Image
   type: object
@@ -34,21 +36,26 @@ image:
     height:
       title: Image height
       type: integer
+
 image-uri:
   title: Image URL
   type: string
   format: uri-reference
   pattern: ^(\/|https?:\/\/).*\.(?i)(png|gif|jpg|jpeg|webp)(\?.*)?(#.*)?$
+
 email:
   title: Email
   type: string
   pattern: ^[a-zA-Z0-9.!#$%&\'*+\/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$
+
 icon:
   title: Icon
   type: string
+
 uri:
   title: URI
   type: string
+
 link:
   title: Link
   type: object
@@ -62,6 +69,7 @@ link:
     options:
       title: 'Options'
       type: object
+
 url:
   title: Url
   type: object
@@ -75,6 +83,12 @@ url:
     options:
       title: 'Options'
       type: object
+    target:
+      title: Open in new window
+      type: string
+      enum:
+        - _self
+        - _blank
 
 menu:
   title: Menu
@@ -111,9 +125,6 @@ menu:
       url:
         title: URI
         type: url
-      target:
-        title: Open in new window
-        type: boolean
 
 scheme:
   title: Color Scheme

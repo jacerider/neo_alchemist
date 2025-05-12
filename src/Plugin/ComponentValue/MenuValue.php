@@ -201,15 +201,16 @@ final class MenuValue extends ComponentValuePluginBase implements ContainerFacto
       foreach ($menu['#items'] as $item) {
         /** @var \Drupal\Core\Url $url */
         $url = $item['url'];
-        $icon = $url->getOptions('attributes')['attributes']['data-icon'] ?? '';
-        $description = $url->getOptions('attributes')['attributes']['title'] ?? '';
+        $options = $url->getOptions();
+        $attributes = $options['attributes'] ?? [];
         $value[] = [
           'title' => $item['title'],
-          'description' => $description,
-          'icon' => $icon,
+          'description' => $attributes['title'] ?? '',
+          'icon' => $attributes['data-icon'] ?? '',
           'url' => [
             'title' => $item['title'],
             'uri' => $item['url']->toString(),
+            'options' => $options,
           ],
         ];
       }
