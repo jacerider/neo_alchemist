@@ -17,6 +17,16 @@ final class ComponentListBuilder extends ConfigEntityListBuilder {
   /**
    * {@inheritdoc}
    */
+  protected $limit = 100;
+
+  /**
+   * {@inheritdoc}
+   */
+  protected const SORT_KEY = 'label';
+
+  /**
+   * {@inheritdoc}
+   */
   public function buildHeader(): array {
     $header['thumbnail'] = $this->t('Thumbnail');
     $header['label'] = $this->t('Label');

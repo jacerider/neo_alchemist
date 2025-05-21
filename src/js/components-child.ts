@@ -88,10 +88,26 @@
   }
 
   function checkEmpty(el: HTMLElement) {
+    // Check if the element is empty.
     el.style.display = 'block';
     if (el.clientHeight === 0) {
       const data = JSON.parse(el.dataset.component || '{}');
-      el.innerHTML = '<div class="w-full text-center text-sm bg-base-200 p-4"><strong><em>' + data.label + '</em></strong> has no visible content.</div>';
+      const message = document.createElement('div');
+      message.classList.add('w-full', 'text-center', 'text-sm', 'bg-base-200', 'p-4');
+      message.innerHTML = '<strong><em>' + data.label + '</em></strong> has no visible content.';
+      el.appendChild(message);
+      // Watch for changes to the element's height. This allows dynamic content
+      // to be loaded into the element, and the message to be removed.
+      let lastHeight = el.clientHeight;
+      const observer = new ResizeObserver(entries => {
+        const entry = entries[0];
+        const newHeight = entry.contentRect.height;
+        if (newHeight !== lastHeight) {
+          message.remove();
+          observer.unobserve(el);
+        }
+      });
+      observer.observe(el);
     }
     el.style.display = '';
   }

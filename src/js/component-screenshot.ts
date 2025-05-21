@@ -1,4 +1,4 @@
-(function (html2canvas) {
+(function () {
 
   const id = new URLSearchParams(window.location.search).get('id');
   const size = new URLSearchParams(window.location.search).get('size');
@@ -15,24 +15,6 @@
       components.forEach((el) => {
         el.style.margin = '0px';
       });
-      // htmlToImage.toCanvas(wrapper, {
-      //   // skipFonts: true,
-      // }).then(function (canvas:any) {
-      //   console.log(canvas);
-      //   wrapper.style.width = '';
-      //   components.forEach((el) => {
-      //     el.style.margin = '';
-      //   });
-      //   // window.parent.postMessage({
-      //   //   type: 'screenshot',
-      //   //   id: id,
-      //   //   size: size,
-      //   //   dataUrl: canvas.toDataURL(),
-      //   // }, '*');
-      // }).catch(function (error:any) {
-      //   console.error('oops, something went wrong!', error);
-      //   console.log(error.target);
-      // });
       html2canvas(wrapper).then((canvas:any) => {
         wrapper.style.width = '';
         components.forEach((el) => {
@@ -48,6 +30,6 @@
     }
   });
 
-})(html2canvas);
+})();
 
 export {};

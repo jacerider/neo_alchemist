@@ -40,7 +40,9 @@ final class ComponentManageController extends ControllerBase {
       '#id' => ComponentManageHelper::getId($neo_component),
       '#iframe_url' => $neo_component->toUrl('preview'),
       '#attached' => [
-        'library' => ['neo_alchemist/component.parent'],
+        'library' => [
+          'neo_alchemist/component.parent',
+        ],
       ],
       '#form' => $this->entityFormBuilder()->getForm($neo_component, 'manage'),
     ];

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Drupal\neo_alchemist\Form;
 
 use Drupal\Component\Serialization\Json;
+use Drupal\Component\Utility\Html;
 use Drupal\Core\Entity\EntityForm;
 use Drupal\Core\Entity\EntityInterface;
 use Drupal\Core\Entity\EntityTypeBundleInfoInterface;
@@ -82,6 +83,7 @@ final class ComponentManageForm extends EntityForm {
     $form['thumbnail'] = [
       '#type' => 'neo_config_file',
       '#title' => $this->t('Thumbnail'),
+      '#filename' => Html::getClass('component-' . $this->entity->id()),
       '#extensions' => ['png'],
       '#dependencies' => [
         $this->entity->getConfigDependencyKey() => [

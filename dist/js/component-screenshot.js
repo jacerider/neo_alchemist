@@ -1,7 +1,7 @@
-(function(o) {
-  const s = new URLSearchParams(window.location.search).get("id"), c = new URLSearchParams(window.location.search).get("size");
-  window.addEventListener("message", function(r) {
-    const n = r.data;
+(function() {
+  const o = new URLSearchParams(window.location.search).get("id"), s = new URLSearchParams(window.location.search).get("size");
+  window.addEventListener("message", function(c) {
+    const n = c.data;
     if (typeof n.type == "string" && n.type === "screenshot") {
       const e = document.querySelector(".neo-alchemist-preview");
       if (!e)
@@ -10,17 +10,17 @@
       const a = this.document.querySelectorAll("[data-component-id]");
       a.forEach((t) => {
         t.style.margin = "0px";
-      }), o(e).then((t) => {
-        e.style.width = "", a.forEach((i) => {
-          i.style.margin = "";
+      }), html2canvas(e).then((t) => {
+        e.style.width = "", a.forEach((r) => {
+          r.style.margin = "";
         }), window.parent.postMessage({
           type: "screenshot",
-          id: s,
-          size: c,
+          id: o,
+          size: s,
           dataUrl: t.toDataURL()
         }, "*");
       });
     }
   });
-})(html2canvas);
+})();
 //# sourceMappingURL=component-screenshot.js.map
