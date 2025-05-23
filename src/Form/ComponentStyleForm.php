@@ -46,7 +46,7 @@ final class ComponentStyleForm extends EntityForm {
   public function buildForm(array $form, FormStateInterface $form_state) {
     $form = parent::buildForm($form, $form_state);
     $form['#id'] = 'neo-component-style-form';
-    $form['#no_entity_edit_form'] = TRUE;
+    $form['#neo_entity_form'] = FALSE;
 
     $form['styles'] = [
       '#type' => 'container',

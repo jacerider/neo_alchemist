@@ -65,9 +65,9 @@ class ComponentManageHelper {
     ];
     // Scale.
     foreach ([
-      'full' => neo_admin_icon(t('100%'), 'expand'),
-      '75' => neo_admin_icon(t('75%'), 'compress'),
-      '50' => neo_admin_icon(t('50%'), 'compress-arrows-alt'),
+      'full' => neo_icon_admin(t('100%'), 'expand'),
+      '75' => neo_icon_admin(t('75%'), 'compress'),
+      '50' => neo_icon_admin(t('50%'), 'compress-arrows-alt'),
     ] as $key => $label) {
       $build['scale'][$key] = [
         '#type' => 'link',
@@ -89,9 +89,9 @@ class ComponentManageHelper {
     ];
     // Resize.
     foreach ([
-      'desktop' => neo_admin_icon(t('Desktop'), 'desktop'),
-      'tablet' => neo_admin_icon(t('Tablet'), 'tablet'),
-      'mobile' => neo_admin_icon(t('Mobile'), 'mobile'),
+      'desktop' => neo_icon_admin(t('Desktop'), 'desktop'),
+      'tablet' => neo_icon_admin(t('Tablet'), 'tablet'),
+      'mobile' => neo_icon_admin(t('Mobile'), 'mobile'),
     ] as $key => $label) {
       $build['size'][$key] = [
         '#type' => 'link',
@@ -128,7 +128,7 @@ class ComponentManageHelper {
     if ($instance->access('create')) {
       $build['add'] = [
         '#type' => 'neo_modal_link',
-        '#title' => neo_admin_icon(t('Add')),
+        '#title' => neo_icon_admin(t('Add')),
         '#url' => $instance->toUrl('library'),
         '#attributes' => [
           'class' => ['use-ajax', 'btn', 'btn-primary', 'btn-xs'],
@@ -139,7 +139,7 @@ class ComponentManageHelper {
     if ($instance->access('sort')) {
       $build['sort'] = [
         '#type' => 'neo_modal_link',
-        '#title' => neo_admin_icon(t('Sort')),
+        '#title' => neo_icon_admin(t('Sort')),
         '#url' => $instance->toUrl('sort'),
         '#attributes' => [
           'class' => ['use-ajax', 'btn', 'btn-outline', 'btn-xs'],
@@ -169,7 +169,7 @@ class ComponentManageHelper {
     ];
     $build['back'] = [
       '#type' => 'link',
-      '#title' => neo_admin_icon(t('Back'), 'arrow-circle-left'),
+      '#title' => neo_icon_admin(t('Back'), 'arrow-circle-left'),
       '#url' => $instance->toUrl('collection'),
       '#attributes' => [
         'class' => ['btn', 'btn-xs'],
@@ -178,7 +178,7 @@ class ComponentManageHelper {
     if ($instance->access('publish')) {
       $build['publish'] = [
         '#type' => 'neo_modal_link',
-        '#title' => neo_admin_icon(t('Publish')),
+        '#title' => neo_icon_admin(t('Publish')),
         '#url' => $instance->toUrl('publish'),
         '#attributes' => [
           'class' => ['use-ajax', 'btn', 'btn-xs', 'btn-primary'],
@@ -189,7 +189,7 @@ class ComponentManageHelper {
     if ($instance->access('revert')) {
       $build['revert'] = [
         '#type' => 'neo_modal_link',
-        '#title' => neo_admin_icon(t('Revert')),
+        '#title' => neo_icon_admin(t('Revert')),
         '#url' => $instance->toUrl('revert'),
         '#attributes' => [
           'class' => ['use-ajax', 'btn', 'btn-xs', 'btn-warning'],
@@ -202,7 +202,7 @@ class ComponentManageHelper {
       // Allow reset only for entity-based components.
       $build['reset'] = [
         '#type' => 'neo_modal_link',
-        '#title' => neo_admin_icon(t('Reset')),
+        '#title' => neo_icon_admin(t('Reset')),
         '#url' => $instance->toUrl('reset'),
         '#attributes' => [
           'class' => ['use-ajax', 'btn', 'btn-xs', 'btn-alert'],

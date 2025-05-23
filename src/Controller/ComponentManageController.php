@@ -49,7 +49,7 @@ final class ComponentManageController extends ControllerBase {
 
     $build['#top_start']['back'] = [
       '#type' => 'link',
-      '#title' => neo_admin_icon(t('Back'), 'arrow-circle-left'),
+      '#title' => neo_icon_admin(t('Back'), 'arrow-circle-left'),
       '#url' => $neo_component->toUrl('collection'),
       '#attributes' => [
         'class' => ['btn', 'btn-xs'],

@@ -6,7 +6,11 @@ namespace Drupal\neo_alchemist;
 
 use Drupal\Component\Utility\NestedArray;
 use Drupal\Core\Cache\CacheableMetadata;
+use Drupal\Core\Config\Entity\ConfigEntityInterface;
+use Drupal\Core\Config\Entity\ConfigEntityTypeInterface;
 use Drupal\Core\Entity\ContentEntityInterface;
+use Drupal\Core\Entity\ContentEntityTypeInterface;
+use Drupal\Core\Entity\EntityInterface;
 use Drupal\Core\Entity\Plugin\DataType\EntityReference;
 use Drupal\Core\Entity\TypedData\EntityDataDefinition;
 use Drupal\Core\Entity\TypedData\EntityDataDefinitionInterface;
@@ -79,7 +83,7 @@ final class MatcherField extends MatcherBase {
   /**
    * Recursively retrieves the value of a field from a content entity.
    *
-   * @param \Drupal\Core\Entity\ContentEntityInterface $entity
+   * @param \Drupal\Core\Entity\EntityInterface $entity
    *   The content entity from which to retrieve the field value.
    * @param array $path
    *   An array representing the path to the field. Each element in the array
@@ -96,7 +100,7 @@ final class MatcherField extends MatcherBase {
    *   The value of the field or property, or an empty array if the field or
    *   property does not exist or is empty.
    */
-  private function recurseEntity(ContentEntityInterface $entity, array $path, array $properties = [], $default = [], ?CacheableMetadata $cacheableMetadata = NULL): mixed {
+  private function recurseEntity(EntityInterface $entity, array $path, array $properties = [], $default = [], ?CacheableMetadata $cacheableMetadata = NULL): mixed {
     if ($cacheableMetadata) {
       $cacheableMetadata->addCacheableDependency($entity);
     }
@@ -105,104 +109,48 @@ final class MatcherField extends MatcherBase {
     [$fieldName, $property, $subProperty] = explode(':', $key . '::');
     if ($fieldName === '_entity' && $property) {
       // Special entity property handling.
-      return $this->getEntityDefinitionValue($entity, $property, $subProperty);
+      return $this->getDynamicEntityValues($entity, $property, $subProperty);
     }
-    if (!$entity->hasField($fieldName)) {
-      return $value;
+    if ($entity instanceof ConfigEntityInterface) {
+      // This is currently untested.
+      return $entity->get($fieldName);
     }
-    $field = $entity->get($fieldName);
-    if ($field->isEmpty()) {
-      return $value;
-    }
-    // If we have a reference field and there is a path, recurse.
-    if ($field instanceof EntityReferenceFieldItemListInterface && !empty($path)) {
-      if (!$field->entity) {
+    if ($entity instanceof ContentEntityInterface) {
+      if (!$entity->hasField($fieldName)) {
         return $value;
       }
-      $value = $this->recurseEntity($field->entity, $path, $properties, $default, $cacheableMetadata);
-    }
-    elseif ($field instanceof FieldItemListInterface) {
-      $value = $field->getValue();
-      if ($property) {
-        $value = $value[0][$property] ?? $default;
+      $field = $entity->get($fieldName);
+      if ($field->isEmpty()) {
+        return $value;
       }
-    }
-    if ($subProperty) {
-      $parts = explode('~', $subProperty);
-      $value = NestedArray::getValue($value, $parts);
-    }
-    if ($properties && is_array($value)) {
-      $v = [];
-      foreach ($value as $delta => $val) {
-        foreach ($properties as $name => $prop) {
-          $v[$delta][$name] = $val[$prop] ?? NULL;
+      // If we have a reference field and there is a path, recurse.
+      if ($field instanceof EntityReferenceFieldItemListInterface && !empty($path)) {
+        if (!$field->entity) {
+          return $value;
+        }
+        $value = $this->recurseEntity($field->entity, $path, $properties, $default, $cacheableMetadata);
+      }
+      elseif ($field instanceof FieldItemListInterface) {
+        $value = $field->getValue();
+        if ($property) {
+          $value = $value[0][$property] ?? $default;
         }
       }
-      $value = $v;
+      if ($subProperty) {
+        $parts = explode('~', $subProperty);
+        $value = NestedArray::getValue($value, $parts);
+      }
+      if ($properties && is_array($value)) {
+        $v = [];
+        foreach ($value as $delta => $val) {
+          foreach ($properties as $name => $prop) {
+            $v[$delta][$name] = $val[$prop] ?? NULL;
+          }
+        }
+        $value = $v;
+      }
     }
     return $value;
-  }
-
-  /**
-   * Retrieves the value of a specified entity definition property.
-   *
-   * @param \Drupal\Core\Entity\ContentEntityInterface $entity
-   *   The content entity from which to retrieve the property value.
-   * @param string $property
-   *   The property to retrieve.
-   * @param string|null $subProperty
-   *   (optional) The sub-property to retrieve.
-   *
-   * @return array
-   *   The value of the specified entity definition property.
-   */
-  private function getEntityDefinitionValue(ContentEntityInterface $entity, string $property, ?string $subProperty = NULL): array {
-    return match ($property) {
-      'label' => [$entity->label()],
-      'link' => $this->getEntityDefinitionLink($entity, $subProperty),
-      default => [],
-    };
-  }
-
-  /**
-   * Generates a link definition for a given entity and property.
-   *
-   * This method creates a URL for the specified property of the given entity,
-   * checks if the URL is accessible, and then constructs a link definition
-   * array containing the title and URI.
-   *
-   * @param \Drupal\Core\Entity\ContentEntityInterface $entity
-   *   The content entity for which the link is being generated.
-   * @param string $property
-   *   The property of the entity for which the URL is generated
-   *   (e.g., 'canonical').
-   *
-   * @return array
-   *   An associative array containing:
-   *   - 'title': The title of the link.
-   *   - 'uri': The URI string of the link.
-   *   - 'options': An empty array for additional options (currently unused).
-   */
-  private function getEntityDefinitionLink(ContentEntityInterface $entity, string $property): array {
-    $url = $entity->isNew() ? Url::fromRoute('<front>') : $entity->toUrl($property);
-    if (!$url || !$url->access()) {
-      return [];
-    }
-    $titleReplacements = ['-', '_', '.'];
-    $route = \Drupal::service('router.route_provider')->getRouteByName($url->getRouteName());
-    $title = match($property) {
-      'canonical' => $route->getDefault('_title') ?? $entity->label(),
-      default => $route->getDefault('_title') ?? ucwords(str_replace($titleReplacements, ' ', str_replace('-form', '', $property))),
-    };
-    $options = [];
-    if ($icon = $this->adminIcon($title)->getIcon()) {
-      $options['attributes']['data-icon'] = $icon->getName();
-    }
-    return [
-      'title' => $title,
-      'uri' => $url->toUriString(),
-      'options' => $options,
-    ];
   }
 
   /**
@@ -391,7 +339,7 @@ final class MatcherField extends MatcherBase {
     $isRequired = $shape->isRequired();
     $shapeFieldDefinition = $shape->getFieldItemList()->getFieldDefinition();
     $fieldDefinitions = $this->dataDefinitions($entityDataDefinition);
-    $fieldDefinitions += $this->entityDefinitions($entityDataDefinition, $shape);
+    $fieldDefinitions += $this->dynamicEntityDefinitions($entityDataDefinition, $shape);
 
     foreach ($fieldDefinitions as $fieldDefinition) {
       assert($fieldDefinition instanceof FieldDefinitionInterface);
@@ -549,9 +497,9 @@ final class MatcherField extends MatcherBase {
    * @return \Drupal\Core\Field\FieldDefinitionInterface[]
    *   An array of field definitions.
    */
-  private function entityDefinitions(EntityDataDefinitionInterface $entityDataDefinition, ComponentShapePluginInterface $shape): array {
-    $isRequired = $shape->isRequired();
+  private function dynamicEntityDefinitions(EntityDataDefinitionInterface $entityDataDefinition, ComponentShapePluginInterface $shape): array {
     $fieldDefinitions = [];
+    $isRequired = $shape->isRequired();
 
     $entityType = $this->entityTypeManager->getDefinition($entityDataDefinition->getEntityTypeId());
     if ($entityType->hasKey('label')) {
@@ -564,24 +512,131 @@ final class MatcherField extends MatcherBase {
         ->setTargetEntityTypeId($entityDataDefinition->getEntityTypeId())
         ->setRequired($isRequired);
     }
-    foreach ($entityType->getLinkTemplates() as $templateId => $template) {
-      if (substr($templateId, 0, 10) === 'alchemist.') {
-        continue;
-      }
-      $fieldName = '_entity:link:' . $templateId;
+
+    $fieldName = '_entity:icon';
+    $label = $entityDataDefinition->getLabel();
+    $label = ($label ? '(' . $label . ') ' : '') . $this->t('Icon');
+    $fieldDefinitions[$fieldName] = BaseFieldDefinition::create('string')
+      ->setLabel($label)
+      ->setName($fieldName)
+      ->setTargetEntityTypeId($entityDataDefinition->getEntityTypeId())
+      ->setRequired($isRequired);
+
+    // Config entity type definitions.
+    if ($entityType instanceof ConfigEntityTypeInterface) {
+      $fieldName = '_entity:label_page';
       $label = $entityDataDefinition->getLabel();
-      $label = '(' . $this->t('Link') . ') ' . ucwords(str_replace([
-        '-',
-        '_',
-        '.',
-      ], ' ', $templateId));
-      $fieldDefinitions[$fieldName] = BaseFieldDefinition::create('link')
+      $label = ($label ? '(' . $label . ') ' : '') . $this->t('Label (with System Page to Page conversion)');
+      $fieldDefinitions[$fieldName] = BaseFieldDefinition::create('string')
+        ->setLabel($label)
+        ->setName($fieldName)
+        ->setTargetEntityTypeId($entityDataDefinition->getEntityTypeId())
+        ->setRequired($isRequired);
+
+      $fieldName = '_entity:icon_page';
+      $label = $entityDataDefinition->getLabel();
+      $label = ($label ? '(' . $label . ') ' : '') . $this->t('Icon (with System Page to Page conversion)');
+      $fieldDefinitions[$fieldName] = BaseFieldDefinition::create('string')
         ->setLabel($label)
         ->setName($fieldName)
         ->setTargetEntityTypeId($entityDataDefinition->getEntityTypeId())
         ->setRequired($isRequired);
     }
+
+    // Content entity type definitions.
+    if ($entityType instanceof ContentEntityTypeInterface) {
+      foreach ($entityType->getLinkTemplates() as $templateId => $template) {
+        if (substr($templateId, 0, 10) === 'alchemist.') {
+          continue;
+        }
+        $fieldName = '_entity:link:' . $templateId;
+        $label = $entityDataDefinition->getLabel();
+        $label = '(' . $this->t('Link') . ') ' . ucwords(str_replace([
+          '-',
+          '_',
+          '.',
+        ], ' ', $templateId));
+        $fieldDefinitions[$fieldName] = BaseFieldDefinition::create('link')
+          ->setLabel($label)
+          ->setName($fieldName)
+          ->setTargetEntityTypeId($entityDataDefinition->getEntityTypeId())
+          ->setRequired($isRequired);
+      }
+    }
+
     return $fieldDefinitions;
+  }
+
+  /**
+   * Retrieves the value of a specified entity definition property.
+   *
+   * @param \Drupal\Core\Entity\EntityInterface $entity
+   *   The content entity from which to retrieve the property value.
+   * @param string $property
+   *   The property to retrieve.
+   * @param string|null $subProperty
+   *   (optional) The sub-property to retrieve.
+   *
+   * @return array
+   *   The value of the specified entity definition property.
+   */
+  private function getDynamicEntityValues(EntityInterface $entity, string $property, ?string $subProperty = NULL): array {
+    return match ($property) {
+      'label' => [$entity->label()],
+      'label_page' => [$entity->id() === 'system' ? 'Page' : $entity->label()],
+      'icon' => call_user_func(function () use ($entity) {
+        $icon = neo_icon_entity($entity)->getIcon();
+        return [$icon ? $icon->getName() : ''];
+      }),
+      'icon_page' => call_user_func(function () use ($entity) {
+        $labelOverride = $entity->id() === 'system' ? 'Page' : NULL;
+        $icon = neo_icon_entity($entity, $labelOverride)->getIcon();
+        return [$icon ? $icon->getName() : ''];
+      }),
+      'link' => $this->getEntityDefinitionLink($entity, $subProperty),
+      default => [],
+    };
+  }
+
+  /**
+   * Generates a link definition for a given entity and property.
+   *
+   * This method creates a URL for the specified property of the given entity,
+   * checks if the URL is accessible, and then constructs a link definition
+   * array containing the title and URI.
+   *
+   * @param \Drupal\Core\Entity\ContentEntityInterface $entity
+   *   The content entity for which the link is being generated.
+   * @param string $property
+   *   The property of the entity for which the URL is generated
+   *   (e.g., 'canonical').
+   *
+   * @return array
+   *   An associative array containing:
+   *   - 'title': The title of the link.
+   *   - 'uri': The URI string of the link.
+   *   - 'options': An empty array for additional options (currently unused).
+   */
+  private function getEntityDefinitionLink(ContentEntityInterface $entity, string $property): array {
+    $url = $entity->isNew() ? Url::fromRoute('<front>') : $entity->toUrl($property);
+    if (!$url || !$url->access()) {
+      return [];
+    }
+    $titleReplacements = ['-', '_', '.'];
+    $route = \Drupal::service('router.route_provider')->getRouteByName($url->getRouteName());
+    $title = match($property) {
+      'canonical' => $route->getDefault('_title') ?? $entity->label(),
+      default => $route->getDefault('_title') ?? ucwords(str_replace($titleReplacements, ' ', str_replace('-form', '', $property))),
+    };
+    $options = [];
+    if ($icon = $this->adminIcon($title)->getIcon()) {
+      $options['attributes']['data-icon'] = $icon->getName();
+    }
+    return [
+      'title' => $title,
+      'uri' => $url->toUriString(),
+      'options' => $options,
+    ];
   }
 
 }

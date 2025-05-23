@@ -215,10 +215,13 @@ abstract class MatcherBase {
       ucwords(str_replace('_', ' ', $first->getTargetEntityTypeId())),
     ];
     if (!empty($definitions)) {
-      $group[0] .= ' (' . $first->getName() . ')';
-      foreach ($definitions as $definition) {
-        $group[] = ucwords(str_replace('_', ' ', $definition->getTargetEntityTypeId()));
-        // $group[] = ucwords(str_replace('_', ' ', $definition->getTargetEntityTypeId())) . ' (' . $definition->getName() . ')';
+      foreach ($definitions as $delta => $definition) {
+        if ($delta + 1 === count($definitions)) {
+          $group[] = ucwords(str_replace('_', ' ', $definition->getTargetEntityTypeId()));
+        }
+        else {
+          $group[] = ucwords(str_replace('_', ' ', $definition->getTargetEntityTypeId())) . ' (' . $definition->getName() . ')';
+        }
       }
     }
     return implode(' → ', $group);

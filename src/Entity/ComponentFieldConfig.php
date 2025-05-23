@@ -9,6 +9,7 @@ use Drupal\Core\Entity\EntityMalformedException;
 use Drupal\Core\Session\AccountInterface;
 use Drupal\Core\Url;
 use Drupal\field\Entity\FieldConfig;
+use Drupal\field\Entity\FieldStorageConfig;
 use Drupal\neo_alchemist\ComponentFieldConfigInterface;
 use Drupal\neo_alchemist\Plugin\DataType\ComponentTreeStructure;
 use Drupal\neo_alchemist\Plugin\Field\FieldType\ComponentTreeItem;
@@ -79,6 +80,12 @@ class ComponentFieldConfig extends FieldConfig implements ComponentFieldConfigIn
       $values = [];
       if ($entityType->getKey('bundle')) {
         $values[$entityType->getKey('bundle')] = $this->getTargetBundle();
+      }
+      else {
+        // We need to make sure we load an entity that contains this field.
+        $field_storage = FieldStorageConfig::loadByName($this->getTargetEntityTypeId(), $this->getName());
+        $bundles = $field_storage->getBundles();
+        $values[$entityType->getKey('bundle')] = reset($bundles);
       }
       /** @var \Drupal\Core\Entity\ContentEntityInterface $entity */
       $entity = $this->entityTypeManager()->getStorage($this->getTargetEntityTypeId())->create($values);

@@ -100,6 +100,7 @@ final class EntityValue extends ComponentValuePluginBase implements ContainerFac
     $options = $this->matcherField->getMatchesAsOptions($this->shape);
     $groups = array_keys($options);
     $groups = array_combine($groups, $groups);
+    asort($groups);
     $group = $form_state->getValue('group', NULL);
     if (!$group) {
       foreach ($options as $optionGroup => $ops) {

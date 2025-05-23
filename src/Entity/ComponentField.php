@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Drupal\neo_alchemist\Entity;
 
 use Drupal\Core\Access\AccessResult;
+use Drupal\Core\Entity\ContentEntityInterface;
 use Drupal\Core\Session\AccountInterface;
 use Drupal\Core\Url;
 use Drupal\neo_alchemist\ComponentFieldInterface;
@@ -51,6 +52,34 @@ final class ComponentField extends ComponentInstanceBase implements ComponentFie
       default => AccessResult::allowedIfHasPermission($account, 'administer ' . $targetEntityTypeId . ' fields')
     };
     return $return_as_object ? $access : $access->isAllowed();
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function getTargetPreviewEntity(): ?ContentEntityInterface {
+    $entity = parent::getTargetPreviewEntity();
+
+    // In certain cases, the entity that is set for preview is not the same
+    // bundle as the one that is set in the field item. In this case, we cannot
+    // use the configured preview entity.
+    $itemEntity = $this->getFieldItem()->getEntity();
+    if ($entity && ($entity->getEntityTypeId() !== $itemEntity->getEntityTypeId() || $entity->bundle() !== $itemEntity->bundle())) {
+      $entityStorage = $this->entityTypeManager()->getStorage($itemEntity->getEntityTypeId());
+      $query = $entityStorage->getQuery()
+        ->accessCheck(TRUE)
+        ->range(0, 1);
+      $bundleKey = $entity->getEntityType()->getKey('bundle');
+      if ($bundleKey) {
+        $query->condition($bundleKey, $itemEntity->bundle());
+      }
+      $ids = $query->execute();
+      if ($ids) {
+        $entity = $entityStorage->load(reset($ids));
+      }
+    }
+
+    return $entity;
   }
 
 }

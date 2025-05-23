@@ -116,7 +116,7 @@ function template_preprocess_neo_alchemist_overlay(&$variables) {
   $tooltip = new Tooltip('Close');
   $variables['close'] = [
     '#type' => 'link',
-    '#title' => neo_admin_icon('Close', 'times')->iconOnly(),
+    '#title' => neo_icon_admin('Close', 'times')->iconOnly(),
     '#url' => Url::fromRoute('<current>'),
     '#attributes' => [
       'class' => ['close', 'btn', 'btn-xs'],
@@ -135,7 +135,7 @@ function template_preprocess_neo_alchemist_overlay(&$variables) {
     $tooltip->setPlacementToTop();
     $variables['ops'][$op] = [
       '#type' => 'link',
-      '#title' => neo_admin_icon($label)->iconOnly(),
+      '#title' => neo_icon_admin($label)->iconOnly(),
       '#url' => Url::fromRoute('<current>'),
       '#attributes' => [
         'class' => ['op', 'btn', 'btn-xs'],
@@ -150,7 +150,7 @@ function template_preprocess_neo_alchemist_overlay(&$variables) {
   $tooltip->setPlacementToTop();
   $variables['op_add_before'] = [
     '#type' => 'link',
-    '#title' => neo_admin_icon($label, 'plus')->iconOnly(),
+    '#title' => neo_icon_admin($label, 'plus')->iconOnly(),
     '#url' => Url::fromRoute('<current>'),
     '#attributes' => [
       'class' => ['op'],
@@ -164,7 +164,7 @@ function template_preprocess_neo_alchemist_overlay(&$variables) {
   $tooltip->setPlacementToBottom();
   $variables['op_add_after'] = [
     '#type' => 'link',
-    '#title' => neo_admin_icon($label, 'plus')->iconOnly(),
+    '#title' => neo_icon_admin($label, 'plus')->iconOnly(),
     '#url' => Url::fromRoute('<current>'),
     '#attributes' => [
       'class' => ['op'],

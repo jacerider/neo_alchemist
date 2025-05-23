@@ -409,36 +409,53 @@ class Component extends ConfigEntityBase implements ComponentInterface {
    * {@inheritdoc}
    */
   public function getTargetEntity(): ContentEntityInterface {
-    $entity = NULL;
-    $entityTypeManager = \Drupal::entityTypeManager();
-    if ($entityTypeId = $this->getTargetEntityTypeId()) {
-      if ($entity = $this->getTargetPreviewEntity()) {
-        return $entity;
-      }
-      $entityType = $entityTypeManager->getDefinition($entityTypeId);
-      $bundleKey = $entityType->getKey('bundle');
-      if ($bundleKey) {
-        $bundle = $this->getTargetEntityBundle();
-        if (!$bundle) {
-          $bundles = \Drupal::service('entity_type.bundle.info')->getBundleInfo($entityTypeId);
-          if ($bundles) {
-            $bundle = key($bundles);
-          }
-        }
-        if ($bundle) {
-          $entity = $entityTypeManager->getStorage($entityTypeId)->create([
-            $bundleKey => $bundle,
-          ]);
-        }
-      }
-      else {
-        $entity = $entityTypeManager->getStorage($entityTypeId)->create();
-      }
+    $entity = $this->getTargetPreviewEntity();
+    if (!$entity && $this->getTargetEntityTypeId()) {
+      $entity = $this->createTargetPlaceholderEntity();
     }
     if (!$entity) {
+      $entityTypeManager = \Drupal::entityTypeManager();
       $entity = $entityTypeManager->getStorage('node')->create([
         'type' => 'page',
       ]);
+    }
+    return $entity;
+  }
+
+  /**
+   * Create a placeholder entity given an entity id.
+   *
+   * @param string|null $entityTypeId
+   *   The entity type id.
+   * @param string|null $bundle
+   *   The bundle id.
+   *
+   * @return \Drupal\Core\Entity\ContentEntityInterface|null
+   *   The entity.
+   */
+  protected function createTargetPlaceholderEntity(?string $entityTypeId = NULL, ?string $bundle = NULL): ?ContentEntityInterface {
+    $entity = NULL;
+    $entityTypeManager = \Drupal::entityTypeManager();
+    $entityTypeId = $entityTypeId ?? $this->getTargetEntityTypeId();
+    $entityType = $entityTypeManager->getDefinition($entityTypeId);
+    $bundleKey = $entityType->getKey('bundle');
+    if ($bundleKey) {
+      $bundle = $bundle ?? $this->getTargetEntityBundle();
+      if (!$bundle) {
+        // When we have no bundle, we need to get the first one.
+        $bundles = \Drupal::service('entity_type.bundle.info')->getBundleInfo($entityTypeId);
+        if ($bundles) {
+          $bundle = key($bundles);
+        }
+      }
+      if ($bundle) {
+        $entity = $entityTypeManager->getStorage($entityTypeId)->create([
+          $bundleKey => $bundle,
+        ]);
+      }
+    }
+    else {
+      $entity = $entityTypeManager->getStorage($entityTypeId)->create();
     }
     return $entity;
   }
