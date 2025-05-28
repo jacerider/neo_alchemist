@@ -8,6 +8,7 @@
 declare(strict_types=1);
 
 use Drupal\Core\Entity\ContentEntityFormInterface;
+use Drupal\Core\Entity\ContentEntityInterface;
 use Drupal\Core\Entity\ContentEntityTypeInterface;
 use Drupal\Core\Entity\Display\EntityViewDisplayInterface;
 use Drupal\Core\Entity\EntityInterface;
@@ -181,7 +182,26 @@ function neo_alchemist_form_alter(array &$form, FormStateInterface $form_state, 
   $formObject = $form_state->getFormObject();
   if ($formObject instanceof ContentEntityFormInterface && in_array($formObject->getOperation(), ['default', 'edit'])) {
     $entity = $formObject->getEntity();
-    if ($entity->hasLinkTemplate('alchemist')) {
+    if ($entity instanceof ContentEntityInterface && $entity->hasLinkTemplate('alchemist')) {
+
+      $neoFields = \Drupal::service('entity_field.manager')->getFieldMapByFieldType('neo_component_tree')[$entity->getEntityTypeId()] ?? [];
+      if (empty($neoFields)) {
+        return;
+      }
+
+      $allowCustom = array_reduce(
+        array_keys($neoFields),
+        function ($carry, $fieldName) use ($entity) {
+          /** @var \Drupal\neo_alchemist\Entity\ComponentFieldConfig $fieldDefinition */
+          $fieldDefinition = $entity->get($fieldName)->getFieldDefinition();
+          return $carry || ($fieldDefinition->allowCustom() ?? FALSE);
+        },
+        FALSE
+      );
+      if (!$allowCustom) {
+        return;
+      }
+
       $form['actions']['alchemist'] = [
         '#type' => 'submit',
         '#value' => neo_icon('Save and Configure Layout', 'drafting-compass'),
