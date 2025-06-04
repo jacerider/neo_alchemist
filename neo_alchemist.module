@@ -500,33 +500,12 @@ function neo_alchemist_config_schema_info_alter(&$definitions) {
 }
 
 /**
- * Implements hook_neo_token_title_alter().
- */
-function neo_alchemist_neo_token_title_alter(&$title, &$params, ContentEntityInterface $entity) {
-  if ($fieldName = neo_alchemist_get_entity_field_name($entity)) {
-    if (!$entity->hasField($fieldName)) {
-      return;
-    }
-    $field = $entity->get($fieldName);
-    if (!$field instanceof NeoComponentTreeList) {
-      return;
-    }
-    $query = $field->getQuery()
-      ->filterByRef('heading')
-      ->filterNonEmpty();
-    if ($shape = $query->first()) {
-      $shapeValue = $shape->getValue();
-      if (!empty($shapeValue['title'])) {
-        $title = $shapeValue['title'];
-      }
-    }
-  }
-}
-
-/**
  * Implements hook_neo_token_image_alter().
  */
-function neo_alchemist_neo_token_image_alter(&$uri, &$params, ContentEntityInterface $entity) {
+function neo_alchemist_neo_token_image_alter(&$uri, &$params, ContentEntityInterface $entity = NULL) {
+  if (!$entity) {
+    return;
+  }
   if ($fieldName = neo_alchemist_get_entity_field_name($entity)) {
     if (!$entity->hasField($fieldName)) {
       return;
