@@ -9,7 +9,7 @@ use Drupal\Core\Ajax\CommandInterface;
  *
  * @ingroup ajax
  */
-class InstanceComponentManageForcusCommand implements CommandInterface {
+class InstanceComponentManageFocusCommand implements CommandInterface {
 
   /**
    * A component UUID.

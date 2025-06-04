@@ -52,7 +52,7 @@ final class ComponentEntity extends ComponentInstanceBase implements ComponentEn
       if ($fieldItem->hasComponent($uuid)) {
         // We load with $noCache to ensure we get the config version of this
         // component.
-        $this->fieldComponent = $fieldItem->getComponent($uuid, TRUE);
+        $this->fieldComponent = $fieldItem->getComponent($uuid);
       }
     }
     return $this->fieldComponent;

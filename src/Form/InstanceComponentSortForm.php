@@ -6,7 +6,7 @@ namespace Drupal\neo_alchemist\Form;
 
 use Drupal\Core\Entity\ContentEntityForm;
 use Drupal\Core\Form\FormStateInterface;
-use Drupal\neo_alchemist\Ajax\InstanceIframeHelper;
+use Drupal\neo_alchemist\Ajax\ComponentAjaxFormHelperTrait;
 use Drupal\neo_alchemist\ComponentManageHelper;
 
 /**
@@ -14,7 +14,7 @@ use Drupal\neo_alchemist\ComponentManageHelper;
  */
 final class InstanceComponentSortForm extends ContentEntityForm {
 
-  use InstanceIframeHelper;
+  use ComponentAjaxFormHelperTrait;
 
   /**
    * Field item.

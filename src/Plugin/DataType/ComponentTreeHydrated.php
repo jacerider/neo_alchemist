@@ -39,7 +39,7 @@ class ComponentTreeHydrated extends TypedData implements RenderableInterface {
     assert($tree instanceof ComponentTreeStructure);
 
     $hydrated = [];
-    foreach ($tree->getComponentInstanceUuids() as $uuid) {
+    foreach ($tree->getComponentInstanceUuids() as $key => $uuid) {
       $instance = $item->getComponent($uuid);
       if (!$instance) {
         // Component no longer exists.

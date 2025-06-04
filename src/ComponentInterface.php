@@ -400,12 +400,14 @@ interface ComponentInterface extends ConfigEntityInterface, RenderableInterface,
    *
    * @param \Drupal\neo_alchemist\ComponentShapePluginInterface[] $shapes
    *   An array of shape objects to process.
+   * @param bool $includeDeltas
+   *   If TRUE, include shapes with deltas in the result.
    *
-   * @return array
+   * @return \Drupal\neo_alchemist\ComponentShapePluginInterface[]
    *   An associative array of all shapes, with keys being the shape's nested ID
    *   (and optionally the reference) and values being the shape objects.
    */
-  public function getAllPropShapes(array $shapes): array;
+  public function getPropShapesAll(?array $shapes = NULL, ?bool $includeDeltas = FALSE): array;
 
   /**
    * Retrieves the slots for the component.

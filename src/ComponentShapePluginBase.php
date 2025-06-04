@@ -264,11 +264,11 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
   protected WidgetInterface|null $widget;
 
   /**
-   * The all child shapes.
+   * A cached collection of all child shapes.
    *
-   * @var \Drupal\neo_alchemist\ComponentShapePluginInterface[]
+   * @var array
    */
-  protected array $allChildShapes;
+  protected array $childShapesAll = [];
 
   /**
    * The shape plugin settings.
@@ -725,6 +725,13 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
   /**
    * {@inheritDoc}
    */
+  public function getFormat(): string {
+    return $this->schema['format'] ?? '';
+  }
+
+  /**
+   * {@inheritDoc}
+   */
   public function getTitle(): string|MarkupInterface {
     return $this->schema['title'] ?? 'Unnamed Prop';
   }
@@ -854,20 +861,38 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
   /**
    * {@inheritdoc}
    */
-  public function getAllShapes($includeSelf = FALSE): array {
-    if (!isset($this->allChildShapes)) {
+  public function getAllShapes($includeSelf = FALSE, $includeDeltas = FALSE): array {
+    $key = $includeDeltas ? 'all' : 'structure';
+    if (!isset($this->childShapesAll[$key])) {
       $shapes = [];
       if ($this instanceof ComponentShapeChildrenPluginInterface) {
-        foreach ($this->getChildShapes() as $shape) {
-          $shapes += $shape->getAllShapes(TRUE);
+        if ($includeDeltas && $this->isIterable()) {
+          // For iterable shapes, process each delta separately.
+          $fieldValue = $this->getFieldItemValue();
+          foreach (array_filter(array_keys($fieldValue), 'is_int') as $delta) {
+            foreach ($this->getChildShapes((int) $delta) as $shape) {
+              $shapes += $shape->getAllShapes(TRUE, $includeDeltas);
+            }
+          }
+        }
+        else {
+          // For non-iterable shapes, process all child shapes at once.
+          foreach ($this->getChildShapes() as $shape) {
+            $shapes += $shape->getAllShapes(TRUE, $includeDeltas);
+          }
         }
       }
-      $this->allChildShapes = $shapes;
+      $this->childShapesAll[$key] = $shapes;
     }
-    $shapes = $this->allChildShapes;
+
+    // Use cached shapes if available and not including deltas.
+    $shapes = $this->childShapesAll[$key];
+
+    // Add self to the beginning if requested.
     if ($includeSelf) {
-      $shapes = array_merge([$this->id() => $this], $shapes);
+      $shapes = [$this->id() => $this] + $shapes;
     }
+
     return $shapes;
   }
 
@@ -1223,9 +1248,10 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
    *   The format configuration as an associative array if available, or NULL
    *   if the format is not defined or does not exist in the plugin definition.
    */
-  protected function getFormat(?string $prop = NULL): array|string|null {
-    if (!empty($this->schema['format']) && isset($this->pluginDefinition['formats'][$this->schema['format']])) {
-      $format = $this->pluginDefinition['formats'][$this->schema['format']];
+  protected function getFieldFormat(?string $prop = NULL): array|string|null {
+    $format = $this->getFormat();
+    if (!empty($format) && isset($this->pluginDefinition['formats'][$format])) {
+      $format = $this->pluginDefinition['formats'][$format];
       return $prop ? $format[$prop] ?? NULL : $format;
     }
     return NULL;
@@ -1255,7 +1281,7 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
    */
   protected function getDefaultFieldType(): string {
     $fieldType = $this->pluginDefinition['default_field_type'] ?? $this->pluginDefinition['prop'];
-    if ($formatFieldType = $this->getFormat('default_field_type')) {
+    if ($formatFieldType = $this->getFieldFormat('default_field_type')) {
       $fieldType = $formatFieldType;
     }
     if ($this->getFieldOptions()) {
@@ -1554,6 +1580,13 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
   /**
    * {@inheritDoc}
    */
+  public function isEmpty(): bool {
+    return $this->isFieldItemEmpty();
+  }
+
+  /**
+   * {@inheritDoc}
+   */
   public function getFieldItemValue(): array {
     return !$this->isFieldItemEmpty() ? $this->fieldItem->getValue() : [];
   }
@@ -1673,7 +1706,7 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
    */
   protected function getDefaultWidgetType(): ?string {
     $widgetType = $this->pluginDefinition['default_field_widget'] ?? NULL;
-    if ($formatWidgetType = $this->getFormat('default_field_widget')) {
+    if ($formatWidgetType = $this->getFieldFormat('default_field_widget')) {
       $widgetType = $formatWidgetType;
     }
     if ($this->getFieldOptions()) {

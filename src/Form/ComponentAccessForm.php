@@ -10,7 +10,7 @@ use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Form\SubformState;
 use Drupal\Core\Render\Element;
 use Drupal\Core\StringTranslation\StringTranslationTrait;
-use Drupal\neo_alchemist\Ajax\InstanceIframeHelper;
+use Drupal\neo_alchemist\Ajax\ComponentAjaxFormHelperTrait;
 use Drupal\neo_alchemist\ComponentAccessInterface;
 use Drupal\neo_alchemist\ComponentAccessPluginManager;
 use Symfony\Component\DependencyInjection\ContainerInterface;
@@ -20,7 +20,7 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
  */
 final class ComponentAccessForm extends EntityForm {
 
-  use InstanceIframeHelper;
+  use ComponentAjaxFormHelperTrait;
   use StringTranslationTrait;
 
   /**

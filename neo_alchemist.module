@@ -25,6 +25,7 @@ use Drupal\neo_alchemist\Form\InstanceComponentPublishForm;
 use Drupal\neo_alchemist\Form\InstanceComponentResetForm;
 use Drupal\neo_alchemist\Form\InstanceComponentRevertForm;
 use Drupal\neo_alchemist\Form\InstanceComponentSortForm;
+use Drupal\neo_alchemist\Plugin\Field\NeoComponentTreeList;
 use Drupal\neo_tooltip\Tooltip;
 
 /**
@@ -496,4 +497,78 @@ function neo_alchemist_config_schema_info_alter(&$definitions) {
       }
     }
   }
+}
+
+/**
+ * Implements hook_neo_token_title_alter().
+ */
+function neo_alchemist_neo_token_title_alter(&$title, &$params, ContentEntityInterface $entity) {
+  if ($fieldName = neo_alchemist_get_entity_field_name($entity)) {
+    if (!$entity->hasField($fieldName)) {
+      return;
+    }
+    $field = $entity->get($fieldName);
+    if (!$field instanceof NeoComponentTreeList) {
+      return;
+    }
+    $query = $field->getQuery()
+      ->filterByRef('heading')
+      ->filterNonEmpty();
+    if ($shape = $query->first()) {
+      $shapeValue = $shape->getValue();
+      if (!empty($shapeValue['title'])) {
+        $title = $shapeValue['title'];
+      }
+    }
+  }
+}
+
+/**
+ * Implements hook_neo_token_image_alter().
+ */
+function neo_alchemist_neo_token_image_alter(&$uri, &$params, ContentEntityInterface $entity) {
+  if ($fieldName = neo_alchemist_get_entity_field_name($entity)) {
+    if (!$entity->hasField($fieldName)) {
+      return;
+    }
+    $field = $entity->get($fieldName);
+    if (!$field instanceof NeoComponentTreeList) {
+      return;
+    }
+    $shape = $field->getQuery()
+      ->filterByRef('image')
+      ->filterNonEmpty()
+      ->first();
+
+    if ($shape && !empty($shapeValue = $shape->getValue()['uri'] ?? NULL)) {
+      $uri = $shapeValue;
+    }
+  }
+}
+
+/**
+ * Gets the name of the Neo Alchemist field for a given entity.
+ *
+ * This function searches for a field that uses the 'neo_component_tree'
+ * formatter in the entity's default view display. It caches the results to
+ * improve performance for repeated calls with the same entity type and bundle.
+ *
+ * @param \Drupal\Core\Entity\ContentEntityInterface $entity
+ *   The entity to check.
+ *
+ * @return string|null
+ *   The name of the first Neo Alchemist field found, or NULL if none exists.
+ */
+function neo_alchemist_get_entity_field_name(ContentEntityInterface $entity) {
+  $cache = drupal_static(__FUNCTION__, []);
+  if (!isset($cache[$entity->getEntityTypeId()][$entity->bundle()])) {
+    /** @var \Drupal\Core\Entity\EntityDisplayRepositoryInterface $entity_display_repository */
+    $entity_display_repository = \Drupal::service('entity_display.repository');
+    $display = $entity_display_repository->getViewDisplay($entity->getEntityTypeId(), $entity->bundle());
+    $alchemistFields = array_filter($display->getComponents(), function ($component) {
+      return $component['type'] === 'neo_component_tree';
+    });
+    $cache[$entity->getEntityTypeId()][$entity->bundle()] = $alchemistFields ? key($alchemistFields) : NULL;
+  }
+  return $cache[$entity->getEntityTypeId()][$entity->bundle()];
 }

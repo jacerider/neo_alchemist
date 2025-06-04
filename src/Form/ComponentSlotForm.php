@@ -9,7 +9,7 @@ use Drupal\Core\Entity\EntityForm;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Form\SubformState;
 use Drupal\Core\StringTranslation\StringTranslationTrait;
-use Drupal\neo_alchemist\Ajax\InstanceIframeHelper;
+use Drupal\neo_alchemist\Ajax\ComponentAjaxFormHelperTrait;
 use Drupal\neo_alchemist\ComponentManageHelper;
 use Drupal\neo_alchemist\ComponentSlotPluginInterface;
 use Drupal\neo_alchemist\ComponentSlotPluginManager;
@@ -20,7 +20,7 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
  */
 final class ComponentSlotForm extends EntityForm {
 
-  use InstanceIframeHelper;
+  use ComponentAjaxFormHelperTrait;
   use StringTranslationTrait;
 
   /**

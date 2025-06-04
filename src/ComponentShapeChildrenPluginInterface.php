@@ -12,10 +12,13 @@ interface ComponentShapeChildrenPluginInterface extends ComponentShapePluginInte
   /**
    * Get child shapes.
    *
+   * @param int|null $delta
+   *   The delta of the child shape to retrieve.
+   *
    * @return \Drupal\neo_alchemist\ComponentShapePluginInterface[]
    *   The child shapes.
    */
-  public function getChildShapes(): array;
+  public function getChildShapes(int|null $delta = NULL): array;
 
   /**
    * Hide a child shape.

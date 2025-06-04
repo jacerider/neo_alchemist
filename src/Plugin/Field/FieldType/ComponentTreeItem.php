@@ -83,7 +83,7 @@ class ComponentTreeItem extends FieldItemBase implements RenderableInterface {
    *
    * @var \Drupal\neo_alchemist\ComponentInterface[]
    */
-  protected static array $components = [];
+  protected array $components = [];
 
   /**
    * {@inheritdoc}
@@ -389,15 +389,47 @@ class ComponentTreeItem extends FieldItemBase implements RenderableInterface {
    *
    * @param string $uuid
    *   The UUID.
-   * @param bool $noCache
-   *   (optional) Whether to bypass the cache. Defaults to FALSE.
    *
    * @return \Drupal\neo_alchemist\ComponentInstanceInterface|null
    *   The Neo component instance.
    */
-  public function getComponent(string $uuid, $noCache = FALSE): ?ComponentInstanceInterface {
-    if (!isset(self::$components[$uuid]) || $noCache) {
-      self::$components[$uuid] = NULL;
+  public function getComponent(string $uuid): ?ComponentInstanceInterface {
+    $key = $uuid . ':' . $this->getParent()->getScope();
+    if (!isset($this->components[$key])) {
+      $tree = $this->get('tree');
+      assert($tree instanceof ComponentTreeStructure);
+      $props = $this->get('props');
+      assert($props instanceof ComponentPropsValues);
+      $id = $tree->getComponentId($uuid);
+      if ($id) {
+        $neoComponent = Component::load($id);
+        if ($neoComponent) {
+          $value = $neoComponent->toArray();
+          $value['uuid'] = $uuid;
+          $value['fieldItem'] = $this;
+          $value['values'] = $props->getComponentPropsSources($uuid);
+          $entity_class = $this->getComponentInstanceClass();
+          $instance = new $entity_class($value, 'neo_component');
+          $instance->setPreview($this->isPreview());
+        }
+      }
+      $this->components[$key] = $instance ?? NULL;
+    }
+    return $this->components[$key];
+  }
+
+  /**
+   * Retrieves a Neo component instance.
+   *
+   * @param string $uuid
+   *   The UUID.
+   *
+   * @return \Drupal\neo_alchemist\ComponentInstanceInterface|null
+   *   The Neo component instance.
+   */
+  public function getComponentttt(string $uuid, $noCache = FALSE): ?ComponentInstanceInterface {
+    $key = $uuid . ':' . $this->getParent()->getScope();
+    if (!isset(self::$components[$key]) || $noCache) {
       $tree = $this->get('tree');
       assert($tree instanceof ComponentTreeStructure);
       $props = $this->get('props');
@@ -416,11 +448,11 @@ class ComponentTreeItem extends FieldItemBase implements RenderableInterface {
             return $instance;
           }
           $instance->setPreview($this->isPreview());
-          self::$components[$uuid] = $instance;
         }
       }
+      self::$components[$key] = $instance ?? NULL;
     }
-    return self::$components[$uuid];
+    return self::$components[$key];
   }
 
   /**

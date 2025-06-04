@@ -15,7 +15,7 @@ use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Form\SubformState;
 use Drupal\Core\TempStore\PrivateTempStoreFactory;
 use Drupal\neo_alchemist\Ajax\InstanceComponentManageIframeCommand;
-use Drupal\neo_alchemist\Ajax\InstanceIframeHelper;
+use Drupal\neo_alchemist\Ajax\ComponentAjaxFormHelperTrait;
 use Drupal\neo_alchemist\ComponentManageHelper;
 use Drupal\neo_alchemist\ComponentShapeStylePluginInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
@@ -25,7 +25,7 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
  */
 final class InstanceComponentForm extends ContentEntityForm {
 
-  use InstanceIframeHelper;
+  use ComponentAjaxFormHelperTrait;
 
   /**
    * Private temporary storage.

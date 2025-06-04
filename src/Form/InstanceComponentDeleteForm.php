@@ -4,7 +4,7 @@ namespace Drupal\neo_alchemist\Form;
 
 use Drupal\Core\Entity\EntityConfirmFormBase;
 use Drupal\Core\Form\FormStateInterface;
-use Drupal\neo_alchemist\Ajax\InstanceIframeHelper;
+use Drupal\neo_alchemist\Ajax\ComponentAjaxFormHelperTrait;
 use Drupal\neo_alchemist\ComponentManageHelper;
 
 /**
@@ -14,7 +14,7 @@ use Drupal\neo_alchemist\ComponentManageHelper;
  */
 class InstanceComponentDeleteForm extends EntityConfirmFormBase {
 
-  use InstanceIframeHelper;
+  use ComponentAjaxFormHelperTrait;
 
   /**
    * The entity being edited.

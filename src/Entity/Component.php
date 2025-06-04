@@ -668,12 +668,12 @@ class Component extends ConfigEntityBase implements ComponentInterface {
   /**
    * {@inheritdoc}
    */
-  public function getAllPropShapes(array $shapes): array {
+  public function getPropShapesAll(?array $shapes = NULL, ?bool $includeDeltas = FALSE): array {
     $allShapes = [];
+    $shapes = is_null($shapes) ? $this->getPropShapes() : $shapes;
     foreach ($shapes as $shape) {
-      $allShapes += $shape->getAllShapes(TRUE);
+      $allShapes += $shape->getAllShapes(TRUE, $includeDeltas);
     }
-    ksort($allShapes);
     return $allShapes;
   }
 
@@ -857,9 +857,11 @@ class Component extends ConfigEntityBase implements ComponentInterface {
       $original = $this->original;
       $currentSchema = Json::decode($this->get('schema'));
       $currentRootShapes = $original->loadPropShapes($currentSchema);
-      $currentShapes = $original->getAllPropShapes($currentRootShapes);
+      $currentShapes = $original->getPropShapesAll($currentRootShapes);
+      ksort($currentShapes);
       $newRootShapes = $this->getPropShapes();
-      $newShapes = $this->getAllPropShapes($newRootShapes);
+      $newShapes = $this->getPropShapesAll($newRootShapes);
+      ksort($newShapes);
 
       // If a prop has been added/removed/type changed, we need to fire off
       // events and store the changes.

@@ -7,6 +7,7 @@ use Drupal\Core\Field\FieldItemList;
 use Drupal\Core\TypedData\DataDefinitionInterface;
 use Drupal\Core\TypedData\TypedDataInterface;
 use Drupal\neo_alchemist\ComponentFieldConfigInterface;
+use Drupal\neo_alchemist\ComponentShapeQuery;
 use Drupal\neo_alchemist\Plugin\DataType\ComponentTreeStructure;
 
 /**
@@ -36,6 +37,21 @@ class NeoComponentTreeList extends FieldItemList {
   protected $scope = 'entity';
 
   /**
+   * {@inheritDoc}
+   */
+  public function __construct(DataDefinitionInterface $definition, $name = NULL, ?TypedDataInterface $parent = NULL) {
+    parent::__construct($definition, $name, $parent);
+    if (!$definition instanceof ComponentFieldConfigInterface) {
+      return;
+    }
+    if ((!$definition->allowCustom() || !$this->belongsToFieldConfig()) && $definition->hasComponentValues()) {
+      // When the field value is empty and we are acting on an actual entity,
+      // we need to populate the field with the default component values.
+      $this->appendItem($definition->getComponentValues());
+    }
+  }
+
+  /**
    * {@inheritdoc}
    *
    * @return \Drupal\neo_alchemist\Entity\ComponentFieldConfig
@@ -56,18 +72,13 @@ class NeoComponentTreeList extends FieldItemList {
   }
 
   /**
-   * {@inheritDoc}
+   * Get a query object for filtering components.
+   *
+   * @return \Drupal\neo_alchemist\Plugin\Field\ComponentShapeQuery
+   *   A query object for the components in this list.
    */
-  public function __construct(DataDefinitionInterface $definition, $name = NULL, ?TypedDataInterface $parent = NULL) {
-    parent::__construct($definition, $name, $parent);
-    if (!$definition instanceof ComponentFieldConfigInterface) {
-      return;
-    }
-    if ((!$definition->allowCustom() || !$this->belongsToFieldConfig()) && $definition->hasComponentValues()) {
-      // When the field value is empty and we are acting on an actual entity,
-      // we need to populate the field with the default component values.
-      $this->appendItem($definition->getComponentValues());
-    }
+  public function getQuery() {
+    return new ComponentShapeQuery($this);
   }
 
   /**
@@ -126,6 +137,16 @@ class NeoComponentTreeList extends FieldItemList {
   }
 
   /**
+   * Get the scope of the field item list.
+   *
+   * @return string
+   *   The scope of the field item list, e.g., 'entity', 'config'.
+   */
+  public function getScope(): string {
+    return $this->scope;
+  }
+
+  /**
    * Set scope as field config.
    *
    * @return $this
@@ -142,7 +163,7 @@ class NeoComponentTreeList extends FieldItemList {
    *   TRUE if the item belongs to an actual entity, FALSE otherwise.
    */
   public function belongsToFieldConfig(): bool {
-    return $this->scope === 'config';
+    return $this->getScope() === 'config';
   }
 
 }

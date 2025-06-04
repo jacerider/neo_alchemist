@@ -164,6 +164,16 @@ interface ComponentShapePluginInterface extends PluginInspectionInterface, Deriv
   public function getRef(): string;
 
   /**
+   * Get the prop format.
+   *
+   * This is the optional format of the prop.
+   *
+   * @return string
+   *   The prop format.
+   */
+  public function getFormat(): string;
+
+  /**
    * Get the prop name.
    *
    * This is the machine name of the prop.
@@ -376,11 +386,13 @@ interface ComponentShapePluginInterface extends PluginInspectionInterface, Deriv
    *
    * @param bool $includeSelf
    *   Whether to include the current shape in the list.
+   * @param bool $includeDeltas
+   *   Whether to include the delta values in the returned shapes.
    *
    * @return \Drupal\neo_alchemist\ComponentShapePluginInterface[]
    *   An associative array of all child shapes, keyed by their nested IDs.
    */
-  public function getAllShapes($includeSelf = FALSE): array;
+  public function getAllShapes($includeSelf = FALSE, $includeDeltas = FALSE): array;
 
   /**
    * Checks if the component shape is the root shape.
@@ -851,6 +863,14 @@ interface ComponentShapePluginInterface extends PluginInspectionInterface, Deriv
    *   TRUE if the component shape has an override value, FALSE otherwise.
    */
   public function hasOverrideValue(): bool;
+
+  /**
+   * Checks if the component shape is empty.
+   *
+   * @return bool
+   *   TRUE if the component shape is empty, FALSE otherwise.
+   */
+  public function isEmpty(): bool;
 
   /**
    * Get the field item value.
