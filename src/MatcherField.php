@@ -21,7 +21,7 @@ use Drupal\Core\Field\FieldItemListInterface;
 use Drupal\Core\StringTranslation\StringTranslationTrait;
 use Drupal\Core\TypedData\DataReferenceDefinitionInterface;
 use Drupal\Core\Url;
-use Drupal\neo_icon\IconTranslationTrait;
+use Drupal\neo_icon\IconTrait;
 
 /**
  * Provides methods for matching fields between content entities and shapes.
@@ -29,7 +29,7 @@ use Drupal\neo_icon\IconTranslationTrait;
 final class MatcherField extends MatcherBase {
 
   use StringTranslationTrait;
-  use IconTranslationTrait;
+  use IconTrait;
 
   /**
    * The maximum number of levels to match.
