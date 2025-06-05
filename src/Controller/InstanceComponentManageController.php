@@ -7,7 +7,7 @@ namespace Drupal\neo_alchemist\Controller;
 use Drupal\Core\Controller\ControllerBase;
 use Drupal\Core\Render\BareHtmlPageRendererInterface;
 use Drupal\neo_alchemist\Plugin\Field\FieldType\ComponentTreeItem;
-use Drupal\neo_icon\IconTranslationTrait;
+use Drupal\neo_icon\IconTrait;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
@@ -15,7 +15,7 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
  */
 final class InstanceComponentManageController extends ControllerBase {
 
-  use IconTranslationTrait;
+  use IconTrait;
 
   /**
    * The controller constructor.
