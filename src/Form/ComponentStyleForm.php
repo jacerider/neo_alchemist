@@ -11,14 +11,14 @@ use Drupal\Core\Form\FormStateInterface;
 use Drupal\neo_alchemist\Ajax\InstanceComponentManageIframeCommand;
 use Drupal\neo_alchemist\ComponentManageHelper;
 use Drupal\neo_alchemist\ComponentShapeStylePluginInterface;
-use Drupal\neo_icon\IconTranslationTrait;
+use Drupal\neo_icon\IconTrait;
 
 /**
  * Component form.
  */
 final class ComponentStyleForm extends EntityForm {
 
-  use IconTranslationTrait;
+  use IconTrait;
 
   /**
    * The entity.
