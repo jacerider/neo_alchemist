@@ -193,6 +193,9 @@ function neo_alchemist_form_alter(array &$form, FormStateInterface $form_state, 
       $allowCustom = array_reduce(
         array_keys($neoFields),
         function ($carry, $fieldName) use ($entity) {
+          if (!$entity->hasField($fieldName)) {
+            return $carry;
+          }
           /** @var \Drupal\neo_alchemist\Entity\ComponentFieldConfig $fieldDefinition */
           $fieldDefinition = $entity->get($fieldName)->getFieldDefinition();
           return $carry || ($fieldDefinition->allowCustom() ?? FALSE);
