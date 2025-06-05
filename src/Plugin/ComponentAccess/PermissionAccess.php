@@ -15,7 +15,7 @@ use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\neo_alchemist\Attribute\ComponentAccess;
 use Drupal\neo_alchemist\ComponentAccessInterface;
 use Drupal\neo_alchemist\ComponentAccessPluginBase;
-use Drupal\neo_icon\IconTranslationTrait;
+use Drupal\neo_icon\IconTrait;
 use Drupal\user\PermissionHandlerInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
@@ -30,7 +30,7 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
 final class PermissionAccess extends ComponentAccessPluginBase implements ContainerFactoryPluginInterface {
 
   use DependencySerializationTrait;
-  use IconTranslationTrait;
+  use IconTrait;
 
   /**
    * The permission handler.
