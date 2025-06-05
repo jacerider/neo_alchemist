@@ -8,7 +8,7 @@ use Drupal\Core\Controller\ControllerBase;
 use Drupal\Core\Render\Markup;
 use Drupal\Core\Theme\ComponentPluginManager;
 use Drupal\Core\Url;
-use Drupal\neo_icon\IconTranslationTrait;
+use Drupal\neo_icon\IconTrait;
 use Drupal\neo_tooltip\TooltipTrait;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
@@ -17,7 +17,7 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
  */
 final class ComponentLibraryController extends ControllerBase {
 
-  use IconTranslationTrait;
+  use IconTrait;
   use TooltipTrait;
 
   /**
