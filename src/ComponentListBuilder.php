@@ -6,13 +6,13 @@ namespace Drupal\neo_alchemist;
 
 use Drupal\Core\Config\Entity\ConfigEntityListBuilder;
 use Drupal\Core\Entity\EntityInterface;
-use Drupal\neo_icon\IconTranslationTrait;
+use Drupal\neo_icon\IconTrait;
 
 /**
  * Provides a listing of components.
  */
 final class ComponentListBuilder extends ConfigEntityListBuilder {
-  use IconTranslationTrait;
+  use IconTrait;
 
   /**
    * {@inheritdoc}
