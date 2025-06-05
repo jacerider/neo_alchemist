@@ -13,7 +13,7 @@ use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Render\Element;
 use Drupal\neo_alchemist\ComponentShapeStylePluginInterface;
-use Drupal\neo_icon\IconTranslationTrait;
+use Drupal\neo_icon\IconTrait;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
@@ -21,7 +21,7 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
  */
 final class ComponentManageForm extends EntityForm {
 
-  use IconTranslationTrait;
+  use IconTrait;
 
   /**
    * The entity.
