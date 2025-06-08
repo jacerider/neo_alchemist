@@ -209,7 +209,7 @@ final class MenuValue extends ComponentValuePluginBase implements ContainerFacto
           'icon' => $attributes['data-icon'] ?? '',
           'url' => [
             'title' => $item['title'],
-            'uri' => $item['url']->toString(),
+            'uri' => $item['url']->toUriString(),
             'options' => $options,
           ],
         ];

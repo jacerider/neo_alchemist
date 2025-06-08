@@ -48,7 +48,22 @@ class UrlShape extends ComponentShapePluginBase {
   /**
    * {@inheritDoc}
    */
+  public function getFieldItemValue(): array {
+    if (!$this->isFieldItemEmpty()) {
+      /** @var \Drupal\link\Plugin\Field\FieldType\LinkItem $item */
+      $item = $this->fieldItem;
+      $value = $item->getValue();
+      $value['access'] = $item->getUrl()->access();
+      return $value;
+    }
+    return [];
+  }
+
+  /**
+   * {@inheritDoc}
+   */
   public function adaptValue(mixed $value): mixed {
+    $value['access'] = $value['access'] ?? TRUE;
     // Use target if passed in with the options.
     if (empty($value['target']) && !empty($value['options']['attributes']['target'])) {
       $value['target'] = $value['options']['attributes']['target'];
