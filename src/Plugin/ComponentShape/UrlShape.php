@@ -63,12 +63,14 @@ class UrlShape extends ComponentShapePluginBase {
    * {@inheritDoc}
    */
   public function adaptValue(mixed $value): mixed {
-    $value['access'] = $value['access'] ?? TRUE;
-    // Use target if passed in with the options.
-    if (empty($value['target']) && !empty($value['options']['attributes']['target'])) {
-      $value['target'] = $value['options']['attributes']['target'];
+    if (!empty($value)) {
+      $value['access'] = $value['access'] ?? TRUE;
+      // Use target if passed in with the options.
+      if (empty($value['target']) && !empty($value['options']['attributes']['target'])) {
+        $value['target'] = $value['options']['attributes']['target'];
+      }
+      $value['target'] = $value['target'] ?? '_self';
     }
-    $value['target'] = $value['target'] ?? '_self';
     return $value;
   }
 
