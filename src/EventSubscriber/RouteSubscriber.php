@@ -82,6 +82,7 @@ class RouteSubscriber extends RouteSubscriberBase {
                 '_title_callback' => 'Drupal\neo_alchemist\Controller\InstanceComponentPreviewController::getTitle',
               ] + $defaults)
               ->setOption('parameters', $fieldParameters)
+              ->setOption('_neo_alchemist_preview', TRUE)
               ->setOption('_admin_route', FALSE)
               ->setRequirement('_neo_component_field', "neo_field.update");
             $collection->add("entity.{$entityTypeId}.alchemist.preview", $route);
@@ -261,6 +262,7 @@ class RouteSubscriber extends RouteSubscriberBase {
                 '_title_callback' => 'Drupal\neo_alchemist\Controller\InstanceComponentPreviewController::getTitle',
               ] + $defaults)
               ->setOptions($fieldOptions)
+              ->setOption('_neo_alchemist_preview', TRUE)
               ->setOption('_admin_route', FALSE)
               ->setRequirement('_neo_component_field', "neo_field.update");
             $collection->add("entity.{$entityTypeId}.field_ui.alchemist.preview", $route);

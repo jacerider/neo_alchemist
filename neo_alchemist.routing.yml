@@ -42,6 +42,7 @@ entity.neo_component.preview:
   requirements:
     _permission: 'administer neo_alchemist'
   options:
+    _neo_alchemist_preview: TRUE
     _admin_route: FALSE
 
 entity.neo_component.edit_form:

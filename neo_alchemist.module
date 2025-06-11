@@ -71,6 +71,21 @@ function neo_alchemist_theme(): array {
 }
 
 /**
+ * Implements hook_page_attachments().
+ */
+function neo_alchemist_page_attachments(&$attachments) {
+  if (neo_alchemist_route_is_alchemist_preview()) {
+    // Suppress markerio in alchemist preview routes.
+    unset($attachments['#attached']['drupalSettings']['markerio']);
+    if (!empty($attachments['#attached']['library'])) {
+      $attachments['#attached']['library'] = array_filter($attachments['#attached']['library'], function ($library) {
+        return $library !== 'markerio/markerio';
+      });
+    }
+  }
+}
+
+/**
  * Implements hook_theme_suggestions_HOOK_alter() for html.
  */
 function neo_alchemist_theme_suggestions_html_alter(array &$suggestions, array $variables) {
@@ -483,6 +498,24 @@ function neo_alchemist_route_is_alchemist() {
       }
     }
   }
+  return $isAlchemistRoute;
+}
+
+/**
+ * Check if route is alchemist-enabled preview route.
+ *
+ * @return bool
+ *   TRUE if the route is an alchemist-enabled route.
+ */
+function neo_alchemist_route_is_alchemist_preview() {
+  $isAlchemistRoute = &drupal_static(__FUNCTION__);
+  if (isset($isAlchemistRoute)) {
+    return $isAlchemistRoute;
+  }
+  $isAlchemistRoute = FALSE;
+  $routeMatch = \Drupal::routeMatch();
+  $routeObject = $routeMatch->getRouteObject();
+  $isAlchemistRoute = !empty($routeObject->getOption('_neo_alchemist_preview'));
   return $isAlchemistRoute;
 }
 
