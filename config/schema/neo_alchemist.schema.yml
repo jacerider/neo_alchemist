@@ -75,13 +75,13 @@ neo_alchemist.neo_component_settings.props:
             interface: '\Drupal\Core\Field\FieldItemInterface'
       editable:
         type: boolean
-        title: Editable
+        label: Editable
       required:
         type: boolean
-        title: Required
+        label: Required
       expanded:
         type: sequence
-        title: Expanded
+        label: Expanded
         sequence:
           type: string
           label: Nested ID
@@ -184,7 +184,7 @@ neo_alchemist.neo_component_value.formatted_text:
       type: string
       label: 'The format'
 
-neo_alchemist.neo_component_value.page_title:
+neo_alchemist.neo_component_value.page_label:
   type: mapping
   label: 'Page title value provider'
   mapping:
@@ -297,7 +297,7 @@ neo_alchemist.neo_component_settings.filters:
     type: mapping
     label: 'Filter'
     mapping:
-      title:
+      label:
         type: string
         label: Title
       description:
@@ -439,7 +439,7 @@ neo_alchemist.neo_component_slot.entity_field:
   #     type: block.settings.[%parent.block_plugin]
 
   #   mapping:
-  #     title:
+  #     label:
   #       type: string
   #       label: Title
   #     description:
@@ -471,7 +471,7 @@ neo_alchemist.neo_component_shape_fields:
   sequence:
     type: mapping
     mapping:
-      title:
+      label:
         type: string
         label: Title
       field:
