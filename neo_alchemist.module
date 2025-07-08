@@ -581,7 +581,7 @@ function neo_alchemist_get_entity_field_name(ContentEntityInterface $entity) {
     $entity_display_repository = \Drupal::service('entity_display.repository');
     $display = $entity_display_repository->getViewDisplay($entity->getEntityTypeId(), $entity->bundle());
     $alchemistFields = array_filter($display->getComponents(), function ($component) {
-      return $component['type'] === 'neo_component_tree';
+      return isset($component['type']) && $component['type'] === 'neo_component_tree';
     });
     $cache[$entity->getEntityTypeId()][$entity->bundle()] = $alchemistFields ? key($alchemistFields) : NULL;
   }
