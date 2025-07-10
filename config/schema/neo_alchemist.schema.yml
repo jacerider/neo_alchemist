@@ -482,3 +482,13 @@ neo_alchemist.neo_component_shape_fields:
         label: Modifiers
         sequence:
           type: neo_alchemist_neo_component_value.[%key]
+
+field.field_settings.neo_component_tree:
+  type: mapping
+  label: 'Link settings'
+  mapping:
+    allow_custom:
+      type: boolean
+      label: 'Allow custom'
+    defaults:
+      type: sequence
