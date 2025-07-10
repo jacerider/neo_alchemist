@@ -4,6 +4,7 @@ namespace Drupal\neo_alchemist\Plugin\Field;
 
 use Drupal\Component\Serialization\Json;
 use Drupal\Core\Field\FieldItemList;
+use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\TypedData\DataDefinitionInterface;
 use Drupal\Core\TypedData\TypedDataInterface;
 use Drupal\neo_alchemist\ComponentFieldConfigInterface;
@@ -79,6 +80,15 @@ class NeoComponentTreeList extends FieldItemList {
    */
   public function getQuery() {
     return new ComponentShapeQuery($this);
+  }
+
+  /**
+   * {@inheritdoc}
+   *
+   * We have no UI for default values.
+   */
+  public function defaultValuesForm(array &$form, FormStateInterface $form_state) {
+    return [];
   }
 
   /**
