@@ -18,6 +18,7 @@ use Drupal\Core\Render\Element;
 use Drupal\Core\Url;
 use Drupal\field\FieldConfigInterface;
 use Drupal\field\FieldStorageConfigInterface;
+use Drupal\field_ui\Form\FieldConfigEditForm;
 use Drupal\media_library\MediaLibraryState;
 use Drupal\neo_alchemist\Form\InstanceComponentDeleteForm;
 use Drupal\neo_alchemist\Form\InstanceComponentForm;
@@ -196,6 +197,15 @@ function template_preprocess_neo_alchemist_overlay(&$variables) {
  */
 function neo_alchemist_form_alter(array &$form, FormStateInterface $form_state, $form_id) {
   $formObject = $form_state->getFormObject();
+  if ($formObject instanceof FieldConfigEditForm) {
+    $entity = $formObject->getEntity();
+    if ($entity instanceof FieldConfigInterface && $entity->get('field_type') === 'neo_component_tree') {
+      $form['field_storage']['#access'] = FALSE;
+      $form['description']['#access'] = FALSE;
+      $form['required']['#access'] = FALSE;
+      // unset($form['form_token']);
+    }
+  }
   if ($formObject instanceof ContentEntityFormInterface && in_array($formObject->getOperation(), ['default', 'edit'])) {
     $entity = $formObject->getEntity();
     if ($entity instanceof ContentEntityInterface && $entity->hasLinkTemplate('alchemist')) {
