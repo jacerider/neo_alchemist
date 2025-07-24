@@ -220,7 +220,7 @@ final class ViewsValue extends ComponentValuePluginBase implements ContainerFact
         }
 
         // Add shape fields.
-        $form += $this->buildShapeMatcherConfigurationForm($this->shape, $form, $form_state, $viewEntityType->id(), $viewEntityBundle);
+        $form += $this->buildChildrenMatchConfigurationForm($this->shape, $form, $form_state, $viewEntityType->id(), $viewEntityBundle);
       }
       $form['continue'] = [
         '#type' => 'checkbox',
@@ -301,7 +301,7 @@ final class ViewsValue extends ComponentValuePluginBase implements ContainerFact
       $view->execute($this->configuration['view_display_id']);
       $results = [];
       $entities = array_map(fn($row) => $row->_entity, $view->result);
-      $results = $this->getShapeMatcherValues($this->shape, $entities);
+      $results = $this->getChildrenMatchValues($this->shape, $entities);
       if (!empty($results) || empty($this->configuration['continue'])) {
         $value = $results;
         $this->stopFurtherProcessing();
