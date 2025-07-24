@@ -29,7 +29,7 @@ trait ComponentValueChildrenMatchTrait {
   /**
    * Configuration form for the value provider plugin.
    */
-  protected function buildShapeMatcherConfigurationForm(ComponentShapeChildrenPluginInterface $shape, $form, FormStateInterface $form_state, $entityTypeId, $bundle = NULL): array {
+  protected function buildChildrenMatchConfigurationForm(ComponentShapeChildrenPluginInterface $shape, $form, FormStateInterface $form_state, $entityTypeId, $bundle = NULL): array {
     $wrapperId = $form['#id'];
     $childShapes = $shape->getChildShapes();
     if ($childShapes) {
@@ -76,7 +76,7 @@ trait ComponentValueChildrenMatchTrait {
           '#empty_option' => $childShape->isRequired() ? $this->t('- Select -') : $this->t('- None -'),
           '#default_value' => $childShapeDefaults['field'] ?? NULL,
           '#ajax' => [
-            'callback' => [static::class, 'refreshMatcherAjax'],
+            'callback' => [static::class, 'refreshChildrenMatchAjax'],
             'wrapper' => $childShapeId,
           ],
         ];
@@ -92,7 +92,7 @@ trait ComponentValueChildrenMatchTrait {
   /**
    * Ajax callback.
    */
-  public static function refreshMatcherAjax(array $form, FormStateInterface $form_state) {
+  public static function refreshChildrenMatchAjax(array $form, FormStateInterface $form_state) {
     $trigger = $form_state->getTriggeringElement();
     return NestedArray::getValue($form, array_slice($trigger['#array_parents'], 0, -1));
   }
@@ -100,7 +100,7 @@ trait ComponentValueChildrenMatchTrait {
   /**
    * Get the values for the shape matcher.
    */
-  protected function getShapeMatcherValues(ComponentShapeChildrenPluginInterface $shape, array $entities) {
+  protected function getChildrenMatchValues(ComponentShapeChildrenPluginInterface $shape, array $entities) {
     $values = [];
     /** @var \Drupal\Core\Entity\ContentEntityInterface[] $entities */
     $shapeNames = $shape->getChildShapeNames();
