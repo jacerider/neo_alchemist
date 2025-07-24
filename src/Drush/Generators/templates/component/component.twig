@@ -4,6 +4,7 @@ status: stable
 {% if component_description %}
 description: {{ component_description }}
 {% endif %}
+neo: true
 {% if component_libraries|length > 0 %}
 libraryOverrides:
   dependencies:
@@ -15,16 +16,7 @@ libraryOverrides:
 props:
   type: object
   properties:
-    {% for prop in component_props %}
-    {{ prop.name }}:
-      type: {{ prop.type }}
-      title: {{ prop.title }}
-      {% if prop.description %}
-      description: {{ prop.description }}
-      {% endif %}
-      # @todo Add examples here.
-      examples: []
-    {% endfor %}
+{{ _self.properties(component_props, 2) }}
 {% endif %}
 {% if component_slots|length > 0 %}
 slots:
@@ -35,4 +27,71 @@ slots:
     description: {{ slot.description }}
     {% endif %}
   {% endfor %}
+{% endif %}{% apply spaceless %}
+
+{% macro properties(properties, spacing) %}
+{% set spaces = '' %}
+{% for i in range(1, spacing) %}{% set spaces = spaces ~ ' ' %}{% endfor %}
+{% for property in properties %}
+{{ spaces }}  {{ property.name }}:
+{{ spaces }}    type: {{ property.type }}
+{{ spaces }}    title: {{ property.title }}
+{% if property.description %}
+{{ spaces }}    description: {{ property.description }}
 {% endif %}
+{% if property.apply %}
+{{ spaces }}    apply: {{ property.apply }}
+{% endif %}
+{% if property.examples %}
+{{- _self.examples(property.examples, spacing + 4) -}}{% endif %}
+{% if property.properties %}
+{{ spaces }}    properties:
+{{ _self.properties(property.properties, spacing + 4) }}{% endif %}
+{% if property.items %}
+{{ spaces }}    items:
+{{ _self.items(property.items, spacing + 4) }}{% endif %}
+{% endfor %}
+{% endmacro %}
+
+{% macro items(items, spacing) %}
+{% set spaces = '' %}
+{% for i in range(1, spacing) %}{% set spaces = spaces ~ ' ' %}{% endfor %}
+{{ spaces }}  type: {{ items.type }}
+{{ spaces }}  title: {{ items.title }}
+{% if items.properties %}
+{{ spaces }}  properties:
+{{ _self.properties(items.properties, spacing + 2) }}{% endif %}
+{% endmacro %}
+
+{% macro examples(examples, spacing) %}
+{% set spaces = '' %}
+{% for i in range(1, spacing) %}{% set spaces = spaces ~ ' ' %}{% endfor %}
+{% if examples is iterable %}
+{{ spaces }}examples:
+{% for key, example in examples %}
+{% if example is iterable %}
+{% if key matches '/^\\d+$/' %}{# if the first key is a number #}
+{{ spaces }}  -
+{% else %}{# assume this is an object example #}
+{{ spaces }}  {{ key }}:
+{% endif %}
+{% for keyItem, exampleItem in example %}
+{% if exampleItem is iterable %}
+{{ spaces }}    {{ keyItem }}:
+{% for keyItemItem, exampleItemItem in exampleItem %}
+{{ spaces }}      {{ keyItemItem }}: {{ exampleItemItem }}
+{% endfor %}
+{% else %}
+{{ spaces }}    {{ keyItem }}: {{ exampleItem }}
+{% endif %}
+{% endfor %}
+{% else %}
+{{ spaces }}  {{ key }}: {{ example }}
+{% endif %}
+{% endfor %}
+{% else %}{# not iterable #}
+{{ spaces }}examples: {{ examples }}
+{% endif %}
+{% endmacro %}
+
+{% endapply %}

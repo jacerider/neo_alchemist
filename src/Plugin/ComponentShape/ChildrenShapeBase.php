@@ -198,10 +198,10 @@ abstract class ChildrenShapeBase extends ComponentShapePluginBase implements Com
    *   The number of child shapes.
    * @param int|null $delta
    *   The delta of the field item, if applicable.
-   * @param mixed $value
+   * @param array $value
    *   The override value of the parent shape.
    */
-  protected function initChildShape(ComponentShapePluginInterface $shape, int $count, int|null $delta = NULL, $value) {
+  protected function initChildShape(ComponentShapePluginInterface $shape, int $count, ?int $delta = NULL, ?array $value = []) {
     $shapeName = $shape->getName();
     if (!empty($this->hideChildShapes[$shape->getName()])) {
       $shape->getOptionEmpty()->setLockedValue(TRUE, 'Shape is hidden by parent shape.');

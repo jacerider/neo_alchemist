@@ -130,7 +130,7 @@ final class ComponentForm extends EntityForm {
     $form['description'] = [
       '#type' => 'textarea',
       '#title' => $this->t('Description'),
-      '#default_value' => $this->entity->isNew() ? $component['description'] : $this->entity->get('description'),
+      '#default_value' => $this->entity->isNew() ? ($component['description'] ?? '') : $this->entity->get('description'),
     ];
 
     $form['status'] = [

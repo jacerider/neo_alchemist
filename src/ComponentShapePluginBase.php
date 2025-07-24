@@ -30,7 +30,10 @@ use Drupal\Core\Template\Attribute;
 use Drupal\Core\TypedData\DataDefinition;
 use Drupal\Core\TypedData\DataDefinitionInterface;
 use Drupal\Core\TypedData\TypedDataManagerInterface;
+use Drupal\neo_alchemist\Drush\Generators\NeoComponentGenerator;
+use Drupal\neo_alchemist\Drush\Generators\NeoComponentTwig;
 use Drupal\neo_alchemist\PropSource\FieldStorageDefinition;
+use DrupalCodeGenerator\InputOutput\Interviewer;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
@@ -2214,6 +2217,48 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
     /** @var \Drupal\neo_alchemist\ComponentInterface $neoComponent */
     $neoComponent = $this->entityTypeManager->getStorage('neo_component')->load($this->getComponent()->id());
     return $neoComponent->getPropShape($this->getName());
+  }
+
+  /**
+   * Called when a component is generated using this shape.
+   *
+   * @param array $prop
+   *   The prop array that is being generated.
+   * @param array $vars
+   *   The variables that are being used for generation.
+   * @param \Drupal\neo_alchemist\Interviewer\Interviewer $ir
+   *   The interviewer that is being used for generation.
+   * @param \Drupal\neo_alchemist\Generator\NeoComponentGenerator $generator
+   *   The generator that is being used for generation.
+   * @param array $parents
+   *   The parent labels.
+   */
+  public static function onGeneration(array &$prop, array $vars, Interviewer $ir, NeoComponentGenerator $generator, array $parents) {
+  }
+
+  /**
+   * Get default examples for this shape.
+   *
+   * @return mixed
+   *   The default examples for this shape.
+   */
+  public static function getGenerationExamples(array $prop) {
+    return [];
+  }
+
+  /**
+   * Get the Twig template for this shape.
+   *
+   * This method can be overridden by shapes to provide custom Twig
+   * generation.
+   *
+   * @param \Drupal\neo_alchemist\Drush\Generators\NeoComponentTwig $twig
+   *   The NeoComponentTwig instance.
+   */
+  public static function onGenerateTwig(NeoComponentTwig $twig) {
+    $twig->setPrefix('{% if ' . $twig->getName() . ' %}');
+    $twig->setSuffix('{% endif %}');
+    return $twig;
   }
 
   /**

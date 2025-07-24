@@ -9,6 +9,8 @@ use Drupal\Core\Form\SubformState;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\neo_alchemist\Attribute\ComponentShape;
 use Drupal\neo_alchemist\ComponentShapeExpandedPluginInterface;
+use Drupal\neo_alchemist\Drush\Generators\NeoComponentGenerator;
+use DrupalCodeGenerator\InputOutput\Interviewer;
 
 /**
  * Plugin implementation of the neo_component_shape.
@@ -184,6 +186,33 @@ class ObjectShape extends ChildrenShapeBase implements ComponentShapeExpandedPlu
       }
     }
     return $values;
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  public static function onGeneration(array &$prop, array $vars, Interviewer $ir, NeoComponentGenerator $generator, array $parents) {
+    // Only act on object props.
+    if ($prop['type'] !== 'object') {
+      return;
+    }
+    $parents[$prop['name']] = $prop['title'];
+    $parentLabels = implode(' → ', ['Root'] + $parents);
+    if ($ir->confirm(\sprintf('%s: Need component props?', $parentLabels))) {
+      $prop['properties'] = [];
+      do {
+        $objectProp = $generator->askProp($vars, $ir, $parents);
+        $prop['properties'][] = $objectProp;
+      } while ($ir->confirm(\sprintf('%s: Add another prop?', $parentLabels)));
+    }
+    $prop['examples'] = [];
+    foreach ($prop['properties'] as $key => $p) {
+      $prop['examples'][$p['name']] = $p['examples'] ?? '';
+      if (!empty($p['examples'])) {
+        $prop['properties'][$key]['examples'] = FALSE;
+      }
+    }
+    $prop['properties'] = \array_filter($prop['properties'] ?? []);
   }
 
 }

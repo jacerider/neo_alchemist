@@ -40,4 +40,14 @@ class NumberShape extends ComponentShapePluginBase {
     return $values;
   }
 
+  /**
+   * Get default examples for this shape.
+   *
+   * @return mixed
+   *   The default examples for this shape.
+   */
+  public static function getGenerationExamples(array $prop) {
+    return '100';
+  }
+
 }

@@ -35,4 +35,14 @@ class BooleanShape extends ComponentShapePluginBase {
     return parent::massageFormValues($values, $original_values, $form, $form_state);
   }
 
+  /**
+   * Get default examples for this shape.
+   *
+   * @return mixed
+   *   The default examples for this shape.
+   */
+  public static function getGenerationExamples(array $prop) {
+    return 'true';
+  }
+
 }

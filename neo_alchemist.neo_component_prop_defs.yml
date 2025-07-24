@@ -13,10 +13,26 @@ heading:
     subtitle:
       title: Subtitle
       type: string
+  examples:
+    supertitle: Example supertitle
+    title: Example title
+    subtitle: Example subtitle
+  twig:
+    prefix: '{% if %name% %}'
+    content:
+      - '{% if %name%.supertitle %}<div class="text-xl font-bold">{{ %name%.supertitle }}</div>{% endif %}'
+      - '<h2 class="text-3xl font-bold">{{ %name%.title }}</h2>'
+      - '{% if %name%.subtitle %}<div class="text-sm">{{ %name%.subtitle }}</div>{% endif %}'
+    suffix: '{% endif %}'
 
 markup:
   title: Markup
   type: string
+  examples: '<p>ExampleDuis in neque a velit semper lacinia vel nec leo.</p>'
+  twig:
+    prefix: '{% if %name% %}'
+    content: '<div class="prose prose-lg">{{ %name% }}</div>'
+    suffix: '{% endif %}'
 
 image:
   title: Image
@@ -36,25 +52,49 @@ image:
     height:
       title: Image height
       type: integer
+  examples:
+    src: https://placehold.co/100x100.png
+    alt: Example alt
+    width: 100
+    height: 100
+  twig:
+    prefix: '{% if %name% %}'
+    content:
+      - '{# To render an image using Neo dynamic styles #}'
+      - '{{ neo_image_style(%name%.src, {exact: {width: 100, height: 100}}, %name%.alt) }}'
+      - '{# To generate a URL to the image #}'
+      - '{{ neo_image_style_url(%name%.src, {scale: {width: 640}}) }}'
+    suffix: '{% endif %}'
 
 image-uri:
   title: Image URL
   type: string
   format: uri-reference
   pattern: ^(\/|https?:\/\/).*\.(?i)(png|gif|jpg|jpeg|webp)(\?.*)?(#.*)?$
+  examples: https://placehold.co/100x100.png
+  twig:
+    prefix: '{% if %name% %}'
+    content: '{{ neo_image_style_url(%name%.src, {scale: {width: 640}}) }}'
+    suffix: '{% endif %}'
 
 email:
   title: Email
   type: string
   pattern: ^[a-zA-Z0-9.!#$%&\'*+\/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$
-
-icon:
-  title: Icon
-  type: string
+  examples: no-reply@nowhere.com
+  twig:
+    prefix: '{% if %name% %}'
+    content: '<a href="mailto:{{ %name% }}">{{ %name% }}</a>'
+    suffix: '{% endif %}'
 
 uri:
   title: URI
   type: string
+  examples: internal:/
+  twig:
+    prefix: '{% if %name% %}'
+    content: '{{ neo_uri(%name%.uri, %name%.options) }}'
+    suffix: '{% endif %}'
 
 link:
   title: Link
@@ -69,6 +109,16 @@ link:
     options:
       title: 'Options'
       type: object
+  examples:
+    uri: internal:/
+    title: Example title
+  twig:
+    prefix: '{% if %name% %}'
+    content:
+      - '<a class="btn" href="{{ neo_uri(%name%.uri, %name%.options) }}">'
+      - '  {{ %name%.title }}'
+      - '</a>'
+    suffix: '{% endif %}'
 
 url:
   title: Url
@@ -89,6 +139,17 @@ url:
       enum:
         - _self
         - _blank
+  examples:
+    uri: internal:/
+    title: Example title
+    target: _self
+  twig:
+    prefix: '{% if %name% %}'
+    content:
+      - '<a class="btn" href="{{ neo_uri(%name%.uri, %name%.options) }}">'
+      - '  Example content'
+      - '</a>'
+    suffix: '{% endif %}'
 
 menu:
   title: Menu
@@ -125,15 +186,33 @@ menu:
       url:
         title: URI
         type: url
+  twig:
+    prefix:
+      - '{% if %name% %}'
+    content:
+      - '{% for item in %name% %}'
+      - '  <a href="{{ neo_uri(item.url.uri, item.url.options) }}">'
+      - '    {% if item.icon %}'
+      - '      <div>{{ icon(item.icon) }}</div>'
+      - '    {% endif %}'
+      - '    <div>{{ item.title }}</div>'
+      - '    {% if item.description %}'
+      - '      <div>{{ item.description }}</div>'
+      - '    {% endif %}'
+      - '  </a>'
+      - '{% endfor %}'
+    suffix: '{% endif %}'
 
 scheme:
   title: Color Scheme
   description: The color scheme of the component.
   type: string
   examples: default
+
 style:
   title: Style
   type: string
+
 containment:
   title: Containment
   description: The horizontal size of the component.
@@ -155,6 +234,7 @@ containment:
     full:
       label: Full
       value: mx-0 max-w-none
+
 padding:
   title: Padding
   description: The inner-spacing of the component.
@@ -176,6 +256,7 @@ padding:
     xl:
       label: Extra Large
       value: p-component-xl
+
 margin:
   title: Margin
   description: The outer-spacing of the component.
@@ -197,6 +278,7 @@ margin:
     xl:
       label: Extra Large
       value: m-component-xl
+
 text_align:
   title: Text Alignment
   description: The alignment of the text.

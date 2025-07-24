@@ -9,6 +9,8 @@ use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\file\FileInterface;
 use Drupal\media\MediaInterface;
 use Drupal\neo_alchemist\Attribute\ComponentShape;
+use Drupal\neo_alchemist\Drush\Generators\NeoComponentGenerator;
+use DrupalCodeGenerator\InputOutput\Interviewer;
 
 /**
  * Plugin implementation of the neo_component_shape.
@@ -84,6 +86,18 @@ class ImageShape extends MediaShapeBase {
       ];
     }
     return [];
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  public static function onGeneration(array &$prop, array $vars, Interviewer $ir, NeoComponentGenerator $generator, array $parents) {
+    $prop['examples'] = [
+      'src' => 'https://placehold.co/100x100.png',
+      'alt' => 'Example image',
+      'width' => 100,
+      'height' => 100,
+    ];
   }
 
 }

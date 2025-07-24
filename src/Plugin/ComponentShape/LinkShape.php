@@ -8,6 +8,8 @@ use Drupal\Core\Field\FieldDefinitionInterface;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\neo_alchemist\Attribute\ComponentShape;
 use Drupal\neo_alchemist\ComponentShapePluginBase;
+use Drupal\neo_alchemist\Drush\Generators\NeoComponentGenerator;
+use DrupalCodeGenerator\InputOutput\Interviewer;
 
 /**
  * Plugin implementation of the neo_component_shape.
@@ -43,6 +45,16 @@ class LinkShape extends ComponentShapePluginBase {
    */
   public function supportsFieldDefinition(FieldDefinitionInterface $entityFieldDefinition): bool {
     return $entityFieldDefinition->getType() === 'link';
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  public static function onGeneration(array &$prop, array $vars, Interviewer $ir, NeoComponentGenerator $generator, array $parents) {
+    $prop['examples'] = [
+      'uri' => 'internal:/',
+      'title' => 'Example link',
+    ];
   }
 
 }

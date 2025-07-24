@@ -12,6 +12,10 @@ use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\neo_alchemist\Attribute\ComponentShape;
 use Drupal\neo_alchemist\ComponentShapeInterablePluginInterface;
 use Drupal\neo_alchemist\ComponentShapePluginInterface;
+use Drupal\neo_alchemist\Drush\Generators\NeoComponentGenerator;
+use Drupal\neo_alchemist\Drush\Generators\NeoComponentTwig;
+use DrupalCodeGenerator\InputOutput\Interviewer;
+use DrupalCodeGenerator\Validator\Required;
 
 /**
  * Plugin implementation of the neo_component_shape.
@@ -436,6 +440,54 @@ class ArrayShape extends ChildrenShapeBase implements ComponentShapeInterablePlu
       return $singlePropShape->getFieldItem()->getFieldDefinition();
     }
     return parent::getFieldDefinitionForSupportCheck();
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  public static function onGeneration(array &$prop, array $vars, Interviewer $ir, NeoComponentGenerator $generator, array $parents) {
+    // Only act on array props.
+    if ($prop['type'] !== 'array') {
+      return;
+    }
+    $parents[$prop['name']] = $prop['title'];
+    $parentLabels = implode(' → ', ['Root'] + $parents);
+
+    $items = [];
+    $items['type'] = 'object';
+    $items['title'] = $ir->ask(\sprintf('%s: Array item title', $parentLabels), 'Item', new Required());
+    $items['properties'] = [];
+    if ($ir->confirm(\sprintf('%s: Need component props?', $parentLabels))) {
+      do {
+        $objectProp = $generator->askProp($vars, $ir, $parents, ['item']);
+        $items['properties'][] = $objectProp;
+      } while ($ir->confirm(\sprintf('%s: Add another prop?', $parentLabels)));
+    }
+    $prop['examples'] = [];
+    $example = [];
+    foreach ($items['properties'] as $key => $p) {
+      $example[$p['name']] = $p['examples'] ?? '';
+      if (!empty($p['examples'])) {
+        $items['properties'][$key]['examples'] = FALSE;
+      }
+    }
+    $prop['examples'][] = $example;
+    $prop['examples'][] = $example;
+    $prop['items'] = $items;
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  public static function onGenerateTwig(NeoComponentTwig $twig) {
+    $twig->setPrefix([
+      '{% if ' . $twig->getName() . ' %}',
+      '{% for item in ' . $twig->getName() . ' %}',
+    ]);
+    $twig->setSuffix([
+      '{% endfor %}',
+      '{% endif %}',
+    ]);
   }
 
 }

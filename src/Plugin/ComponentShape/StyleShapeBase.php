@@ -7,6 +7,9 @@ namespace Drupal\neo_alchemist\Plugin\ComponentShape;
 use Drupal\Core\Template\Attribute;
 use Drupal\neo_alchemist\ComponentShapePluginBase;
 use Drupal\neo_alchemist\ComponentShapeStylePluginInterface;
+use Drupal\neo_alchemist\Drush\Generators\NeoComponentGenerator;
+use Drupal\neo_alchemist\Drush\Generators\NeoComponentTwig;
+use DrupalCodeGenerator\InputOutput\Interviewer;
 
 /**
  * A base class for style shapes.
@@ -47,6 +50,20 @@ abstract class StyleShapeBase extends ComponentShapePluginBase implements Compon
         $attributes->merge($value);
       }
     }
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  public static function onGeneration(array &$prop, array $vars, Interviewer $ir, NeoComponentGenerator $generator, array $parents) {
+    $prop['apply'] = $ir->confirm('Apply style to component wrapper?', TRUE) ? 'true' : 'false';
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  public static function onGenerateTwig(NeoComponentTwig $twig) {
+    // Do nothing.
   }
 
 }

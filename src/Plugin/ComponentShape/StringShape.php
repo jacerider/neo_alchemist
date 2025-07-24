@@ -7,6 +7,7 @@ namespace Drupal\neo_alchemist\Plugin\ComponentShape;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\neo_alchemist\Attribute\ComponentShape;
 use Drupal\neo_alchemist\ComponentShapePluginBase;
+use Drupal\neo_alchemist\Drush\Generators\NeoComponentTwig;
 
 /**
  * Plugin implementation of the neo_component_shape.
@@ -27,5 +28,21 @@ use Drupal\neo_alchemist\ComponentShapePluginBase;
   ]
 )]
 class StringShape extends ComponentShapePluginBase {
+
+  /**
+   * {@inheritDoc}
+   */
+  public static function getGenerationExamples(array $prop) {
+    return 'Example string';
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  public static function onGenerateTwig(NeoComponentTwig $twig) {
+    parent::onGenerateTwig($twig);
+    $twig->setContent('<div>{{' . $twig->getName() . '}}</div>');
+    return $twig;
+  }
 
 }

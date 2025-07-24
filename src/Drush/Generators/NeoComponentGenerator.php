@@ -5,8 +5,12 @@ declare(strict_types=1);
 namespace Drupal\neo_alchemist\Drush\Generators;
 
 use Drupal\Core\Asset\LibraryDiscoveryInterface;
+use Drupal\Core\DependencyInjection\ContainerInjectionInterface;
 use Drupal\Core\Extension\ModuleHandlerInterface;
 use Drupal\Core\Extension\ThemeHandlerInterface;
+use Drupal\Core\Render\Markup;
+use Drupal\neo_alchemist\ComponentPropDefPluginManager;
+use Drupal\neo_alchemist\ComponentShapePluginManager;
 use DrupalCodeGenerator\Attribute\Generator;
 use DrupalCodeGenerator\GeneratorType;
 use DrupalCodeGenerator\Asset\AssetCollection;
@@ -19,6 +23,8 @@ use DrupalCodeGenerator\Validator\Required;
 use DrupalCodeGenerator\Validator\Choice;
 use DrupalCodeGenerator\Validator\Optional;
 use Symfony\Component\Console\Question\Question;
+use DrupalCodeGenerator\Asset\File;
+use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
  * Generates a Neo component.
@@ -27,10 +33,10 @@ use Symfony\Component\Console\Question\Question;
   name: 'neo-component',
   description: 'Generates Neo component',
   aliases: ['neoac'],
-  templatePath: __DIR__ . '/templates',
+  templatePath: __DIR__ . '/templates/component',
   type: GeneratorType::THEME_COMPONENT,
 )]
-final class NeoComponentGenerator extends BaseGenerator {
+final class NeoComponentGenerator extends BaseGenerator implements ContainerInjectionInterface {
 
   use AutowireTrait;
 
@@ -41,6 +47,8 @@ final class NeoComponentGenerator extends BaseGenerator {
     private readonly ModuleHandlerInterface $moduleHandler,
     private readonly ThemeHandlerInterface $themeHandler,
     private readonly LibraryDiscoveryInterface $libraryDiscovery,
+    private readonly ComponentPropDefPluginManager $propDefManager,
+    private readonly ComponentShapePluginManager $shapeManager,
   ) {
     parent::__construct();
   }
@@ -48,8 +56,23 @@ final class NeoComponentGenerator extends BaseGenerator {
   /**
    * {@inheritdoc}
    */
+  public static function create(ContainerInterface $container): self {
+    return new self(
+      $container->get('module_handler'),
+      $container->get('theme_handler'),
+      $container->get('library.discovery'),
+      $container->get('plugin.manager.neo_component_prop_def'),
+      $container->get('plugin.manager.neo_component_shape'),
+    );
+  }
+
+  /**
+   * {@inheritdoc}
+   */
   protected function generate(array &$vars, AssetCollection $assets): void {
+    $vars['name'] = 'Front';
     $this->askQuestions($vars);
+    // $this->getExample($vars);
     $this->generateAssets($vars, $assets);
   }
 
@@ -77,14 +100,14 @@ final class NeoComponentGenerator extends BaseGenerator {
     } while ($library !== NULL);
 
     $vars['component_libraries'] = \array_filter($vars['component_libraries']);
-    $vars['component_has_css'] = $ir->confirm('Need CSS?');
-    $vars['component_has_js'] = $ir->confirm('Need JS?');
+    $vars['component_has_css'] = $ir->confirm('Need CSS?', FALSE);
+    $vars['component_has_js'] = $ir->confirm('Need JS?', FALSE);
     if ($ir->confirm('Need component props?')) {
       $vars['component_props'] = [];
       do {
         $prop = $this->askProp($vars, $ir);
         $vars['component_props'][] = $prop;
-      } while ($ir->confirm('Add another prop?'));
+      } while ($ir->confirm('Root: Add another prop?'));
     }
     $vars['component_props'] = \array_filter($vars['component_props'] ?? []);
 
@@ -106,21 +129,19 @@ final class NeoComponentGenerator extends BaseGenerator {
    */
   private function generateAssets(array $vars, AssetCollection $assets): void {
     $component_path = 'components/{component_machine_name}/';
-
-    print_r($this->getTemplatePath());
-    // If ($vars['component_has_css']) {
-    //   $assets->addFile($component_path . '{component_machine_name}.css', 'styles.twig');
-    // }
-    // if ($vars['component_has_js']) {
-    //   $assets->addFile($component_path . '{component_machine_name}.js', 'javascript.twig');
-    // }
-    // $assets->addFile($component_path . '{component_machine_name}.twig', 'template.twig');
-    // $assets->addFile($component_path . '{component_machine_name}.component.yml', 'component.twig');
-    // $assets->addFile($component_path . 'README.md', 'readme.twig');.
-    // $contents = \file_get_contents($this->getTemplatePath() . \DIRECTORY_SEPARATOR . 'thumbnail.png');
-    // $thumbnail = new File($component_path . 'thumbnail.png');
-    // $thumbnail->content($contents);
-    // $assets[] = $thumbnail;.
+    if ($vars['component_has_css']) {
+      $assets->addFile($component_path . '{component_machine_name}.css', 'styles.twig');
+    }
+    if ($vars['component_has_js']) {
+      $assets->addFile($component_path . '{component_machine_name}.js', 'javascript.twig');
+    }
+    $assets->addFile($component_path . '{component_machine_name}.twig', 'template.twig');
+    $assets->addFile($component_path . '{component_machine_name}.component.yml', 'component.twig');
+    $assets->addFile($component_path . 'README.md', 'readme.twig');
+    $contents = \file_get_contents($this->getTemplatePath() . \DIRECTORY_SEPARATOR . 'thumbnail.png');
+    $thumbnail = new File($component_path . 'thumbnail.png');
+    $thumbnail->content($contents);
+    $assets[] = $thumbnail;
   }
 
   /**
@@ -150,7 +171,7 @@ final class NeoComponentGenerator extends BaseGenerator {
       [],
     );
 
-    $question = new Question('Library dependencies (optional). [Example: core/once]');
+    $question = new Question('Library dependencies (optional). [Examples: core/once]');
     $question->setAutocompleterValues($library_ids);
     $question->setValidator(
       new Optional(new Choice($library_ids, 'Invalid library selected.')),
@@ -168,12 +189,13 @@ final class NeoComponentGenerator extends BaseGenerator {
    * @return array
    *   The prop data, if any.
    */
-  protected function askProp(array $vars, Interviewer $ir): array {
+  public function askProp(array $vars, Interviewer $ir, array $parents = [], ?array $parentsOverride = NULL): array {
+    $parentLabels = implode(' → ', ['Root'] + $parents);
     $prop = [];
-    $prop['title'] = $ir->ask('Prop title', '', new Required());
+    $prop['title'] = $ir->ask(\sprintf('%s: Prop title', $parentLabels), '', new Required());
     $default = Utils::human2machine($prop['title']);
-    $prop['name'] = $ir->ask('Prop machine name', $default, new RequiredMachineName());
-    $prop['description'] = $ir->ask('Prop description (optional)');
+    $prop['name'] = $ir->ask(\sprintf('%s: Prop machine name', $parentLabels), $default, new RequiredMachineName());
+    $prop['description'] = $ir->ask(\sprintf('%s: Prop description (optional)', $parentLabels), '');
     $choices = [
       'string' => 'String',
       'number' => 'Number',
@@ -182,13 +204,53 @@ final class NeoComponentGenerator extends BaseGenerator {
       'object' => 'Object',
       'null' => 'Always null',
     ];
-    $prop['type'] = $ir->choice('Prop type', $choices, 'String');
-    if (!\in_array($prop['type'], ['string', 'number', 'boolean'])) {
-      /** @psalm-var string $type */
-      $type = $prop['type'];
-      $component_schema_name = $vars['component_machine_name'] . '.component.yml';
-      $this->io()->warning(\sprintf('Unable to generate full schema for %s. Please edit %s after generation.', $type, $component_schema_name));
+    $styles = [];
+    $propDefinitions = $this->propDefManager->getDefinitions();
+    foreach ($propDefinitions as $name => $definition) {
+      if ($definition['type'] === 'style') {
+        $styles[$name] = 'Style: ' . $definition['title'];
+      }
+      elseif ($name === 'style') {
+        $styles[$name] = 'Style: Custom';
+      }
+      else {
+        $choices[$name] = (string) $definition['title'];
+      }
     }
+    $choices += $styles;
+    $prop['type'] = $ir->choice(\sprintf('%s: Object prop type', $parentLabels), $choices, 'String');
+
+    $shapeType = $prop['type'];
+    if (isset($propDefinitions[$prop['type']])) {
+      if (!$this->shapeManager->hasDefinition($shapeType)) {
+        $shapeType = $propDefinitions[$prop['type']]['type'];
+      }
+    }
+
+    $shapeDefinition = $this->shapeManager->getDefinition($shapeType);
+    // Call shape's onGeneration method to allow it to modify the prop.
+    $shapeDefinition['class']::onGeneration($prop, $vars, $ir, $this, $parents);
+
+    if (!isset($prop['examples'])) {
+      $prop['examples'] = $propDefinitions[$prop['type']]['examples'] ?? $shapeDefinition['class']::getGenerationExamples($prop);
+      if (empty($prop['examples'])) {
+        $prop['examples'] = '[]';
+      }
+    }
+    if ($prop['examples'] === FALSE) {
+      unset($prop['examples']);
+    }
+
+    // Prepare the prop's Twig template.
+    if (!isset($prop['twig'])) {
+      $defaults = $propDefinitions[$prop['type']]['twig'] ?? NULL;
+      $twig = new NeoComponentTwig($prop, $parentsOverride ?? array_keys($parents), $defaults);
+      if (!$defaults) {
+        $shapeDefinition['class']::onGenerateTwig($twig);
+      }
+      $prop['twig'] = $twig->getTwig();
+    }
+
     return $prop;
   }
 
@@ -208,6 +270,178 @@ final class NeoComponentGenerator extends BaseGenerator {
     $slot['name'] = $ir->ask('Slot machine name', $default, new RequiredMachineName());
     $slot['description'] = $ir->ask('Slot description (optional)');
     return $slot;
+  }
+
+  /**
+   * Provides an example of a component.
+   *
+   * @psalm-param array{component_machine_name: mixed, ...<array-key, mixed>} $vars
+   *   The answers to the CLI questions.
+   */
+  protected function getExample(array &$vars): void {
+    $vars['name'] = 'Front';
+    $vars['machine_name'] = 'front';
+    $vars['component_name'] = 'Wow';
+    $vars['component_machine_name'] = 'wow';
+    $vars['component_description'] = 'Wow component';
+    $vars['component_libraries'] = ['core/drupal'];
+    $vars['component_has_css'] = FALSE;
+    $vars['component_has_js'] = FALSE;
+    $vars['component_props'] = [];
+    $vars['component_props'][] = [
+      'title' => 'Heading',
+      'name' => 'heading',
+      'description' => 'The main heading of the component',
+      'type' => 'heading',
+      'examples' => [
+        'supertitle' => 'Super title',
+        'title' => 'Main title',
+        'subtitle' => 'Subtitle',
+      ],
+      'twig_prefix' => Markup::create('{% if heading %}'),
+      'twig' => [
+        Markup::create("{{ heading.supertitle }}"),
+        Markup::create("{{ heading.title }}"),
+        Markup::create("{{ heading.subtitle }}"),
+      ],
+      'twig_suffix' => Markup::create('{% endif %}'),
+    ];
+    $vars['component_props'][] = [
+      'title' => 'Prop 1',
+      'name' => 'prop_1',
+      'description' => 'This is prop 1',
+      'type' => 'object',
+      'examples' => [
+        'image' => [
+          'poops' => 'https://placehold.co/100x100.png',
+        ],
+      ],
+      'twig' => [
+        'prefix' => Markup::create('{% if prop_1 %}'),
+        'suffix' => Markup::create('{% endif %}'),
+      ],
+      'properties' => [
+        [
+          'title' => 'Prop 1.1',
+          'name' => 'prop_1_1',
+          'description' => 'This is prop 1.1',
+          'type' => 'string',
+          'examples' => 'Value 1.1',
+          'twig' => [
+            'prefix' => Markup::create('{% if prop_1_1 %}'),
+            'content' => Markup::create("{{ prop_1_1 }}"),
+            'suffix' => Markup::create('{% endif %}'),
+          ],
+        ],
+        [
+          'title' => 'Prop 1.2',
+          'name' => 'prop_1_2',
+          'description' => 'This is prop 1.2',
+          'type' => 'object',
+          'examples' => [
+            'prop_1_2_1' => 'Value 1.2.1',
+            'prop_1_2_2' => 'Value 1.2.2',
+          ],
+          'properties' => [
+            [
+              'title' => 'Prop 1.2.1',
+              'name' => 'prop_1_2_1',
+              'description' => 'This is prop 1.2.1',
+              'type' => 'string',
+            ],
+            [
+              'title' => 'Prop 1.2.2',
+              'name' => 'prop_1_2_2',
+              'description' => 'This is prop 1.2.2',
+              'type' => 'string',
+            ],
+          ],
+        ],
+        [
+          'title' => 'Prop 1.3',
+          'name' => 'prop_1_3',
+          'description' => 'This is prop 1.3',
+          'type' => 'array',
+          'items' => [
+            'type' => 'object',
+            'title' => 'Prop 1.3 item',
+            'properties' => [
+              [
+                'title' => 'Prop 1.3.1',
+                'name' => 'prop_1_3_1',
+                'description' => 'This is prop 1.3.1',
+                'type' => 'string',
+              ],
+            ],
+          ],
+        ],
+      ],
+    ];
+    $vars['component_props'][] = [
+      'title' => 'Prop 2',
+      'name' => 'prop_2',
+      'description' => 'This is prop 2',
+      'type' => 'array',
+      'examples' => [
+        [
+          'prop_2_1' => [
+            'src' => 'https://placehold.co/100x100.png',
+            'alt' => 'Example image',
+            'width' => 100,
+            'height' => 100,
+          ],
+        ],
+      ],
+      'items' => [
+        'type' => 'object',
+        'title' => 'Prop 2 item',
+        'properties' => [
+          [
+            'title' => 'Prop 2.1',
+            'name' => 'prop_2_1',
+            'description' => 'This is prop 2.1',
+            'type' => 'image',
+            'examples' => [
+              'src' => 'https://placehold.co/100x100.png',
+              'alt' => 'Example image',
+              'width' => 100,
+              'height' => 100,
+            ],
+          ],
+          [
+            'title' => 'Prop 2.2',
+            'name' => 'prop_2_2',
+            'description' => 'This is prop 2.2',
+            'type' => 'object',
+            'properties' => [
+              [
+                'title' => 'Prop 2.2.1',
+                'name' => 'prop_2_2_1',
+                'description' => 'This is prop 2.2.1',
+                'type' => 'image',
+                'examples' => [
+                  'src' => 'https://placehold.co/100x100.png',
+                  'alt' => 'Example image',
+                  'width' => 100,
+                  'height' => 100,
+                ],
+              ],
+              [
+                'title' => 'Prop 2.2.2',
+                'name' => 'prop_2_2_2',
+                'description' => 'This is prop 2.2.2',
+                'type' => 'link',
+                'examples' => [
+                  'title' => 'Example link',
+                  'url' => 'internal:/',
+                ],
+              ],
+            ],
+          ],
+        ],
+      ],
+    ];
+    $vars['component_slots'] = [];
   }
 
 }

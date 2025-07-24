@@ -1,7 +1,50 @@
-<div {{ '{{ attributes }}' }}>
+{{ '{%' }}
+{{ '  set classes = []' }}
+{{ '%}' }}
+<div {{ '{{ attributes.addClass(classes) }}' }}>
+  {% if component_props|length > 0 %}{{ _self.properties(component_props, 2) }}{% endif %}
   {% if component_slots|length > 0 %}
     {% for slot in component_slots %}
   {{ '{% block ' }}{{ slot.name }}{{ ' %}' }}{{ '{% endblock %}' }}
     {% endfor %}
   {% endif %}
 </div>
+
+
+{% macro properties(properties, spacing) %}
+{% set spaces = '' %}
+{% for i in range(1, spacing) %}{% set spaces = spaces ~ ' ' %}{% endfor %}
+{% for property in properties %}
+{% if property.twig %}
+{% if property.twig.prefix %}
+{% if property.twig.prefix is iterable %}
+{% for twig in property.twig.prefix %}
+{{ spaces }}{{ twig|raw }}
+{% endfor %}
+{% else %}
+{{ spaces }}{{ property.twig.prefix|raw }}
+{% endif %}
+{% endif %}
+{% if property.twig.content %}
+{% if property.twig.content is iterable %}
+{% for twig in property.twig.content %}
+{{ spaces }}  {{ twig|raw }}
+{% endfor %}
+{% else %}
+{{ spaces }}  {{ property.twig.content|raw }}
+{% endif %}
+{% endif %}
+{% if property.properties %}{{ _self.properties(property.properties, spacing + 2) }}{% endif %}
+{% if property.items.properties %}{{ _self.properties(property.items.properties, spacing + 2) }}{% endif %}
+{% if property.twig.suffix %}
+{% if property.twig.suffix is iterable %}
+{% for twig in property.twig.suffix %}
+{{ spaces }}{{ twig|raw }}
+{% endfor %}
+{% else %}
+{{ spaces }}{{ property.twig.suffix|raw }}
+{% endif %}
+{% endif %}
+{% endif %}
+{% endfor %}
+{% endmacro %}

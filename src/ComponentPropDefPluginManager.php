@@ -43,6 +43,7 @@ final class ComponentPropDefPluginManager extends DefaultPluginManager {
     'type' => '',
     'required' => [],
     'properties' => [],
+    'examples' => [],
     'format' => '',
     'pattern' => '',
   ];
