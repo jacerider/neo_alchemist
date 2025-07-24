@@ -168,6 +168,8 @@ final class MatcherField extends MatcherBase {
    *   (optional) The entity type ID to match against. Defaults to NULL.
    * @param string|null $entityBundle
    *   (optional) The entity bundle to match against. Defaults to NULL.
+   * @param string|null $fieldType
+   *   (optional) The field type to match against. Defaults to NULL.
    * @param bool $all
    *   (optional) Whether to match all fields. Defaults to FALSE.
    *
@@ -182,9 +184,9 @@ final class MatcherField extends MatcherBase {
    *     ...
    *   ]
    */
-  public function getMatchesAsOptions(ComponentShapePluginInterface $shape, ?string $entityTypeId = NULL, ?string $entityBundle = NULL, bool $all = FALSE): array {
+  public function getMatchesAsOptions(ComponentShapePluginInterface $shape, ?string $entityTypeId = NULL, ?string $entityBundle = NULL, ?string $fieldType = NULL, bool $all = FALSE): array {
     $options = [];
-    $matches = $this->getMatches($shape, $entityTypeId, $entityBundle, $all);
+    $matches = $this->getMatches($shape, $entityTypeId, $entityBundle, $fieldType, $all);
     foreach ($matches as $key => [
       'title' => $title,
       'group' => $group,
@@ -208,13 +210,15 @@ final class MatcherField extends MatcherBase {
    *   (optional) The entity type ID to match against. Defaults to NULL.
    * @param string|null $entityBundle
    *   (optional) The entity bundle to match against. Defaults to NULL.
+   * @param string|null $fieldType
+   *   (optional) The field type to match against. Defaults to NULL.
    * @param bool $all
    *   (optional) Whether to match all fields. Defaults to FALSE.
    *
    * @return array
    *   An array of matches, sorted by weight and title.
    */
-  public function getMatches(ComponentShapePluginInterface $shape, ?string $entityTypeId = NULL, ?string $entityBundle = NULL, bool $all = FALSE): array {
+  public function getMatches(ComponentShapePluginInterface $shape, ?string $entityTypeId = NULL, ?string $entityBundle = NULL, ?string $fieldType = NULL, bool $all = FALSE): array {
     $matches = [];
 
     if ($entityTypeId) {
@@ -246,6 +250,12 @@ final class MatcherField extends MatcherBase {
     }
     else {
       $matches = $this->match($entityDataDefinition, $shape, $this->maxLevels);
+    }
+
+    if ($fieldType) {
+      $matches = array_filter($matches, function ($match) use ($fieldType) {
+        return $match['definition']->getType() === $fieldType;
+      });
     }
 
     uasort($matches, function ($a, $b) {
