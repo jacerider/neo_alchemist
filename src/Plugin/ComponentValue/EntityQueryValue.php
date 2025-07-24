@@ -176,7 +176,7 @@ final class EntityQueryValue extends ComponentValuePluginBase implements Contain
       }
 
       // Add shape fields.
-      $form += $this->buildShapeMatcherConfigurationForm($this->shape, $form, $form_state, $entityTypeId, $bundle);
+      $form += $this->buildChildrenMatchConfigurationForm($this->shape, $form, $form_state, $entityTypeId, $bundle);
 
       $form['start'] = [
         '#type' => 'number',
@@ -260,7 +260,7 @@ final class EntityQueryValue extends ComponentValuePluginBase implements Contain
       if ($ids) {
         $entities = $storage->loadMultiple($ids);
       }
-      $results = $this->getShapeMatcherValues($this->shape, $entities);
+      $results = $this->getChildrenMatchValues($this->shape, $entities);
       if (!empty($results) || empty($this->configuration['continue'])) {
         $value = $results;
         $this->stopFurtherProcessing();
