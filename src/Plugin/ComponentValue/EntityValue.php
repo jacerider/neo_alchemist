@@ -34,6 +34,7 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
 final class EntityValue extends ComponentValuePluginBase implements ContainerFactoryPluginInterface {
 
   use DependencySerializationTrait;
+  use ComponentValueMatchTrait;
 
   /**
    * Flag to indicate if the value has been set.
@@ -80,10 +81,8 @@ final class EntityValue extends ComponentValuePluginBase implements ContainerFac
    * {@inheritdoc}
    */
   public function defaultConfiguration() {
-    return [
-      'field' => '',
+    return $this->defaultMatchConfiguration() + [
       'field_assign' => FALSE,
-      'field_properties' => [],
       'override' => FALSE,
       'override_empty' => FALSE,
     ];
@@ -97,51 +96,7 @@ final class EntityValue extends ComponentValuePluginBase implements ContainerFac
     $form['#id'] = $wrapperId;
     $field = $this->configuration['field'];
 
-    $options = $this->matcherField->getMatchesAsOptions($this->shape);
-    $groups = array_keys($options);
-    $groups = array_combine($groups, $groups);
-    asort($groups);
-    $group = $form_state->getValue('group', NULL);
-    if (!$group) {
-      foreach ($options as $optionGroup => $ops) {
-        foreach ($ops as $key => $label) {
-          if ($key === $field) {
-            $group = $optionGroup;
-            break 2;
-          }
-        }
-      }
-    }
-    $form['group'] = [
-      '#type' => 'select',
-      '#title' => $this->t('Group'),
-      '#description' => $this->t('Select the group to use as the value.'),
-      '#options' => $groups,
-      '#empty_option' => $this->t('- Select -'),
-      '#default_value' => $group,
-      '#required' => TRUE,
-      '#ajax' => [
-        'callback' => [static::class, 'refreshAjax'],
-        'wrapper' => $wrapperId,
-      ],
-    ];
-
-    if ($group) {
-      $suboptions = $options[$group];
-      $form['field'] = [
-        '#type' => 'select',
-        '#title' => $this->t('Field'),
-        '#description' => $this->t('Select the field to use as the value.'),
-        '#options' => $suboptions,
-        '#empty_option' => $this->t('- Select -'),
-        '#default_value' => $field,
-        '#required' => TRUE,
-        '#ajax' => [
-          'callback' => [static::class, 'refreshAjax'],
-          'wrapper' => $wrapperId,
-        ],
-      ];
-    }
+    $form = $this->buildMatchConfigurationForm($form, $form_state);
 
     if (
       $field &&
@@ -162,27 +117,8 @@ final class EntityValue extends ComponentValuePluginBase implements ContainerFac
           ],
         ];
         if ($assign) {
-          $form['field_properties'] = [
-            '#type' => 'fieldset',
-            '#title' => $this->t('Field Properties'),
-          ];
-          foreach ($this->shape->getChildShapes() as $name => $childShape) {
-            $shapeProperties = $childShape->getFieldItem()->getFieldDefinition()->getFieldStorageDefinition()->getPropertyDefinitions();
-            $shapeProperty = reset($shapeProperties);
-            $options = array_map(function ($property) {
-              return $property->getLabel();
-            }, array_filter($fieldProperties, function ($property) use ($shapeProperty) {
-              return $property->getDataType() === $shapeProperty->getDataType();
-            }));
-            $form['field_properties'][$name] = [
-              '#type' => 'select',
-              '#title' => $childShape->getTitle(),
-              '#default_value' => $this->configuration['field_properties'][$name] ?? '',
-              '#options' => $options,
-              '#empty_option' => $this->t('- Select -'),
-              '#required' => $childShape->isRequired(),
-            ];
-          }
+          // Allow assigning properties to the field.
+          $form = $this->buildMatchPropertiesConfigurationForm($form, $form_state);
         }
       }
     }
@@ -248,7 +184,7 @@ final class EntityValue extends ComponentValuePluginBase implements ContainerFac
     $hasOverrideValue = !empty($this->shape->getOverrideValue());
 
     $properties = $this->configuration['field_assign'] ? $this->configuration['field_properties'] : [];
-    $entityValue = $this->matcherField->getEntityValue($this->shape->getEntity(), $this->configuration['field'], $properties, [], $this->shape->getCacheableMetadata());
+    $entityValue = $this->getMatchValue($this->shape, $this->configuration['field'], $properties);
     $hasValue = !empty($entityValue);
     $this->hasEntityValue = $hasValue;
 
