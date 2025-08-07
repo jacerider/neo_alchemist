@@ -142,10 +142,24 @@
       }, 100);
     }
 
+    // Watch for errors.
+    iframes.forEach(iframe => {
+      iframe.onload = () => {
+        if (iframe.contentWindow) {
+          const html = iframe.contentWindow.document.querySelector('html');
+          if (html && !html.classList.contains('js') && wrapper) {
+            wrapper.style.visibility = '';
+            iframe.style.height = html.offsetHeight + 'px';
+          }
+        }
+      };
+    });
+
+    const active: string = localStorage.getItem('neo-alchemist-size') || 'split';
     [
-      {id: 'expand', contentHeight: '0%', formHeight: '100%', hideIframe: true, hideForm: false, active: false},
-      {id: 'split', contentHeight: '50%', formHeight: '50%', hideIframe: false, hideForm: false, active: true},
-      {id: 'contract', contentHeight: '100%', formHeight: '0%', hideIframe: false, hideForm: true, active: false}
+      {id: 'expand', contentHeight: '0%', formHeight: '100%', hideIframe: true, hideForm: false, active: active === 'expand'},
+      {id: 'split', contentHeight: '50%', formHeight: '50%', hideIframe: false, hideForm: false, active: active === 'split'},
+      {id: 'contract', contentHeight: '100%', formHeight: '0%', hideIframe: false, hideForm: true, active: active === 'contract'}
     ].forEach(data => {
       once('neo.alchemist', '.neo-alchemist-manage--size-' + data.id, container).forEach(el => {
         const content = container.querySelector('.neo-alchemist-manage--wrapper') as HTMLIFrameElement;
@@ -163,6 +177,7 @@
           sizes.forEach((el) => {
             el.classList.remove('is-active');
           });
+          localStorage.setItem('neo-alchemist-size', data.id);
           el.classList.add('is-active');
           content.style.height = data.contentHeight;
           content.style.transform = data.hideIframe ? 'scale(0.5)' : '';
