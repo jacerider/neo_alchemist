@@ -117,6 +117,17 @@ interface ComponentInterface extends ConfigEntityInterface, RenderableInterface,
   public function getThumbnail(): ?string;
 
   /**
+   * Gets the component path.
+   *
+   * This method retrieves the path of the component, which is typically the
+   * directory where the component's files are located.
+   *
+   * @return string
+   *   The path of the component.
+   */
+  public function getPath(): string;
+
+  /**
    * Gets the scope of the component.
    *
    * @return string
