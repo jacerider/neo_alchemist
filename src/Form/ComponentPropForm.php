@@ -112,7 +112,7 @@ final class ComponentPropForm extends EntityForm {
     if ($expanded) {
       return $this->shape->getPluginShapes(TRUE);
     }
-    if ($this->shape->allowPlugins()) {
+    if ($this->shape->allowConfigurablePlugins()) {
       return [$this->shape->id() => $this->shape];
     }
     return [];
@@ -130,68 +130,84 @@ final class ComponentPropForm extends EntityForm {
     $isExpanded = !empty($shape->getExpanded());
     $pluginShapes = $this->getPluginShapes();
     $expandableShapes = $shape->getExpandedableShapes(TRUE);
+    $isActive = $shape->isActive();
 
     if (!$form_state->get('original_prop')) {
       $props = $this->entity->getSetting('props', []);
       $form_state->set('original_prop', $props[$this->shape->getName()] ?? []);
     }
 
-    $groups = $this->groupManager->getDefinitions();
-    uasort($groups, [SortArray::class, 'sortByWeightElement']);
-    if (!$isExpanded) {
-      $form['tabs'] = [
-        '#type' => 'vertical_tabs',
-      ];
-    }
-    else {
-      foreach ($groups as $group) {
-        $form[$group['id']] = [
+    if ($isActive) {
+      $groups = $this->groupManager->getDefinitions();
+      uasort($groups, [SortArray::class, 'sortByWeightElement']);
+      if (!$isExpanded) {
+        $form['tabs'] = [
           '#type' => 'vertical_tabs',
-          '#title' => $group['label'],
+        ];
+      }
+      else {
+        foreach ($groups as $group) {
+          $form[$group['id']] = [
+            '#type' => 'vertical_tabs',
+            '#title' => $group['label'],
+          ];
+        }
+      }
+
+      foreach ($groups as $group) {
+        $tab = match(TRUE) {
+          $isExpanded => $group['id'],
+          default => 'tabs',
+        };
+        foreach ($pluginShapes as $pluginShape) {
+          $form = $this->buildPluginForm($form, $form_state, $pluginShape, $group['id'], $tab);
+        }
+      }
+
+      if ($expandableShapes) {
+        $parentShapeOptions = array_map(fn (ComponentShapePluginInterface $shape) => ($shape->isNested() ? $shape->getNestedTitle(TRUE) : $this->t('Root')), $expandableShapes);
+        $form['expanded'] = [
+          '#type' => 'checkboxes',
+          '#title' => $this->t('Expand Properties'),
+          '#description' => $this->t('These props contain nested properties. Expanding these properties will allow you to configure value providers and modifiers for each nested property.'),
+          '#default_value' => $expanded,
+          '#options' => $parentShapeOptions,
+          '#ajax' => [
+            'callback' => '::refreshFormAjax',
+            'wrapper' => $wrapperId,
+          ],
         ];
       }
     }
 
-    foreach ($groups as $group) {
-      $tab = match(TRUE) {
-        $isExpanded => $group['id'],
-        default => 'tabs',
-      };
-      foreach ($pluginShapes as $pluginShape) {
-        $form = $this->buildPluginForm($form, $form_state, $pluginShape, $group['id'], $tab);
-      }
-    }
+    $form['active'] = [
+      '#type' => 'checkbox',
+      '#title' => $this->t('Active'),
+      '#description' => $this->t('Enable this property. If disabled, the property will not be available on this component.'),
+      '#default_value' => $isActive,
+      '#ajax' => [
+        'callback' => '::refreshAjax',
+        'wrapper' => $wrapperId,
+      ],
+    ];
 
-    if ($expandableShapes) {
-      $parentShapeOptions = array_map(fn (ComponentShapePluginInterface $shape) => ($shape->isNested() ? $shape->getNestedTitle(TRUE) : $this->t('Root')), $expandableShapes);
-      $form['expanded'] = [
-        '#type' => 'checkboxes',
-        '#title' => $this->t('Expand Properties'),
-        '#description' => $this->t('These props contain nested properties. Expanding these properties will allow you to configure value providers and modifiers for each nested property.'),
-        '#default_value' => $expanded,
-        '#options' => $parentShapeOptions,
-        '#ajax' => [
-          'callback' => '::refreshFormAjax',
-          'wrapper' => $wrapperId,
-        ],
+    if ($isActive) {
+      $form['editable'] = [
+        '#type' => 'checkbox',
+        '#title' => $this->t('Allow Edit'),
+        '#description' => $this->t('Allow the default value of this property to be changed per component instance.'),
+        '#default_value' => $this->shape->isEditable(),
+        '#disabled' => $this->shape->isLocked(),
+      ];
+
+      $form['required'] = [
+        '#type' => 'checkbox',
+        '#title' => $this->t('Required'),
+        '#description' => $this->t('Require this property to be set for all component instances.'),
+        '#default_value' => $this->shape->isRequired(),
+        '#disabled' => $this->shape->isEnforcedRequired(),
       ];
     }
-
-    $form['editable'] = [
-      '#type' => 'checkbox',
-      '#title' => $this->t('Allow Edit'),
-      '#description' => $this->t('Allow the default value of this property to be changed per component instance.'),
-      '#default_value' => $this->shape->isEditable(),
-      '#disabled' => $this->shape->isLocked(),
-    ];
-
-    $form['required'] = [
-      '#type' => 'checkbox',
-      '#title' => $this->t('Required'),
-      '#description' => $this->t('Require this property to be set for all component instances.'),
-      '#default_value' => $this->shape->isRequired(),
-      '#disabled' => $this->shape->isEnforcedRequired(),
-    ];
 
     return $form;
   }
@@ -311,6 +327,8 @@ final class ComponentPropForm extends EntityForm {
 
     $shape = $this->shape;
     $shape->setExpanded(array_values(array_filter($form_state->getValue(['expanded'], []))));
+
+    $shape->setActive(!empty($form_state->getValue(['active'])));
     $shape->setEditable(!empty($form_state->getValue(['editable'])));
     $shape->setRequired(!empty($form_state->getValue(['required'])));
 
