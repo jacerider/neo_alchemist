@@ -13,6 +13,7 @@ use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\neo_alchemist\Attribute\ComponentFilter;
 use Drupal\neo_alchemist\ComponentFilterInterface;
 use Drupal\neo_alchemist\ComponentFilterPluginBase;
+use Drupal\neo_alchemist\ComponentFilterPluginEntityInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
@@ -23,7 +24,7 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
   label: new TranslatableMarkup('Entity'),
   description: new TranslatableMarkup('An entity filter.'),
 )]
-final class EntityFilter extends ComponentFilterPluginBase implements ContainerFactoryPluginInterface {
+final class EntityFilter extends ComponentFilterPluginBase implements ContainerFactoryPluginInterface, ComponentFilterPluginEntityInterface {
 
   use DependencySerializationTrait;
 
@@ -280,6 +281,36 @@ final class EntityFilter extends ComponentFilterPluginBase implements ContainerF
    */
   public function getValue(?string $value = NULL): mixed {
     return $value;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function getEntities(): array {
+    $value = $this->filter->getValue();
+    if (!$value) {
+      return [];
+    }
+    $values = explode($this->configuration['multiple_operator'], $value);
+    if ($this->configuration['multiple']) {
+      return $this->entityTypeManager->getStorage($this->configuration['entity_type'])->loadMultiple($values);
+    }
+    $id = reset($values);
+    return [$id => $this->entityTypeManager->getStorage($this->configuration['entity_type'])->load($id)];
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function getEntityTypeId(): string {
+    return $this->configuration['entity_type'];
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function getEntityBundles(): array {
+    return $this->configuration['bundles'] ?? [];
   }
 
 }
