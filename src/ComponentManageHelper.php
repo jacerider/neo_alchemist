@@ -172,7 +172,7 @@ class ComponentManageHelper {
       '#title' => neo_icon_admin(t('Back'), 'arrow-circle-left'),
       '#url' => $instance->toUrl('collection'),
       '#attributes' => [
-        'class' => ['btn', 'btn-xs'],
+        'class' => ['btn', 'btn-xs', 'btn-outline'],
       ],
     ];
     if ($instance->access('publish')) {
@@ -181,7 +181,7 @@ class ComponentManageHelper {
         '#title' => neo_icon_admin(t('Publish')),
         '#url' => $instance->toUrl('publish'),
         '#attributes' => [
-          'class' => ['use-ajax', 'btn', 'btn-xs', 'btn-primary'],
+          'class' => ['use-ajax', 'btn', 'btn-xs', 'btn-success'],
         ],
         '#modal' => $modalSettings,
       ];
