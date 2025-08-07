@@ -130,7 +130,11 @@ class ComponentPluginManager extends ThemeComponentPluginManager {
         $propRequired['required'] = $propDef['required'];
       }
       $prop = $propRequired + $prop + $propOptional;
-      if (isset($propDefinitions[$propDef['type']])) {
+      $propDefType = $propDef['type'];
+      if (is_array($propDefType)) {
+        $propDefType = reset($propDefType);
+      }
+      if (isset($propDefinitions[$propDefType])) {
         $prop = $this->alterProp($prop);
       }
     }
@@ -139,6 +143,9 @@ class ComponentPluginManager extends ThemeComponentPluginManager {
     }
     if (!empty($prop['items']['properties'])) {
       $prop['items']['properties'] = array_map([__CLASS__, 'alterProp'], $prop['items']['properties']);
+    }
+    elseif (!empty($prop['items'])) {
+      $prop['items'] = array_map([__CLASS__, 'alterProp'], ['items' => $prop['items']])['items'];
     }
     return $prop;
   }
