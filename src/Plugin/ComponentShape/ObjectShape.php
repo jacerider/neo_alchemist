@@ -9,7 +9,7 @@ use Drupal\Core\Form\SubformState;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\neo_alchemist\Attribute\ComponentShape;
 use Drupal\neo_alchemist\ComponentShapeExpandedPluginInterface;
-use Drupal\neo_alchemist\Drush\Generators\NeoComponentGenerator;
+use Drupal\neo_alchemist\Drush\Generators\NeoComponentPropGeneratorInterface;
 use DrupalCodeGenerator\InputOutput\Interviewer;
 
 /**
@@ -64,7 +64,7 @@ class ObjectShape extends ChildrenShapeBase implements ComponentShapeExpandedPlu
   protected function loadChildSchema(int|null $delta = NULL): array {
     $schema = $this->getSchema();
     // Use complete value instead of the getDefaultValue().
-    $value = $this->getFieldItemValue();
+    $value = $this->getDefaultValue();
     // Merge in any examples to each property.
     foreach ($schema['properties'] as $propName => &$prop) {
       $prop['examples'] = $value[$propName] ?? $schema['examples'][$propName] ?? $prop['examples'] ?? [];
@@ -103,7 +103,7 @@ class ObjectShape extends ChildrenShapeBase implements ComponentShapeExpandedPlu
       // we return an empty value so none of the children get populted.
       return $value;
     }
-    foreach ($this->getChildShapes() as $shapeName => $shape) {
+    foreach ($this->getChildShapes(NULL, $value) as $shapeName => $shape) {
       $value[$shapeName] = $shape->getValue();
       if (empty($value[$shapeName])) {
         // Do not include empty values or values that are set to empty.
@@ -134,7 +134,7 @@ class ObjectShape extends ChildrenShapeBase implements ComponentShapeExpandedPlu
         }
         // When in config scope, we only display forms if the child shape allows
         // plugins.
-        if ($shape->getScope() === 'config' && $shape->allowPlugins()) {
+        if ($shape->getScope() === 'config' && $shape->allowConfigurablePlugins()) {
           continue;
         }
         // Force values to allow nesting of multiple shapes. Only do this if the
@@ -191,7 +191,7 @@ class ObjectShape extends ChildrenShapeBase implements ComponentShapeExpandedPlu
   /**
    * {@inheritDoc}
    */
-  public static function onGeneration(array &$prop, array $vars, Interviewer $ir, NeoComponentGenerator $generator, array $parents) {
+  public static function onGeneration(array &$prop, array $vars, Interviewer $ir, NeoComponentPropGeneratorInterface $generator, array $parents) {
     // Only act on object props.
     if ($prop['type'] !== 'object') {
       return;
