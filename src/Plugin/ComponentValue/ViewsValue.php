@@ -96,9 +96,8 @@ final class ViewsValue extends ComponentValuePluginBase implements ContainerFact
       'view_items_per_page' => $this->shape->getType() === ComponentShapePluginInterface::OBJECT ? 1 : NULL,
       'view_items_offset' => NULL,
       'view_arguments' => [],
-      'shape_fields' => [],
       'continue' => FALSE,
-    ];
+    ] + $this->childrenMatchDefaultConfiguration();
   }
 
   /**
@@ -220,7 +219,7 @@ final class ViewsValue extends ComponentValuePluginBase implements ContainerFact
         }
 
         // Add shape fields.
-        $form += $this->buildChildrenMatchConfigurationForm($this->shape, $form, $form_state, $viewEntityType->id(), $viewEntityBundle);
+        $form += $this->buildChildrenMatchConfigurationForm($this->shape, $form, $form_state, $viewEntityType->id(), $viewEntityBundle, $this->configuration);
       }
       $form['continue'] = [
         '#type' => 'checkbox',
@@ -301,7 +300,7 @@ final class ViewsValue extends ComponentValuePluginBase implements ContainerFact
       $view->execute($this->configuration['view_display_id']);
       $results = [];
       $entities = array_map(fn($row) => $row->_entity, $view->result);
-      $results = $this->getChildrenMatchValues($this->shape, $entities);
+      $results = $this->getChildrenMatchValues($this->shape, $entities, $this->configuration);
       if (!empty($results) || empty($this->configuration['continue'])) {
         $value = $results;
         $this->stopFurtherProcessing();
