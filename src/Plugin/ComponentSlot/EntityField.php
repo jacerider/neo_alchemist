@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Drupal\neo_alchemist\Plugin\ComponentSlot;
 
-use Drupal\Component\Plugin\Factory\DefaultFactory;
 use Drupal\Component\Utility\Html;
 use Drupal\Component\Utility\NestedArray;
 use Drupal\Core\DependencyInjection\DependencySerializationTrait;
@@ -22,6 +21,7 @@ use Drupal\field\FieldLabelOptionsTrait;
 use Drupal\neo_alchemist\Attribute\ComponentSlot;
 use Drupal\neo_alchemist\ComponentInterface;
 use Drupal\neo_alchemist\ComponentSlotPluginBase;
+use Drupal\neo_alchemist\FieldFormatterTrait;
 use Drupal\neo_alchemist\MatcherReference;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
@@ -37,6 +37,7 @@ final class EntityField extends ComponentSlotPluginBase implements ContainerFact
 
   use DependencySerializationTrait;
   use FieldLabelOptionsTrait;
+  use FieldFormatterTrait;
 
   /**
    * The entity type manager service.
@@ -58,20 +59,6 @@ final class EntityField extends ComponentSlotPluginBase implements ContainerFact
    * @var \Drupal\Core\Entity\EntityFieldManagerInterface
    */
   protected EntityFieldManagerInterface $entityFieldManager;
-
-  /**
-   * The formatter plugin manager.
-   *
-   * @var \Drupal\Core\Field\FormatterPluginManager
-   */
-  protected FormatterPluginManager $pluginManager;
-
-  /**
-   * The module handler.
-   *
-   * @var \Drupal\Core\Extension\ModuleHandlerInterface
-   */
-  protected ModuleHandlerInterface $moduleHandler;
 
   /**
    * The field matcher.
@@ -100,7 +87,7 @@ final class EntityField extends ComponentSlotPluginBase implements ContainerFact
     $this->entityTypeManager = $entity_type_manager;
     $this->entityTypeBundleInfo = $entity_type_bundle_info;
     $this->entityFieldManager = $entity_field_manager;
-    $this->pluginManager = $formatter_manager;
+    $this->fieldFormatterManager = $formatter_manager;
     $this->moduleHandler = $module_handler;
     $this->matcherReference = $matcher_reference;
   }
@@ -131,10 +118,7 @@ final class EntityField extends ComponentSlotPluginBase implements ContainerFact
     return [
       'entity' => '',
       'field' => '',
-      'field_label' => 'hidden',
-      'field_settings' => [],
-      'field_third_party_settings' => [],
-    ];
+    ] + $this->formatterDefaultConfiguration();
   }
 
   /**
@@ -154,25 +138,7 @@ final class EntityField extends ComponentSlotPluginBase implements ContainerFact
     if ($fieldName = $this->configuration['field']) {
       $field = $this->getField($fieldName);
       if ($field) {
-        $summary[] = $this->t('Field: @label (@name)', [
-          '@label' => $field->getLabel(),
-          '@name' => $fieldName,
-        ]);
-      }
-      if ($pluginId = $this->configuration['field_plugin']) {
-        $pluginOptions = $this->getApplicablePluginOptions($field);
-        if (isset($pluginOptions[$pluginId])) {
-          $summary[] = $this->t('Display format: @label', [
-            '@label' => $pluginOptions[$pluginId],
-          ]);
-
-          $plugin = $this->getFormatterPlugin($pluginId, $field);
-          if ($plugin) {
-            if ($settingsSummary = $plugin->settingsSummary()) {
-              $summary = array_merge($summary, $settingsSummary);
-            }
-          }
-        }
+        $summary = array_merge($summary, $this->formatterSettingsSummary($field, $this->configuration));
       }
     }
     return $summary;
@@ -217,51 +183,10 @@ final class EntityField extends ComponentSlotPluginBase implements ContainerFact
 
     if ($fieldName && isset($fields[$fieldName])) {
       $field = $fields[$fieldName];
-      $form['field_label'] = [
-        '#type' => 'select',
-        '#title' => $this->t('Label display'),
-        '#options' => $this->getFieldLabelOptions(),
-        '#default_value' => $this->configuration['field_label'],
-        '#required' => TRUE,
-      ];
-      if ($pluginOptions = $this->getApplicablePluginOptions($field)) {
-        $pluginId = $this->configuration['field_plugin'];
-        $form['field_plugin'] = [
-          '#type' => 'select',
-          '#title' => $this->t('Display format'),
-          '#options' => $pluginOptions,
-          '#default_value' => $pluginId,
-          '#required' => TRUE,
-          '#ajax' => [
-            'callback' => [static::class, 'refreshAjax'],
-            'wrapper' => $wrapperId,
-          ],
-        ];
-        if ($pluginId && $this->pluginManager->hasDefinition($pluginId)) {
-          $plugin = $this->getFormatterPlugin($pluginId, $field);
-          if ($plugin) {
-            $form['field_settings'] = $plugin->settingsForm($form, $form_state);
-
-            $settings_form = [];
-            // Invoke hook_field_widget_third_party_settings_form(), keying
-            // resulting subforms by module name.
-            $this->moduleHandler->invokeAllWith(
-              'field_formatter_third_party_settings_form',
-              function (callable $hook, string $module) use (&$settings_form, $plugin, $field, &$form, $form_state) {
-                $settings_form[$module] = $hook(
-                  $plugin,
-                  $field,
-                  'full',
-                  $form,
-                  $form_state
-                );
-              }
-            );
-
-            $form['field_third_party_settings'] = $settings_form;
-          }
-        }
-      }
+      $form = $this->formatterConfigurationForm($form, $form_state, $field, $this->configuration, [
+        'callback' => [static::class, 'refreshAjax'],
+        'wrapper' => $wrapperId,
+      ]);
     }
     return $form;
   }
@@ -326,53 +251,6 @@ final class EntityField extends ComponentSlotPluginBase implements ContainerFact
    */
   private function getField(string $fieldName): ?FieldDefinitionInterface {
     return $this->getFields()[$fieldName] ?? NULL;
-  }
-
-  /**
-   * Returns an array of applicable widget or formatter options for a field.
-   *
-   * @param \Drupal\Core\Field\FieldDefinitionInterface $field_definition
-   *   The field definition.
-   *
-   * @return array
-   *   An array of applicable widget or formatter options.
-   */
-  protected function getApplicablePluginOptions(FieldDefinitionInterface $field_definition) {
-    $options = $this->pluginManager->getOptions($field_definition->getType());
-    $applicable_options = [];
-    foreach ($options as $option => $label) {
-      $plugin_class = DefaultFactory::getPluginClass($option, $this->pluginManager->getDefinition($option));
-      if ($plugin_class::isApplicable($field_definition)) {
-        $applicable_options[$option] = $label;
-      }
-    }
-    return $applicable_options;
-  }
-
-  /**
-   * Get the formatter plugin.
-   *
-   * @param string $pluginId
-   *   The plugin ID.
-   * @param \Drupal\Core\Field\FieldDefinitionInterface $field
-   *   The field definition.
-   *
-   * @return \Drupal\Core\Field\FormatterInterface|false
-   *   The formatter plugin.
-   */
-  protected function getFormatterPlugin(string $pluginId, FieldDefinitionInterface $field) {
-    return $this->pluginManager->getInstance([
-      'field_definition' => $field,
-      'view_mode' => 'full',
-      'prepare' => FALSE,
-      'configuration' => [
-        'type' => $pluginId,
-        'label' => $this->configuration['field_label'],
-        'settings' => $this->configuration['field_settings'],
-        'third_party_settings' => $this->configuration['field_third_party_settings'],
-        'region' => 'content',
-      ],
-    ]);
   }
 
 }
