@@ -50,9 +50,6 @@ final class MatcherReference extends MatcherBase {
    * in a select input or similar UI component. The options are grouped by
    * their respective group names, with each group's name capitalized.
    *
-   * @param ComponentShapePluginInterface $shape
-   *   The component shape plugin interface instance for which matches are to be
-   *   retrieved.
    * @param string|null $entityTypeId
    *   (optional) The entity type ID to match against. Defaults to NULL.
    * @param string|null $entityBundle
