@@ -7,7 +7,7 @@ namespace Drupal\neo_alchemist\Plugin\ComponentShape;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\neo_alchemist\Attribute\ComponentShape;
 use Drupal\neo_alchemist\ComponentShapePluginBase;
-use Drupal\neo_alchemist\Drush\Generators\NeoComponentGenerator;
+use Drupal\neo_alchemist\Drush\Generators\NeoComponentPropGeneratorInterface;
 use DrupalCodeGenerator\InputOutput\Interviewer;
 
 /**
@@ -79,7 +79,7 @@ class UrlShape extends ComponentShapePluginBase {
   /**
    * {@inheritDoc}
    */
-  public static function onGeneration(array &$prop, array $vars, Interviewer $ir, NeoComponentGenerator $generator, array $parents) {
+  public static function onGeneration(array &$prop, array $vars, Interviewer $ir, NeoComponentPropGeneratorInterface $generator, array $parents) {
     $prop['examples'] = 'internal:/';
   }
 
