@@ -11,8 +11,8 @@ use Drupal\Core\Plugin\ContainerFactoryPluginInterface;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\filter\FilterFormatInterface;
 use Drupal\neo_alchemist\Attribute\ComponentValue;
+use Drupal\neo_alchemist\ComponentPropRenderable;
 use Drupal\neo_alchemist\ComponentShapePluginInterface;
-use Drupal\neo_alchemist\ComponentShapeTextFormatPluginInterface;
 use Drupal\neo_alchemist\ComponentValuePluginBase;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
@@ -90,9 +90,6 @@ final class FormattedTextValue extends ComponentValuePluginBase implements Conta
       'allowed_formats' => [$this->configuration['format']],
     ]);
     $shape->setWidget('text_textarea');
-    if ($shape instanceof ComponentShapeTextFormatPluginInterface) {
-      $shape->setTextFormat($this->configuration['format']);
-    }
   }
 
   /**
@@ -166,11 +163,19 @@ final class FormattedTextValue extends ComponentValuePluginBase implements Conta
    * {@inheritdoc}
    */
   public function modifyValue(mixed $value): mixed {
+    if ($value instanceof ComponentPropRenderable) {
+      return [$value->build()];
+    }
+    $value = [
+      '#type' => 'processed_text',
+      '#text' => $value,
+      '#format' => $this->configuration['format'],
+    ];
     // The #text property needs to be a string and not an array.
     if (isset($value['#text']) && is_array($value['#text'])) {
       $value['#text'] = $value['#text']['value'] ?? '';
     }
-    return $value;
+    return \Drupal::service('renderer')->render($value);
   }
 
 }
