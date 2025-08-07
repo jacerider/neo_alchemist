@@ -11,6 +11,7 @@ use Drupal\Core\Entity\Plugin\DataType\ConfigEntityAdapter;
 use Drupal\Core\Entity\Plugin\DataType\EntityAdapter;
 use Drupal\Core\Entity\TypedData\EntityDataDefinition;
 use Drupal\Core\Entity\TypedData\EntityDataDefinitionInterface;
+use Drupal\Core\Extension\ModuleHandlerInterface;
 use Drupal\Core\Field\FieldDefinitionInterface;
 use Drupal\Core\Field\FieldItemInterface;
 use Drupal\Core\Field\TypedData\FieldItemDataDefinitionInterface;
@@ -38,6 +39,7 @@ abstract class MatcherBase {
    * Constructs a MatcherField object.
    */
   public function __construct(
+    protected readonly ModuleHandlerInterface $moduleHandler,
     protected readonly EntityTypeManagerInterface $entityTypeManager,
     protected readonly EntityFieldManagerInterface $entityFieldManager,
     protected readonly EntityTypeBundleInfoInterface $entityTypeBundleInfo,
