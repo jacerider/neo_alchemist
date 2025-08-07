@@ -57,6 +57,7 @@ final class ComponentShape extends AttributeBase {
     public readonly ?array $supports_field_types = NULL,
     public readonly ?array $supports_field_props = NULL,
     public readonly ?array $formats = NULL,
+    public ?string $provider = NULL,
     public readonly ?string $deriver = NULL,
   ) {}
 
