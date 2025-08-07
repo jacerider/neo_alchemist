@@ -7,7 +7,7 @@ namespace Drupal\neo_alchemist\Plugin\ComponentShape;
 use Drupal\Core\Template\Attribute;
 use Drupal\neo_alchemist\ComponentShapePluginBase;
 use Drupal\neo_alchemist\ComponentShapeStylePluginInterface;
-use Drupal\neo_alchemist\Drush\Generators\NeoComponentGenerator;
+use Drupal\neo_alchemist\Drush\Generators\NeoComponentPropGeneratorInterface;
 use Drupal\neo_alchemist\Drush\Generators\NeoComponentTwig;
 use DrupalCodeGenerator\InputOutput\Interviewer;
 
@@ -45,7 +45,7 @@ abstract class StyleShapeBase extends ComponentShapePluginBase implements Compon
    */
   public function modifyAttributes(Attribute $attributes) {
     if (array_key_exists('apply', $this->schema) && !empty($this->schema['apply'])) {
-      $value = $this->getPropValue();
+      $value = $this->getValue();
       if ($value instanceof Attribute) {
         $attributes->merge($value);
       }
@@ -55,7 +55,7 @@ abstract class StyleShapeBase extends ComponentShapePluginBase implements Compon
   /**
    * {@inheritDoc}
    */
-  public static function onGeneration(array &$prop, array $vars, Interviewer $ir, NeoComponentGenerator $generator, array $parents) {
+  public static function onGeneration(array &$prop, array $vars, Interviewer $ir, NeoComponentPropGeneratorInterface $generator, array $parents) {
     $prop['apply'] = $ir->confirm('Apply style to component wrapper?', TRUE) ? 'true' : 'false';
   }
 
