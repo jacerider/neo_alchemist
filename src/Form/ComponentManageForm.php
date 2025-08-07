@@ -180,8 +180,9 @@ final class ComponentManageForm extends EntityForm {
           'type' => $this->t('Type'),
           'value_providers' => $this->t('Value Providers'),
           'value_modifiers' => $this->t('Value Modifiers'),
-          'required' => $this->t('Required'),
+          'active' => $this->t('Active'),
           'editable' => $this->t('Editable'),
+          'required' => $this->t('Required'),
           'operations' => '',
         ],
         '#neo_style' => [
@@ -191,12 +192,14 @@ final class ComponentManageForm extends EntityForm {
           'value_modifiers' => 'xs',
         ],
         '#neo_size' => [
-          'required' => 'min',
+          'active' => 'min',
           'editable' => 'min',
+          'required' => 'min',
         ],
         '#neo_align' => [
-          'required' => 'center',
+          'active' => 'center',
           'editable' => 'center',
+          'required' => 'center',
         ],
       ];
       $form['styles'] = [
@@ -215,12 +218,20 @@ final class ComponentManageForm extends EntityForm {
           return $provider->label();
         }, array_filter($plugins, fn ($plugin) => $plugin->getGroup() === 'modifiers')));
 
-        $row['required']['#markup'] = $shape->isRequired() ? $this->icon($this->t('Yes'))->iconOnly() : $this->icon($this->t('No'))->iconOnly();
-        if ($shape->isLocked()) {
+        $isActive = $shape->isActive();
+        $row['active']['#markup'] = $this->statusIcon($isActive, 'Yes', 'No')->iconOnly();
+        if (!$isActive) {
           $row['editable']['#markup'] = $this->icon($this->t('No'), 'ban')->iconOnly();
+          $row['required']['#markup'] = $this->icon($this->t('No'), 'ban')->iconOnly();
         }
         else {
-          $row['editable']['#markup'] = $shape->isEditable() ? $this->icon($this->t('Yes'))->iconOnly() : $this->icon($this->t('No'))->iconOnly();
+          if ($shape->isLocked()) {
+            $row['editable']['#markup'] = $this->icon($this->t('No'), 'ban')->iconOnly();
+          }
+          else {
+            $row['editable']['#markup'] = $this->statusIcon($shape->isEditable(), 'Yes', 'No')->iconOnly();
+          }
+          $row['required']['#markup'] = $this->statusIcon($shape->isRequired(), 'Yes', 'No')->iconOnly();
         }
 
         $links = [];
@@ -286,8 +297,8 @@ final class ComponentManageForm extends EntityForm {
           'plugins' => 'xs',
         ],
         '#neo_size' => [
-          'required' => 'min',
           'editable' => 'min',
+          'required' => 'min',
         ],
       ];
 
@@ -373,8 +384,8 @@ final class ComponentManageForm extends EntityForm {
       '#header' => [
         'property' => $this->t('Filter'),
         'plugin' => $this->t('Plugin'),
-        'required' => $this->t('Required'),
         'editable' => $this->t('Editable'),
+        'required' => $this->t('Required'),
         'operations' => '',
       ],
       '#neo_style' => [
@@ -383,12 +394,12 @@ final class ComponentManageForm extends EntityForm {
       ],
       '#neo_size' => [
         'operations' => 'min',
-        'required' => 'min',
         'editable' => 'min',
+        'required' => 'min',
       ],
       '#neo_align' => [
-        'required' => 'center',
         'editable' => 'center',
+        'required' => 'center',
       ],
     ];
 
@@ -404,8 +415,8 @@ final class ComponentManageForm extends EntityForm {
           '#context' => ['summary' => $summary],
         ];
       }
-      $row['required']['#markup'] = $filter->isRequired() ? $this->icon($this->t('Yes'))->iconOnly() : $this->icon($this->t('No'))->iconOnly();
       $row['editable']['#markup'] = $filter->isEditable() ? $this->icon($this->t('Yes'))->iconOnly() : $this->icon($this->t('No'))->iconOnly();
+      $row['required']['#markup'] = $filter->isRequired() ? $this->icon($this->t('Yes'))->iconOnly() : $this->icon($this->t('No'))->iconOnly();
 
       $links = [];
       $links['edit'] = [
@@ -489,12 +500,12 @@ final class ComponentManageForm extends EntityForm {
       ],
       '#neo_size' => [
         'operations' => 'min',
-        'required' => 'min',
         'editable' => 'min',
+        'required' => 'min',
       ],
       '#neo_align' => [
-        'required' => 'center',
         'editable' => 'center',
+        'required' => 'center',
       ],
     ];
 
