@@ -13,6 +13,11 @@ heading:
     subtitle:
       title: Subtitle
       type: string
+    h1:
+      title: Show as page title
+      description: If checked, the component will be treated as an H1. It is recommended to only do this for the first component on a page.
+      type: boolean
+      examples: 0
   examples:
     supertitle: Example supertitle
     title: Example title
@@ -20,14 +25,18 @@ heading:
   twig:
     prefix: '{% if %name% %}'
     content:
-      - '{% if %name%.supertitle %}<div class="text-xl font-bold">{{ %name%.supertitle }}</div>{% endif %}'
-      - '<h2 class="text-3xl font-bold">{{ %name%.title }}</h2>'
-      - '{% if %name%.subtitle %}<div class="text-sm">{{ %name%.subtitle }}</div>{% endif %}'
+      - '<div>'
+      - '  {% if %name%.supertitle %}<div class="{% if %name%.h1 %}page-supertitle{% else %}component-supertitle{% endif %}">{{ %name%.supertitle }}</div>{% endif %}'
+      - '  <h2 class="{% if %name%.h1 %}page-title{% else %}component-title{% endif %}">{{ %name%.title }}</h2>'
+      - '  {% if %name%.subtitle %}<div class="{% if %name%.h1 %}page-subtitle{% else %}component-subtitle{% endif %}">{{ %name%.subtitle }}</div>{% endif %}'
+      - '</div>'
     suffix: '{% endif %}'
 
 markup:
   title: Markup
-  type: string
+  type:
+    - string
+    - array
   examples: '<p>ExampleDuis in neque a velit semper lacinia vel nec leo.</p>'
   twig:
     prefix: '{% if %name% %}'
@@ -70,7 +79,7 @@ image-uri:
   title: Image URL
   type: string
   format: uri-reference
-  pattern: ^(\/|https?:\/\/).*\.(?i)(png|gif|jpg|jpeg|webp)(\?.*)?(#.*)?$
+  pattern: ^(\/|theme:\/\/|component:\/\/|https?:\/\/).*\.(?i)(png|gif|jpg|jpeg|webp)(\?.*)?(#.*)?$
   examples: https://placehold.co/100x100.png
   twig:
     prefix: '{% if %name% %}'
@@ -85,6 +94,15 @@ email:
   twig:
     prefix: '{% if %name% %}'
     content: '<a href="mailto:{{ %name% }}">{{ %name% }}</a>'
+    suffix: '{% endif %}'
+
+telephone:
+  title: Telephone
+  type: string
+  example: 612-555-1234
+  twig:
+    prefix: '{% if %name% %}'
+    content: '<a href="tel:{{ %name% }}">{{ %name% }}</a>'
     suffix: '{% endif %}'
 
 uri:
@@ -151,6 +169,85 @@ url:
       - '</a>'
     suffix: '{% endif %}'
 
+address:
+  title: Address
+  type: object
+  properties:
+    given_name:
+      title: 'Given name'
+      type: string
+    additional_name:
+      title: 'Additional name'
+      type: string
+    family_name:
+      title: 'Family name'
+      type: string
+    organization:
+      title: 'Organization'
+      type: string
+    address_line1:
+      title: 'Address line 1'
+      type: string
+    address_line2:
+      title: 'Address line 2'
+      type: string
+    address_line3:
+      title: 'Address line 3'
+      type: string
+    locality:
+      title: 'Locality'
+      type: string
+    dependent_locality:
+      title: 'Dependent locality'
+      type: string
+    administrative_area:
+      title: 'Administrative area'
+      type: string
+    postal_code:
+      title: 'Postal code'
+      type: string
+    sorting_code:
+      title: 'Sorting code'
+      type: string
+    country_code:
+      title: 'Country code'
+      type: string
+  examples:
+    given_name: First Name
+    family_name: Last Name
+    organization: Organization
+    address_line1: 1234 Somewhere Lane
+    address_line2: PO Box 123
+    locality: Minneapolis
+    administrative_area: MN
+    postal_code: '55401'
+    country_code: 'US'
+  twig:
+    prefix: '{% if %name% %}'
+    content:
+      - '{% if %name%.given_name or %name%.family_name %}'
+      - '  <div>{{ %name%.given_name }} {{ %name%.family_name }}</div>'
+      - '{% endif %}'
+      - '{% if %name%.organization %}'
+      - '  <div>{{ %name%.organization }}</div>'
+      - '{% endif %}'
+      - '{% if %name%.address_line1 %}'
+      - '  <div>{{ %name%.address_line1 }}</div>'
+      - '{% endif %}'
+      - '{% if %name%.address_line2 %}'
+      - '  <div>{{ %name%.address_line2 }}</div>'
+      - '{% endif %}'
+      - '{% if %name%.address_line3 %}'
+      - '  <div>{{ %name%.address_line3 }}</div>'
+      - '{% endif %}'
+      - '{% if %name%.dependent_locality %}'
+      - '  <div>{{ %name%.dependent_locality }}</div>'
+      - '{% endif %}'
+      - '{% if %name%.locality or %name%.postal_code or %name%.administrative_area %}'
+      - '  <div>{{ %name%.locality }}{% if %name%.administrative_area %}{% if %name%.locality %}, {% endif %}{{ %name%.administrative_area }}{% endif %}{% if %name%.postal_code %}{% if %name%.administrative_area or %name%.locality %}, {% endif %} {{ %name%.postal_code }}{% endif %}</div>'
+      - '{% endif %}'
+    suffix: '{% endif %}'
+
 menu:
   title: Menu
   type: array
@@ -187,8 +284,7 @@ menu:
         title: URI
         type: url
   twig:
-    prefix:
-      - '{% if %name% %}'
+    prefix: '{% if %name% %}'
     content:
       - '{% for item in %name% %}'
       - '  <a href="{{ neo_uri(item.url.uri, item.url.options) }}">'
@@ -202,6 +298,51 @@ menu:
       - '  </a>'
       - '{% endfor %}'
     suffix: '{% endif %}'
+
+breadcrumb:
+  title: Breadcrumb
+  type: array
+  examples:
+    - title: Home
+      url: internal:/
+    - title: Level 1
+      url: internal:/
+    - title: Level 2
+      url: internal:/
+    - title: Current Page
+      url: ''
+  items:
+    title: Breadcrumb Items
+    type: object
+    required:
+      - title
+    properties:
+      title:
+        title: Title
+        type: string
+      url:
+        title: URI
+        type: url
+  twig:
+    prefix:
+      - '{% if %name% %}'
+      - <nav aria-label="{{ 'Breadcrumb'|t }}">
+    content:
+      - '<ol>'
+      - '{% for item in %name% %}'
+      - '  <li>'
+      - '    <{% if item.url %}a href="{{ neo_uri(item.url.uri, item.url.options) }}"{% else %}span{% endif %}{% if loop.last %} aria-current="page"{% endif %}>'
+      - '      {{ item.title }}'
+      - '    </{% if item.url %}a{% else %}span{% endif %}>'
+      - '  </li>'
+      - '  {% if not loop.last %}'
+      - '    <li>/</li>'
+      - '  {% endif %}'
+      - '{% endfor %}'
+      - '</ol>'
+    suffix:
+      - '</nav>'
+      - '{% endif %}'
 
 scheme:
   title: Color Scheme
@@ -254,8 +395,14 @@ padding:
       label: Large
       value: p-component-lg
     xl:
-      label: Extra Large
+      label: XL
       value: p-component-xl
+    2xl:
+      label: 2XL
+      value: p-component-2xl
+    3xl:
+      label: 3XL
+      value: p-component-3xl
 
 margin:
   title: Margin
@@ -276,8 +423,14 @@ margin:
       label: Large
       value: m-component-lg
     xl:
-      label: Extra Large
+      label: XL
       value: m-component-xl
+    2xl:
+      label: 2XL
+      value: m-component-2xl
+    3xl:
+      label: 3XL
+      value: m-component-3xl
 
 text_align:
   title: Text Alignment
