@@ -110,7 +110,12 @@ final class EntityHasValue extends ComponentValuePluginBase implements Container
    * {@inheritdoc}
    */
   public function provideOverrideValue(mixed $value, mixed $defaultValue): mixed {
-    $isEmpty = !empty($this->matcherField->getEntityValue($this->shape->getEntity(), $this->configuration['field']));
+    $isEmpty = !empty($this->matcherField->getEntityValue(
+      entity: $this->shape->getEntity(),
+      key: $this->configuration['field'],
+      published: TRUE,
+      cacheableMetadata: $this->shape->getCacheableMetadata()
+    ));
     if (!$isEmpty) {
       $this->stopFurtherProcessing();
       return FALSE;
