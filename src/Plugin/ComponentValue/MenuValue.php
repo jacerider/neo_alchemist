@@ -15,7 +15,6 @@ use Drupal\neo_alchemist\Attribute\ComponentValue;
 use Drupal\neo_alchemist\ComponentShapeChildrenPluginInterface;
 use Drupal\neo_alchemist\ComponentShapePluginInterface;
 use Drupal\neo_alchemist\ComponentValuePluginBase;
-use Drupal\neo_alchemist\MatcherField;
 use Drupal\system\MenuInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
@@ -34,7 +33,6 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
 final class MenuValue extends ComponentValuePluginBase implements ContainerFactoryPluginInterface {
 
   use DependencySerializationTrait;
-  use ComponentValueModifierTrait;
 
   /**
    * The entity type manager service.
@@ -51,13 +49,6 @@ final class MenuValue extends ComponentValuePluginBase implements ContainerFacto
   protected MenuLinkTreeInterface $menuTree;
 
   /**
-   * The field matcher.
-   *
-   * @var \Drupal\neo_alchemist\MatcherField
-   */
-  protected MatcherField $matcherField;
-
-  /**
    * {@inheritdoc}
    */
   public function __construct(
@@ -67,12 +58,10 @@ final class MenuValue extends ComponentValuePluginBase implements ContainerFacto
     array $configuration,
     EntityTypeManagerInterface $entity_type_manager,
     MenuLinkTreeInterface $menu_link_tree,
-    MatcherField $matcher_field,
   ) {
     parent::__construct($plugin_id, $plugin_definition, $shape, $configuration);
     $this->entityTypeManager = $entity_type_manager;
     $this->menuTree = $menu_link_tree;
-    $this->matcherField = $matcher_field;
   }
 
   /**
@@ -86,7 +75,6 @@ final class MenuValue extends ComponentValuePluginBase implements ContainerFacto
       $configuration['settings'],
       $container->get('entity_type.manager'),
       $container->get('menu.link_tree'),
-      $container->get('neo_alchemist.matcher_field')
     );
   }
 
@@ -209,7 +197,7 @@ final class MenuValue extends ComponentValuePluginBase implements ContainerFacto
           'icon' => $attributes['data-icon'] ?? '',
           'url' => [
             'title' => $item['title'],
-            'uri' => $item['url']->toUriString(),
+            'uri' => $url->toUriString(),
             'options' => $options,
           ],
         ];
