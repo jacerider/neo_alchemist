@@ -12,7 +12,7 @@ use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\neo_alchemist\Attribute\ComponentShape;
 use Drupal\neo_alchemist\ComponentShapeInterablePluginInterface;
 use Drupal\neo_alchemist\ComponentShapePluginInterface;
-use Drupal\neo_alchemist\Drush\Generators\NeoComponentGenerator;
+use Drupal\neo_alchemist\Drush\Generators\NeoComponentPropGeneratorInterface;
 use Drupal\neo_alchemist\Drush\Generators\NeoComponentTwig;
 use DrupalCodeGenerator\InputOutput\Interviewer;
 use DrupalCodeGenerator\Validator\Required;
@@ -95,7 +95,9 @@ class ArrayShape extends ChildrenShapeBase implements ComponentShapeInterablePlu
     $values = $values ?? $this->getFieldItemValue();
     foreach ($values as $delta => $value) {
       if (is_int($delta)) {
-        $shapes = $this->getChildShapes((int) $delta);
+        // Passing $value here was implemented as a way to carry values into
+        // the children shapes.
+        $shapes = $this->getChildShapes((int) $delta, $value);
         foreach ($shapes as $shapeName => $shape) {
           $keyedShapes[$delta][$shapeName] = $shape;
         }
@@ -117,7 +119,8 @@ class ArrayShape extends ChildrenShapeBase implements ComponentShapeInterablePlu
    */
   protected function loadChildSchema(int|null $delta = 0): array {
     $schema = $this->getSchema();
-    $defaultValue = $this->getFieldItemValue();
+    // Use complete value instead of the getDefaultValue().
+    $defaultValue = $this->getDefaultValue();
 
     if (empty($schema['items'])) {
       return [];
@@ -175,13 +178,28 @@ class ArrayShape extends ChildrenShapeBase implements ComponentShapeInterablePlu
    */
   public function getValue(): mixed {
     $values = parent::getValue();
-    foreach ($this->getChildShapeList() as $delta => $shapes) {
+    $defaultValues = $this->getDefaultValue();
+    foreach ($this->getChildShapeList($values) as $delta => $shapes) {
       /** @var \Drupal\neo_alchemist\ComponentShapePluginInterface[] $shapes */
       foreach ($shapes as $shapeName => $shape) {
         $values[$delta][$shapeName] = $shape->getValue();
         if (empty($values[$delta][$shapeName])) {
-          // Do not include empty values or values that are set to empty.
-          unset($values[$delta][$shapeName]);
+          if ($shape->getOptionDefault()->isEnabled()) {
+            // If the default option is enabled, we use the default value on
+            // the shape otherwise use the default option on the child shape.
+            // @todo This may have issues.
+            $defaultValue = $shape->getDefaultValue();
+            $values[$delta][$shapeName] = $defaultValues[$delta][$shapeName] ?? $defaultValue;
+            if (is_array($values[$delta][$shapeName]) && is_array($defaultValue)) {
+              // This was added when using default on a link. The 'options'
+              // property was not being set.
+              $values[$delta][$shapeName] += $defaultValue;
+            }
+          }
+          else {
+            // Do not include empty values or values that are set to empty.
+            unset($values[$delta][$shapeName]);
+          }
         }
         elseif ($this->isSingleProp()) {
           $values[$delta] = $values[$delta][$shapeName];
@@ -445,7 +463,7 @@ class ArrayShape extends ChildrenShapeBase implements ComponentShapeInterablePlu
   /**
    * {@inheritDoc}
    */
-  public static function onGeneration(array &$prop, array $vars, Interviewer $ir, NeoComponentGenerator $generator, array $parents) {
+  public static function onGeneration(array &$prop, array $vars, Interviewer $ir, NeoComponentPropGeneratorInterface $generator, array $parents) {
     // Only act on array props.
     if ($prop['type'] !== 'array') {
       return;
