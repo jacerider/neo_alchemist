@@ -239,7 +239,6 @@ final class MediaValue extends ComponentValuePluginBase implements ContainerFact
     if (!$shape instanceof ComponentShapeMediaPluginInterface) {
       return $value;
     }
-
     $media = NULL;
     foreach (array_filter($this->configuration['default']) as $type => $default) {
       /** @var \Drupal\neo_config_file\ConfigFileInterface $configFile */
