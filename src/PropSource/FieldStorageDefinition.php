@@ -30,6 +30,13 @@ final class FieldStorageDefinition extends BaseFieldDefinition {
   /**
    * {@inheritdoc}
    */
+  public function id(): string {
+    return $this->getName();
+  }
+
+  /**
+   * {@inheritdoc}
+   */
   public function getOptionsProvider($property_name, FieldableEntityInterface $entity) {
     // If the field item class implements the interface, create an orphaned
     // runtime item object, so that it can be used as the options provider
