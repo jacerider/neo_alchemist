@@ -47,11 +47,11 @@ services:
 
   neo_alchemist.matcher_field:
     class: Drupal\neo_alchemist\MatcherField
-    arguments: ['@entity_type.manager', '@entity_field.manager', '@entity_type.bundle.info']
+    arguments: ['@module_handler', '@entity_type.manager', '@entity_field.manager', '@entity_type.bundle.info']
 
   neo_alchemist.matcher_reference:
     class: Drupal\neo_alchemist\MatcherReference
-    arguments: ['@entity_type.manager', '@entity_field.manager', '@entity_type.bundle.info']
+    arguments: ['@module_handler', '@entity_type.manager', '@entity_field.manager', '@entity_type.bundle.info']
 
   neo_alchemist.route_subscriber:
     class: Drupal\neo_alchemist\EventSubscriber\RouteSubscriber
