@@ -73,6 +73,9 @@ neo_alchemist.neo_component_settings.props:
           PluginExists:
             manager: plugin.manager.field.field_type
             interface: '\Drupal\Core\Field\FieldItemInterface'
+      active:
+        type: boolean
+        label: Active
       editable:
         type: boolean
         label: Editable
@@ -128,6 +131,14 @@ neo_alchemist.neo_component_value.menu:
       type: string
       label: Menu ID
 
+neo_alchemist.neo_component_value.breadcrumb:
+  type: mapping
+  label: 'Breadcrumb value provider'
+  mapping:
+    hide_current:
+      type: boolean
+      label: Hide current
+
 neo_alchemist.neo_component_value.default:
   type: mapping
   label: 'Default value provider'
@@ -175,6 +186,16 @@ neo_alchemist.neo_component_value.entity:
     override_empty:
       type: boolean
       label: 'Allow override when value is empty'
+
+neo_alchemist.neo_component_value.entity_filter:
+  type: mapping
+  label: 'Entity filter value provider'
+  mapping:
+    filter:
+      type: string
+      label: The filter
+    shape_fields:
+      type: neo_alchemist.neo_component_shape_fields
 
 neo_alchemist.neo_component_value.formatted_text:
   type: mapping
@@ -297,7 +318,7 @@ neo_alchemist.neo_component_settings.filters:
     type: mapping
     label: 'Filter'
     mapping:
-      label:
+      title:
         type: string
         label: Title
       description:
