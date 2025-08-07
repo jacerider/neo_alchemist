@@ -1,13 +1,14 @@
-(function(o, r) {
+(function(o, s) {
   function l(n, t) {
     let e;
-    return function(...s) {
+    return function(...r) {
       e && clearTimeout(e), e = setTimeout(() => {
-        n.apply(this, s);
+        n.apply(this, r);
       }, t);
     };
   }
   function m() {
+    console.log("Refreshing Neo Alchemist instance component form");
     const n = jQuery("#neo-alchemist--instance-component-form");
     if (o.Ajax) {
       c = null;
@@ -32,15 +33,15 @@
   let c = null;
   o.behaviors.neoAlchemistInstanceComponentAjaxForm = {
     attach: function() {
-      r("neo.alchemist", "#" + i + " [data-autocomplete-path]").forEach((t) => {
+      s("neo.alchemist", "#" + i + " [data-autocomplete-path]").forEach((t) => {
         jQuery(t).on("autocompleteselect", function(e) {
           a();
         });
-      }), r("neo.alchemist", "#" + i).forEach((t) => {
-        o.CKEditor5Instances && setTimeout(() => {
-          o.CKEditor5Instances.size && r("neo.alchemist", "#" + i + " [data-ckeditor5-id]").forEach((e) => {
-            o.CKEditor5Instances.forEach((s) => {
-              s.model.document.on("change:data", () => {
+      }), s("neo.alchemist", "#" + i).forEach((t) => {
+        console.log(t), o.CKEditor5Instances && setTimeout(() => {
+          o.CKEditor5Instances.size && s("neo.alchemist", "#" + i + " [data-ckeditor5-id]").forEach((e) => {
+            o.CKEditor5Instances.forEach((r) => {
+              r.model.document.on("change:data", () => {
                 a();
               });
             });
