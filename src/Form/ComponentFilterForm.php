@@ -200,6 +200,8 @@ final class ComponentFilterForm extends EntityForm {
     $this->filter->setTitle($form_state->getValue('title'));
     $this->filter->setDescription($form_state->getValue('description'));
     $this->filter->setPluginId($form_state->getValue('plugin_id') ?: '');
+    $this->filter->setEditable((bool) $form_state->getValue('editable'));
+    $this->filter->setRequired((bool) $form_state->getValue('required'));
 
     $plugin = $this->filter->getPlugin();
     if ($plugin && !empty($form['plugin_settings'])) {
@@ -209,15 +211,12 @@ final class ComponentFilterForm extends EntityForm {
     }
 
     $value = NULL;
-    if (!$form_state->getValue(['value', '_empty'], FALSE) && !empty($form['value']['value'])) {
+    if (($this->filter->isRequired() || !$form_state->getValue(['value', '_empty'], FALSE)) && !empty($form['value']['value'])) {
       $subform_state = SubformState::createForSubform($form['value']['value'], $form, $form_state);
       $this->filter->validateForm($form['value']['value'], $subform_state);
       $value = $this->filter->massageFormValue($subform_state->getValues(), $form['value']['value'], $subform_state);
     }
     $this->filter->setDefaultValue($value);
-
-    $this->filter->setEditable((bool) $form_state->getValue('editable'));
-    $this->filter->setRequired((bool) $form_state->getValue('required'));
     $this->filter = $this->entity->setFilter($this->filter);
   }
 
