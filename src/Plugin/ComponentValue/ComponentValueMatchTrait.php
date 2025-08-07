@@ -10,7 +10,7 @@ use Drupal\neo_alchemist\ComponentShapePluginInterface;
 use Drupal\neo_alchemist\MatcherField;
 
 /**
- * A trait for adding entity type manager.
+ * A trait for adding value matching capabilities to component value plugins.
  *
  * @see \Drupal\Core\Plugin\ContainerFactoryPluginInterface
  */
@@ -49,17 +49,25 @@ trait ComponentValueMatchTrait {
    *   The field to match.
    * @param array|null $properties
    *   Additional properties to pass to the matcher.
+   * @param bool $published
+   *   (optional) Whether to only return values from published entities.
    *
    * @return mixed
    *   The matched values.
    */
-  protected function getMatchValue(ComponentShapePluginInterface $shape, ?string $field = NULL, ?array $properties = NULL): mixed {
+  protected function getMatchValue(ComponentShapePluginInterface $shape, ?string $field = NULL, ?array $properties = [], ?bool $published = TRUE): mixed {
     $field = $field ?? $this->configuration['field'] ?? '';
     if (!$field) {
       return NULL;
     }
     $properties = $properties ?? $this->configuration['field_properties'] ?? [];
-    return $this->matcherField->getEntityValue($shape->getEntity(), $field, $properties, [], $shape->getCacheableMetadata());
+    return $this->matcherField->getEntityValue(
+      entity: $shape->getEntity(),
+      key: $field,
+      properties: $properties,
+      published: $published,
+      cacheableMetadata: $shape->getCacheableMetadata()
+    );
   }
 
   /**
