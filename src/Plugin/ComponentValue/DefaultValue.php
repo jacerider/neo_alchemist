@@ -7,6 +7,7 @@ namespace Drupal\neo_alchemist\Plugin\ComponentValue;
 use Drupal\Core\DependencyInjection\DependencySerializationTrait;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Plugin\ContainerFactoryPluginInterface;
+use Drupal\Core\Render\Element;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\neo_alchemist\Attribute\ComponentValue;
 use Drupal\neo_alchemist\ComponentShapePluginInterface;
@@ -125,7 +126,7 @@ final class DefaultValue extends ComponentValuePluginBase implements ContainerFa
   protected function configurationMassage(array $values, array $form, FormStateInterface $form_state): array {
     $defaultShape = $this->getDefaultShape();
     $values = $values[$defaultShape->getName()] ?? [];
-    if (isset($form['widget'])) {
+    if (!empty(Element::children($form))) {
       $defaultShape->validateForm($form, $form_state, $values);
       $originalValues = $this->configuration['default'] ?? [];
       if (!is_array($originalValues)) {
@@ -138,6 +139,12 @@ final class DefaultValue extends ComponentValuePluginBase implements ContainerFa
       if ($values['default'] === '_default') {
         $values['default'] = NULL;
       }
+    }
+    else {
+      $values = [
+        'default' => [],
+        'options' => [],
+      ];
     }
     return $values;
   }
