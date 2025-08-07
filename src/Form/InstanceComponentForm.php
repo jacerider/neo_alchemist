@@ -18,6 +18,7 @@ use Drupal\neo_alchemist\Ajax\InstanceComponentManageIframeCommand;
 use Drupal\neo_alchemist\Ajax\ComponentAjaxFormHelperTrait;
 use Drupal\neo_alchemist\ComponentManageHelper;
 use Drupal\neo_alchemist\ComponentShapeStylePluginInterface;
+use Drupal\neo_icon\IconTrait;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
@@ -26,6 +27,7 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
 final class InstanceComponentForm extends ContentEntityForm {
 
   use ComponentAjaxFormHelperTrait;
+  use IconTrait;
 
   /**
    * Private temporary storage.
@@ -180,13 +182,13 @@ final class InstanceComponentForm extends ContentEntityForm {
 
     $form['styles'] = [
       '#type' => 'accordion',
-      '#title' => $this->t('Styles'),
+      '#title' => $this->icon('Styles', 'palette'),
       '#access' => FALSE,
     ];
 
     $form['filters'] = [
       '#type' => 'accordion',
-      '#title' => $this->t('Filters'),
+      '#title' => $this->icon('Filters', 'filter'),
       '#access' => FALSE,
     ];
 
@@ -235,7 +237,7 @@ final class InstanceComponentForm extends ContentEntityForm {
         ],
       ];
       if ($summary = $filter->valueSummary()) {
-        $subform['#title'] .= ' <span class="badge bg-primary text-primary-content">' . $summary . '</span>';
+        $subform['#title'] .= '<div class="inline-block badge bg-primary text-primary-content leading-tight">' . $summary . '</div>';
       }
       $subform['value'] = [
         '#type' => 'container',
