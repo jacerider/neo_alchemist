@@ -16,6 +16,8 @@ props:
       type: image
       examples:
         - src: https://placehold.co/300x200.png
+          # src: component://images/example.png
+          # src: theme://assets/images/example.png
           alt: 'Boring placeholder'
           width: 300
           height: 200
