@@ -31,8 +31,11 @@ class BooleanShape extends ComponentShapePluginBase {
    * {@inheritDoc}
    */
   public function massageFormValues(array $values, array $original_values, array $form, FormStateInterface $form_state): ?array {
-    $values = [(bool) $values['value']];
-    return parent::massageFormValues($values, $original_values, $form, $form_state);
+    $values = parent::massageFormValues($values, $original_values, $form, $form_state);
+    if (isset($values['value'])) {
+      $values['value'] = (bool) $values['value'];
+    }
+    return $values;
   }
 
   /**
