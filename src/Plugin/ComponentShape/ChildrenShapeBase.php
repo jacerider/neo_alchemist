@@ -114,10 +114,10 @@ abstract class ChildrenShapeBase extends ComponentShapePluginBase implements Com
   /**
    * {@inheritDoc}
    */
-  public function getChildShapes(int|null $delta = NULL): array {
-    $key = $delta ?? ($this->getType() === ComponentShapePluginInterface::ARRAY ? 0 : 'all');
+  public function getChildShapes(int|null $delta = NULL, mixed $value = NULL): array {
+    $key = $delta ?? 'all';
     if (!isset($this->childShapes[$key])) {
-      $this->childShapes[$key] = $this->loadChildShapes($delta);
+      $this->childShapes[$key] = $this->loadChildShapes($delta, $value);
     }
     return $this->childShapes[$key];
   }
@@ -171,18 +171,17 @@ abstract class ChildrenShapeBase extends ComponentShapePluginBase implements Com
    *
    * @param int|null $delta
    *   The delta of the field item, if applicable.
+   * @param mixed $value
+   *   (optional) The value to set on the child shape.
    *
    * @return \Drupal\neo_alchemist\ComponentShapePluginInterface[]
    *   An array of child shapes.
    */
-  protected function loadChildShapes(int|null $delta = NULL): array {
+  protected function loadChildShapes(int|null $delta = NULL, mixed $value = []): array {
     $shapes = $this->getChildShapesFromSchema($this->getChildSchema($delta), $delta);
     $count = count($shapes);
-    $value = $this->getOverrideValue();
-    if ($delta !== NULL) {
-      $value = $value[$delta] ?? [];
-    }
-    array_walk($shapes, fn ($shape) => $this->initChildShape($shape, $count, $delta, $value));
+    $value = $value ?? $this->getOverrideValue();
+    array_walk($shapes, fn ($shape) => $this->initChildShape($shape, $count, $delta, $value[$shape->getName()] ?? NULL));
     return $shapes;
   }
 
@@ -199,9 +198,9 @@ abstract class ChildrenShapeBase extends ComponentShapePluginBase implements Com
    * @param int|null $delta
    *   The delta of the field item, if applicable.
    * @param array $value
-   *   The override value of the parent shape.
+   *   The override value for the child shape.
    */
-  protected function initChildShape(ComponentShapePluginInterface $shape, int $count, ?int $delta = NULL, ?array $value = []) {
+  protected function initChildShape(ComponentShapePluginInterface $shape, int $count, ?int $delta = NULL, mixed $value = []) {
     $shapeName = $shape->getName();
     if (!empty($this->hideChildShapes[$shape->getName()])) {
       $shape->getOptionEmpty()->setLockedValue(TRUE, 'Shape is hidden by parent shape.');
@@ -244,14 +243,15 @@ abstract class ChildrenShapeBase extends ComponentShapePluginBase implements Com
       $shape->getOptionEmpty()->setAccess(FALSE, 'Parent shape is not expandable.');
       $shape->getOptionAccess()->setAccess(FALSE, 'Parent shape is not expandable.');
     }
-    if (!empty($this->childShapePlugins[$shape->getName()])) {
-      foreach ($this->childShapePlugins[$shape->getName()] as $pluginId => $settings) {
+    // Add child shape plugins.
+    if (!empty($this->childShapePlugins[$shapeName])) {
+      foreach ($this->childShapePlugins[$shapeName] as $pluginId => $settings) {
         $shape->addPlugin($pluginId, $settings);
       }
     }
     // Set the override value.
-    if (isset($value[$shapeName])) {
-      $shape->setOverrideValue($value[$shapeName] ?? []);
+    if (!is_null($value)) {
+      $shape->setParentValue($value);
     }
     $shape->init();
   }
@@ -289,20 +289,6 @@ abstract class ChildrenShapeBase extends ComponentShapePluginBase implements Com
       return $shape;
     }, $this->shapeManager->getInstancesFromSchema($schema, $this->getComponent()));
     return $childShapes;
-  }
-
-  /**
-   * Check if parent values should be overlayed on top of child values.
-   *
-   * @return bool
-   *   TRUE if parent values should be overlayed on top of child values, FALSE
-   *   otherwise.
-   */
-  protected function useParentValues(): bool {
-    if ($this->belongsToExpanded()) {
-      return $this->hasOverrideValue();
-    }
-    return TRUE;
   }
 
 }
