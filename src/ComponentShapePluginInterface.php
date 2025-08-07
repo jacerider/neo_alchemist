@@ -283,14 +283,14 @@ interface ComponentShapePluginInterface extends PluginInspectionInterface, Deriv
   public function addPlugin(string $pluginId, array $settings = [], bool $status = TRUE): self;
 
   /**
-   * Determines if the current shape allows plugins.
+   * Determines if the current shape allows configurable plugins.
    *
    * This means the shape's parent is expanded.
    *
    * @return bool
    *   TRUE if the current shape is an expanded child, FALSE otherwise.
    */
-  public function allowPlugins(): bool;
+  public function allowConfigurablePlugins(): bool;
 
   /**
    * Retrieves the collection of component shape plugin values.
@@ -556,6 +556,25 @@ interface ComponentShapePluginInterface extends PluginInspectionInterface, Deriv
   public function getNestedValueModifiers(): array;
 
   /**
+   * Sets the active status of the component shape.
+   *
+   * @param bool $active
+   *   (optional) Whether the component shape is active. Defaults to TRUE.
+   *
+   * @return $this
+   *   The current instance of the component shape plugin.
+   */
+  public function setActive(bool $active = TRUE): self;
+
+  /**
+   * Is the prop active.
+   *
+   * @return bool
+   *   Returns TRUE if the prop is active, FALSE otherwise.
+   */
+  public function isActive(): bool;
+
+  /**
    * Enforces that the component shape is required.
    *
    * This method sets the `enforceRequired` and `required` properties to TRUE,
@@ -776,19 +795,6 @@ interface ComponentShapePluginInterface extends PluginInspectionInterface, Deriv
   public function getFieldItem(): FieldItemInterface;
 
   /**
-   * Get the prop value.
-   *
-   * It is safe to manipulate this value to something useful for the SDC that
-   * would not be a supported value for the field item.
-   *
-   * This is the value that is passed to the SDC.
-   *
-   * @return mixed
-   *   The prop value.
-   */
-  public function getPropValue(): mixed;
-
-  /**
    * Get the working prop value.
    *
    * This value should be able to be passed to the SDC.
@@ -857,12 +863,24 @@ interface ComponentShapePluginInterface extends PluginInspectionInterface, Deriv
   public function getOverrideValue(): mixed;
 
   /**
-   * Checks if the component shape has an override value.
+   * Sets the parent value.
    *
-   * @return bool
-   *   TRUE if the component shape has an override value, FALSE otherwise.
+   * @param mixed $value
+   *   The value to set as the parent override.
+   *
+   * @return $this
+   *   The current instance for method chaining.
    */
-  public function hasOverrideValue(): bool;
+  public function setParentValue(mixed $value): self;
+
+  /**
+   * Retrieves the parent override value.
+   *
+   * @return mixed
+   *   The parent value, which can be of various types including array,
+   *   string, integer, float, or boolean.
+   */
+  public function getParentValue(): mixed;
 
   /**
    * Checks if the component shape is empty.
