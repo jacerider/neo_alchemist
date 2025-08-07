@@ -59,7 +59,7 @@ final class ComponentStyleForm extends EntityForm {
       if ($shape instanceof ComponentShapeStylePluginInterface) {
         $options = $shape->getFieldOptions();
         if (!$shape->isRequired()) {
-          $options = array_merge(['' => $this->t('None')], $options);
+          $options = array_merge(['' => $this->t('- Default -')], $options);
         }
         if ($options) {
           $form['styles'][$propName] = [
@@ -80,11 +80,30 @@ final class ComponentStyleForm extends EntityForm {
     }
 
     $form['styles']['reset'] = [
+      '#type' => 'html_tag',
+      '#tag' => 'div',
+      '#attributes' => [
+        'class' => ['neo-component-style-form--reset flex items-center gap-2'],
+      ],
+    ];
+
+    $form['styles']['reset']['alert'] = [
+      '#type' => 'neo_icon',
+      '#title' => 'Alert',
+      '#icon' => 'exclamation-triangle',
+      '#icon_only' => TRUE,
+      '#icon_attributes' => [
+        'class' => 'text-alert text-sm',
+      ],
+      '#tooltip' => $this->t('The component is being previewed with style overrides. You can click the @icon button to reset the preview styles.', [
+        '@icon' => $this->icon('Reset Preview Styles', 'undo')->iconOnly(),
+      ]),
+    ];
+
+    $form['styles']['reset']['reset'] = [
       '#type' => 'submit',
       '#value' => $this->icon('Reset Preview Styles', 'undo')->iconOnly(),
-      // '#value' => 'Reset Preview Styles',
       '#description' => $this->t('Reset Preview Styles'),
-      // '#tooltip' => TRUE,
       '#neo_size' => 'xs',
       '#submit' => ['::submitReset'],
       '#attributes' => [
@@ -97,9 +116,6 @@ final class ComponentStyleForm extends EntityForm {
     }
     elseif (!$form_state->get('neo_component_style_changed')) {
       $form_state->set('neo_component_style_changed', TRUE);
-      $this->messenger()->addWarning($this->t('The component is being previewed with style overrides. You can click the @icon button to reset the preview styles.', [
-        '@icon' => $this->icon('Reset Preview Styles', 'undo')->iconOnly(),
-      ]));
     }
 
     return $form;
@@ -125,7 +141,7 @@ final class ComponentStyleForm extends EntityForm {
     }
 
     $response->addCommand(new CssCommand('.neo-component-style-form--reset', [
-      'display' => 'block',
+      'display' => '',
     ]));
 
     return $response;
