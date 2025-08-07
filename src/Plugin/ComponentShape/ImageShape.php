@@ -9,7 +9,7 @@ use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\file\FileInterface;
 use Drupal\media\MediaInterface;
 use Drupal\neo_alchemist\Attribute\ComponentShape;
-use Drupal\neo_alchemist\Drush\Generators\NeoComponentGenerator;
+use Drupal\neo_alchemist\Drush\Generators\NeoComponentPropGeneratorInterface;
 use DrupalCodeGenerator\InputOutput\Interviewer;
 
 /**
@@ -40,6 +40,20 @@ class ImageShape extends MediaShapeBase {
   public function getDefaultSchemaValue(): mixed {
     $value = parent::getDefaultSchemaValue();
     if (!empty($value['src'])) {
+      // If string starts with 'theme://' it should point to the theme.
+      if (str_starts_with($value['src'], 'theme://')) {
+        $themeHandler = \Drupal::service('theme_handler');
+        $defaultTheme = \Drupal::config('system.theme')->get('default');
+        $themePath = $themeHandler->getTheme($defaultTheme)->getPath();
+        $imagePath = $themePath . '/' . str_replace('theme://', '', $value['src']);
+        // Generate absolute URL for the image.
+        $value['src'] = \Drupal::service('file_url_generator')->generateString($imagePath);
+      }
+      if (str_starts_with($value['src'], 'component://')) {
+        $imagePath = $this->getComponent()->getPath() . '/' . str_replace('component://', '', $value['src']);
+        // Generate absolute URL for the image.
+        $value['src'] = \Drupal::service('file_url_generator')->generateString($imagePath);
+      }
       $isExternal = UrlHelper::isExternal($value['src']);
       if (!$isExternal) {
         $definition = $this->getComponent()->getComponentDefinition();
@@ -69,12 +83,22 @@ class ImageShape extends MediaShapeBase {
    * {@inheritDoc}
    */
   public function getValueFromMedia(MediaInterface $media): array {
+    $file = NULL;
     $source = $media->getSource();
     $fid = $source->getSourceFieldValue($media);
-    if (!$fid) {
-      return [];
+    if ($fid) {
+      $file = $this->entityTypeManager->getStorage('file')->load($fid);
     }
-    $file = $this->entityTypeManager->getStorage('file')->load($fid);
+    else {
+      // Sometimes we have a source field that contains a non-saved file.
+      $config = $source->getConfiguration();
+      if (!empty($config['source_field']) && $media->hasField($config['source_field'])) {
+        $entity = $media->get($config['source_field'])->entity;
+        if ($entity instanceof FileInterface) {
+          $file = $entity;
+        }
+      }
+    }
     if ($file instanceof FileInterface) {
       return [
         'src' => $file->createFileUrl(),
@@ -91,7 +115,7 @@ class ImageShape extends MediaShapeBase {
   /**
    * {@inheritDoc}
    */
-  public static function onGeneration(array &$prop, array $vars, Interviewer $ir, NeoComponentGenerator $generator, array $parents) {
+  public static function onGeneration(array &$prop, array $vars, Interviewer $ir, NeoComponentPropGeneratorInterface $generator, array $parents) {
     $prop['examples'] = [
       'src' => 'https://placehold.co/100x100.png',
       'alt' => 'Example image',
