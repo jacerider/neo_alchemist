@@ -52,7 +52,7 @@ final class EntityQueryValue extends ComponentValuePluginBase implements Contain
    *
    * @var \Drupal\Core\Entity\EntityTypeBundleInfoInterface
    */
-  protected $entityTypeBundleInfo;
+  protected EntityTypeBundleInfoInterface $entityTypeBundleInfo;
 
   /**
    * The event dispatcher.
@@ -113,9 +113,8 @@ final class EntityQueryValue extends ComponentValuePluginBase implements Contain
       'bundle' => '',
       'start' => 0,
       'length' => 1,
-      'shape_fields' => [],
       'continue' => FALSE,
-    ];
+    ] + $this->childrenMatchDefaultConfiguration();
   }
 
   /**
@@ -129,9 +128,9 @@ final class EntityQueryValue extends ComponentValuePluginBase implements Contain
     $entityTypeId = $this->configuration['entity_type'];
     $bundle = $this->configuration['bundle'];
 
-    $entity_types = $this->entityTypeManager->getDefinitions();
+    $entityTypes = $this->entityTypeManager->getDefinitions();
     $options = [];
-    foreach ($entity_types as $type) {
+    foreach ($entityTypes as $type) {
       $options[$type->id()] = $type->getLabel();
     }
     asort($options);
@@ -149,9 +148,9 @@ final class EntityQueryValue extends ComponentValuePluginBase implements Contain
       ],
     ];
 
-    if ($entityTypeId && isset($entity_types[$entityTypeId])) {
-      $entity_type = $entity_types[$entityTypeId];
-      if ($entity_type->hasKey('bundle')) {
+    if ($entityTypeId && isset($entityTypes[$entityTypeId])) {
+      $entityType = $entityTypes[$entityTypeId];
+      if ($entityType->hasKey('bundle')) {
         if ($bundles = $this->entityTypeBundleInfo->getBundleInfo($entityTypeId)) {
           $options = array_map(
             fn ($bundle) => $bundle['label'],
@@ -176,7 +175,7 @@ final class EntityQueryValue extends ComponentValuePluginBase implements Contain
       }
 
       // Add shape fields.
-      $form += $this->buildChildrenMatchConfigurationForm($this->shape, $form, $form_state, $entityTypeId, $bundle);
+      $form += $this->buildChildrenMatchConfigurationForm($this->shape, $form, $form_state, $entityTypeId, $bundle, $this->configuration);
 
       $form['start'] = [
         '#type' => 'number',
@@ -256,11 +255,8 @@ final class EntityQueryValue extends ComponentValuePluginBase implements Contain
       $event = new ComponentValueEntityQueryEvent($this->shape, $query);
       $this->eventDispatcher->dispatch($event, ComponentValueEntityQueryEvent::EVENT_NAME);
       $ids = $query->execute();
-      $entities = [];
-      if ($ids) {
-        $entities = $storage->loadMultiple($ids);
-      }
-      $results = $this->getChildrenMatchValues($this->shape, $entities);
+      $entities = $ids ? $storage->loadMultiple($ids) : [];
+      $results = $this->getChildrenMatchValues($this->shape, $entities, $this->configuration);
       if (!empty($results) || empty($this->configuration['continue'])) {
         $value = $results;
         $this->stopFurtherProcessing();
