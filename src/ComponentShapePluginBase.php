@@ -30,7 +30,7 @@ use Drupal\Core\Template\Attribute;
 use Drupal\Core\TypedData\DataDefinition;
 use Drupal\Core\TypedData\DataDefinitionInterface;
 use Drupal\Core\TypedData\TypedDataManagerInterface;
-use Drupal\neo_alchemist\Drush\Generators\NeoComponentGenerator;
+use Drupal\neo_alchemist\Drush\Generators\NeoComponentPropGeneratorInterface;
 use Drupal\neo_alchemist\Drush\Generators\NeoComponentTwig;
 use Drupal\neo_alchemist\PropSource\FieldStorageDefinition;
 use DrupalCodeGenerator\InputOutput\Interviewer;
@@ -64,6 +64,15 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
    * @var bool
    */
   protected bool $nested = FALSE;
+
+  /**
+   * Whether the prop is active.
+   *
+   * This is used to determine if the prop should be processed or not.
+   *
+   * @var bool
+   */
+  protected bool $active = TRUE;
 
   /**
    * Whether the prop is required.
@@ -217,7 +226,7 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
   /**
    * The override value.
    *
-   * This is the value that will sit on top of the defeault value and any value
+   * This is the value that will sit on top of the default value and any value
    * providers.
    *
    * @var mixed
@@ -225,11 +234,14 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
   protected mixed $overrideValue = NULL;
 
   /**
-   * Flag indicating if shape has an override value.
+   * The parent value.
    *
-   * @var bool
+   * This is the value that will sit on top of the defeault value and any value
+   * providers.
+   *
+   * @var mixed
    */
-  protected bool $hasOverrideValue = FALSE;
+  protected mixed $parentValue = NULL;
 
   /**
    * The parent shapes.
@@ -359,6 +371,7 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
     // Only set settings if the shape has not changed.
     if (isset($settings['shape']) && $settings['shape'] === $this->getPluginId()) {
       // Initialize settings.
+      $this->setActive($settings['active'] ?? TRUE);
       $this->setExpanded($settings['expanded'] ?? []);
       $this->setEditable($settings['editable'] ?? TRUE);
       $this->setRequired($settings['required'] ?? FALSE);
@@ -464,19 +477,9 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
     $this->fieldType = $this->getDefaultFieldType();
     $this->fieldStorageSettings = $this->getDefaultFieldStorageSettings();
     $this->fieldInstanceSettings = $this->getDefaultFieldInstaceSettings();
-
-    // Add default plugins to any shape that allows plugins.
-    if (!$this->allowPlugins()) {
-      $definition = $this->getPluginDefinition();
-      if (!empty($definition['default_plugins'])) {
-        foreach ($definition['default_plugins'] as $pluginId => $settings) {
-          if (!is_array($settings)) {
-            $pluginId = $settings;
-            $settings = [];
-          }
-          $this->addPlugin($pluginId, $settings);
-        }
-      }
+    // Add default plugins to any shape that doesn't allow plugins.
+    if (!$this->allowConfigurablePlugins()) {
+      $this->initPlugins();
     }
 
     // Allow value providers to act on the shape.
@@ -500,10 +503,18 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
     $defaultValue = $this->getDefaultValue();
     $this->setFieldItemValue($defaultValue);
 
-    $overrideValue = NULL;
     // Overlay the field/entity value.
-    if (isset($this->overrideValue) && $this->getOptionDefault()->isDisabled()) {
-      $overrideValue = $this->overrideValue;
+    // We first check if the parent value is set. This value comes from
+    // parents that are injecting values into their children.
+    $overrideValue = $this->getParentValue();
+    if (is_null($overrideValue)) {
+      // If we have no override value from a parent, we check for an override
+      // value that may have been set directly on this shape. This typically
+      // comes from user input.
+      $overrideValue = $this->getOverrideValue();
+      if ($this->getOptionDefault()->isEnabled() || !$this->isEditable()) {
+        $overrideValue = NULL;
+      }
     }
 
     $instances = $this->getValueCollection()->getAllowedInstances('value');
@@ -522,12 +533,28 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
       foreach ($instances as $instance) {
         $overrideValue = $instance->alterValue($overrideValue, 'override');
       }
-      $this->hasOverrideValue = TRUE;
+
       $this->setFieldItemValue($overrideValue);
     }
 
     $this->initialized = TRUE;
     return $this;
+  }
+
+  /**
+   * Initializes the plugins for the component shape.
+   */
+  protected function initPlugins() {
+    $definition = $this->getPluginDefinition();
+    if (!empty($definition['default_plugins'])) {
+      foreach ($definition['default_plugins'] as $pluginId => $settings) {
+        if (!is_array($settings)) {
+          $pluginId = $settings;
+          $settings = [];
+        }
+        $this->addPlugin($pluginId, $settings);
+      }
+    }
   }
 
   /**
@@ -630,6 +657,7 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
     $fieldStorageDefinition
       ->setName($this->getName())
       ->setLabel($this->getTitle())
+      ->setDescription($this->getDescription())
       ->setRequired($this->isRequired());
 
     return $fieldItem;
@@ -659,17 +687,8 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
    * {@inheritDoc}
    */
   public function onAdd(): void {
-    if ($this->allowPlugins()) {
-      $definition = $this->getPluginDefinition();
-      if (!empty($definition['default_plugins'])) {
-        foreach ($definition['default_plugins'] as $pluginId => $settings) {
-          if (!is_array($settings)) {
-            $pluginId = $settings;
-            $settings = [];
-          }
-          $this->addPlugin($pluginId, $settings);
-        }
-      }
+    if ($this->allowConfigurablePlugins()) {
+      $this->initPlugins();
     }
   }
 
@@ -683,7 +702,7 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
    * {@inheritDoc}
    */
   public function onPluginAdd($pluginId): void {
-    if ($this->allowPlugins()) {
+    if ($this->allowConfigurablePlugins()) {
       $this->getValueCollection()->get($pluginId)->onAdd();
     }
   }
@@ -692,7 +711,7 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
    * {@inheritDoc}
    */
   public function onPluginRemove($pluginId): void {
-    if ($this->allowPlugins() && $this->getValueCollection()->has($pluginId)) {
+    if ($this->allowConfigurablePlugins() && $this->getValueCollection()->has($pluginId)) {
       $this->getValueCollection()->get($pluginId)->onRemove();
     }
   }
@@ -857,7 +876,7 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
   public function getPluginShapes($includeSelf = FALSE): array {
     return array_filter(
       $this->getAllShapes($includeSelf),
-      fn($shape) => $shape->allowPlugins()
+      fn($shape) => $shape->allowConfigurablePlugins()
     );
   }
 
@@ -976,7 +995,7 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
   /**
    * {@inheritDoc}
    */
-  public function allowPlugins(): bool {
+  public function allowConfigurablePlugins(): bool {
     $expanded = $this->getExpanded();
     $isRoot = $this->isRoot();
     if (!$expanded) {
@@ -1120,6 +1139,21 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
   /**
    * {@inheritDoc}
    */
+  public function setActive(bool $active = TRUE): self {
+    $this->active = $active;
+    return $this;
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  public function isActive(): bool {
+    return $this->active;
+  }
+
+  /**
+   * {@inheritDoc}
+   */
   public function enforceRequired(): self {
     $this->enforceRequired = TRUE;
     $this->required = TRUE;
@@ -1162,11 +1196,10 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
    * {@inheritDoc}
    */
   public function isEditable(): bool {
-    $editable = $this->editable;
     if ($this->isLocked()) {
-      $editable = FALSE;
+      return FALSE;
     }
-    return $editable;
+    return $this->editable;
   }
 
   /**
@@ -1421,13 +1454,6 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
   /**
    * {@inheritDoc}
    */
-  public function getPropValue(): mixed {
-    return $this->getValue();
-  }
-
-  /**
-   * {@inheritDoc}
-   */
   public function getValue(): mixed {
     // If the value is set to be empty (which will cause it to be hidden), we
     // don't need to do anything else.
@@ -1553,13 +1579,7 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
   }
 
   /**
-   * Sets the override value.
-   *
-   * @param mixed $value
-   *   The value to set as the override.
-   *
-   * @return $this
-   *   The current instance for method chaining.
+   * {@inheritDoc}
    */
   public function setOverrideValue(mixed $value): self {
     $this->overrideValue = $value;
@@ -1576,8 +1596,16 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
   /**
    * {@inheritDoc}
    */
-  public function hasOverrideValue(): bool {
-    return $this->hasOverrideValue;
+  public function setParentValue(mixed $value): self {
+    $this->parentValue = $value;
+    return $this;
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  public function getParentValue(): mixed {
+    return $this->parentValue;
   }
 
   /**
@@ -1617,7 +1645,7 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
   public function setFieldItemValue(mixed $value): self {
     // If if value is an array but we are not in an array type, we use the first
     // value 0 if set.
-    if (is_array($value) && $this->getType() !== 'array') {
+    if (is_array($value) && !$this->isIterable()) {
       $value = $value[0] ?? $value;
     }
     $this->fieldItem->setValue($value);
@@ -1939,8 +1967,25 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
         '#parents' => $form['#parents'],
       ];
       $form['widget'] = $widget->form($this->getFieldItemList(), $form['widget'], $form_state);
+      $this->formWidgetAlter($form['widget'], $form_state);
     }
     return $form;
+  }
+
+  /**
+   * Alter the widget form.
+   *
+   * This method can be overridden by extending classes to add additional form
+   * elements to the widget form.
+   *
+   * @param array $form
+   *   The widget form.
+   * @param \Drupal\Core\Form\FormStateInterface $form_state
+   *   The form state.
+   */
+  protected function formWidgetAlter(array &$form, FormStateInterface $form_state): void {
+    // This method can be overridden by extending classes to add additional form
+    // elements to the widget form.
   }
 
   /**
@@ -1992,7 +2037,8 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
     $storedValues = $values;
     if (isset($values[$this->getName()]) && ($widget = $this->getWidget())) {
       $massagedValues = $widget->massageFormValues($values[$this->getName()], $form, $form_state);
-      $massagedValues = $massagedValues[0] ?? [];
+      // @todo 'values' is checked for checkboxes.
+      $massagedValues = $massagedValues[0] ?? $massagedValues['value'] ?? [];
       $fieldItem = clone $this->fieldItem;
       $fieldItem->setValue($massagedValues);
       $fieldItem->preSave();
@@ -2228,12 +2274,12 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
    *   The variables that are being used for generation.
    * @param \Drupal\neo_alchemist\Interviewer\Interviewer $ir
    *   The interviewer that is being used for generation.
-   * @param \Drupal\neo_alchemist\Generator\NeoComponentGenerator $generator
+   * @param \Drupal\neo_alchemist\Generator\NeoComponentPropGeneratorInterface $generator
    *   The generator that is being used for generation.
    * @param array $parents
    *   The parent labels.
    */
-  public static function onGeneration(array &$prop, array $vars, Interviewer $ir, NeoComponentGenerator $generator, array $parents) {
+  public static function onGeneration(array &$prop, array $vars, Interviewer $ir, NeoComponentPropGeneratorInterface $generator, array $parents) {
   }
 
   /**
