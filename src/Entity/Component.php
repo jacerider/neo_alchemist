@@ -316,6 +316,13 @@ class Component extends ConfigEntityBase implements ComponentInterface {
   /**
    * {@inheritdoc}
    */
+  public function getPath(): string {
+    return $this->getComponent()->metadata->path ?? NULL;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
   public function getScope(): string {
     return $this->scope;
   }
@@ -602,7 +609,11 @@ class Component extends ConfigEntityBase implements ComponentInterface {
     $attributes = new Attribute();
     $cacheableMetadata = $this->getCacheableMetadata();
     foreach ($this->getPropShapes() as $shapeId => $shape) {
-      $value = $shape->getPropValue();
+      if (!$shape->isActive()) {
+        // Skip inactive shapes.
+        continue;
+      }
+      $value = $shape->getValue();
       if (is_null($value)) {
         continue;
       }
@@ -642,6 +653,7 @@ class Component extends ConfigEntityBase implements ComponentInterface {
       'shape' => $shape->getPluginId(),
       'field_type' => $shape->getFieldType(),
       'expanded' => $expanded,
+      'active' => $shape->isActive(),
       'editable' => $shape->isEditable(),
       'required' => $shape->isRequired(),
     ];
@@ -650,7 +662,7 @@ class Component extends ConfigEntityBase implements ComponentInterface {
       foreach ($collection->getInstances() as $instanceId => $instance) {
         $instanceSettings = $instance->getConfiguration();
         if ($collection->getStatus($instanceId)) {
-          if (!$childShape->allowPlugins()) {
+          if (!$childShape->allowConfigurablePlugins()) {
             continue;
           }
           $id = $childShape->id();
