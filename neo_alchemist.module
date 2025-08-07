@@ -543,6 +543,24 @@ function neo_alchemist_config_schema_info_alter(&$definitions) {
       }
     }
   }
+  if (isset($definitions['field.value.link'])) {
+    $definitions['field.value.link']['mapping']['options']['mapping']['href'] = [
+      'type' => 'string',
+      'label' => 'Url HREF',
+    ];
+    $definitions['field.value.link']['mapping']['options']['mapping']['data-entity-type'] = [
+      'type' => 'string',
+      'label' => 'Entity type',
+    ];
+    $definitions['field.value.link']['mapping']['options']['mapping']['data-entity-uuid'] = [
+      'type' => 'uuid',
+      'label' => 'Entity UUID',
+    ];
+    $definitions['field.value.link']['mapping']['options']['mapping']['data-entity-substitution'] = [
+      'type' => 'string',
+      'label' => 'Entity substitution',
+    ];
+  }
 }
 
 /**
