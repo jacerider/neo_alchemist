@@ -13,6 +13,7 @@
   }
 
   function handleRefresh() {
+    console.log('Refreshing Neo Alchemist instance component form');
     const form = jQuery('#neo-alchemist--instance-component-form') as any;
     if (Drupal.Ajax) {
       // Clear the form id so that the form is not submitted again.
@@ -51,6 +52,7 @@
         });
       });
       once('neo.alchemist', '#' + formId).forEach(el => {
+        console.log(el);
         if (Drupal.CKEditor5Instances) {
           setTimeout(() => {
             if (Drupal.CKEditor5Instances.size) {
