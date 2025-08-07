@@ -6,7 +6,6 @@ namespace Drupal\neo_alchemist;
 
 use Drupal\Component\Utility\NestedArray;
 use Drupal\Core\Cache\CacheableMetadata;
-use Drupal\Core\Config\Entity\ConfigEntityInterface;
 use Drupal\Core\Config\Entity\ConfigEntityTypeInterface;
 use Drupal\Core\Entity\ContentEntityInterface;
 use Drupal\Core\Entity\ContentEntityTypeInterface;
@@ -45,12 +44,27 @@ final class MatcherField extends MatcherBase {
    *   The component shape plugin instance.
    * @param string $key
    *   The key for which the field definition is to be retrieved.
+   * @param string|null $entityTypeId
+   *   (optional) The entity type ID to match against. Defaults to NULL.
+   * @param string|null $entityBundle
+   *   (optional) The entity bundle to match against. Defaults to NULL.
+   * @param string|null $fieldType
+   *   (optional) The field type to match against. Defaults to NULL.
+   * @param bool $all
+   *   (optional) Whether to match all fields. Defaults to FALSE.
    *
    * @return \Drupal\Core\Field\FieldDefinitionInterface|null
    *   The field definition if found, or NULL if no matching definition exists.
    */
-  public function getFieldDefinition(ComponentShapePluginInterface $shape, string $key): ?FieldDefinitionInterface {
-    $matches = $this->getMatches($shape);
+  public function getFieldDefinition(
+    ComponentShapePluginInterface $shape,
+    string $key,
+    ?string $entityTypeId = NULL,
+    ?string $entityBundle = NULL,
+    ?string $fieldType = NULL,
+    bool $all = FALSE,
+  ): ?FieldDefinitionInterface {
+    $matches = $this->getMatches($shape, $entityTypeId, $entityBundle, $fieldType, $all);
     return $matches[$key]['definition'] ?? NULL;
   }
 
@@ -69,72 +83,31 @@ final class MatcherField extends MatcherBase {
    *   (optional) An associative array of properties to retrieve from the field.
    * @param mixed $default
    *   (optional) The default value to return if the field does not exist.
+   * @param bool $published
+   *   (optional) Whether to only return values from published entities.
    * @param \Drupal\Core\Cache\CacheableMetadata|null $cacheableMetadata
    *   (optional) Cacheable metadata to attach to the field value.
    *
    * @return mixed
    *   The value of the specified field.
    */
-  public function getEntityValue(ContentEntityInterface $entity, string $key, array $properties = [], $default = [], ?CacheableMetadata $cacheableMetadata = NULL): mixed {
+  public function getEntityValue(
+    ContentEntityInterface $entity,
+    string $key,
+    array $properties = [],
+    mixed $default = [],
+    ?bool $published = TRUE,
+    ?CacheableMetadata $cacheableMetadata = NULL,
+  ): mixed {
     $path = explode('.', $key);
-    return $this->recurseEntity($entity, $path, $properties, $default, $cacheableMetadata);
-  }
-
-  /**
-   * Recursively retrieves the value of a field from a content entity.
-   *
-   * @param \Drupal\Core\Entity\EntityInterface $entity
-   *   The content entity from which to retrieve the field value.
-   * @param array $path
-   *   An array representing the path to the field. Each element in the array
-   *   should be a string in the format 'field_name:property', where 'property'
-   *   is optional.
-   * @param array $properties
-   *   (optional) An associative array of properties to retrieve from the field.
-   * @param mixed $default
-   *   (optional) The default value to return if the field does not exist.
-   * @param \Drupal\Core\Cache\CacheableMetadata|null $cacheableMetadata
-   *   (optional) Cacheable metadata to attach to the field value.
-   *
-   * @return mixed
-   *   The value of the field or property, or an empty array if the field or
-   *   property does not exist or is empty.
-   */
-  private function recurseEntity(EntityInterface $entity, array $path, array $properties = [], $default = [], ?CacheableMetadata $cacheableMetadata = NULL): mixed {
-    if ($cacheableMetadata) {
-      $cacheableMetadata->addCacheableDependency($entity);
-    }
-    $value = $default;
-    $key = array_shift($path);
-    [$fieldName, $property, $subProperty] = explode(':', $key . '::');
-    if ($fieldName === '_entity' && $property) {
-      // Special entity property handling.
-      return $this->getDynamicEntityValues($entity, $property, $subProperty);
-    }
-    if ($entity instanceof ConfigEntityInterface) {
-      // This is currently untested.
-      return $entity->get($fieldName);
-    }
-    if ($entity instanceof ContentEntityInterface) {
-      if (!$entity->hasField($fieldName)) {
-        return $value;
-      }
-      $field = $entity->get($fieldName);
-      if ($field->isEmpty()) {
-        return $value;
-      }
-      // If we have a reference field and there is a path, recurse.
-      if ($field instanceof EntityReferenceFieldItemListInterface && !empty($path)) {
-        if (!$field->entity) {
-          return $value;
-        }
-        $value = $this->recurseEntity($field->entity, $path, $properties, $default, $cacheableMetadata);
-      }
-      elseif ($field instanceof FieldItemListInterface) {
-        $value = $field->getValue();
-        if ($property) {
-          $value = $value[0][$property] ?? $default;
-        }
+    $field = $this->getEntityField($entity, $key, $published, $cacheableMetadata);
+    if ($field) {
+      $path = explode('.', $key);
+      $key = array_pop($path);
+      [, $property, $subProperty] = explode(':', $key . '::');
+      $value = $field->getValue();
+      if ($property) {
+        $value = $value[0][$property] ?? $default;
       }
       if ($subProperty) {
         $parts = explode('~', $subProperty);
@@ -149,8 +122,91 @@ final class MatcherField extends MatcherBase {
         }
         $value = $v;
       }
+      return $value;
     }
-    return $value;
+    return $default;
+  }
+
+  /**
+   * Retrieves the value of a field from a content entity.
+   *
+   * @param \Drupal\Core\Entity\EntityInterface $entity
+   *   The content entity from which to retrieve the field value.
+   * @param string $key
+   *   The dot-separated string representing the field path.
+   * @param bool $published
+   *   (optional) Whether to only return values from published entities.
+   * @param \Drupal\Core\Cache\CacheableMetadata|null $cacheableMetadata
+   *   (optional) Cacheable metadata to attach to the field value.
+   *
+   * @return \Drupal\Core\Field\FieldItemListInterface|null
+   *   The field item list for the specified field, or NULL if the field does
+   *   not exist.
+   */
+  public function getEntityField(
+    ContentEntityInterface $entity,
+    string $key,
+    ?bool $published = TRUE,
+    ?CacheableMetadata $cacheableMetadata = NULL,
+  ): ?FieldItemListInterface {
+    $path = explode('.', $key);
+    return $this->recurseEntityFields($entity, $path, $published, $cacheableMetadata);
+  }
+
+  /**
+   * Recursively retrieves the value of a field from a content entity.
+   *
+   * @param \Drupal\Core\Entity\EntityInterface $entity
+   *   The content entity from which to retrieve the field value.
+   * @param array $path
+   *   An array representing the path to the field. Each element in the array
+   *   should be a string in the format 'field_name:property', where 'property'
+   *   is optional.
+   * @param bool $published
+   *   (optional) Whether to only return values from published entities.
+   * @param \Drupal\Core\Cache\CacheableMetadata|null $cacheableMetadata
+   *   (optional) Cacheable metadata to attach to the field value.
+   *
+   * @return \Drupal\Core\Field\FieldItemListInterface|null
+   *   The field item list for the specified field, or NULL if the field does
+   *   not exist.
+   */
+  private function recurseEntityFields(
+    EntityInterface $entity,
+    array $path,
+    ?bool $published = TRUE,
+    ?CacheableMetadata $cacheableMetadata = NULL,
+  ): ?FieldItemListInterface {
+    if ($cacheableMetadata) {
+      $cacheableMetadata->addCacheableDependency($entity);
+    }
+    $key = array_shift($path);
+    [$fieldName] = explode(':', $key . '::');
+    $this->moduleHandler->invokeAll('neo_alchemist_entity_load', [$entity]);
+    $this->moduleHandler->invokeAll('neo_alchemist_' . $entity->getEntityTypeId() . '_load', [$entity]);
+    if ($entity instanceof ContentEntityInterface) {
+      if ($published) {
+        $entityType = $entity->getEntityType();
+        if ($entityType->hasKey('status') || $entityType->hasKey('published')) {
+          $key = $entityType->getKey('status') ?: $entityType->getKey('published');
+          if (empty($entity->get($key)->value)) {
+            return NULL;
+          }
+        }
+      }
+      if (!$entity->hasField($fieldName)) {
+        return NULL;
+      }
+      $field = $entity->get($fieldName);
+      if ($field instanceof EntityReferenceFieldItemListInterface && !empty($path)) {
+        if (!$field->entity) {
+          return NULL;
+        }
+        return $this->recurseEntityFields($field->entity, $path, $cacheableMetadata);
+      }
+      return $field;
+    }
+    return NULL;
   }
 
   /**
@@ -184,7 +240,13 @@ final class MatcherField extends MatcherBase {
    *     ...
    *   ]
    */
-  public function getMatchesAsOptions(ComponentShapePluginInterface $shape, ?string $entityTypeId = NULL, ?string $entityBundle = NULL, ?string $fieldType = NULL, bool $all = FALSE): array {
+  public function getMatchesAsOptions(
+    ComponentShapePluginInterface $shape,
+    ?string $entityTypeId = NULL,
+    ?string $entityBundle = NULL,
+    ?string $fieldType = NULL,
+    bool $all = FALSE,
+  ): array {
     $options = [];
     $matches = $this->getMatches($shape, $entityTypeId, $entityBundle, $fieldType, $all);
     foreach ($matches as $key => [
@@ -218,9 +280,14 @@ final class MatcherField extends MatcherBase {
    * @return array
    *   An array of matches, sorted by weight and title.
    */
-  public function getMatches(ComponentShapePluginInterface $shape, ?string $entityTypeId = NULL, ?string $entityBundle = NULL, ?string $fieldType = NULL, bool $all = FALSE): array {
+  public function getMatches(
+    ComponentShapePluginInterface $shape,
+    ?string $entityTypeId = NULL,
+    ?string $entityBundle = NULL,
+    ?string $fieldType = NULL,
+    bool $all = FALSE,
+  ): array {
     $matches = [];
-
     if ($entityTypeId) {
       $entityType = $this->entityTypeManager->getDefinition($entityTypeId);
       if (!$entityType->getKey('bundle')) {
@@ -290,7 +357,12 @@ final class MatcherField extends MatcherBase {
    * @return array
    *   An array of matched definitions.
    */
-  private function match(EntityDataDefinitionInterface $entityDataDefinition, ComponentShapePluginInterface $shape, int $level, array $parentDefinitions = []): array {
+  private function match(
+    EntityDataDefinitionInterface $entityDataDefinition,
+    ComponentShapePluginInterface $shape,
+    int $level,
+    array $parentDefinitions = [],
+  ): array {
     if ($shape->isScalar()) {
       return $this->matchScalar($entityDataDefinition, $shape, $level, $parentDefinitions);
     }
@@ -319,7 +391,12 @@ final class MatcherField extends MatcherBase {
    * @return array
    *   An array of matched definitions.
    */
-  private function matchIterable(EntityDataDefinitionInterface $entityDataDefinition, ComponentShapePluginInterface $shape, int $level, array $parentDefinitions = []) {
+  private function matchIterable(
+    EntityDataDefinitionInterface $entityDataDefinition,
+    ComponentShapePluginInterface $shape,
+    int $level,
+    array $parentDefinitions = [],
+  ) {
     return $this->matchScalar($entityDataDefinition, $shape, $level, $parentDefinitions);
   }
 
@@ -343,7 +420,12 @@ final class MatcherField extends MatcherBase {
    *   An array of matched fields with their respective properties such as
    *   title, group, definition, and weight.
    */
-  private function matchScalar(EntityDataDefinitionInterface $entityDataDefinition, ComponentShapePluginInterface $shape, int $level, array $parentDefinitions = []) {
+  private function matchScalar(
+    EntityDataDefinitionInterface $entityDataDefinition,
+    ComponentShapePluginInterface $shape,
+    int $level,
+    array $parentDefinitions = [],
+  ) {
     $matches = [];
 
     $isRequired = $shape->isRequired();
@@ -458,7 +540,11 @@ final class MatcherField extends MatcherBase {
    * @return array
    *   An array of matched definitions.
    */
-  private function matchAll(EntityDataDefinitionInterface $entityDataDefinition, int $level, array $parentDefinitions = []): array {
+  private function matchAll(
+    EntityDataDefinitionInterface $entityDataDefinition,
+    int $level,
+    array $parentDefinitions = [],
+  ): array {
     $matches = [];
     $fieldDefinitions = $this->dataDefinitions($entityDataDefinition);
     foreach ($fieldDefinitions as $fieldDefinition) {
@@ -507,7 +593,10 @@ final class MatcherField extends MatcherBase {
    * @return \Drupal\Core\Field\FieldDefinitionInterface[]
    *   An array of field definitions.
    */
-  private function dynamicEntityDefinitions(EntityDataDefinitionInterface $entityDataDefinition, ComponentShapePluginInterface $shape): array {
+  private function dynamicEntityDefinitions(
+    EntityDataDefinitionInterface $entityDataDefinition,
+    ComponentShapePluginInterface $shape,
+  ): array {
     $fieldDefinitions = [];
     $isRequired = $shape->isRequired();
 
@@ -590,7 +679,11 @@ final class MatcherField extends MatcherBase {
    * @return array
    *   The value of the specified entity definition property.
    */
-  private function getDynamicEntityValues(EntityInterface $entity, string $property, ?string $subProperty = NULL): array {
+  private function getDynamicEntityValues(
+    EntityInterface $entity,
+    string $property,
+    ?string $subProperty = NULL,
+  ): array {
     return match ($property) {
       'label' => [$entity->label()],
       'label_page' => [$entity->id() === 'system' ? 'Page' : $entity->label()],
@@ -627,7 +720,10 @@ final class MatcherField extends MatcherBase {
    *   - 'uri': The URI string of the link.
    *   - 'options': An empty array for additional options (currently unused).
    */
-  private function getEntityDefinitionLink(ContentEntityInterface $entity, string $property): array {
+  private function getEntityDefinitionLink(
+    ContentEntityInterface $entity,
+    string $property,
+  ): array {
     $url = $entity->isNew() ? Url::fromRoute('<front>') : $entity->toUrl($property);
     if (!$url || !$url->access()) {
       return [];
