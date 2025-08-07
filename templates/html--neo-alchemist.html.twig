@@ -26,14 +26,14 @@
  */
 #}
 <!DOCTYPE html>
-<html{{ html_attributes.addClass('bg-base-0') }}>
+<html{{ html_attributes.addClass('bg-default') }}>
   <head>
     <head-placeholder token="{{ placeholder_token }}">
     <title>{{ head_title|safe_join(' | ') }}</title>
     <css-placeholder token="{{ placeholder_token }}">
     <js-placeholder token="{{ placeholder_token }}">
   </head>
-  <body{{ attributes.addClass('bg-base-0') }}>
+  <body{{ attributes.addClass('bg-default') }}>
     {{ status }}
     {{ page_top }}
     {{ page|without('status') }}
