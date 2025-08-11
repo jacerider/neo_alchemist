@@ -1,9 +1,9 @@
 {%
   set classes = [
-    'card flex flex-col md:flex-row gap-6 items-center bg-base-0 text-base-content-0',
-    color == 'base' ? 'bg-base-200 text-base-content-200',
-    color == 'primary' ? 'bg-primary-500 text-primary-content-500',
-    color == 'secondary' ? 'bg-secondary-500 text-secondary-content-500',
+    'card flex flex-col md:flex-row gap-6 items-center bg-base-0 text-base-0-content',
+    color == 'base' ? 'bg-base-200 text-base-200-content',
+    color == 'primary' ? 'bg-primary-500 text-primary-500-content',
+    color == 'secondary' ? 'bg-secondary-500 text-secondary-500-content',
   ]
 %}
 <div{{ attributes.addClass(classes) }}>
@@ -32,11 +32,11 @@
       {% endif %}
       {% if heading %}
         {% if heading.supertitle %}<div class="text-xs">{{ heading.supertitle }}</div>{% endif %}
-        <h2 class="text-xl font-bold text-base-content-0">{{ heading.title }}</h2>
+        <h2 class="text-xl font-bold text-base-0-content">{{ heading.title }}</h2>
         {% if heading.subtitle %}<div class="text-sm">{{ heading.subtitle }}</div>{% endif %}
       {% endif %}
       {% if title %}
-        <h2 class="text-xl font-bold text-base-content-0">{{ title }}</h2>
+        <h2 class="text-xl font-bold text-base-0-content">{{ title }}</h2>
       {% endif %}
       {% if email %}
         <div><a class="btn" href="mailto:{{ email }}">{{ email }}</a></div>
@@ -60,9 +60,9 @@
     {%
       set wow_classes = [
         'p-6',
-        wow.color == 'base' ? 'bg-base-200 text-base-content-200',
-        wow.color == 'primary' ? 'bg-primary-500 text-primary-content-500',
-        wow.color == 'secondary' ? 'bg-secondary-500 text-secondary-content-500',
+        wow.color == 'base' ? 'bg-base-200 text-base-200-content',
+        wow.color == 'primary' ? 'bg-primary-500 text-primary-500-content',
+        wow.color == 'secondary' ? 'bg-secondary-500 text-secondary-500-content',
       ]
     %}
     <div class="{{ wow_classes|join(" ") }}">

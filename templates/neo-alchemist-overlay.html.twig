@@ -1,11 +1,11 @@
 <div class="neo-alchemist--shade absolute bg-base-0/60 pointer-events-none transition-opacity opacity-0 z-40 cursor-default is-active:opacity-100 is-active:pointer-events-auto backdrop-blur-sm"></div>
 <div class="neo-alchemist--overlay absolute shadow-lg border border-dashed opacity-0 z-40 pointer-events-none transition-opacity is-active:opacity-100 is-active:pointer-events-auto is-focus:border-primary-500" data-alchemist-ignore>
-  <div class="label flex items-center gap-1 absolute opacity-0 bottom-full bg-base-500 text-base-content-500 text-xs rounded p-0.5 mb-1 is-active:opacity-100 is-focus:opacity-0"></div>
+  <div class="label flex items-center gap-1 absolute opacity-0 bottom-full bg-base-500 text-base-500-content text-xs rounded p-0.5 mb-1 is-active:opacity-100 is-focus:opacity-0"></div>
   {%
     set op_wrapper_classes = 'absolute opacity-0 pointer-events-none flex items-center justify-center left-0 right-0 transition-opacity is-focus:opacity-100 is-focus:pointer-events-auto'
   %}
   {%
-    set op_classes = 'add-before op bg-primary-500 text-primary-content-500 px-2 py-1 text-xs transition hover:bg-base-600 hover:text-base-content-600'
+    set op_classes = 'add-before op bg-primary-500 text-primary-500-content px-2 py-1 text-xs transition hover:bg-base-600 hover:text-base-600-content'
   %}
   <div class="{{ op_wrapper_classes }} bottom-full">
     {{ op_add_before|neo_class(['rounded-t', op_classes]) }}
@@ -15,7 +15,7 @@
   </div>
 </div>
 <div class="neo-alchemist--ops invisible fixed left-0 right-0 bottom-full z-40 cursor-default is-focus:visible" style="display:none !important;" data-placement="top" data-alchemist-ignore>
-  <div class="flex gap-2 items-center bg-base-900 text-base-content-900 text-center shadow py-2 px-4 transition-all -translate-y-full is-focus:translate-y-0">
+  <div class="flex gap-2 items-center bg-base-900 text-base-900-content text-center shadow py-2 px-4 transition-all -translate-y-full is-focus:translate-y-0">
     <div class="flex gap-2">
       <div class="title flex items-center gap-1 text-sm"></div>
     </div>
@@ -25,7 +25,7 @@
   </div>
 </div>
 <div class="neo-alchemist--ops invisible fixed left-0 right-0 z-40 cursor-default is-focus:visible" style="display:none !important;" data-placement="bottom" data-alchemist-ignore>
-  <div class="flex gap-2 items-center bg-base-900 text-base-content-900 text-center shadow py-2 px-4 transition-all translate-y-full is-focus:translate-y-0">
+  <div class="flex gap-2 items-center bg-base-900 text-base-900-content text-center shadow py-2 px-4 transition-all translate-y-full is-focus:translate-y-0">
     <div class="flex gap-2">
       {% for op in ops %}
         {{ op }}

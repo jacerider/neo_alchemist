@@ -81,9 +81,9 @@
             P(n, o, e.rect, l);
             const c = n.querySelector(".label");
             c && (c.innerHTML = `<span class="px-1">${i.label}</span>`, i.warnings && i.warnings.length > 0 && i.warnings.forEach((a) => {
-              c.innerHTML = ` <span class="badge rounded-sm bg-warning-500 text-warning-content-500">${a}</span>` + c.innerHTML;
+              c.innerHTML = ` <span class="badge rounded-sm bg-warning-500 text-warning-500-content">${a}</span>` + c.innerHTML;
             }), i.alerts && i.alerts.length > 0 && i.alerts.forEach((a) => {
-              c.innerHTML = ` <span class="badge rounded-sm bg-alert-500 text-alert-content-500">${a}</span>` + c.innerHTML;
+              c.innerHTML = ` <span class="badge rounded-sm bg-alert-500 text-alert-500-content">${a}</span>` + c.innerHTML;
             })), setTimeout(() => {
               n.classList.add("!transition-all");
             }), l && (O(), e.size === T && f.behaviors.neoAlchemistComponentParent.scrollElementIntoView(n, s, 100));
@@ -189,9 +189,9 @@
       if (!s) return;
       const e = s.querySelector(".title");
       e && (e.innerHTML = `<span>${i.label}</span>`, i.warnings && i.warnings.length > 0 && i.warnings.forEach((t) => {
-        e.innerHTML = `<span class="badge px-2 rounded bg-warning-500 text-warning-content-500">${t}</span>` + e.innerHTML;
+        e.innerHTML = `<span class="badge px-2 rounded bg-warning-500 text-warning-500-content">${t}</span>` + e.innerHTML;
       }), i.alerts && i.alerts.length > 0 && i.alerts.forEach((t) => {
-        e.innerHTML = `<span class="badge px-2 rounded bg-alert-500 text-alert-content-500">${t}</span>` + e.innerHTML;
+        e.innerHTML = `<span class="badge px-2 rounded bg-alert-500 text-alert-500-content">${t}</span>` + e.innerHTML;
       }));
     }
     function X() {

@@ -239,12 +239,12 @@
               label.innerHTML = `<span class="px-1">${component.label}</span>`;
               if (component.warnings && component.warnings.length > 0) {
                 component.warnings.forEach(warning => {
-                  label.innerHTML = ` <span class="badge rounded-sm bg-warning-500 text-warning-content-500">${warning}</span>` + label.innerHTML;
+                  label.innerHTML = ` <span class="badge rounded-sm bg-warning-500 text-warning-500-content">${warning}</span>` + label.innerHTML;
                 });
               }
               if (component.alerts && component.alerts.length > 0) {
                 component.alerts.forEach(warning => {
-                  label.innerHTML = ` <span class="badge rounded-sm bg-alert-500 text-alert-content-500">${warning}</span>` + label.innerHTML;
+                  label.innerHTML = ` <span class="badge rounded-sm bg-alert-500 text-alert-500-content">${warning}</span>` + label.innerHTML;
                 });
               }
             }
@@ -492,12 +492,12 @@
         title.innerHTML = `<span>${component.label}</span>`;
         if (component.warnings && component.warnings.length > 0) {
           component.warnings.forEach(warning => {
-            title.innerHTML = `<span class="badge px-2 rounded bg-warning-500 text-warning-content-500">${warning}</span>` + title.innerHTML;
+            title.innerHTML = `<span class="badge px-2 rounded bg-warning-500 text-warning-500-content">${warning}</span>` + title.innerHTML;
           });
         }
         if (component.alerts && component.alerts.length > 0) {
           component.alerts.forEach(warning => {
-            title.innerHTML = `<span class="badge px-2 rounded bg-alert-500 text-alert-content-500">${warning}</span>` + title.innerHTML;
+            title.innerHTML = `<span class="badge px-2 rounded bg-alert-500 text-alert-500-content">${warning}</span>` + title.innerHTML;
           });
         }
       }

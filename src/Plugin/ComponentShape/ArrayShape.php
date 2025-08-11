@@ -288,7 +288,7 @@ class ArrayShape extends ChildrenShapeBase implements ComponentShapeInterablePlu
             '#type' => 'html_tag',
             '#tag' => 'div',
             '#attributes' => [
-              'class' => ['badge bg-base-700 text-base-content-700 rounded text-base-content flex-none self-center px-2'],
+              'class' => ['badge bg-base-700 text-base-700-content rounded text-base-content flex-none self-center px-2'],
             ],
             '#value' => $this->t('Item @delta', ['@delta' => $delta + 1]),
           ];
