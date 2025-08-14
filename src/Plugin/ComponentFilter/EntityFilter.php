@@ -247,6 +247,7 @@ final class EntityFilter extends ComponentFilterPluginBase implements ContainerF
         }
         $form['value'] = [
           '#type' => 'entity_autocomplete',
+          '#description' => $this->filter->getDescription(),
           '#default_value' => $default,
           '#tags' => !empty($this->configuration['multiple']),
           '#target_type' => $this->configuration['entity_type'],
