@@ -55,8 +55,9 @@ trait ComponentValueMatchTrait {
    * @return mixed
    *   The matched values.
    */
-  protected function getMatchValue(ComponentShapePluginInterface $shape, ?string $field = NULL, ?array $properties = [], ?bool $published = TRUE): mixed {
+  protected function getMatchValue(ComponentShapePluginInterface $shape, ?string $field = NULL, ?array $properties = NULL, ?bool $published = TRUE): mixed {
     $field = $field ?? $this->configuration['field'] ?? '';
+    $properties = $properties ?? $this->configuration['field_properties'] ?? [];
     if (!$field) {
       return NULL;
     }
