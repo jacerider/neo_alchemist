@@ -100,11 +100,20 @@ final class MatcherField extends MatcherBase {
     ?CacheableMetadata $cacheableMetadata = NULL,
   ): mixed {
     $path = explode('.', $key);
+    $finalKey = array_pop($path);
+    [$fieldName, $property, $subProperty] = explode(':', $finalKey . '::');
+    // If we are a dynamic entity field.
+    if ($fieldName === '_entity') {
+      // Get the final entity.
+      $finalEntity = $this->getEntity($entity, $key, $published, $cacheableMetadata);
+      if ($finalEntity) {
+        return $this->getDynamicEntityValues($finalEntity, $property, $subProperty);
+      }
+      return NULL;
+    }
+    // Get the field.
     $field = $this->getEntityField($entity, $key, $published, $cacheableMetadata);
     if ($field) {
-      $path = explode('.', $key);
-      $key = array_pop($path);
-      [, $property, $subProperty] = explode(':', $key . '::');
       $value = $field->getValue();
       if ($property) {
         $value = $value[0][$property] ?? $default;
@@ -139,18 +148,17 @@ final class MatcherField extends MatcherBase {
    * @param \Drupal\Core\Cache\CacheableMetadata|null $cacheableMetadata
    *   (optional) Cacheable metadata to attach to the field value.
    *
-   * @return \Drupal\Core\Field\FieldItemListInterface|null
-   *   The field item list for the specified field, or NULL if the field does
-   *   not exist.
+   * @return \Drupal\Core\Entity\ContentEntityInterface|null
+   *   The entity for the specified field, or NULL if the field does not exist.
    */
-  public function getEntityField(
+  public function getEntity(
     ContentEntityInterface $entity,
     string $key,
     ?bool $published = TRUE,
     ?CacheableMetadata $cacheableMetadata = NULL,
-  ): ?FieldItemListInterface {
+  ): ?ContentEntityInterface {
     $path = explode('.', $key);
-    return $this->recurseEntityFields($entity, $path, $published, $cacheableMetadata);
+    return $this->recurseEntity($entity, $path, $published, $cacheableMetadata);
   }
 
   /**
@@ -167,16 +175,16 @@ final class MatcherField extends MatcherBase {
    * @param \Drupal\Core\Cache\CacheableMetadata|null $cacheableMetadata
    *   (optional) Cacheable metadata to attach to the field value.
    *
-   * @return \Drupal\Core\Field\FieldItemListInterface|null
+   * @return \Drupal\Core\Entity\ContentEntityInterface|null
    *   The field item list for the specified field, or NULL if the field does
    *   not exist.
    */
-  private function recurseEntityFields(
+  private function recurseEntity(
     EntityInterface $entity,
     array $path,
     ?bool $published = TRUE,
     ?CacheableMetadata $cacheableMetadata = NULL,
-  ): ?FieldItemListInterface {
+  ): ?ContentEntityInterface {
     if ($cacheableMetadata) {
       $cacheableMetadata->addCacheableDependency($entity);
     }
@@ -194,6 +202,11 @@ final class MatcherField extends MatcherBase {
           }
         }
       }
+      // If field name is _entity, we return the current entity as the current
+      // entity is what we want.
+      if ($fieldName === '_entity') {
+        return $entity;
+      }
       if (!$entity->hasField($fieldName)) {
         return NULL;
       }
@@ -202,9 +215,44 @@ final class MatcherField extends MatcherBase {
         if (!$field->entity) {
           return NULL;
         }
-        return $this->recurseEntityFields($field->entity, $path, $cacheableMetadata);
+        return $this->recurseEntity($field->entity, $path, $published, $cacheableMetadata);
       }
-      return $field;
+      return $entity;
+    }
+    return NULL;
+  }
+
+  /**
+   * Retrieves the value of a field from a content entity.
+   *
+   * @param \Drupal\Core\Entity\EntityInterface $entity
+   *   The content entity from which to retrieve the field value.
+   * @param string $key
+   *   The dot-separated string representing the field path.
+   * @param bool $published
+   *   (optional) Whether to only return values from published entities.
+   * @param \Drupal\Core\Cache\CacheableMetadata|null $cacheableMetadata
+   *   (optional) Cacheable metadata to attach to the field value.
+   *
+   * @return \Drupal\Core\Field\FieldItemListInterface|null
+   *   The field item list for the specified field, or NULL if the field does
+   *   not exist.
+   */
+  public function getEntityField(
+    ContentEntityInterface $entity,
+    string $key,
+    ?bool $published = TRUE,
+    ?CacheableMetadata $cacheableMetadata = NULL,
+  ): ?FieldItemListInterface {
+    $finalEntity = $this->getEntity($entity, $key, $published, $cacheableMetadata);
+    if ($finalEntity) {
+      $path = explode('.', $key);
+      $key = end($path);
+      [$fieldName] = explode(':', $key . '::');
+      if (!$finalEntity->hasField($fieldName)) {
+        return NULL;
+      }
+      return $finalEntity->get($fieldName);
     }
     return NULL;
   }
