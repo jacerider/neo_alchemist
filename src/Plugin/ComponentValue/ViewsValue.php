@@ -94,8 +94,9 @@ final class ViewsValue extends ComponentValuePluginBase implements ContainerFact
       'view_id' => '',
       'view_display_id' => '',
       'view_items_per_page' => $this->shape->getType() === ComponentShapePluginInterface::OBJECT ? 1 : NULL,
-      'view_items_offset' => NULL,
+      'view_items_offset' => 0,
       'view_arguments' => [],
+      'view_arguments_sort' => FALSE,
       'continue' => FALSE,
     ] + $this->childrenMatchDefaultConfiguration();
   }
@@ -186,7 +187,7 @@ final class ViewsValue extends ComponentValuePluginBase implements ContainerFact
           '#type' => 'number',
           '#title' => $this->t('Offset items'),
           '#default_value' => $this->configuration['view_items_offset'] ?? NULL,
-          '#min' => 1,
+          '#min' => 0,
         ];
 
         $arguments = $view->getHandlers('argument');
@@ -202,10 +203,18 @@ final class ViewsValue extends ComponentValuePluginBase implements ContainerFact
               '#title' => $this->t('View Arguments'),
               '#access' => FALSE,
             ];
+            $form['view_arguments_sort'] = [
+              '#type' => 'checkbox',
+              '#title' => $this->t('Sort results by argument values'),
+              '#description' => $this->t('This is useful if your argument will be entity ids and you want the results to be sorted accordingly.'),
+              '#default_value' => $this->configuration['view_arguments_sort'] ?? FALSE,
+              '#access' => FALSE,
+            ];
             foreach ($arguments as $id => $argument) {
               $handler = $display->getHandler('argument', $id);
               if ($handler) {
                 $form['view_arguments']['#access'] = TRUE;
+                $form['view_arguments_sort']['#access'] = TRUE;
                 $form['view_arguments'][$id] = [
                   '#type' => 'select',
                   '#title' => $handler->adminLabel(),
@@ -243,6 +252,8 @@ final class ViewsValue extends ComponentValuePluginBase implements ContainerFact
     $offset = $form_state->getValue('view_items_offset');
     $form_state->setValue('view_items_offset', $offset ? (int) $offset : NULL);
     $form_state->setValue('view_arguments', array_filter($form_state->getValue('view_arguments', [])));
+    $form_state->setValue('view_arguments_sort', !empty($form_state->getValue('view_arguments_sort')));
+
     $form_state->setValue('continue', (bool) $form_state->getValue('continue'));
   }
 
@@ -273,6 +284,7 @@ final class ViewsValue extends ComponentValuePluginBase implements ContainerFact
       if (!$view) {
         return $value;
       }
+      $view->setDisplay($this->configuration['view_display_id']);
       $this->shape->addCacheableDependency($view);
       if ($this->configuration['view_items_per_page'] ?? NULL) {
         $view->setItemsPerPage($this->configuration['view_items_per_page']);
@@ -297,13 +309,34 @@ final class ViewsValue extends ComponentValuePluginBase implements ContainerFact
           $view->setArguments($args);
         }
       }
-      $view->execute($this->configuration['view_display_id']);
-      $results = [];
-      $entities = array_map(fn($row) => $row->_entity, $view->result);
-      $results = $this->getChildrenMatchValues($this->shape, $entities, $this->configuration);
-      if (!empty($results) || empty($this->configuration['continue'])) {
-        $value = $results;
+      $view->preExecute();
+      $view->execute();
+      $entities = [];
+      foreach (array_map(fn($row) => $row->_entity, $view->result) as $entity) {
+        $entities[$entity->id()] = $entity;
+      }
+      if (!empty($this->configuration['view_arguments_sort']) && isset($args) && !empty($args[0])) {
+        $ids = explode('+', $args[0]);
+        if (count($ids) > 1) {
+          $orderedEntities = [];
+          foreach ($ids as $id) {
+            if (isset($entities[$id])) {
+              $orderedEntities[$id] = $entities[$id];
+            }
+          }
+          $entities = $orderedEntities;
+        }
+      }
+      if (!$entities && empty($this->configuration['continue'])) {
         $this->stopFurtherProcessing();
+        $value = [];
+      }
+      else {
+        $results = $this->getChildrenMatchValues($this->shape, $entities, $this->configuration);
+        if (!empty($results) || empty($this->configuration['continue'])) {
+          $this->stopFurtherProcessing();
+          $value = $results;
+        }
       }
     }
     return $value;
