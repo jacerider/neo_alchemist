@@ -44,11 +44,16 @@ class StyleShape extends StyleShapeBase {
   /**
    * {@inheritDoc}
    */
-  public function getValue(): mixed {
-    $originalValue = parent::getValue();
-    $value = new ComponentShapeStyleAttribute([], $originalValue ?: NULL);
-    if ($originalValue && isset($this->schema['styles'][$originalValue]['value'])) {
-      $value->addClass($this->schema['styles'][$originalValue]['value']);
+  public function getPropValue(): mixed {
+    $originalValue = parent::getPropValue();
+    if ($originalValue instanceof ComponentShapeStyleAttribute) {
+      $value = $originalValue;
+    }
+    else {
+      $value = new ComponentShapeStyleAttribute([], $originalValue ?: NULL);
+      if ($originalValue && isset($this->schema['styles'][$originalValue]['value'])) {
+        $value->addClass($this->schema['styles'][$originalValue]['value']);
+      }
     }
     return $value;
   }

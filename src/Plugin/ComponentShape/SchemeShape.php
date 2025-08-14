@@ -55,8 +55,8 @@ class SchemeShape extends StyleShapeBase {
   /**
    * {@inheritDoc}
    */
-  public function getValue(): mixed {
-    $originalValue = parent::getValue();
+  public function getPropValue(): mixed {
+    $originalValue = parent::getPropValue();
     $target_id = $originalValue['target_id'] ?? $originalValue;
     $value = new ComponentShapeStyleAttribute([], $target_id);
     if ($target_id && is_string($target_id)) {
