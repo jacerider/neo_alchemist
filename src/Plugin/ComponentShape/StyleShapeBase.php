@@ -43,18 +43,6 @@ abstract class StyleShapeBase extends ComponentShapePluginBase implements Compon
   /**
    * {@inheritDoc}
    */
-  public function modifyAttributes(Attribute $attributes) {
-    if (array_key_exists('apply', $this->schema) && !empty($this->schema['apply'])) {
-      $value = $this->getValue();
-      if ($value instanceof Attribute) {
-        $attributes->merge($value);
-      }
-    }
-  }
-
-  /**
-   * {@inheritDoc}
-   */
   public static function onGeneration(array &$prop, array $vars, Interviewer $ir, NeoComponentPropGeneratorInterface $generator, array $parents) {
     $prop['apply'] = $ir->confirm('Apply style to component wrapper?', TRUE) ? 'true' : 'false';
   }

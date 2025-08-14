@@ -800,10 +800,13 @@ interface ComponentShapePluginInterface extends PluginInspectionInterface, Deriv
    * This differs from getValue() in that modifications can be done here that
    * are not compatible with SDC.
    *
+   * @param \Drupal\Core\Template\Attribute $attributes
+   *   The attribute that will be applied to the component wrapper.
+   *
    * @return mixed
    *   The prop value.
    */
-  public function getPropValue(): mixed;
+  public function getPropValue(Attribute $attributes): mixed;
 
   /**
    * Get the working prop value.
@@ -918,14 +921,6 @@ interface ComponentShapePluginInterface extends PluginInspectionInterface, Deriv
    * @return $this
    */
   public function setFieldItemValue(mixed $value): self;
-
-  /**
-   * Modify the component attributes.
-   *
-   * @param \Drupal\Core\Template\Attribute $attributes
-   *   The attributes that will be applied to the component.
-   */
-  public function modifyAttributes(Attribute $attributes);
 
   /**
    * Set the widget type.

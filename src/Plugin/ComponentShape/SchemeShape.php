@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Drupal\neo_alchemist\Plugin\ComponentShape;
 
 use Drupal\Core\StringTranslation\TranslatableMarkup;
+use Drupal\Core\Template\Attribute;
 use Drupal\neo_alchemist\Attribute\ComponentShape;
 use Drupal\neo_alchemist\ComponentShapeStyleAttribute;
 use Drupal\neo_color\Element\Scheme;
@@ -55,8 +56,8 @@ class SchemeShape extends StyleShapeBase {
   /**
    * {@inheritDoc}
    */
-  public function getPropValue(): mixed {
-    $originalValue = parent::getPropValue();
+  public function getPropValue(Attribute $attributes): mixed {
+    $originalValue = parent::getPropValue($attributes);
     $target_id = $originalValue['target_id'] ?? $originalValue;
     $value = new ComponentShapeStyleAttribute([], $target_id);
     if ($target_id && is_string($target_id)) {
@@ -65,6 +66,9 @@ class SchemeShape extends StyleShapeBase {
       if ($scheme) {
         $value->addClass($scheme->getSelector());
       }
+    }
+    if (array_key_exists('apply', $this->schema) && !empty($this->schema['apply'])) {
+      $attributes->merge($value);
     }
     return $value;
   }

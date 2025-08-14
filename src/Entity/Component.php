@@ -617,7 +617,7 @@ class Component extends ConfigEntityBase implements ComponentInterface {
       // the opportunity to modify the value before it is returned in a way
       // that may not be compatible with the field item but is still valid
       // for SDC.
-      $value = $shape->getPropValue();
+      $value = $shape->getPropValue($attributes);
       if (is_null($value)) {
         continue;
       }
@@ -625,7 +625,6 @@ class Component extends ConfigEntityBase implements ComponentInterface {
         continue;
       }
       $values[$shapeId] = $value;
-      $shape->modifyAttributes($attributes);
       $cacheableMetadata->addCacheableDependency($shape->getCacheableMetadata());
     }
     $values['attributes'] = $attributes;

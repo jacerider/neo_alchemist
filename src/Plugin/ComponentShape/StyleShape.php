@@ -6,6 +6,7 @@ namespace Drupal\neo_alchemist\Plugin\ComponentShape;
 
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
+use Drupal\Core\Template\Attribute;
 use Drupal\neo_alchemist\Attribute\ComponentShape;
 use Drupal\neo_alchemist\ComponentShapeStyleAttribute;
 
@@ -44,16 +45,14 @@ class StyleShape extends StyleShapeBase {
   /**
    * {@inheritDoc}
    */
-  public function getPropValue(): mixed {
-    $originalValue = parent::getPropValue();
-    if ($originalValue instanceof ComponentShapeStyleAttribute) {
-      $value = $originalValue;
+  public function getPropValue(Attribute $attributes): mixed {
+    $originalValue = parent::getPropValue($attributes);
+    $value = new ComponentShapeStyleAttribute([], $originalValue ?: NULL);
+    if ($originalValue && isset($this->schema['styles'][$originalValue]['value'])) {
+      $value->addClass($this->schema['styles'][$originalValue]['value']);
     }
-    else {
-      $value = new ComponentShapeStyleAttribute([], $originalValue ?: NULL);
-      if ($originalValue && isset($this->schema['styles'][$originalValue]['value'])) {
-        $value->addClass($this->schema['styles'][$originalValue]['value']);
-      }
+    if (array_key_exists('apply', $this->schema) && !empty($this->schema['apply'])) {
+      $attributes->merge($value);
     }
     return $value;
   }

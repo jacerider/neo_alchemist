@@ -1454,7 +1454,7 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
   /**
    * {@inheritDoc}
    */
-  public function getPropValue(): mixed {
+  public function getPropValue(Attribute $attributes): mixed {
     return $this->getValue();
   }
 
@@ -1657,12 +1657,6 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
     }
     $this->fieldItem->setValue($value);
     return $this;
-  }
-
-  /**
-   * {@inheritDoc}
-   */
-  public function modifyAttributes(Attribute $attributes) {
   }
 
   /**
