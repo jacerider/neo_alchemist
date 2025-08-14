@@ -795,6 +795,17 @@ interface ComponentShapePluginInterface extends PluginInspectionInterface, Deriv
   public function getFieldItem(): FieldItemInterface;
 
   /**
+   * Get the prop value that will be sent to the component for rendering.
+   *
+   * This differs from getValue() in that modifications can be done here that
+   * are not compatible with SDC.
+   *
+   * @return mixed
+   *   The prop value.
+   */
+  public function getPropValue(): mixed;
+
+  /**
    * Get the working prop value.
    *
    * This value should be able to be passed to the SDC.

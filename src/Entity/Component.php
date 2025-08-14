@@ -613,7 +613,11 @@ class Component extends ConfigEntityBase implements ComponentInterface {
         // Skip inactive shapes.
         continue;
       }
-      $value = $shape->getValue();
+      // We call getPropValue() instead of getValue() so that shapes have
+      // the opportunity to modify the value before it is returned in a way
+      // that may not be compatible with the field item but is still valid
+      // for SDC.
+      $value = $shape->getPropValue();
       if (is_null($value)) {
         continue;
       }

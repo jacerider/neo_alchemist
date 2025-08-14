@@ -1454,6 +1454,13 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
   /**
    * {@inheritDoc}
    */
+  public function getPropValue(): mixed {
+    return $this->getValue();
+  }
+
+  /**
+   * {@inheritDoc}
+   */
   public function getValue(): mixed {
     // If the value is set to be empty (which will cause it to be hidden), we
     // don't need to do anything else.
