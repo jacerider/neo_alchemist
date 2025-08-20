@@ -1,6 +1,6 @@
 components.parent:
   version: VERSION
-  neo: { group: contrib }
+  neo: true
   js:
     src/js/components-parent.ts: {}
   dependencies:
@@ -9,7 +9,7 @@ components.parent:
 
 components.child:
   version: VERSION
-  neo: { group: contrib }
+  neo: true
   js:
     src/js/components-child.ts: {}
   dependencies:
@@ -17,7 +17,7 @@ components.child:
 
 component.parent:
   version: VERSION
-  neo: { group: contrib }
+  neo: true
   js:
     src/js/component-parent.ts: {}
   dependencies:
@@ -26,7 +26,7 @@ component.parent:
 
 component.child:
   version: VERSION
-  neo: { group: contrib }
+  neo: true
   js:
     src/js/component-child.ts: {}
   dependencies:
@@ -35,14 +35,14 @@ component.child:
 
 component.form:
   version: VERSION
-  neo: { group: contrib }
+  neo: true
   css:
     component:
-      src/css/component-form.scss: {}
+      src/css/component-form.css: {}
 
 component.ajax.form:
   version: VERSION
-  neo: { group: contrib }
+  neo: true
   js:
     src/js/component-ajax-form.ts: {}
   dependencies:
@@ -51,7 +51,7 @@ component.ajax.form:
 
 component.screenshot:
   version: VERSION
-  neo: { group: contrib }
+  neo: true
   js:
     src/js/component-screenshot.ts: {}
   dependencies:
@@ -59,7 +59,7 @@ component.screenshot:
 
 component.ajax:
   version: VERSION
-  neo: { group: contrib }
+  neo: true
   js:
     src/js/component-ajax.ts: {}
   dependencies:
@@ -75,4 +75,4 @@ library.html2canvas:
     url: https://github.com/yorickshan/html2canvas-pro/blob/main/LICENSE
     gpl-compatible: true
   js:
-    dist/js/library.html2canvas.min.js: { minified: true, attributes: { defer: true } }
+    lib/js/html2canvas.min.js: { minified: true, attributes: { defer: true } }

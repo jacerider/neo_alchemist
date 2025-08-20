@@ -178,12 +178,16 @@ trait ComponentValueChildrenMatchTrait {
                 break;
 
               case '_render':
+                if (empty($settings['render_field'])) {
+                  $values[$delta][$shapeName] = [];
+                  break;
+                }
                 $item = $this->matcherField->getEntityField($entity, $settings['render_field'], !empty($configuration['shape_published']), $shape->getCacheableMetadata());
                 if ($item && !$item->isEmpty() && !empty($settings['render_field_format']['field_plugin'])) {
                   $build = $item->view([
                     'type' => $settings['render_field_format']['field_plugin'],
-                    'label' => $settings['render_field_format']['field_label'],
-                    'settings' => $settings['render_field_format']['field_settings'],
+                    'label' => $settings['render_field_format']['field_label'] ?? 'hidden',
+                    'settings' => $settings['render_field_format']['field_settings'] ?? [],
                   ]);
                   $cacheableMetadata = CacheableMetadata::createFromRenderArray($build);
                   $shape->addCacheableDependency($cacheableMetadata);

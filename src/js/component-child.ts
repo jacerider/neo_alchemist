@@ -74,5 +74,3 @@
   };
 
 })(Drupal, once);
-
-export {};

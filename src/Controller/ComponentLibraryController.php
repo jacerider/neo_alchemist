@@ -40,7 +40,8 @@ final class ComponentLibraryController extends ControllerBase {
    * Builds the response.
    */
   public function __invoke(): array {
-    $definitions = $this->pluginManagerSdc->getDefinitions();
+    // Only allow neo components.
+    $definitions = array_filter($this->pluginManagerSdc->getDefinitions(), fn($definition) => !empty($definition['neo']));
     uasort($definitions, fn($a, $b) => strnatcasecmp($a['name'], $b['name']));
 
     $rows = [];

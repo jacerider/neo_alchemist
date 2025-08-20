@@ -442,5 +442,3 @@
   }
 
 })(Drupal, once);
-
-export {};

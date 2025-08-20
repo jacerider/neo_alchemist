@@ -1,0 +1,40 @@
+.neo-alchemist--component-form {
+  .media-library-item {
+    width: calc(var(--spacing) * 36);
+  }
+
+  .media-library-item--preview {
+    width: calc(var(--spacing) * 36);
+    height: calc(var(--spacing) * 24);
+    border: 0;
+    border-radius: 0;
+
+    img {
+      /* There was a !important here. */
+      width: calc(var(--spacing) * 36);
+      height: calc(var(--spacing) * 24);
+      object-fit: cover;
+      border: 2px solid var(--border-color-default);
+      border-radius: 0.25rem;
+
+    }
+  }
+
+  .media-library-widget--prefix {
+    margin: 0;
+  }
+
+  .js-media-library-widget {
+    border: 0;
+    padding: 0;
+    box-shadow: none;
+  }
+
+  .field--widget-media-library-widget .description {
+    margin: 0;
+  }
+
+  .media-library-wrapper {
+    padding: 0 !important;
+  }
+}

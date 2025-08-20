@@ -1,6 +1,6 @@
 <div{% if id %} id="{{ id }}"{% endif %} class="neo-alchemist-manage fixed flex flex-col top-0 left-0 w-full h-full bg-base-300 z-0 modal:relative">
   {% if top_start or top_end %}
-    <div class="neo-alchemist-manage--top relative flex-none flex gap-4 w-full bg-white border-b border-gray-200 px-4 py-2 shadow z-50" data-alchemist-offset-top>
+    <div class="neo-alchemist-manage--top relative flex-none flex gap-4 w-full bg-default border-b px-4 py-2 shadow z-50" data-alchemist-offset-top>
       {% if top_start %}
         <div class="neo-alchemist-manage--top-start flex items-center gap-2">{{ top_start }}</div>
       {% endif %}
@@ -91,7 +91,7 @@
     {% endif %}
 
     {% if form and form_position == 'side' %}
-      <div class="neo-alchemist-manage--form neo-alchemist--form-side absolute flex right-4 w-96 py-4" style="top: var(--alchemist-displace-offset-top, 0px); bottom: var(--alchemist-displace-offset-bottom, 0px);">
+      <div class="neo-alchemist-manage--form neo-alchemist--form-side absolute flex right-4 w-120 py-4" style="top: var(--alchemist-displace-offset-top, 0px); bottom: var(--alchemist-displace-offset-bottom, 0px);">
         <div class="bg-base-0 overflow-y-scroll rounded-lg shadow-lg w-full p-4">
           {{ form|neo_class('p-0')|neo_class('mt-0', 'inner_attributes') }}
         </div>
@@ -101,7 +101,7 @@
   </div>
 
   {% if bottom_start or bottom_end %}
-    <div class="neo-alchemist-manage--bottom relative flex-none flex gap-4 w-full bg-white border-t border-gray-200 px-4 py-2 shadow z-50" data-alchemist-offset-bottom>
+    <div class="neo-alchemist-manage--bottom relative flex-none flex gap-4 w-full bg-default border-t px-4 py-2 shadow z-50" data-alchemist-offset-bottom>
       {% if bottom_start %}
         <div class="neo-alchemist-manage--bottom-start flex items-center gap-2">{{ bottom_start }}</div>
       {% endif %}

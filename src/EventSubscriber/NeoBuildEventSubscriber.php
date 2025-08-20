@@ -15,31 +15,25 @@ use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 class NeoBuildEventSubscriber implements EventSubscriberInterface {
 
   /**
-   * Subscribe to the user login event dispatched.
+   * Subscribe to the Neo build event dispatched.
    *
    * @param \Drupal\neo_build\Event\NeoBuildEvent $event
    *   The neo build event.
    */
   public function onBuild(NeoBuildEvent $event) {
-    $config = $event->getConfig();
-    $docRoot = $event->getDocRoot();
-    $scopedExtensions = $event->getScopedExtensions();
-    foreach ($scopedExtensions as $scope => $extensions) {
-      if ($scope !== 'front') {
-        // Components are only used on the front end.
-        continue;
+    $collection = $event->getCollection();
+    // Only front-end extensions are considered.
+    $extensions = $event->getExtensions();
+    foreach ($extensions as $id => $extension) {
+      $path = $extension->getPath();
+      $defPath = $path . '/' . $id . '.neo_component_prop_defs.yml';
+      if (file_exists($defPath)) {
+        $collection->addTailwindSource($id . ':Props', $defPath);
       }
-      foreach ($extensions as $id => $extension) {
-        $path = $extension->getPath();
-        if (file_exists($path . '/' . $id . '.neo_component_prop_defs.yml')) {
-          $config['scopes'][$scope]['tailwind']['content'][] = $docRoot . $path . '/' . $id . '.neo_component_prop_defs.yml';
-        }
-        if (is_dir($path . '/components')) {
-          $config['tailwind']['content'][] = $docRoot . $path . '/components/**/*.{yml,twig}';
-        }
+      if (is_dir($path . '/components')) {
+        $collection->addTailwindSource($id . ':Components', $path . '/components/**/*.{yml,twig}');
       }
     }
-    $event->setConfig($config);
   }
 
   /**

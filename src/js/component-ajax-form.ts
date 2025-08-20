@@ -95,5 +95,3 @@
   };
 
 })(Drupal, once);
-
-export {};

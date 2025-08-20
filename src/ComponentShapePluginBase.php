@@ -1888,7 +1888,7 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
         $form['#title'] = $this->getTitle();
       }
       if ($states) {
-        $form['#title'] = $this->t('@label (@states)', [
+        $form['#title'] = $this->t('@label <small class="font-normal">(@states)</small>', [
           '@label' => $this->getTitle(),
           '@states' => implode(' & ', $states),
         ]);

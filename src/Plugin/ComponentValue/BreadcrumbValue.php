@@ -10,6 +10,7 @@ use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Plugin\ContainerFactoryPluginInterface;
 use Drupal\Core\Routing\RouteMatchInterface;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
+use Drupal\Core\Url;
 use Drupal\neo_alchemist\Attribute\ComponentValue;
 use Drupal\neo_alchemist\ComponentShapePluginInterface;
 use Drupal\neo_alchemist\ComponentValuePluginBase;
@@ -88,6 +89,7 @@ final class BreadcrumbValue extends ComponentValuePluginBase implements Containe
    */
   public function defaultConfiguration() {
     return [
+      'hide_home' => FALSE,
       'hide_current' => TRUE,
     ];
   }
@@ -96,6 +98,13 @@ final class BreadcrumbValue extends ComponentValuePluginBase implements Containe
    * Configuration form for the value provider plugin.
    */
   protected function configurationForm(array $form, FormStateInterface $form_state, array &$complete_form): array {
+
+    $form['hide_home'] = [
+      '#type' => 'checkbox',
+      '#title' => $this->t('Hide current'),
+      '#description' => $this->t('If checked, the home page will not be included in the breadcrumb.'),
+      '#default_value' => $this->configuration['hide_home'],
+    ];
 
     $form['hide_current'] = [
       '#type' => 'checkbox',
@@ -114,8 +123,8 @@ final class BreadcrumbValue extends ComponentValuePluginBase implements Containe
     $breadcrumb = $this->breadcrumbManager->build($this->routeMatch);
     $value = [];
     $links = $breadcrumb->getLinks();
-    if ($links && $this->configuration['hide_current']) {
-      array_pop($links);
+    if ($links && $this->configuration['hide_home']) {
+      array_shift($links);
     }
     foreach ($links as $link) {
       /** @var \Drupal\Core\Link $link */
@@ -129,6 +138,19 @@ final class BreadcrumbValue extends ComponentValuePluginBase implements Containe
             'title' => $link->getText(),
             'uri' => $url->toUriString(),
             'options' => $options,
+          ],
+        ];
+      }
+    }
+    if ($links) {
+      if (!$this->configuration['hide_current']) {
+        $request = \Drupal::request();
+        $route_match = \Drupal::routeMatch();
+        $title = \Drupal::service('title_resolver')->getTitle($request, $route_match->getRouteObject());
+        $value[] = [
+          'title' => $title,
+          'url' => [
+            'title' => $title,
           ],
         ];
       }
