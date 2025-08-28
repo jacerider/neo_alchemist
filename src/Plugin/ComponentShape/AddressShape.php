@@ -23,11 +23,22 @@ class AddressShape extends ComponentShapePluginBase {
   /**
    * {@inheritDoc}
    */
-  public function getValue(): array {
+  public function buildValue(): array {
     // Null values are converted to empty strings for JSON Schema compliance.
     return array_map(function ($item) {
-      return $item ?? '';
-    }, parent::getValue());
+      return $item ? (string) $item : '';
+    }, parent::buildValue());
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  protected function alterFieldItemValue(mixed &$value): void {
+    // If country_code is empty, set a default value otherwise the address
+    // field will not display it.
+    if (empty($value['country_code'])) {
+      $value['country_code'] = 'US';
+    }
   }
 
 }

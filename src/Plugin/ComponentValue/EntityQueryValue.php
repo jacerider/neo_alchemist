@@ -7,6 +7,7 @@ namespace Drupal\neo_alchemist\Plugin\ComponentValue;
 use Drupal\Component\Utility\Html;
 use Drupal\Component\Utility\NestedArray;
 use Drupal\Core\DependencyInjection\DependencySerializationTrait;
+use Drupal\Core\Entity\ContentEntityTypeInterface;
 use Drupal\Core\Entity\EntityTypeBundleInfoInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Form\FormStateInterface;
@@ -18,6 +19,7 @@ use Drupal\neo_alchemist\ComponentShapePluginInterface;
 use Drupal\neo_alchemist\ComponentValuePluginBase;
 use Drupal\neo_alchemist\Event\ComponentValueEntityQueryEvent;
 use Drupal\neo_alchemist\MatcherField;
+use Drupal\neo_alchemist\MatcherReference;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
@@ -69,6 +71,13 @@ final class EntityQueryValue extends ComponentValuePluginBase implements Contain
   protected MatcherField $matcherField;
 
   /**
+   * The reference matcher.
+   *
+   * @var \Drupal\neo_alchemist\MatcherReference
+   */
+  protected MatcherReference $matcherReference;
+
+  /**
    * {@inheritdoc}
    */
   public function __construct(
@@ -80,12 +89,14 @@ final class EntityQueryValue extends ComponentValuePluginBase implements Contain
     EntityTypeBundleInfoInterface $entity_type_bundle_info,
     EventDispatcherInterface $event_dispatcher,
     MatcherField $matcher_field,
+    MatcherReference $matcher_reference,
   ) {
     parent::__construct($plugin_id, $plugin_definition, $shape, $configuration);
     $this->entityTypeManager = $entity_type_manager;
     $this->entityTypeBundleInfo = $entity_type_bundle_info;
     $this->eventDispatcher = $event_dispatcher;
     $this->matcherField = $matcher_field;
+    $this->matcherReference = $matcher_reference;
   }
 
   /**
@@ -100,7 +111,8 @@ final class EntityQueryValue extends ComponentValuePluginBase implements Contain
       $container->get('entity_type.manager'),
       $container->get('entity_type.bundle.info'),
       $container->get('event_dispatcher'),
-      $container->get('neo_alchemist.matcher_field')
+      $container->get('neo_alchemist.matcher_field'),
+      $container->get('neo_alchemist.matcher_reference')
     );
   }
 
@@ -111,8 +123,11 @@ final class EntityQueryValue extends ComponentValuePluginBase implements Contain
     return [
       'entity_type' => '',
       'bundle' => '',
+      'sort_field' => '',
+      'sort_direction' => 'ASC',
+      'filter_entity' => '',
       'start' => 0,
-      'length' => 1,
+      'length' => 10,
       'continue' => FALSE,
     ] + $this->childrenMatchDefaultConfiguration();
   }
@@ -131,7 +146,9 @@ final class EntityQueryValue extends ComponentValuePluginBase implements Contain
     $entityTypes = $this->entityTypeManager->getDefinitions();
     $options = [];
     foreach ($entityTypes as $type) {
-      $options[$type->id()] = $type->getLabel();
+      if ($type instanceof ContentEntityTypeInterface) {
+        $options[$type->id()] = $type->getLabel();
+      }
     }
     asort($options);
     $form['entity_type'] = [
@@ -170,12 +187,43 @@ final class EntityQueryValue extends ComponentValuePluginBase implements Contain
           ];
         }
       }
-      else {
-        // $bundle = $entityTypeId;
-      }
 
       // Add shape fields.
       $form += $this->buildChildrenMatchConfigurationForm($this->shape, $form, $form_state, $entityTypeId, $bundle, $this->configuration);
+
+      $form['sort_field'] = [
+        '#type' => 'select',
+        '#title' => $this->t('Sort by field'),
+        '#options' => $this->matcherField->getMatchesAsOptions($this->shape, $entityTypeId, $bundle, NULL, TRUE),
+        '#empty_option' => $this->t('- Default -'),
+        '#default_value' => $this->configuration['sort_field'] ?? NULL,
+        '#id' => $wrapperId . '-sort-field',
+      ];
+
+      $form['sort_direction'] = [
+        '#type' => 'select',
+        '#title' => $this->t('Sort direction'),
+        '#options' => [
+          'ASC' => $this->t('Ascending'),
+          'DESC' => $this->t('Descending'),
+        ],
+        '#default_value' => $this->configuration['sort_direction'],
+        '#states' => [
+          'visible' => [
+            '#' . $wrapperId . '-sort-field' => ['!value' => ''],
+          ],
+        ],
+      ];
+
+      $entity = $this->shape->getEntity();
+      $form['filter_entity'] = [
+        '#type' => 'select',
+        '#title' => $this->t('Filter by entity reference'),
+        '#description' => $this->t('Optionally filter the results by a specific entity reference field on the current entity. This will limit the results to only those referenced entities.'),
+        '#options' => $this->matcherReference->getReferencesAsOptions($entityTypeId, $bundle, $entity->getEntityTypeId(), $entity->bundle()),
+        '#empty_option' => $this->t('- None -'),
+        '#default_value' => $this->configuration['filter_entity'] ?? NULL,
+      ];
 
       $form['start'] = [
         '#type' => 'number',
@@ -186,14 +234,16 @@ final class EntityQueryValue extends ComponentValuePluginBase implements Contain
         '#step' => 1,
       ];
 
-      $form['length'] = [
-        '#type' => 'number',
-        '#title' => $this->t('Length'),
-        '#description' => $this->t('The number of results to return.'),
-        '#default_value' => $this->configuration['length'],
-        '#min' => 1,
-        '#step' => 1,
-      ];
+      if ($this->shape->isIterable()) {
+        $form['length'] = [
+          '#type' => 'number',
+          '#title' => $this->t('Length'),
+          '#description' => $this->t('The number of results to return.'),
+          '#default_value' => $this->configuration['length'],
+          '#min' => 1,
+          '#step' => 1,
+        ];
+      }
 
       $form['continue'] = [
         '#type' => 'checkbox',
@@ -242,20 +292,34 @@ final class EntityQueryValue extends ComponentValuePluginBase implements Contain
       $storage = $this->entityTypeManager->getStorage($entityTypeId);
       $query = $storage->getQuery();
       $query->accessCheck(TRUE);
-      $query->range($this->configuration['start'], $this->configuration['length']);
+      if ($sortField = $this->configuration['sort_field']) {
+        $sortField = str_replace('.', '.entity.', $sortField);
+        $sortDirection = $this->configuration['sort_direction'] ?? 'ASC';
+        $query->sort($sortField, $sortDirection);
+      }
+      $length = $this->shape->isIterable() ? $this->configuration['length'] : 1;
+      $query->range($this->configuration['start'], $length);
       $bundle = $this->configuration['bundle'];
       if ($bundle) {
         if ($entityType->hasKey('bundle')) {
           $query->condition($entityType->getKey('bundle'), $bundle);
         }
       }
-      if ($entityType->hasKey('status')) {
+      $entity = $this->shape->getEntity();
+      if ($this->configuration['filter_entity'] && !$entity->isNew()) {
+        $filterField = str_replace(':', '.entity.', rtrim($this->configuration['filter_entity'], ':entity'));
+        $query->condition($filterField, $entity->id(), '=');
+      }
+      if ($this->configuration['shape_published'] && $entityType->hasKey('status')) {
         $query->condition($entityType->getKey('status'), 1);
       }
       $event = new ComponentValueEntityQueryEvent($this->shape, $query);
       $this->eventDispatcher->dispatch($event, ComponentValueEntityQueryEvent::EVENT_NAME);
       $ids = $query->execute();
       $entities = $ids ? $storage->loadMultiple($ids) : [];
+      foreach ($entities as $entity) {
+        $this->shape->addCacheableDependency($entity);
+      }
       $results = $this->getChildrenMatchValues($this->shape, $entities, $this->configuration);
       if (!empty($results) || empty($this->configuration['continue'])) {
         $value = $results;
@@ -263,6 +327,16 @@ final class EntityQueryValue extends ComponentValuePluginBase implements Contain
       }
     }
     return $value;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public static function isApplicable(ComponentShapePluginInterface $shape) {
+    if ($shape->isIterable()) {
+      return TRUE;
+    }
+    return $shape->isExpandable();
   }
 
 }

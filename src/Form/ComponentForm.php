@@ -96,7 +96,6 @@ final class ComponentForm extends EntityForm {
       '#ajax' => [
         'callback' => '::ajaxReplaceTargetBundles',
         'wrapper' => 'component-target-entity-bundles',
-        'method' => 'replace',
       ],
     ];
 

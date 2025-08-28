@@ -92,7 +92,7 @@ final class NeoComponentPropGenerator extends BaseGenerator implements Container
       new Optional(new NeoComponentExists($themeId, $this->pluginManagerSdc)),
     );
 
-    $question = new Question('Component to update?', 'list_locations');
+    $question = new Question('Component to update?');
     $question->setValidator($validator);
     $question->setAutocompleterValues($neoComponentIds);
     $componentMachineName = $this->io()->askQuestion($question);

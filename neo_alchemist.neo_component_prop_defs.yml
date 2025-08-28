@@ -22,6 +22,7 @@ heading:
     supertitle: Example supertitle
     title: Example title
     subtitle: Example subtitle
+    h1: 0
   twig:
     prefix: '{% if %name% %}'
     content:
@@ -70,9 +71,18 @@ image:
     prefix: '{% if %name% %}'
     content:
       - '{# To render an image using Neo dynamic styles #}'
-      - '{{ neo_image_style(%name%.src, {exact: {width: 100, height: 100}}, %name%.alt) }}'
+      - '{{ neo_image_style(%name%.src, {focus: {width: 100, height: 100}}, %name%.alt) }}'
+      - '{# Neo dynamic styles can be:'
+      - '  - Exact: {exact: {width: 100, height: 100}}'
+      - '  - Size: {size: {width: 100, height: 100}}'
+      - '  - Scale: {size: {width: 100}} or {size: {height: 100}}'
+      - '  - Scale Crop: {scaleCrop: {width: 100, height: 100, anchor: "center-center"}}'
+      - '  - Crop: {crop: {width: 100, height: 100, anchor: "center-center"}}'
+      - '  - Focal Scale Crop: {focal: {width: 100, height: 100}}'
+      - '  - Focal Width: {focalWidth: {width: 100}}'
+      - '#}'
       - '{# To generate a URL to the image #}'
-      - '{{ neo_image_style_url(%name%.src, {scale: {width: 640}}) }}'
+      - '{# neo_image_style_url(%name%.src, {scale: {width: 640}}) #}'
     suffix: '{% endif %}'
 
 image-uri:
@@ -328,15 +338,15 @@ breadcrumb:
       - '{% if %name% %}'
       - <nav aria-label="{{ 'Breadcrumb'|t }}">
     content:
-      - '<ol>'
+      - '<ol class="flex items-center flex-wrap">'
       - '{% for item in %name% %}'
-      - '  <li>'
+      - '  <li class="whitespace-nowrap mr-2">'
       - '    <{% if item.url %}a href="{{ neo_uri(item.url.uri, item.url.options) }}"{% else %}span{% endif %}{% if loop.last %} aria-current="page"{% endif %}>'
       - '      {{ item.title }}'
       - '    </{% if item.url %}a{% else %}span{% endif %}>'
       - '  </li>'
       - '  {% if not loop.last %}'
-      - '    <li>/</li>'
+      - '    <li class="mr-2">/</li>'
       - '  {% endif %}'
       - '{% endfor %}'
       - '</ol>'

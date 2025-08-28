@@ -14,19 +14,17 @@ use Drupal\neo_alchemist\ComponentValuePluginBase;
  * Plugin implementation of the neo_component_value_modifier.
  */
 #[ComponentValue(
-  id: 'suffix',
-  label: new TranslatableMarkup('Suffix'),
-  description: new TranslatableMarkup('Provide a suffix to the value.'),
+  id: 'link_title',
+  label: new TranslatableMarkup('Link Title'),
+  description: new TranslatableMarkup('Override a link title value.'),
   group: 'modifiers',
   inline: TRUE,
-  prop_types: [
-    ComponentShapePluginInterface::STRING,
-    ComponentShapePluginInterface::INTEGER,
-    ComponentShapePluginInterface::NUMBER,
+  ref_types: [
+    'link',
   ],
   weight: 10,
 )]
-final class SuffixValue extends ComponentValuePluginBase {
+final class LinkTitleValue extends ComponentValuePluginBase {
 
   /**
    * {@inheritdoc}
@@ -43,8 +41,8 @@ final class SuffixValue extends ComponentValuePluginBase {
   protected function configurationForm(array $form, FormStateInterface $form_state, array &$complete_form): array {
     $form['value'] = [
       '#type' => 'textfield',
-      '#title' => $this->t('Suffix'),
-      '#description' => $this->t('The suffix to add to the value.'),
+      '#title' => $this->t('Title'),
+      '#description' => $this->t('The title to set on the link.'),
       '#default_value' => $this->configuration['value'],
       '#required' => TRUE,
     ];
@@ -55,7 +53,8 @@ final class SuffixValue extends ComponentValuePluginBase {
    * {@inheritdoc}
    */
   public function modifyValue(mixed $value): mixed {
-    return $value . $this->configuration['value'];
+    $value['title'] = $this->configuration['value'];
+    return $value;
   }
 
 }

@@ -176,8 +176,8 @@ class ArrayShape extends ChildrenShapeBase implements ComponentShapeInterablePlu
   /**
    * {@inheritDoc}
    */
-  public function getValue(): mixed {
-    $values = parent::getValue();
+  protected function buildValue() {
+    $values = parent::buildValue();
     $defaultValues = $this->getDefaultValue();
     foreach ($this->getChildShapeList($values) as $delta => $shapes) {
       /** @var \Drupal\neo_alchemist\ComponentShapePluginInterface[] $shapes */
@@ -447,6 +447,27 @@ class ArrayShape extends ChildrenShapeBase implements ComponentShapeInterablePlu
     // Go one level up in the form, to the widgets container.
     $element = NestedArray::getValue($form, array_slice($button['#array_parents'], 0, -3));
     return $element;
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  public function supportsFieldProperties(FieldDefinitionInterface $entityFieldDefinition, array $entityFieldProperties): bool {
+    if ($entityFieldDefinition->getFieldStorageDefinition()->getCardinality() !== 1) {
+      // Fields that support multiple values might be supported by child shapes.
+      foreach ($this->getChildShapes() as $childShape) {
+        if (!$childShape->allowFieldDefinition($entityFieldDefinition)) {
+          continue;
+        }
+        if ($childShape->supportsFieldDefinition($entityFieldDefinition)) {
+          return TRUE;
+        }
+        if ($childShape->supportsFieldProperties($entityFieldDefinition, $entityFieldProperties)) {
+          return TRUE;
+        }
+      }
+    }
+    return parent::supportsFieldProperties($entityFieldDefinition, $entityFieldProperties);
   }
 
   /**

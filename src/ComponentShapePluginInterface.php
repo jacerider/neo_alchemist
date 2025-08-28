@@ -41,10 +41,13 @@ interface ComponentShapePluginInterface extends PluginInspectionInterface, Deriv
    *
    * Each parent ID is separated by a period (.).
    *
+   * @param bool $ignoreDelta
+   *   Whether to ignore the delta when generating the ID.
+   *
    * @return string
    *   The concatenated parent ID.
    */
-  public function id(): string;
+  public function id(bool $ignoreDelta = FALSE): string;
 
   /**
    * Retrieves the path of parent component nested ids.
@@ -98,6 +101,21 @@ interface ComponentShapePluginInterface extends PluginInspectionInterface, Deriv
    *   The current instance of the class for method chaining.
    */
   public function init(): self;
+
+  /**
+   * Allow or disallow initialization of specific plugins.
+   *
+   * If a shape has a default_plugins, this method can be used to prevent it
+   * from being initialized.
+   *
+   * @param string $pluginId
+   *   The ID of the plugin.
+   * @param bool $allow
+   *   Whether to allow initialization. Defaults to TRUE.
+   *
+   * @return $this
+   */
+  public function allowInitPlugins(string $pluginId, bool $allow = TRUE): self;
 
   /**
    * Checks if the shape is initialized.
@@ -281,6 +299,14 @@ interface ComponentShapePluginInterface extends PluginInspectionInterface, Deriv
    *   The current instance for method chaining.
    */
   public function addPlugin(string $pluginId, array $settings = [], bool $status = TRUE): self;
+
+  /**
+   * Gets the default plugins for the component shape.
+   *
+   * @return array
+   *   An array of default plugins.
+   */
+  public function getDefaultPlugins(): array;
 
   /**
    * Determines if the current shape allows configurable plugins.
@@ -1074,6 +1100,49 @@ interface ComponentShapePluginInterface extends PluginInspectionInterface, Deriv
   public function setDefaultNestedOptions(array $options): self;
 
   /**
+   * Sets a default nested option for a given name and option name.
+   *
+   * @param string $name
+   *   The name of the nested option.
+   * @param string $optionName
+   *   The name of the option to set.
+   * @param bool $value
+   *   The value of the option.
+   * @param bool $prependCurrentId
+   *   Whether to prepend the current ID to the nested option name.
+   *
+   * @return $this
+   *   The current instance of the component shape.
+   */
+  public function setDefaultNestedOption(string $name, string $optionName, bool $value = TRUE, bool $prependCurrentId = TRUE): self;
+
+  /**
+   * Sets the default 'empty' nested option.
+   *
+   * @param string $name
+   *   The name of the nested option.
+   * @param bool $value
+   *   The value to set for the 'empty' option.
+   *
+   * @return $this
+   *   The current instance of the component shape.
+   */
+  public function setDefaultNestedOptionEmpty(string $name, bool $value = TRUE): self;
+
+  /**
+   * Sets the default 'default' nested option.
+   *
+   * @param string $name
+   *   The name of the nested option.
+   * @param bool $value
+   *   The value to set for the 'default' option.
+   *
+   * @return $this
+   *   The current instance of the component shape.
+   */
+  public function setDefaultNestedOptionDefault(string $name, bool $value = TRUE): self;
+
+  /**
    * Sets the options for a given nested ID.
    *
    * This method sets the options for a nested component shape. If the current
@@ -1137,6 +1206,62 @@ interface ComponentShapePluginInterface extends PluginInspectionInterface, Deriv
    *   An array of nested options.
    */
   public function getNestedOptions(): array;
+
+  /**
+   * Sets a nested option for a given nested component shape.
+   *
+   * @param string $name
+   *   The name of the nested component shape.
+   * @param string $optionName
+   *   The name of the option to set.
+   * @param bool $value
+   *   The value to set for the option.
+   * @param bool $prependCurrentId
+   *   Whether to prepend the current shape ID to the nested option name.
+   *
+   * @return $this
+   *   The current instance of the component shape.
+   */
+  public function setNestedOption(string $name, string $optionName, bool $value = TRUE, bool $prependCurrentId = TRUE): self;
+
+  /**
+   * Sets a nested option to mark it as empty.
+   *
+   * @param string $name
+   *   The name of the nested component shape.
+   * @param bool $value
+   *   The value to set for the empty option.
+   *
+   * @return $this
+   *   The current instance of the component shape.
+   */
+  public function setNestedOptionEmpty(string $name, bool $value = TRUE): self;
+
+  /**
+   * Sets a nested option to mark it as default.
+   *
+   * @param string $name
+   *   The name of the nested component shape.
+   * @param bool $value
+   *   The value to set for the default option.
+   *
+   * @return $this
+   *   The current instance of the component shape.
+   */
+  public function setNestedOptionDefault(string $name, bool $value = TRUE): self;
+
+  /**
+   * Sets a nested option to mark its access.
+   *
+   * @param string $name
+   *   The name of the nested component shape.
+   * @param bool $value
+   *   The value to set for the access option.
+   *
+   * @return $this
+   *   The current instance of the component shape.
+   */
+  public function setNestedOptionAccess(string $name, bool $value = FALSE): self;
 
   /**
    * Checks if the field definition is supported by the shape.

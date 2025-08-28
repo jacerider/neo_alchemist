@@ -133,9 +133,19 @@ final class InstanceComponentForm extends ContentEntityForm {
     $form['footer'] = [
       '#type' => 'container',
       '#attributes' => [
-        'class' => ['sticky bottom-0 bg-base-0 p-3 translate-y-4 border-t !mt-0'],
+        'class' => ['sticky bottom-0 bg-base-0'],
       ],
     ];
+
+    if ($form['values']['#access'] ?? FALSE) {
+      $form['footer']['#attributes']['class'][] = '!mt-0 py-3 translate-y-4 border-t';
+    }
+    elseif (!empty($form['description'])) {
+      $form['footer']['#attributes']['class'][] = 'mt-3';
+    }
+    else {
+      $form['footer']['#attributes']['class'][] = '!mt-0';
+    }
 
     $form['footer']['status'] = [
       '#type' => 'checkbox',
@@ -175,6 +185,15 @@ final class InstanceComponentForm extends ContentEntityForm {
     $form['#attached']['library'][] = 'neo_alchemist/component.ajax';
     $form['#attached']['library'][] = 'neo_alchemist/component.ajax.form';
 
+    if ($description = $this->instance->getDescription()) {
+      $form['description'] = [
+        '#type' => 'item',
+        '#markup' => $description,
+        '#prefix' => '<div class="text-xs bg-base-100 p-4 rounded text-base-100-content/70">',
+        '#suffix' => '</div>',
+      ];
+    }
+
     $form['uuid'] = [
       '#type' => 'hidden',
       '#default_value' => $this->instance->uuid(),
@@ -195,12 +214,14 @@ final class InstanceComponentForm extends ContentEntityForm {
     $form['values'] = [
       '#title' => $this->t('Values'),
       '#type' => 'container',
+      '#access' => FALSE,
     ];
 
     foreach ($this->instance->getPropShapes() as $propName => $shape) {
       if (!$shape->access('update')) {
         continue;
       }
+      $form['values']['#access'] = TRUE;
       $subform = [
         '#type' => 'container',
         '#parents' => ['values'],
@@ -340,7 +361,7 @@ final class InstanceComponentForm extends ContentEntityForm {
       ],
     ];
     $actions['submit']['#attributes']['class'][] = 'btn btn-primary btn-xs';
-    $actions['cancel']['#attributes']['class'][] = 'btn btn-outline btn-xs';
+    $actions['cancel']['#attributes']['class'][] = 'btn btn-xs';
     if ($this->isAjax()) {
       $actions['submit']['#ajax']['callback'] = '::ajaxSubmit';
     }

@@ -172,7 +172,31 @@ final class ComponentManageForm extends EntityForm {
     if ($shapes) {
       $form['props'] = [
         '#type' => 'table',
-        '#caption' => $this->t('Value Props'),
+        '#caption' => [
+          '#type' => 'html_tag',
+          '#tag' => 'div',
+          '#attributes' => ['class' => ['flex', 'items-center']],
+          'title' => [
+            '#markup' => $this->t('Value Props') . ($this->entity->isAggregate() ? ' (' . $this->t('aggregated') . ')' : ''),
+          ],
+          'add' => [
+            '#type' => 'link',
+            '#title' => $this->entity->isAggregate() ? $this->t('Disable Aggregation') : $this->t('Enable Aggregation'),
+            '#url' => $this->entity->toUrl('aggregate-form'),
+            '#attributes' => [
+              'class' => ['use-ajax', 'btn btn-xs ml-auto'],
+              'data-dialog-type' => 'modal',
+              'data-dialog-options' => Json::encode([
+                // 'width' => '100%',
+                // 'height' => '100%',
+                'neo' => [
+                  'displaceTop' => '0px',
+                  'displaceBottom' => '0px',
+                ],
+              ]),
+            ],
+          ],
+        ],
         '#attached' => ['library' => ['core/drupal.dialog.ajax']],
         '#tree' => TRUE,
         '#header' => [

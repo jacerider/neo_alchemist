@@ -42,6 +42,7 @@ use Drupal\neo_alchemist\ComponentSlotInterface;
  *     "form" = {
  *       "add" = "Drupal\neo_alchemist\Form\ComponentForm",
  *       "edit" = "Drupal\neo_alchemist\Form\ComponentForm",
+ *       "aggregate" = "Drupal\neo_alchemist\Form\ComponentAggregateForm",
  *       "prop" = "Drupal\neo_alchemist\Form\ComponentPropForm",
  *       "slot" = "Drupal\neo_alchemist\Form\ComponentSlotForm",
  *       "filter" = "Drupal\neo_alchemist\Form\ComponentFilterForm",
@@ -57,6 +58,7 @@ use Drupal\neo_alchemist\ComponentSlotInterface;
  *     "collection" = "/admin/config/neo/alchemist",
  *     "add-form" = "/admin/config/neo/alchemist/add/{component}",
  *     "edit-form" = "/admin/config/neo/alchemist/{neo_component}/edit",
+ *     "aggregate-form" = "/admin/config/neo/alchemist/{neo_component}/aggregate",
  *     "edit-prop-form" = "/admin/config/neo/alchemist/{neo_component}/prop/{prop}",
  *     "edit-slot-form" = "/admin/config/neo/alchemist/{neo_component}/slot/{slot}",
  *     "add-filter-form" = "/admin/config/neo/alchemist/{neo_component}/filter/add",
@@ -80,6 +82,7 @@ use Drupal\neo_alchemist\ComponentSlotInterface;
  *     "expression",
  *     "schema",
  *     "component",
+ *     "aggregate",
  *     "thumbnail",
  *     "settings",
  *     "target_entity_type",
@@ -123,6 +126,13 @@ class Component extends ConfigEntityBase implements ComponentInterface {
    * @var string
    */
   protected string $component;
+
+  /**
+   * Indicates whether the component is an aggregate.
+   *
+   * @var bool
+   */
+  protected bool $aggregate = FALSE;
 
   /**
    * The thumbnail.
@@ -247,6 +257,13 @@ class Component extends ConfigEntityBase implements ComponentInterface {
    */
   public function isPublished(): bool {
     return (bool) $this->status;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function isAggregate(): bool {
+    return $this->aggregate;
   }
 
   /**
@@ -582,13 +599,39 @@ class Component extends ConfigEntityBase implements ComponentInterface {
   }
 
   /**
+   * Get the aggregate shape.
+   *
+   * @return \Drupal\neo_alchemist\ComponentShapePluginInterface[]
+   *   The shapes.
+   */
+  protected function getAggregateShape(): array {
+    if ($component = $this->getComponent()) {
+      $schema = [
+        'type' => 'object',
+        'properties' => [
+          '_aggregate' => [
+            'title' => 'Aggregate',
+          ] + $component->metadata->schema,
+        ],
+      ];
+      return $this->loadPropShapes($schema);
+    }
+    return [];
+  }
+
+  /**
    * {@inheritdoc}
    */
   public function getPropShapes(): array {
     if (!isset($this->propShapes)) {
       $this->propShapes = [];
       if ($component = $this->getComponent()) {
-        $this->propShapes = $this->loadPropShapes($component->metadata->schema);
+        if ($this->isAggregate()) {
+          $this->propShapes = $this->getAggregateShape();
+        }
+        else {
+          $this->propShapes = $this->loadPropShapes($component->metadata->schema);
+        }
       }
     }
     return $this->propShapes;
@@ -626,6 +669,9 @@ class Component extends ConfigEntityBase implements ComponentInterface {
       }
       $values[$shapeId] = $value;
       $cacheableMetadata->addCacheableDependency($shape->getCacheableMetadata());
+    }
+    if ($this->isAggregate()) {
+      $values = $values['_aggregate'] ?? [];
     }
     $values['attributes'] = $attributes;
     return $values;

@@ -27,6 +27,9 @@ final class ComponentValue extends AttributeBase {
    *   (optional) A brief description of the plugin.
    * @param string|null $group
    *   (optional) The group the plugin belongs to.
+   * @param bool $inline
+   *   (optional) Whether the plugin supports inlining. Inlining allow the
+   *   plugin to be toggled in child components during complex value assignment.
    * @param bool $status_default
    *   (optional) The default status of the plugin.
    * @param bool $status_lock
@@ -54,6 +57,7 @@ final class ComponentValue extends AttributeBase {
     public readonly ?TranslatableMarkup $label,
     public readonly ?TranslatableMarkup $description = NULL,
     public readonly ?string $group = NULL,
+    public readonly ?bool $inline = FALSE,
     public readonly bool $status_default = FALSE,
     public readonly bool $status_lock = FALSE,
     public readonly ?array $prop_types = NULL,

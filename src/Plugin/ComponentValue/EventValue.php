@@ -64,15 +64,6 @@ final class EventValue extends ComponentValuePluginBase implements ContainerFact
   }
 
   /**
-   * {@inheritdoc}
-   */
-  public function defaultConfiguration() {
-    return [
-      'field' => '',
-    ];
-  }
-
-  /**
    * Configuration form for the value provider plugin.
    */
   protected function configurationForm(array $form, FormStateInterface $form_state, array &$complete_form): array {

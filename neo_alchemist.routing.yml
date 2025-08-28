@@ -53,6 +53,14 @@ entity.neo_component.edit_form:
   requirements:
     _permission: 'administer neo_alchemist'
 
+entity.neo_component.aggregate_form:
+  path: '/admin/config/neo/alchemist/{neo_component}/aggregate'
+  defaults:
+    _entity_form: 'neo_component.aggregate'
+    _title: 'Aggregate component props'
+  requirements:
+    _permission: 'administer neo_alchemist'
+
 entity.neo_component.edit_prop_form:
   path: '/admin/config/neo/alchemist/{neo_component}/prop/{prop}'
   defaults:

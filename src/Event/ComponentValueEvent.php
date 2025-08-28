@@ -74,10 +74,10 @@ class ComponentValueEvent extends Event implements RefinableCacheableDependencyI
   }
 
   /**
-   * Gets the entity query.
+   * Gets the entity the component is associated with.
    *
-   * @return \Drupal\Core\Entity\Query\QueryInterface
-   *   The entity query.
+   * @return \Drupal\Core\Entity\ContentEntityInterface
+   *   The entity.
    */
   public function getEntity(): ContentEntityInterface {
     return $this->shape->getEntity();

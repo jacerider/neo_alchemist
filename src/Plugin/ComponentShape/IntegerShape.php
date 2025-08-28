@@ -25,8 +25,8 @@ class IntegerShape extends ComponentShapePluginBase {
   /**
    * {@inheritDoc}
    */
-  public function getValue(): float {
-    return (int) parent::getValue();
+  public function buildValue(): float {
+    return (int) parent::buildValue();
   }
 
   /**

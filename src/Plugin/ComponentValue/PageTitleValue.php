@@ -30,61 +30,7 @@ use Symfony\Component\HttpFoundation\Request;
 )]
 final class PageTitleValue extends ComponentValuePluginBase implements ContainerFactoryPluginInterface {
 
-  use DependencySerializationTrait;
-
-  /**
-   * The current request.
-   *
-   * @var \Symfony\Component\HttpFoundation\Request
-   */
-  protected Request $request;
-
-  /**
-   * The current route match.
-   *
-   * @var \Drupal\Core\Routing\RouteMatchInterface
-   */
-  protected RouteMatchInterface $routeMatch;
-
-  /**
-   * The title resolver.
-   *
-   * @var \Drupal\Core\Controller\TitleResolverInterface
-   */
-  protected TitleResolverInterface $titleResolver;
-
-  /**
-   * {@inheritdoc}
-   */
-  public function __construct(
-    $plugin_id,
-    $plugin_definition,
-    ComponentShapePluginInterface $shape,
-    array $configuration,
-    Request $request,
-    RouteMatchInterface $route_match,
-    TitleResolverInterface $title_resolver,
-  ) {
-    parent::__construct($plugin_id, $plugin_definition, $shape, $configuration);
-    $this->request = $request;
-    $this->routeMatch = $route_match;
-    $this->titleResolver = $title_resolver;
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public static function create(ContainerInterface $container, array $configuration, $plugin_id, $plugin_definition): self {
-    return new static(
-      $plugin_id,
-      $plugin_definition,
-      $configuration['shape'],
-      $configuration['settings'],
-      $container->get('request_stack')->getCurrentRequest(),
-      $container->get('current_route_match'),
-      $container->get('title_resolver')
-    );
-  }
+  use ComponentValueTitleResolverTrait;
 
   /**
    * {@inheritdoc}
@@ -134,18 +80,8 @@ final class PageTitleValue extends ComponentValuePluginBase implements Container
    * {@inheritdoc}
    */
   public function provideDefaultValue(mixed $value): mixed {
-    $isPreview = $this->shape->getComponent()->isPreview();
-    if ($isPreview) {
-      $value = '[Page Title]';
-    }
-    elseif ($route = $this->routeMatch->getRouteObject()) {
-      $value = $this->titleResolver->getTitle($this->request, $route);
-      if (is_array($value) && isset($value['#markup']) && is_string($value['#markup'])) {
-        $value = $value['#markup'];
-      }
-    }
     $this->stopFurtherProcessing();
-    return $value;
+    return $this->getPageTitle();
   }
 
   /**

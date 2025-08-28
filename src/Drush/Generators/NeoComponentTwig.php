@@ -37,16 +37,16 @@ class NeoComponentTwig {
   /**
    * The prefix for the Twig template.
    *
-   * @var string|array
+   * @var array
    */
-  protected $prefix;
+  protected $prefix = [];
 
   /**
    * The suffix for the Twig template.
    *
-   * @var string|array
+   * @var array
    */
-  protected $suffix;
+  protected $suffix = [];
 
   /**
    * The prop for the Twig template.
@@ -57,9 +57,9 @@ class NeoComponentTwig {
     $this->prop = $prop;
     $this->parents = $parents;
     if ($defaults) {
-      $this->content = $this->prepareDefault($defaults['content'] ?? NULL);
-      $this->prefix = $this->prepareDefault($defaults['prefix'] ?? NULL);
-      $this->suffix = $this->prepareDefault($defaults['suffix'] ?? NULL);
+      $this->setContent($this->prepareDefault($defaults['content'] ?? NULL));
+      $this->setPrefix($this->prepareDefault($defaults['prefix'] ?? NULL));
+      $this->setSuffix($this->prepareDefault($defaults['suffix'] ?? NULL));
     }
   }
 
@@ -155,9 +155,9 @@ class NeoComponentTwig {
    */
   public function getTwig(): array {
     $twig = [
-      'content' => NULL,
-      'prefix' => NULL,
-      'suffix' => NULL,
+      'content' => [],
+      'prefix' => [],
+      'suffix' => [],
     ];
     if (isset($this->content)) {
       if (is_array($this->content)) {
@@ -166,7 +166,7 @@ class NeoComponentTwig {
         }
       }
       else {
-        $twig['content'] = Markup::create($this->content);
+        $twig['content'][] = Markup::create($this->content);
       }
     }
     if (isset($this->prefix)) {
@@ -176,7 +176,7 @@ class NeoComponentTwig {
         }
       }
       else {
-        $twig['prefix'] = Markup::create($this->prefix);
+        $twig['prefix'][] = Markup::create($this->prefix);
       }
     }
     if (isset($this->suffix)) {
@@ -186,9 +186,13 @@ class NeoComponentTwig {
         }
       }
       else {
-        $twig['suffix'] = Markup::create($this->suffix);
+        $twig['suffix'][] = Markup::create($this->suffix);
       }
     }
+    $basePrefix = Markup::create('{# ' . $this->prop['title'] . ': Start #}');
+    $baseSuffix = Markup::create('{# ' . $this->prop['title'] . ': End #}');
+    $twig['prefix'] = array_merge([$basePrefix], $twig['prefix']);
+    $twig['suffix'] = array_merge($twig['suffix'], [$baseSuffix]);
     return $twig;
   }
 

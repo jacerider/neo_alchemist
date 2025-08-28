@@ -111,6 +111,14 @@ final class MatcherField extends MatcherBase {
       }
       return NULL;
     }
+    if ($fieldName === '_field') {
+      // Get the final field.
+      $finalField = $this->getEntityField($entity, $key, $published, $cacheableMetadata);
+      if ($finalField) {
+        return $this->getDynamicFieldValues($finalField, $subProperty);
+      }
+      return NULL;
+    }
     // Get the field.
     $field = $this->getEntityField($entity, $key, $published, $cacheableMetadata);
     if ($field) {
@@ -204,7 +212,7 @@ final class MatcherField extends MatcherBase {
       }
       // If field name is _entity, we return the current entity as the current
       // entity is what we want.
-      if ($fieldName === '_entity') {
+      if (in_array($fieldName, ['_entity', '_field'])) {
         return $entity;
       }
       if (!$entity->hasField($fieldName)) {
@@ -248,7 +256,12 @@ final class MatcherField extends MatcherBase {
     if ($finalEntity) {
       $path = explode('.', $key);
       $key = end($path);
-      [$fieldName] = explode(':', $key . '::');
+      [$fieldName, $property, $subProperty] = explode(':', $key . '::');
+
+      if ($fieldName === '_field') {
+        // Use property as field name when acting on dynamic field.
+        $fieldName = $property;
+      }
       if (!$finalEntity->hasField($fieldName)) {
         return NULL;
       }
@@ -479,6 +492,7 @@ final class MatcherField extends MatcherBase {
     $isRequired = $shape->isRequired();
     $shapeFieldDefinition = $shape->getFieldItemList()->getFieldDefinition();
     $fieldDefinitions = $this->dataDefinitions($entityDataDefinition);
+    $fieldDefinitions += $this->dynamicFieldDefinitions($fieldDefinitions, $shape);
     $fieldDefinitions += $this->dynamicEntityDefinitions($entityDataDefinition, $shape);
 
     foreach ($fieldDefinitions as $fieldDefinition) {
@@ -645,15 +659,16 @@ final class MatcherField extends MatcherBase {
     EntityDataDefinitionInterface $entityDataDefinition,
     ComponentShapePluginInterface $shape,
   ): array {
-    $fieldDefinitions = [];
+    $entityDefinitions = [];
     $isRequired = $shape->isRequired();
 
     $entityType = $this->entityTypeManager->getDefinition($entityDataDefinition->getEntityTypeId());
+
     if ($entityType->hasKey('label')) {
       $fieldName = '_entity:label';
       $label = $entityDataDefinition->getLabel();
       $label = ($label ? '(' . $label . ') ' : '') . $this->t('Label');
-      $fieldDefinitions[$fieldName] = BaseFieldDefinition::create('string')
+      $entityDefinitions[$fieldName] = BaseFieldDefinition::create('string')
         ->setLabel($label)
         ->setName($fieldName)
         ->setTargetEntityTypeId($entityDataDefinition->getEntityTypeId())
@@ -663,7 +678,7 @@ final class MatcherField extends MatcherBase {
     $fieldName = '_entity:icon';
     $label = $entityDataDefinition->getLabel();
     $label = ($label ? '(' . $label . ') ' : '') . $this->t('Icon');
-    $fieldDefinitions[$fieldName] = BaseFieldDefinition::create('string')
+    $entityDefinitions[$fieldName] = BaseFieldDefinition::create('string')
       ->setLabel($label)
       ->setName($fieldName)
       ->setTargetEntityTypeId($entityDataDefinition->getEntityTypeId())
@@ -674,7 +689,7 @@ final class MatcherField extends MatcherBase {
       $fieldName = '_entity:label_page';
       $label = $entityDataDefinition->getLabel();
       $label = ($label ? '(' . $label . ') ' : '') . $this->t('Label (with System Page to Page conversion)');
-      $fieldDefinitions[$fieldName] = BaseFieldDefinition::create('string')
+      $entityDefinitions[$fieldName] = BaseFieldDefinition::create('string')
         ->setLabel($label)
         ->setName($fieldName)
         ->setTargetEntityTypeId($entityDataDefinition->getEntityTypeId())
@@ -683,7 +698,7 @@ final class MatcherField extends MatcherBase {
       $fieldName = '_entity:icon_page';
       $label = $entityDataDefinition->getLabel();
       $label = ($label ? '(' . $label . ') ' : '') . $this->t('Icon (with System Page to Page conversion)');
-      $fieldDefinitions[$fieldName] = BaseFieldDefinition::create('string')
+      $entityDefinitions[$fieldName] = BaseFieldDefinition::create('string')
         ->setLabel($label)
         ->setName($fieldName)
         ->setTargetEntityTypeId($entityDataDefinition->getEntityTypeId())
@@ -703,7 +718,7 @@ final class MatcherField extends MatcherBase {
           '_',
           '.',
         ], ' ', $templateId));
-        $fieldDefinitions[$fieldName] = BaseFieldDefinition::create('link')
+        $entityDefinitions[$fieldName] = BaseFieldDefinition::create('link')
           ->setLabel($label)
           ->setName($fieldName)
           ->setTargetEntityTypeId($entityDataDefinition->getEntityTypeId())
@@ -711,7 +726,56 @@ final class MatcherField extends MatcherBase {
       }
     }
 
-    return $fieldDefinitions;
+    return $entityDefinitions;
+  }
+
+  /**
+   * Retrieves dynamic field definitions based on the component shape.
+   *
+   * This method checks if the shape is of type 'boolean' and processes the
+   * field definitions accordingly. It currently does not implement any logic
+   * for boolean shapes but can be extended in the future.
+   *
+   * @param \Drupal\Core\Field\FieldDefinitionInterface[] $fieldDefinitions
+   *   An array of field definitions to process.
+   * @param \Drupal\neo_alchemist\ComponentShapePluginInterface $shape
+   *   The component shape plugin interface instance.
+   *
+   * @return \Drupal\Core\Field\FieldDefinitionInterface[]
+   *   An array of dynamic field definitions.
+   */
+  protected function dynamicFieldDefinitions(
+    array $fieldDefinitions,
+    ComponentShapePluginInterface $shape,
+  ): array {
+    $definitions = [];
+    $isRequired = $shape->isRequired();
+    if ($shape->getType() === 'boolean') {
+      foreach ($fieldDefinitions as $fieldDefinition) {
+        if ($fieldDefinition->getType() === 'boolean') {
+          continue;
+        }
+        if ($isRequired && !$fieldDefinition->isRequired()) {
+          continue;
+        }
+        $fieldName = '_field:' . $fieldDefinition->getName() . ':empty';
+        $label = $fieldDefinition->getLabel() . ' (Is Empty)';
+        $definitions[$fieldName] = BaseFieldDefinition::create('boolean')
+          ->setLabel($label)
+          ->setName($fieldName)
+          ->setTargetEntityTypeId($fieldDefinition->getTargetEntityTypeId())
+          ->setRequired($fieldDefinition->isRequired());
+
+        $fieldName = '_field:' . $fieldDefinition->getName() . ':not_empty';
+        $label = $fieldDefinition->getLabel() . ' (Is Not Empty)';
+        $definitions[$fieldName] = BaseFieldDefinition::create('boolean')
+          ->setLabel($label)
+          ->setName($fieldName)
+          ->setTargetEntityTypeId($fieldDefinition->getTargetEntityTypeId())
+          ->setRequired($fieldDefinition->isRequired());
+      }
+    }
+    return $definitions;
   }
 
   /**
@@ -746,6 +810,28 @@ final class MatcherField extends MatcherBase {
       }),
       'link' => $this->getEntityDefinitionLink($entity, $subProperty),
       default => [],
+    };
+  }
+
+  /**
+   * Retrieves the dynamic field values for a specific field and type.
+   *
+   * @param \Drupal\Core\Field\FieldItemListInterface $field
+   *   The field item list interface instance.
+   * @param string|null $type
+   *   The type of dynamic field values to retrieve.
+   *
+   * @return array
+   *   An array of dynamic field values.
+   */
+  private function getDynamicFieldValues(
+    FieldItemListInterface $field,
+    string $type,
+  ): array {
+    return match ($type) {
+      'empty' => [$field->isEmpty() ? TRUE : FALSE],
+      'not_empty' => [$field->isEmpty() ? FALSE : TRUE],
+      default => $field->getValue(),
     };
   }
 

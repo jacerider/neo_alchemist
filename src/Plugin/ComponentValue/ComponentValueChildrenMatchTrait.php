@@ -6,6 +6,7 @@ namespace Drupal\neo_alchemist\Plugin\ComponentValue;
 
 use Drupal\Component\Utility\NestedArray;
 use Drupal\Core\Cache\CacheableMetadata;
+use Drupal\Core\Entity\ContentEntityInterface;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\neo_alchemist\ComponentPropRenderable;
 use Drupal\neo_alchemist\ComponentShapeChildrenPluginInterface;
@@ -20,7 +21,7 @@ use Drupal\neo_alchemist\MatcherField;
  */
 trait ComponentValueChildrenMatchTrait {
 
-  use ComponentValueModifierTrait;
+  use ComponentValuePluginTrait;
   use FieldFormatterTrait;
 
   /**
@@ -52,91 +53,16 @@ trait ComponentValueChildrenMatchTrait {
         '#title' => $this->t('Shape Fields'),
       ];
       foreach ($childShapes as $shapeName => $childShape) {
-        if ($childShape->getRef() === ComponentShapePluginInterface::ARRAY) {
-          // Arrays are not currently support for field binding.
-          continue;
-        }
-        $childShapeId = $wrapperId . '-' . $shapeName;
-        $childShapeDefaults = $configuration['shape_fields'][$shapeName] ?? [];
         $form['shape_fields'][$shapeName] = [
-          '#type' => 'fieldset',
-          '#title' => $childShape->getTitle(),
-          '#attributes' => [
-            'id' => $childShapeId,
-          ],
+          '#id' => $wrapperId . '-' . $shapeName,
           '#parents' => array_merge($form['#parents'], [
             'shape_fields',
             $shapeName,
           ]),
-          '#neo_fieldset_region' => [
-            'legend_end' => [
-              '#markup' => '<div class="text-xs text-base-400">' . $this->t('Type: %type', [
-                '%type' => $childShape->getType(),
-              ]) . '</div>',
-            ],
-          ],
-          '#description_display' => 'before',
         ];
-        $options = [
-          '- Shape -' => [
-            '_default' => $this->t('Use Default'),
-          ],
-        ] + $this->matcherField->getMatchesAsOptions($childShape, $entityTypeId, $bundle);
-        if ($childShape->getRef() === 'markup') {
-          $options['- Shape -']['_render'] = $this->t('Render with field formatter');
-        }
-        $field = $childShapeDefaults['field'] ?? NULL;
-        $form['shape_fields'][$shapeName]['field'] = [
-          '#type' => 'select',
-          '#title' => $this->t('Field'),
-          '#description' => $childShape->getDescription(),
-          '#required' => $childShape->isRequired(),
-          '#options' => $options,
-          '#empty_option' => $childShape->isRequired() ? $this->t('- Select -') : $this->t('- None -'),
-          '#default_value' => $field,
-          '#ajax' => [
-            'callback' => [static::class, 'refreshChildrenMatchAjax'],
-            'wrapper' => $childShapeId,
-          ],
-        ];
-        if ($field) {
-          switch ($field) {
-            case '_render':
-              $renderFieldId = $childShapeDefaults['render_field'] ?? NULL;
-              $form['shape_fields'][$shapeName]['render_field'] = [
-                '#type' => 'select',
-                '#title' => $this->t('Field to render'),
-                '#required' => TRUE,
-                '#options' => $this->matcherField->getMatchesAsOptions($childShape, $entityTypeId, $bundle, NULL, TRUE),
-                '#default_value' => $renderFieldId,
-                '#ajax' => [
-                  'callback' => [static::class, 'refreshChildrenMatchAjax'],
-                  'wrapper' => $childShapeId,
-                ],
-              ];
-              if ($renderFieldId) {
-                $renderField = $this->matcherField->getFieldDefinition($childShape, $renderFieldId, $entityTypeId, $bundle, NULL, TRUE);
-                if ($renderField) {
-                  $form['shape_fields'][$shapeName]['render_field_format'] = [
-                    '#type' => 'fieldset',
-                    '#title' => $this->t('Formatter'),
-                  ];
-                  $renderFieldFormatConfiguration = $childShapeDefaults['render_field_format'] ?? [];
-                  $form['shape_fields'][$shapeName]['render_field_format'] = $this->formatterConfigurationForm($form['shape_fields'][$shapeName]['render_field_format'], $form_state, $renderField, $renderFieldFormatConfiguration, [
-                    'callback' => [static::class, 'refreshChildrenMatchAjax'],
-                    'wrapper' => $childShapeId,
-                  ]);
-                }
-              }
-              break;
-
-            default:
-              $modifierDefaults = $childShapeDefaults['modifiers'] ?? [];
-              $form['shape_fields'][$shapeName] = $this->buildModifierConfigurationForm($childShape, $modifierDefaults, $form['shape_fields'][$shapeName], $form_state);
-              break;
-          }
-        }
+        $form['shape_fields'][$shapeName] = $this->buildChildMatchConfigurationForm($childShape, $form['shape_fields'][$shapeName], $form_state, $entityTypeId, $bundle, $configuration['shape_fields'][$shapeName] ?? []);
       }
+
       $form['shape_published'] = [
         '#type' => 'checkbox',
         '#title' => $this->t('Only use published entities'),
@@ -144,7 +70,132 @@ trait ComponentValueChildrenMatchTrait {
         '#default_value' => $configuration['shape_published'] ?? TRUE,
       ];
     }
+    else {
+      $form['message'] = [
+        '#type' => 'item',
+        '#title' => $this->t('Shapes'),
+        '#markup' => $this->t('No child shapes available.'),
+      ];
+    }
     return $form;
+  }
+
+  /**
+   * Builds the configuration form for a child match.
+   */
+  private function buildChildMatchConfigurationForm(ComponentShapePluginInterface $shape, $form, FormStateInterface $form_state, $entityTypeId, $bundle = NULL, array $configuration = []): array {
+    $wrapperId = $form['#id'];
+    $form += [
+      '#type' => 'fieldset',
+      '#neo_size' => 'sm',
+      '#title' => $shape->getTitle(),
+      '#neo_fieldset_region' => [
+        'legend_end' => [
+          '#markup' => '<div class="text-xs text-base-400">' . $this->t('Type: %type', [
+            '%type' => $shape->getType(),
+          ]) . '</div>',
+        ],
+      ],
+      '#description_display' => 'before',
+    ];
+    $options = [
+      '- Shape -' => [
+        '_default' => $this->t('Use Default'),
+      ],
+      '- Raw -' => [],
+    ];
+
+    if (!$shape->isIterable()) {
+      // Arrays are not currently support for field binding.
+      $options += $this->matcherField->getMatchesAsOptions($shape, $entityTypeId, $bundle);
+    }
+    if ($shape->getRef() === 'markup') {
+      $options['- Shape -']['_render'] = $this->t('Render with field formatter');
+    }
+    if ($shape->getType() === 'boolean') {
+      $options['- Raw -']['_raw:boolean_true'] = $this->t('Boolean: True');
+      $options['- Raw -']['_raw:boolean_false'] = $this->t('Boolean: False');
+    }
+    if ($shape->isExpandable()) {
+      $options['- Shape -']['_expand'] = $this->t('Expand to configure child shapes');
+    }
+    $field = $configuration['field'] ?? NULL;
+    $expand = $configuration['expand'] ?? FALSE;
+    $form['field'] = [
+      '#type' => 'select',
+      '#title' => $this->t('Field'),
+      '#description' => $shape->getDescription(),
+      '#required' => $shape->isRequired(),
+      '#options' => $options,
+      '#empty_option' => $shape->isRequired() ? $this->t('- Select -') : $this->t('- None -'),
+      '#default_value' => $field,
+      '#access' => !$expand,
+      '#ajax' => [
+        'callback' => [static::class, 'refreshChildrenMatchAjax'],
+        'wrapper' => $wrapperId,
+      ],
+    ];
+
+    if ($field) {
+      switch ($field) {
+        case '_render':
+          $renderFieldId = $configuration['render_field'] ?? NULL;
+          $form['render_field'] = [
+            '#type' => 'select',
+            '#title' => $this->t('Field to render'),
+            '#required' => TRUE,
+            '#options' => $this->matcherField->getMatchesAsOptions($shape, $entityTypeId, $bundle, NULL, TRUE),
+            '#default_value' => $renderFieldId,
+            '#ajax' => [
+              'callback' => [static::class, 'refreshChildrenMatchAjax'],
+              'wrapper' => $wrapperId,
+            ],
+          ];
+          if ($renderFieldId) {
+            $renderField = $this->matcherField->getFieldDefinition($shape, $renderFieldId, $entityTypeId, $bundle, NULL, TRUE);
+            if ($renderField) {
+              $form['render_field_format'] = [
+                '#type' => 'fieldset',
+                '#title' => $this->t('Formatter'),
+              ];
+              $renderFieldFormatConfiguration = $configuration['render_field_format'] ?? [];
+              $form['render_field_format'] = $this->formatterConfigurationForm($form['render_field_format'], $form_state, $renderField, $renderFieldFormatConfiguration, [
+                'callback' => [static::class, 'refreshChildrenMatchAjax'],
+                'wrapper' => $wrapperId,
+              ]);
+            }
+          }
+          break;
+
+        case '_expand':
+          if ($shape instanceof ComponentShapeChildrenPluginInterface) {
+            foreach ($shape->getChildShapes() as $childShapeName => $childShape) {
+              $form['shape_fields'][$childShapeName] = [
+                '#id' => $wrapperId . '-' . $childShapeName,
+                '#parents' => array_merge($form['#parents'], [
+                  'shape_fields',
+                  $childShapeName,
+                ]),
+              ];
+              $form['shape_fields'][$childShapeName] = $this->buildChildMatchConfigurationForm($childShape, $form['shape_fields'][$childShapeName], $form_state, $entityTypeId, $bundle, $configuration['shape_fields'][$childShapeName] ?? []);
+            }
+          }
+          break;
+
+        default:
+          $pluginDefaults = $configuration['plugins'] ?? [];
+          $form = $this->buildPluginConfigurationForm($shape, $pluginDefaults, $form, $form_state);
+          break;
+      }
+    }
+    $this->alterChildMatchConfigurationForm($shape, $form, $form_state, $entityTypeId, $bundle, $configuration);
+    return $form;
+  }
+
+  /**
+   * Alter the configuration form for a child match.
+   */
+  protected function alterChildMatchConfigurationForm(ComponentShapePluginInterface $shape, &$form, FormStateInterface $form_state, $entityTypeId, $bundle = NULL, array $configuration = []) {
   }
 
   /**
@@ -159,62 +210,63 @@ trait ComponentValueChildrenMatchTrait {
    * Get the values for the shape matcher.
    */
   protected function getChildrenMatchValues(ComponentShapeChildrenPluginInterface $shape, array $entities, array $configuration = []): mixed {
-    $values = [];
+    return $this->fetchChildrenMatchValues($shape->getChildShapeNames(), $shape, $entities, $configuration);
+  }
+
+  /**
+   * Recursively fetch the values for the shape matcher.
+   */
+  protected function fetchChildrenMatchValues(array $shapeNames, ComponentShapeChildrenPluginInterface $shape, array $entities, array $configuration = [], ?string $parentId = NULL): mixed {
     /** @var \Drupal\Core\Entity\ContentEntityInterface[] $entities */
-    $shapeNames = $shape->getChildShapeNames();
+    $values = [];
     $delta = 0;
     if ($entities) {
+      $parentId = $parentId ?? $shape->id();
       foreach ($entities as $entity) {
         $shape->addCacheableDependency($entity);
         foreach ($shapeNames as $shapeName) {
+          $shapeId = implode('~', [$parentId, $shapeName]);
           $values[$delta][$shapeName] = [];
           $settings = $configuration['shape_fields'][$shapeName] ?? [];
           $field = $settings['field'] ?? NULL;
-          if ($field) {
-            switch ($field) {
-              case '_default':
-                // Will fall back to the default value.
-                $values[$delta][$shapeName] = NULL;
-                break;
-
-              case '_render':
-                if (empty($settings['render_field'])) {
-                  $values[$delta][$shapeName] = [];
-                  break;
-                }
-                $item = $this->matcherField->getEntityField($entity, $settings['render_field'], !empty($configuration['shape_published']), $shape->getCacheableMetadata());
-                if ($item && !$item->isEmpty() && !empty($settings['render_field_format']['field_plugin'])) {
-                  $build = $item->view([
-                    'type' => $settings['render_field_format']['field_plugin'],
-                    'label' => $settings['render_field_format']['field_label'] ?? 'hidden',
-                    'settings' => $settings['render_field_format']['field_settings'] ?? [],
-                  ]);
-                  $cacheableMetadata = CacheableMetadata::createFromRenderArray($build);
-                  $shape->addCacheableDependency($cacheableMetadata);
-                  $values[$delta][$shapeName] = ComponentPropRenderable::create($build);
-                }
-                else {
-                  $values[$delta][$shapeName] = [];
-                }
-                break;
-
-              default:
-                $values[$delta][$shapeName] = $this->matcherField->getEntityValue(
-                  entity: $entity,
-                  key: $field,
-                  default: NULL,
-                  published: !empty($configuration['shape_published']),
-                  cacheableMetadata: $shape->getCacheableMetadata()
-                );
-                if (!empty($settings['modifiers'])) {
-                  $shape->setChildShapePlugins($shapeName, $settings['modifiers'] ?? []);
-                }
-                break;
+          // Queue child shape plugins.
+          if (!empty($settings['plugins'])) {
+            foreach ($settings['plugins'] as $pluginId => $pluginSettings) {
+              if ($pluginSettings['status'] ?? FALSE) {
+                $shape->enableChildShapePlugin($shapeId, $pluginId, $pluginSettings['settings'] ?? []);
+              }
+              else {
+                $shape->disableChildShapePlugin($shapeId, $pluginId);
+              }
             }
+          }
+          // Never use defaults. (images default to true).
+          // @todo Consider handling this another way so that it is optional.
+          $shape->defaultChildShape($shapeId, FALSE);
+          if ($field) {
+            if (substr($field, 0, 1) === '_') {
+              // Pseudo fields have custom handlers.
+              $parts = explode(':', $field);
+              $method = 'fetchChildrenMatchValues' . ucfirst(substr($parts[0], 1));
+              if (method_exists($this, $method)) {
+                $value = $this->{$method}($shapeId, $shapeName, $delta, $shape, $entity, $settings);
+                if (!is_null($value)) {
+                  $values[$delta][$shapeName] = $value;
+                }
+                continue;
+              }
+            }
+            $values[$delta][$shapeName] = $this->matcherField->getEntityValue(
+              entity: $entity,
+              key: $field,
+              default: [],
+              published: !empty($configuration['shape_published']),
+              cacheableMetadata: $shape->getCacheableMetadata()
+            );
           }
           else {
             // Hide the shape if no field is selected.
-            $shape->hideChildShape($shapeName);
+            $shape->hideChildShape($shapeId);
           }
         }
         // Remove values that are completely empty.
@@ -232,10 +284,61 @@ trait ComponentValueChildrenMatchTrait {
         $shape->hideChildShape($shapeName);
       }
     }
-    if ($shape->getType() === ComponentShapePluginInterface::OBJECT) {
+    if (!$shape->isIterable()) {
       $values = reset($values) ?: [];
     }
     return $values;
+  }
+
+  /**
+   * Fetch children match values for expand fields.
+   */
+  protected function fetchChildrenMatchValuesDefault(string $shapeId, string $shapeName, int $delta, ComponentShapeChildrenPluginInterface $shape, ContentEntityInterface $entity, array $configuration): mixed {
+    $shape->defaultChildShape($shapeId, TRUE);
+    return NULL;
+  }
+
+  /**
+   * Fetch children match values for default fields.
+   */
+  protected function fetchChildrenMatchValuesExpand(string $shapeId, string $shapeName, int $delta, ComponentShapeChildrenPluginInterface $shape, ContentEntityInterface $entity, array $configuration): mixed {
+    if ($configuration['shape_fields']) {
+      $childShapeNames = array_keys($configuration['shape_fields']);
+      return $this->fetchChildrenMatchValues($childShapeNames, $shape, [$entity], $configuration, $shapeId);
+    }
+    return NULL;
+  }
+
+  /**
+   * Fetch children match values for default fields.
+   */
+  protected function fetchChildrenMatchValuesRender(string $shapeId, string $shapeName, int $delta, ComponentShapeChildrenPluginInterface $shape, ContentEntityInterface $entity, array $configuration): mixed {
+    if (!empty($configuration['render_field'])) {
+      $item = $this->matcherField->getEntityField($entity, $configuration['render_field'], !empty($configuration['shape_published']), $shape->getCacheableMetadata());
+      if ($item && !$item->isEmpty() && !empty($configuration['render_field_format']['field_plugin'])) {
+        $build = $item->view([
+          'type' => $configuration['render_field_format']['field_plugin'],
+          'label' => $configuration['render_field_format']['field_label'] ?? 'hidden',
+          'settings' => $configuration['render_field_format']['field_settings'] ?? [],
+        ]);
+        $cacheableMetadata = CacheableMetadata::createFromRenderArray($build);
+        $shape->addCacheableDependency($cacheableMetadata);
+        return ComponentPropRenderable::create($build);
+      }
+    }
+    return NULL;
+  }
+
+  /**
+   * Fetch children match values for raw fields.
+   */
+  protected function fetchChildrenMatchValuesRaw(string $shapeId, string $shapeName, int $delta, ComponentShapeChildrenPluginInterface $shape, ContentEntityInterface $entity, array $configuration): mixed {
+    $fieldName = substr($configuration['field'], 5);
+    return match ($fieldName) {
+      'boolean_true' => TRUE,
+      'boolean_false' => FALSE,
+      default => NULL,
+    };
   }
 
   /**

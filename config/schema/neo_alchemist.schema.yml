@@ -18,6 +18,9 @@ neo_alchemist.neo_component.*:
     schema:
       type: string
       label: 'Schema'
+    aggregate:
+      type: boolean
+      label: 'Aggregate'
     thumbnail:
       type: string
       label: 'Thumbnail'
@@ -130,6 +133,62 @@ neo_alchemist.neo_component_value.menu:
     menu_id:
       type: string
       label: Menu ID
+
+neo_alchemist.neo_component_value.heading:
+  type: mapping
+  label: 'Heading provider'
+  mapping:
+    supertitle_empty:
+      type: boolean
+      label: Supertitle empty
+    supertitle_edit:
+      type: boolean
+      label: Supertitle edit
+    supertitle_default:
+      type: boolean
+      label: Supertitle default
+    supertitle_page:
+      type: boolean
+      label: Supertitle page title
+    supertitle_value:
+      type: string
+      label: Supertitle default value
+    title_edit:
+      type: boolean
+      label: Title edit
+    title_default:
+      type: boolean
+      label: Title default
+    title_page:
+      type: boolean
+      label: Title page title
+    title_value:
+      type: string
+      label: Title default value
+    subtitle_empty:
+      type: boolean
+      label: Subtitle empty
+    subtitle_edit:
+      type: boolean
+      label: Subtitle edit
+    subtitle_default:
+      type: boolean
+      label: Subtitle default
+    subtitle_page:
+      type: boolean
+      label: Subtitle page title
+    subtitle_value:
+      type: string
+      label: Subtitle default value
+    h1_edit:
+      type: boolean
+      label: H1 edit
+    h1_default:
+      type: boolean
+      label: H1 default
+    h1_value:
+      type: boolean
+      label: H1 default value
 
 neo_alchemist.neo_component_value.breadcrumb:
   type: mapping
@@ -498,11 +557,19 @@ neo_alchemist.neo_component_shape_fields:
       field:
         type: string
         label: Field
-      modifiers:
+      plugins:
         type: sequence
-        label: Modifiers
+        label: Plugins
         sequence:
-          type: neo_alchemist_neo_component_value.[%key]
+          type: mapping
+          label: Plugin
+          sequence:
+            status:
+              type: boolean
+              label: 'Status'
+            settings:
+              type: neo_alchemist.neo_component_value.[%key]
+              nullable: true
 
 field.field_settings.neo_component_tree:
   type: mapping

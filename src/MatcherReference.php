@@ -54,6 +54,12 @@ final class MatcherReference extends MatcherBase {
    *   (optional) The entity type ID to match against. Defaults to NULL.
    * @param string|null $entityBundle
    *   (optional) The entity bundle to match against. Defaults to NULL.
+   * @param string|null $targetEntityTypeId
+   *   (optional) The target entity type ID to filter references.
+   *   Defaults to NULL.
+   * @param string|null $targetEntityBundle
+   *   (optional) The target entity bundle to filter references.
+   *   Defaults to NULL.
    *
    * @return array
    *   An associative array of options, grouped by their respective group names.
@@ -66,13 +72,25 @@ final class MatcherReference extends MatcherBase {
    *     ...
    *   ]
    */
-  public function getReferencesAsOptions($entityTypeId = NULL, ?string $entityBundle = NULL): array {
+  public function getReferencesAsOptions($entityTypeId = NULL, ?string $entityBundle = NULL, ?string $targetEntityTypeId = NULL, ?string $targetEntityBundle = NULL): array {
     $options = [];
     $matches = $this->getReferences($entityTypeId, $entityBundle);
     foreach ($matches as $key => [
       'title' => $title,
       'group' => $group,
+      'definition' => $definition,
     ]) {
+      if ($targetEntityTypeId) {
+        if ($definition->getSetting('target_type') !== $targetEntityTypeId) {
+          continue;
+        }
+        if ($targetEntityBundle) {
+          $bundles = $definition->getSetting('handler_settings')['target_bundles'] ?: [$targetEntityTypeId];
+          if (!in_array($targetEntityBundle, $bundles, TRUE)) {
+            continue;
+          }
+        }
+      }
       $options[ucwords($group)][$key] = $title;
     }
     return $options;
@@ -130,7 +148,7 @@ final class MatcherReference extends MatcherBase {
   }
 
   /**
-   * Get a reference entity for a given key.
+   * Get a single reference entity for a given key.
    *
    * @param \Drupal\Core\Entity\ContentEntityInterface $entity
    *   The content entity.
@@ -147,28 +165,34 @@ final class MatcherReference extends MatcherBase {
    */
   public function getReferenceEntity(ContentEntityInterface $entity, string $key, bool $force = FALSE, ?CacheableMetadata $cacheableMetadata = NULL): ?EntityInterface {
     if ($entity->isNew() || $force) {
-      $references = $this->getReferences($entity->getEntityTypeId());
-      if (isset($references[$key])) {
-        $reference = $references[$key];
-        $entityTypeId = $reference['definition']->getSetting('target_type');
-
-        $entityType = $this->entityTypeManager->getDefinition($entityTypeId);
-        $data = [];
-        if ($bundleKey = $entityType->getKey('bundle')) {
-          $bundles = $reference['definition']->getSetting('handler_settings')['target_bundles'] ?: [$entityTypeId];
-          $bundle = reset($bundles);
-          $data[$bundleKey] = $bundle;
-        }
-        return $this->entityTypeManager->getStorage($entityTypeId)->create($data);
-      }
+      return $this->getReferencePlaceholderEntity($entity, $key);
     }
     else {
-      $path = explode('.', $key);
-      $existingEntity = $this->recursiveReferenceEntity($entity, $path, $cacheableMetadata);
-      if (!$existingEntity && $force) {
-        return $this->getReferenceEntity($entity, $key, TRUE);
+      $field = $this->getReferenceField($entity, $key, $cacheableMetadata);
+      if (!$field && $force) {
+        return $this->getReferencePlaceholderEntity($entity, $key);
       }
-      return $existingEntity;
+      return $field->entity;
+    }
+    return NULL;
+  }
+
+  /**
+   * Get a reference field for a given key.
+   *
+   * @param \Drupal\Core\Entity\ContentEntityInterface $entity
+   *   The content entity.
+   * @param string $key
+   *   The key.
+   * @param \Drupal\Core\Cache\CacheableMetadata|null $cacheableMetadata
+   *   The cacheable metadata to attach to the reference entity.
+   *
+   * @return \Drupal\Core\Field\EntityReferenceFieldItemListInterface|null
+   *   The reference field, if found.
+   */
+  public function getReferenceField(ContentEntityInterface $entity, string $key, ?CacheableMetadata $cacheableMetadata = NULL):  ?EntityReferenceFieldItemListInterface {
+    if (!$entity->isNew()) {
+      return $this->recurseReferenceField($entity, explode('.', $key), $cacheableMetadata);
     }
     return NULL;
   }
@@ -183,10 +207,10 @@ final class MatcherReference extends MatcherBase {
    * @param \Drupal\Core\Cache\CacheableMetadata|null $cacheableMetadata
    *   The cacheable metadata to attach to the reference entity.
    *
-   * @return \Drupal\Core\Entity\EntityInterface|null
+   * @return \Drupal\Core\Field\EntityReferenceFieldItemListInterface|null
    *   The reference entity, if found.
    */
-  private function recursiveReferenceEntity(ContentEntityInterface $entity, array $path, ?CacheableMetadata $cacheableMetadata = NULL): ?EntityInterface {
+  private function recurseReferenceField(ContentEntityInterface $entity, array $path, ?CacheableMetadata $cacheableMetadata = NULL): ?EntityReferenceFieldItemListInterface {
     if ($cacheableMetadata) {
       $cacheableMetadata->addCacheableDependency($entity);
     }
@@ -206,13 +230,42 @@ final class MatcherReference extends MatcherBase {
         return $value;
       }
       if (!empty($path)) {
-        $value = $this->recursiveReferenceEntity($field->entity, $path, $cacheableMetadata);
+        $value = $this->recurseReferenceField($field->entity, $path, $cacheableMetadata);
       }
       else {
-        $value = $field->entity;
+        $value = $field;
       }
     }
     return $value;
+  }
+
+  /**
+   * Get a reference placeholder entity for a given key.
+   *
+   * @param \Drupal\Core\Entity\ContentEntityInterface $entity
+   *   The content entity.
+   * @param string $key
+   *   The key.
+   *
+   * @return \Drupal\Core\Entity\ContentEntityInterface|null
+   *   The reference placeholder entity, if found.
+   */
+  private function getReferencePlaceholderEntity(ContentEntityInterface $entity, string $key) {
+    $references = $this->getReferences($entity->getEntityTypeId());
+    if (isset($references[$key])) {
+      $reference = $references[$key];
+      $entityTypeId = $reference['definition']->getSetting('target_type');
+
+      $entityType = $this->entityTypeManager->getDefinition($entityTypeId);
+      $data = [];
+      if ($bundleKey = $entityType->getKey('bundle')) {
+        $bundles = $reference['definition']->getSetting('handler_settings')['target_bundles'] ?: [$entityTypeId];
+        $bundle = reset($bundles);
+        $data[$bundleKey] = $bundle;
+      }
+      return $this->entityTypeManager->getStorage($entityTypeId)->create($data);
+    }
+    return NULL;
   }
 
 }

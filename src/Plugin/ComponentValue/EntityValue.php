@@ -211,7 +211,6 @@ final class EntityValue extends ComponentValuePluginBase implements ContainerFac
     // No matter what, if we don't allow overriding, we return the value.
     if (!$overrideEmpty && !$override) {
       $this->stopFurtherProcessing();
-      // $this->shape->getOptionDefault()->setLockedValue(FALSE, 'Entity provided the value and cannot override.');
       return $entityValue;
     }
 

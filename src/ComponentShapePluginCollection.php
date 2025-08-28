@@ -139,6 +139,22 @@ class ComponentShapePluginCollection extends DefaultLazyPluginCollection {
   }
 
   /**
+   * Get instances that support inlining.
+   *
+   * @return \Drupal\neo_alchemist\ComponentValuePluginInterface[]
+   *   The active instances.
+   */
+  public function getInlineInstances(): array {
+    $instances = [];
+    foreach ($this->getInstances() as $instance) {
+      if ($instance->allowInline()) {
+        $instances[$instance->getPluginId()] = $instance;
+      }
+    }
+    return $instances;
+  }
+
+  /**
    * Get the active instances.
    *
    * @return \Drupal\neo_alchemist\ComponentValuePluginInterface[]
@@ -153,6 +169,17 @@ class ComponentShapePluginCollection extends DefaultLazyPluginCollection {
       }
     }
     return $activeInstances;
+  }
+
+  /**
+   * Check if an active instance ID exists.
+   *
+   * @param string $instance_id
+   *   The ID of the plugin instance to check.
+   */
+  public function hasActiveInstance(string $instance_id): bool {
+    $configuration = $this->configurations[$instance_id] ?? [];
+    return !empty($configuration['status']);
   }
 
   /**

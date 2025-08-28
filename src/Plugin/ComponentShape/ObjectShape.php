@@ -91,13 +91,8 @@ class ObjectShape extends ChildrenShapeBase implements ComponentShapeExpandedPlu
   /**
    * {@inheritDoc}
    */
-  public function getValue(): mixed {
-    // If the value is set to be empty (which will cause it to be hidden), we
-    // don't need to do anything else.
-    if ($this->getOptionEmpty()->isEnabled()) {
-      return [];
-    }
-    $value = parent::getValue();
+  protected function buildValue() {
+    $value = parent::buildValue();
     if (empty($value) && !$this->allowExpanded()) {
       // When the parent value is empty and this shape cannot be expanded,
       // we return an empty value so none of the children get populted.
@@ -122,6 +117,9 @@ class ObjectShape extends ChildrenShapeBase implements ComponentShapeExpandedPlu
       return parent::form($form, $form_state);
     }
     $shapes = array_filter($this->getChildShapes(), fn ($shape) => $shape->isEditable());
+    if (empty($shapes)) {
+      $this->enforceLocked();
+    }
     if ($shapes) {
       $values = $this->getFieldItemValue();
       $form['#type'] = 'fieldset';

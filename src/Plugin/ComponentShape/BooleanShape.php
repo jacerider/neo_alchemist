@@ -23,8 +23,16 @@ class BooleanShape extends ComponentShapePluginBase {
   /**
    * {@inheritDoc}
    */
-  public function getValue(): bool {
-    return (bool) parent::getValue();
+  public function init(): self {
+    $this->getOptionEmpty()->setAccess(FALSE, 'Boolean shapes cannot be empty.');
+    return parent::init();
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  public function buildValue(): bool {
+    return (bool) parent::buildValue();
   }
 
   /**

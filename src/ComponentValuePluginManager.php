@@ -49,6 +49,7 @@ final class ComponentValuePluginManager extends DefaultPluginManager implements 
   public function processDefinition(&$definition, $plugin_id) {
     parent::processDefinition($definition, $plugin_id);
     $definition['group'] = $definition['group'] ?? 'providers';
+    $definition['inline'] = !empty($definition['inline']);
 
     if (!$this->groupManager->hasDefinition($definition['group'])) {
       throw new \InvalidArgumentException(sprintf('The group %s does not exist.', $definition['group']));

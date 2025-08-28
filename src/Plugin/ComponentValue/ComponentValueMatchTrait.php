@@ -5,8 +5,11 @@ declare(strict_types=1);
 namespace Drupal\neo_alchemist\Plugin\ComponentValue;
 
 use Drupal\Component\Utility\NestedArray;
+use Drupal\Core\Cache\CacheableMetadata;
 use Drupal\Core\Form\FormStateInterface;
+use Drupal\neo_alchemist\ComponentPropRenderable;
 use Drupal\neo_alchemist\ComponentShapePluginInterface;
+use Drupal\neo_alchemist\FieldFormatterTrait;
 use Drupal\neo_alchemist\MatcherField;
 
 /**
@@ -15,6 +18,8 @@ use Drupal\neo_alchemist\MatcherField;
  * @see \Drupal\Core\Plugin\ContainerFactoryPluginInterface
  */
 trait ComponentValueMatchTrait {
+
+  use FieldFormatterTrait;
 
   /**
    * The field matcher.
@@ -30,6 +35,8 @@ trait ComponentValueMatchTrait {
     return [
       'field' => '',
       'field_properties' => [],
+      'render_field' => '',
+      'render_field_format' => [],
     ];
   }
 
@@ -57,28 +64,48 @@ trait ComponentValueMatchTrait {
    */
   protected function getMatchValue(ComponentShapePluginInterface $shape, ?string $field = NULL, ?array $properties = NULL, ?bool $published = TRUE): mixed {
     $field = $field ?? $this->configuration['field'] ?? '';
-    $properties = $properties ?? $this->configuration['field_properties'] ?? [];
     if (!$field) {
       return NULL;
     }
-    $properties = $properties ?? $this->configuration['field_properties'] ?? [];
-    return $this->matcherField->getEntityValue(
-      entity: $shape->getEntity(),
-      key: $field,
-      properties: $properties,
-      published: $published,
-      cacheableMetadata: $shape->getCacheableMetadata()
-    );
+    switch ($field) {
+      case '_render':
+        $item = $this->matcherField->getEntityField($this->shape->getEntity(), $this->configuration['render_field'], TRUE, $shape->getCacheableMetadata());
+        if ($item && !$item->isEmpty() && !empty($this->configuration['render_field_format']['field_plugin'])) {
+          $build = $item->view([
+            'type' => $this->configuration['render_field_format']['field_plugin'],
+            'label' => $this->configuration['render_field_format']['field_label'] ?? 'hidden',
+            'settings' => $this->configuration['render_field_format']['field_settings'] ?? [],
+          ]);
+          $cacheableMetadata = CacheableMetadata::createFromRenderArray($build);
+          $shape->addCacheableDependency($cacheableMetadata);
+          return ComponentPropRenderable::create($build);
+        }
+        return NULL;
+
+      default:
+        $properties = $properties ?? $this->configuration['field_properties'] ?? [];
+        return $this->matcherField->getEntityValue(
+          entity: $shape->getEntity(),
+          key: $field,
+          properties: $properties,
+          published: $published,
+          cacheableMetadata: $shape->getCacheableMetadata()
+        );
+    }
   }
 
   /**
    * Configuration form for the value provider plugin.
    */
-  protected function buildMatchConfigurationForm($form, FormStateInterface $form_state): array {
+  protected function buildMatchConfigurationForm($form, FormStateInterface $form_state, $entityTypeId = NULL, $bundle = NULL): array {
     $wrapperId = $form['#id'];
     $field = $this->configuration['field'];
+    $shape = $this->shape;
 
     $options = $this->getMatchOptions();
+    if ($shape->getRef() === 'markup') {
+      $options['- Shape -']['_render'] = $this->t('Render with field formatter');
+    }
     $groups = array_keys($options);
     $groups = array_combine($groups, $groups);
     asort($groups);
@@ -122,6 +149,35 @@ trait ComponentValueMatchTrait {
           'wrapper' => $wrapperId,
         ],
       ];
+
+      if ($field === '_render') {
+        $renderFieldId = $this->configuration['render_field'] ?? NULL;
+        $form['render_field'] = [
+          '#type' => 'select',
+          '#title' => $this->t('Field to render'),
+          '#required' => TRUE,
+          '#options' => $this->matcherField->getMatchesAsOptions($shape, $entityTypeId, $bundle, NULL, TRUE),
+          '#default_value' => $renderFieldId,
+          '#ajax' => [
+            'callback' => [static::class, 'refreshMatchAjax'],
+            'wrapper' => $wrapperId,
+          ],
+        ];
+        if ($renderFieldId) {
+          $renderField = $this->matcherField->getFieldDefinition($shape, $renderFieldId, $entityTypeId, $bundle, NULL, TRUE);
+          if ($renderField) {
+            $form['render_field_format'] = [
+              '#type' => 'fieldset',
+              '#title' => $this->t('Formatter'),
+            ];
+            $renderFieldFormatConfiguration = $this->configuration['render_field_format'] ?? [];
+            $form['render_field_format'] = $this->formatterConfigurationForm($form['render_field_format'], $form_state, $renderField, $renderFieldFormatConfiguration, [
+              'callback' => [static::class, 'refreshMatchFieldFormatAjax'],
+              'wrapper' => $wrapperId,
+            ]);
+          }
+        }
+      }
     }
 
     return $form;
@@ -130,9 +186,9 @@ trait ComponentValueMatchTrait {
   /**
    * Configuration form for the value provider plugin.
    */
-  protected function buildMatchPropertiesConfigurationForm($form, FormStateInterface $form_state): array {
+  protected function buildMatchPropertiesConfigurationForm($form, FormStateInterface $form_state, $entityTypeId = NULL, $bundle = NULL): array {
     $field = $this->configuration['field'];
-    $fieldDefinition = $this->matcherField->getFieldDefinition($this->shape, $field);
+    $fieldDefinition = $this->matcherField->getFieldDefinition($this->shape, $field, $entityTypeId, $bundle);
     $fieldProperties = $fieldDefinition->getFieldStorageDefinition()->getPropertyDefinitions();
 
     $form['field_properties'] = [
@@ -165,6 +221,14 @@ trait ComponentValueMatchTrait {
   public static function refreshMatchAjax(array $form, FormStateInterface $form_state) {
     $trigger = $form_state->getTriggeringElement();
     return NestedArray::getValue($form, array_slice($trigger['#array_parents'], 0, -1));
+  }
+
+  /**
+   * Ajax callback.
+   */
+  public static function refreshMatchFieldFormatAjax(array $form, FormStateInterface $form_state) {
+    $trigger = $form_state->getTriggeringElement();
+    return NestedArray::getValue($form, array_slice($trigger['#array_parents'], 0, -2));
   }
 
   /**

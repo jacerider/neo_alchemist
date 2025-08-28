@@ -6,7 +6,9 @@ namespace Drupal\neo_alchemist\Plugin\ComponentValue;
 
 use Drupal\Component\Utility\Html;
 use Drupal\Component\Utility\NestedArray;
+use Drupal\Core\Cache\CacheableMetadata;
 use Drupal\Core\DependencyInjection\DependencySerializationTrait;
+use Drupal\Core\Entity\ContentEntityInterface;
 use Drupal\Core\Entity\EntityTypeInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Form\FormStateInterface;
@@ -57,6 +59,13 @@ final class ViewsValue extends ComponentValuePluginBase implements ContainerFact
   protected MatcherField $matcherField;
 
   /**
+   * The view executable.
+   *
+   * @var \Drupal\views\ViewExecutable|null
+   */
+  protected ?ViewExecutable $view = NULL;
+
+  /**
    * {@inheritdoc}
    */
   public function __construct(
@@ -95,6 +104,7 @@ final class ViewsValue extends ComponentValuePluginBase implements ContainerFact
       'view_display_id' => '',
       'view_items_per_page' => $this->shape->getType() === ComponentShapePluginInterface::OBJECT ? 1 : NULL,
       'view_items_offset' => 0,
+      // 'view_argument_entity' => FALSE,
       'view_arguments' => [],
       'view_arguments_sort' => FALSE,
       'continue' => FALSE,
@@ -193,11 +203,16 @@ final class ViewsValue extends ComponentValuePluginBase implements ContainerFact
         $arguments = $view->getHandlers('argument');
         if (!empty($arguments)) {
           $filters = $this->shape->getComponent()->getFilters();
+          $options = [
+            '_entity' => $this->t('- Component Entity -'),
+          ];
           if ($filters) {
             $options = [
               'all' => $this->t('- Ignore -'),
-            ] + array_map(fn($filter) => $filter->label(), $filters);
+            ] + $options + array_map(fn($filter) => $filter->label(), $filters);
             asort($options);
+          }
+          if ($options) {
             $form['view_arguments'] = [
               '#type' => 'fieldset',
               '#title' => $this->t('View Arguments'),
@@ -227,8 +242,10 @@ final class ViewsValue extends ComponentValuePluginBase implements ContainerFact
           }
         }
 
+        $form_state->set('view', $view);
         // Add shape fields.
         $form += $this->buildChildrenMatchConfigurationForm($this->shape, $form, $form_state, $viewEntityType->id(), $viewEntityBundle, $this->configuration);
+
       }
       $form['continue'] = [
         '#type' => 'checkbox',
@@ -239,6 +256,26 @@ final class ViewsValue extends ComponentValuePluginBase implements ContainerFact
     }
 
     return $form;
+  }
+
+  /**
+   * Alter the configuration form for a child match.
+   */
+  protected function alterChildMatchConfigurationForm(ComponentShapePluginInterface $shape, &$form, FormStateInterface $form_state, $entityTypeId, $bundle = NULL, array $configuration = []) {
+    if ($shape->getType() !== 'string') {
+      return;
+    }
+    $view = $form_state->get('view');
+    $display = $view->getDisplay();
+    // Support fields directly rendered by views.
+    /** @var \Drupal\views\Plugin\views\field\FieldPluginBase[] $fields */
+    $fields = $display->getHandlers('field');
+    $viewFieldOptions = [];
+    foreach ($fields as $fieldName => $field) {
+      $viewFieldOptions['- Views -']['_view:' . $fieldName] = $field->adminLabel();
+    }
+
+    $form['field']['#options'] = [key($form['field']['#options']) => reset($form['field']['#options'])] + $viewFieldOptions + $form['field']['#options'];
   }
 
   /**
@@ -273,48 +310,77 @@ final class ViewsValue extends ComponentValuePluginBase implements ContainerFact
   }
 
   /**
+   * Gets the view executable.
+   */
+  protected function getView(): ?ViewExecutable {
+    if (!isset($this->view)) {
+      $this->view = NULL;
+      if ($this->configuration['view_id'] && $this->configuration['view_display_id']) {
+        $view = Views::getView($this->configuration['view_id']);
+        if ($view) {
+          $view->setDisplay($this->configuration['view_display_id']);
+          $this->shape->addCacheableDependency($view);
+          if ($this->configuration['view_items_per_page'] ?? NULL) {
+            $view->setItemsPerPage($this->configuration['view_items_per_page']);
+          }
+          if ($this->configuration['view_items_offset'] ?? NULL) {
+            $view->setOffset($this->configuration['view_items_offset']);
+          }
+          if ($this->configuration['view_arguments']) {
+            $arguments = $view->getHandlers('argument');
+            if ($arguments) {
+              $args = [];
+              foreach ($arguments as $id => $argument) {
+                $argValue = NULL;
+                $argKey = $this->configuration['view_arguments'][$id] ?? NULL;
+                if ($argKey) {
+                  $argValue = 'all';
+                  if ($argKey === '_entity') {
+                    $argValue = $this->shape->getEntity()->id();
+                  }
+                  else {
+                    if ($filter = $this->shape->getComponent()->getFilter($argKey)) {
+                      $argValue = $filter->getProcessedValue();
+                    }
+                  }
+                }
+                $args[] = $argValue;
+              }
+              $view->setArguments($args);
+            }
+          }
+          $view->preExecute();
+          $view->execute();
+          $cacheableMetadata = CacheableMetadata::createFromRenderArray($view->element);
+          $this->shape->addCacheableDependency($cacheableMetadata);
+          $this->view = $view;
+        }
+      }
+    }
+    return $this->view;
+  }
+
+  /**
    * {@inheritdoc}
    */
   public function provideOverrideValue(mixed $value, mixed $defaultValue): mixed {
     if (!$this->shape instanceof ComponentShapeChildrenPluginInterface) {
       return $value;
     }
-    if ($this->configuration['view_id'] && $this->configuration['view_display_id']) {
-      $view = Views::getView($this->configuration['view_id']);
-      if (!$view) {
-        return $value;
-      }
-      $view->setDisplay($this->configuration['view_display_id']);
-      $this->shape->addCacheableDependency($view);
-      if ($this->configuration['view_items_per_page'] ?? NULL) {
-        $view->setItemsPerPage($this->configuration['view_items_per_page']);
-      }
-      if ($this->configuration['view_items_offset'] ?? NULL) {
-        $view->setOffset($this->configuration['view_items_offset']);
-      }
-      if ($this->configuration['view_arguments']) {
-        $arguments = $view->getHandlers('argument');
-        if ($arguments) {
-          $args = [];
-          foreach ($arguments as $id => $argument) {
-            $argValue = NULL;
-            if (!empty($this->configuration['view_arguments'][$id])) {
-              $argValue = 'all';
-              if ($filter = $this->shape->getComponent()->getFilter($this->configuration['view_arguments'][$id])) {
-                $argValue = $filter->getProcessedValue();
-              }
-            }
-            $args[] = $argValue;
-          }
-          $view->setArguments($args);
-        }
-      }
-      $view->preExecute();
-      $view->execute();
+    if ($view = $this->getView()) {
+
+      /** @var \Drupal\views\Plugin\views\cache\CachePluginBase $cache_plugin */
+      $cache_plugin = $view->display_handler->getPlugin('cache');
+      $cacheableMetadata = $this->shape->getCacheableMetadata();
+      $cacheableMetadata->setCacheMaxAge($cache_plugin->getCacheMaxAge());
+      $cacheableMetadata->addCacheTags($cache_plugin->getCacheTags());
+
+      // Get entities.
       $entities = [];
       foreach (array_map(fn($row) => $row->_entity, $view->result) as $entity) {
-        $entities[$entity->id()] = $entity;
+        $entities[] = $entity;
       }
+
       if (!empty($this->configuration['view_arguments_sort']) && isset($args) && !empty($args[0])) {
         $ids = explode('+', $args[0]);
         if (count($ids) > 1) {
@@ -335,11 +401,27 @@ final class ViewsValue extends ComponentValuePluginBase implements ContainerFact
         $results = $this->getChildrenMatchValues($this->shape, $entities, $this->configuration);
         if (!empty($results) || empty($this->configuration['continue'])) {
           $this->stopFurtherProcessing();
+          // Merge any views-generated values.
+          foreach ($results as $delta => $result) {
+            $results[$delta] = $result;
+          }
           $value = $results;
         }
       }
     }
     return $value;
+  }
+
+  /**
+   * Fetches the matching values for child components from a Views result.
+   */
+  protected function fetchChildrenMatchValuesView(string $shapeId, string $shapeName, int $delta, ComponentShapeChildrenPluginInterface $shape, ContentEntityInterface $entity, array $configuration): mixed {
+    $fieldName = substr($configuration['field'], 6);
+    $view = $this->getView();
+    if (isset($view->result[$delta])) {
+      return $view->style_plugin->getField($view->result[$delta]->index, $fieldName);
+    }
+    return NULL;
   }
 
   /**
@@ -366,6 +448,16 @@ final class ViewsValue extends ComponentValuePluginBase implements ContainerFact
       }
     }
     return NULL;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public static function isApplicable(ComponentShapePluginInterface $shape) {
+    if ($shape->isIterable()) {
+      return TRUE;
+    }
+    return $shape->isExpandable();
   }
 
 }

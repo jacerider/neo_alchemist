@@ -53,6 +53,14 @@ interface ComponentInterface extends ConfigEntityInterface, RenderableInterface,
   public function isPublished(): bool;
 
   /**
+   * Checks if the component props are aggregated.
+   *
+   * @return bool
+   *   TRUE if the component is an aggregate, FALSE otherwise.
+   */
+  public function isAggregate(): bool;
+
+  /**
    * Gets the component plugin machine name.
    *
    * @return string

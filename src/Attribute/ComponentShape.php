@@ -43,6 +43,8 @@ final class ComponentShape extends AttributeBase {
    * @param array|null $formats
    *   (optional) The supported formats. For example:
    *   - ['textarea' => ['default_field_type' => 'string_long']].
+   * @param string|null $provider
+   *   (optional) The provider.
    * @param class-string|null $deriver
    *   (optional) The deriver class.
    */

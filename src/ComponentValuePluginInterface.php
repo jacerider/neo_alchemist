@@ -25,6 +25,14 @@ interface ComponentValuePluginInterface extends ConfigurableInterface, PluginFor
   public function getGroup(): string;
 
   /**
+   * Whether the plugin allows inline usage.
+   *
+   * Inline usage means that a plugin can be configured on child components
+   * when doing nested value assignment.
+   */
+  public function allowInline(): bool;
+
+  /**
    * Check if the plugin is allowed on default shape.
    *
    * @return bool

@@ -41,6 +41,18 @@ class ComponentFieldConfig extends FieldConfig implements ComponentFieldConfigIn
   }
 
   /**
+   * {@inheritdoc}
+   */
+  public function getOriginal(): ?static {
+    if ($this->originalEntity) {
+      // Needed so we can pass FieldConfig::preSave() validation.
+      $entity_class = 'Drupal\neo_alchemist\Entity\ComponentFieldConfig';
+      return new $entity_class($this->originalEntity->toArray(), 'field_config');
+    }
+    return $this->originalEntity;
+  }
+
+  /**
    * {@inheritDoc}
    */
   public function access($operation, ?AccountInterface $account = NULL, $return_as_object = FALSE) {

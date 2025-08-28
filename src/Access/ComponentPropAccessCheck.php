@@ -37,6 +37,9 @@ class ComponentPropAccessCheck implements AccessInterface {
     if ($parameters->has($entity_type) && $parameters->has($prop)) {
       $entity = $parameters->get($entity_type);
       $prop = $parameters->get($prop);
+      if ($prop === '_aggregate') {
+        return $entity->getPropShape($prop)->access($op, $account, TRUE);
+      }
       if ($entity instanceof ComponentInterface && isset($entity->getComponentSchema()['properties'][$prop])) {
         return $entity->getPropShape($prop)->access($op, $account, TRUE);
       }

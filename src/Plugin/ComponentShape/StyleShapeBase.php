@@ -29,8 +29,8 @@ abstract class StyleShapeBase extends ComponentShapePluginBase implements Compon
   /**
    * {@inheritDoc}
    */
-  public function getValue(): mixed {
-    $value = parent::getValue();
+  protected function buildValue() {
+    $value = parent::buildValue();
     if ($this->getComponent()->getScope() === 'config') {
       $previewValue = $this->getComponent()->getPreviewStyle($this->id());
       if ($previewValue !== NULL) {

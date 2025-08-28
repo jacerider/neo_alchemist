@@ -18,6 +18,7 @@ use Drupal\neo_alchemist\ComponentValuePluginBase;
   label: new TranslatableMarkup('Format as Number'),
   description: new TranslatableMarkup('Convert value to number.'),
   group: 'modifiers',
+  inline: TRUE,
   prop_types: [
     ComponentShapePluginInterface::STRING,
   ],

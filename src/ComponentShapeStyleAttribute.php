@@ -41,4 +41,14 @@ class ComponentShapeStyleAttribute extends Attribute {
     return $this->shapeValue;
   }
 
+  /**
+   * Gets a clone of this attribute object.
+   *
+   * @return \Drupal\neo_alchemist\ComponentShapeStyleAttribute
+   *   A clone of this attribute object.
+   */
+  public function getClone(): ComponentShapeStyleAttribute {
+    return clone $this;
+  }
+
 }

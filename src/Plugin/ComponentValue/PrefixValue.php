@@ -18,6 +18,7 @@ use Drupal\neo_alchemist\ComponentValuePluginBase;
   label: new TranslatableMarkup('Prefix'),
   description: new TranslatableMarkup('Provide a prefix to the value.'),
   group: 'modifiers',
+  inline: TRUE,
   prop_types: [
     ComponentShapePluginInterface::STRING,
     ComponentShapePluginInterface::INTEGER,

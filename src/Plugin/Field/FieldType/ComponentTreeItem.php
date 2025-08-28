@@ -423,6 +423,8 @@ class ComponentTreeItem extends FieldItemBase implements RenderableInterface {
    *
    * @param string $uuid
    *   The UUID.
+   * @param bool $noCache
+   *   Whether to bypass the cache.
    *
    * @return \Drupal\neo_alchemist\ComponentInstanceInterface|null
    *   The Neo component instance.

@@ -10,7 +10,6 @@ use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Plugin\ContainerFactoryPluginInterface;
 use Drupal\Core\Routing\RouteMatchInterface;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
-use Drupal\Core\Url;
 use Drupal\neo_alchemist\Attribute\ComponentValue;
 use Drupal\neo_alchemist\ComponentShapePluginInterface;
 use Drupal\neo_alchemist\ComponentValuePluginBase;
@@ -24,6 +23,7 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
   label: new TranslatableMarkup('Breadcrumb'),
   description: new TranslatableMarkup('Use a breadcrumb to populate link fields.'),
   group: 'providers',
+  inline: TRUE,
   weight: 10,
   ref_types: [
     'breadcrumb',
@@ -101,7 +101,7 @@ final class BreadcrumbValue extends ComponentValuePluginBase implements Containe
 
     $form['hide_home'] = [
       '#type' => 'checkbox',
-      '#title' => $this->t('Hide current'),
+      '#title' => $this->t('Hide home'),
       '#description' => $this->t('If checked, the home page will not be included in the breadcrumb.'),
       '#default_value' => $this->configuration['hide_home'],
     ];
@@ -119,7 +119,7 @@ final class BreadcrumbValue extends ComponentValuePluginBase implements Containe
   /**
    * {@inheritdoc}
    */
-  public function provideOverrideValue(mixed $value, mixed $defaultValue): mixed {
+  public function provideDefaultValue(mixed $value): mixed {
     $breadcrumb = $this->breadcrumbManager->build($this->routeMatch);
     $value = [];
     $links = $breadcrumb->getLinks();
@@ -132,11 +132,12 @@ final class BreadcrumbValue extends ComponentValuePluginBase implements Containe
       $url = $link->getUrl();
       if ($title && $url) {
         $options = $url->getOptions();
+        $uri = $url->toUriString();
         $value[] = [
           'title' => $link->getText(),
           'url' => [
             'title' => $link->getText(),
-            'uri' => $url->toUriString(),
+            'uri' => $uri === 'route:<none>' ? NULL : $uri,
             'options' => $options,
           ],
         ];
@@ -145,14 +146,15 @@ final class BreadcrumbValue extends ComponentValuePluginBase implements Containe
     if ($links) {
       if (!$this->configuration['hide_current']) {
         $request = \Drupal::request();
-        $route_match = \Drupal::routeMatch();
-        $title = \Drupal::service('title_resolver')->getTitle($request, $route_match->getRouteObject());
-        $value[] = [
-          'title' => $title,
-          'url' => [
+        $routeMatch = \Drupal::routeMatch();
+        $route = $routeMatch->getRouteObject();
+        if ($route) {
+          $title = \Drupal::service('title_resolver')->getTitle($request, $route);
+          $value[] = [
             'title' => $title,
-          ],
-        ];
+            'url' => [],
+          ];
+        }
       }
     }
     return $value;

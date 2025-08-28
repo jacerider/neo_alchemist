@@ -99,6 +99,13 @@ abstract class ComponentValuePluginBase extends PluginBase implements ComponentV
   /**
    * {@inheritdoc}
    */
+  public function allowInline(): bool {
+    return !empty($this->pluginDefinition['inline']);
+  }
+
+  /**
+   * {@inheritdoc}
+   */
   public function allowOnDefault(): bool {
     return $this->pluginDefinition['allow_on_default'] ?? FALSE;
   }

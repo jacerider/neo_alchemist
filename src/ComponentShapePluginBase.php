@@ -286,6 +286,13 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
   protected array $childShapesAll = [];
 
   /**
+   * A list of plugins allowed to be initialized.
+   *
+   * @var bool[]
+   */
+  protected array $allowInitPlugins = [];
+
+  /**
    * The shape plugin settings.
    *
    * @var array
@@ -407,11 +414,13 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
   /**
    * {@inheritDoc}
    */
-  public function id(): string {
+  public function id(bool $ignoreDelta = FALSE): string {
     $id = implode('~', $this->getNestedPath());
-    $delta = $this->getDelta();
-    if ($delta !== NULL) {
-      $id .= "~$delta";
+    if (!$ignoreDelta) {
+      $delta = $this->getDelta();
+      if ($delta !== NULL) {
+        $id .= "~$delta";
+      }
     }
     return $id;
   }
@@ -490,11 +499,6 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
       }
     }
 
-    // If the shape is required, we do not allow it to be empty.
-    if ($this->isRequired()) {
-      $this->getOptionEmpty()->setAccess(FALSE, 'Shape is required and cannot be empty.');
-    }
-
     // Initialize the options.
     $this->initOptions();
 
@@ -528,6 +532,18 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
       }
     }
 
+    // If we have no override value and the shape is required, we set it to
+    // NULL so that the default value is used.
+    if (empty($overrideValue) && $this->isRequired()) {
+      $overrideValue = NULL;
+    }
+
+    // If we have no override value and the shape is set to use default, we
+    // set it to NULL so that the default value is used.
+    if (empty($overrideValue) && $this->getOptionDefault()->isEnabled()) {
+      $overrideValue = NULL;
+    }
+
     if (!is_null($overrideValue)) {
       // Allow providers to modify the final override value.
       foreach ($instances as $instance) {
@@ -545,16 +561,20 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
    * Initializes the plugins for the component shape.
    */
   protected function initPlugins() {
-    $definition = $this->getPluginDefinition();
-    if (!empty($definition['default_plugins'])) {
-      foreach ($definition['default_plugins'] as $pluginId => $settings) {
-        if (!is_array($settings)) {
-          $pluginId = $settings;
-          $settings = [];
-        }
+    foreach ($this->getDefaultPlugins() as $pluginId => $settings) {
+      if ($this->allowInitPlugins[$pluginId] ?? TRUE) {
         $this->addPlugin($pluginId, $settings);
       }
     }
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  public function allowInitPlugins(string $pluginId, bool $allow = TRUE): self {
+    assert(!$this->isInitialized(), 'Allowing init plugins must happen before initialization of shape.');
+    $this->allowInitPlugins[$pluginId] = $allow;
+    return $this;
   }
 
   /**
@@ -984,12 +1004,33 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
    * {@inheritDoc}
    */
   public function addPlugin(string $pluginId, array $settings = [], bool $status = TRUE): self {
+    if ($this->getValueCollection()->hasActiveInstance($pluginId)) {
+      return $this;
+    }
     $this->getValueCollection()->setInstanceConfiguration($pluginId, [
       'id' => $pluginId,
       'status' => $status,
       'settings' => $settings,
     ]);
     return $this;
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  public function getDefaultPlugins(): array {
+    $definition = $this->getPluginDefinition();
+    $plugins = [];
+    if (!empty($definition['default_plugins'])) {
+      foreach ($definition['default_plugins'] as $pluginId => $settings) {
+        if (!is_array($settings)) {
+          $pluginId = $settings;
+          $settings = [];
+        }
+        $plugins[$pluginId] = $settings;
+      }
+    }
+    return $plugins;
   }
 
   /**
@@ -1157,6 +1198,8 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
   public function enforceRequired(): self {
     $this->enforceRequired = TRUE;
     $this->required = TRUE;
+    $this->getOptionEmpty()->setAccess(FALSE, 'Shape is required and cannot be empty.');
+    $this->getOptionEmpty()->setLockedValue(FALSE, 'Shape is required and cannot be empty.');
     return $this;
   }
 
@@ -1214,11 +1257,15 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
    * {@inheritDoc}
    */
   public function isLocked(): bool {
+    if ($this->enforceLocked) {
+      // If we are already locked, no reason to continue.
+      return TRUE;
+    }
     if (!isset($this->locked)) {
-      $this->locked = $this->enforceLocked;
-      if ($this->locked) {
-        // If we are already locked, no reason to continue.
-        return TRUE;
+      $this->locked = FALSE;
+      if ($this->getOptionAccess()->isDisabled()) {
+        $this->locked = TRUE;
+        return $this->locked;
       }
       foreach ($this->getValueCollection()->getAllowedInstances('edit') as $instance) {
         if (!$instance->isEditable()) {
@@ -1467,6 +1514,16 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
     if ($this->getOptionEmpty()->isEnabled()) {
       return [];
     }
+    return $this->buildValue();
+  }
+
+  /**
+   * Builds the value for the component shape.
+   *
+   * @return mixed
+   *   The built value.
+   */
+  protected function buildValue() {
     $value = $this->getFieldItemValue();
     $value = $this->denormalizeValue($value);
     if (is_null($value)) {
@@ -1559,6 +1616,10 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
    * is the root entity shape and the scope is 'entity'. It will load the field
    * config component and then get the shape value.
    *
+   * @todo It is possible this is only necessary to do when a shape is set as
+   * default. This is a somewhat expensive thing to do as it loads reloads the
+   * component as its field-level version.
+   *
    * @return mixed
    *   The default value of the field.
    */
@@ -1568,6 +1629,11 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
     if ($this->isRoot() && $this->getScope() === 'entity') {
       $component = $this->getComponent();
       if ($component instanceof ComponentEntityInterface) {
+        if (!$component->getFieldItem()->getFieldDefinition()->allowCustom()) {
+          // If the field does not allow custom, we don't need to load the
+          // default value from the field config as it is redundant.
+          return $value;
+        }
         if ($fieldComponent = $component->getFieldComponent()) {
           $value = $fieldComponent->getPropShape($this->getName())->getValue();
         }
@@ -1655,8 +1721,22 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
     if (is_array($value) && !$this->isIterable()) {
       $value = $value[0] ?? $value;
     }
+    $this->alterFieldItemValue($value);
     $this->fieldItem->setValue($value);
     return $this;
+  }
+
+  /**
+   * Alters the field item value before it is set.
+   *
+   * This method can be overridden by subclasses to modify the value before it
+   * is set on the field item.
+   *
+   * @param mixed $value
+   *   The value to alter.
+   */
+  protected function alterFieldItemValue(mixed &$value): void {
+    // By default, do nothing.
   }
 
   /**
@@ -1820,6 +1900,11 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
       ($optionDefault->isDisabled() || $optionEmpty->isFormForced())
     ) {
       $form = $this->form($form, $form_state);
+    }
+
+    if (!$this->isEditable()) {
+      // The form method may have locked this form.
+      return $form;
     }
 
     $form['_options'] = [
@@ -2100,6 +2185,37 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
   /**
    * {@inheritDoc}
    */
+  public function setDefaultNestedOption(string $name, string $optionName, bool $value = TRUE, bool $prependCurrentId = TRUE): self {
+    assert(!$this->isInitialized(), 'Shape cannot be initialized before setting default nested options.');
+    if ($prependCurrentId) {
+      $name = $this->id() . '~' . $name;
+    }
+    match ($this->isRoot()) {
+      TRUE => $this->defaultNestedOptions[$name][$optionName] = $value,
+      FALSE => $this->getRootShape()->setDefaultNestedOption($name, $optionName, $value, FALSE),
+    };
+    return $this;
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  public function setDefaultNestedOptionEmpty(string $name, bool $value = TRUE): self {
+    $this->setDefaultNestedOption($name, 'empty', $value);
+    return $this;
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  public function setDefaultNestedOptionDefault(string $name, bool $value = TRUE): self {
+    $this->setDefaultNestedOption($name, 'default', $value);
+    return $this;
+  }
+
+  /**
+   * {@inheritDoc}
+   */
   public function setOptions(array $options, ?string $id = NULL): self {
     $id = $id ?? $this->id();
     match ($this->isRoot()) {
@@ -2136,6 +2252,45 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
       TRUE => $this->nestedOptions + $this->defaultNestedOptions,
       FALSE => $this->getRootShape()->getNestedOptions(),
     };
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  public function setNestedOption(string $name, string $optionName, bool $value = TRUE, bool $prependCurrentId = TRUE): self {
+    assert(!$this->isInitialized(), 'Shape cannot be initialized before setting default nested options.');
+    if ($prependCurrentId) {
+      $name = $this->id() . '~' . $name;
+    }
+    match ($this->isRoot()) {
+      TRUE => $this->nestedOptions[$name][$optionName] = $value,
+      FALSE => $this->getRootShape()->setNestedOption($name, $optionName, $value, FALSE),
+    };
+    return $this;
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  public function setNestedOptionEmpty(string $name, bool $value = TRUE): self {
+    $this->setNestedOption($name, 'empty', $value);
+    return $this;
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  public function setNestedOptionDefault(string $name, bool $value = TRUE): self {
+    $this->setNestedOption($name, 'default', $value);
+    return $this;
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  public function setNestedOptionAccess(string $name, bool $value = FALSE): self {
+    $this->setNestedOption($name, 'access', $value);
+    return $this;
   }
 
   /**
