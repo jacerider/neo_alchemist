@@ -71,7 +71,7 @@ image:
     prefix: '{% if %name% %}'
     content:
       - '{# To render an image using Neo dynamic styles #}'
-      - '{{ neo_image_style(%name%.src, {focus: {width: 100, height: 100}}, %name%.alt) }}'
+      - '{{ neo_image_style(%name%.src, {focal: {width: 100, height: 100}}, %name%.alt) }}'
       - '{# Neo dynamic styles can be:'
       - '  - Exact: {exact: {width: 100, height: 100}}'
       - '  - Size: {size: {width: 100, height: 100}}'

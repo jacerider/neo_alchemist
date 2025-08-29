@@ -189,7 +189,6 @@ final class NeoComponentPropGenerator extends BaseGenerator implements Container
     $processed = [];
     foreach ($props as $prop) {
       $propTwig = [];
-      $propTwig[] = str_repeat(' ', $spacing) . '{# ' . $prop['title'] . ': Start #}';
       $twig = $prop['twig'] ?? NULL;
       $contentSpacing = $spacing + 2;
       if ($twig['prefix'] ?? FALSE) {
@@ -228,7 +227,6 @@ final class NeoComponentPropGenerator extends BaseGenerator implements Container
           $propTwig[] = $partContent;
         }
       }
-      $propTwig[] = str_repeat(' ', $spacing) . '{# ' . $prop['title'] . ': End #}';
       $processed = array_merge($processed, $propTwig);
     }
     return $processed;
