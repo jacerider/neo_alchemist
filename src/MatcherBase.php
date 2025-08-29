@@ -217,6 +217,9 @@ abstract class MatcherBase {
       ucwords(str_replace('_', ' ', $first->getTargetEntityTypeId())),
     ];
     if (!empty($definitions)) {
+      $group = [
+        ucwords(str_replace('_', ' ', $first->getTargetEntityTypeId())) . ' (' . $first->getName() . ')',
+      ];
       foreach ($definitions as $delta => $definition) {
         if ($delta + 1 === count($definitions)) {
           $group[] = ucwords(str_replace('_', ' ', $definition->getTargetEntityTypeId()));
