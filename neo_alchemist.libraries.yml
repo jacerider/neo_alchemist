@@ -66,6 +66,14 @@ component.ajax:
     - core/drupal
     - core/drupal.ajax
 
+utilities:
+  version: VERSION
+  neo:
+    import: true
+  css:
+    theme:
+      src/css/_utilities.css: { minified: true }
+
 # Libraries
 
 library.html2canvas:

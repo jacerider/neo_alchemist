@@ -1,0 +1,60 @@
+@utility component-spacing-base {
+  --spacing-component: calc(var(--spacing) * var(--spacing-base-mult, 2));
+
+  @media (min-width: theme(--breakpoint-md)) {
+    --spacing-component: calc(var(--spacing) * var(--spacing-md-mult, 6));
+  }
+
+  @media (min-width: theme(--breakpoint-lg)) {
+    --spacing-component: calc(var(--spacing) * var(--spacing-lg-mult, 14));
+  }
+}
+
+@utility component-spacing-xs {
+  @apply component-spacing-base;
+  --spacing-base-mult: 2;
+  --spacing-md-mult: 2;
+  --spacing-lg-mult: 2;
+}
+
+@utility component-spacing-sm {
+  @apply component-spacing-base;
+  --spacing-base-mult: 2;
+  --spacing-md-mult: 4;
+  --spacing-lg-mult: 6;
+}
+
+@utility component-spacing {
+  @apply component-spacing-base;
+  --spacing-base-mult: 2;
+  --spacing-md-mult: 6;
+  --spacing-lg-mult: 14;
+}
+
+@utility component-spacing-lg {
+  @apply component-spacing-base;
+  --spacing-base-mult: 6;
+  --spacing-md-mult: 14;
+  --spacing-lg-mult: 24;
+}
+
+@utility component-spacing-xl {
+  @apply component-spacing-base;
+  --spacing-base-mult: 12;
+  --spacing-md-mult: 20;
+  --spacing-lg-mult: 32;
+}
+
+@utility component-spacing-2xl {
+  @apply component-spacing-base;
+  --spacing-base-mult: 14;
+  --spacing-md-mult: 24;
+  --spacing-lg-mult: 44;
+}
+
+@utility component-spacing-3xl {
+  @apply component-spacing-base;
+  --spacing-base-mult: 16;
+  --spacing-md-mult: 32;
+  --spacing-lg-mult: 52;
+}

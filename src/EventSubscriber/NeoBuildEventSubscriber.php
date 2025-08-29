@@ -34,6 +34,13 @@ class NeoBuildEventSubscriber implements EventSubscriberInterface {
         $collection->addTailwindSource($id . ':Components', $path . '/components/**/*.{yml,twig}');
       }
     }
+    $collection->addTailwindTheme([
+      'extend' => [
+        'spacing' => [
+          'component' => 'var(--spacing-component, --spacing)',
+        ],
+      ],
+    ]);
   }
 
   /**

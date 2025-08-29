@@ -386,61 +386,34 @@ containment:
       label: Full
       value: mx-0 max-w-none
 
-padding:
-  title: Padding
-  description: The inner-spacing of the component.
+spacing:
+  title: Spacing
+  description: The spacing of the component.
   type: style
   examples: md
+  apply: true
   styles:
     xs:
       label: Extra Small
-      value: p-component-xs
+      value: 'component-spacing-xs'
     sm:
       label: Small
-      value: p-component-sm
+      value: 'component-spacing-sm'
     md:
       label: Medium
-      value: p-component
+      value: 'component-spacing'
     lg:
       label: Large
-      value: p-component-lg
+      value: 'component-spacing-lg'
     xl:
       label: XL
-      value: p-component-xl
+      value: 'component-spacing-xl'
     2xl:
       label: 2XL
-      value: p-component-2xl
+      value: component-spacing-2xl
     3xl:
       label: 3XL
-      value: p-component-3xl
-
-margin:
-  title: Margin
-  description: The outer-spacing of the component.
-  type: style
-  examples: md
-  styles:
-    xs:
-      label: Extra Small
-      value: m-component-xs
-    sm:
-      label: Small
-      value: m-component-sm
-    md:
-      label: Medium
-      value: m-component
-    lg:
-      label: Large
-      value: m-component-lg
-    xl:
-      label: XL
-      value: m-component-xl
-    2xl:
-      label: 2XL
-      value: m-component-2xl
-    3xl:
-      label: 3XL
-      value: m-component-3xl
+      value: component-spacing-3xl
 
 text_align:
   title: Text Alignment
