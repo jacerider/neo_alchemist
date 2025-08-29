@@ -1596,6 +1596,9 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
       // Allow providers to modify the final default value.
       foreach ($instances as $instance) {
         $value = $instance->alterValue($value, 'default');
+        if (!$instance->shouldContinueProcessing()) {
+          break;
+        }
       }
       $this->defaultValue = $value;
     }

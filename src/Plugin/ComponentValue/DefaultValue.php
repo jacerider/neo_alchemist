@@ -97,12 +97,12 @@ final class DefaultValue extends ComponentValuePluginBase implements ContainerFa
       }
 
       $this->defaultShape
-        ->setOverrideValue($this->configuration['default'] ?? $this->shape->getDefaultValue())
+        ->setParentValue($this->configuration['default'] ?? $this->shape->getDefaultValue())
         ->setExpanded($this->shape->getExpanded());
       foreach ($this->shape->getParentShapes() as $parentShape) {
         $this->defaultShape->addParentShape($parentShape);
       }
-      $this->defaultShape->setDefaultNestedOptions($this->configuration['options'] ?? []);
+      $this->defaultShape->setDefaultOptions($this->configuration['options'] ?? [], $this->shape->id());
       $this->defaultShape->init();
       $this->defaultShape->getOptionDefault()->alwaysShowForm(TRUE, 'Always show form when default.');
       $this->defaultShape->getOptionEmpty()->alwaysShowForm(TRUE, 'Always show form when default.');
@@ -126,6 +126,10 @@ final class DefaultValue extends ComponentValuePluginBase implements ContainerFa
   protected function configurationMassage(array $values, array $form, FormStateInterface $form_state): array {
     $defaultShape = $this->getDefaultShape();
     $values = $values[$defaultShape->getName()] ?? [];
+    if (!isset($form['widget'])) {
+      // We just enabled this.
+      return $values;
+    }
     if (!empty(Element::children($form))) {
       $defaultShape->validateForm($form, $form_state, $values);
       $originalValues = $this->configuration['default'] ?? [];
@@ -134,7 +138,7 @@ final class DefaultValue extends ComponentValuePluginBase implements ContainerFa
       }
       $values = [
         'default' => $defaultShape->massageFormValues($values, $originalValues, $form, $form_state),
-        'options' => $defaultShape->getNestedOptions(),
+        'options' => $defaultShape->getNestedOptions()[$defaultShape->id()] ?? [],
       ];
       if ($values['default'] === '_default') {
         $values['default'] = NULL;
@@ -154,7 +158,7 @@ final class DefaultValue extends ComponentValuePluginBase implements ContainerFa
    */
   public function onShapeInit() {
     parent::onShapeInit();
-    $this->shape->setDefaultNestedOptions($this->configuration['options'] ?? []);
+    $this->shape->setDefaultOptions($this->configuration['options'] ?? [], $this->shape->id());
   }
 
   /**

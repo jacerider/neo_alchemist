@@ -98,7 +98,9 @@ class ObjectShape extends ChildrenShapeBase implements ComponentShapeExpandedPlu
       // we return an empty value so none of the children get populted.
       return $value;
     }
-    foreach ($this->getChildShapes(NULL, $value) as $shapeName => $shape) {
+    // When a shape is expanded, we allow it to build its own values.
+    $shapeValue = $this->isExpanded() ? NULL : $value;
+    foreach ($this->getChildShapes(NULL, $shapeValue) as $shapeName => $shape) {
       $value[$shapeName] = $shape->getValue();
       if (empty($value[$shapeName])) {
         // Do not include empty values or values that are set to empty.
