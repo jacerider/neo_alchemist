@@ -130,14 +130,16 @@ final class MatcherField extends MatcherBase {
         $parts = explode('~', $subProperty);
         $value = NestedArray::getValue($value, $parts);
       }
-      if ($properties && is_array($value)) {
-        $v = [];
-        foreach ($value as $delta => $val) {
-          foreach ($properties as $name => $prop) {
-            $v[$delta][$name] = $val[$prop] ?? NULL;
+      if (is_array($value)) {
+        if ($properties) {
+          $v = [];
+          foreach ($value as $delta => $val) {
+            foreach ($properties as $name => $prop) {
+              $v[$delta][$name] = $val[$prop] ?? NULL;
+            }
           }
+          $value = $v;
         }
-        $value = $v;
       }
       return $value;
     }
