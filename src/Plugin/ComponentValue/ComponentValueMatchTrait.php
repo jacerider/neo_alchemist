@@ -109,7 +109,7 @@ trait ComponentValueMatchTrait {
     $groups = array_keys($options);
     $groups = array_combine($groups, $groups);
     asort($groups);
-    $group = $form_state->getValue('group', NULL);
+    $group = $form_state->get('group');
     if (!$group) {
       foreach ($options as $optionGroup => $ops) {
         foreach ($ops as $key => $label) {
@@ -120,6 +120,7 @@ trait ComponentValueMatchTrait {
         }
       }
     }
+    $form['#element_validate'][] = [static::class, 'validateMatchConfigurationForm'];
     $form['group'] = [
       '#type' => 'select',
       '#title' => $this->t('Group'),
@@ -181,6 +182,17 @@ trait ComponentValueMatchTrait {
     }
 
     return $form;
+  }
+
+  /**
+   * Validate the match configuration form.
+   */
+  public static function validateMatchConfigurationForm(array &$element, FormStateInterface $form_state, array &$complete_form) {
+    // Unset group so it is not saved. It is only used in the UI.
+    $values = $form_state->getValue($element['#parents']);
+    $form_state->set('group', $values['group']);
+    unset($values['group']);
+    $form_state->setValue($element['#parents'], $values);
   }
 
   /**
