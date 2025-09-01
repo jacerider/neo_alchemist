@@ -46,4 +46,34 @@ final class ComponentSlotPluginManager extends DefaultPluginManager {
     return new $plugin_class($plugin_id, $plugin_definition, $configuration['component'], $configuration['uuid'], $configuration['settings']);
   }
 
+  /**
+   * Filters and sorts component definitions based on the provided shape.
+   *
+   * This method retrieves all component definitions and filters them based on
+   * the type, entity type, and bundle specified by the given component. It then
+   * sorts the filtered definitions by weight and label.
+   *
+   * @param \Drupal\neo_alchemist\ComponentInterface $component
+   *   The component interface which provides the type, entity type, and
+   *   bundle.
+   *
+   * @return array
+   *   An array of filtered and sorted component definitions.
+   */
+  public function getFilteredDefinitionsFromComponent(ComponentInterface $component): array {
+    $filtered = array_filter($this->getDefinitions(), function ($definition) use ($component) {
+      if (!$definition['class']::isApplicable($component)) {
+        return FALSE;
+      }
+      return TRUE;
+    });
+
+    // Sort the filtered definitions by weight and label.
+    uasort($filtered, function ($a, $b) {
+      return $a['label'] <=> $b['label'];
+    });
+
+    return $filtered;
+  }
+
 }
