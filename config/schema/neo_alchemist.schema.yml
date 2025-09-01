@@ -45,6 +45,8 @@ neo_alchemist.neo_component.*:
           type: neo_alchemist.neo_component_settings.filters
         slots:
           type: neo_alchemist.neo_component_settings.slots
+        access:
+          type: neo_alchemist_neo_component_settings.access
     target_entity_type:
       type: string
       label: 'Target Entity Type'
@@ -126,6 +128,14 @@ neo_alchemist.neo_component_value.widget:
       type: field.widget.settings.[%parent.%parent.%parent.%parent.%parent.field_type]
       label: 'Settings'
 
+neo_alchemist.neo_component_value.link_title:
+  type: mapping
+  label: 'Link title value provider'
+  mapping:
+    value:
+      type: string
+      label: 'Link title'
+
 neo_alchemist.neo_component_value.menu:
   type: mapping
   label: 'Menu value provider'
@@ -197,30 +207,32 @@ neo_alchemist.neo_component_value.breadcrumb:
     hide_current:
       type: boolean
       label: Hide current
+    hide_home:
+      type: boolean
+      label: Hide home
 
 neo_alchemist.neo_component_value.default:
   type: mapping
   label: 'Default value provider'
   mapping:
+    field_type:
+      type: string
+      label: Field type
     default:
-      type: field.value.[%parent.%parent.%parent.%parent.%parent.field_type]
-      # type: neo_alchemist.neo_component_shape.*
+      type: field.value.[%parent.field_type]
     options:
-      type: sequence
-      label: Options
-      sequence:
-        type: mapping
-        label: Option
-        mapping:
-          empty:
-            type: boolean
-            label: Treat value as empty
-          default:
-            type: boolean
-            label: Treat value as default
+      type: neo_alchemist.neo_component_options
+
+neo_alchemist.neo_component_value.page_title:
+  type: mapping
+  label: 'Page title value provider'
+  mapping:
+    override:
+      type: boolean
+      label: Allow override
 
 field.value.map:
-  type: sequence
+  type: ignore
   label: 'Map value'
 
 neo_alchemist.neo_component_value.entity:
@@ -239,6 +251,12 @@ neo_alchemist.neo_component_value.entity:
       sequence:
         type: string
         label: Property
+    render_field:
+      type: string
+      label: 'Render field'
+      nullable: true
+    render_field_format:
+      type: neo_alchemist.neo_component_render_field_format
     override:
       type: boolean
       label: 'Allow override when value is found'
@@ -255,6 +273,38 @@ neo_alchemist.neo_component_value.entity_filter:
       label: The filter
     shape_fields:
       type: neo_alchemist.neo_component_shape_fields
+    shape_published:
+      type: boolean
+      label: Shape published
+
+neo_alchemist.neo_component_value.entity_reference:
+  type: mapping
+  label: 'Menu value provider'
+  mapping:
+    entity:
+      type: string
+      label: Target entity type
+    shape_fields:
+      type: neo_alchemist.neo_component_shape_fields
+    shape_published:
+      type: boolean
+      label: Shape published
+
+neo_alchemist.neo_component_value.entity_load:
+  type: mapping
+  label: 'Menu value provider'
+  mapping:
+    entity_type:
+      type: string
+      label: Entity type
+    entity_id:
+      type: string
+      label: Entity ID
+    shape_fields:
+      type: neo_alchemist.neo_component_shape_fields
+    shape_published:
+      type: boolean
+      label: Shape published
 
 neo_alchemist.neo_component_value.formatted_text:
   type: mapping
@@ -288,8 +338,23 @@ neo_alchemist.neo_component_value.entity_query:
     length:
       type: integer
       label: The maximum number of results
+    paging:
+      type: boolean
+      label: Enable paging
+    sort_field:
+      type: string
+      label: Sort field
+    sort_direction:
+      type: string
+      label: Sort direction
+    filter_entity:
+      type: string
+      label: Filter by entity reference
     shape_fields:
       type: neo_alchemist.neo_component_shape_fields
+    shape_published:
+      type: boolean
+      label: Shape published
     continue:
       type: boolean
       label: 'Continue'
@@ -317,8 +382,14 @@ neo_alchemist.neo_component_value.views:
       sequence:
         type: string
         label: 'Argument'
+    view_arguments_sort:
+      type: boolean
+      label: Sort
     shape_fields:
       type: neo_alchemist.neo_component_shape_fields
+    shape_published:
+      type: boolean
+      label: Shape published
     continue:
       type: boolean
       label: 'Continue'
@@ -545,6 +616,26 @@ neo_alchemist.neo_component_slot.entity_field:
   #       type: boolean
   #       label: Required
 
+neo_alchemist_neo_component_settings.access:
+  type: sequence
+  label: 'Access'
+  sequence:
+    type: mapping
+    mapping:
+      plugin_id:
+        type: string
+        label: Plugin ID
+        constraints:
+          PluginExists:
+            manager: plugin.manager.neo_component_access
+            interface: '\Drupal\neo_alchemist\ComponentAccessPluginInterface'
+      plugin_settings:
+        type: neo_alchemist.neo_component_access.[%parent.plugin_id]
+        nullable: true
+
+neo_alchemist.neo_component_access.*:
+  type: mapping
+
 neo_alchemist.neo_component_shape_fields:
   type: sequence
   label: The shape fields
@@ -557,26 +648,112 @@ neo_alchemist.neo_component_shape_fields:
       field:
         type: string
         label: Field
+      render_field:
+        type: string
+        label: Render field
+      render_field_format:
+        type: neo_alchemist.neo_component_render_field_format
+      shape_fields:
+        type: neo_alchemist.neo_component_shape_fields
       plugins:
         type: sequence
         label: Plugins
         sequence:
           type: mapping
           label: Plugin
-          sequence:
+          mapping:
+            plugin_id:
+              type: string
+              label: Plugin ID
+              constraints:
+                PluginExists:
+                  manager: plugin.manager.neo_component_value
+                  interface: '\Drupal\neo_alchemist\ComponentValuePluginInterface'
             status:
               type: boolean
               label: 'Status'
             settings:
-              type: neo_alchemist.neo_component_value.[%key]
+              type: neo_alchemist.neo_component_value.[%parent.plugin_id]
               nullable: true
+
+
+neo_alchemist.neo_component_render_field_format:
+  type: mapping
+  label: 'Render field format'
+  mapping:
+    field_label:
+      type: string
+      label: Field label
+    field_plugin:
+      type: string
+      label: Field plugin
+    field_settings:
+      type: field.formatter.settings.[%parent.field_plugin]
+
+neo_alchemist.neo_component_options:
+  type: sequence
+  label: Component ID
+  sequence:
+    type: mapping
+    label: Options
+    mapping:
+      empty:
+        type: boolean
+        label: Treat value as empty
+      default:
+        type: boolean
+        label: Treat value as default
+      access:
+        type: boolean
+        label: Disable access
+
 
 field.field_settings.neo_component_tree:
   type: mapping
-  label: 'Link settings'
+  label: 'Component tree settings'
   mapping:
     allow_custom:
       type: boolean
       label: 'Allow custom'
     defaults:
-      type: sequence
+      type: mapping
+      mapping:
+        tree:
+          type: sequence
+          sequence:
+            type: sequence
+            sequence:
+              type: mapping
+              label: Component
+              mapping:
+                uuid:
+                  type: string
+                  label: UUID
+                  constraints:
+                    Uuid: {}
+                component:
+                  type: string
+                  label: Component Type
+        props:
+          type: sequence
+          sequence:
+            type: mapping
+            label: 'Component data'
+            mapping:
+              status:
+                type: boolean
+                label: Status
+              props:
+                type: sequence
+                label: Prop
+                sequence:
+                  type: mapping
+                  mapping:
+                    shape:
+                      type: string
+                      label: Shape type
+                    value:
+                      type: ignore
+                      label: Value
+                    options:
+                      type: neo_alchemist.neo_component_options
