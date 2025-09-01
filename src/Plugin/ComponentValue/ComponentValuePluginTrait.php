@@ -48,7 +48,6 @@ trait ComponentValuePluginTrait {
         $pluginWrapperId = $wrapperId . '-' . $pluginName;
         $pluginStatus = !empty($defaults[$pluginName]['status']);
         $pluginConfiguration = $defaults[$pluginName]['settings'] ?? [];
-        // $pluginStatus = isset($defaults[$pluginName]);
         $form['plugins'][$pluginName] = [
           '#type' => $pluginStatus ? 'fieldset' : 'container',
           '#weight' => $instance->getPluginDefinition()['weight'],
