@@ -521,10 +521,14 @@ class ArrayShape extends ChildrenShapeBase implements ComponentShapeInterablePlu
   public static function onGenerateTwig(NeoComponentTwig $twig) {
     $twig->setPrefix([
       '{% if ' . $twig->getName() . ' %}',
+      '<div>',
       '{% for item in ' . $twig->getName() . ' %}',
+      '  <div>',
     ]);
     $twig->setSuffix([
+      '  </div>',
       '{% endfor %}',
+      '</div>',
       '{% endif %}',
     ]);
   }
