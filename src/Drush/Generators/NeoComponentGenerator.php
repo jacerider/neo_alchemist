@@ -73,6 +73,9 @@ final class NeoComponentGenerator extends BaseGenerator implements ContainerInje
     $this->askQuestions($vars);
     // $this->getExample($vars);
     $this->generateAssets($vars, $assets);
+
+    // Clear all plugin caches.
+    \Drupal::service('plugin.cache_clearer')->clearCachedDefinitions();
   }
 
   /**
@@ -109,6 +112,17 @@ final class NeoComponentGenerator extends BaseGenerator implements ContainerInje
       } while ($ir->confirm('Root: Add another prop?'));
     }
     $vars['component_props'] = \array_filter($vars['component_props'] ?? []);
+
+    $hasSpacing = !empty(array_filter($vars['component_props'], fn ($prop) => $prop['type'] === 'spacing'));
+    if (!$hasSpacing) {
+      $addSpacing = $ir->confirm('The spacing property is recommended for all components. Add it?', FALSE);
+      if ($addSpacing) {
+        $vars['component_props'][] = [
+          'name' => 'spacing',
+          'type' => 'spacing',
+        ];
+      }
+    }
 
     if ($ir->confirm('Need slots?')) {
       $vars['component_slots'] = [];
