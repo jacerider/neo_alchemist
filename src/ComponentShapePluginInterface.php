@@ -281,6 +281,17 @@ interface ComponentShapePluginInterface extends PluginInspectionInterface, Deriv
   public function getPlugins(): array;
 
   /**
+   * Checks if the shape has a plugin with the given ID.
+   *
+   * @param string $pluginId
+   *   The ID of the plugin.
+   *
+   * @return bool
+   *   TRUE if the plugin exists, FALSE otherwise.
+   */
+  public function hasPlugin(string $pluginId): bool;
+
+  /**
    * Sets the plugin with the given ID and settings.
    *
    * This method unsets the current value collection and assigns the provided
