@@ -251,7 +251,7 @@ final class ComponentSlotForm extends EntityForm {
       $form['list'][$uuid] = $row;
     }
 
-    $options = array_map(fn($definition) => $definition['label'], $this->slotManager->getDefinitions());
+    $options = array_map(fn($definition) => $definition['label'], $this->slotManager->getFilteredDefinitionsFromComponent($this->entity));
     asort($options);
     $form['add'] = [
       '#type' => 'select',
