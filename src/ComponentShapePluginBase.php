@@ -987,6 +987,18 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
   }
 
   /**
+   * {@inheritDoc}
+   */
+  public function hasPlugin(string $pluginId): bool {
+    foreach ($this->getPlugins() as $shapeId => $plugins) {
+      if (isset($plugins[$pluginId])) {
+        return TRUE;
+      }
+    }
+    return FALSE;
+  }
+
+  /**
    * Sets the plugins for the component shape.
    *
    * @param array $plugins
