@@ -67,6 +67,7 @@ final class DefaultValue extends ComponentValuePluginBase implements ContainerFa
    */
   public function defaultConfiguration() {
     return [
+      'field_type' => NULL,
       'default' => NULL,
       'options' => [],
     ];
@@ -96,13 +97,21 @@ final class DefaultValue extends ComponentValuePluginBase implements ContainerFa
         $valueCollection->setStatus($pluginId, $plugin->allowOnDefault());
       }
 
+      // Temporary fix for options structure.
+      $options = $this->configuration['options'];
+      if (isset($options['empty']) || isset($options['default'])) {
+        $this->configuration['options'] = [
+          $this->defaultShape->id() => $options,
+        ];
+      }
+
       $this->defaultShape
         ->setParentValue($this->configuration['default'] ?? $this->shape->getDefaultValue())
         ->setExpanded($this->shape->getExpanded());
       foreach ($this->shape->getParentShapes() as $parentShape) {
         $this->defaultShape->addParentShape($parentShape);
       }
-      $this->defaultShape->setDefaultOptions($this->configuration['options'] ?? [], $this->shape->id());
+      $this->defaultShape->setDefaultNestedOptions($this->configuration['options'] ?? []);
       $this->defaultShape->init();
       $this->defaultShape->getOptionDefault()->alwaysShowForm(TRUE, 'Always show form when default.');
       $this->defaultShape->getOptionEmpty()->alwaysShowForm(TRUE, 'Always show form when default.');
@@ -126,19 +135,32 @@ final class DefaultValue extends ComponentValuePluginBase implements ContainerFa
   protected function configurationMassage(array $values, array $form, FormStateInterface $form_state): array {
     $defaultShape = $this->getDefaultShape();
     $values = $values[$defaultShape->getName()] ?? [];
-    if (!isset($form['widget'])) {
-      // We just enabled this.
-      return $values;
-    }
+    // @todo We commented this out because object and arrays won't have a widget
+    // and need to pass this.
+    // if (!isset($form['widget'])) {
+    //   // We just enabled this.
+    //   return $values;
+    // }
     if (!empty(Element::children($form))) {
       $defaultShape->validateForm($form, $form_state, $values);
       $originalValues = $this->configuration['default'] ?? [];
       if (!is_array($originalValues)) {
         $originalValues = [$originalValues];
       }
+      $nestedOptions = array_filter($defaultShape->getNestedOptions(), function ($key) use ($defaultShape) {
+        $id = $defaultShape->id();
+        if ($key === $id) {
+          return TRUE;
+        }
+        if (substr($key, 0, strlen($id) + 1) === $id . '~') {
+          return TRUE;
+        }
+        return $key === $defaultShape->id();
+      }, ARRAY_FILTER_USE_KEY);
       $values = [
+        'field_type' => $defaultShape->getFieldType(),
         'default' => $defaultShape->massageFormValues($values, $originalValues, $form, $form_state),
-        'options' => $defaultShape->getNestedOptions()[$defaultShape->id()] ?? [],
+        'options' => $nestedOptions,
       ];
       if ($values['default'] === '_default') {
         $values['default'] = NULL;
@@ -146,6 +168,7 @@ final class DefaultValue extends ComponentValuePluginBase implements ContainerFa
     }
     else {
       $values = [
+        'field_type' => NULL,
         'default' => [],
         'options' => [],
       ];
@@ -158,7 +181,7 @@ final class DefaultValue extends ComponentValuePluginBase implements ContainerFa
    */
   public function onShapeInit() {
     parent::onShapeInit();
-    $this->shape->setDefaultOptions($this->configuration['options'] ?? [], $this->shape->id());
+    $this->shape->setDefaultNestedOptions($this->configuration['options'] ?? []);
   }
 
   /**
