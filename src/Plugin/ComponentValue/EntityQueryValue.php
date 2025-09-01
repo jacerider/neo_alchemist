@@ -10,6 +10,7 @@ use Drupal\Core\DependencyInjection\DependencySerializationTrait;
 use Drupal\Core\Entity\ContentEntityTypeInterface;
 use Drupal\Core\Entity\EntityTypeBundleInfoInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
+use Drupal\Core\Entity\Query\QueryInterface;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Plugin\ContainerFactoryPluginInterface;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
@@ -39,7 +40,9 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
 )]
 final class EntityQueryValue extends ComponentValuePluginBase implements ContainerFactoryPluginInterface {
 
-  use DependencySerializationTrait;
+  use DependencySerializationTrait {
+    __sleep as traitSleep;
+  }
   use ComponentValueChildrenMatchTrait;
 
   /**
@@ -76,6 +79,13 @@ final class EntityQueryValue extends ComponentValuePluginBase implements Contain
    * @var \Drupal\neo_alchemist\MatcherReference
    */
   protected MatcherReference $matcherReference;
+
+  /**
+   * The entity query.
+   *
+   * @var \Drupal\Core\Entity\Query\QueryInterface|null
+   */
+  protected ?QueryInterface $entityQuery = NULL;
 
   /**
    * {@inheritdoc}
@@ -128,6 +138,7 @@ final class EntityQueryValue extends ComponentValuePluginBase implements Contain
       'filter_entity' => '',
       'start' => 0,
       'length' => 10,
+      'paging' => FALSE,
       'continue' => FALSE,
     ] + $this->childrenMatchDefaultConfiguration();
   }
@@ -243,6 +254,19 @@ final class EntityQueryValue extends ComponentValuePluginBase implements Contain
           '#min' => 1,
           '#step' => 1,
         ];
+
+        $form['start']['#disabled'] = !empty($this->configuration['paging']);
+
+        $form['paging'] = [
+          '#type' => 'checkbox',
+          '#title' => $this->t('Enable paging'),
+          '#description' => $this->t('The pager can be rendered using the <em>Entity Query Pager</em> slot.'),
+          '#default_value' => $this->configuration['paging'],
+          '#ajax' => [
+            'callback' => [static::class, 'refreshAjax'],
+            'wrapper' => $wrapperId,
+          ],
+        ];
       }
 
       $form['continue'] = [
@@ -254,13 +278,6 @@ final class EntityQueryValue extends ComponentValuePluginBase implements Contain
     }
 
     return $form;
-  }
-
-  /**
-   * Form validation for the value provider plugin configuration.
-   */
-  protected function configurationValidate(array $form, FormStateInterface $form_state): void {
-    $form_state->setValue('continue', (bool) $form_state->getValue('continue'));
   }
 
   /**
@@ -279,44 +296,74 @@ final class EntityQueryValue extends ComponentValuePluginBase implements Contain
   }
 
   /**
+   * Gets the entity query for the component value.
+   *
+   * @return \Drupal\Core\Entity\Query\QueryInterface|null
+   *   The entity query.
+   */
+  protected function getEntityQuery(): ?QueryInterface {
+    if (!$this->entityQuery) {
+      $entityTypeId = $this->configuration['entity_type'];
+      if ($entityTypeId) {
+        $entityType = $this->entityTypeManager->getDefinition($entityTypeId);
+        $storage = $this->entityTypeManager->getStorage($entityTypeId);
+        $query = $storage->getQuery();
+        $query->accessCheck(TRUE);
+        if ($sortField = $this->configuration['sort_field']) {
+          $sortField = str_replace('.', '.entity.', $sortField);
+          $sortDirection = $this->configuration['sort_direction'] ?? 'ASC';
+          $query->sort($sortField, $sortDirection);
+        }
+        $length = $this->shape->isIterable() ? $this->configuration['length'] : 1;
+        if ($this->shape->isIterable() && $this->configuration['paging']) {
+          $query->pager($length);
+        }
+        else {
+          $query->range($this->configuration['start'], $length);
+        }
+        $bundle = $this->configuration['bundle'];
+        if ($bundle) {
+          if ($entityType->hasKey('bundle')) {
+            $query->condition($entityType->getKey('bundle'), $bundle);
+          }
+        }
+        $entity = $this->shape->getEntity();
+        if ($this->configuration['filter_entity'] && !$entity->isNew()) {
+          $filterField = $this->configuration['filter_entity'];
+          $searchFor = ':entity';
+          $lastPos = strrpos($filterField, $searchFor);
+          if ($lastPos !== FALSE) {
+            $filterField = substr($filterField, 0, $lastPos);
+          }
+          $filterField = str_replace(':', '.entity.', $filterField);
+          $query->condition($filterField, $entity->id(), '=');
+        }
+        if ($this->configuration['shape_published'] && $entityType->hasKey('status')) {
+          $query->condition($entityType->getKey('status'), 1);
+        }
+        $event = new ComponentValueEntityQueryEvent($this->shape, $query);
+        $this->eventDispatcher->dispatch($event, ComponentValueEntityQueryEvent::EVENT_NAME);
+        $this->entityQuery = $query;
+        // Set a context for use by slots.
+        $this->shape->getComponent()->setPropShapeContext('entity_query', $this->shape, $query);
+      }
+    }
+    return $this->entityQuery;
+  }
+
+  /**
    * {@inheritdoc}
    */
   public function provideOverrideValue(mixed $value, mixed $defaultValue): mixed {
     if (!$this->shape instanceof ComponentShapeChildrenPluginInterface) {
       return $value;
     }
-
-    $entityTypeId = $this->configuration['entity_type'];
-    if ($entityTypeId) {
-      $entityType = $this->entityTypeManager->getDefinition($entityTypeId);
-      $storage = $this->entityTypeManager->getStorage($entityTypeId);
-      $query = $storage->getQuery();
-      $query->accessCheck(TRUE);
-      if ($sortField = $this->configuration['sort_field']) {
-        $sortField = str_replace('.', '.entity.', $sortField);
-        $sortDirection = $this->configuration['sort_direction'] ?? 'ASC';
-        $query->sort($sortField, $sortDirection);
+    if ($query = $this->getEntityQuery()) {
+      $entities = [];
+      if ($ids = $query->execute()) {
+        $storage = $this->entityTypeManager->getStorage($this->configuration['entity_type']);
+        $entities = $ids ? $storage->loadMultiple($ids) : [];
       }
-      $length = $this->shape->isIterable() ? $this->configuration['length'] : 1;
-      $query->range($this->configuration['start'], $length);
-      $bundle = $this->configuration['bundle'];
-      if ($bundle) {
-        if ($entityType->hasKey('bundle')) {
-          $query->condition($entityType->getKey('bundle'), $bundle);
-        }
-      }
-      $entity = $this->shape->getEntity();
-      if ($this->configuration['filter_entity'] && !$entity->isNew()) {
-        $filterField = str_replace(':', '.entity.', rtrim($this->configuration['filter_entity'], ':entity'));
-        $query->condition($filterField, $entity->id(), '=');
-      }
-      if ($this->configuration['shape_published'] && $entityType->hasKey('status')) {
-        $query->condition($entityType->getKey('status'), 1);
-      }
-      $event = new ComponentValueEntityQueryEvent($this->shape, $query);
-      $this->eventDispatcher->dispatch($event, ComponentValueEntityQueryEvent::EVENT_NAME);
-      $ids = $query->execute();
-      $entities = $ids ? $storage->loadMultiple($ids) : [];
       foreach ($entities as $entity) {
         $this->shape->addCacheableDependency($entity);
       }
@@ -337,6 +384,15 @@ final class EntityQueryValue extends ComponentValuePluginBase implements Contain
       return TRUE;
     }
     return $shape->isExpandable();
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function __sleep(): array {
+    return array_diff($this->traitSleep(), [
+      'entityQuery',
+    ]);
   }
 
 }
