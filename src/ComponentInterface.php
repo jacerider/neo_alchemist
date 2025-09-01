@@ -344,10 +344,21 @@ interface ComponentInterface extends ConfigEntityInterface, RenderableInterface,
   public function loadPropShapes(array $schema): array;
 
   /**
-   * Get prop shapes.
+   * Check if the component has a prop shape with the specified plugin.
+   *
+   * @param string $pluginId
+   *   The ID of the plugin.
+   *
+   * @return bool
+   *   TRUE if the plugin exists, FALSE otherwise.
+   */
+  public function hasPropShapeWithPlugin(string $pluginId): bool;
+
+  /**
+   * Gets all property shapes associated with the component.
    *
    * @return \Drupal\neo_alchemist\ComponentShapePluginInterface[]
-   *   The shapes.
+   *   An array of property shape plugin instances.
    */
   public function getPropShapes(): array;
 
@@ -427,6 +438,32 @@ interface ComponentInterface extends ConfigEntityInterface, RenderableInterface,
    *   (and optionally the reference) and values being the shape objects.
    */
   public function getPropShapesAll(?array $shapes = NULL, ?bool $includeDeltas = FALSE): array;
+
+  /**
+   * Sets a context value for a specific prop shape type and shape.
+   *
+   * @param string $type
+   *   The context type.
+   * @param \Drupal\neo_alchemist\ComponentShapePluginInterface $shape
+   *   The shape plugin instance.
+   * @param mixed $value
+   *   The context value to set.
+   *
+   * @return $this
+   *   The current instance.
+   */
+  public function setPropShapeContext(string $type, ComponentShapePluginInterface $shape, mixed $value): self;
+
+  /**
+   * Gets the contexts for a specific prop shape type.
+   *
+   * @param string $type
+   *   The context type.
+   *
+   * @return array
+   *   An array of contexts for the specified context type.
+   */
+  public function getPropShapeContexts(string $type): array;
 
   /**
    * Retrieves the slots for the component.
