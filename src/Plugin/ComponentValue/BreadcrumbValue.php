@@ -143,14 +143,14 @@ final class BreadcrumbValue extends ComponentValuePluginBase implements Containe
         ];
       }
     }
-    if ($links) {
+    if ($links && !isset($links['_current'])) {
       if (!$this->configuration['hide_current']) {
         $request = \Drupal::request();
         $routeMatch = \Drupal::routeMatch();
         $route = $routeMatch->getRouteObject();
         if ($route) {
           $title = \Drupal::service('title_resolver')->getTitle($request, $route);
-          $value[] = [
+          $value['_current'] = [
             'title' => $title,
             'url' => [],
           ];
