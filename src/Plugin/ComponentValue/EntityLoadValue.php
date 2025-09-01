@@ -120,7 +120,6 @@ final class EntityLoadValue extends ComponentValuePluginBase implements Containe
   public function defaultConfiguration() {
     return [
       'entity_type' => '',
-      'bundle' => '',
       'entity_id' => '',
     ] + $this->childrenMatchDefaultConfiguration();
   }
@@ -168,7 +167,6 @@ final class EntityLoadValue extends ComponentValuePluginBase implements Containe
       $form['entity_id'] = [
         '#type' => 'entity_autocomplete',
         '#title' => $this->t('Entity ID'),
-        '#default_value' => $entityId,
         '#target_type' => $entityTypeId,
         '#required' => TRUE,
         '#maxlength' => NULL,
@@ -180,6 +178,7 @@ final class EntityLoadValue extends ComponentValuePluginBase implements Containe
 
       if ($entityId) {
         $entity = $this->entityTypeManager->getStorage($entityTypeId)->load($entityId);
+        $form['entity_id']['#default_value'] = $entity;
         if ($entity) {
           $bundle = $entity->bundle();
           // Add shape fields.
