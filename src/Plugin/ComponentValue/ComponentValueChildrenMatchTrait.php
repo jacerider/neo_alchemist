@@ -98,6 +98,7 @@ trait ComponentValueChildrenMatchTrait {
       ],
       '#description_display' => 'before',
     ];
+    $form['#element_validate'][] = [static::class, 'validateChildMatchConfigurationForm'];
     $options = [
       '- Shape -' => [
         '_default' => $this->t('Use Default'),
@@ -193,6 +194,19 @@ trait ComponentValueChildrenMatchTrait {
   }
 
   /**
+   * Validate the match configuration form.
+   */
+  public static function validateChildMatchConfigurationForm(array &$element, FormStateInterface $form_state, array &$complete_form) {
+    $values = $form_state->getValue($element['#parents']);
+    // Store plugin IDs for use in schema.
+    $values['plugins'] = $values['plugins'] ?? [];
+    foreach ($values['plugins'] as $pluginId => &$plugin) {
+      $plugin['plugin_id'] = $pluginId;
+    }
+    $form_state->setValue($element['#parents'], $values);
+  }
+
+  /**
    * Alter the configuration form for a child match.
    */
   protected function alterChildMatchConfigurationForm(ComponentShapePluginInterface $shape, &$form, FormStateInterface $form_state, $entityTypeId, $bundle = NULL, array $configuration = []) {
@@ -276,7 +290,7 @@ trait ComponentValueChildrenMatchTrait {
         $delta++;
       }
     }
-    else {
+    elseif (!$shape->isIterable()) {
       // When we have no entities, we return empty values for each shape so that
       // the shape will not be shown.
       foreach ($shapeNames as $shapeName) {
