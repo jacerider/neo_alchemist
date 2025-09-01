@@ -35,7 +35,9 @@ slots:
 {% for property in properties %}
 {{ spaces }}  {{ property.name }}:
 {{ spaces }}    type: {{ property.type }}
+{% if property.title %}
 {{ spaces }}    title: {{ property.title }}
+{% endif %}
 {% if property.description %}
 {{ spaces }}    description: {{ property.description }}
 {% endif %}
