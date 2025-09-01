@@ -192,7 +192,14 @@ class Component extends ConfigEntityBase implements ComponentInterface {
    *
    * @var \Drupal\neo_alchemist\ComponentShapePluginInterface[]
    */
-  protected array $propShapes;
+  protected array $shapes;
+
+  /**
+   * The shape contexts.
+   *
+   * @var array
+   */
+  protected array $shapeContexts = [];
 
   /**
    * The slots.
@@ -393,7 +400,7 @@ class Component extends ConfigEntityBase implements ComponentInterface {
    */
   public function setSetting(string $key, $value): self {
     // Reload prop shapes.
-    unset($this->propShapes);
+    unset($this->shapes);
     $this->settings[$key] = $value;
     return $this;
   }
@@ -599,6 +606,18 @@ class Component extends ConfigEntityBase implements ComponentInterface {
   }
 
   /**
+   * {@inheritdoc}
+   */
+  public function hasPropShapeWithPlugin(string $pluginId): bool {
+    foreach ($this->getPropShapes() as $shape) {
+      if ($shape->hasPlugin($pluginId)) {
+        return TRUE;
+      }
+    }
+    return FALSE;
+  }
+
+  /**
    * Get the aggregate shape.
    *
    * @return \Drupal\neo_alchemist\ComponentShapePluginInterface[]
@@ -623,18 +642,18 @@ class Component extends ConfigEntityBase implements ComponentInterface {
    * {@inheritdoc}
    */
   public function getPropShapes(): array {
-    if (!isset($this->propShapes)) {
-      $this->propShapes = [];
+    if (!isset($this->shapes)) {
+      $this->shapes = [];
       if ($component = $this->getComponent()) {
         if ($this->isAggregate()) {
-          $this->propShapes = $this->getAggregateShape();
+          $this->shapes = $this->getAggregateShape();
         }
         else {
-          $this->propShapes = $this->loadPropShapes($component->metadata->schema);
+          $this->shapes = $this->loadPropShapes($component->metadata->schema);
         }
       }
     }
-    return $this->propShapes;
+    return $this->shapes;
   }
 
   /**
@@ -695,7 +714,7 @@ class Component extends ConfigEntityBase implements ComponentInterface {
    * {@inheritdoc}
    */
   public function setPropShapeSettings(ComponentShapePluginInterface $shape): self {
-    unset($this->propShapes);
+    unset($this->shapes);
     $expanded = $shape->getExpanded();
     $settings = [
       'prop' => $shape->getName(),
@@ -736,6 +755,24 @@ class Component extends ConfigEntityBase implements ComponentInterface {
       $allShapes += $shape->getAllShapes(TRUE, $includeDeltas);
     }
     return $allShapes;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function setPropShapeContext(string $type, ComponentShapePluginInterface $shape, mixed $value): self {
+    $this->shapeContexts[$type][$shape->id()] = [
+      'shape' => $shape,
+      'value' => $value,
+    ];
+    return $this;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function getPropShapeContexts(string $type): array {
+    return $this->shapeContexts[$type] ?? [];
   }
 
   /**
@@ -1098,7 +1135,8 @@ class Component extends ConfigEntityBase implements ComponentInterface {
    */
   public function __sleep(): array {
     return array_diff(parent::__sleep(), [
-      'propShapes',
+      'shapes',
+      'shapeContexts',
       'slots',
       'filters',
       'access',
