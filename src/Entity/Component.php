@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\neo_alchemist\Entity;
 
+use Drupal\Component\Render\MarkupInterface;
 use Drupal\Component\Serialization\Json;
 use Drupal\Component\Utility\NestedArray;
 use Drupal\Core\Access\AccessResult;
@@ -79,6 +80,7 @@ use Drupal\neo_alchemist\ComponentSlotInterface;
  *     "id",
  *     "label",
  *     "description",
+ *     "group",
  *     "expression",
  *     "schema",
  *     "component",
@@ -112,6 +114,13 @@ class Component extends ConfigEntityBase implements ComponentInterface {
    * @var string
    */
   protected string $description;
+
+  /**
+   * The component group.
+   *
+   * @var string
+   */
+  protected string $group = 'general';
 
   /**
    * The component expression.
@@ -192,14 +201,14 @@ class Component extends ConfigEntityBase implements ComponentInterface {
    *
    * @var \Drupal\neo_alchemist\ComponentShapePluginInterface[]
    */
-  protected array $shapes;
+  protected array $propShapes;
 
   /**
    * The shape contexts.
    *
    * @var array
    */
-  protected array $shapeContexts = [];
+  protected array $propShapeContexts = [];
 
   /**
    * The slots.
@@ -234,6 +243,31 @@ class Component extends ConfigEntityBase implements ComponentInterface {
    */
   public function getDescription(): string {
     return $this->description;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function getGroup(): string {
+    return $this->group;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function getGroupLabel(): MarkupInterface|string {
+    $group = $this->getGroup();
+    $groups = \Drupal::service('plugin.manager.neo_component_group')->getDefinitions();
+    return $groups[$group]['label'] ?? $group;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function getGroupDescription(): MarkupInterface|string {
+    $group = $this->getGroup();
+    $groups = \Drupal::service('plugin.manager.neo_component_group')->getDefinitions();
+    return $groups[$group]['description'] ?? '';
   }
 
   /**
@@ -400,7 +434,7 @@ class Component extends ConfigEntityBase implements ComponentInterface {
    */
   public function setSetting(string $key, $value): self {
     // Reload prop shapes.
-    unset($this->shapes);
+    unset($this->propShapes);
     $this->settings[$key] = $value;
     return $this;
   }
@@ -642,18 +676,18 @@ class Component extends ConfigEntityBase implements ComponentInterface {
    * {@inheritdoc}
    */
   public function getPropShapes(): array {
-    if (!isset($this->shapes)) {
-      $this->shapes = [];
+    if (!isset($this->propShapes)) {
+      $this->propShapes = [];
       if ($component = $this->getComponent()) {
         if ($this->isAggregate()) {
-          $this->shapes = $this->getAggregateShape();
+          $this->propShapes = $this->getAggregateShape();
         }
         else {
-          $this->shapes = $this->loadPropShapes($component->metadata->schema);
+          $this->propShapes = $this->loadPropShapes($component->metadata->schema);
         }
       }
     }
-    return $this->shapes;
+    return $this->propShapes;
   }
 
   /**
@@ -714,7 +748,7 @@ class Component extends ConfigEntityBase implements ComponentInterface {
    * {@inheritdoc}
    */
   public function setPropShapeSettings(ComponentShapePluginInterface $shape): self {
-    unset($this->shapes);
+    unset($this->propShapes);
     $expanded = $shape->getExpanded();
     $settings = [
       'prop' => $shape->getName(),
@@ -761,7 +795,7 @@ class Component extends ConfigEntityBase implements ComponentInterface {
    * {@inheritdoc}
    */
   public function setPropShapeContext(string $type, ComponentShapePluginInterface $shape, mixed $value): self {
-    $this->shapeContexts[$type][$shape->id()] = [
+    $this->propShapeContexts[$type][$shape->id()] = [
       'shape' => $shape,
       'value' => $value,
     ];
@@ -772,7 +806,7 @@ class Component extends ConfigEntityBase implements ComponentInterface {
    * {@inheritdoc}
    */
   public function getPropShapeContexts(string $type): array {
-    return $this->shapeContexts[$type] ?? [];
+    return $this->propShapeContexts[$type] ?? [];
   }
 
   /**
@@ -1135,8 +1169,8 @@ class Component extends ConfigEntityBase implements ComponentInterface {
    */
   public function __sleep(): array {
     return array_diff(parent::__sleep(), [
-      'shapes',
-      'shapeContexts',
+      'propShapes',
+      'propShapeContexts',
       'slots',
       'filters',
       'access',
