@@ -65,7 +65,7 @@ function neo_alchemist_theme(): array {
     ],
     'neo_alchemist_library' => [
       'variables' => [
-        'components' => [],
+        'groups' => [],
       ],
     ],
   ];
