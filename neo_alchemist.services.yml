@@ -17,6 +17,10 @@ services:
     class: Drupal\neo_alchemist\ComponentValuePluginManager
     arguments: ['@container.namespaces', '@cache.discovery', '@module_handler', '@plugin.manager.neo_component_value_group']
 
+  plugin.manager.neo_component_group:
+    class: Drupal\neo_alchemist\ComponentGroupPluginManager
+    arguments: ['@module_handler', '@cache.discovery']
+
   plugin.manager.neo_component_value_group:
     class: Drupal\neo_alchemist\ComponentValueGroupPluginManager
     arguments: ['@module_handler', '@cache.discovery']
