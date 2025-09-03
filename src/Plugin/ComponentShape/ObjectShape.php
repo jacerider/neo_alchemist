@@ -75,22 +75,6 @@ class ObjectShape extends ChildrenShapeBase implements ComponentShapeExpandedPlu
   /**
    * {@inheritDoc}
    */
-  public function isEditable(): bool {
-    $editable = parent::isEditable();
-    if ($editable && $this->isSingleProp()) {
-      // If we only have a single property, we use that shapes access.
-      foreach ($this->getChildShapes() as $shape) {
-        if (!$shape->isEditable()) {
-          return FALSE;
-        }
-      }
-    }
-    return $editable;
-  }
-
-  /**
-   * {@inheritDoc}
-   */
   protected function buildValue() {
     $value = parent::buildValue();
     if (empty($value) && !$this->allowExpanded()) {
