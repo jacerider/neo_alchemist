@@ -30,7 +30,7 @@ class StyleShape extends StyleShapeBase {
         return $style['label'] ?? 'Unnamed';
       }, $this->schema['styles']);
     }
-    return NULL;
+    return [];
   }
 
   /**
