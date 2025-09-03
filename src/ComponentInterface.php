@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\neo_alchemist;
 
+use Drupal\Component\Render\MarkupInterface;
 use Drupal\Core\Cache\CacheableResponseInterface;
 use Drupal\Core\Config\Entity\ConfigEntityInterface;
 use Drupal\Core\Entity\ContentEntityInterface;
@@ -23,6 +24,30 @@ interface ComponentInterface extends ConfigEntityInterface, RenderableInterface,
    *   The description.
    */
   public function getDescription(): string;
+
+  /**
+   * Get the component group.
+   *
+   * @return string
+   *   The group.
+   */
+  public function getGroup(): string;
+
+  /**
+   * Get the component group label.
+   *
+   * @return \Drupal\Component\Render\MarkupInterface|string
+   *   The group label.
+   */
+  public function getGroupLabel(): MarkupInterface|string;
+
+  /**
+   * Get the component group description.
+   *
+   * @return \Drupal\Component\Render\MarkupInterface|string
+   *   The group description.
+   */
+  public function getGroupDescription(): MarkupInterface|string;
 
   /**
    * Get the component expression.
