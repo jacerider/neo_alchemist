@@ -419,45 +419,6 @@ class ComponentTreeItem extends FieldItemBase implements RenderableInterface {
   }
 
   /**
-   * Retrieves a Neo component instance.
-   *
-   * @param string $uuid
-   *   The UUID.
-   * @param bool $noCache
-   *   Whether to bypass the cache.
-   *
-   * @return \Drupal\neo_alchemist\ComponentInstanceInterface|null
-   *   The Neo component instance.
-   */
-  public function getComponentttt(string $uuid, $noCache = FALSE): ?ComponentInstanceInterface {
-    $key = $uuid . ':' . $this->getParent()->getScope();
-    if (!isset(self::$components[$key]) || $noCache) {
-      $tree = $this->get('tree');
-      assert($tree instanceof ComponentTreeStructure);
-      $props = $this->get('props');
-      assert($props instanceof ComponentPropsValues);
-      $id = $tree->getComponentId($uuid);
-      if ($id) {
-        $neoComponent = Component::load($id);
-        if ($neoComponent) {
-          $value = $neoComponent->toArray();
-          $value['uuid'] = $uuid;
-          $value['fieldItem'] = $this;
-          $value['values'] = $props->getComponentPropsSources($uuid);
-          $entity_class = $this->getComponentInstanceClass();
-          $instance = new $entity_class($value, 'neo_component');
-          if ($noCache) {
-            return $instance;
-          }
-          $instance->setPreview($this->isPreview());
-        }
-      }
-      self::$components[$key] = $instance ?? NULL;
-    }
-    return self::$components[$key];
-  }
-
-  /**
    * Retrieves the component instances.
    *
    * @param string $parentUuid
