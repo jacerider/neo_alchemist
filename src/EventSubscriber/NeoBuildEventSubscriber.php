@@ -38,6 +38,10 @@ class NeoBuildEventSubscriber implements EventSubscriberInterface {
       'extend' => [
         'spacing' => [
           'component' => 'var(--spacing-component, --spacing)',
+          'component-xs' => 'calc(var(--spacing-component, --spacing) / 2)',
+          'component-sm' => 'calc(var(--spacing-component, --spacing) / 1.5)',
+          'component-lg' => 'calc(var(--spacing-component, --spacing) * 1.5)',
+          'component-xl' => 'calc(var(--spacing-component, --spacing) * 2)',
         ],
       ],
     ]);
