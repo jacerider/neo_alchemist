@@ -57,6 +57,9 @@ final class ComponentStyleForm extends EntityForm {
     $shapes = array_filter($this->entity->getPropShapes(), fn ($shape) => $shape->access('manage_value'));
     foreach ($shapes as $propName => $shape) {
       if ($shape instanceof ComponentShapeStylePluginInterface) {
+        if (!$shape->access('update')) {
+          continue;
+        }
         $options = $shape->getFieldOptions();
         if (!$shape->isRequired()) {
           $options = array_merge(['' => $this->t('- Default -')], $options);
