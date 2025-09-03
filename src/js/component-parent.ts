@@ -85,7 +85,25 @@
     }
   };
 
+  function waitForAllIframesToLoad(iframes: NodeListOf<HTMLIFrameElement>): Promise<void> {
+    if (iframes) {
+      const promises = Array.from(iframes).map((iframe) => {
+        return new Promise<void>((resolve) => {
+          if (iframe.contentDocument?.readyState === 'complete') {
+            resolve();
+          } else {
+            iframe.addEventListener('load', () => resolve(), { once: true });
+          }
+        });
+      });
+
+      return Promise.all(promises).then(() => {});
+    }
+    return Promise.resolve();
+  }
+
   function init(container:HTMLElement): void {
+    const id = container.id;
 
     window.addEventListener('message', function (e) {
       const data = e.data;
@@ -107,10 +125,13 @@
     const iframes = container.querySelectorAll('iframe');
     const wrapper:HTMLElement|null = container.querySelector('.neo-alchemist-manage--wrapper');
     const messages = document.querySelector('.alchemist-messages');
+
     const drag = container.querySelector('.neo-alchemist-manage--drag') as HTMLElement;
-    if (drag) {
-      dragInit(drag);
-    }
+    waitForAllIframesToLoad(iframes).then(() => {
+      if (drag) {
+        dragInit(drag);
+      }
+    });
 
     const screenshotButton = document.getElementById('neo-alchemist-thumbnail-generate-button');
     if (screenshotButton) {
@@ -333,6 +354,15 @@
       let scrollLeft:number
       let scrollTop:number;
 
+      if (wrapper) {
+        if (localStorage.getItem(id + '-scroll-left')) {
+          wrapper.scrollLeft = parseInt(localStorage.getItem(id + '-scroll-left') || '0', 10);
+        }
+        if (localStorage.getItem(id + '-scroll-top')) {
+          wrapper.scrollTop = parseInt(localStorage.getItem(id + '-scroll-top') || '0', 10);
+        }
+      }
+
       el.addEventListener('mousedown', handleDragStart);
       function handleDragStart(e: MouseEvent): void {
         if (wrapper) {
@@ -366,14 +396,18 @@
       }
 
       function handleDragEnd(): void {
-        el.style.cursor = 'grab';
-        document.removeEventListener('mouseup', handleDragEnd);
-        document.removeEventListener('mousemove', handleMouseMove);
-        iframes.forEach(iframe => {
-          if (iframe instanceof HTMLIFrameElement) {
-            iframe.style.pointerEvents = '';
-          }
-        });
+        if (wrapper) {
+          localStorage.setItem(id + '-scroll-left', wrapper.scrollLeft.toString());
+          localStorage.setItem(id + '-scroll-top', wrapper.scrollTop.toString());
+          el.style.cursor = 'grab';
+          document.removeEventListener('mouseup', handleDragEnd);
+          document.removeEventListener('mousemove', handleMouseMove);
+          iframes.forEach(iframe => {
+            if (iframe instanceof HTMLIFrameElement) {
+              iframe.style.pointerEvents = '';
+            }
+          });
+        }
       }
     }
 
