@@ -619,7 +619,7 @@ final class ComponentManageForm extends EntityForm {
       if (!empty($data[1])) {
         /** @var \Drupal\neo_config_file\ConfigFileGenerator $generator */
         $generator = \Drupal::service('neo_config_file.generator');
-        $configFile = $generator->createFromBase64($data[1], 'component-' . str_replace('_', '-', $this->entity->id()) . '.png', 500, 320, 500, 320);
+        $configFile = $generator->createFromBase64($data[1], 'component-' . str_replace('_', '-', $this->entity->id()) . '.png', 500, 500);
         if ($configFile) {
           $this->entity->set('thumbnail', $configFile->id());
         }
