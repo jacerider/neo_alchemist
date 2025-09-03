@@ -1,0 +1,24 @@
+hero:
+  label: 'Heros'
+  description: 'Best used as the first component on a page.'
+  weight: -10
+callout:
+  label: 'Callouts'
+  description: 'Used for emphasis and a call to action.'
+  weight: -5
+general:
+  label: 'General'
+  description: 'Used to construct static page content.'
+  weight: 0
+list:
+  label: 'List'
+  description: 'Used for displaying multiple items in a styled list.'
+  weight: 5
+special:
+  label: 'Special'
+  description: 'Components built for specific needs.'
+  weight: 10
+entity:
+  label: 'Content Specific'
+  description: 'Components that can be used only on specific types of content.'
+  weight: 15
