@@ -7,13 +7,40 @@ namespace Drupal\neo_alchemist\Controller;
 use Drupal\Component\Serialization\Json;
 use Drupal\Core\Controller\ControllerBase;
 use Drupal\Core\Template\Attribute;
+use Drupal\neo_alchemist\ComponentGroupPluginManager;
 use Drupal\neo_alchemist\Plugin\Field\FieldType\ComponentTreeItem;
+use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\HttpFoundation\Request;
 
 /**
  * Returns responses for Neo | Alchemist routes.
  */
 final class InstanceComponentLibraryController extends ControllerBase {
+
+  /**
+   * The component group plugin manager.
+   *
+   * @var \Drupal\neo_alchemist\ComponentGroupPluginManager
+   */
+  protected $componentGroupManager;
+
+  /**
+   * The controller constructor.
+   */
+  public function __construct(
+    ComponentGroupPluginManager $componentGroupManager,
+  ) {
+    $this->componentGroupManager = $componentGroupManager;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public static function create(ContainerInterface $container): self {
+    return new self(
+      $container->get('plugin.manager.neo_component_group'),
+    );
+  }
 
   /**
    * Builds the response.
@@ -36,7 +63,8 @@ final class InstanceComponentLibraryController extends ControllerBase {
       if (!$component->access('create')) {
         continue;
       }
-      $components[$component->id()] = [
+      $group = $component->getGroup();
+      $components[$group][$component->id()] = [
         'label' => $component->label(),
         'description' => $component->getDescription(),
         'thumbnail' => $component->getThumbnail(),
@@ -57,13 +85,23 @@ final class InstanceComponentLibraryController extends ControllerBase {
       ];
     }
 
-    uasort($components, function ($a, $b) {
-      return strnatcasecmp($a['label'], $b['label']);
-    });
+    $groups = [];
+    foreach ($this->componentGroupManager->getDefinitions() as $group_id => $definition) {
+      if (isset($components[$group_id])) {
+        $groups[$group_id] = [
+          'label' => $definition['label'],
+          'description' => $definition['description'],
+          'components' => $components[$group_id],
+        ];
+        uasort($groups[$group_id]['components'], function ($a, $b) {
+          return strnatcasecmp($a['label'], $b['label']);
+        });
+      }
+    }
 
     $build['library'] = [
       '#theme' => 'neo_alchemist_library',
-      '#components' => $components,
+      '#groups' => $groups,
       '#attached' => [
         'library' => ['core/drupal.dialog.ajax'],
       ],
