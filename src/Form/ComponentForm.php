@@ -9,6 +9,7 @@ use Drupal\Core\Entity\EntityForm;
 use Drupal\Core\Entity\EntityTypeBundleInfoInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Form\FormStateInterface;
+use Drupal\neo_alchemist\ComponentGroupPluginManager;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
@@ -38,12 +39,20 @@ final class ComponentForm extends EntityForm {
   protected $entityTypeManager;
 
   /**
+   * The component group plugin manager.
+   *
+   * @var \Drupal\neo_alchemist\ComponentGroupPluginManager
+   */
+  protected $componentGroupManager;
+
+  /**
    * {@inheritdoc}
    */
   public static function create(ContainerInterface $container) {
     return new static(
       $container->get('entity_type.bundle.info'),
-      $container->get('entity_type.manager')
+      $container->get('entity_type.manager'),
+      $container->get('plugin.manager.neo_component_group'),
     );
   }
 
@@ -54,10 +63,17 @@ final class ComponentForm extends EntityForm {
    *   The entity type bundle info service.
    * @param \Drupal\Core\Entity\EntityTypeManagerInterface $entity_type_manager
    *   The entity manager service.
+   * @param \Drupal\neo_alchemist\ComponentGroupPluginManager $component_group_manager
+   *   The component group plugin manager.
    */
-  public function __construct(EntityTypeBundleInfoInterface $entity_type_bundle_info, EntityTypeManagerInterface $entity_type_manager) {
+  public function __construct(
+    EntityTypeBundleInfoInterface $entity_type_bundle_info,
+    EntityTypeManagerInterface $entity_type_manager,
+    ComponentGroupPluginManager $component_group_manager,
+  ) {
     $this->entityTypeBundleInfo = $entity_type_bundle_info;
     $this->entityTypeManager = $entity_type_manager;
+    $this->componentGroupManager = $component_group_manager;
   }
 
   /**
@@ -130,6 +146,18 @@ final class ComponentForm extends EntityForm {
       '#type' => 'textarea',
       '#title' => $this->t('Description'),
       '#default_value' => $this->entity->isNew() ? ($component['description'] ?? '') : $this->entity->get('description'),
+    ];
+
+    $options = array_map(
+      fn ($definition) => $definition['label'],
+      $this->componentGroupManager->getDefinitions()
+    );
+    $form['group'] = [
+      '#type' => 'select',
+      '#title' => $this->t('Group'),
+      '#options' => $options,
+      '#default_value' => $this->entity->getGroup(),
+      '#required' => TRUE,
     ];
 
     $form['status'] = [
