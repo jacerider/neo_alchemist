@@ -27,9 +27,42 @@ final class ComponentListBuilder extends ConfigEntityListBuilder {
   /**
    * {@inheritdoc}
    */
+  public function render() {
+    $build = parent::render();
+
+    $groups = [];
+    foreach ($build['table']['#rows'] as $row) {
+      $groups[$row['group']['#group']][] = $row;
+    }
+
+    $tables = [];
+    $service = \Drupal::service('plugin.manager.neo_component_group');
+    foreach ($service->getDefinitions() as $id => $definition) {
+      if (isset($groups[$id])) {
+        $tables[$id] = $build['table'];
+        $tables[$id]['#caption'] = [
+          'title' => [
+            '#markup' => '<div class="text-lg font-bold">' . $definition['label'] . '</div>',
+          ],
+          'description' => [
+            '#markup' => '<div class="text-xs">' . $definition['description'] . '</div>',
+          ]
+        ];
+        $tables[$id]['#rows'] = $groups[$id];
+      }
+    }
+    $build['table'] = $tables;
+    return $build;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
   public function buildHeader(): array {
     $header['thumbnail'] = $this->t('Thumbnail');
     $header['label'] = $this->t('Label');
+    $header['entity'] = $this->t('Entity');
+    $header['group'] = $this->t('Group');
     $header['access'] = $this->t('Access');
     $header['status'] = $this->t('Status');
     return $header + parent::buildHeader();
@@ -40,7 +73,6 @@ final class ComponentListBuilder extends ConfigEntityListBuilder {
    */
   public function buildRow(EntityInterface $entity): array {
     /** @var \Drupal\neo_alchemist\ComponentInterface $entity */
-
     $row['thumbnail'] = [];
 
     $thumbnail = $entity->getThumbnail();
@@ -61,7 +93,30 @@ final class ComponentListBuilder extends ConfigEntityListBuilder {
       ];
     }
 
-    $row['label']['data']['#markup'] = $entity->label() . ' <small>(' . $entity->id() . ')</small>';
+    $row['label']['data']['title']['#markup'] = $entity->label() . ' <small>(' . $entity->id() . ')</small>';
+    if ($description = $entity->getDescription()) {
+      $row['label']['data']['description']['#markup'] = '<div><small>' . $description . '</small></div>';
+    }
+
+    $targetEntityDefinition = $entity->getTargetEntityTypeDefinition();
+    $targetBundle = $entity->getTargetEntityBundle();
+    $row['entity'] = [
+      '#neo_size' => 'min',
+      '#neo_style' => 'xs',
+      'data' => [
+        '#markup' => $targetEntityDefinition ? $targetEntityDefinition->getLabel() . ($targetBundle ? '<br>(' . $targetBundle . ')' : '') : '',
+      ],
+    ];
+
+    $row['group'] = [
+      '#group' => $entity->getGroup(),
+      '#neo_size' => 'min',
+      '#neo_style' => 'xs',
+      '#neo_align' => 'center',
+      'data' => [
+        '#markup' => $entity->getGroupLabel(),
+      ],
+    ];
     $row['access'] = [
       '#neo_size' => 'min',
       '#neo_align' => 'center',
