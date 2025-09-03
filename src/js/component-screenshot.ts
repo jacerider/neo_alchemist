@@ -11,22 +11,47 @@
         return;
       }
       wrapper.style.width = '1024px';
+      wrapper.style.maxHeight = '1024px';
+      wrapper.style.minHeight = '440px';
+      wrapper.style.overflow = 'hidden';
+      wrapper.style.display = 'flex';
+      wrapper.style.alignItems = 'center';
+      wrapper.style.justifyContent = 'center';
+      wrapper.style.padding = '0';
+      // wrapper.style.backgroundColor = '#f4f4f4';
       const components = this.document.querySelectorAll('[data-component-id]') as NodeListOf<HTMLElement>;
       components.forEach((el) => {
         el.style.margin = '0px';
+        el.style.width = '1024px';
+        el.style.setProperty('--spacing-component', '30px');
       });
-      html2canvas(wrapper).then((canvas:any) => {
-        wrapper.style.width = '';
-        components.forEach((el) => {
-          el.style.margin = '';
+      setTimeout(() => {
+        html2canvas(wrapper, {
+          width: 1024,
+          useCORS: true,
+        }).then((canvas:any) => {
+          wrapper.style.width = '';
+          wrapper.style.maxHeight = '';
+          wrapper.style.minHeight = '';
+          wrapper.style.overflow = '';
+          wrapper.style.display = '';
+          wrapper.style.alignItems = '';
+          wrapper.style.justifyContent = '';
+          wrapper.style.padding = '';
+          // wrapper.style.backgroundColor = '';
+          components.forEach((el) => {
+            el.style.margin = '';
+            el.style.width = '';
+            el.style.setProperty('--spacing-component', '');
+          });
+          window.parent.postMessage({
+            type: 'screenshot',
+            id: id,
+            size: size,
+            dataUrl: canvas.toDataURL(),
+          }, '*');
         });
-        window.parent.postMessage({
-          type: 'screenshot',
-          id: id,
-          size: size,
-          dataUrl: canvas.toDataURL(),
-        }, '*');
-      });
+      }, 300);
     }
   });
 
