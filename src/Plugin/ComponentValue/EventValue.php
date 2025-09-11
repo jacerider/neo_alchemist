@@ -79,8 +79,8 @@ final class EventValue extends ComponentValuePluginBase implements ContainerFact
   /**
    * {@inheritdoc}
    */
-  public function provideOverrideValue(mixed $value, mixed $defaultValue): mixed {
-    $event = new ComponentValueEvent($this->shape, $value, $defaultValue);
+  public function provideDefaultValue(mixed $value): mixed {
+    $event = new ComponentValueEvent($this->shape, $value);
     $this->eventDispatcher->dispatch($event, ComponentValueEvent::EVENT_NAME);
     $value = $event->getValue();
     $this->shape->addCacheableDependency($event);
