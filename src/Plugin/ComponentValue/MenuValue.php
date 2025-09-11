@@ -159,7 +159,7 @@ final class MenuValue extends ComponentValuePluginBase implements ContainerFacto
   /**
    * {@inheritdoc}
    */
-  public function provideOverrideValue(mixed $value, mixed $defaultValue): mixed {
+  public function provideDefaultValue(mixed $value): mixed {
     $menu = $this->getMenu($this->configuration['menu_id']);
     if (!$menu) {
       return $value;
