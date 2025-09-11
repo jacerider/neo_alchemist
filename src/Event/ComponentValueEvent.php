@@ -34,11 +34,25 @@ class ComponentValueEvent extends Event implements RefinableCacheableDependencyI
   public mixed $value;
 
   /**
-   * The default value.
+   * The entity.
    *
-   * @var mixed
+   * @var \Drupal\Core\Entity\ContentEntityInterface|null
    */
-  public mixed $defaultValue;
+  public ?ContentEntityInterface $entity = NULL;
+
+  /**
+   * The delta.
+   *
+   * @var int|null
+   */
+  public ?int $delta;
+
+  /**
+   * The shape name.
+   *
+   * @var string|null
+   */
+  public ?string $shapeId;
 
   /**
    * Flag to continue processing.
@@ -54,13 +68,19 @@ class ComponentValueEvent extends Event implements RefinableCacheableDependencyI
    *   The shape.
    * @param mixed $value
    *   The value.
-   * @param mixed $defaultValue
-   *   The default value.
+   * @param \Drupal\Core\Entity\ContentEntityInterface|null $entity
+   *   The entity.
+   * @param int|null $delta
+   *   The delta.
+   * @param string|null $shapeId
+   *   The child shape name.
    */
-  public function __construct(ComponentShapePluginInterface $shape, mixed $value, mixed $defaultValue) {
+  public function __construct(ComponentShapePluginInterface $shape, mixed $value, ?ContentEntityInterface $entity = NULL, ?int $delta = NULL, ?string $shapeId = NULL) {
     $this->shape = $shape;
     $this->value = $value;
-    $this->defaultValue = $defaultValue;
+    $this->entity = $entity;
+    $this->delta = $delta;
+    $this->shapeId = $shapeId;
   }
 
   /**
@@ -70,7 +90,17 @@ class ComponentValueEvent extends Event implements RefinableCacheableDependencyI
    *   The ID.
    */
   public function id(): string {
-    return $this->shape->getComponent()->id() . ':' . $this->shape->id();
+    return $this->shape->getComponent()->id() . ':' . ($this->shapeId ?? $this->shape->id());
+  }
+
+  /**
+   * Gets the delta.
+   *
+   * @return int|null
+   *   The delta.
+   */
+  public function getDelta(): ?int {
+    return $this->delta;
   }
 
   /**
@@ -80,7 +110,7 @@ class ComponentValueEvent extends Event implements RefinableCacheableDependencyI
    *   The entity.
    */
   public function getEntity(): ContentEntityInterface {
-    return $this->shape->getEntity();
+    return $this->entity ?? $this->shape->getEntity();
   }
 
   /**
@@ -111,16 +141,6 @@ class ComponentValueEvent extends Event implements RefinableCacheableDependencyI
    */
   public function setValue(mixed $value) {
     $this->value = $value;
-  }
-
-  /**
-   * Gets the default value.
-   *
-   * @return mixed
-   *   The default value.
-   */
-  public function getDefaultValue() {
-    return $this->defaultValue;
   }
 
   /**
