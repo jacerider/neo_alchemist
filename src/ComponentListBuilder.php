@@ -32,7 +32,7 @@ final class ComponentListBuilder extends ConfigEntityListBuilder {
 
     $groups = [];
     foreach ($build['table']['#rows'] as $row) {
-      $groups[$row['group']['#group']][] = $row;
+      $groups[$row['entity']['#group']][] = $row;
     }
 
     $tables = [];
@@ -61,8 +61,7 @@ final class ComponentListBuilder extends ConfigEntityListBuilder {
   public function buildHeader(): array {
     $header['thumbnail'] = $this->t('Thumbnail');
     $header['label'] = $this->t('Label');
-    $header['entity'] = $this->t('Entity');
-    $header['group'] = $this->t('Group');
+    $header['entity'] = $this->t('Scope');
     $header['access'] = $this->t('Access');
     $header['status'] = $this->t('Status');
     return $header + parent::buildHeader();
@@ -101,22 +100,14 @@ final class ComponentListBuilder extends ConfigEntityListBuilder {
     $targetEntityDefinition = $entity->getTargetEntityTypeDefinition();
     $targetBundle = $entity->getTargetEntityBundle();
     $row['entity'] = [
-      '#neo_size' => 'min',
-      '#neo_style' => 'xs',
-      'data' => [
-        '#markup' => $targetEntityDefinition ? $targetEntityDefinition->getLabel() . ($targetBundle ? '<br>(' . $targetBundle . ')' : '') : '',
-      ],
-    ];
-
-    $row['group'] = [
       '#group' => $entity->getGroup(),
       '#neo_size' => 'min',
       '#neo_style' => 'xs',
-      '#neo_align' => 'center',
       'data' => [
-        '#markup' => $entity->getGroupLabel(),
+        '#markup' => $targetEntityDefinition ? $targetEntityDefinition->getLabel() . ($targetBundle ? '<br>(' . $targetBundle . ')' : '') : 'All',
       ],
     ];
+
     $row['access'] = [
       '#neo_size' => 'min',
       '#neo_align' => 'center',
