@@ -756,7 +756,7 @@ class Component extends ConfigEntityBase implements ComponentInterface {
       'field_type' => $shape->getFieldType(),
       'expanded' => $expanded,
       'active' => $shape->isActive(),
-      'editable' => $shape->isEditable(),
+      'editable' => $shape->getEditable(),
       'required' => $shape->isRequired(),
     ];
     foreach ($shape->getAllShapes(TRUE) as $childShape) {
@@ -806,6 +806,8 @@ class Component extends ConfigEntityBase implements ComponentInterface {
    * {@inheritdoc}
    */
   public function getPropShapeContexts(string $type): array {
+    // Always load prop shapes so that contexts are applied.
+    $this->getPropShapes();
     return $this->propShapeContexts[$type] ?? [];
   }
 
@@ -1107,6 +1109,9 @@ class Component extends ConfigEntityBase implements ComponentInterface {
       '#component' => $this->getComponentId(),
       '#props' => $this->getPropValues(),
     ];
+    // Add unique identifiers to props.
+    $build['#props']['neoId'] = $this->id();
+    $build['#props']['neoUuid'] = $this->uuid();
     if ($slots = $this->getSlots()) {
       $build['#slots'] = array_filter(array_map(fn($slot) => $slot->toRenderable(), $slots));
     }
