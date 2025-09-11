@@ -510,7 +510,7 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
     // Overlay the field/entity value.
     // We first check if the parent value is set. This value comes from
     // parents that are injecting values into their children.
-    $overrideValue = $this->getParentValue();
+    $overrideValue = $parentValue = $this->getParentValue();
     if (is_null($overrideValue)) {
       // If we have no override value from a parent, we check for an override
       // value that may have been set directly on this shape. This typically
@@ -1250,6 +1250,13 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
   /**
    * {@inheritDoc}
    */
+  public function getEditable(): bool {
+    return $this->editable;
+  }
+
+  /**
+   * {@inheritDoc}
+   */
   public function isEditable(): bool {
     if ($this->isLocked()) {
       return FALSE;
@@ -1536,7 +1543,12 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
    *   The built value.
    */
   protected function buildValue() {
-    $value = $this->getFieldItemValue();
+    if ($this->getOptionDefault()->isEnabled()) {
+      $value = $this->getDefaultFieldItemValue();
+    }
+    else {
+      $value = $this->getFieldItemValue();
+    }
     $value = $this->denormalizeValue($value);
     if (is_null($value)) {
       return [];
