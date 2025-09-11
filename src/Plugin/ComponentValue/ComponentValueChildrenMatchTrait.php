@@ -11,8 +11,10 @@ use Drupal\Core\Form\FormStateInterface;
 use Drupal\neo_alchemist\ComponentPropRenderable;
 use Drupal\neo_alchemist\ComponentShapeChildrenPluginInterface;
 use Drupal\neo_alchemist\ComponentShapePluginInterface;
+use Drupal\neo_alchemist\Event\ComponentValueEvent;
 use Drupal\neo_alchemist\FieldFormatterTrait;
 use Drupal\neo_alchemist\MatcherField;
+use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 
 /**
  * A trait for adding value matching capabilities to component value plugins.
@@ -30,6 +32,13 @@ trait ComponentValueChildrenMatchTrait {
    * @var \Drupal\neo_alchemist\MatcherField
    */
   protected MatcherField $matcherField;
+
+  /**
+   * The event dispatcher.
+   *
+   * @var \Symfony\Component\EventDispatcher\EventDispatcherInterface
+   */
+  protected EventDispatcherInterface $eventDispatcher;
 
   /**
    * Default configuration for the value provider plugin.
@@ -102,6 +111,7 @@ trait ComponentValueChildrenMatchTrait {
     $options = [
       '- Shape -' => [
         '_default' => $this->t('Use Default'),
+        '_event' => $this->t('Use Event'),
       ],
       '- Raw -' => [],
     ];
@@ -166,6 +176,15 @@ trait ComponentValueChildrenMatchTrait {
               ]);
             }
           }
+          break;
+
+        case '_event':
+          $form['info'] = [
+            '#type' => 'html_tag',
+            '#tag' => 'div',
+            '#attributes' => ['class' => ['messages', 'messages--warning']],
+            '#value' => $this->t('Will call the <em>\Drupal\neo_alchemist\Event\ComponentValueEvent</em> to get the value.'),
+          ];
           break;
 
         case '_expand':
@@ -256,7 +275,9 @@ trait ComponentValueChildrenMatchTrait {
           }
           // Never use defaults. (images default to true).
           // @todo Consider handling this another way so that it is optional.
-          $shape->defaultChildShape($shapeId, FALSE);
+          // @todo We removed this as we have switched all values provides to
+          // providing default values.
+          // $shape->defaultChildShape($shapeId, FALSE);
           if ($field) {
             if (substr($field, 0, 1) === '_') {
               // Pseudo fields have custom handlers.
@@ -313,6 +334,17 @@ trait ComponentValueChildrenMatchTrait {
   }
 
   /**
+   * Fetch children match values for expand fields.
+   */
+  protected function fetchChildrenMatchValuesEvent(string $shapeId, string $shapeName, int $delta, ComponentShapeChildrenPluginInterface $shape, ContentEntityInterface $entity, array $configuration): mixed {
+    $event = new ComponentValueEvent($shape, [], $entity, $delta, $shapeId);
+    $this->getEventDispatcher()->dispatch($event, ComponentValueEvent::EVENT_NAME);
+    $value = $event->getValue();
+    $shape->addCacheableDependency($event);
+    return $value;
+  }
+
+  /**
    * Fetch children match values for default fields.
    */
   protected function fetchChildrenMatchValuesExpand(string $shapeId, string $shapeName, int $delta, ComponentShapeChildrenPluginInterface $shape, ContentEntityInterface $entity, array $configuration): mixed {
@@ -366,6 +398,19 @@ trait ComponentValueChildrenMatchTrait {
       $this->matcherField = \Drupal::service('neo_alchemist.matcher_field');
     }
     return $this->matcherField;
+  }
+
+  /**
+   * The event dispatcher.
+   *
+   * @return \Symfony\Component\EventDispatcher\EventDispatcherInterface
+   *   The event dispatcher.
+   */
+  protected function getEventDispatcher(): EventDispatcherInterface {
+    if (!isset($this->eventDispatcher)) {
+      $this->eventDispatcher = \Drupal::service('event_dispatcher');
+    }
+    return $this->eventDispatcher;
   }
 
 }
