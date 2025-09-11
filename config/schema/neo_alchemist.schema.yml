@@ -262,12 +262,6 @@ neo_alchemist.neo_component_value.entity:
       nullable: true
     render_field_format:
       type: neo_alchemist.neo_component_render_field_format
-    override:
-      type: boolean
-      label: 'Allow override when value is found'
-    override_empty:
-      type: boolean
-      label: 'Allow override when value is empty'
 
 neo_alchemist.neo_component_value.entity_filter:
   type: mapping
@@ -355,6 +349,9 @@ neo_alchemist.neo_component_value.entity_query:
     filter_entity:
       type: string
       label: Filter by entity reference
+    filter_parent:
+      type: string
+      label: Filter by parent term
     shape_fields:
       type: neo_alchemist.neo_component_shape_fields
     shape_published:
@@ -552,7 +549,6 @@ neo_alchemist.neo_component_slot.block_plugin:
     block_settings:
       type: block.settings.[%parent.block_plugin]
 
-# field.formatter.settings.
 neo_alchemist.neo_component_slot.entity_field:
   type: mapping
   label: 'Entity field slot provider'
@@ -580,46 +576,44 @@ neo_alchemist.neo_component_slot.entity_field:
       label: 'Third party settings'
       sequence:
         type: theme_settings.third_party.[%key]
-  #   block_plugin:
-  #     type: string
-  #     label: 'Block plugin'
-  #     constraints:
-  #       PluginExists:
-  #         manager: plugin.manager.block
-  #         interface: Drupal\Core\Block\BlockPluginInterface
-  #         # Block plugin IDs may not be valid in blocks that are backed by
-  #         # block_content entities that don't exist yet. Therefore, it's okay
-  #         # to consider the fallback plugin ID as valid.
-  #         allowFallback: true
-  #   block_settings:
-  #     type: block.settings.[%parent.block_plugin]
 
-  #   mapping:
-  #     label:
-  #       type: string
-  #       label: Title
-  #     description:
-  #       type: string
-  #       label: Description
-  #     plugin_id:
-  #       type: string
-  #       label: Plugin ID
-  #       constraints:
-  #         PluginExists:
-  #           manager: plugin.manager.neo_component_filter
-  #           interface: '\Drupal\neo_alchemist\ComponentFilterPluginInterface'
-  #     plugin_settings:
-  #       type: neo_alchemist.neo_component_filter.[%parent.plugin_id]
-  #       nullable: true
-  #     value:
-  #       type: string
-  #       label: Value
-  #     editable:
-  #       type: boolean
-  #       label: Editable
-  #     required:
-  #       type: boolean
-  #       label: Required
+neo_alchemist.neo_component_slot.product_variation_field:
+  type: mapping
+  label: 'Product variation field slot provider'
+  mapping:
+    bundle:
+      type: string
+      label: Bundle
+    display:
+      type: string
+      label: Display
+    field:
+      type: string
+      label: Field
+
+neo_alchemist.neo_component_slot.views_header:
+  type: mapping
+  label: Views header slot provider
+  mapping:
+    context:
+      type: string
+      label: Context
+
+neo_alchemist.neo_component_slot.views_exposed_filters:
+  type: mapping
+  label: Views exposed filters slot provider
+  mapping:
+    context:
+      type: string
+      label: Context
+
+neo_alchemist.neo_component_slot.views_pager:
+  type: mapping
+  label: Views pager slot provider
+  mapping:
+    context:
+      type: string
+      label: Context
 
 neo_alchemist_neo_component_settings.access:
   type: sequence
