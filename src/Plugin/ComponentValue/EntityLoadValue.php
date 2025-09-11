@@ -208,7 +208,7 @@ final class EntityLoadValue extends ComponentValuePluginBase implements Containe
   /**
    * {@inheritdoc}
    */
-  public function provideOverrideValue(mixed $value, mixed $defaultValue): mixed {
+  public function provideDefaultValue(mixed $value): mixed {
     if (!$this->shape instanceof ComponentShapeChildrenPluginInterface) {
       return $value;
     }
