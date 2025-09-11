@@ -115,7 +115,7 @@ final class NeoComponentGenerator extends BaseGenerator implements ContainerInje
 
     $hasSpacing = !empty(array_filter($vars['component_props'], fn ($prop) => $prop['type'] === 'spacing'));
     if (!$hasSpacing) {
-      $addSpacing = $ir->confirm('The spacing property is recommended for all components. Add it?', FALSE);
+      $addSpacing = $ir->confirm('The spacing property is recommended for all components. Add it?', TRUE);
       if ($addSpacing) {
         $vars['component_props'][] = [
           'name' => 'spacing',
