@@ -4,17 +4,12 @@ declare(strict_types=1);
 
 namespace Drupal\neo_alchemist\Plugin\ComponentValue;
 
-use Drupal\Core\Controller\TitleResolverInterface;
-use Drupal\Core\DependencyInjection\DependencySerializationTrait;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Plugin\ContainerFactoryPluginInterface;
-use Drupal\Core\Routing\RouteMatchInterface;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\neo_alchemist\Attribute\ComponentValue;
 use Drupal\neo_alchemist\ComponentShapePluginInterface;
 use Drupal\neo_alchemist\ComponentValuePluginBase;
-use Symfony\Component\DependencyInjection\ContainerInterface;
-use Symfony\Component\HttpFoundation\Request;
 
 /**
  * Plugin implementation of the neo_component_value_provider.
@@ -55,21 +50,6 @@ final class PageTitleValue extends ComponentValuePluginBase implements Container
   }
 
   /**
-   * Form validation for the value provider plugin configuration.
-   */
-  protected function configurationValidate(array $form, FormStateInterface $form_state): void {
-    $form_state->setValue('override', !empty($form_state->getValue('override')));
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function onShapeInit() {
-    parent::onShapeInit();
-    $this->shape->getOptionDefault()->setValue(TRUE, 'Default page title to the default value.');
-  }
-
-  /**
    * {@inheritdoc}
    */
   public function isEditable(): bool {
@@ -82,18 +62,6 @@ final class PageTitleValue extends ComponentValuePluginBase implements Container
   public function provideDefaultValue(mixed $value): mixed {
     $this->stopFurtherProcessing();
     return $this->getPageTitle();
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function provideOverrideValue(mixed $value, mixed $defaultValue): mixed {
-    $isDefault = $this->shape->getOptionDefault()->isEnabled();
-    if ($isDefault) {
-      $value = NULL;
-      $this->stopFurtherProcessing();
-    }
-    return $value;
   }
 
 }
