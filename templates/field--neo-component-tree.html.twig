@@ -38,6 +38,12 @@
  * @ingroup themeable
  */
 #}
+{% if tag %}
+<{{ tag }}{{ attributes }}>
+{% endif %}
 {% for item in items %}
   {{ item.content }}
 {% endfor %}
+{% if tag %}
+</{{ tag }}>
+{% endif %}
