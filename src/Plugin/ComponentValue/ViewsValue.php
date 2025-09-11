@@ -104,7 +104,6 @@ final class ViewsValue extends ComponentValuePluginBase implements ContainerFact
       'view_display_id' => '',
       'view_items_per_page' => $this->shape->getType() === ComponentShapePluginInterface::OBJECT ? 1 : NULL,
       'view_items_offset' => 0,
-      // 'view_argument_entity' => FALSE,
       'view_arguments' => [],
       'view_arguments_sort' => FALSE,
       'continue' => FALSE,
@@ -206,6 +205,9 @@ final class ViewsValue extends ComponentValuePluginBase implements ContainerFact
           $options = [
             '_entity' => $this->t('- Component Entity -'),
           ];
+          if ($this->shape->getTargetEntityType() === 'taxonomy_term') {
+            $options['_taxonomy_term_children'] = $this->t('- Component Term and Children (argument must allow multiple values) -');
+          }
           if ($filters) {
             $options = [
               'all' => $this->t('- Ignore -'),
@@ -335,13 +337,29 @@ final class ViewsValue extends ComponentValuePluginBase implements ContainerFact
                 $argKey = $this->configuration['view_arguments'][$id] ?? NULL;
                 if ($argKey) {
                   $argValue = 'all';
-                  if ($argKey === '_entity') {
-                    $argValue = $this->shape->getEntity()->id();
-                  }
-                  else {
-                    if ($filter = $this->shape->getComponent()->getFilter($argKey)) {
-                      $argValue = $filter->getProcessedValue();
-                    }
+                  switch ($argKey) {
+                    case '_entity':
+                      $argValue = $this->shape->getEntity()->id();
+                      break;
+
+                    case '_taxonomy_term_children':
+                      $entity = $this->shape->getEntity();
+                      $argValue = [
+                        $entity->id(),
+                      ];
+                      /** @var \Drupal\taxonomy\TermStorageInterface $storage */
+                      $storage = $this->entityTypeManager->getStorage('taxonomy_term');
+                      foreach ($storage->loadTree($entity->bundle(), $entity->id()) as $term) {
+                        $argValue[] = $term->id();
+                      }
+                      $argValue = implode(',', $argValue);
+                      break;
+
+                    default:
+                      if ($filter = $this->shape->getComponent()->getFilter($argKey)) {
+                        $argValue = $filter->getProcessedValue();
+                      }
+                      break;
                   }
                 }
                 $args[] = $argValue;
@@ -354,6 +372,8 @@ final class ViewsValue extends ComponentValuePluginBase implements ContainerFact
           $cacheableMetadata = CacheableMetadata::createFromRenderArray($view->element);
           $this->shape->addCacheableDependency($cacheableMetadata);
           $this->view = $view;
+          // Set a context for use by slots.
+          $this->shape->getComponent()->setPropShapeContext('views', $this->shape, $view);
         }
       }
     }
@@ -363,7 +383,7 @@ final class ViewsValue extends ComponentValuePluginBase implements ContainerFact
   /**
    * {@inheritdoc}
    */
-  public function provideOverrideValue(mixed $value, mixed $defaultValue): mixed {
+  public function provideDefaultValue(mixed $value): mixed {
     if (!$this->shape instanceof ComponentShapeChildrenPluginInterface) {
       return $value;
     }
