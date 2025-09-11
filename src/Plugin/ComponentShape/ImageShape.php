@@ -117,9 +117,9 @@ class ImageShape extends MediaShapeBase {
    */
   public static function onGeneration(array &$prop, array $vars, Interviewer $ir, NeoComponentPropGeneratorInterface $generator, array $parents) {
     $prop['examples'] = [
-      'src' => 'https://placehold.co/100x100.png',
+      'src' => 'https://placehold.co/200x100.png',
       'alt' => 'Example image',
-      'width' => 100,
+      'width' => 200,
       'height' => 100,
     ];
   }
