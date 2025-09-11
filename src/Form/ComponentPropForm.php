@@ -196,7 +196,7 @@ final class ComponentPropForm extends EntityForm {
         '#type' => 'checkbox',
         '#title' => $this->t('Allow Edit'),
         '#description' => $this->t('Allow the default value of this property to be changed per component instance.'),
-        '#default_value' => $this->shape->isEditable(),
+        '#default_value' => $this->shape->getEditable(),
         '#disabled' => $this->shape->isLocked(),
       ];
 
