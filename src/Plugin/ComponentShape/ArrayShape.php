@@ -182,6 +182,12 @@ class ArrayShape extends ChildrenShapeBase implements ComponentShapeInterablePlu
     foreach ($this->getChildShapeList($values) as $delta => $shapes) {
       /** @var \Drupal\neo_alchemist\ComponentShapePluginInterface[] $shapes */
       foreach ($shapes as $shapeName => $shape) {
+        if (isset($values[$delta][$shapeName]) && empty($values[$delta][$shapeName]) && is_array($values[$delta][$shapeName]) && !$shape->isRequired()) {
+          // The provided value is an empty array. This means we don't want this
+          // value.
+          unset($values[$delta][$shapeName]);
+          continue;
+        }
         $values[$delta][$shapeName] = $shape->getValue();
         if (empty($values[$delta][$shapeName])) {
           if ($shape->getOptionDefault()->isEnabled()) {
