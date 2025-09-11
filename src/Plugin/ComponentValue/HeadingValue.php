@@ -10,6 +10,7 @@ use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Plugin\ContainerFactoryPluginInterface;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\neo_alchemist\Attribute\ComponentValue;
+use Drupal\neo_alchemist\ComponentShapeChildrenPluginInterface;
 use Drupal\neo_alchemist\ComponentValuePluginBase;
 use Drupal\neo_alchemist\Plugin\ComponentShape\ObjectShape;
 
@@ -68,7 +69,6 @@ final class HeadingValue extends ComponentValuePluginBase implements ContainerFa
       return $form;
     }
     $childShapes = $shape->getChildShapes();
-    $hasEditableChild = FALSE;
     foreach ([
       'supertitle' => $this->t('Supertitle'),
       'title' => $this->t('Title'),
@@ -168,11 +168,14 @@ final class HeadingValue extends ComponentValuePluginBase implements ContainerFa
    */
   public function onShapeInit() {
     parent::onShapeInit();
-    /** @var \Drupal\neo_alchemist\Plugin\ComponentShape\HeadingShape $shape */
     $shape = $this->shape;
 
+    if (!$shape instanceof ComponentShapeChildrenPluginInterface) {
+      return;
+    }
+
     foreach (['supertitle', 'title', 'subtitle'] as $field) {
-      if ($this->configuration["{$field}_page"] ?? FALSE && $this->shape->getOptionDefault()->isEnabled()) {
+      if (($this->configuration["{$field}_page"] ?? FALSE) && $this->shape->getOptionDefault()->isEnabled()) {
         $shape->setDefaultNestedOptionDefault($field);
       }
       if ($this->configuration["{$field}_default"]) {
@@ -185,6 +188,7 @@ final class HeadingValue extends ComponentValuePluginBase implements ContainerFa
         if ($this->configuration["{$field}_empty"] ?? FALSE) {
           $shape->setNestedOptionEmpty($field);
         }
+        $shape->setNestedOptionDefault($field);
         $shape->setNestedOptionAccess($field);
       }
     }
@@ -192,6 +196,7 @@ final class HeadingValue extends ComponentValuePluginBase implements ContainerFa
       $shape->setNestedOptionDefault('h1');
     }
     if (!$this->configuration['h1_edit']) {
+      $shape->setNestedOptionDefault('h1');
       $shape->setNestedOptionAccess('h1');
     }
   }
