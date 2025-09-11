@@ -83,8 +83,6 @@ final class EntityValue extends ComponentValuePluginBase implements ContainerFac
   public function defaultConfiguration() {
     return $this->defaultMatchConfiguration() + [
       'field_assign' => FALSE,
-      'override' => FALSE,
-      'override_empty' => FALSE,
     ];
   }
 
@@ -122,19 +120,6 @@ final class EntityValue extends ComponentValuePluginBase implements ContainerFac
         }
       }
     }
-
-    $form['override'] = [
-      '#type' => 'checkbox',
-      '#title' => $this->t('Allow override when value is found'),
-      '#description' => $this->t('Will allow this value to be changed from the value provided by the entity. If not checked, the value provided by the entity will be used and will not be able to be changed. This will stop any following value providers from being processed.'),
-      '#default_value' => $this->configuration['override'],
-    ];
-    $form['override_empty'] = [
-      '#type' => 'checkbox',
-      '#title' => $this->t('Allow override when value is empty'),
-      '#description' => $this->t('Will allow this value to be changed from the value provided by the entity. If not checked, the value will remain empty and will not be able to be changed. This will stop any following value providers from being processed.'),
-      '#default_value' => $this->configuration['override_empty'],
-    ];
     return $form;
   }
 
@@ -144,17 +129,6 @@ final class EntityValue extends ComponentValuePluginBase implements ContainerFac
   public static function refreshAjax(array $form, FormStateInterface $form_state) {
     $trigger = $form_state->getTriggeringElement();
     return NestedArray::getValue($form, array_slice($trigger['#array_parents'], 0, -1));
-  }
-
-  /**
-   * Form validation for the value provider plugin configuration.
-   */
-  protected function configurationValidate(array $form, FormStateInterface $form_state): void {
-    $assign = (int) $form_state->getValue('field_assign', FALSE);
-    $form_state->setValue('field_assign', $assign);
-    $form_state->setValue('field_properties', $assign ? array_filter($form_state->getValue('field_properties', [])) : []);
-    $form_state->setValue('override', !empty($form_state->getValue('override')));
-    $form_state->setValue('override_empty', !empty($form_state->getValue('override_empty')));
   }
 
   /**
@@ -178,11 +152,8 @@ final class EntityValue extends ComponentValuePluginBase implements ContainerFac
   /**
    * {@inheritdoc}
    */
-  public function provideOverrideValue(mixed $value, mixed $defaultValue): mixed {
-    $overrideEmpty = !empty($this->configuration['override_empty']);
-    $override = !empty($this->configuration['override']);
+  public function provideDefaultValue(mixed $value): mixed {
     $hasOverrideValue = !empty($this->shape->getOverrideValue());
-
     $properties = $this->configuration['field_assign'] ? $this->configuration['field_properties'] : [];
     $entityValue = $this->getMatchValue($this->shape, $this->configuration['field'], $properties);
     $hasValue = !empty($entityValue);
@@ -208,95 +179,14 @@ final class EntityValue extends ComponentValuePluginBase implements ContainerFac
       }
     }
 
-    // No matter what, if we don't allow overriding, we return the value.
-    if (!$overrideEmpty && !$override) {
-      $this->stopFurtherProcessing();
-      return $entityValue;
-    }
-
-    if ($this->shape->getOptionDefault()->isEnabled()) {
-      if (!$overrideEmpty && !$override) {
-        $this->stopFurtherProcessing();
-        return $entityValue;
-      }
-      if (!$overrideEmpty && !$hasValue) {
-        $this->stopFurtherProcessing();
-        return $entityValue;
-      }
-      if (!$override && $hasValue) {
-        $this->stopFurtherProcessing();
-        return $entityValue;
-      }
-      if ($hasValue) {
-        return $entityValue;
-      }
-    }
-
-    if ($hasValue && !$hasOverrideValue) {
-      $this->stopFurtherProcessing();
-      return $entityValue;
-    }
-
-    return $value;
+    return $entityValue;
   }
 
   /**
    * {@inheritdoc}
    */
   public function isEditable(): bool {
-    return match(TRUE) {
-      $this->shape->getScope() === 'field' => !empty($this->configuration['override_empty']) || !empty($this->configuration['override']),
-      !$this->hasEntityValue && empty($this->configuration['override_empty']) => FALSE,
-      $this->hasEntityValue && empty($this->configuration['override']) => FALSE,
-      default => parent::isEditable(),
-    };
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function formAlter(array &$element, FormStateInterface $form_state) {
-    $fieldDefinition = $this->matcherField->getFieldDefinition($this->shape, $this->configuration['field']);
-    if (!$fieldDefinition || !isset($element['_options']['default'])) {
-      return;
-    }
-    $entityTypeLabel = (string) $this->shape->getEntity()->getEntityType()->getLabel();
-    $description = [
-      $this->t('The default value of this property is provided by the %field field of the %label.', [
-        '%label' => strtolower($entityTypeLabel),
-        '%field' => $fieldDefinition->getLabel(),
-      ]),
-    ];
-    if ($this->shape->getScope() === 'field') {
-      $description[] = $this->t('A value can be set for this property that will override the default value provided by the %field field. This property is configured so that the override will happen when @when.', [
-        '%label' => strtolower($entityTypeLabel),
-        '%field' => $fieldDefinition->getLabel(),
-        '@when' => match(TRUE) {
-          !empty($this->configuration['override_empty']) && empty($this->configuration['override']) => $this->t('the value is empty'),
-          !empty($this->configuration['override']) && empty($this->configuration['override_empty']) => $this->t('a value is found'),
-          default => $this->t('the value is empty or a value is found'),
-        },
-      ]);
-    }
-    elseif (!empty($this->configuration['override_empty']) && !empty($this->configuration['override'])) {
-      $description[] = $this->t('A value can be set for this property that will override the value provided by the %field field.', [
-        '%label' => strtolower($entityTypeLabel),
-        '%field' => $fieldDefinition->getLabel(),
-      ]);
-    }
-    elseif ($this->hasEntityValue) {
-      $description[] = $this->t('The %field field currently has a value. A value can be set for this property that will override the value provided by the %field field.', [
-        '%label' => strtolower($entityTypeLabel),
-        '%field' => $fieldDefinition->getLabel(),
-      ]);
-    }
-    else {
-      $description[] = $this->t('The %field field does not currently have a value. A value can be set for this property that will be used as long as the %field field remains empty.', [
-        '%label' => strtolower($entityTypeLabel),
-        '%field' => $fieldDefinition->getLabel(),
-      ]);
-    }
-    $element['_options']['default']['#description'] = implode(' ', $description);
+    return FALSE;
   }
 
 }
