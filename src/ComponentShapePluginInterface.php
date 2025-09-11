@@ -661,6 +661,14 @@ interface ComponentShapePluginInterface extends PluginInspectionInterface, Deriv
   public function setEditable(bool $editable = TRUE): self;
 
   /**
+   * Gets the editable state of the component.
+   *
+   * @return bool
+   *   The editable state.
+   */
+  public function getEditable(): bool;
+
+  /**
    * Determines if the component shape is editable.
    *
    * This method checks the `editable` property of the current instance and
