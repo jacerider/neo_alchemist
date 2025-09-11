@@ -1,9 +1,9 @@
 <div class="flex flex-col gap-6">
   {% for group in groups %}
     <div class="card p-3">
-      <div class="text-lg font-bold">{{ group.label }}</div>
-      <div class="text-xs mb-3">{{ group.description }}</div>
-      <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+      <div class="text-lg font-bold text-base-950">{{ group.label }}</div>
+      <div class="text-xs text-base-700">{{ group.description }}</div>
+      <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 my-2">
         {% for component in group.components %}
           <a{{ component.attributes.addClass('border relative overflow-hidden rounded focus hover:border-primary-500 transition')|neo_tooltip_trigger({placement: 'bottom', delay: '[300, 0]'}) }}>
             <div class="w-full h-30 overflow-hidden">
