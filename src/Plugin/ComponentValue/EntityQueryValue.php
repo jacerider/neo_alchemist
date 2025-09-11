@@ -136,6 +136,7 @@ final class EntityQueryValue extends ComponentValuePluginBase implements Contain
       'sort_field' => '',
       'sort_direction' => 'ASC',
       'filter_entity' => '',
+      'filter_parent' => '',
       'start' => 0,
       'length' => 10,
       'paging' => FALSE,
@@ -227,14 +228,31 @@ final class EntityQueryValue extends ComponentValuePluginBase implements Contain
       ];
 
       $entity = $this->shape->getEntity();
-      $form['filter_entity'] = [
-        '#type' => 'select',
-        '#title' => $this->t('Filter by entity reference'),
-        '#description' => $this->t('Optionally filter the results by a specific entity reference field on the current entity. This will limit the results to only those referenced entities.'),
-        '#options' => $this->matcherReference->getReferencesAsOptions($entityTypeId, $bundle, $entity->getEntityTypeId(), $entity->bundle()),
-        '#empty_option' => $this->t('- None -'),
-        '#default_value' => $this->configuration['filter_entity'] ?? NULL,
-      ];
+      $options = $this->matcherReference->getReferencesAsOptions($entityTypeId, $bundle, $entity->getEntityTypeId(), $entity->bundle());
+      if ($options) {
+        $form['filter_entity'] = [
+          '#type' => 'select',
+          '#title' => $this->t('Filter by entity reference'),
+          '#description' => $this->t('Optionally filter the results by a specific entity reference field on the current entity. This will limit the results to only those referenced entities.'),
+          '#options' => $options,
+          '#empty_option' => $this->t('- None -'),
+          '#default_value' => $this->configuration['filter_entity'] ?? NULL,
+        ];
+      }
+
+      if ($entityTypeId === 'taxonomy_term') {
+        $form['filter_parent'] = [
+          '#type' => 'select',
+          '#title' => $this->t('Filter by parent term'),
+          '#description' => $this->t('Optionally filter the results by a specific parent term.'),
+          '#options' => [
+            'root' => $this->t('Root'),
+            'current' => $this->t('Current Term else Root'),
+          ],
+          '#empty_option' => $this->t('- None -'),
+          '#default_value' => $this->configuration['filter_parent'] ?? NULL,
+        ];
+      }
 
       $form['start'] = [
         '#type' => 'number',
@@ -335,8 +353,25 @@ final class EntityQueryValue extends ComponentValuePluginBase implements Contain
           if ($lastPos !== FALSE) {
             $filterField = substr($filterField, 0, $lastPos);
           }
-          $filterField = str_replace(':', '.entity.', $filterField);
+          $filterField = str_replace('.', '.entity.', $filterField);
           $query->condition($filterField, $entity->id(), '=');
+        }
+        if ($entityTypeId === 'taxonomy_term' && $this->configuration['filter_parent']) {
+          switch ($this->configuration['filter_parent']) {
+            case 'root':
+              $query->condition('parent', 0, '=');
+              break;
+
+            case 'current':
+              $entity = $this->shape->getEntity();
+              if (!$entity->isNew() && $entity->getEntityTypeId() === 'taxonomy_term') {
+                $query->condition('parent', $entity->id(), '=');
+              }
+              else {
+                $query->condition('parent', 0, '=');
+              }
+              break;
+          }
         }
         if ($this->configuration['shape_published'] && $entityType->hasKey('status')) {
           $query->condition($entityType->getKey('status'), 1);
@@ -354,7 +389,7 @@ final class EntityQueryValue extends ComponentValuePluginBase implements Contain
   /**
    * {@inheritdoc}
    */
-  public function provideOverrideValue(mixed $value, mixed $defaultValue): mixed {
+  public function provideDefaultValue(mixed $value): mixed {
     if (!$this->shape instanceof ComponentShapeChildrenPluginInterface) {
       return $value;
     }
