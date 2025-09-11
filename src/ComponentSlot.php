@@ -176,7 +176,7 @@ class ComponentSlot implements ComponentSlotInterface {
   public function toRenderable() {
     $build = [];
     foreach ($this->getPlugins() as $plugin) {
-      $build[] = $plugin->toRenderable();
+      $build[$plugin->uuid()] = $plugin->toRenderable();
     }
     return array_filter($build);
   }
