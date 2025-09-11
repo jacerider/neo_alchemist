@@ -136,6 +136,10 @@ final class MatcherField extends MatcherBase {
           foreach ($value as $delta => $val) {
             foreach ($properties as $name => $prop) {
               $v[$delta][$name] = $val[$prop] ?? NULL;
+              if (!$v[$delta][$name] && $prop === 'target_id' && !empty($val['entity'])) {
+                // Support passing entities directly.
+                $v[$delta][$name]['entity'] = $val['entity'];
+              }
             }
           }
           $value = $v;
