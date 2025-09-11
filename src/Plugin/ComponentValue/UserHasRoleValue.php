@@ -126,7 +126,7 @@ final class UserHasRoleValue extends ComponentValuePluginBase implements Contain
   /**
    * {@inheritdoc}
    */
-  public function provideOverrideValue(mixed $value, mixed $defaultValue): mixed {
+  public function provideDefaultValue(mixed $value): mixed {
     $roles = $this->account->getRoles();
     $hasRoles = FALSE;
     switch ($this->configuration['match']) {
