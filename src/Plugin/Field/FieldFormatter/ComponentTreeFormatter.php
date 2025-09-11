@@ -23,6 +23,16 @@ class ComponentTreeFormatter extends FormatterBase {
   /**
    * {@inheritdoc}
    */
+  public function view(FieldItemListInterface $items, $langcode = NULL) {
+    $build = parent::view($items, $langcode);
+    // Flag as a neo alchemist component tree.
+    $build['#neo_component_tree'] = TRUE;
+    return $build;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
   public function viewElements(FieldItemListInterface $items, $langcode) {
     if ($items->isEmpty()) {
       return [];
