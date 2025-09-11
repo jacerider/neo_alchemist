@@ -169,7 +169,7 @@ final class EntityReferenceValue extends ComponentValuePluginBase implements Con
   /**
    * {@inheritdoc}
    */
-  public function provideOverrideValue(mixed $value, mixed $defaultValue): mixed {
+  public function provideDefaultValue(mixed $value): mixed {
     $entityKey = $this->configuration['entity'];
     if ($entityKey) {
       $value = [];
