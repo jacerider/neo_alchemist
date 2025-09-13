@@ -135,6 +135,8 @@ final class EntityQueryValue extends ComponentValuePluginBase implements Contain
       'bundle' => '',
       'sort_field' => '',
       'sort_direction' => 'ASC',
+      'sort_field_2' => '',
+      'sort_direction_2' => 'ASC',
       'filter_entity' => '',
       'filter_parent' => '',
       'start' => 0,
@@ -223,6 +225,30 @@ final class EntityQueryValue extends ComponentValuePluginBase implements Contain
         '#states' => [
           'visible' => [
             '#' . $wrapperId . '-sort-field' => ['!value' => ''],
+          ],
+        ],
+      ];
+
+      $form['sort_field_2'] = [
+        '#type' => 'select',
+        '#title' => $this->t('Sort by field (secondary)'),
+        '#options' => $this->matcherField->getMatchesAsOptions($this->shape, $entityTypeId, $bundle, NULL, TRUE),
+        '#empty_option' => $this->t('- Default -'),
+        '#default_value' => $this->configuration['sort_field_2'] ?? NULL,
+        '#id' => $wrapperId . '-sort-field-2',
+      ];
+
+      $form['sort_direction_2'] = [
+        '#type' => 'select',
+        '#title' => $this->t('Sort direction (secondary)'),
+        '#options' => [
+          'ASC' => $this->t('Ascending'),
+          'DESC' => $this->t('Descending'),
+        ],
+        '#default_value' => $this->configuration['sort_direction_2'],
+        '#states' => [
+          'visible' => [
+            '#' . $wrapperId . '-sort-field-2' => ['!value' => ''],
           ],
         ],
       ];
@@ -330,6 +356,11 @@ final class EntityQueryValue extends ComponentValuePluginBase implements Contain
         if ($sortField = $this->configuration['sort_field']) {
           $sortField = str_replace('.', '.entity.', $sortField);
           $sortDirection = $this->configuration['sort_direction'] ?? 'ASC';
+          $query->sort($sortField, $sortDirection);
+        }
+        if ($sortField = $this->configuration['sort_field_2']) {
+          $sortField = str_replace('.', '.entity.', $sortField);
+          $sortDirection = $this->configuration['sort_direction_2'] ?? 'ASC';
           $query->sort($sortField, $sortDirection);
         }
         $length = $this->shape->isIterable() ? $this->configuration['length'] : 1;
