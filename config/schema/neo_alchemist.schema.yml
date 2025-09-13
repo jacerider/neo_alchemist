@@ -346,6 +346,12 @@ neo_alchemist.neo_component_value.entity_query:
     sort_direction:
       type: string
       label: Sort direction
+    sort_field_2:
+      type: string
+      label: Sort field 2
+    sort_direction_2:
+      type: string
+      label: Sort direction 2
     filter_entity:
       type: string
       label: Filter by entity reference
