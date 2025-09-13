@@ -350,7 +350,7 @@ final class ViewsValue extends ComponentValuePluginBase implements ContainerFact
                       /** @var \Drupal\taxonomy\TermStorageInterface $storage */
                       $storage = $this->entityTypeManager->getStorage('taxonomy_term');
                       foreach ($storage->loadTree($entity->bundle(), $entity->id()) as $term) {
-                        $argValue[] = $term->id();
+                        $argValue[] = $term->tid;
                       }
                       $argValue = implode(',', $argValue);
                       break;
