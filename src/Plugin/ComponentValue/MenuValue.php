@@ -165,6 +165,8 @@ final class MenuValue extends ComponentValuePluginBase implements ContainerFacto
       return $value;
     }
 
+    // Reset value.
+    $value = [];
     // Cache based on the menu.
     $this->shape->addCacheableDependency($menu);
 
