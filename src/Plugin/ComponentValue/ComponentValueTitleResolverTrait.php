@@ -79,9 +79,14 @@ trait ComponentValueTitleResolverTrait {
    */
   protected function getPageTitle(): mixed {
     $value = NULL;
-    $isPreview = $this->shape->getComponent()->isPreview();
-    if ($isPreview) {
+    /** @var \Drupal\neo_alchemist\ComponentInterface $component */
+    $component = $this->shape->getComponent();
+    if ($component->isPreview()) {
       $value = '[Page Title]';
+      $entity = $component->getTargetEntity();
+      if ($entity && !$entity->isNew()) {
+        $value = $entity->label();
+      }
     }
     elseif ($title = $this->fetchPageTitle()) {
       $value = $title;
