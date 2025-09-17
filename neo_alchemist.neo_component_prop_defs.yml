@@ -38,7 +38,7 @@ markup:
   type:
     - string
     - array
-  examples: '<p>ExampleDuis in neque a velit semper lacinia vel nec leo.</p>'
+  examples: 'Duis in neque a velit semper lacinia vel nec leo.'
   twig:
     prefix: '{% if %name% %}'
     content: '<div class="prose prose-lg">{{ %name% }}</div>'
