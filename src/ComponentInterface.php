@@ -188,6 +188,18 @@ interface ComponentInterface extends ConfigEntityInterface, RenderableInterface,
   public function isPreview(): bool;
 
   /**
+   * Checks if the component is in Alchemist preview mode.
+   *
+   * This method determines if the component is being displayed in component
+   * management mode within the Alchemist interface. This is typically true
+   * when the component is being previewed or edited in the Alchemist UI.
+   *
+   * @return bool
+   *   TRUE if the component is in Alchemist preview mode, FALSE otherwise.
+   */
+  public function isComponentPreview(): bool;
+
+  /**
    * Set the component as rebuilding.
    *
    * @param bool $rebuilding
