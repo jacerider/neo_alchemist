@@ -321,7 +321,7 @@ class ComponentFilter implements ComponentFilterInterface {
    * {@inheritdoc}
    */
   public function allowDefault(): bool {
-    return !$this->isRequired() || !$this->hasDefaultValue();
+    return !$this->isRequired() && $this->hasDefaultValue();
   }
 
   /**
