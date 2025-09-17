@@ -684,6 +684,26 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
   }
 
   /**
+   * Retrieves the supported field types for the plugin.
+   *
+   * This method returns an array of supported field types defined
+   * in the plugin definition. If no supported field types are
+   * defined, an empty array is returned.
+   *
+   * @return array
+   *   An array of supported field property types.
+   */
+  protected function getSupportedFieldTypes(): array {
+    $props = $this->pluginDefinition['supports_field_types'] ?? [];
+    $shapeFieldProperties = $this->getFieldItemList()->getFieldDefinition()->getFieldStorageDefinition()->getPropertyDefinitions();
+    if (count($shapeFieldProperties) === 1) {
+      // If shape has only one property, we can use the field property type.
+      $props[] = reset($shapeFieldProperties)->getDataType();
+    }
+    return array_unique($props);
+  }
+
+  /**
    * Retrieves the supported field property types for the plugin.
    *
    * This method returns an array of supported field property types defined
@@ -2363,6 +2383,9 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
   public function supportsFieldDefinition(FieldDefinitionInterface $entityFieldDefinition): bool {
     $fieldDefinition = $this->getFieldDefinitionForSupportCheck();
     if ($fieldDefinition->getType() === $entityFieldDefinition->getType()) {
+      return TRUE;
+    }
+    if (in_array($entityFieldDefinition->getType(), $this->getSupportedFieldTypes())) {
       return TRUE;
     }
     return FALSE;
