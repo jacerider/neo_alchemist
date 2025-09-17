@@ -17,6 +17,7 @@ use Drupal\neo_alchemist\ComponentShapePluginBase;
   label: new TranslatableMarkup('Markup'),
   default_field_type: 'string_long',
   default_field_widget: 'string_textarea',
+  supports_field_types: ['string_long'],
   supports_field_props: ['string_long'],
   default_plugins: ['formatted_text'],
 )]
