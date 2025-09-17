@@ -403,6 +403,13 @@ class Component extends ConfigEntityBase implements ComponentInterface {
   /**
    * {@inheritdoc}
    */
+  public function isComponentPreview(): bool {
+    return \Drupal::routeMatch()->getRouteName() === 'entity.neo_component.preview';
+  }
+
+  /**
+   * {@inheritdoc}
+   */
   public function setRebuilding(bool $rebuilding): self {
     $this->rebuilding = $rebuilding;
     return $this;
