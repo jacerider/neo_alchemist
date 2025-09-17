@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Drupal\neo_alchemist\Plugin\ComponentFilter;
 
 use Drupal\Core\DependencyInjection\DependencySerializationTrait;
+use Drupal\Core\Entity\EntityInterface;
 use Drupal\Core\Entity\EntityTypeBundleInfoInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Form\FormStateInterface;
@@ -82,6 +83,7 @@ final class EntityFilter extends ComponentFilterPluginBase implements ContainerF
       'multiple_operator' => '+',
       'entity_type' => '',
       'bundles' => [],
+      'entity_preview' => NULL,
     ];
   }
 
@@ -194,6 +196,7 @@ final class EntityFilter extends ComponentFilterPluginBase implements ContainerF
 
     if ($entityTypeId) {
       $target_entity_type = $entityTypes[$entityTypeId];
+      $bundlesIds = $this->configuration['bundles'];
       if ($target_entity_type->hasKey('bundle') && ($bundles = $this->entityTypeBundleInfo->getBundleInfo($entityTypeId))) {
         $options = array_map(
           fn ($bundle) => $bundle['label'],
@@ -206,11 +209,23 @@ final class EntityFilter extends ComponentFilterPluginBase implements ContainerF
           '#description' => $this->t('Scope this component to a specific %label type bundle.', [
             '%label' => $target_entity_type->getLabel(),
           ]),
-          '#default_value' => $this->configuration['bundles'],
+          '#default_value' => $bundlesIds,
           '#options' => $options,
           '#empty_option' => $this->t('- All -'),
           '#required' => TRUE,
         ];
+      }
+
+      $entityPreview = $this->getEntityPreview();
+      $form['entity_preview'] = [
+        '#type' => 'entity_autocomplete',
+        '#title' => $this->t('Entity preview'),
+        '#description' => $this->t('This entity will be used to preview the component in the admin interface.'),
+        '#target_type' => $entityTypeId,
+        '#default_value' => $entityPreview,
+      ];
+      if ($bundlesIds) {
+        $form['entity_preview']['#selection_settings']['target_bundles'] = $bundles;
       }
     }
 
@@ -222,6 +237,12 @@ final class EntityFilter extends ComponentFilterPluginBase implements ContainerF
    */
   protected function configurationValidate(array $form, FormStateInterface $form_state): void {
     $form_state->setValue('bundles', array_values(array_filter($form_state->getValue('bundles') ?? [])));
+
+    $entityPreview = $form_state->getValue('entity_preview');
+    if ($entityPreview) {
+      \Drupal::state()->set($this->getEntityPreviewKey(), $entityPreview);
+    }
+    $form_state->unsetValue('entity_preview');
   }
 
   /**
@@ -251,10 +272,11 @@ final class EntityFilter extends ComponentFilterPluginBase implements ContainerF
           '#default_value' => $default,
           '#tags' => !empty($this->configuration['multiple']),
           '#target_type' => $this->configuration['entity_type'],
-          '#selection_settings' => [
-            'target_bundles' => array_values(array_filter($this->configuration['bundles'])),
-          ],
+          '#required' => $this->filter->isRequired(),
         ];
+        if ($bundles = array_values(array_filter($this->configuration['bundles']))) {
+          $form['value']['#selection_settings']['target_bundles'] = $bundles;
+        }
         break;
     }
     return $form;
@@ -288,6 +310,10 @@ final class EntityFilter extends ComponentFilterPluginBase implements ContainerF
    * {@inheritdoc}
    */
   public function getEntities(): array {
+    if ($this->filter->getComponent()->isComponentPreview()) {
+      $entityPreview = $this->getEntityPreview();
+      return $entityPreview ? [$entityPreview->id() => $entityPreview] : [];
+    }
     $value = $this->filter->getValue();
     if (!$value) {
       return [];
@@ -312,6 +338,30 @@ final class EntityFilter extends ComponentFilterPluginBase implements ContainerF
    */
   public function getEntityBundles(): array {
     return $this->configuration['bundles'] ?? [];
+  }
+
+  /**
+   * Get the entity set for preview.
+   *
+   * @return \Drupal\Core\Entity\EntityInterface|null
+   *   The entity or null.
+   */
+  protected function getEntityPreview(): ?EntityInterface {
+    $entityId = \Drupal::state()->get($this->getEntityPreviewKey());
+    if ($entityId && $this->configuration['entity_type']) {
+      return $this->entityTypeManager->getStorage($this->configuration['entity_type'])->load($entityId);
+    }
+    return NULL;
+  }
+
+  /**
+   * Get the key to store the entity preview in state.
+   *
+   * @return string|null
+   *   The state key.
+   */
+  protected function getEntityPreviewKey(): ?string {
+    return 'neo_alchemist.' . $this->filter->getComponent()->id() . '.filter.' . $this->filter->uuid() . '.preview_entity';
   }
 
 }
