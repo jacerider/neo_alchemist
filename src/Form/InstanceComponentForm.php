@@ -157,6 +157,7 @@ final class InstanceComponentForm extends ContentEntityForm {
     $form['footer']['refresh'] = [
       '#type' => 'submit',
       '#id' => 'neo-alchemist--refresh',
+      '#op' => 'refresh',
       '#value' => $this->t('Refresh'),
       '#submit' => ['::submitRefresh'],
       '#ajax' => [
@@ -253,6 +254,7 @@ final class InstanceComponentForm extends ContentEntityForm {
         '#group' => 'filters',
         '#tree' => TRUE,
         '#open' => !$allowDefault && !$hasOverrideValue,
+        '#required' => $filter->isRequired(),
         '#attributes' => [
           'id' => $id,
         ],
@@ -312,6 +314,11 @@ final class InstanceComponentForm extends ContentEntityForm {
       'status' => (int) !empty($form_state->getValue('status')),
     ];
     $original_values = $form_state->get('original_values') ?? [];
+    $trigger = $form_state->getTriggeringElement();
+    if (($trigger['#op'] ?? NULL) === 'refresh') {
+      // We do not validate the form when we are just refreshing it.
+      $form_state->clearErrors();
+    }
     // Update shapes.
     foreach ($this->instance->getPropShapes() as $propName => $shape) {
       if (isset($form['values'][$propName])) {
