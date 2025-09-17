@@ -253,4 +253,11 @@ final class EntityFieldSlot extends ComponentSlotPluginBase implements Container
     return $this->getFields()[$fieldName] ?? NULL;
   }
 
+  /**
+   * {@inheritdoc}
+   */
+  public static function isApplicable(ComponentInterface $component) {
+    return !empty($component->getTargetEntityTypeId());
+  }
+
 }
