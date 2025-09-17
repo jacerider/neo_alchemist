@@ -583,6 +583,27 @@ neo_alchemist.neo_component_slot.entity_field:
       sequence:
         type: theme_settings.third_party.[%key]
 
+neo_alchemist.neo_component_slot.entity:
+  type: mapping
+  label: 'Entity slot provider'
+  mapping:
+    entity_type:
+      type: string
+      label: Entity Type Id
+    bundles:
+      type: sequence
+      label: Bundles
+      nullable: true
+      sequence:
+        type: string
+        label: 'Bundle'
+    entity:
+      type: string
+      label: Entity
+    filter:
+      type: string
+      label: Filter
+
 neo_alchemist.neo_component_slot.product_variation_field:
   type: mapping
   label: 'Product variation field slot provider'
