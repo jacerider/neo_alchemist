@@ -9,6 +9,7 @@ use Drupal\Core\DependencyInjection\DependencySerializationTrait;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Plugin\ContainerFactoryPluginInterface;
+use Drupal\Core\Render\Element;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\media\MediaInterface;
 use Drupal\neo_alchemist\Attribute\ComponentValue;
@@ -159,19 +160,29 @@ final class MediaValue extends ComponentValuePluginBase implements ContainerFact
    */
   public function formAlter(array &$element, FormStateInterface $form_state) {
     $preview = NULL;
+    $shape = $this->shape;
     if ($this->shape->getOptionDefault()->isEnabled()) {
-      $value = $this->shape->getValue();
-      if (!empty($value['src'])) {
-        $preview['default'] = [
-          '#type' => 'inline_template',
-          '#template' => '<div class="media-library-item--preview"><img src="{{ src }}" alt="{{ alt }}" width="{{ width }}" height="{{ height }}" /></div>',
-          '#context' => $value,
-          '#weight' => -10,
-        ];
-        $preview['empty_selection'] = [
-          '#markup' => '<div class="description">' . $this->t('Using the default image.') . '</div>',
-        ];
+      if ($shape instanceof ComponentShapeMediaPluginInterface) {
+        $previewBuild = $shape->getDefaultPreview();
+        if ($previewBuild) {
+          $preview['default'] = $previewBuild + [
+            '#weight' => -10,
+          ];
+        }
       }
+      if ($this->shape->getDefaultValue()) {
+        $defaultMessage = $this->t('Using the default @label.', [
+          '@label' => strtolower($shape->getTitle()),
+        ]);
+      }
+      else {
+        $defaultMessage = $this->t('No @label will be shown.', [
+          '@label' => strtolower($shape->getTitle()),
+        ]);
+      }
+      $preview['empty_selection'] = [
+        '#markup' => '<div class="description">' . $defaultMessage . '</div>',
+      ];
     }
     if (!empty($element['widget'])) {
       $element['#title'] = $element['widget']['widget']['#title'];
@@ -186,8 +197,25 @@ final class MediaValue extends ComponentValuePluginBase implements ContainerFact
           return TRUE;
         });
       }
-      if (empty($element['widget']['widget']['selection'][0])) {
+      if (empty($element['widget']['widget']['selection'][0]['target_id']['#value'])) {
         $element['widget']['widget']['preview'] = $preview;
+      }
+      else {
+        if ($shape instanceof ComponentShapeMediaPluginInterface) {
+          // Support the ability to override media values.
+          $mediaId = $element['widget']['widget']['selection'][0]['target_id']['#value'];
+          $media = $this->entityTypeManager->getStorage('media')->load($mediaId);
+          $overrideForm = [
+            '#type' => 'container',
+            '#parents' => array_merge($element['widget']['widget']['#parents'], ['media_override']),
+          ];
+          $overrideForm = $shape->buildMediaOverrideForm($overrideForm, $form_state, $media);
+          if (count(Element::children($overrideForm))) {
+            $element['widget']['widget']['override'] = $overrideForm + [
+              '#weight' => 10,
+            ];
+          }
+        }
       }
     }
     else {
@@ -198,7 +226,7 @@ final class MediaValue extends ComponentValuePluginBase implements ContainerFact
   /**
    * {@inheritdoc}
    */
-  public function massageValuesAlter(&$values, $original_values, $form, $form_state): void {
+  public function massageValuesAlter(array &$values, array $submitted_values, array $original_values, array $form, FormStateInterface $form_state): void {
     $shape = $this->shape;
     if ($shape->getScope() === 'config') {
       if (empty($values)) {
@@ -213,6 +241,14 @@ final class MediaValue extends ComponentValuePluginBase implements ContainerFact
           if (is_array($submit) && $submit[1] === 'removeItem') {
             $values = NULL;
           }
+        }
+      }
+    }
+    if ($shape instanceof ComponentShapeMediaPluginInterface) {
+      if (!empty($submitted_values[$this->shape->getName()])) {
+        $widget_values = $submitted_values[$this->shape->getName()];
+        if (isset($widget_values['media_override']) && is_array($widget_values['media_override'])) {
+          $shape->massageMediaOverrideValues($values, $widget_values['media_override'], $original_values, $form, $form_state);
         }
       }
     }
@@ -278,12 +314,16 @@ final class MediaValue extends ComponentValuePluginBase implements ContainerFact
    * media value.
    */
   public function alterValue(mixed $value, string $type): mixed {
+    $title = $value['title'] ?? NULL;
     $shape = $this->shape;
     if ($shape instanceof ComponentShapeMediaPluginInterface) {
       $media = $shape->getFieldItem()->entity;
       if ($media instanceof MediaInterface) {
         $value = $shape->getValueFromMedia($media);
       }
+    }
+    if ($title !== NULL) {
+      $value['title'] = $title;
     }
     return $value;
   }
