@@ -721,6 +721,7 @@ class Component extends ConfigEntityBase implements ComponentInterface {
       // that may not be compatible with the field item but is still valid
       // for SDC.
       $value = $shape->getPropValue($attributes);
+
       if (is_null($value)) {
         continue;
       }
@@ -734,6 +735,7 @@ class Component extends ConfigEntityBase implements ComponentInterface {
       $values = $values['_aggregate'] ?? [];
     }
     $values['attributes'] = $attributes;
+
     return $values;
   }
 
@@ -1119,6 +1121,7 @@ class Component extends ConfigEntityBase implements ComponentInterface {
     // Add unique identifiers to props.
     $build['#props']['neoId'] = $this->id();
     $build['#props']['neoUuid'] = $this->uuid();
+    $build['#props']['neoIsPreview'] = $this->isPreview();
     if ($slots = $this->getSlots()) {
       $build['#slots'] = array_filter(array_map(fn($slot) => $slot->toRenderable(), $slots));
     }
