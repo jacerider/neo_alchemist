@@ -153,6 +153,9 @@ neo_alchemist.neo_component_value.heading:
   type: mapping
   label: 'Heading provider'
   mapping:
+    hide:
+      type: boolean
+      label: Hide by default
     supertitle_empty:
       type: boolean
       label: Supertitle empty
