@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Drupal\neo_alchemist\Plugin\ComponentShape;
 
-use Drupal\Component\Utility\UrlHelper;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\file\FileInterface;
 use Drupal\media\MediaInterface;
@@ -37,38 +36,6 @@ class ImageShape extends MediaShapeBase {
   /**
    * {@inheritDoc}
    */
-  public function getDefaultSchemaValue(): mixed {
-    $value = parent::getDefaultSchemaValue();
-    if (!empty($value['src'])) {
-      // If string starts with 'theme://' it should point to the theme.
-      if (str_starts_with($value['src'], 'theme://')) {
-        $themeHandler = \Drupal::service('theme_handler');
-        $defaultTheme = \Drupal::config('system.theme')->get('default');
-        $themePath = $themeHandler->getTheme($defaultTheme)->getPath();
-        $imagePath = $themePath . '/' . str_replace('theme://', '', $value['src']);
-        // Generate absolute URL for the image.
-        $value['src'] = \Drupal::service('file_url_generator')->generateString($imagePath);
-      }
-      if (str_starts_with($value['src'], 'component://')) {
-        $imagePath = $this->getComponent()->getPath() . '/' . str_replace('component://', '', $value['src']);
-        // Generate absolute URL for the image.
-        $value['src'] = \Drupal::service('file_url_generator')->generateString($imagePath);
-      }
-      $isExternal = UrlHelper::isExternal($value['src']);
-      if (!$isExternal) {
-        $definition = $this->getComponent()->getComponentDefinition();
-        $path = str_replace(DRUPAL_ROOT, '', $definition['path']) . '/' . ltrim($value['src'], '/');
-        if (file_exists(ltrim($path, '/'))) {
-          $value['src'] = $path;
-        }
-      }
-    }
-    return $value;
-  }
-
-  /**
-   * {@inheritDoc}
-   */
   protected function isFieldItemEmpty(): bool {
     $value = $this->fieldItem->getValue();
     // Since this shape provides non-standard default values, we do not consider
@@ -83,23 +50,9 @@ class ImageShape extends MediaShapeBase {
    * {@inheritDoc}
    */
   public function getValueFromMedia(MediaInterface $media): array {
-    $file = NULL;
-    $source = $media->getSource();
-    $fid = $source->getSourceFieldValue($media);
-    if ($fid) {
-      $file = $this->entityTypeManager->getStorage('file')->load($fid);
-    }
-    else {
-      // Sometimes we have a source field that contains a non-saved file.
-      $config = $source->getConfiguration();
-      if (!empty($config['source_field']) && $media->hasField($config['source_field'])) {
-        $entity = $media->get($config['source_field'])->entity;
-        if ($entity instanceof FileInterface) {
-          $file = $entity;
-        }
-      }
-    }
+    $file = $this->getFileFromMedia($media);
     if ($file instanceof FileInterface) {
+      $source = $media->getSource();
       return [
         'src' => $file->createFileUrl(),
         'uri' => $file->getFileUri(),
@@ -110,6 +63,21 @@ class ImageShape extends MediaShapeBase {
       ];
     }
     return [];
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  public function getDefaultPreview(): ?array {
+    $value = $this->getValue();
+    if (!empty($value['src'])) {
+      return [
+        '#type' => 'inline_template',
+        '#template' => '<div class="media-library-item--preview"><img src="{{ src }}"{% if alt %} alt="{{ alt }}"{% endif %}{% if width %} width="{{ width }}"{% endif %}{% if height %} height="{{ height }}"{% endif %} /></div>',
+        '#context' => $value,
+      ];
+    }
+    return NULL;
   }
 
   /**
