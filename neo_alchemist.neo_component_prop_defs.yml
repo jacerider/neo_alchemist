@@ -96,6 +96,37 @@ image-uri:
     content: '{{ neo_image_style_url(%name%.src, {scale: {width: 640}}) }}'
     suffix: '{% endif %}'
 
+file:
+  title: file
+  type: object
+  required:
+    - src
+  properties:
+    src:
+      title: File URL
+      type: file-uri
+    title:
+      title: File Title
+      type: string
+    name:
+      title: File Name
+      type: string
+  examples:
+    src: https://pdfobject.com/pdf/sample.pdf
+    title: Example PDF
+    name: sample.pdf
+
+file-uri:
+  title: Image URL
+  type: string
+  format: uri-reference
+  pattern: ^(\/|theme:\/\/|component:\/\/|https?:\/\/).*\.(?i)(txt|doc|docx|pdf|xls|xlsx|ppt|pptx|odt|ods|odp)(\?.*)?(#.*)?$
+  examples: https://pdfobject.com/pdf/sample.pdf
+  twig:
+    prefix: '{% if %name% %}'
+    content: '<a href="{{ neo_uri(%name%.src) }}" target="_blank">{{ %name%.title }}: {{ %name%.name }}</a>'
+    suffix: '{% endif %}'
+
 email:
   title: Email
   type: string
