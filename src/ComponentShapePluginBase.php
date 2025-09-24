@@ -2167,7 +2167,7 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
     }
     // Remove options so that they are not processed or stored.
     unset($values['_options']);
-    $storedValues = $values;
+    $stored_values = $submitted_values = $values;
     if (isset($values[$this->getName()]) && ($widget = $this->getWidget())) {
       $massagedValues = $widget->massageFormValues($values[$this->getName()], $form, $form_state);
       // @todo 'values' is checked for checkboxes.
@@ -2176,13 +2176,13 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
       $fieldItem->setValue($massagedValues);
       $fieldItem->preSave();
       $actualValues = $fieldItem->getValue();
-      $storedValues = array_intersect_key($actualValues, $fieldItem->getProperties(FALSE));
+      $stored_values = array_intersect_key($actualValues, $fieldItem->getProperties(FALSE));
     }
 
     foreach ($this->getValueCollection()->getAllowedInstances('form') as $instance) {
-      $instance->massageValuesAlter($storedValues, $original_values, $form, $form_state);
+      $instance->massageValuesAlter($stored_values, $submitted_values, $original_values, $form, $form_state);
     }
-    return $storedValues;
+    return $stored_values;
   }
 
   /**
