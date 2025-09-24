@@ -26,7 +26,7 @@ final class ProtectedAccess extends ComponentAccessPluginBase {
    */
   public function access(string $op, AccountInterface $account): AccessResultInterface {
     if ($op !== 'view') {
-      return AccessResult::allowedIfHasPermission($account, 'use protected components');
+      return AccessResult::forbiddenIf(!$account->hasPermission('use protected components'))->cachePerPermissions();
     }
     return AccessResult::neutral();
   }
