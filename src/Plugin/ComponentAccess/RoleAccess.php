@@ -183,7 +183,7 @@ final class RoleAccess extends ComponentAccessPluginBase implements ContainerFac
           break;
       }
       if (!$hasRoles) {
-        return AccessResult::forbidden()->cachePerPermissions();
+        return AccessResult::forbidden('You do not have the required roles to access this content.')->cachePerPermissions();
       }
     }
     return AccessResult::neutral();
