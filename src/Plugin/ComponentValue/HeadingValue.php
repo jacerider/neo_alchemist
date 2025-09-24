@@ -37,6 +37,7 @@ final class HeadingValue extends ComponentValuePluginBase implements ContainerFa
    */
   public function defaultConfiguration() {
     return [
+      'hide' => FALSE,
       'supertitle_edit' => TRUE,
       'supertitle_default' => FALSE,
       'supertitle_empty' => FALSE,
@@ -63,6 +64,13 @@ final class HeadingValue extends ComponentValuePluginBase implements ContainerFa
   protected function configurationForm(array $form, FormStateInterface $form_state, array &$complete_form): array {
     $wrapperId = Html::getId(implode('-', $form['#parents']) . '-' . $this->getPluginId());
     $form['#id'] = $wrapperId;
+
+    $form['hide'] = [
+      '#type' => 'checkbox',
+      '#title' => $this->t('Hide'),
+      '#default_value' => $this->configuration['hide'],
+      '#description' => $this->t('If checked, the component will be hidden by default.'),
+    ];
 
     $shape = $this->shape;
     if (!$shape instanceof ObjectShape) {
@@ -156,6 +164,10 @@ final class HeadingValue extends ComponentValuePluginBase implements ContainerFa
     $values = $form_state->getValues();
     $finalValues = [];
     foreach ($values as $key => $v) {
+      if (!is_array($v)) {
+        $finalValues[$key] = $v;
+        continue;
+      }
       foreach ($v as $ii => $vv) {
         $finalValues["{$key}_{$ii}"] = $vv;
       }
@@ -172,6 +184,10 @@ final class HeadingValue extends ComponentValuePluginBase implements ContainerFa
 
     if (!$shape instanceof ComponentShapeChildrenPluginInterface) {
       return;
+    }
+
+    if ($this->configuration['hide']) {
+      $shape->getOptionEmpty()->setValue(TRUE, 'Heading hidden by Heading value provider.');
     }
 
     foreach (['supertitle', 'title', 'subtitle'] as $field) {
