@@ -12,21 +12,21 @@
 
 @utility component-spacing-xs {
   @apply component-spacing-base;
-  --spacing-base-mult: 2;
-  --spacing-md-mult: 2;
-  --spacing-lg-mult: 2;
+  --spacing-base-mult: 4;
+  --spacing-md-mult: 4;
+  --spacing-lg-mult: 4;
 }
 
 @utility component-spacing-sm {
   @apply component-spacing-base;
-  --spacing-base-mult: 2;
+  --spacing-base-mult: 4;
   --spacing-md-mult: 4;
   --spacing-lg-mult: 6;
 }
 
 @utility component-spacing {
   @apply component-spacing-base;
-  --spacing-base-mult: 2;
+  --spacing-base-mult: 4;
   --spacing-md-mult: 6;
   --spacing-lg-mult: 14;
 }
