@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace Drupal\neo_alchemist\Plugin\ComponentShape;
 
+use Drupal\Component\Utility\UrlHelper;
 use Drupal\Core\Field\FieldDefinitionInterface;
+use Drupal\Core\Form\FormStateInterface;
+use Drupal\file\FileInterface;
 use Drupal\media\MediaInterface;
 use Drupal\neo_alchemist\ComponentShapeMediaPluginInterface;
 
@@ -25,6 +28,38 @@ abstract class MediaShapeBase extends ObjectShape implements ComponentShapeMedia
    */
   public function allowExpanded(): bool {
     return FALSE;
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  public function getDefaultSchemaValue(): mixed {
+    $value = parent::getDefaultSchemaValue();
+    if (!empty($value['src'])) {
+      // If string starts with 'theme://' it should point to the theme.
+      if (str_starts_with($value['src'], 'theme://')) {
+        $themeHandler = \Drupal::service('theme_handler');
+        $defaultTheme = \Drupal::config('system.theme')->get('default');
+        $themePath = $themeHandler->getTheme($defaultTheme)->getPath();
+        $imagePath = $themePath . '/' . str_replace('theme://', '', $value['src']);
+        // Generate absolute URL for the image.
+        $value['src'] = \Drupal::service('file_url_generator')->generateString($imagePath);
+      }
+      if (str_starts_with($value['src'], 'component://')) {
+        $imagePath = $this->getComponent()->getPath() . '/' . str_replace('component://', '', $value['src']);
+        // Generate absolute URL for the image.
+        $value['src'] = \Drupal::service('file_url_generator')->generateString($imagePath);
+      }
+      $isExternal = UrlHelper::isExternal($value['src']);
+      if (!$isExternal) {
+        $definition = $this->getComponent()->getComponentDefinition();
+        $path = str_replace(DRUPAL_ROOT, '', $definition['path']) . '/' . ltrim($value['src'], '/');
+        if (file_exists(ltrim($path, '/'))) {
+          $value['src'] = $path;
+        }
+      }
+    }
+    return $value;
   }
 
   /**
@@ -59,6 +94,50 @@ abstract class MediaShapeBase extends ObjectShape implements ComponentShapeMedia
    */
   public function getValueFromMedia(MediaInterface $media): array {
     return [];
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  public function getFileFromMedia(MediaInterface $media): FileInterface|null {
+    $file = NULL;
+    $source = $media->getSource();
+    $fid = $source->getSourceFieldValue($media);
+    if ($fid) {
+      $file = $this->entityTypeManager->getStorage('file')->load($fid);
+    }
+    else {
+      // Sometimes we have a source field that contains a non-saved file.
+      $config = $source->getConfiguration();
+      if (!empty($config['source_field']) && $media->hasField($config['source_field'])) {
+        $entity = $media->get($config['source_field'])->entity;
+        if ($entity instanceof FileInterface) {
+          $file = $entity;
+        }
+      }
+    }
+    return $file;
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  public function getDefaultPreview(): ?array {
+    return NULL;
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  public function buildMediaOverrideForm(array $form, FormStateInterface $form_state, ?MediaInterface $media = NULL): array {
+    return $form;
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  public function massageMediaOverrideValues(array &$values, array $override_values, array $original_values, array $form, FormStateInterface $form_state): void {
+    $values += $override_values;
   }
 
 }
