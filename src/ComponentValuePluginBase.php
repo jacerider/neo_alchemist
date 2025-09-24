@@ -225,7 +225,7 @@ abstract class ComponentValuePluginBase extends PluginBase implements ComponentV
   /**
    * {@inheritdoc}
    */
-  public function massageValuesAlter(array &$values, $original_values, $form, $form_state): void {
+  public function massageValuesAlter(array &$values, array $submitted_values, array $original_values, array $form, FormStateInterface $form_state): void {
   }
 
   /**
