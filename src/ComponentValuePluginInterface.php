@@ -142,6 +142,8 @@ interface ComponentValuePluginInterface extends ConfigurableInterface, PluginFor
    *
    * @param array $values
    *   The form values.
+   * @param array $submitted_values
+   *   The values before they have been massaged by the widget.
    * @param array $original_values
    *   The original values.
    * @param array $form
@@ -149,7 +151,7 @@ interface ComponentValuePluginInterface extends ConfigurableInterface, PluginFor
    * @param \Drupal\Core\Form\FormStateInterface $form_state
    *   The parent form state.
    */
-  public function massageValuesAlter(array &$values, array $original_values, array $form, FormStateInterface $form_state): void;
+  public function massageValuesAlter(array &$values, array $submitted_values, array $original_values, array $form, FormStateInterface $form_state): void;
 
   /**
    * Allow the processing by setting the continue flag to FALSE.
