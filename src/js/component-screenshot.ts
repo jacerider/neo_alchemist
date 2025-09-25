@@ -15,10 +15,9 @@
       wrapper.style.minHeight = '440px';
       wrapper.style.overflow = 'hidden';
       wrapper.style.display = 'flex';
-      wrapper.style.alignItems = 'center';
+      wrapper.style.alignItems = 'start';
       wrapper.style.justifyContent = 'center';
       wrapper.style.padding = '0';
-      // wrapper.style.backgroundColor = '#f4f4f4';
       const components = this.document.querySelectorAll('[data-component-id]') as NodeListOf<HTMLElement>;
       components.forEach((el) => {
         el.style.margin = '0px';
@@ -38,7 +37,6 @@
           wrapper.style.alignItems = '';
           wrapper.style.justifyContent = '';
           wrapper.style.padding = '';
-          // wrapper.style.backgroundColor = '';
           components.forEach((el) => {
             el.style.margin = '';
             el.style.width = '';
