@@ -364,8 +364,10 @@
       }
 
       el.addEventListener('mousedown', handleDragStart);
+      let moved: boolean;
       function handleDragStart(e: MouseEvent): void {
         if (wrapper) {
+          moved = false;
           wrapper.style.userSelect = 'none';
           el.style.cursor = 'grabbing';
           startX = e.clientX;
@@ -379,9 +381,6 @@
               iframe.style.pointerEvents = 'none';
             }
           });
-          focusButtons.forEach((el) => {
-            el.classList.remove('is-active');
-          });
         }
       }
 
@@ -389,6 +388,7 @@
         if (wrapper) {
           const dx = e.clientX - startX;
           const dy = e.clientY - startY;
+          moved = true;
           wrapper.style.userSelect = '';
           wrapper.scrollLeft = scrollLeft - dx;
           wrapper.scrollTop = scrollTop - dy;
@@ -407,6 +407,11 @@
               iframe.style.pointerEvents = '';
             }
           });
+          if (moved) {
+            focusButtons.forEach((el) => {
+              el.classList.remove('is-active');
+            });
+          }
         }
       }
     }
