@@ -74,7 +74,7 @@ class ComponentManageHelper {
         '#title' => $label,
         '#url' => $instance->toUrl('collection'),
         '#attributes' => [
-          'class' => ['neo-alchemist--scale', 'btn', 'btn-xs', 'btn-outline'],
+          'class' => ['neo-alchemist--scale', 'btn', 'btn-xs', 'btn-outline', 'is-active:btn-primary'],
           'data-size' => $key,
         ],
       ];
@@ -98,7 +98,7 @@ class ComponentManageHelper {
         '#title' => $label,
         '#url' => $instance->toUrl('collection'),
         '#attributes' => [
-          'class' => ['neo-alchemist--focus', 'btn', 'btn-xs', 'btn-outline'],
+          'class' => ['neo-alchemist--focus', 'btn', 'btn-xs', 'btn-outline', 'is-active:btn-primary'],
           'data-size' => $key,
         ],
       ];
