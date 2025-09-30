@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Drupal\neo_alchemist\Plugin\ComponentSlot;
 
+use Drupal\Component\Utility\Html;
+use Drupal\Component\Utility\NestedArray;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\neo_alchemist\ComponentInterface;
 use Drupal\neo_alchemist\ComponentSlotPluginBase;
@@ -50,6 +52,8 @@ abstract class ViewsSlotBase extends ComponentSlotPluginBase {
    */
   protected function configurationForm(array $form, FormStateInterface $form_state, array &$complete_form): array {
     $form = parent::configurationForm($form, $form_state, $complete_form);
+    $wrapperId = Html::getId(implode('-', $form['#parents']) . '-' . $this->getPluginId());
+    $form['#id'] = $wrapperId;
 
     if ($options = $this->getOptions()) {
       $form['context'] = [
@@ -60,9 +64,21 @@ abstract class ViewsSlotBase extends ComponentSlotPluginBase {
         '#empty_option' => $this->t('- Select -'),
         '#default_value' => $this->configuration['context'],
         '#required' => TRUE,
+        '#ajax' => [
+          'callback' => [static::class, 'refreshAjax'],
+          'wrapper' => $wrapperId,
+        ],
       ];
     }
     return $form;
+  }
+
+  /**
+   * Ajax callback.
+   */
+  public static function refreshAjax(array $form, FormStateInterface $form_state) {
+    $trigger = $form_state->getTriggeringElement();
+    return NestedArray::getValue($form, array_slice($trigger['#array_parents'], 0, -1));
   }
 
   /**
