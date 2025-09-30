@@ -1624,7 +1624,7 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
    */
   public function getDefaultValue(): mixed {
     if (!isset($this->defaultValue)) {
-      $value = $this->getDefaultSchemaValue();
+      $value = $originalValue = $this->getDefaultSchemaValue();
       $instances = $this->getValueCollection()->getAllowedInstances('default');
       foreach ($instances as $instance) {
         $value = $instance->provideDefaultValue($value);
@@ -1643,6 +1643,9 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
         if (!$instance->shouldContinueProcessing()) {
           break;
         }
+      }
+      if (!$value && $this->isRequired()) {
+        $value = $originalValue;
       }
       $this->defaultValue = $value;
     }
