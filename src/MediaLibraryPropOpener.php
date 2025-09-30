@@ -42,9 +42,7 @@ final class MediaLibraryPropOpener extends MediaLibraryFieldWidgetOpener {
     // @see \Drupal\media_library\MediaLibraryState::fromRequest()
     // @see neo_alchemist_field_widget_single_element_media_library_widget_form_alter()
     assert($state->isValidHash($state->getHash()));
-    // Still, in case this URL is shared, still require that the current session
-    // is for a user that has sufficient permissions to use XB.
-    return AccessResult::allowedIfHasPermission($account, 'access administration pages');
+    return AccessResult::allowed();
   }
 
 }
