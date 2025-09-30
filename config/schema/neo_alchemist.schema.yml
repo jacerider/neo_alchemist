@@ -628,6 +628,11 @@ neo_alchemist.neo_component_slot.views_header:
     context:
       type: string
       label: Context
+    handlers:
+      type: sequence
+      label: handlers
+      sequence:
+        type: string
 
 neo_alchemist.neo_component_slot.views_exposed_filters:
   type: mapping
