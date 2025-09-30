@@ -735,7 +735,6 @@ class Component extends ConfigEntityBase implements ComponentInterface {
       $values = $values['_aggregate'] ?? [];
     }
     $values['attributes'] = $attributes;
-
     return $values;
   }
 
