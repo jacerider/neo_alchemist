@@ -997,7 +997,7 @@ class Component extends ConfigEntityBase implements ComponentInterface {
     else {
       /** @var \Drupal\neo_alchemist\ComponentInterface $original */
       $original = $this->original;
-      $currentSchema = Json::decode($this->get('schema'));
+      $currentSchema = Json::decode($this->get('schema')) ?? [];
       $currentRootShapes = $original->loadPropShapes($currentSchema);
       $currentShapes = $original->getPropShapesAll($currentRootShapes);
       ksort($currentShapes);
