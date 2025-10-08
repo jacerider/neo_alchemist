@@ -196,7 +196,7 @@ final class EntityFilter extends ComponentFilterPluginBase implements ContainerF
 
     if ($entityTypeId) {
       $target_entity_type = $entityTypes[$entityTypeId];
-      $bundlesIds = $this->configuration['bundles'];
+      $bundleIds = $this->configuration['bundles'];
       if ($target_entity_type->hasKey('bundle') && ($bundles = $this->entityTypeBundleInfo->getBundleInfo($entityTypeId))) {
         $options = array_map(
           fn ($bundle) => $bundle['label'],
@@ -209,7 +209,7 @@ final class EntityFilter extends ComponentFilterPluginBase implements ContainerF
           '#description' => $this->t('Scope this component to a specific %label type bundle.', [
             '%label' => $target_entity_type->getLabel(),
           ]),
-          '#default_value' => $bundlesIds,
+          '#default_value' => $bundleIds,
           '#options' => $options,
           '#empty_option' => $this->t('- All -'),
           '#required' => TRUE,
@@ -224,8 +224,8 @@ final class EntityFilter extends ComponentFilterPluginBase implements ContainerF
         '#target_type' => $entityTypeId,
         '#default_value' => $entityPreview,
       ];
-      if ($bundlesIds) {
-        $form['entity_preview']['#selection_settings']['target_bundles'] = $bundles;
+      if ($bundleIds) {
+        $form['entity_preview']['#selection_settings']['target_bundles'] = $bundleIds;
       }
     }
 
