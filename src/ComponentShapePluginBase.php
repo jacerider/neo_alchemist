@@ -552,8 +552,8 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
 
       $this->setFieldItemValue($overrideValue);
     }
-
     $this->initialized = TRUE;
+
     return $this;
   }
 
@@ -1675,6 +1675,11 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
    */
   protected function getFieldDefaultValue(): mixed {
     $value = [];
+    // If the field is not editable, we do not need to load the default
+    // value as it is redundant.
+    if (!$this->isEditable()) {
+      return $value;
+    }
     // Load default value from field if this is the root entity shape.
     if ($this->isRoot() && $this->getScope() === 'entity') {
       $component = $this->getComponent();
