@@ -56,21 +56,20 @@ class SchemeShape extends StyleShapeBase {
   /**
    * {@inheritDoc}
    */
-  public function getPropValue(Attribute $attributes): mixed {
-    $originalValue = parent::getPropValue($attributes);
-    $target_id = $originalValue['target_id'] ?? $originalValue;
-    $value = new ComponentShapeStyleAttribute([], $target_id);
+  protected function preRenderValue(mixed $value, Attribute $attributes): mixed {
+    $target_id = $value['target_id'] ?? $value;
+    $finalValue = new ComponentShapeStyleAttribute([], $target_id);
     if ($target_id && is_string($target_id)) {
       /** @var \Drupal\neo_color\SchemeInterface $scheme */
       $scheme = $this->entityTypeManager->getStorage('neo_scheme')->load($target_id);
       if ($scheme) {
-        $value->addClass($scheme->getSelector());
+        $finalValue->addClass($scheme->getSelector());
       }
     }
     if (array_key_exists('apply', $this->schema) && !empty($this->schema['apply'])) {
-      $attributes->merge($value);
+      $attributes->merge($finalValue);
     }
-    return $value;
+    return $finalValue;
   }
 
 }
