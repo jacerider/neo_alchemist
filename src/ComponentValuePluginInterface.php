@@ -20,6 +20,14 @@ interface ComponentValuePluginInterface extends ConfigurableInterface, PluginFor
   public function label(): string;
 
   /**
+   * Get the shape which owns this plugin.
+   *
+   * @return \Drupal\neo_alchemist\ComponentShapePluginInterface
+   *   The shape which owns this plugin.
+   */
+  public function getShape(): ComponentShapePluginInterface;
+
+  /**
    * Return the translated plugin group.
    */
   public function getGroup(): string;
