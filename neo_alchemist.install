@@ -1,0 +1,86 @@
+<?php
+
+/**
+ * @file
+ * Install, update, and uninstall functions for Neo Alchemist.
+ *
+ * @ingroup neo_alchemist
+ */
+
+/**
+ * Updates heading value plugin to use size instead of h1.
+ */
+function neo_alchemist_update_11001() {
+  // Update components.
+  /** @var \Drupal\neo_alchemist\ComponentInterface[] $components */
+  $components = \Drupal::entityTypeManager()->getStorage('neo_component')->loadMultiple();
+  foreach ($components as $component) {
+    $save = FALSE;
+    foreach ($component->getPropPluginInstances('heading') as $instance) {
+      $save = TRUE;
+      $headingSettings = $instance->getConfiguration();
+      $h1Edit = $headingSettings['h1_edit'] ?? NULL;
+      $h1Default = $headingSettings['h1_default'] ?? NULL;
+      $h1Value = $headingSettings['h1_value'] ?? NULL;
+      if (!is_null($h1Edit)) {
+        $headingSettings['size_edit'] = $h1Edit;
+      }
+      if (!is_null($h1Default)) {
+        $headingSettings['size_default'] = $h1Default;
+      }
+      if (!is_null($h1Value)) {
+        $headingSettings['size_value'] = 'xl';
+      }
+      unset($headingSettings['h1_edit'], $headingSettings['h1_default'], $headingSettings['h1_value']);
+      $instance->setConfiguration($headingSettings);
+      // Update the shape settings for the component.
+      $component->setPropShapeSettings($instance->getShape());
+    }
+    if ($save) {
+      $component->save();
+    }
+  }
+
+  // Update content.
+  /** @var \Drupal\Core\Entity\EntityFieldManagerInterface $neoFields */
+  $neoFields = \Drupal::service('entity_field.manager')->getFieldMapByFieldType('neo_component_tree');
+  foreach ($neoFields as $entityTypeId => $fields) {
+    $storage = \Drupal::entityTypeManager()->getStorage($entityTypeId);
+    foreach ($fields as $fieldName => $field) {
+      $query = $storage->getQuery();
+      $query->accessCheck(FALSE);
+      $query->condition($fieldName, NULL, 'IS NOT NULL');
+      $ids = $query->execute();
+      if (!$ids) {
+        continue;
+      }
+      $entities = $storage->loadMultiple($ids);
+      foreach ($entities as $entity) {
+        /** @var \Drupal\Core\Entity\FieldableEntityInterface $entity */
+        /** @var \Drupal\neo_alchemist\Plugin\Field\FieldType\ComponentTreeItem $item */
+        $item = $entity->get($fieldName)->first();
+        foreach ($item->getComponents() as $component) {
+          $save = FALSE;
+          foreach ($component->getPropShapesAll() as $shape) {
+            if ($shape->getName() === 'heading') {
+              $overrideValue = $shape->getOverrideValue();
+              if (isset($overrideValue['h1'])) {
+                $save = TRUE;
+                if ($overrideValue['h1']['value'] ?? FALSE === TRUE) {
+                  $overrideValue['size']['value'] = 'xl';
+                }
+                unset($overrideValue['h1']);
+                $shape->setOverrideValue($overrideValue);
+              }
+            }
+          }
+          if ($save) {
+            $component->getValues();
+            $item->updateComponent($component->uuid(), $component->getValues());
+            $entity->save();
+          }
+        }
+      }
+    }
+  }
+}
