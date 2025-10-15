@@ -54,6 +54,11 @@ class ArrayShape extends ChildrenShapeBase implements ComponentShapeInterablePlu
   public function getDefaultSchemaValue(): mixed {
     $examples = parent::getDefaultSchemaValue();
     if ($examples) {
+      foreach ($examples as &$example) {
+        if ($example === TRUE) {
+          $example = [];
+        }
+      }
       // Arrays can supply defaults on the array itself OR the property can
       // supply defaults. If the array supplies the defaults, we merge in
       // the property defaults.
@@ -176,7 +181,7 @@ class ArrayShape extends ChildrenShapeBase implements ComponentShapeInterablePlu
   /**
    * {@inheritDoc}
    */
-  protected function buildValue() {
+  protected function buildValue(): mixed {
     $values = parent::buildValue();
     $defaultValues = $this->getDefaultValue();
     foreach ($this->getChildShapeList($values) as $delta => $shapes) {
@@ -256,6 +261,7 @@ class ArrayShape extends ChildrenShapeBase implements ComponentShapeInterablePlu
     $count = count($shapeList);
     $max = $this->getMaxItems();
     $min = $this->getMinItems();
+    $itemLabel = $this->getSchema()['items']['title'] ?? $this->t('Item');
     if (!$form_state->get($id . '-count')) {
       $form_state->set($id . '-count', $count);
     }
@@ -285,30 +291,19 @@ class ArrayShape extends ChildrenShapeBase implements ComponentShapeInterablePlu
       foreach ($shapeList as $delta => $shapes) {
         /** @var \Drupal\neo_alchemist\ComponentShapePluginInterface[] $shapes */
         $form[$delta] = [
-          '#type' => 'container',
-          '#attributes' => [
-            'class' => ['border rounded p-form-item bg-base-50'],
-          ],
+          '#type' => 'details',
+          '#neo_size' => 'xs',
+          '#title' => $this->t('@label @delta', [
+            '@label' => $itemLabel,
+            '@delta' => $delta + 1,
+          ]),
         ];
         if ($min < $count) {
-          $form[$delta]['header'] = [
-            '#type' => 'container',
-            '#attributes' => [
-              'class' => ['flex flex-row items-center justify-between'],
-            ],
-          ];
-          $form[$delta]['header']['delta'] = [
-            '#type' => 'html_tag',
-            '#tag' => 'div',
-            '#attributes' => [
-              'class' => ['badge bg-base-700 text-base-700-content rounded text-base-content flex-none self-center px-2'],
-            ],
-            '#value' => $this->t('Item @delta', ['@delta' => $delta + 1]),
-          ];
-          $form[$delta]['header']['remove'] = [
+          $form[$delta]['remove'] = [
             '#type' => 'submit',
             '#name' => $id . '-remove-' . $delta,
             '#value' => $this->t('Remove'),
+            '#neo_region' => 'legend_end',
             '#description' => $this->t('Remove this item.'),
             '#widget_parents' => array_merge($form['#parents'], [$delta]),
             '#submit' => [[get_class($this), 'removeItemSubmit']],
@@ -327,6 +322,7 @@ class ArrayShape extends ChildrenShapeBase implements ComponentShapeInterablePlu
         foreach ($shapes as $shape) {
           $form[$delta][$shape->getName()] = [
             '#parents' => array_merge($form['#parents'], [$delta]),
+            '#neo_size' => 'xs',
           ];
           $subform_state = SubformState::createForSubform($form[$delta][$shape->getName()], $form, $form_state);
           $form[$delta][$shape->getName()] = $shape->getForm($form[$delta][$shape->getName()], $subform_state);
@@ -340,7 +336,10 @@ class ArrayShape extends ChildrenShapeBase implements ComponentShapeInterablePlu
     if (!$max || $count < $max) {
       $form['add'] = [
         '#type' => 'submit',
-        '#value' => $this->t('Add'),
+        '#value' => $this->t('Add @label', [
+          '@label' => $itemLabel,
+        ]),
+        '#neo_size' => 'xs',
         '#submit' => [[get_class($this), 'addMoreSubmit']],
         '#limit_validation_errors' => [],
         '#parents' => array_merge(['shape_add'], $parents),
@@ -458,7 +457,7 @@ class ArrayShape extends ChildrenShapeBase implements ComponentShapeInterablePlu
     $button = $form_state->getTriggeringElement();
 
     // Go one level up in the form, to the widgets container.
-    $element = NestedArray::getValue($form, array_slice($button['#array_parents'], 0, -3));
+    $element = NestedArray::getValue($form, array_slice($button['#array_parents'], 0, -2));
     return $element;
   }
 
