@@ -52,9 +52,9 @@ final class HeadingValue extends ComponentValuePluginBase implements ContainerFa
       'subtitle_empty' => FALSE,
       'subtitle_page' => FALSE,
       'subtitle_value' => NULL,
-      'h1_edit' => TRUE,
-      'h1_default' => FALSE,
-      'h1_value' => FALSE,
+      'size_edit' => TRUE,
+      'size_default' => FALSE,
+      'size_value' => '',
     ];
   }
 
@@ -81,7 +81,7 @@ final class HeadingValue extends ComponentValuePluginBase implements ContainerFa
       'supertitle' => $this->t('Supertitle'),
       'title' => $this->t('Title'),
       'subtitle' => $this->t('Subtitle'),
-      'h1' => $this->t('H1'),
+      'size' => $this->t('Size'),
     ] as $key => $label) {
       $form["{$key}"] = [
         '#type' => 'fieldset',
@@ -136,17 +136,41 @@ final class HeadingValue extends ComponentValuePluginBase implements ContainerFa
         ];
       }
       if (isset($this->configuration["{$key}_value"]) || is_null($this->configuration["{$key}_value"])) {
-        $form["{$key}"]["value"] = [
-          '#type' => $key === 'h1' ? 'checkbox' : 'textfield',
-          '#title' => $key === 'h1' ? $this->t('Show as H1') : $this->t('Value'),
-          '#default_value' => $this->configuration["{$key}_value"] ?? $childShapes[$key]->getDefaultValue(),
-          '#description' => $this->t('The default value for the @label.', ['@label' => $label]),
-          '#access' => empty($this->configuration["{$key}_page"]),
-        ];
+        if ($key === 'size') {
+          $form["{$key}"]["value"] = [
+            '#type' => 'select',
+            '#title' => $this->t('Value'),
+            '#default_value' => $this->configuration["{$key}_value"] ?? $childShapes[$key]->getDefaultValue(),
+            '#description' => $this->t('The default value for the @label.', ['@label' => $label]),
+            '#options' => ['' => $this->t('- Default -')] + $this->getSizeOptions(),
+          ];
+        }
+        else {
+          $form["{$key}"]["value"] = [
+            '#type' => 'textfield',
+            '#title' => $this->t('Value'),
+            '#default_value' => $this->configuration["{$key}_value"] ?? $childShapes[$key]->getDefaultValue(),
+            '#description' => $this->t('The default value for the @label.', ['@label' => $label]),
+            '#access' => empty($this->configuration["{$key}_page"]),
+          ];
+        }
       }
     }
 
     return $form;
+  }
+
+  /**
+   * Get size options.
+   */
+  protected function getSizeOptions(): array {
+    $shape = $this->shape;
+    if (!$shape instanceof ObjectShape) {
+      return [];
+    }
+    /** @var \Drupal\neo_alchemist\Plugin\ComponentShape\StyleShape $sizeShape */
+    $sizeShape = $shape->getChildShapes()['size'];
+    return $sizeShape->getFieldOptions();
   }
 
   /**
@@ -208,12 +232,12 @@ final class HeadingValue extends ComponentValuePluginBase implements ContainerFa
         $shape->setNestedOptionAccess($field);
       }
     }
-    if ($this->configuration['h1_default']) {
-      $shape->setNestedOptionDefault('h1');
+    if ($this->configuration['size_default']) {
+      $shape->setNestedOptionDefault('size');
     }
-    if (!$this->configuration['h1_edit']) {
-      $shape->setNestedOptionDefault('h1');
-      $shape->setNestedOptionAccess('h1');
+    if (!$this->configuration['size_edit']) {
+      $shape->setNestedOptionDefault('size');
+      $shape->setNestedOptionAccess('size');
     }
   }
 
@@ -229,8 +253,9 @@ final class HeadingValue extends ComponentValuePluginBase implements ContainerFa
         $value[$field] = $this->configuration["{$field}_value"] ?? NULL;
       }
     }
-    $value['h1'] = !empty($this->configuration['h1_value']);
-
+    if ($this->configuration['size_value']) {
+      $value['size'] = $this->configuration['size_value'];
+    }
     $this->stopFurtherProcessing();
     return $value;
   }
