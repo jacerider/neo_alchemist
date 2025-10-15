@@ -31,7 +31,7 @@ class BooleanShape extends ComponentShapePluginBase {
   /**
    * {@inheritDoc}
    */
-  public function buildValue(): bool {
+  protected function buildValue(): mixed {
     return (bool) parent::buildValue();
   }
 
