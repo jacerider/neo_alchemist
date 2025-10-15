@@ -46,7 +46,7 @@ final class ComponentListBuilder extends ConfigEntityListBuilder {
           ],
           'description' => [
             '#markup' => '<div class="text-xs">' . $definition['description'] . '</div>',
-          ]
+          ],
         ];
         $tables[$id]['#rows'] = $groups[$id];
       }
