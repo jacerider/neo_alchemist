@@ -3,6 +3,7 @@ heading:
   type: object
   required:
     - title
+    - size
   properties:
     supertitle:
       title: Supertitle
@@ -13,11 +14,10 @@ heading:
     subtitle:
       title: Subtitle
       type: string
-    h1:
-      title: Show as page title
-      description: If checked, the component will be treated as an H1. It is recommended to only do this for the first component on a page.
-      type: boolean
-      examples: 0
+    size:
+      title: Size
+      type: heading_size
+      apply: false
   examples:
     supertitle: Example supertitle
     title: Example title
@@ -26,10 +26,10 @@ heading:
   twig:
     prefix: '{% if %name% %}'
     content:
-      - '<div>'
-      - '  {% if %name%.supertitle %}<div class="{% if %name%.h1 %}page-supertitle{% else %}component-supertitle{% endif %}">{{ %name%.supertitle }}</div>{% endif %}'
-      - '  <h2 class="{% if %name%.h1 %}page-title{% else %}component-title{% endif %}">{{ %name%.title }}</h2>'
-      - '  {% if %name%.subtitle %}<div class="{% if %name%.h1 %}page-subtitle{% else %}component-subtitle{% endif %}">{{ %name%.subtitle }}</div>{% endif %}'
+      - '<div{{ %name%.size }}>'
+      - '  {% if %name%.supertitle %}<div class="component-supertitle">{{ %name%.supertitle }}</div>{% endif %}'
+      - '  <h2 class="component-title">{{ %name%.title }}</h2>'
+      - '  {% if %name%.subtitle %}<div class="component-subtitle">{{ %name%.subtitle }}</div>{% endif %}'
       - '</div>'
     suffix: '{% endif %}'
 
@@ -461,3 +461,100 @@ text_align:
     right:
       label: Right
       value: text-right
+
+heading_size:
+  title: Heading Size
+  description: The size of the heading.
+  type: style
+  examples: md
+  styles:
+    xs:
+      label: Extra Small
+      value: title-xs
+    sm:
+      label: Small
+      value: title-sm
+    md:
+      label: Medium (recommended for component title)
+      value: title-md
+    lg:
+      label: Large
+      value: title-lg
+    xl:
+      label: XL (recommended for page title)
+      value: title-page title-xl
+    2xl:
+      label: 2XL
+      value: title-page title-2xl
+    3xl:
+      label: 3XL
+      value: title-page title-3xl
+
+button_style:
+  title: Button Style
+  description: The style of the button.
+  type: style
+  styles:
+    base:
+      label: 'Base: Solid'
+      value: btn
+    outline:
+      label: 'Base: Outline'
+      value: btn btn-outline
+    text:
+      label: 'Base: Text'
+      value: btn btn-text
+    primary:
+      label: 'Primary: Solid'
+      value: btn btn-primary
+    primary_outline:
+      label: 'Primary: Outline'
+      value: btn btn-outline-primary
+    primary_text:
+      label: 'Primary: Outline'
+      value: btn btn-text-primary
+    secondary:
+      label: 'Secondary: Solid'
+      value: btn btn-secondary
+    secondary_outline:
+      label: 'Secondary: Outline'
+      value: btn btn-outline-secondary
+    secondary_text:
+      label: 'Secondary: Outline'
+      value: btn btn-text-secondary
+    accent:
+      label: 'Accent: Solid'
+      value: btn btn-accent
+    accent_outline:
+      label: 'Accent: Outline'
+      value: btn btn-outline-accent
+    accent_text:
+      label: 'Accent: Outline'
+      value: btn btn-text-accent
+
+button_size:
+  title: Button Size
+  description: The size of the button.
+  type: style
+  styles:
+    xs:
+      label: Extra Small
+      value: 'btn-xs'
+    sm:
+      label: Small
+      value: 'btn-sm'
+    md:
+      label: Medium
+      value: ''
+    lg:
+      label: Large
+      value: 'btn-lg'
+    xl:
+      label: XL
+      value: 'btn-xl'
+    2xl:
+      label: 2XL
+      value: btn-2xl
+    3xl:
+      label: 3XL
+      value: btn-3xl
