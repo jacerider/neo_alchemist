@@ -840,6 +840,28 @@ interface ComponentShapePluginInterface extends PluginInspectionInterface, Deriv
   public function getFieldItem(): FieldItemInterface;
 
   /**
+   * Checks if the component shape is about to be rendered.
+   *
+   * This is using the renderAttributes property on the root shape to determine
+   * if the component shape is about to be rendered.
+   *
+   * @return bool
+   *   TRUE if the component shape is about to be rendered, FALSE otherwise.
+   */
+  public function isRendering(): bool;
+
+  /**
+   * Get the attributes that will be applied to the component wrapper.
+   *
+   * This will only be available when the component is being rendered.
+   *
+   * @return \Drupal\Core\Template\Attribute|null
+   *   The attributes that will be applied to the component wrapper, or NULL if
+   *   not rendering.
+   */
+  public function getRenderAttributes(): ?Attribute;
+
+  /**
    * Get the prop value that will be sent to the component for rendering.
    *
    * This differs from getValue() in that modifications can be done here that
