@@ -342,6 +342,13 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
   protected bool $optionDefaultInitAccess = TRUE;
 
   /**
+   * The component attributes used when rendering the value.
+   *
+   * @var \Drupal\Core\Template\Attribute|null
+   */
+  protected ?Attribute $renderAttributes = NULL;
+
+  /**
    * The cacheable metadata.
    *
    * @var \Drupal\Core\Cache\CacheableMetadata
@@ -510,7 +517,7 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
     // Overlay the field/entity value.
     // We first check if the parent value is set. This value comes from
     // parents that are injecting values into their children.
-    $overrideValue = $parentValue = $this->getParentValue();
+    $overrideValue = $this->getParentValue();
     if (is_null($overrideValue)) {
       // If we have no override value from a parent, we check for an override
       // value that may have been set directly on this shape. This typically
@@ -1540,8 +1547,25 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
   /**
    * {@inheritDoc}
    */
+  public function isRendering(): bool {
+    return $this->getRootShape()->renderAttributes !== NULL;
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  public function getRenderAttributes(): ?Attribute {
+    return $this->getRootShape()->renderAttributes;
+  }
+
+  /**
+   * {@inheritDoc}
+   */
   public function getPropValue(Attribute $attributes): mixed {
-    return $this->getValue();
+    $this->renderAttributes = $attributes;
+    $value = $this->getValue();
+    $this->renderAttributes = NULL;
+    return $value;
   }
 
   /**
@@ -1553,7 +1577,28 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
     if ($this->getOptionEmpty()->isEnabled()) {
       return [];
     }
-    return $this->buildValue();
+    $value = $this->buildValue();
+    if ($this->isRendering()) {
+      $value = $this->preRenderValue($value, $this->getRenderAttributes());
+    }
+    return $value;
+  }
+
+  /**
+   * Prepares the value before rendering.
+   *
+   * This method can be overridden in subclasses to modify the value
+   * before it is rendered. By default, it returns the value unchanged.
+   *
+   * The returned value must pass validation against the schema.
+   *
+   * @param mixed $value
+   *   The value to be prepared.
+   * @param \Drupal\Core\Template\Attribute $attributes
+   *   The attributes that belong to the rendering component.
+   */
+  protected function preRenderValue(mixed $value, Attribute $attributes): mixed {
+    return $value;
   }
 
   /**
@@ -1562,7 +1607,7 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
    * @return mixed
    *   The built value.
    */
-  protected function buildValue() {
+  protected function buildValue(): mixed {
     if ($this->getOptionDefault()->isEnabled()) {
       $value = $this->getDefaultFieldItemValue();
     }
@@ -1965,7 +2010,7 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
     $form['_options'] = [
       '#type' => 'container',
       '#weight' => !empty($form['#title']) ? -10 : 0,
-      '#neo_fieldset_region' => 'legend_end',
+      '#neo_region' => 'legend_end',
       '#access' => FALSE,
       '#attributes' => [
         'class' => [
