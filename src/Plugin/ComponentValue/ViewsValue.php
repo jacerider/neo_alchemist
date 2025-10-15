@@ -401,7 +401,8 @@ final class ViewsValue extends ComponentValuePluginBase implements ContainerFact
         $entities[] = $entity;
       }
 
-      if (!empty($this->configuration['view_arguments_sort']) && isset($args) && !empty($args[0])) {
+      $args = $view->args;
+      if (!empty($this->configuration['view_arguments_sort']) && !empty($args[0])) {
         $ids = explode('+', $args[0]);
         if (count($ids) > 1) {
           $orderedEntities = [];
