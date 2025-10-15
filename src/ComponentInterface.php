@@ -477,6 +477,23 @@ interface ComponentInterface extends ConfigEntityInterface, RenderableInterface,
   public function getPropShapesAll(?array $shapes = NULL, ?bool $includeDeltas = FALSE): array;
 
   /**
+   * Retrieves all instances of a specific prop plugin used in the component.
+   *
+   * This method searches through all property shapes of the component to find
+   * instances of a specified prop plugin. It collects and returns these
+   * instances in an associative array, where the keys are the instance IDs and
+   * the values are the corresponding plugin instances.
+   *
+   * @param string $pluginId
+   *   The ID of the prop plugin to search for.
+   *
+   * @return \Drupal\neo_alchemist\ComponentValuePluginInterface[]
+   *   An associative array of prop plugin instances, with instance IDs as keys
+   *   and plugin instances as values.
+   */
+  public function getPropPluginInstances(string $pluginId): array;
+
+  /**
    * Sets a context value for a specific prop shape type and shape.
    *
    * @param string $type
