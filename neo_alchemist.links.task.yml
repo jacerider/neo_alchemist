@@ -1,2 +1,13 @@
 entity.neo_component_tasks:
   deriver: Drupal\neo_alchemist\Plugin\Derivative\ComponentTasksDeriver
+
+entity.neo_component.collection:
+  title: 'Components'
+  route_name: entity.neo_component.collection
+  base_route: entity.neo_component.collection
+  weight: -10
+
+neo_alchemist.component_style_settings:
+  title: 'Style Settings'
+  route_name: neo_alchemist.component_style_settings
+  base_route: entity.neo_component.collection
