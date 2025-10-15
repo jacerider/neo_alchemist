@@ -161,6 +161,13 @@ class ComponentTreeItem extends FieldItemBase implements RenderableInterface {
   /**
    * {@inheritdoc}
    */
+  public static function mainPropertyName() {
+    return 'tree';
+  }
+
+  /**
+   * {@inheritdoc}
+   */
   public static function propertyDefinitions(FieldStorageDefinitionInterface $field_definition) {
     $properties['tree'] = DataDefinition::create('neo_component_tree_structure')
       ->setLabel(new TranslatableMarkup('A component tree without props values.'))
