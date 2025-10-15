@@ -25,7 +25,7 @@ class NumberShape extends ComponentShapePluginBase {
   /**
    * {@inheritDoc}
    */
-  public function buildValue(): float {
+  protected function buildValue(): mixed {
     return (float) parent::buildValue();
   }
 
