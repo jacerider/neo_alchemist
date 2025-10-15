@@ -98,7 +98,7 @@ trait ComponentValueChildrenMatchTrait {
       '#type' => 'fieldset',
       '#neo_size' => 'sm',
       '#title' => $shape->getTitle(),
-      '#neo_fieldset_region' => [
+      '#neo_region' => [
         'legend_end' => [
           '#markup' => '<div class="text-xs text-base-400">' . $this->t('Type: %type', [
             '%type' => $shape->getType(),
