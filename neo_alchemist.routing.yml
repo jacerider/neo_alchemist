@@ -116,3 +116,11 @@ entity.neo_component.delete_form:
     _title: 'Delete a component'
   requirements:
     _permission: 'administer neo_alchemist'
+
+neo_alchemist.component_style_settings:
+  path: '/admin/config/neo/alchemist/styles'
+  defaults:
+    _title: 'Component style settings'
+    _form: 'Drupal\neo_alchemist\Form\ComponentStyleSettingsForm'
+  requirements:
+    _permission: 'administer neo_alchemist'
