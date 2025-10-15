@@ -204,6 +204,7 @@ final class InstanceComponentForm extends ContentEntityForm {
       '#type' => 'accordion',
       '#title' => $this->icon('Styles', 'palette'),
       '#access' => FALSE,
+      '#neo_size' => 'xs',
     ];
 
     $form['filters'] = [
@@ -328,7 +329,7 @@ final class InstanceComponentForm extends ContentEntityForm {
         $shape->validateForm($form['values'][$propName], $subform_state, $value);
         $values['props'][$propName]['shape'] = $shape->getPluginId();
         $values['props'][$propName]['value'] = $shape->massageFormValues($value, $originalValue, $form['values'][$propName], $subform_state);
-        if (!$shape->isIterable()) {
+        if (!$shape->isIterable() && !empty($values['props'][$propName]['value'])) {
           $values['props'][$propName]['value'] += $originalValue;
         }
         $values['props'][$propName]['options'] = $shape->getNestedOptions();
