@@ -33,7 +33,7 @@ class StringShape extends ComponentShapePluginBase {
   /**
    * {@inheritDoc}
    */
-  public function buildValue() {
+  protected function buildValue(): mixed {
     $value = parent::buildValue();
     if (is_string($value) && $value !== strip_tags($value)) {
       $value = Markup::create($value);
