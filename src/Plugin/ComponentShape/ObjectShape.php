@@ -75,7 +75,7 @@ class ObjectShape extends ChildrenShapeBase implements ComponentShapeExpandedPlu
   /**
    * {@inheritDoc}
    */
-  protected function buildValue() {
+  protected function buildValue(): mixed {
     $value = parent::buildValue();
     if (empty($value) && !$this->allowExpanded()) {
       // When the parent value is empty and this shape cannot be expanded,
