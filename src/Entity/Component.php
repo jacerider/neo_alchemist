@@ -802,6 +802,24 @@ class Component extends ConfigEntityBase implements ComponentInterface {
   /**
    * {@inheritdoc}
    */
+  public function getPropPluginInstances(string $pluginId): array {
+    $shapes = [];
+    foreach ($this->getPropShapesAll() as $shape) {
+      foreach ($shape->getAllShapes(TRUE) as $childShape) {
+        $collection = $childShape->getValueCollection();
+        foreach ($collection->getInstances() as $instanceId => $instance) {
+          if ($collection->getStatus($instanceId) && $instance->getPluginId() === 'heading') {
+            $shapes[$childShape->id()] = $instance;
+          }
+        }
+      }
+    }
+    return $shapes;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
   public function setPropShapeContext(string $type, ComponentShapePluginInterface $shape, mixed $value): self {
     $this->propShapeContexts[$type][$shape->id()] = [
       'shape' => $shape,
