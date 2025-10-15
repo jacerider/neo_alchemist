@@ -143,7 +143,7 @@ final class ComponentFilterForm extends EntityForm {
         '#type' => 'checkbox',
         '#title' => $this->t('Empty'),
         '#description' => $this->t('Do not provide a default value of @label', ['@label' => $this->filter->label()]),
-        '#neo_fieldset_region' => 'legend_end',
+        '#neo_region' => 'legend_end',
         '#wrapper_attributes' => [
           'class' => ['!m-0'],
         ],
