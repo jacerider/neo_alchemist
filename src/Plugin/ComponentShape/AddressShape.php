@@ -23,7 +23,7 @@ class AddressShape extends ComponentShapePluginBase {
   /**
    * {@inheritDoc}
    */
-  public function buildValue(): array {
+  protected function buildValue(): mixed {
     // Null values are converted to empty strings for JSON Schema compliance.
     return array_map(function ($item) {
       return $item ? (string) $item : '';
