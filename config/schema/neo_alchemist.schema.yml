@@ -198,15 +198,15 @@ neo_alchemist.neo_component_value.heading:
     subtitle_value:
       type: string
       label: Subtitle default value
-    h1_edit:
+    size_edit:
       type: boolean
-      label: H1 edit
-    h1_default:
+      label: Size edit
+    size_default:
       type: boolean
-      label: H1 default
-    h1_value:
-      type: boolean
-      label: H1 default value
+      label: Size default
+    size_value:
+      type: string
+      label: Size default value
 
 neo_alchemist.neo_component_value.breadcrumb:
   type: mapping
@@ -791,3 +791,25 @@ field.field_settings.neo_component_tree:
                       label: Value
                     options:
                       type: neo_alchemist.neo_component_options
+
+# Style Settings
+# Schema for the configuration files of the Neo | Alchemist module.
+neo_alchemist.style_settings:
+  type: config_object
+  label: 'Neo | Alchemist settings'
+  mapping:
+    styles:
+      type: sequence
+      label: 'Styles'
+      sequence:
+        type: mapping
+        label: Style
+        mapping:
+          mode:
+            type: string
+            label: Mode
+          values:
+            type: sequence
+            label: Values
+            sequence:
+              type: string
