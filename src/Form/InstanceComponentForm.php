@@ -211,6 +211,7 @@ final class InstanceComponentForm extends ContentEntityForm {
       '#type' => 'accordion',
       '#title' => $this->icon('Filters', 'filter'),
       '#access' => FALSE,
+      '#neo_size' => 'xs',
     ];
 
     $form['values'] = [
