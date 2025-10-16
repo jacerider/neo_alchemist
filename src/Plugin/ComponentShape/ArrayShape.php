@@ -54,9 +54,11 @@ class ArrayShape extends ChildrenShapeBase implements ComponentShapeInterablePlu
   public function getDefaultSchemaValue(): mixed {
     $examples = parent::getDefaultSchemaValue();
     if ($examples) {
-      foreach ($examples as &$example) {
-        if ($example === TRUE) {
-          $example = [];
+      foreach ($examples as $delta => $exampleValue) {
+        // If true is the example, we convert it to an empty array so that it
+        // will be converted to an item with properties.
+        if ($exampleValue === TRUE) {
+          $examples[$delta] = [];
         }
       }
       // Arrays can supply defaults on the array itself OR the property can
@@ -183,17 +185,25 @@ class ArrayShape extends ChildrenShapeBase implements ComponentShapeInterablePlu
    */
   protected function buildValue(): mixed {
     $values = parent::buildValue();
-    $defaultValues = $this->getDefaultValue();
     foreach ($this->getChildShapeList($values) as $delta => $shapes) {
       /** @var \Drupal\neo_alchemist\ComponentShapePluginInterface[] $shapes */
       foreach ($shapes as $shapeName => $shape) {
-        $values[$delta][$shapeName] = $shape->getValue();
-        if (isset($values[$delta][$shapeName]) && empty($values[$delta][$shapeName]) && is_array($values[$delta][$shapeName]) && !$shape->isRequired()) {
+        if (!isset($values[$delta][$shapeName]) && !$shape->isRequired()) {
+          // No value was provided and the shape is not required so we skip it.
+          continue;
+        }
+        if (
+          isset($values[$delta][$shapeName]) &&
+          empty($values[$delta][$shapeName]) &&
+          is_array($values[$delta][$shapeName]) &&
+          !$shape->isRequired()
+        ) {
           // The provided value is an empty array. This means we don't want this
           // value.
           unset($values[$delta][$shapeName]);
           continue;
         }
+        $values[$delta][$shapeName] = $shape->getValue();
         if (empty($values[$delta][$shapeName])) {
           if ($shape->isRequired()) {
             // Required value cannot be empty. If allowed to continue, the
@@ -201,22 +211,6 @@ class ArrayShape extends ChildrenShapeBase implements ComponentShapeInterablePlu
             // it passes validation.
             unset($values[$delta]);
             continue 2;
-          }
-          if ($shape->getOptionDefault()->isEnabled()) {
-            // If the default option is enabled, we use the default value on
-            // the shape otherwise use the default option on the child shape.
-            // @todo This may have issues.
-            $defaultValue = $shape->getDefaultValue();
-            $values[$delta][$shapeName] = $defaultValues[$delta][$shapeName] ?? $defaultValue;
-            if (is_array($values[$delta][$shapeName]) && is_array($defaultValue)) {
-              // This was added when using default on a link. The 'options'
-              // property was not being set.
-              $values[$delta][$shapeName] += $defaultValue;
-            }
-          }
-          else {
-            // Do not include empty values or values that are set to empty.
-            unset($values[$delta][$shapeName]);
           }
         }
         elseif ($this->isSingleProp()) {
