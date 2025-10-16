@@ -168,13 +168,25 @@ link:
     options:
       title: 'Options'
       type: object
+    icon:
+      title: 'Icon'
+      type: string
+    target:
+      title: 'Target'
+      type: string
+      enum:
+        - _self
+        - _blank
+    access:
+      title: 'Access'
+      type: boolean
   examples:
     uri: internal:/
     title: Example title
   twig:
-    prefix: '{% if %name% %}'
+    prefix: '{% if %name% and %name%.access %}'
     content:
-      - '<a class="btn" href="{{ neo_uri(%name%.uri, %name%.options) }}">'
+      - '<a class="btn" href="{{ neo_uri(%name%.uri, %name%.options) }}" target="{{ %name%.target }}">'
       - '  {{ %name%.title }}'
       - '</a>'
     suffix: '{% endif %}'
@@ -198,14 +210,17 @@ url:
       enum:
         - _self
         - _blank
+    access:
+      title: 'Access'
+      type: boolean
   examples:
     uri: internal:/
     title: Example title
     target: _self
   twig:
-    prefix: '{% if %name% %}'
+    prefix: '{% if %name% and %name%.access %}'
     content:
-      - '<a class="btn" href="{{ neo_uri(%name%.uri, %name%.options) }}">'
+      - '<a class="btn" href="{{ neo_uri(%name%.uri, %name%.options) }}" target="{{ %name%.target }}">'
       - '  Example content'
       - '</a>'
     suffix: '{% endif %}'
@@ -511,7 +526,7 @@ button_style:
       label: 'Primary: Outline'
       value: btn btn-outline-primary
     primary_text:
-      label: 'Primary: Outline'
+      label: 'Primary: Text'
       value: btn btn-text-primary
     secondary:
       label: 'Secondary: Solid'
@@ -520,7 +535,7 @@ button_style:
       label: 'Secondary: Outline'
       value: btn btn-outline-secondary
     secondary_text:
-      label: 'Secondary: Outline'
+      label: 'Secondary: Text'
       value: btn btn-text-secondary
     accent:
       label: 'Accent: Solid'
@@ -529,7 +544,7 @@ button_style:
       label: 'Accent: Outline'
       value: btn btn-outline-accent
     accent_text:
-      label: 'Accent: Outline'
+      label: 'Accent: Text'
       value: btn btn-text-accent
 
 button_size:
