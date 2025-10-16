@@ -11,8 +11,10 @@
 * Updates heading value plugin to use size instead of h1.
 */
 function neo_alchemist_update_11001() {
+  // If config split dev is enabled, allow editing of everything.
+  $status = \Drupal::config('config_split.config_split.dev')->get('status');
   // Update components.
-  if (!defined('PANTHEON_ENVIRONMENT')) {
+  if ($status) {
     /** @var \Drupal\neo_alchemist\ComponentInterface[] $components */
     $components = \Drupal::entityTypeManager()->getStorage('neo_component')->loadMultiple();
     foreach ($components as $component) {
