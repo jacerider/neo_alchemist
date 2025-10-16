@@ -28,8 +28,6 @@ class ComponentPluginManager extends ThemeComponentPluginManager {
 
   /**
    * {@inheritdoc}
-   *
-   * @phpstan-ignore-next-line
    */
   public function __construct(
     ModuleHandlerInterface $module_handler,
@@ -56,7 +54,6 @@ class ComponentPluginManager extends ThemeComponentPluginManager {
 
     // Do not auto-create/update XB configuration when syncing config/deploying.
     // @todo Introduce a "XB development mode" similar to Twig's: https://www.drupal.org/node/3359728
-    // @phpstan-ignore-next-line
     if (\Drupal::isConfigSyncing()) {
       return $definitions;
     }
