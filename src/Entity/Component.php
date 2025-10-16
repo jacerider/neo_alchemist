@@ -716,6 +716,10 @@ class Component extends ConfigEntityBase implements ComponentInterface {
         // Skip inactive shapes.
         continue;
       }
+
+      // Always add the shape cacheable metadata to the component.
+      $cacheableMetadata->addCacheableDependency($shape->getCacheableMetadata());
+
       // We call getPropValue() instead of getValue() so that shapes have
       // the opportunity to modify the value before it is returned in a way
       // that may not be compatible with the field item but is still valid
@@ -729,7 +733,6 @@ class Component extends ConfigEntityBase implements ComponentInterface {
         continue;
       }
       $values[$shapeId] = $value;
-      $cacheableMetadata->addCacheableDependency($shape->getCacheableMetadata());
     }
     if ($this->isAggregate()) {
       $values = $values['_aggregate'] ?? [];
@@ -902,7 +905,7 @@ class Component extends ConfigEntityBase implements ComponentInterface {
   /**
    * {@inheritdoc}
    */
-  public function getFilters(): array {
+  public function getFilters(string $pluginId = NULL): array {
     if (!isset($this->filters)) {
       $this->filters = [];
       if (!empty($this->settings['filters'])) {
@@ -917,6 +920,9 @@ class Component extends ConfigEntityBase implements ComponentInterface {
           }
         }
       }
+    }
+    if ($pluginId) {
+      return array_filter($this->filters, fn ($filter) => $filter->getPluginId() === $pluginId);
     }
     return $this->filters;
   }
@@ -1071,14 +1077,14 @@ class Component extends ConfigEntityBase implements ComponentInterface {
         }
         foreach ($currentPlugins as $id => $plugins) {
           foreach ($plugins as $pluginType => $plugin) {
-            if (!isset($newPlugins[$id][$pluginType])) {
+            if (isset($currentShapes[$id]) && !isset($newPlugins[$id][$pluginType])) {
               $currentShapes[$id]->onPluginRemove($pluginType);
             }
           }
         }
         foreach ($newPlugins as $id => $plugins) {
           foreach ($plugins as $pluginType => $plugin) {
-            if (!isset($currentPlugins[$id][$pluginType])) {
+            if (isset($newShapes[$id]) && !isset($currentPlugins[$id][$pluginType])) {
               $newShapes[$id]->onPluginAdd($pluginType);
             }
           }
