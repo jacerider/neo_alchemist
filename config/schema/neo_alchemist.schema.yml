@@ -340,6 +340,9 @@ neo_alchemist.neo_component_value.entity_query:
     length:
       type: integer
       label: The maximum number of results
+    length_filter:
+      type: string
+      label: The filter that controls the maximum number of results
     paging:
       type: boolean
       label: Enable paging
