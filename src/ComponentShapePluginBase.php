@@ -1585,23 +1585,6 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
   }
 
   /**
-   * Prepares the value before rendering.
-   *
-   * This method can be overridden in subclasses to modify the value
-   * before it is rendered. By default, it returns the value unchanged.
-   *
-   * The returned value must pass validation against the schema.
-   *
-   * @param mixed $value
-   *   The value to be prepared.
-   * @param \Drupal\Core\Template\Attribute $attributes
-   *   The attributes that belong to the rendering component.
-   */
-  protected function preRenderValue(mixed $value, Attribute $attributes): mixed {
-    return $value;
-  }
-
-  /**
    * Builds the value for the component shape.
    *
    * @return mixed
@@ -1631,6 +1614,23 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
         break;
       }
     }
+    return $value;
+  }
+
+  /**
+   * Prepares the value before rendering.
+   *
+   * This method can be overridden in subclasses to modify the value
+   * before it is rendered. By default, it returns the value unchanged.
+   *
+   * The returned value must pass validation against the schema.
+   *
+   * @param mixed $value
+   *   The value to be prepared.
+   * @param \Drupal\Core\Template\Attribute $attributes
+   *   The attributes that belong to the rendering component.
+   */
+  protected function preRenderValue(mixed $value, Attribute $attributes): mixed {
     return $value;
   }
 
