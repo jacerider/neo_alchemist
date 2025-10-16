@@ -141,6 +141,7 @@ final class EntityQueryValue extends ComponentValuePluginBase implements Contain
       'filter_parent' => '',
       'start' => 0,
       'length' => 10,
+      'length_filter' => '',
       'paging' => FALSE,
       'continue' => FALSE,
     ] + $this->childrenMatchDefaultConfiguration();
@@ -299,6 +300,20 @@ final class EntityQueryValue extends ComponentValuePluginBase implements Contain
           '#step' => 1,
         ];
 
+        $numberFilters = $this->getShape()->getComponent()->getFilters('number');
+        if ($numberFilters) {
+          $options = array_map(fn($filter) => $filter->label(), $numberFilters);
+          asort($options);
+          $form['length_filter'] = [
+            '#type' => 'select',
+            '#title' => $this->t('Length filter'),
+            '#description' => $this->t('Optionally use a number filter to set the length. This can be used to dynamically limit the number of results returned.'),
+            '#options' => $options,
+            '#empty_option' => $this->t('- None -'),
+            '#default_value' => $this->configuration['length_filter'] ?? NULL,
+          ];
+        }
+
         $form['start']['#disabled'] = !empty($this->configuration['paging']);
 
         $form['paging'] = [
@@ -364,6 +379,14 @@ final class EntityQueryValue extends ComponentValuePluginBase implements Contain
           $query->sort($sortField, $sortDirection);
         }
         $length = $this->shape->isIterable() ? $this->configuration['length'] : 1;
+        if ($lengthFilter = $this->configuration['length_filter']) {
+          $filter = $this->shape->getComponent()->getFilter($lengthFilter);
+          if ($filter->getPluginId() === 'number') {
+            if ($filterValue = $filter->getProcessedValue()) {
+              $length = (int) trim($filterValue);
+            }
+          }
+        }
         if ($this->shape->isIterable() && $this->configuration['paging']) {
           $query->pager($length);
         }
@@ -430,9 +453,10 @@ final class EntityQueryValue extends ComponentValuePluginBase implements Contain
         $storage = $this->entityTypeManager->getStorage($this->configuration['entity_type']);
         $entities = $ids ? $storage->loadMultiple($ids) : [];
       }
-      foreach ($entities as $entity) {
-        $this->shape->addCacheableDependency($entity);
-      }
+
+      $definition = $this->entityTypeManager->getDefinition($this->configuration['entity_type']);
+      $this->shape->getCacheableMetadata()->addCacheTags($definition->getListCacheTags());
+
       $results = $this->getChildrenMatchValues($this->shape, $entities, $this->configuration);
       if (!empty($results) || empty($this->configuration['continue'])) {
         $value = $results;
