@@ -50,36 +50,48 @@ function neo_alchemist_update_11001() {
       $query = $storage->getQuery();
       $query->accessCheck(FALSE);
       $query->condition($fieldName, NULL, 'IS NOT NULL');
-      $ids = $query->execute();
-      if (!$ids) {
-        continue;
-      }
-      $entities = $storage->loadMultiple($ids);
-      foreach ($entities as $entity) {
-        /** @var \Drupal\Core\Entity\FieldableEntityInterface $entity */
-        /** @var \Drupal\neo_alchemist\Plugin\Field\FieldType\ComponentTreeItem $item */
-        $item = $entity->get($fieldName)->first();
-        foreach ($item->getComponents() as $component) {
-          $save = FALSE;
-          foreach ($component->getPropShapesAll() as $shape) {
-            if ($shape->getName() === 'heading') {
-              $overrideValue = $shape->getOverrideValue();
-              if (isset($overrideValue['h1'])) {
-                $save = TRUE;
-                if ($overrideValue['h1']['value'] ?? FALSE === TRUE) {
-                  $overrideValue['size']['value'] = 'xl';
-                }
-                unset($overrideValue['h1']);
-                $shape->setOverrideValue($overrideValue);
-              }
+      $query->count();
+      $total = $query->execute();
+
+      $batch_size = 50;
+      for ($offset = 0; $offset < $total; $offset += $batch_size) {
+        $query = $storage->getQuery();
+        $query->accessCheck(FALSE);
+        $query->condition($fieldName, NULL, 'IS NOT NULL');
+        $query->range($offset, $batch_size);
+        $ids = $query->execute();
+        if (!$ids) {
+          continue;
+        }
+        $entities = $storage->loadMultiple($ids);
+        foreach ($entities as $entity) {
+          /** @var \Drupal\Core\Entity\FieldableEntityInterface $entity */
+          /** @var \Drupal\neo_alchemist\Plugin\Field\FieldType\ComponentTreeItem $item */
+          $item = $entity->get($fieldName)->first();
+          foreach ($item->getComponents() as $component) {
+        $save = FALSE;
+        foreach ($component->getPropShapesAll() as $shape) {
+          if ($shape->getName() === 'heading') {
+            $overrideValue = $shape->getOverrideValue();
+            if (isset($overrideValue['h1'])) {
+          $save = TRUE;
+          if ($overrideValue['h1']['value'] ?? FALSE === TRUE) {
+            $overrideValue['size']['value'] = 'xl';
+          }
+          unset($overrideValue['h1']);
+          $shape->setOverrideValue($overrideValue);
             }
           }
-          if ($save) {
-            $component->getValues();
-            $item->updateComponent($component->uuid(), $component->getValues());
-            $entity->save();
+        }
+        if ($save) {
+          $component->getValues();
+          $item->updateComponent($component->uuid(), $component->getValues());
+          $entity->save();
+        }
           }
         }
+        // Free memory.
+        unset($entities);
       }
     }
   }
