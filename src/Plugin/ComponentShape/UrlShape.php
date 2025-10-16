@@ -55,7 +55,12 @@ class UrlShape extends ComponentShapePluginBase {
       /** @var \Drupal\link\Plugin\Field\FieldType\LinkItem $item */
       $item = $this->fieldItem;
       $value = $item->getValue();
-      $value['access'] = $item->getUrl()->access();
+      try {
+        $value['access'] = $item->getUrl()->access();
+      }
+      catch (\Exception $e) {
+        $value['access'] = TRUE;
+      }
       return $value;
     }
     return [];
@@ -72,6 +77,7 @@ class UrlShape extends ComponentShapePluginBase {
         $value['target'] = $value['options']['attributes']['target'];
       }
       $value['target'] = $value['target'] ?? '_self';
+      unset($value['options']['attributes']);
     }
     return $value;
   }
