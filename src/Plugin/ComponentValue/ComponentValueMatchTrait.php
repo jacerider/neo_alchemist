@@ -69,7 +69,7 @@ trait ComponentValueMatchTrait {
     }
     switch ($field) {
       case '_render':
-        $item = $this->matcherField->getEntityField($this->shape->getEntity(), $this->configuration['render_field'], TRUE, $shape->getCacheableMetadata());
+        $item = $this->matcherField->getEntityField($this->shape->getEntity(), $this->configuration['render_field'], $published, $shape->getCacheableMetadata());
         if ($item && !$item->isEmpty() && !empty($this->configuration['render_field_format']['field_plugin'])) {
           $build = $item->view([
             'type' => $this->configuration['render_field_format']['field_plugin'],
