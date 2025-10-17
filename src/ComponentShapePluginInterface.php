@@ -136,6 +136,11 @@ interface ComponentShapePluginInterface extends PluginInspectionInterface, Deriv
   public function onRemove(): void;
 
   /**
+   * Called when the shape is updated.
+   */
+  public function onUpdate(): void;
+
+  /**
    * Handles the event when a plugin is added to a component prop.
    *
    * @param string $pluginId
