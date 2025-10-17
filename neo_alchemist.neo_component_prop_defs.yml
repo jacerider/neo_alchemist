@@ -3,7 +3,6 @@ heading:
   type: object
   required:
     - title
-    - size
   properties:
     supertitle:
       title: Supertitle
@@ -22,7 +21,6 @@ heading:
     supertitle: Example supertitle
     title: Example title
     subtitle: Example subtitle
-    h1: 0
   twig:
     prefix: '{% if %name% %}'
     content:
