@@ -383,7 +383,10 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
     $this->options['access'] = new ComponentShapeOption(TRUE, FALSE);
 
     // Only set settings if the shape has not changed.
-    if (isset($settings['shape']) && $settings['shape'] === $this->getPluginId()) {
+    // We migrated from using 'shape' to 'ref' to identify shapes values. As
+    // a result, if ref is not set, we allow the override to provide backwards
+    // compatibility.
+    if (empty($settings['ref']) || ($settings['ref'] === $this->getRef())) {
       // Initialize settings.
       $this->setActive($settings['active'] ?? TRUE);
       $this->setExpanded($settings['expanded'] ?? []);
@@ -743,6 +746,18 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
    * {@inheritDoc}
    */
   public function onRemove(): void {
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  public function onUpdate(): void {
+    if ($this->allowConfigurablePlugins()) {
+      $this->initPlugins();
+      foreach ($this->getValueCollection()->getActiveInstances('update') as $instance) {
+        $instance->onUpdate();
+      }
+    }
   }
 
   /**
