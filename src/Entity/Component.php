@@ -643,6 +643,9 @@ class Component extends ConfigEntityBase implements ComponentInterface {
     /** @var \Drupal\neo_alchemist\ComponentShapePluginManager $manager */
     $manager = \Drupal::service('plugin.manager.neo_component_shape');
     // Get shapes and initialize them.
+    if ($this->isAggregate()) {
+      $schema = $this->getAggregateSchema($schema);
+    }
     return array_map(fn ($v) => $v->init(), $manager->getInstancesFromSchema($schema, $this, $this->getSetting('props', []), $this->getValues()));
   }
 
@@ -659,40 +662,42 @@ class Component extends ConfigEntityBase implements ComponentInterface {
   }
 
   /**
-   * Get the aggregate shape.
+   * Get the aggregate schema.
    *
    * @return \Drupal\neo_alchemist\ComponentShapePluginInterface[]
    *   The shapes.
    */
-  protected function getAggregateShape(): array {
-    if ($component = $this->getComponent()) {
-      $schema = [
-        'type' => 'object',
-        'properties' => [
-          '_aggregate' => [
-            'title' => 'Aggregate',
-          ] + $component->metadata->schema,
-        ],
-      ];
-      return $this->loadPropShapes($schema);
-    }
-    return [];
+  protected function getAggregateSchema(array $schema): array {
+    return [
+      'type' => 'object',
+      'properties' => [
+        '_aggregate' => [
+          'title' => 'Aggregate',
+        ] + $schema,
+      ],
+    ];
   }
 
   /**
    * {@inheritdoc}
    */
-  public function getPropShapes(): array {
-    if (!isset($this->propShapes)) {
-      $this->propShapes = [];
+  public function getPropShapes(array $schema = NULL): array {
+    if (!isset($this->propShapes) || $schema !== NULL) {
+      $propShapes = [];
       if ($component = $this->getComponent()) {
-        if ($this->isAggregate()) {
-          $this->propShapes = $this->getAggregateShape();
-        }
-        else {
-          $this->propShapes = $this->loadPropShapes($component->metadata->schema);
-        }
+        $schema = $schema ?? $component->metadata->schema;
+        $propShapes = $this->loadPropShapes($schema);
+        // if ($this->isAggregate()) {
+        //   $propShapes = $this->getAggregateShape();
+        // }
+        // else {
+        //   $propShapes = $this->loadPropShapes($schema);
+        // }
       }
+      if ($schema) {
+        return $propShapes;
+      }
+      $this->propShapes = $propShapes;
     }
     return $this->propShapes;
   }
@@ -737,6 +742,7 @@ class Component extends ConfigEntityBase implements ComponentInterface {
     if ($this->isAggregate()) {
       $values = $values['_aggregate'] ?? [];
     }
+
     $values['attributes'] = $attributes;
     return $values;
   }
@@ -759,11 +765,15 @@ class Component extends ConfigEntityBase implements ComponentInterface {
    * {@inheritdoc}
    */
   public function setPropShapeSettings(ComponentShapePluginInterface $shape): self {
+    if ($this->isAggregate() && $shape->getName() !== '_aggregate') {
+      // Do not save individual shapes when aggregating.
+      return $this;
+    }
     unset($this->propShapes);
     $expanded = $shape->getExpanded();
     $settings = [
       'prop' => $shape->getName(),
-      'shape' => $shape->getPluginId(),
+      'ref' => $shape->getRef(),
       'field_type' => $shape->getFieldType(),
       'expanded' => $expanded,
       'active' => $shape->isActive(),
@@ -772,6 +782,7 @@ class Component extends ConfigEntityBase implements ComponentInterface {
     ];
     foreach ($shape->getAllShapes(TRUE) as $childShape) {
       $collection = $childShape->getValueCollection();
+      $childShape->onUpdate();
       foreach ($collection->getInstances() as $instanceId => $instance) {
         $instanceSettings = $instance->getConfiguration();
         if ($collection->getStatus($instanceId)) {
@@ -800,24 +811,6 @@ class Component extends ConfigEntityBase implements ComponentInterface {
       $allShapes += $shape->getAllShapes(TRUE, $includeDeltas);
     }
     return $allShapes;
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function getPropPluginInstances(string $pluginId): array {
-    $shapes = [];
-    foreach ($this->getPropShapesAll() as $shape) {
-      foreach ($shape->getAllShapes(TRUE) as $childShape) {
-        $collection = $childShape->getValueCollection();
-        foreach ($collection->getInstances() as $instanceId => $instance) {
-          if ($collection->getStatus($instanceId) && $instance->getPluginId() === 'heading') {
-            $shapes[$childShape->id()] = $instance;
-          }
-        }
-      }
-    }
-    return $shapes;
   }
 
   /**
@@ -998,8 +991,8 @@ class Component extends ConfigEntityBase implements ComponentInterface {
    * {@inheritdoc}
    */
   public function preSave(EntityStorageInterface $storage) {
-    $newExpression = $this->generateExpression();
     if (!isset($this->original)) {
+      $newExpression = $this->generateExpression();
       $this->set('schema', Json::encode($this->getComponentSchema()));
       $this->set('expression', $newExpression);
       $rootShapes = $this->getPropShapes();
@@ -1022,30 +1015,44 @@ class Component extends ConfigEntityBase implements ComponentInterface {
       /** @var \Drupal\neo_alchemist\ComponentInterface $original */
       $original = $this->original;
       $currentSchema = Json::decode($this->get('schema')) ?? [];
-      $currentRootShapes = $original->loadPropShapes($currentSchema);
+      $currentRootShapes = $original->getPropShapes($currentSchema);
       $currentShapes = $original->getPropShapesAll($currentRootShapes);
       ksort($currentShapes);
       $newRootShapes = $this->getPropShapes();
       $newShapes = $this->getPropShapesAll($newRootShapes);
       ksort($newShapes);
 
+      $currentShapesWithRef = [];
+      foreach ($currentShapes as $id => $shape) {
+        $currentShapesWithRef[$id . ':' . $shape->getRef()] = $shape;
+      }
+      $newShapesWithRef = [];
+      foreach ($newShapes as $id => $shape) {
+        $newShapesWithRef[$id . ':' . $shape->getRef()] = $shape;
+      }
+
+      $addedShapes = array_diff_key($newShapesWithRef, $currentShapesWithRef);
+      $removedShapes = array_diff_key($currentShapesWithRef, $newShapesWithRef);
+      $sameShapes = array_intersect_key($currentShapesWithRef, $newShapesWithRef);
+
+      // Run updates on any non-added/removed shapes.
+      // foreach ($sameShapes as $shape) {
+      //   $shape->onUpdate();
+      // }
+      foreach ($newRootShapes as $shape) {
+        if (isset($sameShapes[$shape->id() . ':' . $shape->getRef()])) {
+          $this->setPropShapeSettings($shape);
+        }
+      }
+
       // If a prop has been added/removed/type changed, we need to fire off
       // events and store the changes.
+      $newExpression = $this->generateExpression();
       $currentExpression = $this->getExpression();
+
       if ($currentExpression !== $newExpression) {
         // We add the shape ref to the key so we can find instances where the
         // prop name is the same but the shape is different.
-        $currentShapesWithRef = [];
-        foreach ($currentShapes as $id => $shape) {
-          $currentShapesWithRef[$id . ':' . $shape->getRef()] = $shape;
-        }
-        $newShapesWithRef = [];
-        foreach ($newShapes as $id => $shape) {
-          $newShapesWithRef[$id . ':' . $shape->getRef()] = $shape;
-        }
-
-        $addedShapes = array_diff_key($newShapesWithRef, $currentShapesWithRef);
-        $removedShapes = array_diff_key($currentShapesWithRef, $newShapesWithRef);
         foreach ($addedShapes as $shape) {
           $shape->onAdd();
         }
