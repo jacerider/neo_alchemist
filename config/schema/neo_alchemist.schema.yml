@@ -69,13 +69,9 @@ neo_alchemist.neo_component_settings.props:
       prop:
         type: string
         label: Prop
-      shape:
+      ref:
         type: string
-        label: 'Shape ID'
-        constraints:
-          PluginExists:
-            manager: plugin.manager.neo_component_shape
-            interface: '\Drupal\neo_alchemist\ComponentShapePluginInterface'
+        label: 'Ref'
       field_type:
         type: string
         label: 'Default field type'
@@ -685,6 +681,9 @@ neo_alchemist.neo_component_shape_fields:
       field:
         type: string
         label: Field
+      string:
+        type: string
+        label: String value
       render_field:
         type: string
         label: Render field
