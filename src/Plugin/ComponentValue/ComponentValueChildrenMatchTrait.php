@@ -127,6 +127,9 @@ trait ComponentValueChildrenMatchTrait {
       $options['- Raw -']['_raw:boolean_true'] = $this->t('Boolean: True');
       $options['- Raw -']['_raw:boolean_false'] = $this->t('Boolean: False');
     }
+    if ($shape->getType() === 'string') {
+      $options['- Raw -']['_raw:string'] = $shape->getFieldOptions() ? $this->t('Option') : $this->t('String');
+    }
     if ($shape->isExpandable()) {
       $options['- Shape -']['_expand'] = $this->t('Expand to configure child shapes');
     }
@@ -199,6 +202,25 @@ trait ComponentValueChildrenMatchTrait {
               ];
               $form['shape_fields'][$childShapeName] = $this->buildChildMatchConfigurationForm($childShape, $form['shape_fields'][$childShapeName], $form_state, $entityTypeId, $bundle, $configuration['shape_fields'][$childShapeName] ?? []);
             }
+          }
+          break;
+
+        case '_raw:string':
+          if ($options = $shape->getFieldOptions()) {
+            $form['string'] = [
+              '#type' => 'select',
+              '#title' => $this->t('Value'),
+              '#options' => $options,
+              '#default_value' => $configuration['string'] ?? '',
+            ];
+            break;
+          }
+          else {
+            $form['string'] = [
+              '#type' => 'textfield',
+              '#title' => $this->t('Value'),
+              '#default_value' => $configuration['string'] ?? '',
+            ];
           }
           break;
 
@@ -383,6 +405,7 @@ trait ComponentValueChildrenMatchTrait {
     return match ($fieldName) {
       'boolean_true' => TRUE,
       'boolean_false' => FALSE,
+      'string' => $configuration['string'] ?? '',
       default => NULL,
     };
   }
