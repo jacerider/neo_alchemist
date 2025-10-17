@@ -29,6 +29,20 @@ use Drupal\neo_alchemist\Form\InstanceComponentSortForm;
 use Drupal\neo_alchemist\Plugin\Field\NeoComponentTreeList;
 use Drupal\neo_tooltip\Tooltip;
 
+function neo_alchemist_recursive_update_value(array $props, $originalShapeKey, $originalShapeValue, $newShapeKey, $newShapeValue, &$found = FALSE) {
+  foreach ($props as &$data) {
+    if (is_array($data)) {
+      if (array_key_exists($originalShapeKey, $data) && isset($data[$originalShapeKey]['value']) && $data[$originalShapeKey]['value'] == $originalShapeValue) {
+        $data[$newShapeKey]['value'] = $newShapeValue;
+        unset($data[$originalShapeKey]);
+        $found = TRUE;
+      }
+      $data = neo_alchemist_recursive_update_value($data, $originalShapeKey, $originalShapeValue, $newShapeKey, $newShapeValue, $found);
+    }
+  }
+  return $props;
+}
+
 /**
  * Implements hook_theme().
  */
