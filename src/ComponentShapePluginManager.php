@@ -67,8 +67,10 @@ final class ComponentShapePluginManager extends DefaultPluginManager {
           if ($required) {
             $shape->enforceRequired();
           }
-          // Make sure we match the stored field type with the prop field type.
-          if (isset($values['props'][$propName]) && $values['props'][$propName]['shape'] === $shape->getPluginId()) {
+          // We migrated from using 'shape' to 'ref' to identify shapes in
+          // values. As a result, if ref is not set, we allow the override to
+          // provide backwards compatibility.
+          if (isset($values['props'][$propName]) && (empty($values['props'][$propName]['ref']) || ($values['props'][$propName]['ref'] === $shape->getRef()))) {
             $shape->setOverrideValue($values['props'][$propName]['value'] ?? NULL);
             $shape->setNestedOptions($values['props'][$propName]['options'] ?? []);
           }
