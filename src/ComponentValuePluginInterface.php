@@ -59,6 +59,11 @@ interface ComponentValuePluginInterface extends ConfigurableInterface, PluginFor
   public function onRemove(): void;
 
   /**
+   * Called when a component is updated.
+   */
+  public function onUpdate(): void;
+
+  /**
    * Massages the form value using the plugin if available.
    *
    * @param array $values
