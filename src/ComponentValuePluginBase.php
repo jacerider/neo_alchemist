@@ -192,6 +192,12 @@ abstract class ComponentValuePluginBase extends PluginBase implements ComponentV
   /**
    * {@inheritdoc}
    */
+  public function onUpdate(): void {
+  }
+
+  /**
+   * {@inheritdoc}
+   */
   public function onShapeInit() {
   }
 
