@@ -59,6 +59,24 @@ final class HeadingValue extends ComponentValuePluginBase implements ContainerFa
   }
 
   /**
+   * {@inheritdoc}
+   */
+  public function onUpdate(): void {
+    if (isset($this->configuration['h1_edit'])) {
+      $this->configuration['size_edit'] = $this->configuration['h1_edit'];
+      unset($this->configuration['h1_edit']);
+    }
+    if (isset($this->configuration['h1_default'])) {
+      $this->configuration['h1_default'] = $this->configuration['h1_default'];
+      unset($this->configuration['h1_default']);
+    }
+    if (isset($this->configuration['h1_value'])) {
+      $this->configuration['size_value'] = !empty($this->configuration['h1_value']) ? 'xl' : '';
+      unset($this->configuration['h1_value']);
+    }
+  }
+
+  /**
    * Configuration form for the value provider plugin.
    */
   protected function configurationForm(array $form, FormStateInterface $form_state, array &$complete_form): array {
