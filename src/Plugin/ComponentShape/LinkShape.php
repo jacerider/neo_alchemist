@@ -44,7 +44,7 @@ class LinkShape extends ComponentShapePluginBase {
     $value = parent::getDefaultSchemaValue();
     $value['options'] = $value['otions'] ?? [];
     $value['icon'] = $value['icon'] ?? '';
-    $value['target'] = $value['target'] ?? '';
+    $value['target'] = $value['target'] ?? '_self';
     return $value;
   }
 
