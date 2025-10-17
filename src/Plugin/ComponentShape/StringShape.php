@@ -38,6 +38,10 @@ class StringShape extends ComponentShapePluginBase {
     if (is_string($value) && $value !== strip_tags($value)) {
       $value = Markup::create($value);
     }
+    if (empty($value)) {
+      // Always return a string if empty.
+      $value = '';
+    }
     return $value;
   }
 
