@@ -95,7 +95,7 @@ image-uri:
     suffix: '{% endif %}'
 
 file:
-  title: file
+  title: File
   type: object
   required:
     - src
@@ -115,7 +115,7 @@ file:
     name: sample.pdf
 
 file-uri:
-  title: Image URL
+  title: File URL
   type: string
   format: uri-reference
   pattern: ^(\/|theme:\/\/|component:\/\/|https?:\/\/).*\.(?i)(txt|doc|docx|pdf|xls|xlsx|ppt|pptx|odt|ods|odp)(\?.*)?(#.*)?$
