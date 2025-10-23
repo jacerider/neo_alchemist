@@ -192,6 +192,10 @@ class ArrayShape extends ChildrenShapeBase implements ComponentShapeInterablePlu
           // No value was provided and the shape is not required so we skip it.
           continue;
         }
+        if ($shape->getOptionDefault()->isEnabled()) {
+          $values[$delta][$shapeName] = $shape->getDefaultValue();
+          continue;
+        }
         if (
           isset($values[$delta][$shapeName]) &&
           empty($values[$delta][$shapeName]) &&
@@ -320,9 +324,6 @@ class ArrayShape extends ChildrenShapeBase implements ComponentShapeInterablePlu
           ];
           $subform_state = SubformState::createForSubform($form[$delta][$shape->getName()], $form, $form_state);
           $form[$delta][$shape->getName()] = $shape->getForm($form[$delta][$shape->getName()], $subform_state);
-        }
-
-        if ($min < $count) {
         }
       }
     }
