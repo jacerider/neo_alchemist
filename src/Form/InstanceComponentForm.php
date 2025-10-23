@@ -209,7 +209,7 @@ final class InstanceComponentForm extends ContentEntityForm {
 
     $form['filters'] = [
       '#type' => 'accordion',
-      '#title' => $this->icon('Filters', 'filter'),
+      '#title' => $this->icon('Context', 'flux-capacitor'),
       '#access' => FALSE,
       '#neo_size' => 'xs',
     ];
