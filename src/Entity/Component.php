@@ -681,18 +681,12 @@ class Component extends ConfigEntityBase implements ComponentInterface {
   /**
    * {@inheritdoc}
    */
-  public function getPropShapes(array $schema = NULL): array {
+  public function getPropShapes(?array $schema = NULL): array {
     if (!isset($this->propShapes) || $schema !== NULL) {
       $propShapes = [];
       if ($component = $this->getComponent()) {
         $schema = $schema ?? $component->metadata->schema;
         $propShapes = $this->loadPropShapes($schema);
-        // if ($this->isAggregate()) {
-        //   $propShapes = $this->getAggregateShape();
-        // }
-        // else {
-        //   $propShapes = $this->loadPropShapes($schema);
-        // }
       }
       if ($schema) {
         return $propShapes;
@@ -898,7 +892,7 @@ class Component extends ConfigEntityBase implements ComponentInterface {
   /**
    * {@inheritdoc}
    */
-  public function getFilters(string $pluginId = NULL): array {
+  public function getFilters(?string $pluginId = NULL): array {
     if (!isset($this->filters)) {
       $this->filters = [];
       if (!empty($this->settings['filters'])) {
@@ -1036,9 +1030,6 @@ class Component extends ConfigEntityBase implements ComponentInterface {
       $sameShapes = array_intersect_key($currentShapesWithRef, $newShapesWithRef);
 
       // Run updates on any non-added/removed shapes.
-      // foreach ($sameShapes as $shape) {
-      //   $shape->onUpdate();
-      // }
       foreach ($newRootShapes as $shape) {
         if (isset($sameShapes[$shape->id() . ':' . $shape->getRef()])) {
           $this->setPropShapeSettings($shape);
