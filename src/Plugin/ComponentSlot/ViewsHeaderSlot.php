@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\neo_alchemist\Plugin\ComponentSlot;
 
+use Drupal\Core\Cache\CacheableMetadata;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\neo_alchemist\Attribute\ComponentSlot;
@@ -151,6 +152,9 @@ final class ViewsHeaderSlot extends ViewsSlotBase {
           $render = $handler->render();
           if (!empty($render)) {
             $build[$id] = $render;
+            $cacheableMetadata = new CacheableMetadata();
+            $cacheableMetadata->addCacheTags($view->getCacheTags());
+            $cacheableMetadata->applyTo($build[$id]);
           }
         }
       }
