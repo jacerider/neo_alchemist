@@ -1,0 +1,81 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Drupal\neo_alchemist;
+
+use Drupal\Core\Cache\CacheBackendInterface;
+use Drupal\Core\Extension\ModuleHandlerInterface;
+use Drupal\Core\Plugin\DefaultPluginManager;
+use Drupal\Core\Plugin\Discovery\ContainerDerivativeDiscoveryDecorator;
+use Drupal\Core\Plugin\Discovery\YamlDiscovery;
+use Drupal\Core\Plugin\Factory\ContainerFactory;
+
+/**
+ * Defines a plugin manager to deal with neo_component_filter_optionss.
+ *
+ * Modules can define neo_component_filter_optionss in a
+ * MODULE_NAME.neo_component_filter_optionss.yml file contained in the module's
+ * base directory. Each neo_component_filter_options has the following
+ * structure:
+ *
+ * @code
+ *   MACHINE_NAME:
+ *     title: STRING
+ *     type: STRING
+ *     required: ARRAY
+ *     properties: ARRAY
+ *     format: STRING
+ *     pattern: STRING
+ *     examples: ARRAY
+ * @endcode
+ *
+ * @see \Drupal\neo_alchemist\PropDefDefault
+ * @see \Drupal\neo_alchemist\PropDefInterface
+ */
+final class ComponentFilterOptionsPluginManager extends DefaultPluginManager {
+
+  /**
+   * {@inheritdoc}
+   */
+  protected $defaults = [
+    'id' => '',
+    'title' => '',
+    'options' => [],
+  ];
+
+  /**
+   * Constructs PropDefPluginManager object.
+   */
+  public function __construct(ModuleHandlerInterface $module_handler, CacheBackendInterface $cache_backend) {
+    $this->factory = new ContainerFactory($this);
+    $this->moduleHandler = $module_handler;
+    $this->alterInfo('neo_component_filter_options_info');
+    $this->setCacheBackend($cache_backend, 'neo_component_filter_options_plugins');
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  protected function getDiscovery() {
+    if (!isset($this->discovery)) {
+      $discovery = new YamlDiscovery('neo_component_filter_options', $this->moduleHandler->getModuleDirectories());
+      $discovery->addTranslatableProperty('title', 'title_context');
+      $this->discovery = new ContainerDerivativeDiscoveryDecorator($discovery);
+    }
+    return $this->discovery;
+  }
+
+  /**
+   * Invokes the hook to alter the definitions if the alter hook is set.
+   *
+   * @param array $definitions
+   *   The discovered plugin definitions.
+   */
+  protected function alterDefinitions(&$definitions) {
+    if ($this->alterHook) {
+      $this->moduleHandler->alter($this->alterHook, $definitions);
+    }
+  }
+
+}
