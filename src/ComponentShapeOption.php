@@ -192,6 +192,7 @@ class ComponentShapeOption {
    */
   public function alwaysShowForm(bool $value = TRUE, ?string $logMessage = NULL): self {
     $this->formForceAccess = $value;
+    $this->setAccess(TRUE, 'Always show form enabled.');
     if ($logMessage) {
       $this->addLog('alwaysShowForm: ' . $logMessage);
     }
