@@ -33,6 +33,11 @@ class UrlShapeBase extends ComponentShapePluginBase {
    */
   public function getDefaultSchemaValue(): mixed {
     $value = parent::getDefaultSchemaValue();
+    if (!is_array($value)) {
+      $value = [
+        'uri' => $value,
+      ];
+    }
     $value['options'] = $value['otions'] ?? [];
     $value['icon'] = $value['icon'] ?? '';
     $value['target'] = $value['target'] ?? '_self';
