@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Drupal\neo_alchemist\Plugin\ComponentSlot;
 
-use Drupal\Core\Cache\CacheableMetadata;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\neo_alchemist\Attribute\ComponentSlot;
 use Drupal\views\ViewExecutable;
@@ -25,11 +24,8 @@ final class ViewsExposedFiltersSlot extends ViewsSlotBase {
   protected function toViewsRenderable(ViewExecutable $view): array {
     /** @var \Drupal\views\Plugin\views\exposed_form\ExposedFormPluginInterface $plugin */
     $plugin = $view->display_handler->getPlugin('exposed_form');
-    $form = $plugin->renderExposedForm();
-    $cacheableMetadata = new CacheableMetadata();
-    $cacheableMetadata->addCacheTags($view->getCacheTags());
-    $cacheableMetadata->applyTo($form);
-    return $form;
+    $this->addCacheableDependency($view->display_handler->getCacheMetadata());
+    return $plugin->renderExposedForm();
   }
 
 }

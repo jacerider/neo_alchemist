@@ -23,6 +23,7 @@ final class ViewsPagerSlot extends ViewsSlotBase {
    */
   protected function toViewsRenderable(ViewExecutable $view): array {
     $exposedInput = [];
+    $this->addCacheableDependency($view->display_handler->getCacheMetadata());
     return $view->renderPager($exposedInput);
   }
 
