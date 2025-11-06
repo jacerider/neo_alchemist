@@ -56,7 +56,7 @@ class ImageShape extends MediaShapeBase {
       return [
         'src' => $file->createFileUrl(),
         'uri' => $file->getFileUri(),
-        'alt' => $source->getMetadata($media, 'thumbnail_alt_value'),
+        'alt' => $source->getMetadata($media, 'thumbnail_alt_value') ?? '',
         'width' => $source->getMetadata($media, 'width'),
         'height' => $source->getMetadata($media, 'height'),
         'target_id' => $media->id(),
