@@ -102,9 +102,10 @@ class ComponentPluginManager extends ThemeComponentPluginManager {
    */
   protected function alterProp(array $prop): array {
     $propDefinitions = $this->propDefManager->getDefinitions();
-    if (isset($propDefinitions[$prop['type']])) {
-      $prop['ref'] = $prop['type'];
-      $propDef = $propDefinitions[$prop['type']];
+    $type = is_array($prop['type']) ? reset($prop['type']) : $prop['type'];
+    if (isset($propDefinitions[$type])) {
+      $prop['ref'] = $type;
+      $propDef = $propDefinitions[$type];
       $propRequired = [
         'type' => $propDef['type'],
         'format' => $propDef['format'],
@@ -114,7 +115,7 @@ class ComponentPluginManager extends ThemeComponentPluginManager {
         'title' => $propDef['title'] ?? '',
         'description' => $propDef['description'] ?? '',
       ];
-      $propOptional = array_diff_key($propDefinitions[$prop['type']], array_flip([
+      $propOptional = array_diff_key($propDefinitions[$type], array_flip([
         'id',
         'provider',
         'properties',
