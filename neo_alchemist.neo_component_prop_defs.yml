@@ -56,10 +56,14 @@ image:
       type: string
     width:
       title: Image width
-      type: integer
+      type:
+        - integer
+        - 'null'
     height:
       title: Image height
-      type: integer
+      type:
+        - integer
+        - 'null'
   examples:
     src: https://placehold.co/100x100.png
     alt: Example alt
@@ -79,8 +83,10 @@ image:
       - '  - Focal Scale Crop: {focal: {width: 200, height: 100}}'
       - '  - Focal Width: {focalWidth: {width: 200}}'
       - '#}'
-      - '{# To generate a URL to the image #}'
-      - '{# neo_image_style_url(%name%.src, {scale: {width: 640}}) #}'
+      - '{# Responsive image #}'
+      - '{# neo_image(image.src, {sm: {op: "focal", width: 200, height: 100}, md: {op: "focal", width: 400, height: 300}}, image.alt) #}'
+      - '{# URL to image #}'
+      - '{# neo_image_style_url(%name%.src, {scale: {width: 200}}) #}'
     suffix: '{% endif %}'
 
 image-uri:
@@ -397,6 +403,13 @@ breadcrumb:
     suffix:
       - '</nav>'
       - '{% endif %}'
+
+region:
+  title: Region
+  type: array
+  items:
+    title: Component
+    type: object
 
 scheme:
   title: Color Scheme
