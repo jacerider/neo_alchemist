@@ -372,7 +372,9 @@ class Component extends ConfigEntityBase implements ComponentInterface {
       /** @var \Drupal\neo_config_file\ConfigFileInterface $configFile */
       $configFile = $this->entityTypeManager()->getStorage('neo_config_file')->load($thumbnailId);
       if ($configFile) {
-        return \Drupal::service('file_url_generator')->generateAbsoluteString($configFile->getFile()->getFileUri());
+        if ($file = $configFile->getFile()) {
+          return \Drupal::service('file_url_generator')->generateAbsoluteString($file->getFileUri());
+        }
       }
     }
     if ($this->getDefaultThumbnail()) {
