@@ -516,7 +516,7 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
     // Create the field item.
     $this->fieldItem = $this->buildFieldItem($this->getFieldType(), $this->getFieldStorageSettings(), $this->getFieldInstanceSettings());
     $defaultValue = $this->getDefaultValue();
-    $this->setFieldItemValue($defaultValue, 'default');
+    $this->setFieldItemValue($defaultValue, FALSE);
 
     // Overlay the field/entity value.
     // We first check if the parent value is set. This value comes from
@@ -536,7 +536,7 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
     foreach ($instances as $instance) {
       $overrideValue = $instance->provideOverrideValue($overrideValue, $defaultValue);
       if ($overrideValue) {
-        $this->setFieldItemValue($overrideValue, NULL);
+        $this->setFieldItemValue($overrideValue, FALSE);
       }
       if (!$instance->shouldContinueProcessing()) {
         break;
@@ -1714,12 +1714,30 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
       if ($fieldDefaultValue = $this->getFieldDefaultValue()) {
         $value = $fieldDefaultValue;
       }
+      // Set the value so providers can use it.
+      $this->setFieldItemValue($value);
+      // Allow providers to modify the final default value.
+      foreach ($instances as $instance) {
+        $value = $instance->alterValue($value, 'default');
+        if (!$instance->shouldContinueProcessing()) {
+          break;
+        }
+      }
       if (!$value && $this->isRequired()) {
         $value = $originalValue;
       }
       $this->defaultValue = $value;
     }
     return $this->defaultValue;
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  public function getDefaultFieldItemValue(): array {
+    $fieldItem = clone $this->fieldItem;
+    $fieldItem->setValue($this->getDefaultValue());
+    return $fieldItem->getValue();
   }
 
   /**
@@ -1765,23 +1783,6 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
       }
     }
     return $value;
-  }
-
-  /**
-   * {@inheritDoc}
-   */
-  public function getDefaultFieldItemValue(): array {
-    $fieldItem = clone $this->fieldItem;
-    $value = $this->getDefaultValue();
-    // Set the value so providers can use it.
-    $this->fieldItem->setValue($value);
-    $instances = $this->getValueCollection()->getAllowedInstances('value');
-    // Allow providers to modify the final override value.
-    foreach ($instances as $instance) {
-      $value = $instance->alterValue($value, 'default');
-    }
-    $fieldItem->setValue($value);
-    return $fieldItem->getValue();
   }
 
   /**
@@ -1849,16 +1850,16 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
   /**
    * {@inheritDoc}
    */
-  public function setFieldItemValue(mixed $value, ?string $alterType = 'override'): self {
+  public function setFieldItemValue(mixed $value, bool $allowAlter = TRUE): self {
     // If if value is an array but we are not in an array type, we use the first
     // value 0 if set.
-    if ($alterType) {
+    if ($allowAlter) {
       // Set the value so providers can use it.
       $this->fieldItem->setValue($value);
       $instances = $this->getValueCollection()->getAllowedInstances('value');
       // Allow providers to modify the final override value.
       foreach ($instances as $instance) {
-        $value = $instance->alterValue($value, $alterType);
+        $value = $instance->alterValue($value, 'override');
       }
     }
     if (is_array($value) && !$this->isIterable()) {
