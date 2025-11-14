@@ -38,7 +38,7 @@ class UrlShapeBase extends ComponentShapePluginBase {
         'uri' => $value,
       ];
     }
-    $value['options'] = $value['otions'] ?? [];
+    $value['options'] = $value['options'] ?? [];
     $value['icon'] = $value['icon'] ?? '';
     $value['target'] = $value['target'] ?? '_self';
     return $value;
