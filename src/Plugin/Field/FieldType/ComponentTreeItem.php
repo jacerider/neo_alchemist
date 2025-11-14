@@ -320,16 +320,22 @@ class ComponentTreeItem extends FieldItemBase implements RenderableInterface {
    *
    * @param string $parentUuid
    *   The UUID of the parent component. Defaults to the root UUID.
+   * @param string|null $slot
+   *   The slot within the parent component. If provided, only components within
+   *   that slot will be included.
    *
    * @return array
    *   An associative array where the keys are component UUIDs and the values
    *   are component labels.
    */
-  public function toOptions(string $parentUuid = ComponentTreeStructure::ROOT_UUID) {
+  public function toOptions(string $parentUuid = ComponentTreeStructure::ROOT_UUID, ?string $slot = NULL) {
+    if ($parentUuid !== ComponentTreeStructure::ROOT_UUID && $slot === NULL) {
+      throw new \InvalidArgumentException('When sorting on a non-root parent, a slot is required.');
+    }
     $options = [];
     $tree = $this->get('tree');
     assert($tree instanceof ComponentTreeStructure);
-    foreach ($tree->getComponentBySection($parentUuid) as $key => $data) {
+    foreach ($tree->getComponentsBySection($parentUuid, $slot) as $key => $data) {
       $instance = $this->getComponent($data['uuid']);
       if ($instance) {
         $options[$data['uuid']] = $instance->label();
@@ -376,19 +382,83 @@ class ComponentTreeItem extends FieldItemBase implements RenderableInterface {
    *
    * @param \Drupal\neo_alchemist\ComponentInterface $neoComponent
    *   The Neo component.
+   * @param string|null $parentUuid
+   *   The parent UUID.
+   * @param string|null $slot
+   *   The slot.
    *
    * @return \Drupal\neo_alchemist\ComponentInstanceInterface
    *   The component instance.
    */
-  public function createComponent(ComponentInterface $neoComponent): ComponentInstanceInterface {
+  public function createComponent(ComponentInterface $neoComponent, ?string $parentUuid = NULL, ?string $slot = NULL): ComponentInstanceInterface {
     $value = $neoComponent->toArray();
     // Clear UUID so that a new one will be generated on creation.
     $value['uuid'] = NULL;
     $value['fieldItem'] = $this;
     $entity_class = $this->getComponentInstanceClass();
     $instance = new $entity_class($value, 'neo_component');
+    if ($parentUuid && $slot) {
+      $instance->setParent($parentUuid, $slot);
+    }
     $instance->enforceIsNew();
     return $instance;
+  }
+
+  /**
+   * Clone a component instance along with its children.
+   *
+   * @param \Drupal\neo_alchemist\ComponentInstanceInterface $component
+   *   The component instance to clone.
+   *
+   * @return $this
+   *   The current instance of the component tree item.
+   */
+  public function cloneComponent(ComponentInstanceInterface $component): ComponentInstanceInterface {
+    $tree = $this->get('tree');
+    assert($tree instanceof ComponentTreeStructure);
+    $props = $this->get('props');
+    assert($props instanceof ComponentPropsValues);
+    $parentUuid = $component->getParentUuid();
+    $slot = $component->getParentSlot();
+    $cloned = $this->createComponent($component, $parentUuid, $slot);
+    $this->addComponent($cloned->uuid(), $cloned->id(), $component->getValues(), $parentUuid, $slot);
+    $this->moveComponent($cloned->uuid(), $component->uuid(), 'after', $parentUuid, $slot);
+
+    // Clone all children.
+    $componentUuids = $tree->getComponentsBySection($component->uuid(), $slot);
+    foreach ($componentUuids as $data) {
+      $child = $this->getComponent($data['uuid']);
+      $clonedChild = $this->createComponent($child, $cloned->uuid(), $child->getParentSlot());
+      $this->addComponent($clonedChild->uuid(), $clonedChild->id(), $child->getValues(), $cloned->uuid(), $clonedChild->getParentSlot());
+    }
+
+    return $cloned;
+  }
+
+  /**
+   * Add a component to the component tree.
+   *
+   * @param string $uuid
+   *   The UUID of the component instance.
+   * @param string $neoComponentId
+   *   The ID of the component.
+   * @param array $propValues
+   *   The prop values for the component instance.
+   * @param string $parentUuid
+   *   The UUID of the parent component instance.
+   * @param string|null $slot
+   *   The slot ID when not appending to the root.
+   *
+   * @return $this
+   */
+  public function addComponent(string $uuid, string $neoComponentId, array $propValues = [], string $parentUuid = ComponentTreeStructure::ROOT_UUID, $slot = NULL): self {
+    $tree = $this->get('tree');
+    assert($tree instanceof ComponentTreeStructure);
+    $props = $this->get('props');
+    assert($props instanceof ComponentPropsValues);
+    $tree->addComponent($uuid, $neoComponentId, $parentUuid, $slot);
+    $props->setComponent($uuid, $propValues);
+    return $this;
   }
 
   /**
@@ -417,6 +487,7 @@ class ComponentTreeItem extends FieldItemBase implements RenderableInterface {
           $value['values'] = $props->getComponentPropsSources($uuid);
           $entity_class = $this->getComponentInstanceClass();
           $instance = new $entity_class($value, 'neo_component');
+          $instance->setParent($tree->getComponentParentUuid($uuid), $tree->getComponentSlot($uuid));
           $instance->setPreview($this->isPreview());
         }
       }
@@ -438,7 +509,7 @@ class ComponentTreeItem extends FieldItemBase implements RenderableInterface {
     $components = [];
     $tree = $this->get('tree');
     assert($tree instanceof ComponentTreeStructure);
-    foreach ($tree->getComponentBySection($parentUuid) as $data) {
+    foreach ($tree->getComponentsBySection($parentUuid) as $data) {
       if ($component = $this->getComponent($data['uuid'])) {
         $components[$data['uuid']] = $component;
       }
@@ -500,52 +571,33 @@ class ComponentTreeItem extends FieldItemBase implements RenderableInterface {
   public function moveComponent(string $uuid, string $positionUuid, string $position = 'after', string $parentUuid = ComponentTreeStructure::ROOT_UUID, $slot = NULL): self {
     $tree = $this->get('tree');
     assert($tree instanceof ComponentTreeStructure);
-    $componentInstanceIds = $tree->getComponentInstanceUuids();
+    $componentInstanceIds = $tree->getComponentInstanceUuids($parentUuid, $slot);
     if (in_array($uuid, $componentInstanceIds)) {
+      // Remove the UUID from its current position.
+      $componentInstanceIds = array_values(array_diff($componentInstanceIds, [$uuid]));
+
       if ($position === 'before') {
         $beforeIndex = array_search($positionUuid, $componentInstanceIds);
-        $componentInstanceIds = array_merge(
-          array_slice($componentInstanceIds, 0, $beforeIndex),
-          [$uuid],
-          array_slice($componentInstanceIds, $beforeIndex)
-        );
+        if ($beforeIndex !== FALSE) {
+          $componentInstanceIds = array_merge(
+            array_slice($componentInstanceIds, 0, $beforeIndex),
+            [$uuid],
+            array_slice($componentInstanceIds, $beforeIndex)
+          );
+        }
       }
       elseif ($position === 'after') {
         $afterIndex = array_search($positionUuid, $componentInstanceIds);
-        $componentInstanceIds = array_merge(
-          array_slice($componentInstanceIds, 0, $afterIndex + 1),
-          [$uuid],
-          array_slice($componentInstanceIds, $afterIndex + 1)
-        );
+        if ($afterIndex !== FALSE) {
+          $componentInstanceIds = array_merge(
+            array_slice($componentInstanceIds, 0, $afterIndex + 1),
+            [$uuid],
+            array_slice($componentInstanceIds, $afterIndex + 1)
+          );
+        }
       }
       $this->sortComponents($componentInstanceIds, $parentUuid, $slot);
     }
-    return $this;
-  }
-
-  /**
-   * Add a component to the component tree.
-   *
-   * @param string $uuid
-   *   The UUID of the component instance.
-   * @param string $neoComponentId
-   *   The ID of the component.
-   * @param array $propValues
-   *   The prop values for the component instance.
-   * @param string $parentUuid
-   *   The UUID of the parent component instance.
-   * @param string|null $slot
-   *   The slot ID when not appending to the root.
-   *
-   * @return $this
-   */
-  public function addComponent(string $uuid, string $neoComponentId, array $propValues = [], string $parentUuid = ComponentTreeStructure::ROOT_UUID, $slot = NULL): self {
-    $tree = $this->get('tree');
-    assert($tree instanceof ComponentTreeStructure);
-    $props = $this->get('props');
-    assert($props instanceof ComponentPropsValues);
-    $tree->addComponent($uuid, $neoComponentId, $parentUuid, $slot);
-    $props->setComponent($uuid, $propValues);
     return $this;
   }
 
@@ -579,8 +631,14 @@ class ComponentTreeItem extends FieldItemBase implements RenderableInterface {
     assert($tree instanceof ComponentTreeStructure);
     $props = $this->get('props');
     assert($props instanceof ComponentPropsValues);
+    // Get any nested components.
+    $components = $tree->getComponentsBySection($uuid);
     $tree->removeComponent($uuid);
     $props->removeComponent($uuid);
+    // Clean up any nested component props.
+    foreach ($components as $data) {
+      $props->removeComponent($data['uuid']);
+    }
     return $this;
   }
 

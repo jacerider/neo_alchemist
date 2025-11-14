@@ -40,7 +40,10 @@ final class InstanceComponentAddController extends ControllerBase {
    * Builds the response.
    */
   public function __invoke(Request $request, ComponentTreeItem $neo_field, ComponentInterface $neo_component) {
-    $instance = $neo_field->createComponent($neo_component);
+    $parent = $request->query->get('parent');
+    [$parentUuid, $shapeId] = explode('--', (string) ($parent ?? '--'));
+
+    $instance = $neo_field->createComponent($neo_component, $parentUuid, $shapeId);
 
     $build = [
       '#theme' => 'neo_alchemist_manage',
@@ -57,6 +60,7 @@ final class InstanceComponentAddController extends ControllerBase {
 
     $build['#form'] = $this->entityFormBuilder()->getForm($instance->getTargetEntity(), 'alchemist', [
       'neo_component_instance' => $instance,
+      'parent' => $parent,
       'before' => $request->query->get('before'),
       'after' => $request->query->get('after'),
     ]);

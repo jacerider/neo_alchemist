@@ -4,6 +4,8 @@ components.parent:
   js:
     src/js/components-parent.ts: {}
   dependencies:
+    - core/drupalSettings
+    - neo_loader/loader
     - neo_alchemist/component.parent
     - neo_alchemist/component.ajax
 
@@ -21,7 +23,6 @@ component.parent:
   js:
     src/js/component-parent.ts: {}
   dependencies:
-    - core/once
     - core/drupal
 
 component.child:
@@ -29,9 +30,6 @@ component.child:
   neo: true
   js:
     src/js/component-child.ts: {}
-  dependencies:
-    - core/once
-    - core/drupal
 
 component.form:
   version: VERSION

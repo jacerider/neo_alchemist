@@ -1,115 +1,158 @@
-(function (once) {
+(function () {
 
-  const id = new URLSearchParams(window.location.search).get('id');
+  // const id = new URLSearchParams(window.location.search).get('id');
   const size = new URLSearchParams(window.location.search).get('size');
+  const components = document.querySelectorAll<HTMLElement>('[data-component]');
+  const regions = document.querySelectorAll<HTMLElement>('[data-region]');
+  let positionUpdateTimeout: ReturnType<typeof setTimeout> | null = null;
 
   window.addEventListener('message', function(e) {
     const data = e.data;
     if (typeof data.type === 'string') {
-      if (typeof operations[data.type] !== 'function') {
+      if (typeof onParent[data.type] !== 'function') {
         return;
       }
-      operations[data.type](data);
+      onParent[data.type](data);
     }
   });
 
-  const operations:any = {
-
-    componentHover: function (data: any) {
-      const uuid = data.uuid;
-      const component = getComponentByUuid(uuid);
-      if (component) {
-        doComponentHover(component);
-      }
+  // Events called from parent iframes.
+  const onParent:any = {
+    getStructureData: function (_data: any) {
+      window.parent.postMessage({
+        type: 'structureData',
+        size: size,
+        data: getStructureData(),
+      }, '*');
     },
-
-    componentFocus: function (data: any) {
-      const uuid = data.uuid;
-      const component = getComponentByUuid(uuid);
-      if (component) {
-        window.parent.postMessage({
-          type: 'doComponentFocus',
-          id: id,
-          size: size,
-          uuid: component.dataset.componentUuid,
-          component: JSON.parse(component.dataset.component || '{}'),
-          rect: component.getBoundingClientRect(),
-        }, '*');
-      }
-      else {
-        window.parent.postMessage({
-          type: 'componentDoesNotExist',
-          id: id,
-          size: size,
-          uuid: uuid,
-        }, '*');
-      }
+    getPositionData: function (_data: any) {
+      // Watch for size changes.
+      watchElementSize(document.body, () => {
+        if (positionUpdateTimeout) {
+          clearTimeout(positionUpdateTimeout);
+        }
+        positionUpdateTimeout = setTimeout(() => {
+          window.parent.postMessage({
+            type: 'positionUpdateData',
+            size: size,
+            data: getPositionData(),
+          }, '*');
+          positionUpdateTimeout = null;
+        }, 150);
+      });
+      // Send initial position data.
+      window.parent.postMessage({
+        type: 'positionData',
+        size: size,
+        data: getPositionData(),
+      }, '*');
     }
-
   };
 
-  once('neo.alchemist', '[data-component]').forEach(el => {
-    // Check for empty component.
-    checkEmpty(el);
-    if (el.matches(':hover')) {
-      componentHover(el);
-    }
-    el.addEventListener('mouseenter', () => {
-      componentHover(el);
+  /**
+   * Get the structure data of components and regions in this iframe.
+   */
+  function getStructureData(): Record<string, any> {
+    const data: Record<string, any> = {};
+
+    components.forEach(el => {
+      const uuid = el.dataset.componentUuid;
+      if (!uuid) return;
+      const component = {
+        type: 'component',
+        data: JSON.parse(el.dataset.component || '{}'),
+        parents: getParentUuids(el),
+        children: getChildrenUuids(el),
+      };
+      data[uuid] = component;
     });
-  });
 
-  function getComponentByUuid(uuid: string): HTMLElement | null {
-    return document.querySelector(`[data-component-uuid="${uuid}"]`);
+    regions.forEach(el => {
+      const uuid = el.dataset.regionUuid;
+      if (!uuid) return;
+      const region = {
+        type: 'region',
+        data: JSON.parse(el.dataset.region || '{}'),
+        parents: getParentUuids(el),
+        children: getChildrenUuids(el),
+      };
+      data[uuid] = region;
+    });
+
+    return data;
   }
 
-  function componentHover(el: HTMLElement) {
-    if (el.dataset.componentUuid) {
-      window.parent.postMessage({
-        type: 'onComponentHover',
-        id: id,
-        size: size,
-        uuid: el.dataset.componentUuid,
-        component: JSON.parse(el.dataset.component || '{}'),
-      }, '*');
-      doComponentHover(el);
+  /**
+   * Get the structure data of components and regions in this iframe.
+   */
+  function getPositionData(): Record<string, DOMRect> {
+    const data: Record<string, DOMRect> = {};
+
+    components.forEach(el => {
+      const uuid = el.dataset.componentUuid;
+      if (!uuid) return;
+      const component = el.getBoundingClientRect();
+      data[uuid] = component;
+    });
+
+    regions.forEach(el => {
+      const uuid = el.dataset.regionUuid;
+      if (!uuid) return;
+      const component = el.getBoundingClientRect();
+      data[uuid] = component;
+    });
+
+    return data;
+  }
+
+  function getParentUuids(el: HTMLElement): string[] {
+    const parents: string[] = [];
+    const parentComponent = el.parentElement?.closest('[data-component]') as HTMLElement | null;
+    if (parentComponent) {
+      const parentComponentUuid = parentComponent.dataset.componentUuid;
+      if (parentComponentUuid) {
+        parents.push(parentComponentUuid);
+      }
     }
-  }
-
-  function doComponentHover(el: HTMLElement) {
-    if (el.dataset.componentUuid) {
-      window.parent.postMessage({
-        type: 'doComponentHover',
-        id: id,
-        size: size,
-        rect: el.getBoundingClientRect(),
-      }, '*');
+    const parentRegion = el.parentElement?.closest('[data-region]') as HTMLElement | null;
+    if (parentRegion) {
+      const parentRegionUuid = parentRegion.dataset.regionUuid;
+      if (parentRegionUuid) {
+        parents.push(parentRegionUuid);
+      }
     }
+    return parents;
   }
 
-  function checkEmpty(el: HTMLElement) {
-    // Check if the element is empty.
-    el.style.display = 'block';
-    if (el.clientHeight === 0) {
-      const data = JSON.parse(el.dataset.component || '{}');
-      const message = document.createElement('div');
-      message.classList.add('w-full', 'text-center', 'text-sm', 'bg-base-200', 'p-4');
-      message.innerHTML = '<strong><em>' + data.label + '</em></strong> has no visible content.';
-      el.appendChild(message);
-      // Watch for changes to the element's height. This allows dynamic content
-      // to be loaded into the element, and the message to be removed.
-      let lastHeight = el.clientHeight;
-      const observer = new ResizeObserver(entries => {
-        const entry = entries[0];
-        const newHeight = entry.contentRect.height;
-        if (newHeight !== lastHeight) {
-          message.remove();
-          observer.unobserve(el);
-        }
-      });
-      observer.observe(el);
-    }
-    el.style.display = '';
+  function getChildrenUuids(el: HTMLElement): string[] {
+    const children: string[] = [];
+    el.querySelectorAll<HTMLElement>('[data-component]').forEach(childComponent => {
+      const childComponentUuid = childComponent.dataset.componentUuid;
+      if (childComponentUuid) {
+        children.push(childComponentUuid);
+      }
+    });
+    el.querySelectorAll<HTMLElement>('[data-region]').forEach(childRegion => {
+      const childRegionUuid = childRegion.dataset.regionUuid;
+      if (childRegionUuid) {
+        children.push(childRegionUuid);
+      }
+    });
+    return children;
   }
 
-})(once);
+  function watchElementSize(
+    element: HTMLElement,
+    callback: (entry: ResizeObserverEntry) => void
+  ): ResizeObserver {
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        callback(entry);
+      }
+    });
+
+    observer.observe(element);
+    return observer; // Return so you can disconnect later
+  }
+
+})();

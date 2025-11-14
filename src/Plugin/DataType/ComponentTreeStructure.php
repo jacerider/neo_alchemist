@@ -101,9 +101,9 @@ class ComponentTreeStructure extends TypedData {
   /**
    * {@inheritdoc}
    */
-  public function applyDefaultValue($notify = TRUE) {
+  public function applyDefaultValue($notify = TRUE): self {
     // Default to a JSON object with only the root key present.
-    $this->setValue('{"' . ComponentTreeStructure::ROOT_UUID . '": []}', $notify);
+    $this->setValue('{"' . self::ROOT_UUID . '": []}', $notify);
     return $this;
   }
 
@@ -140,9 +140,20 @@ class ComponentTreeStructure extends TypedData {
   public function getComponents(): array {
     $components = [];
     foreach ($this->tree as $uuid => $sub_tree_value) {
-      $components = array_merge($components, $this->getComponentBySection($uuid));
+      $components = array_merge($components, $this->getComponentsBySection($uuid));
     }
     return $components;
+  }
+
+  /**
+   * Get component instance UUIDs.
+   *
+   * @return array
+   *   An array of component instance UUIDs.
+   */
+  public function getComponentInstanceUuids(?string $parentUuid = NULL, ?string $slot = NULL): array {
+    $components = $parentUuid ? $this->getComponentsBySection($parentUuid, $slot) : $this->getComponents();
+    return array_column($components, 'uuid');
   }
 
   /**
@@ -164,7 +175,7 @@ class ComponentTreeStructure extends TypedData {
    * @throws \UnexpectedValueException
    *   Thrown when the items in a section are not an array.
    */
-  public function getComponentBySection(string $parentUuid, $slot = NULL): array {
+  public function getComponentsBySection(string $parentUuid = self::ROOT_UUID, ?string $slot = NULL): array {
     $components = [];
     if (isset($this->tree[$parentUuid])) {
       if ($parentUuid === self::ROOT_UUID) {
@@ -210,11 +221,11 @@ class ComponentTreeStructure extends TypedData {
    * @throws \InvalidArgumentException
    *   Thrown when sorting on a non-root parent without specifying a slot.
    */
-  public function sortComponents(array $uuids, string $parentUuid = ComponentTreeStructure::ROOT_UUID, $slot = NULL) {
+  public function sortComponents(array $uuids, string $parentUuid = self::ROOT_UUID, ?string $slot = NULL) {
     if ($parentUuid !== self::ROOT_UUID && $slot === NULL) {
       throw new \InvalidArgumentException('When sorting on a non-root parent, a slot is required.');
     }
-    $components = $this->getComponentBySection($parentUuid);
+    $components = $this->getComponentsBySection($parentUuid, $slot);
     $sorted = [];
     foreach ($uuids as $uuid) {
       foreach ($components as $component) {
@@ -224,7 +235,12 @@ class ComponentTreeStructure extends TypedData {
         }
       }
     }
-    $this->tree[self::ROOT_UUID] = $sorted;
+    if ($slot) {
+      $this->tree[$parentUuid][$slot] = $sorted;
+    }
+    else {
+      $this->tree[self::ROOT_UUID] = $sorted;
+    }
     $this->setValue(Json::encode($this->tree));
   }
 
@@ -240,8 +256,8 @@ class ComponentTreeStructure extends TypedData {
    * @param string|null $slot
    *   The slot name.
    */
-  public function addComponent(string $uuid, string $neoComponentId, string $parentUuid = ComponentTreeStructure::ROOT_UUID, $slot = NULL) {
-    if ($parentUuid === ComponentTreeStructure::ROOT_UUID) {
+  public function addComponent(string $uuid, string $neoComponentId, string $parentUuid = self::ROOT_UUID, ?string $slot = NULL) {
+    if ($parentUuid === self::ROOT_UUID) {
       $tree = &$this->tree[$parentUuid];
     }
     else {
@@ -266,7 +282,7 @@ class ComponentTreeStructure extends TypedData {
    */
   public function removeComponent(string $uuid) {
     foreach ($this->tree as $sub_tree_uuid => &$sub_tree_value) {
-      if ($sub_tree_uuid === ComponentTreeStructure::ROOT_UUID) {
+      if ($sub_tree_uuid === self::ROOT_UUID) {
         $sub_tree_value = array_filter($sub_tree_value ?? [], fn($v) => $v['uuid'] !== $uuid);
         continue;
       }
@@ -275,13 +291,14 @@ class ComponentTreeStructure extends TypedData {
         $sub_tree_value[$slot] = array_filter($items, fn($v) => $v['uuid'] !== $uuid);
       }
     }
+    unset($this->tree[$uuid]);
     $this->setValue(Json::encode($this->tree));
   }
 
   /**
    * Get component ID.
    *
-   * @param string $component_instance_uuid
+   * @param string $uuid
    *   The UUID of a placed component instance.
    *
    * @return ComponentConfigEntityId
@@ -289,25 +306,75 @@ class ComponentTreeStructure extends TypedData {
    *
    * @see \Drupal\experience_builder\Entity\Component
    */
-  public function getComponentId(string $component_instance_uuid): ?string {
-    if (!in_array($component_instance_uuid, $this->getComponentInstanceUuids(), TRUE)) {
+  public function getComponentId(string $uuid): ?string {
+    if (!in_array($uuid, $this->getComponentInstanceUuids(), TRUE)) {
       return NULL;
     }
     $components = $this->getComponents();
-
-    $index = array_search($component_instance_uuid, array_column($components, 'uuid'));
-
+    $index = array_search($uuid, array_column($components, 'uuid'));
     return $components[$index]['component'];
   }
 
   /**
-   * Get component instance UUIDs.
+   * Get component parent UUID.
    *
-   * @return array
-   *   An array of component instance UUIDs.
+   * @param string $uuid
+   *   The UUID of a placed component instance.
+   *
+   * @return string|null
+   *   The parent UUID, or NULL if the component is not found or is the root.
    */
-  public function getComponentInstanceUuids(): array {
-    return array_column($this->getComponents(), 'uuid');
+  public function getComponentParentUuid(string $uuid): ?string {
+    if (!in_array($uuid, $this->getComponentInstanceUuids(), TRUE)) {
+      return NULL;
+    }
+    if ($uuid === self::ROOT_UUID) {
+      return NULL;
+    }
+    foreach ($this->tree as $parent_uuid => $sub_tree_value) {
+      foreach ($sub_tree_value as $slot => $items) {
+        if ($parent_uuid === self::ROOT_UUID) {
+          continue;
+        }
+        foreach ($items as $component) {
+          if ($component['uuid'] === $uuid) {
+            return $parent_uuid;
+          }
+        }
+      }
+    }
+    return NULL;
+  }
+
+  /**
+   * Get component slot.
+   *
+   * @param string $uuid
+   *   The UUID of a placed component instance.
+   *
+   * @return string|null
+   *   The slot name, or NULL if the component is not found or is the root.
+   */
+  public function getComponentSlot(string $uuid): ?string {
+    if (!in_array($uuid, $this->getComponentInstanceUuids(), TRUE)) {
+      return NULL;
+    }
+    if ($uuid === self::ROOT_UUID) {
+      return NULL;
+    }
+    foreach ($this->tree as $parent_uuid => $sub_tree_value) {
+      foreach ($sub_tree_value as $slot => $items) {
+        if ($parent_uuid === self::ROOT_UUID) {
+          continue;
+        }
+        foreach ($items as $component) {
+          if ($component['uuid'] === $uuid) {
+            return $slot;
+          }
+        }
+      }
+    }
+    return NULL;
   }
 
   /**
@@ -331,11 +398,11 @@ class ComponentTreeStructure extends TypedData {
 
       // For each vertex (after the filtering above), all edges represent
       // child component instances placed in this slot.
-      foreach (array_keys($vertex['edges']) as $component_instance_uuid) {
-        assert(is_string($component_instance_uuid));
+      foreach (array_keys($vertex['edges']) as $uuid) {
+        assert(is_string($uuid));
         yield $parent_uuid => [
           'slot' => $slot,
-          'uuid' => $component_instance_uuid,
+          'uuid' => $uuid,
         ];
       }
     }
@@ -357,17 +424,17 @@ class ComponentTreeStructure extends TypedData {
     $graph = [];
     foreach ($tree as $component_subtree_uuid => $value) {
       if ($component_subtree_uuid === self::ROOT_UUID) {
-        foreach (array_column($value, 'uuid') as $component_instance_uuid) {
-          assert(is_string($component_instance_uuid));
-          $graph[$component_subtree_uuid]['edges'][$component_instance_uuid] = TRUE;
+        foreach (array_column($value, 'uuid') as $uuid) {
+          assert(is_string($uuid));
+          $graph[$component_subtree_uuid]['edges'][$uuid] = TRUE;
         }
         continue;
       }
 
       foreach ($value as $slot => $component_instances) {
         $graph[$component_subtree_uuid]['edges']["$component_subtree_uuid:$slot"] = TRUE;
-        foreach (array_column($component_instances, 'uuid') as $component_instance_uuid) {
-          $graph["$component_subtree_uuid:$slot"]['edges'][$component_instance_uuid] = TRUE;
+        foreach (array_column($component_instances, 'uuid') as $uuid) {
+          $graph["$component_subtree_uuid:$slot"]['edges'][$uuid] = TRUE;
         }
       }
     }

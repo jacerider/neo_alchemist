@@ -49,6 +49,9 @@ final class InstanceComponentLibraryController extends ControllerBase {
     /** @var \Drupal\neo_alchemist\ComponentStorage $storage */
     $storage = $this->entityTypeManager()->getStorage('neo_component');
     $query = [];
+    if ($parent = $request->query->get('parent')) {
+      $query['parent'] = $parent;
+    }
     if ($before = $request->query->get('before')) {
       $query['before'] = $before;
     }

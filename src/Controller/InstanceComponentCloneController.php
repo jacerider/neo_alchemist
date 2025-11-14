@@ -22,7 +22,8 @@ final class InstanceComponentCloneController extends ControllerBase {
    * Builds the response.
    */
   public function __invoke(ComponentInstanceInterface $neo_component) {
-    $neo_component->createDuplicate()->save();
+    $newNeoComponent = $neo_component->createDuplicate();
+    $newNeoComponent->save();
 
     $fieldItem = $neo_component->getFieldItem();
     $fieldDefinition = $fieldItem->getFieldDefinition();
@@ -36,7 +37,7 @@ final class InstanceComponentCloneController extends ControllerBase {
     if ($this->isAjax()) {
       return $this->getComponentReponse(
         ComponentManageHelper::getId($fieldItem),
-        $neo_component->uuid(),
+        $newNeoComponent->uuid(),
         $fieldItem
       );
     }

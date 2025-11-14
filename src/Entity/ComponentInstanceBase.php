@@ -9,6 +9,7 @@ use Drupal\Core\Entity\ContentEntityInterface;
 use Drupal\Core\Session\AccountInterface;
 use Drupal\neo_alchemist\ComponentFieldConfigInterface;
 use Drupal\neo_alchemist\ComponentInstanceInterface;
+use Drupal\neo_alchemist\Plugin\DataType\ComponentTreeStructure;
 use Drupal\neo_alchemist\Plugin\Field\FieldType\ComponentTreeItem;
 
 /**
@@ -22,6 +23,20 @@ abstract class ComponentInstanceBase extends Component implements ComponentInsta
    * @var \Drupal\neo_alchemist\Plugin\Field\FieldType\ComponentTreeItem
    */
   protected ComponentTreeItem $fieldItem;
+
+  /**
+   * The parent UUID.
+   *
+   * @var string|null
+   */
+  protected ?string $parentUuid = NULL;
+
+  /**
+   * The parent slot (region prop).
+   *
+   * @var string|null
+   */
+  protected ?string $parentSlot = NULL;
 
   /**
    * The instance values.
@@ -80,6 +95,67 @@ abstract class ComponentInstanceBase extends Component implements ComponentInsta
   }
 
   /**
+   * {@inheritDoc}
+   */
+  public function setParent(?string $parentUuid, ?string $slot = NULL): self {
+    if ($parentUuid || $slot) {
+      assert($parentUuid && $slot, 'Both parentUuid and slot must be provided together.');
+      $parentComponent = $this->getFieldItem()->getComponent($parentUuid);
+      assert($parentComponent instanceof ComponentInstanceInterface, 'Parent component must be a valid ComponentInstanceInterface.');
+      // Currently we use component shapes as slots.
+      $allShapes = $parentComponent->getPropShapesAll(NULL, TRUE);
+      $shape = $allShapes[$slot] ?? NULL;
+      assert($shape !== NULL, 'The specified shape must exist on the parent component.');
+      assert($shape->getRef() === 'region', 'The specified shape must be of type region.');
+    }
+    $this->setParentUuid($parentUuid);
+    $this->setParentSlot($slot);
+    return $this;
+  }
+
+  /**
+   * Sets the parent UUID for the component instance.
+   *
+   * @param string|null $parentUuid
+   *   The parent UUID to set, or NULL to unset.
+   *
+   * @return self
+   *   The current instance of the component.
+   */
+  protected function setParentUuid(?string $parentUuid): self {
+    $this->parentUuid = $parentUuid ?: NULL;
+    return $this;
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  public function getParentUuid(): ?string {
+    return $this->parentUuid ?: ComponentTreeStructure::ROOT_UUID;
+  }
+
+  /**
+   * Sets the parent slot (region prop).
+   *
+   * @param string|null $parentSlot
+   *   The slot.
+   *
+   * @return $this
+   *   The current instance.
+   */
+  protected function setParentSlot(?string $parentSlot): self {
+    $this->parentSlot = $parentSlot ?: NULL;
+    return $this;
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  public function getParentSlot(): ?string {
+    return $this->parentSlot;
+  }
+
+  /**
    * {@inheritdoc}
    */
   public function getValues(): array {
@@ -95,7 +171,7 @@ abstract class ComponentInstanceBase extends Component implements ComponentInsta
     $this->values = $values;
     $fieldItem = $this->getFieldItem();
     if ($this->isNew()) {
-      $fieldItem->addComponent($this->uuid(), $this->id(), $values);
+      $fieldItem->addComponent($this->uuid(), $this->id(), $values, $this->getParentUuid(), $this->getParentSlot());
     }
     else {
       $fieldItem->updateComponent($this->uuid(), $values);
@@ -150,13 +226,8 @@ abstract class ComponentInstanceBase extends Component implements ComponentInsta
    * {@inheritdoc}
    */
   public function createDuplicate() {
-    $duplicate = clone $this;
-    $duplicate->uuid = $this->uuidGenerator()->generate();
-    // Automatically add the component.
-    $this->getFieldItem()
-      ->addComponent($duplicate->uuid(), $duplicate->id(), $duplicate->getValues())
-      ->moveComponent($duplicate->uuid(), $this->uuid(), 'after');
-    return $duplicate;
+    $fieldItem = $this->getFieldItem();
+    return $fieldItem->cloneComponent($this);
   }
 
 }

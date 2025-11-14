@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Drupal\neo_alchemist\Controller;
 
 use Drupal\Core\Controller\ControllerBase;
+use Drupal\neo_alchemist\Plugin\DataType\ComponentTreeStructure;
 use Drupal\neo_alchemist\Plugin\Field\FieldType\ComponentTreeItem;
 use Symfony\Component\HttpFoundation\Request;
 
@@ -17,9 +18,13 @@ final class InstanceComponentSortController extends ControllerBase {
    * Builds the response.
    */
   public function __invoke(Request $request, ComponentTreeItem $neo_field) {
+    $parent = $request->query->get('parent');
+    [$parentUuid, $shapeId] = explode('--', (string) ($parent ?? '--'));
     return $this->entityFormBuilder()->getForm($neo_field->getEntity(), 'alchemist_sort', [
       'fieldItem' => $neo_field,
       'uuid' => $request->query->get('uuid'),
+      'parentUuid' => $parentUuid ?: ComponentTreeStructure::ROOT_UUID,
+      'shapeId' => $shapeId ?: NULL,
     ]);
   }
 

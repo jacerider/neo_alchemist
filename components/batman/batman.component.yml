@@ -21,6 +21,9 @@ props:
           alt: 'Boring placeholder'
           width: 300
           height: 200
+    region:
+      title: Region
+      type: region
     # markup:
     #   type: markup
     #   title: Markup

@@ -16,6 +16,17 @@
     const form = jQuery('#neo-alchemist--instance-component-form') as any;
     if (Drupal.Ajax) {
       // Clear the form id so that the form is not submitted again.
+      let url = form.attr('action');
+      if (!url) {
+        return;
+      }
+      if (url.includes('?')) {
+        url += '&';
+      }
+      else {
+        url += '?';
+      }
+      url += 'ajax_form=1';
       formBuildId = null;
       const options = {
         callback: '::ajaxRefresh',
@@ -29,7 +40,7 @@
           _triggering_element_name: 'op',
           _triggering_element_value: 'Refresh',
         },
-        url: form.attr('action') + '?ajax_form=1',
+        url: url,
       };
       const ajax = Drupal.ajax(options) as any;
       ajax.element = jQuery('<div>')[0];

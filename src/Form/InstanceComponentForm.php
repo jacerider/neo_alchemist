@@ -44,6 +44,13 @@ final class InstanceComponentForm extends ContentEntityForm {
   protected $instance;
 
   /**
+   * Parent UUID.
+   *
+   * @var string|null
+   */
+  protected $parent;
+
+  /**
    * Before.
    *
    * @var string|null
@@ -114,6 +121,7 @@ final class InstanceComponentForm extends ContentEntityForm {
   protected function init(FormStateInterface $form_state) {
     parent::init($form_state);
     $this->instance = $form_state->get('neo_component_instance');
+    $this->parent = $form_state->get('parent');
     $this->before = $form_state->get('before');
     $this->after = $form_state->get('after');
     $form_state->set('neo_component_form', TRUE);
@@ -396,7 +404,7 @@ final class InstanceComponentForm extends ContentEntityForm {
     // If we have requested a position change, we make it here.
     $position = $this->after ? 'after' : ($this->before ? 'before' : NULL);
     if ($position) {
-      $this->instance->getFieldItem()->moveComponent($this->instance->uuid(), $this->after ?: $this->before, $position);
+      $this->instance->getFieldItem()->moveComponent($this->instance->uuid(), $this->after ?: $this->before, $position, $this->instance->getParentUuid(), $this->instance->getParentSlot());
     }
 
     return $this->instance->save();

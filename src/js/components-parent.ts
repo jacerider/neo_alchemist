@@ -1,50 +1,55 @@
-(function (Drupal, once) {
+(function (Drupal) {
 
   // Define interfaces for better type safety
-  interface Component {
-    uuid: string;
-    label: string;
-    alerts: string[];
-    warnings: string[];
-    ops?: Record<string, boolean>;
-  }
-
-  interface ComponentData {
-    uuid: string;
-    component: Component;
-    size: string;
-    rect?: DOMRect;
+  interface ElementData {
     type: string;
-  }
-
-  /**
-   * Interface for modal configuration options
-   */
-  interface ModalOptions {
-    width: string;
-    height: string;
-    neo: {
-      displaceTop: string;
-      displaceBottom: string;
-      contentPadding?: string;
-    };
+    data: any;
+    parents: string[];
+    children: string[];
   }
 
   /**
    * Interface for component operations
    */
-  interface ComponentOperations {
-    edit: (component: Component) => void;
-    sort: (component: Component) => void;
-    delete: (component: Component) => void;
-    clone: (component: Component) => void;
-    add: (component: Component, position: string) => void;
+  interface Actions {
+    library: (uuid: string | null) => void;
+    sort: (uuid: string | null) => void;
   }
 
   /**
-   * Base modal options configuration
+   * Interface for component operations
    */
-  const baseModalOptions: ModalOptions = {
+  interface Operations {
+    edit: (uuid: string) => void;
+    sort: (uuid: string) => void;
+    delete: (uuid: string) => void;
+    clone: (uuid: string) => void;
+    add: (uuid: string, position: string) => void;
+  }
+
+  // Elements
+  const container = document.querySelector('.neo-alchemist-manage') as HTMLElement;
+  if (!container) return;
+  const wrapper = container.querySelector('.neo-alchemist-manage--wrapper') as HTMLElement;
+  if (!wrapper) return;
+  const iframes = {} as Record<'desktop' | 'tablet' | 'mobile', HTMLIFrameElement>;
+  const panelTop = container.querySelector('.neo-alchemist--panel-top') as HTMLElement;
+  const panelBottom = container.querySelector('.neo-alchemist--panel-bottom') as HTMLElement;
+  const panelTitle = container.querySelector('.neo-alchemist--panel-title') as HTMLElement;
+  container.querySelectorAll('iframe').forEach(iframe => {
+    if (!iframe.dataset.size) return;
+    const size = iframe.dataset.size as 'desktop' | 'tablet' | 'mobile';
+    iframes[size] = iframe;
+  });
+
+  // Data
+  const structureElements: Record<string, Record<'desktop' | 'tablet' | 'mobile', HTMLElement>> = {};
+  const shadeElements = {} as Record<'desktop' | 'tablet' | 'mobile', Record<0 | 1 | 2, HTMLElement>>;
+  const overlayElements = {} as Record<'desktop' | 'tablet' | 'mobile', Record<0 | 1 | 2, HTMLElement>>;
+  const transitionSpeed = 200; // in ms
+  const sizes = ['desktop', 'tablet', 'mobile'] as const;
+  const levels = [0, 1, 2] as const;
+  const baseModalOptions: any = {
     width: '100%',
     height: '100%',
     neo: {
@@ -52,606 +57,934 @@
       displaceBottom: '0px',
     },
   };
+  const debugElements = false;
+  const actionButtons = container.querySelectorAll<HTMLElement>('.neo-alchemist--action');
+  let opButtons:NodeListOf<HTMLElement> | null = null;
+  let scale: string = localStorage.getItem('neo-alchemist-scale') || '1';
+  let structureData: Record<string, ElementData> = {};
+  let positionData = {} as Record<'desktop' | 'tablet' | 'mobile', Record<string, DOMRect>>;
+  let overlayTimeouts = {} as Record<0 | 1 | 2, ReturnType<typeof setTimeout> | null>;
+  let overlayState = {} as Record<string, null | 'hover' | 'active' | 'focus'>;
+  let layerUuid: string | null = null;
+  let regionUuid: string | null = null;
+  let layerLevel: -1 | 0 | 1 | 2 = -1;
+  let layerInteractSize: 'desktop' | 'tablet' | 'mobile' = 'desktop';
 
-  once('neo.alchemist.components.parent', '.neo-alchemist-manage').forEach(container => {
-    // State variables
-    let component: Component = {} as Component;
-    let componentState: 'hover' | 'focus' | null = null;
-    let componentPendingFocus: string | null = null;
-    let componentLastFocus:string|null = null;
-    let componentInteractSize: string | null = null;
-    let componentBlurTimeout: ReturnType<typeof setTimeout> | null = null;
-    let scale: string = localStorage.getItem('neo-alchemist-scale') || '1';
+  // Iframe load handling
+  let iframeProcessing = 0;
+  Object.entries(iframes).forEach(([size, iframe]) => {
+    iframe.addEventListener('load', () => {
+      iframeProcessing++;
+      if (!iframe.contentWindow) {
+        return;
+      }
 
-    // DOM elements
-    const iframes = container.querySelectorAll('iframe');
-    const wrapper = container.querySelector<HTMLElement>('.neo-alchemist-manage--wrapper');
-    const overlay = container.querySelector<HTMLElement>('.neo-alchemist--overlay');
-    const shade = container.querySelector<HTMLElement>('.neo-alchemist--shade');
-    const ops = container.querySelectorAll<HTMLElement>('.neo-alchemist--ops');
+      if (size === 'desktop') {
+        // Request structure data from desktop iframe.
+        iframe.contentWindow.postMessage({
+          type: 'getStructureData',
+        }, "*");
+      }
 
-    // Collections
-    const overlays: Record<string, HTMLElement> = {};
-    const shades: Record<string, HTMLElement> = {};
-    const viewportSizes = ['desktop', 'tablet', 'mobile'];
-
-    let iframeProcessing = 0;
-    iframes.forEach(iframe => {
-      iframe.addEventListener('load', () => {
-        iframeProcessing++;
-        if (!iframe.contentWindow) {
-          return;
-        }
-        if (componentPendingFocus || componentState === 'focus') {
-          // If we have a pending component or current focused component,
-          // we want to trigger focus on it. If it no longer exists, it will
-          // be removed.
+      if (iframeProcessing === 3) {
+        iframeProcessing = 0;
+        // All frames loaded.
+        Object.values(iframes).forEach(iframe => {
+          if (!iframe.contentWindow) {
+            return;
+          }
           iframe.contentWindow.postMessage({
-            type: 'componentFocus',
-            uuid: componentPendingFocus || component.uuid,
+            type: 'getPositionData',
           }, "*");
-        }
-        if (iframeProcessing === 3) {
-          componentPendingFocus = null;
+        });
+      }
+    });
+  });
+
+  // Watch for scale changes
+  const scaleCallback = (event: CustomEvent<any>) => {
+    const detail = event.detail as { scale: string };
+    scale = detail.scale as string;
+  }
+  container.addEventListener('alchemistManageScale', scaleCallback as EventListener);
+  container.addEventListener('alchemistManageScaleEnd', () => {
+    elementsPosition();
+    layerShow(layerUuid, true);
+  });
+
+  // Handle postMessage communication
+  window.addEventListener('message', (e) => {
+    const data = e.data;
+    if (typeof data.type === 'string') {
+      const handler = onChild[data.type];
+      if (typeof handler === 'function') {
+        handler(data);
+      }
+    }
+  });
+
+  // Events called from child iframes.
+  let iframeFinished = 0;
+  const onChild:any = {
+    structureData: function (data: any) {
+      structureData = data.data;
+      // Handle the received structure data as needed
+    },
+    positionData: function (data: any) {
+      iframeFinished++;
+      const size = data.size as 'desktop' | 'tablet' | 'mobile';
+      positionData[size] = data.data;
+      if (iframeFinished === 3) {
+        iframeFinished = 0;
+        ready();
+      }
+    },
+    positionUpdateData: function (data: any) {
+      const size = data.size as 'desktop' | 'tablet' | 'mobile';
+      positionData[size] = data.data;
+      elementsPosition();
+    },
+  };
+
+  initialize();
+
+  /**
+   * We have the component data.
+   *
+   * This is called only once.
+   */
+  function initialize() {
+    const shadeBase = container.querySelector('.neo-alchemist--shade-base') as HTMLElement;
+    const overlayBase = container.querySelector('.neo-alchemist--overlay-base') as HTMLElement;
+    sizes.forEach(size => {
+      shadeElements[size] = {} as Record<0 | 1 | 2, HTMLElement>;
+      overlayElements[size] = {} as Record<0 | 1 | 2, HTMLElement>;
+      levels.forEach(level => {
+        const shade = shadeBase.cloneNode(true) as HTMLElement;
+        shade.classList.remove('neo-alchemist--shade-base');
+        shade.classList.add('neo-alchemist--shade');
+        shade.setAttribute('data-size', size);
+        shade.setAttribute('data-level', level.toString());
+        shade.style.transition = `opacity ${transitionSpeed}ms ease-in-out`;
+        shade.style.opacity = '0';
+        shade.style.zIndex = (10 + level).toString();
+        wrapper.appendChild(shade);
+        shade.addEventListener('click', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          layerBack();
+        });
+        shadeElements[size][level] = shade;
+
+        const overlay = overlayBase.cloneNode(true) as HTMLElement;
+        const overlayLabel = overlay.querySelector('.neo-alchemist--overlay-label') as HTMLElement;
+        const overlayActions = overlay.querySelectorAll('.neo-alchemist--overlay-actions') as NodeListOf<HTMLElement>;
+        overlay.classList.remove('neo-alchemist--overlay-base');
+        overlay.classList.add('neo-alchemist--overlay');
+        overlay.setAttribute('data-size', size);
+        overlay.setAttribute('data-level', level.toString());
+        overlay.style.zIndex = (15 + level).toString();
+        overlay.style.opacity = '0';
+        // Allow editing with a double-click
+        overlay.addEventListener('dblclick', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          if (layerUuid) {
+            operationExecute('edit');
+          }
+        });
+        overlay.style.transition = `all ${transitionSpeed}ms ease-in-out`;
+        overlayLabel.style.opacity = '0';
+        overlayActions.forEach(action => action.style.opacity = '0');
+        wrapper.appendChild(overlay);
+        overlayElements[size][level] = overlay;
+      });
+    });
+    shadeBase.remove();
+    overlayBase.remove();
+
+    // Close button handling
+    wrapper.querySelectorAll<HTMLElement>('.neo-alchemist--close').forEach(closeButton => {
+      closeButton.addEventListener('click', (e) => {
+        e.preventDefault();
+        layerShow();
+      });
+    });
+
+    // Action button handling
+    actionButtons.forEach(actionButton => {
+      actionButton.addEventListener('click', (e) => {
+        e.preventDefault();
+        const actionKey = actionButton.dataset.action as keyof Actions;
+        if (actionKey) {
+          actionExecute(actionKey);
         }
       });
+    });
+
+    // Operation button handling
+    opButtons = wrapper.querySelectorAll('.neo-alchemist--op') as NodeListOf<HTMLElement>;
+    opButtons.forEach(opButton => {
+      opButton.addEventListener('click', (e) => {
+        e.preventDefault();
+        const opKey = opButton.dataset.op as keyof Operations;
+        if (opKey) {
+          operationExecute(opKey);
+        }
+      });
+    });
+
+    // Wrapper click handling
+    let startX:number;
+    let startY:number;
+    wrapper.addEventListener('mousedown', e => {
+      startX = e.clientX;
+      startY = e.clientY;
+    });
+    wrapper.addEventListener('mouseup', e => {
+      if (layerUuid === null) {
+        return;
+      }
+      // Check if target has data-alchemist-ignore
+      if (e.target instanceof HTMLElement && (e.target.dataset.alchemistIgnore !== undefined || e.target.closest('[data-alchemist-ignore]'))) {
+        return;
+      }
+      // If mouse hasn't moved, we blur the component.
+      if (startX === e.clientX && startY === e.clientY) {
+        layerBack();
+      }
     });
 
     // Watch for component focus event
     const focusCallback = (event: CustomEvent<any>) => {
       const detail = event.detail as { uuid: string };
-      // Set pending focus to the new component so that iframe load event
-      // can pick it up.
-      componentPendingFocus = detail.uuid;
+      layerUuid = detail.uuid;
     }
     container.addEventListener('alchemistManageComponentFocus', focusCallback as EventListener);
 
-    // Watch for scale changes
-    const scaleCallback = (event: CustomEvent<any>) => {
-      const detail = event.detail as { scale: string };
-      scale = detail.scale as string;
-      componentBlur(0);
-    }
-    container.addEventListener('alchemistManageScale', scaleCallback as EventListener);
+    // Build panel top positioning
+    const rect = wrapper.getBoundingClientRect();
+    panelTop.style.display = '';
+    panelTop.style.top = `${rect.top}px`;
+    panelTop.style.left = '0';
+    panelTop.style.right = '0';
+    panelTop.style.transform = `translate(0, -${rect.top}px)`;
+    panelTop.style.opacity = '0';
+    panelTop.style.zIndex = '30';
+    panelTop.style.cursor = 'default';
+    panelTop.style.transition = `opacity ${transitionSpeed}ms ease-in-out, transform ${transitionSpeed}ms ease-in-out`;
+    // Build panel bottom positioning
+    panelBottom.style.display = '';
+    panelBottom.style.bottom = `${window.innerHeight - rect.top - rect.height}px`;
+    panelBottom.style.left = '0';
+    panelBottom.style.right = '0';
+    panelBottom.style.transform = `translate(0, ${rect.top}px)`;
+    panelBottom.style.opacity = '0';
+    panelBottom.style.zIndex = '30';
+    panelBottom.style.cursor = 'default';
+    panelBottom.style.transition = `opacity ${transitionSpeed}ms ease-in-out, transform ${transitionSpeed}ms ease-in-out`;
+  }
 
-    // Add close button event listener
-    if (ops && wrapper) {
-      const closeButton = wrapper.querySelector<HTMLElement>('.close');
-      if (closeButton) {
-        closeButton.addEventListener('click', (e) => {
-          e.preventDefault();
-          componentBlur(0);
-        });
-      }
-    }
-
-    // Initialize overlays and shades for different viewport sizes
-    if (overlay && shade) {
-      initializeOverlaysAndShades(overlay, shade);
-    }
-
-    if (wrapper) {
-      const opButtons = wrapper.querySelectorAll('.op') as NodeListOf<HTMLElement>;
-      opButtons.forEach(opButton => {
-        opButton.addEventListener('click', (e) => {
-          e.preventDefault();
-          const opKey = opButton.dataset.op as keyof ComponentOperations;
-          if (opKey) {
-            executeComponentOperation(component, opKey);
-          }
-        });
-      });
-    }
-
-    if (wrapper) {
-      let startX:number;
-      let startY:number;
-      wrapper.addEventListener('mousedown', e => {
-        startX = e.clientX;
-        startY = e.clientY;
-      });
-      wrapper.addEventListener('mouseup', e => {
-        if (componentState === null) {
-          return;
-        }
-        // Check if target has data-alchemist-ignore
-        if (e.target instanceof HTMLElement && (e.target.dataset.alchemistIgnore !== undefined || e.target.closest('[data-alchemist-ignore]'))) {
-          return;
-        }
-        // If mouse hasn't moved, we blur the component.
-        if (startX === e.clientX && startY === e.clientY) {
-          componentBlur();
-        }
-      });
-    }
-
-    // Add escape key handler
-    document.addEventListener('keydown', (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        componentBlur();
-      }
+  /**
+   * We have all the elements and positions, we are ready to go.
+   *
+   * This will be called once all iframes have sent position data. It can be
+   * called multiple times if the iframes are reloaded.
+   */
+  function ready(): void {
+    // Reset overlay state
+    overlayState = {};
+    // Clear existing elements
+    container.querySelectorAll<HTMLElement>('.neo-alchemist--element').forEach(element => {
+      element.remove();
     });
 
-    // Handle postMessage communication
-    window.addEventListener('message', (e) => {
-      const data = e.data;
-      if (typeof data.type === 'string') {
-        const handler = childOperations[data.type];
-        if (typeof handler === 'function') {
-          handler(data);
+    // Build structure elements
+    const elementBase = container.querySelector('.neo-alchemist--element-base') as HTMLElement;
+    Object.entries(structureData).forEach(([uuid, data]) => {
+      structureElements[uuid] = {} as Record<'desktop' | 'tablet' | 'mobile', HTMLElement>;
+      sizes.forEach(size => {
+        const level = data.parents.length;
+        const element = elementBase.cloneNode(true) as HTMLElement;
+        element.classList.remove('neo-alchemist--element-base');
+        element.classList.add('neo-alchemist--element');
+        element.setAttribute('data-uuid', uuid);
+        element.setAttribute('data-size', size);
+        element.setAttribute('data-level', level.toString());
+        if (debugElements) {
+          switch (level) {
+            case 0:
+              element.style.border = '1px solid red';
+              break;
+            case 1:
+              element.style.border = '1px solid green';
+              break;
+            case 2:
+              element.style.border = '1px solid blue';
+              break;
+          }
         }
-      }
+        element.style.cursor = 'pointer';
+        element.style.zIndex = (20 + level).toString();
+        element.addEventListener('mouseenter', () => {
+          layerInteractSize = size;
+          if (layerLevel + 1 === level) {
+            elementHover(uuid);
+          }
+        });
+        element.addEventListener('mouseleave', () => {
+          if (layerLevel + 1 === level) {
+            elementBlur(uuid);
+          }
+        });
+        element.addEventListener('click', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          elementFocus(uuid);
+        });
+        wrapper.appendChild(element);
+        structureElements[uuid][size] = element;
+      });
     });
 
-    // Define behaviors
-    const childOperations:any = {
-      size: function (data: ComponentData):void {
-        if (componentState === 'focus') {
-          const iframe = getIframe(data.size);
-          if (iframe && iframe.contentWindow) {
-            iframe.contentWindow.postMessage({
-              type: 'componentHover',
-              uuid: component.uuid,
-            }, "*");
-          }
+    elementsPosition();
+    elementsToggle();
+
+    if (layerUuid) {
+      layerShow(layerUuid);
+    }
+  }
+
+  function elementHover(uuid: string): void {
+    const data = structureData[uuid];
+    const level = data.parents.length as 0 | 1 | 2;
+    clearTimeout(overlayTimeouts[level] || undefined);
+    overlayShow(uuid);
+  }
+
+  function elementFocus(uuid: string): void {
+    layerShow(uuid);
+  }
+
+  function elementBlur(uuid: string): void {
+    const data = structureData[uuid];
+    const level = data.parents.length as 0 | 1 | 2;
+    overlayState[uuid] = null;
+    overlayTimeouts[level] = setTimeout(() => {
+      overlayHide(uuid);
+    }, 200);
+  }
+
+  /**
+   * Show overlay for the given component/region UUID.
+   */
+  function overlayShow(uuid: string, state: 'hover' | 'active' | 'focus' = 'hover', force: boolean = false): void {
+    if (!force && overlayState[uuid] && overlayState[uuid] === state) {
+      return;
+    }
+    sizes.forEach(size => {
+      overlayShowLevel(uuid, size, state);
+    });
+    overlayState[uuid] = state;
+  }
+
+  function overlayShowLevel(uuid: string, size: 'desktop' | 'tablet' | 'mobile', state: 'hover' | 'active' | 'focus' = 'hover'): void {
+    const data = structureData[uuid];
+    const level = data.parents.length as 0 | 1 | 2;
+    const overlay = overlayElements[size][level];
+    const heightOffset = level >= 1 ? 0 : 10;
+    const absoluteRect = calculateIframeRect(size, positionData[size][uuid], heightOffset);
+    overlay.style.left = `${absoluteRect.left}px`;
+    overlay.style.top = `${absoluteRect.top}px`;
+    overlay.style.width = `${absoluteRect.width}px`;
+    overlay.style.height = `${absoluteRect.height}px`;
+    overlay.style.opacity = '1';
+    overlay.style.pointerEvents = 'none';
+    switch (state) {
+      case 'hover':
+        overlayHover(uuid, size, overlay, data);
+        break;
+      case 'active':
+        overlayActive(uuid, size, overlay, data);
+        break;
+      case 'focus':
+        overlayFocus(uuid, size, overlay, data);
+        break;
+    }
+  }
+
+  function overlayHover(_uuid: string, _size: 'desktop' | 'tablet' | 'mobile', overlay: HTMLElement, data: ElementData): void {
+    const overlayLabel = overlay.querySelector('.neo-alchemist--overlay-label') as HTMLElement;
+    const overlayActions = overlay.querySelectorAll('.neo-alchemist--overlay-actions') as NodeListOf<HTMLElement>;
+    overlayLabel.style.transition = 'none';
+    overlayLabel.style.opacity = '1';
+    overlayLabel.innerHTML = `<span class="bg-base-500 text-base-500-content rounded py-0.5 px-1">${data.data.label}</span>`;
+    if (data.data.warnings && data.data.warnings.length > 0) {
+      data.data.warnings.forEach((warning:string) => {
+        overlayLabel.innerHTML += ` <span class="badge rounded-sm bg-warning-500 text-warning-500-content">${warning}</span>`;
+      });
+    }
+    if (data.data.alerts && data.data.alerts.length > 0) {
+      data.data.alerts.forEach((alert:string) => {
+        overlayLabel.innerHTML += ` <span class="badge rounded-sm bg-alert-500 text-alert-500-content">${alert}</span>`;
+      });
+    }
+    if (data.type === 'component') {
+      overlayActions.forEach(action => {
+        action.style.transition = 'none';
+        action.style.opacity = '0';
+      });
+    }
+  }
+
+  function overlayActive(uuid: string, size: 'desktop' | 'tablet' | 'mobile', overlay: HTMLElement, data: ElementData): void {
+    const overlayLabel = overlay.querySelector('.neo-alchemist--overlay-label') as HTMLElement;
+    const overlayActions = overlay.querySelectorAll('.neo-alchemist--overlay-actions') as NodeListOf<HTMLElement>;
+    overlayLabel.style.transition = '';
+    overlayLabel.style.opacity = '0';
+    overlayLabel.textContent = data.data.label;
+    if (data.type === 'component') {
+      overlayActions.forEach(action => {
+        action.style.transition = 'none';
+        action.style.opacity = '0';
+      });
+    }
+    setTimeout(() => {
+      shadeShowLevel(uuid, size);
+    });
+  }
+
+  function overlayFocus(uuid: string, size: 'desktop' | 'tablet' | 'mobile', overlay: HTMLElement, data: ElementData): void {
+    const overlayLabel = overlay.querySelector('.neo-alchemist--overlay-label') as HTMLElement;
+    const overlayActions = overlay.querySelectorAll('.neo-alchemist--overlay-actions') as NodeListOf<HTMLElement>;
+    overlayLabel.style.transition = '';
+    overlayLabel.style.opacity = '0';
+    overlayLabel.textContent = data.data.label;
+    if (data.type === 'component') {
+      overlayActions.forEach(action => {
+        action.style.transition = '';
+        action.style.opacity = '1';
+      });
+    }
+    overlay.style.pointerEvents = 'auto';
+    setTimeout(() => {
+      shadeShowLevel(uuid, size);
+    });
+  }
+
+  function overlayHide(uuid: string): void {
+    overlayState[uuid] = null;
+    const data = structureData[uuid];
+    const level = data.parents.length as 0 | 1 | 2;
+    overlayHideLevel(level);
+    shadeHideLevel(level);
+  }
+
+  function overlayHideAll(): void {
+    overlayState = {};
+    levels.forEach(level => {
+      overlayHideLevel(level);
+    });
+    shadeHideAll();
+  }
+
+  function overlayHideLevel(level: 0 | 1 | 2): void {
+    sizes.forEach(size => {
+      const overlay = overlayElements[size][level];
+      overlay.style.opacity = '0';
+    });
+    overlayTimeouts[level] = setTimeout(() => {
+      sizes.forEach(size => {
+        const overlay = overlayElements[size][level];
+        const overlayLabel = overlay.querySelector('.neo-alchemist--overlay-label') as HTMLElement;
+        const overlayActions = overlay.querySelectorAll('.neo-alchemist--overlay-actions') as NodeListOf<HTMLElement>;
+        overlay.style.left = '';
+        overlay.style.top = '';
+        overlay.style.width = '';
+        overlay.style.height = '';
+        overlayLabel.style.opacity = '0';
+        overlayActions.forEach(action => action.style.opacity = '0');
+      });
+    }, transitionSpeed);
+  }
+
+  // function shadeShow(uuid: string): void {
+  //   sizes.forEach(size => {
+  //     shadeShowLevel(uuid, size);
+  //   });
+  // }
+
+  function shadeShowLevel(uuid: string, size: 'desktop' | 'tablet' | 'mobile'): void {
+    const data = structureData[uuid];
+    const level = data.parents.length as 0 | 1 | 2;
+    const shade = shadeElements[size][level];
+    const container = getShadeContainer(uuid, size);
+    const heightOffset = level === 1 ? 0 : 10;
+    const absoluteRect = calculateRect(container.getBoundingClientRect());
+    shade.style.left = `${absoluteRect.left}px`;
+    shade.style.top = `${absoluteRect.top}px`;
+    shade.style.width = `${absoluteRect.width}px`;
+    shade.style.height = `${absoluteRect.height}px`;
+    shade.style.opacity = '1';
+    if (data.type === 'component') {
+      shade.classList.remove('bg-base-950/60');
+      shade.classList.add('bg-base-0/60');
+    }
+    else {
+      shade.classList.remove('bg-base-0/60');
+      shade.classList.add('bg-base-950/60');
+    }
+    createClipPath(shade, structureElements[uuid][size], container, heightOffset);
+  }
+
+  function shadeHideAll(): void {
+    levels.forEach(level => {
+      shadeHideLevel(level);
+    });
+  }
+
+  function shadeHideLevel(level: 0 | 1 | 2): void {
+    sizes.forEach(size => {
+      const shade = shadeElements[size][level];
+      shade.style.opacity = '0';
+    });
+  }
+
+  function getShadeContainer(uuid: string, size: 'desktop' | 'tablet' | 'mobile'): HTMLElement {
+    const data = structureData[uuid];
+    const level = data.parents.length as 0 | 1 | 2;
+    if (level === 0) {
+      return getIframe(size);
+    }
+    const lastParent = data.parents[data.parents.length - 1];
+    return structureElements[lastParent][size];
+  }
+
+  function titleSet(uuid: string | null): void {
+    let title = [];
+    if (uuid) {
+      const data = structureData[uuid];
+      data.parents.forEach(parentUuid => {
+        const parentData = structureData[parentUuid];
+        title.push({
+          label: parentData.data.label,
+          uuid: parentUuid,
+        });
+      });
+      title.push({
+        label: data.data.label,
+        uuid: uuid,
+        warnings: data.data.warnings || [],
+        alerts: data.data.alerts || [],
+      });
+    }
+    panelTitle.innerHTML = '';
+    if (!title.length) {
+      panelTop.style.opacity = '0';
+      panelTop.style.transform = `translate(0, -${panelTop.getBoundingClientRect().height}px)`;
+    }
+    else {
+      title = [{ label: 'Root', uuid: null }, ...title];
+      title.forEach((part, index) => {
+        const span = document.createElement(part.uuid === uuid ? 'div' : 'a');
+        span.classList.add('flex', 'items-center', 'gap-2', 'whitespace-nowrap');
+        if (span instanceof HTMLAnchorElement) {
+          span.href = '#';
+          span.classList.add('hover:underline');
+          span.style.fontWeight = '300';
         }
-      },
-
-      onComponentHover: function(data: ComponentData):void {
-        component = data.component;
-        component.uuid = data.uuid;
-        componentState = 'hover';
-        componentInteractSize = data.size;
-
-        // Clear existing timeout if any
-        if (componentBlurTimeout) {
-          clearTimeout(componentBlurTimeout);
+        else {
+          span.style.fontWeight = '500';
         }
-
-        // Handle quick mouse movement edge case
-        componentBlurTimeout = setTimeout(() => {
-          const isHovered = Object.values(overlays).some(overlay =>
-            overlay instanceof HTMLElement && overlay.matches(':hover')
-          );
-          if (!isHovered) {
-            componentBlur();
-          }
-        }, 200);
-
-        // Notify other iframes
-        notifyOtherIframes(data.size, data.uuid);
-      },
-
-      doComponentHover: function(data: ComponentData):void {
-        const size = data.size;
-        const overlay = overlays[size];
-
-        if (overlay) {
-          const iframe = getIframe(size);
-
-          if (iframe && wrapper && data.rect) {
-            const hasFocused = componentState === 'focus';
-            positionOverlay(overlay, iframe, data.rect, hasFocused);
-
-            // Set component label
-            const label = overlay.querySelector('.label');
-            if (label) {
-              label.innerHTML = `<span class="px-1">${component.label}</span>`;
-              if (component.warnings && component.warnings.length > 0) {
-                component.warnings.forEach(warning => {
-                  label.innerHTML = ` <span class="badge rounded-sm bg-warning-500 text-warning-500-content">${warning}</span>` + label.innerHTML;
-                });
-              }
-              if (component.alerts && component.alerts.length > 0) {
-                component.alerts.forEach(warning => {
-                  label.innerHTML = ` <span class="badge rounded-sm bg-alert-500 text-alert-500-content">${warning}</span>` + label.innerHTML;
-                });
-              }
-            }
-
-            // Add transition after positioning
-            setTimeout(() => {
-              overlay.classList.add('!transition-all');
+        span.classList.add('text-base-900-content');
+        if (part.uuid) {
+          span.innerHTML = `<span>${part.label}</span>`;
+          if (part.warnings && part.warnings.length > 0) {
+            part.warnings.forEach((warning:string) => {
+              span.innerHTML += ` <span class="badge rounded-sm bg-warning-500 text-warning-500-content">${warning}</span>`;
             });
-
-            if (hasFocused) {
-              // If we have a focused component, we need to recalculate the
-              // overlay position.
-              configureOverlaysAndShades();
-              if (data.size === componentInteractSize) {
-                Drupal.behaviors.neoAlchemistComponentParent.scrollElementIntoView(overlay, wrapper, 100);
-              }
-            }
+          }
+          if (part.alerts && part.alerts.length > 0) {
+            part.alerts.forEach((alert:string) => {
+              span.innerHTML += ` <span class="badge rounded-sm bg-alert-500 text-alert-500-content">${alert}</span>`;
+            });
           }
         }
-      },
-
-      doComponentFocus: function(data: ComponentData):void {
-        component = data.component;
-        component.uuid = data.uuid;
-        childOperations.doComponentHover(data);
-      },
-
-      componentDoesNotExist: function(_data: ComponentData):void {
-        // Component no longer exists.
-        componentBlur();
-      }
-    };
-
-    // Helper functions
-
-    const onOverlayDblClick = (_e: MouseEvent) => {
-      if (componentState === 'focus') {
-        executeComponentOperation(component, 'edit');
-      }
-    };
-
-    /**
-     * Initialize overlays and shades for different viewport sizes
-     */
-    function initializeOverlaysAndShades(baseOverlay: HTMLElement, baseShade: HTMLElement): void {
-      viewportSizes.forEach(size => {
-        // Clone and set up overlay
-        const cloneOverlay = baseOverlay.cloneNode(true) as HTMLElement;
-        cloneOverlay.id = `neo-alchemist--overlay-${size}`;
-
-        cloneOverlay.addEventListener('mouseleave', () => {
-          if (componentState === 'hover') {
-            componentBlurTimeout = setTimeout(() => {
-              componentBlur();
-            }, 200);
-          }
-        });
-
-        cloneOverlay.addEventListener('click', (e) => {
+        else {
+          span.innerHTML = '<i class="neo-icon neo-icon-font icon-regular-home"></i>';
+        }
+        span.addEventListener('click', (e) => {
           e.preventDefault();
-
-          cloneOverlay.removeEventListener('dblclick', onOverlayDblClick);
-          if (componentLastFocus === component.uuid) {
-            cloneOverlay.addEventListener('dblclick', onOverlayDblClick);
-          }
-
-          componentFocus();
-
-          if (wrapper) {
-            // Scroll the element into the view.
-            Drupal.behaviors.neoAlchemistComponentParent.scrollElementIntoView(cloneOverlay.getBoundingClientRect(), wrapper, 100);
-          }
+          e.stopPropagation();
+          layerShow(part.uuid);
         });
-
-        baseOverlay.insertAdjacentElement('afterend', cloneOverlay);
-        overlays[size] = cloneOverlay;
-
-        // Clone and set up shade
-        const cloneShade = baseShade.cloneNode(true) as HTMLElement;
-        cloneShade.id = `neo-alchemist--shade-${size}`;
-
-        cloneShade.addEventListener('click', e => {
-          e.preventDefault();
-          componentBlur(0);
-        });
-
-        baseShade.insertAdjacentElement('afterend', cloneShade);
-        shades[size] = cloneShade;
-      });
-
-      // Remove original elements after cloning
-      baseOverlay.remove();
-      baseShade.remove();
-    }
-
-    /**
-     * Position overlay based on the component's position
-     */
-    function positionOverlay(overlay: HTMLElement, iframe: HTMLIFrameElement, rect: DOMRect, instant: boolean = false): void {
-      if (!wrapper) return;
-
-      overlay.classList.add('is-active', 'cursor-pointer');
-
-      const wrapperRect = wrapper.getBoundingClientRect();
-      const iframeRect = iframe.getBoundingClientRect();
-
-      const scaleInt = parseFloat(scale);
-      const top = wrapper.scrollTop + iframeRect.top + (rect.top * scaleInt) + window.scrollY - wrapperRect.top - 10;
-      const left = wrapper.scrollLeft + iframeRect.left + (rect.left * scaleInt) + window.scrollX - wrapperRect.left;
-      const height = (rect.height * scaleInt) + 20;
-      const width = (rect.width * scaleInt) + 0;
-
-      if (instant) {
-        overlay.classList.remove('!transition-all');
-      }
-
-      overlay.style.top = `${top}px`;
-      overlay.style.left = `${left}px`;
-      overlay.style.width = `${width}px`;
-      overlay.style.height = `${height}px`;
-
-      if (instant) {
-        setTimeout(() => {
-          overlay.classList.add('!transition-all');
-        }, 100);
-      }
-    }
-
-    /**
-     * Notify other iframes about component hover
-     */
-    function notifyOtherIframes(currentSize: string, uuid: string): void {
-      getIframeExclude(currentSize).forEach(iframe => {
-        if (iframe.contentWindow) {
-          iframe.contentWindow.postMessage({
-            type: 'componentHover',
-            uuid: uuid,
-          }, "*");
+        panelTitle.appendChild(span);
+        if (index < title.length - 1) {
+          const sep = document.createElement('div');
+          sep.textContent = '»';
+          sep.style.opacity = '0.5';
+          panelTitle.appendChild(sep);
         }
       });
+      panelTop.style.opacity = '1';
+      panelTop.style.transform = 'translate(0, 0)';
+    }
+  }
+
+  let opTimeout: ReturnType<typeof setTimeout> | null = null;
+  function opsSet(uuid: string | null): void {
+    if (!opButtons) return;
+    if (opTimeout) {
+      clearTimeout(opTimeout);
+      opTimeout = null;
     }
 
-    /**
-     * Operations available for components
-     */
-    const operations: ComponentOperations = {
-      edit: (component: Component): void => {
-        const modalOptionsEdit: ModalOptions = {
-          ...baseModalOptions,
-          neo: {
-            ...baseModalOptions.neo,
-            contentPadding: '0px',
-          },
-        };
-
-        Drupal.ajax({
-          url: `${drupalSettings.neoAlchemist.baseUrl}/edit/${component.uuid}`,
-          dialogType: 'modal',
-          dialog: modalOptionsEdit,
-        }).execute();
-      },
-
-      sort: (component: Component): void => {
-        Drupal.ajax({
-          url: `${drupalSettings.neoAlchemist.baseUrl}/sort?uuid=${component.uuid}`,
-          dialogType: 'modal',
-          dialog: baseModalOptions,
-        }).execute();
-      },
-
-      delete: (component: Component): void => {
-        Drupal.ajax({
-          url: `${drupalSettings.neoAlchemist.baseUrl}/delete/${component.uuid}`,
-          dialogType: 'modal',
-          dialog: {
-            ...baseModalOptions,
-            width: 'auto',
-            height: 'auto',
-          },
-        }).execute();
-      },
-
-      clone: (component: Component): void => {
-        Drupal.ajax({
-          url: `${drupalSettings.neoAlchemist.baseUrl}/clone/${component.uuid}`,
-        }).execute();
-      },
-
-      add: (component: Component, position: string): void => {
-        Drupal.ajax({
-          url: `${drupalSettings.neoAlchemist.baseUrl}/library?${position}=${component.uuid}`,
-          dialogType: 'modal',
-          dialog: baseModalOptions,
-        }).execute();
-      },
-    };
-
-    /**
-     * Execute a component operation if it's available
-     *
-     * @param component - The component to operate on
-     * @param opKey - Key of the operation to execute
-     */
-    function executeComponentOperation(
-      component: Component | null,
-      opKey: keyof ComponentOperations
-    ): void {
-      const [op, spec] = opKey.includes('-') ? opKey.split('-', 2) : [opKey, undefined];
-      if (component?.ops?.[opKey] && operations[op as keyof ComponentOperations]) {
-        operations[op as keyof ComponentOperations](component, spec as string);
-      }
-    }
-
-    /**
-     * Focus on a component
-     */
-    function componentFocus(): void {
-      if (!component || !wrapper) return;
-
-      componentState = 'focus';
-
-      // Update with component info
-      updateComponentInfo();
-
-      // Configure operation buttons
-      configureOperationButtons();
-
-      // Position operation panels
-      positionOperationPanels();
-
-      // Configure overlays and shades
-      configureOverlaysAndShades();
-
-      componentLastFocus = component.uuid;
-    }
-
-    /**
-     * Update the component title display
-     */
-    function updateComponentInfo(): void {
-      if (!wrapper) return;
-
-      const title = wrapper.querySelector('.title');
-      if (title) {
-        title.innerHTML = `<span>${component.label}</span>`;
-        if (component.warnings && component.warnings.length > 0) {
-          component.warnings.forEach(warning => {
-            title.innerHTML = `<span class="badge px-2 rounded bg-warning-500 text-warning-500-content">${warning}</span>` + title.innerHTML;
-          });
-        }
-        if (component.alerts && component.alerts.length > 0) {
-          component.alerts.forEach(warning => {
-            title.innerHTML = `<span class="badge px-2 rounded bg-alert-500 text-alert-500-content">${warning}</span>` + title.innerHTML;
-          });
-        }
-      }
-    }
-
-    /**
-     * Configure operation buttons based on component ops
-     */
-    function configureOperationButtons(): void {
-      if (!wrapper) return;
-
-      // Hide all op buttons first
-      const opButtons = wrapper.querySelectorAll<HTMLElement>('.op');
-      opButtons.forEach(opButton => {
-        opButton.style.display = 'none';
-      });
-
-      // Show only available ops
-      if (component.ops) {
-        Object.entries(component.ops).forEach(([opKey, status]) => {
+    // Find enabled buttons
+    const enabledButtons: HTMLElement[] = [];
+    if (uuid) {
+      const data = structureData[uuid];
+      const level = data.parents.length as 0 | 1 | 2;
+      const ops = data?.data?.ops;
+      if (ops) {
+        for (const [opKey, status] of Object.entries(ops)) {
           if (status) {
-            const opButtons = wrapper.querySelectorAll<HTMLElement>(`[data-op="${opKey}"]`);
-            opButtons.forEach(opButton => {
-              opButton.style.display = '';
-            });
+            let button = panelBottom.querySelector<HTMLElement>(`[data-op="${opKey}"]`);
+            if (button) {
+              enabledButtons.push(button);
+            }
+            else {
+              sizes.forEach(size => {
+                button = overlayElements[size][level].querySelector<HTMLElement>(`[data-op="${opKey}"]`);
+                if (button) enabledButtons.push(button);
+              });
+            }
           }
-        });
+        }
       }
     }
 
-    /**
-     * Position operation panels
-     */
-    function positionOperationPanels(): void {
-      if (!ops || !wrapper) return;
-
-      ops.forEach(op => {
-        const placement = op.getAttribute('data-placement');
-        const rect = wrapper.getBoundingClientRect();
-
-        switch (placement) {
-          case 'top':
-            op.style.top = `${rect.top}px`;
-            break;
-          case 'bottom':
-            const offset = window.innerHeight - rect.top - rect.height;
-            op.style.bottom = `${offset}px`;
-            break;
-        }
-
-        op.classList.add('is-focus');
-        op.style.display = '';
+    // Show/hide buttons and animate panel
+    if (enabledButtons.length > 0) {
+      const enabledSet = new Set(enabledButtons);
+      opButtons.forEach(button => {
+        button.style.display = enabledSet.has(button) ? '' : 'none';
       });
-    }
-
-    /**
-     * Configure overlays and shades for focus state
-     */
-    function configureOverlaysAndShades(): void {
-      viewportSizes.forEach(size => {
-        const iframe = getIframe(size);
-        const overlay = overlays[size];
-        const shade = shades[size];
-
-        if (wrapper && iframe && overlay && shade) {
-          positionShade(shade, iframe);
-          createClipPath(shade, overlay, iframe);
-
-          overlay.classList.add('is-focus');
-          shade.classList.add('is-active');
-        }
-      });
-    }
-
-    /**
-     * Position shade element
-     */
-    function positionShade(shade: HTMLElement, iframe: HTMLIFrameElement): void {
-      if (!wrapper) return;
-
-      const wrapperRect = wrapper.getBoundingClientRect();
-      const iframeRect = iframe.getBoundingClientRect();
-
-      shade.style.top = `${wrapper.scrollTop + iframeRect.top - wrapperRect.top}px`;
-      shade.style.left = `${wrapper.scrollLeft + iframeRect.left - wrapperRect.left}px`;
-      shade.style.width = `${iframeRect.width}px`;
-      shade.style.height = `${iframeRect.height}px`;
-    }
-
-    /**
-     * Create clip path for the shade
-     */
-    function createClipPath(shade: HTMLElement, overlay: HTMLElement, iframe: HTMLIFrameElement): void {
-      const rect = overlay.getBoundingClientRect();
-      const iframeRect = iframe.getBoundingClientRect();
-
-      const top = rect.top - iframeRect.top;
-      const left = rect.left - iframeRect.left;
-      const right = left + rect.width;
-      const bottom = top + rect.height;
-
-      shade.style.clipPath = `polygon(0% 0%, 0% 100%, ${left}px 100%, ${left}px ${top}px, ${right}px ${top}px, ${right}px ${bottom}px, ${left}px ${bottom}px, ${left}px 100%, 100% 100%, 100% 0%)`;
-    }
-
-    /**
-     * Blur/unfocus a component
-     */
-    function componentBlur(timeout: number | null = null): void {
-      timeout = timeout === null ? 100 : timeout;
-
-      if (componentBlurTimeout) {
-        clearTimeout(componentBlurTimeout);
-      }
-
-      componentBlurTimeout = setTimeout(() => {
-        componentBlurTimeout = null;
-
-        // Remove focus from operation panels
-        if (ops) {
-          ops.forEach(op => op.classList.remove('is-focus'));
-        }
-
-        // Reset overlays and shades
-        viewportSizes.forEach(size => {
-          const overlay = overlays[size];
-          if (overlay) {
-            overlay.classList.remove('is-active', 'is-focus', '!transition-all');
-          }
-
-          const shade = shades[size];
-          if (shade) {
-            shade.classList.remove('is-active', '!transition-all');
-          }
+      panelBottom.style.opacity = '1';
+      panelBottom.style.transform = 'translate(0, 0)';
+    } else {
+      const height = panelBottom.getBoundingClientRect().height;
+      panelBottom.style.opacity = '0';
+      panelBottom.style.transform = `translate(0, ${height}px)`;
+      opTimeout = setTimeout(() => {
+        if (!opButtons) return;
+        opButtons.forEach(button => {
+          button.style.display = 'none';
         });
-      }, timeout);
+      }, transitionSpeed);
+    }
+  }
 
-      // Reset state
-      component = {} as Component;
-      componentState = null;
+  function layerShow(uuid: string | null = null, force: boolean = false): void {
+    let level : -1 | 0 | 1 | 2 = -1;
+    let parents: string[] = [];
+    if (uuid === layerUuid) {
+      layerUuid = null;
+    }
+    if (uuid && !structureData[uuid]) {
+      if (regionUuid && structureData[regionUuid]) {
+        // Reset to region.
+        uuid = regionUuid;
+        overlayHideLevel(2);
+        shadeHideLevel(2);
+      }
+      else {
+        uuid = null;
+      }
     }
 
-    /**
-     * Get iframe by size
-     */
-    function getIframe(size: string): HTMLIFrameElement | undefined {
-      return Array.from(iframes).find(el => el.getAttribute('data-size') === size) as HTMLIFrameElement | undefined;
+    if (uuid) {
+      let lastTree: string[] = [];
+      let currentTree: string[] = [];
+      if (layerUuid && structureData[layerUuid]) {
+        const lastData = structureData[layerUuid];
+        lastTree = [ ...lastData.parents, layerUuid ];
+      }
+      const data = structureData[uuid];
+      layerUuid = uuid;
+      currentTree = [ ...data.parents, uuid ];
+      parents = data.parents;
+      level = parents.length as 0 | 1 | 2;
+      parents.forEach(parentUuid => {
+        overlayShow(parentUuid, 'active', force);
+      });
+      overlayShow(uuid, 'focus', force);
+
+      // Cleanup overlays that are not in current tree.
+      const diff = lastTree.filter(item => !currentTree.includes(item));
+      diff.forEach(removedUuid => {
+        overlayHide(removedUuid);
+      });
+    }
+    else {
+      overlayHideAll();
     }
 
-    /**
-     * Get all iframes except the one with the specified size
-     */
-    function getIframeExclude(size: string): HTMLIFrameElement[] {
-      return Array.from(iframes).filter(el => el.getAttribute('data-size') !== size) as HTMLIFrameElement[];
-    }
-  });
+    elementsToggle(uuid);
+    titleSet(uuid);
+    opsSet(uuid);
 
-})(Drupal, once);
+    if (uuid) {
+      sizes.forEach(size => {
+        if (size === layerInteractSize) {
+          Drupal.behaviors.neoAlchemistComponentParent.scrollElementIntoView(structureElements[uuid][size], wrapper, 100);
+        }
+      });
+    }
+
+    layerLevel = level;
+    if (level === 1) {
+      regionUuid = uuid;
+    }
+    else if (level === 0) {
+      regionUuid = null;
+    }
+    layerUuid = uuid;
+  }
+
+  function layerBack(): void {
+    if (!layerUuid) return;
+    const data = structureData[layerUuid];
+    const lastParent = data.parents[data.parents.length - 1] || null;
+    layerShow(lastParent);
+  }
+
+  /**
+   * Position all elements according to the position data.
+   */
+  function elementsPosition() {
+    sizes.forEach(size => {
+      Object.entries(positionData[size]).forEach(([uuid, rect]) => {
+        const element = structureElements[uuid][size];
+        if (element) {
+          const absoluteRect = calculateIframeRect(size, rect);
+          element.style.left = `${absoluteRect.left}px`;
+          element.style.top = `${absoluteRect.top}px`;
+          element.style.width = `${absoluteRect.width}px`;
+          element.style.height = `${absoluteRect.height}px`;
+        }
+      });
+    });
+  }
+
+  /**
+   * Toggle visibility of elements (triggers) based on the active layer UUID.
+   */
+  function elementsToggle(uuid?: string | null): void {
+    if (debugElements) {
+      return
+    }
+    let level = 0;
+    let parents: string[] = [];
+    let children: string[] = [];
+    if (uuid) {
+      const data = structureData[uuid];
+      parents = data.parents;
+      children = data.children;
+      level = parents.length as 0 | 1 | 2;
+      // We want to show up to level + 1
+      level++;
+    }
+
+    Object.entries(structureData).forEach(([elementUuid, data]) => {
+      const dataLevel = data.parents.length as 0 | 1 | 2;
+      sizes.forEach(size => {
+        const element = structureElements[elementUuid][size];
+        if (dataLevel <= level) {
+          if (uuid) {
+            if (children.includes(elementUuid)) {
+              showLayer(element);
+            }
+            else if (uuid === elementUuid || parents.includes(elementUuid)) {
+              showLayer(element, false);
+            }
+            else {
+              hideLayer(element);
+            }
+            return;
+          }
+          else {
+            showLayer(element);
+          }
+        }
+        else {
+          hideLayer(element);
+        }
+      });
+    });
+  }
+
+  function hideLayer(element: HTMLElement): void {
+    element.style.display = 'none';
+    element.style.pointerEvents = 'none';
+  }
+
+  function showLayer(element: HTMLElement, interact: boolean = true): void {
+    element.style.display = 'block';
+    element.style.pointerEvents = interact ? 'auto' : 'none';
+  }
+
+  function actionExecute(
+    opKey: keyof Actions
+  ): void {
+    if (actions[opKey as keyof Actions]) {
+      let parent = null;
+      if (layerUuid) {
+        const data = structureData[layerUuid];
+        if (data.type === 'region') {
+          parent = layerUuid;
+        }
+        else {
+          parent = data.parents[data.parents.length - 1] || null;
+        }
+      }
+      actions[opKey as keyof Actions](parent);
+    }
+  }
+
+  const actions: Actions = {
+    library: (uuid: string | null): void => {
+      Drupal.ajax({
+        url: `${drupalSettings.neoAlchemist.baseUrl}/library${uuid ? `?parent=${uuid}` : ''}`,
+        dialogType: 'modal',
+        dialog: baseModalOptions,
+      }).execute();
+    },
+
+    sort: (uuid: string | null): void => {
+      Drupal.ajax({
+        url: `${drupalSettings.neoAlchemist.baseUrl}/sort${uuid ? `?parent=${uuid}` : ''}`,
+        dialogType: 'modal',
+        dialog: baseModalOptions,
+      }).execute();
+    },
+  };
+
+  function operationExecute(
+    opKey: keyof Operations
+  ): void {
+    if (!layerUuid) return;
+    const data = structureData[layerUuid];
+    const [op, spec] = opKey.includes('-') ? opKey.split('-', 2) : [opKey, undefined];
+    if (data.data.ops?.[opKey] && operations[op as keyof Operations]) {
+      operations[op as keyof Operations](layerUuid, spec as string);
+    }
+  }
+
+  /**
+   * Operations available for components
+   */
+  const operations: Operations = {
+    edit: (uuid: string): void => {
+      const modalOptionsEdit: any = {
+        ...baseModalOptions,
+        neo: {
+          ...baseModalOptions.neo,
+          contentPadding: '0px',
+        },
+      };
+      Drupal.ajax({
+        url: `${drupalSettings.neoAlchemist.baseUrl}/edit/${uuid}`,
+        dialogType: 'modal',
+        dialog: modalOptionsEdit,
+      }).execute();
+    },
+
+    sort: (uuid: string): void => {
+      Drupal.ajax({
+        url: `${drupalSettings.neoAlchemist.baseUrl}/sort?uuid=${uuid}${regionUuid ? `&parent=${regionUuid}` : ''}`,
+        dialogType: 'modal',
+        dialog: baseModalOptions,
+      }).execute();
+    },
+
+    delete: (uuid: string): void => {
+      Drupal.ajax({
+        url: `${drupalSettings.neoAlchemist.baseUrl}/delete/${uuid}`,
+        dialogType: 'modal',
+        dialog: {
+          ...baseModalOptions,
+          width: 'auto',
+          height: 'auto',
+        },
+      }).execute();
+    },
+
+    clone: (uuid: string): void => {
+      Drupal.ajax({
+        url: `${drupalSettings.neoAlchemist.baseUrl}/clone/${uuid}`,
+      }).execute();
+    },
+
+    add: (uuid: string, position: string): void => {
+      let url = `${drupalSettings.neoAlchemist.baseUrl}/library?${position}=${uuid}`;
+      if (layerUuid) {
+        const data = structureData[layerUuid];
+        const parent = data.parents[data.parents.length - 1] || null;
+        if (parent) {
+          url += `&parent=${parent}`;
+        }
+      }
+      Drupal.ajax({
+        url: url,
+        dialogType: 'modal',
+        dialog: baseModalOptions,
+      }).execute();
+    },
+  };
+
+  /**
+   * Calculate the relative position and size of a rect within the wrapper.
+   */
+  function calculateIframeRect(size: 'desktop' | 'tablet' | 'mobile', rect: DOMRect, heightOffset: number = 0): DOMRect {
+    const scaleInt = parseFloat(scale);
+    const containerRect = getIframe(size).getBoundingClientRect();
+    const wrapperRect = wrapper.getBoundingClientRect();
+    return new DOMRect(
+      wrapper.scrollLeft + containerRect.left + (rect.left * scaleInt) + window.scrollX - wrapperRect.left,
+      wrapper.scrollTop + containerRect.top + (rect.top * scaleInt) + window.scrollY - wrapperRect.top - heightOffset,
+      rect.width * scaleInt,
+      (rect.height * scaleInt) + (heightOffset * 2)
+    );
+  }
+
+  /**
+   * Calculate the absolute position and size of a rect within the wrapper.
+   */
+  function calculateRect(rect: DOMRect, heightOffset: number = 0): DOMRect {
+    const wrapperRect = wrapper.getBoundingClientRect();
+    return new DOMRect(
+      wrapper.scrollLeft + rect.left + window.scrollX - wrapperRect.left,
+      wrapper.scrollTop + rect.top + window.scrollY - wrapperRect.top - heightOffset,
+      rect.width,
+      rect.height + (heightOffset * 2)
+    );
+  }
+
+  /**
+   * Create clip path for the shade
+   */
+  function createClipPath(el: HTMLElement, target: HTMLElement, container: HTMLElement, heightOffset: number = 0): void {
+    const rect = target.getBoundingClientRect();
+    const containerRect = container.getBoundingClientRect();
+    const top = rect.top - containerRect.top - heightOffset;
+    const left = rect.left - containerRect.left;
+    const right = left + rect.width;
+    const bottom = top + rect.height + (heightOffset * 2);
+    el.style.clipPath = `polygon(0% 0%, 0% 100%, ${left}px 100%, ${left}px ${top}px, ${right}px ${top}px, ${right}px ${bottom}px, ${left}px ${bottom}px, ${left}px 100%, 100% 100%, 100% 0%)`;
+  }
+
+  function getIframe(size: 'desktop' | 'tablet' | 'mobile'): HTMLIFrameElement {
+    return iframes[size];
+  }
+
+})(Drupal);

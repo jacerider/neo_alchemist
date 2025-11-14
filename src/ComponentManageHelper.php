@@ -111,38 +111,40 @@ class ComponentManageHelper {
    *
    * @param \Drupal\neo_alchemist\Plugin\Field\FieldType\ComponentTreeItem|Drupal\neo_alchemist\ComponentInterface $instance
    *   The field item.
+   * @param array $modal_settings
+   *   The modal settings.
    *
    * @return array
    *   The operations.
    */
-  public static function buildOperations(ComponentTreeItem|ComponentInterface $instance) {
+  public static function buildOperations(ComponentTreeItem|ComponentInterface $instance, array $modal_settings = []) {
     $build = [];
-    $modalSettings = [
+    $modalSettings = $modal_settings + [
       'width' => '100%',
       'height' => '100%',
-      'neo' => [
-        'displaceTop' => '0px',
-        'displaceBottom' => '0px',
-      ],
+      'displaceTop' => '0px',
+      'displaceBottom' => '0px',
     ];
     if ($instance->access('create')) {
       $build['add'] = [
-        '#type' => 'neo_modal_link',
+        '#type' => 'link',
         '#title' => neo_icon_admin(t('Add')),
         '#url' => $instance->toUrl('library'),
         '#attributes' => [
-          'class' => ['use-ajax', 'btn', 'btn-primary', 'btn-xs'],
+          'class' => ['neo-alchemist--action', 'btn', 'btn-primary', 'btn-xs'],
+          'data-action' => 'library',
         ],
         '#modal' => $modalSettings,
       ];
     }
     if ($instance->access('sort')) {
       $build['sort'] = [
-        '#type' => 'neo_modal_link',
+        '#type' => 'link',
         '#title' => neo_icon_admin(t('Sort')),
         '#url' => $instance->toUrl('sort'),
         '#attributes' => [
-          'class' => ['use-ajax', 'btn', 'btn-outline', 'btn-xs'],
+          'class' => ['neo-alchemist--action', 'btn', 'btn-outline', 'btn-xs'],
+          'data-action' => 'sort',
         ],
         '#modal' => $modalSettings,
       ];
@@ -175,13 +177,14 @@ class ComponentManageHelper {
         'class' => ['btn', 'btn-xs', 'btn-outline'],
       ],
     ];
-    if ($instance->access('publish')) {
-      $build['publish'] = [
+    if ($instance->access('reset')) {
+      // Allow reset only for entity-based components.
+      $build['reset'] = [
         '#type' => 'neo_modal_link',
-        '#title' => neo_icon_admin(t('Publish')),
-        '#url' => $instance->toUrl('publish'),
+        '#title' => neo_icon_admin(t('Reset')),
+        '#url' => $instance->toUrl('reset'),
         '#attributes' => [
-          'class' => ['use-ajax', 'btn', 'btn-xs', 'btn-success'],
+          'class' => ['use-ajax', 'btn', 'btn-xs', 'btn-alert'],
         ],
         '#modal' => $modalSettings,
       ];
@@ -198,14 +201,13 @@ class ComponentManageHelper {
         '#modal' => $modalSettings,
       ];
     }
-    if ($instance->access('reset')) {
-      // Allow reset only for entity-based components.
-      $build['reset'] = [
+    if ($instance->access('publish')) {
+      $build['publish'] = [
         '#type' => 'neo_modal_link',
-        '#title' => neo_icon_admin(t('Reset')),
-        '#url' => $instance->toUrl('reset'),
+        '#title' => neo_icon_admin(t('Publish')),
+        '#url' => $instance->toUrl('publish'),
         '#attributes' => [
-          'class' => ['use-ajax', 'btn', 'btn-xs', 'btn-alert'],
+          'class' => ['use-ajax', 'btn', 'btn-xs', 'btn-success'],
         ],
         '#modal' => $modalSettings,
       ];

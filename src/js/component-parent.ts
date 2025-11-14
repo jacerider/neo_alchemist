@@ -44,8 +44,13 @@
       let scrollLeft = container.scrollLeft;
       let needsScroll = false;
 
+      console.log(elementRect.height, containerRect.height);
+
       // Determine if vertical scrolling is needed
-      if (elementTop < containerVisibleTop) {
+      if (elementRect.height > containerRect.height) {
+        // alert('help');
+      }
+      else if (elementTop < containerVisibleTop) {
         // Element is above the visible area, scroll up
         scrollTop += elementTop - offsets.top;
         needsScroll = true;
@@ -313,9 +318,16 @@
       });
     });
 
+    const scaleWrapper = container.querySelector('.neo-alchemist-manage--scale') as HTMLIFrameElement;
     setScale(scale);
+    scaleWrapper.addEventListener('transitionend', (event: TransitionEvent) => {
+      // Check if the transition was specifically for transform
+      if (event.propertyName === 'transform') {
+        const customEvent = new CustomEvent('alchemistManageScaleEnd');
+        container.dispatchEvent(customEvent);
+      }
+    });
     function setScale(scale: string): void {
-      const scaleWrapper = container.querySelector('.neo-alchemist-manage--scale') as HTMLIFrameElement;
       if (scaleWrapper) {
         if (!initialized) {
           scaleWrapper.style.transformOrigin = 'top left';
@@ -343,8 +355,6 @@
           scale: scale,
         }
       });
-
-      // Dispatch the event on the element
       container.dispatchEvent(customEvent);
     }
 
@@ -363,9 +373,20 @@
         }
       }
 
+      function allowDrag(el: HTMLElement): boolean {
+        // Check if target has data-alchemist-ignore
+        if (el.dataset.alchemistIgnore !== undefined || el.closest('[data-alchemist-nodrag]')) {
+          return false;
+        }
+        return true;
+      }
+
       el.addEventListener('mousedown', handleDragStart);
       let moved: boolean;
       function handleDragStart(e: MouseEvent): void {
+        if (!allowDrag(e.target as HTMLElement)) {
+          return;
+        }
         if (wrapper) {
           moved = false;
           wrapper.style.userSelect = 'none';

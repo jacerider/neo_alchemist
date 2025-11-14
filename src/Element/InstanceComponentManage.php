@@ -27,7 +27,8 @@ class InstanceComponentManage extends RenderElementBase {
     $class = static::class;
     return [
       '#theme' => 'neo_alchemist_manage',
-      '#neoField' => NULL,
+      '#neo_field' => NULL,
+      '#neo_modal' => [],
       '#pre_render' => [
         [$class, 'preRenderManage'],
       ],
@@ -59,7 +60,7 @@ class InstanceComponentManage extends RenderElementBase {
 
     $element['#top_start'] = ComponentManageHelper::buildDynamicOperations($neoField);
     $element['#top_end'] = ComponentManageHelper::buildIframeOperations($neoField);
-    $element['#bottom_start'] = ComponentManageHelper::buildOperations($neoField);
+    $element['#bottom_start'] = ComponentManageHelper::buildOperations($neoField, $element['#neo_modal'] ?? []);
 
     return $element;
   }

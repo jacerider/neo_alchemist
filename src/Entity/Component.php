@@ -22,6 +22,7 @@ use Drupal\neo_alchemist\ComponentFilterInterface;
 use Drupal\neo_alchemist\ComponentInterface;
 use Drupal\neo_alchemist\ComponentShapePluginInterface;
 use Drupal\neo_alchemist\ComponentSlotInterface;
+use Drupal\neo_icon\IconTrait;
 
 /**
  * Defines the component entity type.
@@ -93,6 +94,8 @@ use Drupal\neo_alchemist\ComponentSlotInterface;
  * )
  */
 class Component extends ConfigEntityBase implements ComponentInterface {
+
+  use IconTrait;
 
   /**
    * The component ID.
@@ -186,6 +189,13 @@ class Component extends ConfigEntityBase implements ComponentInterface {
    * @var bool
    */
   protected bool $preview = FALSE;
+
+  /**
+   * The instance preview status of the component.
+   *
+   * @var bool
+   */
+  protected bool $instancePreview = FALSE;
 
   /**
    * The rebuilding status of the component.
@@ -403,8 +413,30 @@ class Component extends ConfigEntityBase implements ComponentInterface {
   /**
    * {@inheritdoc}
    */
+  public function setInstancePreview(bool $instancePreview): self {
+    $this->instancePreview = $instancePreview;
+    return $this;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function isInstancePreview(): bool {
+    return $this->instancePreview;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
   public function isComponentPreview(): bool {
     return \Drupal::routeMatch()->getRouteName() === 'entity.neo_component.preview';
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function isManagePreview(): bool {
+    return $this->isPreview() && !$this->isComponentPreview() && !$this->isInstancePreview();
   }
 
   /**
@@ -685,8 +717,7 @@ class Component extends ConfigEntityBase implements ComponentInterface {
     if (!isset($this->propShapes) || $schema !== NULL) {
       $propShapes = [];
       if ($component = $this->getComponent()) {
-        $schema = $schema ?? $component->metadata->schema;
-        $propShapes = $this->loadPropShapes($schema);
+        $propShapes = $this->loadPropShapes($schema ?? $component->metadata->schema);
       }
       if ($schema) {
         return $propShapes;
@@ -744,6 +775,18 @@ class Component extends ConfigEntityBase implements ComponentInterface {
   /**
    * {@inheritdoc}
    */
+  public function getPropShapesAll(?array $shapes = NULL, ?bool $includeDeltas = FALSE): array {
+    $allShapes = [];
+    $shapes = is_null($shapes) ? $this->getPropShapes() : $shapes;
+    foreach ($shapes as $shape) {
+      $allShapes += $shape->getAllShapes(TRUE, $includeDeltas);
+    }
+    return $allShapes;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
   public function getAllPropShapeSettings(): array {
     return $this->getSettings()['props'] ?? [];
   }
@@ -793,18 +836,6 @@ class Component extends ConfigEntityBase implements ComponentInterface {
     }
     $this->settings['props'][$shape->getName()] = $settings;
     return $this;
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function getPropShapesAll(?array $shapes = NULL, ?bool $includeDeltas = FALSE): array {
-    $allShapes = [];
-    $shapes = is_null($shapes) ? $this->getPropShapes() : $shapes;
-    foreach ($shapes as $shape) {
-      $allShapes += $shape->getAllShapes(TRUE, $includeDeltas);
-    }
-    return $allShapes;
   }
 
   /**
@@ -1134,6 +1165,7 @@ class Component extends ConfigEntityBase implements ComponentInterface {
         $parameters->set($entity->getEntityTypeId(), $entity);
       }
     }
+
     $build = [
       '#type' => 'component',
       '#component' => $this->getComponentId(),
@@ -1147,9 +1179,51 @@ class Component extends ConfigEntityBase implements ComponentInterface {
       $build['#slots'] = array_filter(array_map(fn($slot) => $slot->toRenderable(), $slots));
     }
 
+    if ($this->isManagePreview()) {
+      $build = $this->prepareRenderableForPreview($build);
+    }
+
     $cacheableMetadata = $this->getCacheableMetadata();
     $cacheableMetadata->applyTo($build);
 
+    return $build;
+  }
+
+  /**
+   * Prepares a component for preview rendering.
+   *
+   * @param array $build
+   *   The render array build.
+   *
+   * @return array
+   *   The modified render array build.
+   */
+  private function prepareRenderableForPreview(array $build): array {
+    $alerts = [];
+    $warnings = [];
+    if (!$this->isPublished()) {
+      $alerts[] = $this->adminIcon('Disabled', 'ban');
+    }
+    if ($this->getAccessInstances()) {
+      $warnings[] = $this->adminIcon('Limited Access', 'lock');
+    }
+    $data = [
+      'label' => $this->label(),
+      'alerts' => $alerts,
+      'warnings' => $warnings,
+      'ops' => [
+        'edit' => $this->access('update'),
+        'delete' => $this->access('delete'),
+        'sort' => $this->access('sort'),
+        'clone' => $this->access('clone'),
+        'add-before' => $this->access('create'),
+        'add-after' => $this->access('create'),
+      ],
+    ];
+
+    $build['#props']['attributes']->addClass(!$this->isPublished() ? 'opacity-50' : '');
+    $build['#props']['attributes']->setAttribute('data-component-uuid', $this->uuid());
+    $build['#props']['attributes']->setAttribute('data-component', Json::encode($data));
     return $build;
   }
 

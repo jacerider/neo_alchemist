@@ -33,13 +33,6 @@ final class InstanceComponentSortForm extends ContentEntityForm {
   protected $uuid;
 
   /**
-   * Entity component.
-   *
-   * @var \Drupal\neo_alchemist\Entity\EntityComponent
-   */
-  protected $entityComponent;
-
-  /**
    * {@inheritdoc}
    */
   public function getBaseFormId() {
@@ -70,6 +63,8 @@ final class InstanceComponentSortForm extends ContentEntityForm {
     $form_state->set('neo_component_form', TRUE);
     $form_state->set('neo_component_manage_id', ComponentManageHelper::getId($this->fieldItem));
     $focusUuid = $form_state->get('uuid');
+    $parentUuid = $form_state->get('parentUuid');
+    $shapeId = $form_state->get('shapeId');
 
     // Add #process and #after_build callbacks.
     $form['#process'][] = '::processForm';
@@ -77,12 +72,10 @@ final class InstanceComponentSortForm extends ContentEntityForm {
 
     $form['values'] = [
       '#type' => 'table',
+      '#id' => 'neo-components-sort',
       '#header' => [
         'label' => $this->t('Title'),
         'weight' => $this->t('Weight'),
-      ],
-      '#attributes' => [
-        'id' => 'neo-components-sort',
       ],
       '#tabledrag' => [
         [
@@ -93,7 +86,7 @@ final class InstanceComponentSortForm extends ContentEntityForm {
       ],
     ];
     $weight = 0;
-    foreach ($this->fieldItem->toOptions() as $uuid => $label) {
+    foreach ($this->fieldItem->toOptions($parentUuid, $shapeId) as $uuid => $label) {
       $row = [];
       $row['#attributes']['class'] = ['draggable'];
       if ($uuid === $focusUuid) {
@@ -167,7 +160,9 @@ final class InstanceComponentSortForm extends ContentEntityForm {
   public function save(array $form, FormStateInterface $form_state): int {
     $fieldDefinition = $this->fieldItem->getFieldDefinition();
     $fieldItem = $this->fieldItem;
-    $fieldItem->sortComponents(array_keys($form_state->getValue('values')));
+    $parentUuid = $form_state->get('parentUuid');
+    $shapeId = $form_state->get('shapeId');
+    $fieldItem->sortComponents(array_keys($form_state->getValue('values')), $parentUuid, $shapeId);
     $result = $fieldItem->saveComponents();
     $this->messenger()->addStatus($this->t('Components have been sorted successfully on %label: %field_label.', [
       '%label' => $fieldItem->belongsToFieldConfig() ? $this->entityTypeManager->getDefinition($fieldDefinition->getTargetEntityTypeId())->getLabel() : $this->entity->label(),

@@ -409,7 +409,7 @@ region:
   type: array
   items:
     title: Component
-    type: object
+    type: string
 
 scheme:
   title: Color Scheme

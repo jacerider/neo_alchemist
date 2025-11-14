@@ -32,12 +32,13 @@ final class ComponentEntity extends ComponentInstanceBase implements ComponentEn
     $fieldKey = ComponentFieldConfig::getKeyFromFieldname($fieldName);
     $entity = $this->getTargetEntity();
     return match($rel) {
-      'edit' => $entity->toUrl("alchemist.edit", $options)->setRouteParameter('neo_field', $fieldKey)->setRouteParameter('neo_component', $this->uuid()),
-      'clone' => $entity->toUrl("alchemist.clone", $options)->setRouteParameter('neo_field', $fieldKey)->setRouteParameter('neo_component', $this->uuid()),
-      'delete' => $entity->toUrl("alchemist.delete", $options)->setRouteParameter('neo_field', $fieldKey)->setRouteParameter('neo_component', $this->uuid()),
-      'sort' => $entity->toUrl("alchemist.sort", $options)->setRouteParameter('neo_field', $fieldKey),
-      'preview' => $entity->toUrl("alchemist.preview", $options)->setRouteParameter('neo_field', $fieldKey),
-      default => $entity->toUrl("alchemist.manage", $options)->setRouteParameter('neo_field', $fieldKey),
+      'edit' => $entity->toUrl('alchemist.edit', $options)->setRouteParameter('neo_field', $fieldKey)->setRouteParameter('neo_component', $this->uuid()),
+      'region' => $entity->toUrl('alchemist.region', $options)->setRouteParameter('neo_field', $fieldKey)->setRouteParameter('neo_component', $this->id()),
+      'clone' => $entity->toUrl('alchemist.clone', $options)->setRouteParameter('neo_field', $fieldKey)->setRouteParameter('neo_component', $this->uuid()),
+      'delete' => $entity->toUrl('alchemist.delete', $options)->setRouteParameter('neo_field', $fieldKey)->setRouteParameter('neo_component', $this->uuid()),
+      'sort' => $entity->toUrl('alchemist.sort', $options)->setRouteParameter('neo_field', $fieldKey),
+      'preview' => $entity->toUrl('alchemist.preview', $options)->setRouteParameter('neo_field', $fieldKey),
+      default => $entity->toUrl('alchemist.manage', $options)->setRouteParameter('neo_field', $fieldKey),
     };
   }
 

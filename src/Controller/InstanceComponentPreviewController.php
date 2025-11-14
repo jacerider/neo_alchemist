@@ -87,6 +87,7 @@ final class InstanceComponentPreviewController extends ControllerBase {
     }
 
     $component = $neo_field->getComponent($uuid);
+    $component->setInstancePreview(TRUE);
     return [
       '#theme' => 'neo_alchemist_component_preview',
       '#attached' => [
@@ -115,9 +116,6 @@ final class InstanceComponentPreviewController extends ControllerBase {
         ],
       ],
     ];
-    $build['overlay'] = [
-      '#theme' => 'neo_alchemist_overlay',
-    ];
 
     $build['components'] = $neo_field->toRenderable();
     $build['components']['#theme'] = 'neo_alchemist_component_preview';
@@ -132,38 +130,6 @@ final class InstanceComponentPreviewController extends ControllerBase {
           ]),
         ],
       ];
-    }
-
-    if (!empty($build['components'][ComponentTreeStructure::ROOT_UUID])) {
-      foreach ($build['components'][ComponentTreeStructure::ROOT_UUID] as $uuid => &$componentBuild) {
-        $component = $neo_field->getComponent($uuid);
-        $alerts = [];
-        $warnings = [];
-        if (!$component->isPublished()) {
-          $alerts[] = $this->adminIcon('Disabled', 'ban');
-        }
-        if ($component->getAccessInstances()) {
-          $warnings[] = $this->adminIcon('Limited Access', 'lock');
-        }
-        $data = [
-          'label' => $component->label(),
-          'alerts' => $alerts,
-          'warnings' => $warnings,
-          'ops' => [
-            'edit' => $component->access('update'),
-            'delete' => $component->access('delete'),
-            'sort' => $component->access('sort'),
-            'clone' => $component->access('clone'),
-            'add-before' => $component->access('create'),
-            'add-after' => $component->access('create'),
-          ],
-        ];
-
-        $componentBuild['#props']['attributes']->addClass('[&>*]:pointer-events-none');
-        $componentBuild['#props']['attributes']->addClass(!$component->isPublished() ? 'opacity-50' : '');
-        $componentBuild['#props']['attributes']->setAttribute('data-component-uuid', $uuid);
-        $componentBuild['#props']['attributes']->setAttribute('data-component', Json::encode($data));
-      }
     }
     return $build;
   }

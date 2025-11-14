@@ -36,6 +36,35 @@ interface ComponentInstanceInterface extends ComponentInterface {
   public function getFieldDefinition(): ComponentFieldConfigInterface;
 
   /**
+   * Sets the parent UUID and slot for the component instance.
+   *
+   * @param string|null $parentUuid
+   *   The parent UUID to set, or NULL to unset.
+   * @param string|null $slot
+   *   The slot.
+   *
+   * @return self
+   *   The current instance of the component.
+   */
+  public function setParent(?string $parentUuid, ?string $slot = NULL): self;
+
+  /**
+   * Retrieves the parent UUID for the component instance.
+   *
+   * @return string|null
+   *   The parent UUID, or NULL if not set.
+   */
+  public function getParentUuid(): ?string;
+
+  /**
+   * Gets the parent slot (region prop).
+   *
+   * @return string|null
+   *   The slot.
+   */
+  public function getParentSlot(): ?string;
+
+  /**
    * Sets the instance values for the component instance.
    *
    * @param array $values

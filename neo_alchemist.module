@@ -158,16 +158,15 @@ function template_preprocess_neo_alchemist_component_preview(&$variables) {
  * Implements hook_preprocess_HOOK() for neo_alchemist_overlay.
  */
 function template_preprocess_neo_alchemist_overlay(&$variables) {
-  $tooltip = new Tooltip('Close');
   $variables['close'] = [
     '#type' => 'link',
     '#title' => neo_icon_admin('Close', 'times')->iconOnly(),
     '#url' => Url::fromRoute('<current>'),
+    '#tooltip' => t('Close'),
     '#attributes' => [
-      'class' => ['close', 'btn', 'btn-xs'],
+      'class' => ['neo-alchemist--close', 'btn', 'btn-xs'],
     ],
   ];
-  $tooltip->applyTo($variables['close']);
 
   $variables['ops'] = [];
   foreach ([
@@ -176,47 +175,50 @@ function template_preprocess_neo_alchemist_overlay(&$variables) {
     'clone' => t('Clone'),
     'delete' => t('Delete'),
   ] as $op => $label) {
-    $tooltip = new Tooltip($label);
-    $tooltip->setPlacementToTop();
     $variables['ops'][$op] = [
       '#type' => 'link',
       '#title' => neo_icon_admin($label)->iconOnly(),
       '#url' => Url::fromRoute('<current>'),
+      '#tooltip' => $label,
+      '#tooltip_options' => [
+        'placement' => 'top',
+      ],
       '#attributes' => [
-        'class' => ['op', 'btn', 'btn-xs'],
+        'class' => ['neo-alchemist--op', 'btn', 'btn-xs'],
         'data-op' => $op,
       ],
     ];
-    $tooltip->applyTo($variables['ops'][$op]);
   }
 
   $label = t('Add Component Before');
-  $tooltip = new Tooltip($label);
-  $tooltip->setPlacementToTop();
   $variables['op_add_before'] = [
     '#type' => 'link',
     '#title' => neo_icon_admin($label, 'plus')->iconOnly(),
     '#url' => Url::fromRoute('<current>'),
+    '#tooltip' => $label,
+    '#tooltip_options' => [
+      'placement' => 'top',
+    ],
     '#attributes' => [
-      'class' => ['op'],
+      'class' => ['neo-alchemist--op'],
       'data-op' => 'add-before',
     ],
   ];
-  $tooltip->applyTo($variables['op_add_before']);
 
   $label = t('Add Component After');
-  $tooltip = new Tooltip($label);
-  $tooltip->setPlacementToBottom();
   $variables['op_add_after'] = [
     '#type' => 'link',
     '#title' => neo_icon_admin($label, 'plus')->iconOnly(),
     '#url' => Url::fromRoute('<current>'),
+    '#tooltip' => $label,
+    '#tooltip_options' => [
+      'placement' => 'bottom',
+    ],
     '#attributes' => [
-      'class' => ['op'],
+      'class' => ['neo-alchemist--op'],
       'data-op' => 'add-after',
     ],
   ];
-  $tooltip->applyTo($variables['op_add_after']);
 }
 
 /**
@@ -364,17 +366,18 @@ function neo_alchemist_entity_type_alter(array &$entity_types) {
           }
           if ($baseRoute) {
             $entityType->setLinkTemplate('alchemist', $baseRoute . '/alchemist');
-            $entityType->setLinkTemplate("alchemist.manage", "$baseRoute/alchemist/{neo_field}");
-            $entityType->setLinkTemplate("alchemist.preview", "$baseRoute/alchemist/{neo_field}/preview");
-            $entityType->setLinkTemplate("alchemist.library", "$baseRoute/alchemist/{neo_field}/library");
-            $entityType->setLinkTemplate("alchemist.publish", "$baseRoute/alchemist/{neo_field}/publish");
-            $entityType->setLinkTemplate("alchemist.revert", "$baseRoute/alchemist/{neo_field}/revert");
-            $entityType->setLinkTemplate("alchemist.reset", "$baseRoute/alchemist/{neo_field}/reset");
-            $entityType->setLinkTemplate("alchemist.sort", "$baseRoute/alchemist/{neo_field}/sort");
-            $entityType->setLinkTemplate("alchemist.add", "$baseRoute/alchemist/{neo_field}/add/{neo_component}");
-            $entityType->setLinkTemplate("alchemist.edit", "$baseRoute/alchemist/{neo_field}/edit/{neo_component}");
-            $entityType->setLinkTemplate("alchemist.clone", "$baseRoute/alchemist/{neo_field}/clone/{neo_component}");
-            $entityType->setLinkTemplate("alchemist.delete", "$baseRoute/alchemist/{neo_field}/delete/{neo_component}");
+            $entityType->setLinkTemplate('alchemist.manage', "$baseRoute/alchemist/{neo_field}");
+            $entityType->setLinkTemplate('alchemist.preview', "$baseRoute/alchemist/{neo_field}/preview");
+            $entityType->setLinkTemplate('alchemist.library', "$baseRoute/alchemist/{neo_field}/library");
+            $entityType->setLinkTemplate('alchemist.publish', "$baseRoute/alchemist/{neo_field}/publish");
+            $entityType->setLinkTemplate('alchemist.revert', "$baseRoute/alchemist/{neo_field}/revert");
+            $entityType->setLinkTemplate('alchemist.reset', "$baseRoute/alchemist/{neo_field}/reset");
+            $entityType->setLinkTemplate('alchemist.sort', "$baseRoute/alchemist/{neo_field}/sort");
+            $entityType->setLinkTemplate('alchemist.add', "$baseRoute/alchemist/{neo_field}/add/{neo_component}");
+            $entityType->setLinkTemplate('alchemist.edit', "$baseRoute/alchemist/{neo_field}/edit/{neo_component}");
+            $entityType->setLinkTemplate('alchemist.region', "$baseRoute/alchemist/{neo_field}/region/{neo_component}");
+            $entityType->setLinkTemplate('alchemist.clone', "$baseRoute/alchemist/{neo_field}/clone/{neo_component}");
+            $entityType->setLinkTemplate('alchemist.delete', "$baseRoute/alchemist/{neo_field}/delete/{neo_component}");
             $entityType->setFormClass('alchemist', InstanceComponentForm::class);
             $entityType->setFormClass('alchemist_publish', InstanceComponentPublishForm::class);
             $entityType->setFormClass('alchemist_revert', InstanceComponentRevertForm::class);

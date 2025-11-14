@@ -10,6 +10,7 @@ use Drupal\Core\Render\RenderableInterface;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\Core\TypedData\Attribute\DataType;
 use Drupal\Core\TypedData\TypedData;
+use Drupal\neo_alchemist\ComponentShapeRegionPluginInterface;
 use Drupal\neo_alchemist\Plugin\Field\FieldType\ComponentTreeItem;
 
 /**
@@ -52,6 +53,14 @@ class ComponentTreeHydrated extends TypedData implements RenderableInterface {
         if ($slots = $instance->getComponentSlots()) {
           $hydrated[$uuid]['slots'] = array_map(fn($slot) => $slot['examples'][0] ?? '', $slots);
         }
+
+        $shapes = $instance->getPropShapesAll(NULL, TRUE);
+        // Treat region shapes as slots.
+        foreach ($shapes as $shapeName => $shape) {
+          if ($shape instanceof ComponentShapeRegionPluginInterface) {
+            $hydrated[$uuid]['slots'][$shape->id()] = [];
+          }
+        }
       }
     }
 
@@ -66,11 +75,10 @@ class ComponentTreeHydrated extends TypedData implements RenderableInterface {
       assert(array_key_exists('slots', $hydrated[$parent_uuid]));
 
       // Remove default slot value: this slot is populated.
-      if (is_string($hydrated[$parent_uuid]['slots'][$slot])) {
+      if (isset($hydrated[$parent_uuid]['slots']) && is_string($hydrated[$parent_uuid]['slots'][$slot])) {
         unset($hydrated[$parent_uuid]['slots'][$slot]);
       }
-
-      $hydrated[$parent_uuid]['slots'][$slot][$uuid] = $hydrated[$uuid];
+      $hydrated[$parent_uuid]['slots'][$slot][$uuid] = $hydrated[$uuid] ?? [];
       unset($hydrated[$uuid]);
     }
 
@@ -128,6 +136,18 @@ class ComponentTreeHydrated extends TypedData implements RenderableInterface {
           // Skip components that are not accessible.
           continue;
         }
+        if (!empty($component_instance['slots'])) {
+          $shapes = $instance->getPropShapesAll(NULL, TRUE);
+          foreach ($component_instance['slots'] as $slot => $children) {
+            $shape = $shapes[$slot] ?? NULL;
+            if ($shape instanceof ComponentShapeRegionPluginInterface) {
+              // When we have slot values for a shape that acts as a region, we
+              // pass these as values to the region shape.
+              $shape->setFieldItemValue(array_keys($children));
+            }
+          }
+        }
+        // $instance->getPropShapes();
         $build[$component_subtree_uuid][$component_instance_uuid] = $instance->toRenderable();
       }
     }

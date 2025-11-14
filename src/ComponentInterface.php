@@ -188,6 +188,29 @@ interface ComponentInterface extends ConfigEntityInterface, RenderableInterface,
   public function isPreview(): bool;
 
   /**
+   * Sets the instance preview status of the component.
+   *
+   * @param bool $preview
+   *   The preview status to set.
+   *
+   * @return $this
+   *   The current instance of the component.
+   */
+  public function setInstancePreview(bool $preview): self;
+
+  /**
+   * Checks if the component is in instance preview mode.
+   *
+   * This method determines if the component is being displayed in component
+   * management mode within the Alchemist interface. This is true when viewing
+   * an individual component instance in preview mode.
+   *
+   * @return bool
+   *   TRUE if the component is in instance preview mode, FALSE otherwise.
+   */
+  public function isInstancePreview(): bool;
+
+  /**
    * Checks if the component is in Alchemist preview mode.
    *
    * This method determines if the component is being displayed in component
@@ -198,6 +221,19 @@ interface ComponentInterface extends ConfigEntityInterface, RenderableInterface,
    *   TRUE if the component is in Alchemist preview mode, FALSE otherwise.
    */
   public function isComponentPreview(): bool;
+
+  /**
+   * Checks if the component is in management preview mode.
+   *
+   * This method determines if the component is being displayed in management
+   * mode within the Alchemist interface. This is typically true when the
+   * component is being previewed in the Alchemist UI but not in the component
+   * management preview.
+   *
+   * @return bool
+   *   TRUE if the component is in management preview mode, FALSE otherwise.
+   */
+  public function isManagePreview(): bool;
 
   /**
    * Set the component as rebuilding.
@@ -401,7 +437,7 @@ interface ComponentInterface extends ConfigEntityInterface, RenderableInterface,
    * @return \Drupal\neo_alchemist\ComponentShapePluginInterface[]
    *   An array of property shape plugin instances.
    */
-  public function getPropShapes(array $schema = NULL): array;
+  public function getPropShapes(?array $schema = NULL): array;
 
   /**
    * Get a prop shape.
