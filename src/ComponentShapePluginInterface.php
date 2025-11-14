@@ -655,6 +655,14 @@ interface ComponentShapePluginInterface extends PluginInspectionInterface, Deriv
   public function isRequired(): bool;
 
   /**
+   * Determines if the component shape allows empty values.
+   *
+   * @return bool
+   *   TRUE if the component shape allows empty values, FALSE otherwise.
+   */
+  public function allowEmpty(): bool;
+
+  /**
    * Sets the editable state of the component.
    *
    * @param bool $editable
@@ -889,20 +897,6 @@ interface ComponentShapePluginInterface extends PluginInspectionInterface, Deriv
    *   The prop value.
    */
   public function getValue(): mixed;
-
-  /**
-   * Adapt the value to the SDC format.
-   *
-   * The incoming value is the value from the field item. The return value
-   * should be the value that is passed to the SDC.
-   *
-   * @param mixed $value
-   *   The value to adapt.
-   *
-   * @return mixed
-   *   The adapted value.
-   */
-  public function adaptValue(mixed $value): mixed;
 
   /**
    * Get the default defined in the schema.
