@@ -11,6 +11,7 @@ use Drupal\Core\Security\TrustedCallbackInterface;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\neo_alchemist\Attribute\ComponentSlot;
 use Drupal\neo_alchemist\ComponentSlotPluginBase;
+use Drupal\views\Element\View;
 use Drupal\views\Views;
 
 /**
@@ -220,13 +221,13 @@ final class ViewsSlot extends ComponentSlotPluginBase implements TrustedCallback
       $view->setItemsPerPage($element['#view_items_per_page']);
     }
     if ($element['#view_items_offset']) {
-      $view->setOffset(1);
+      $view->setOffset($element['#view_items_offset']);
     }
     $view->setDisplay($element['#view_display_id']);
+    $args = [];
     if ($element['#view_arguments']) {
       $arguments = $view->getHandlers('argument');
       if ($arguments) {
-        $args = [];
         foreach ($arguments as $id => $argument) {
           if (!empty($element['#view_arguments'][$id])) {
             $args[] = $element['#view_arguments'][$id];
@@ -235,10 +236,16 @@ final class ViewsSlot extends ComponentSlotPluginBase implements TrustedCallback
             $args[] = 'all';
           }
         }
-        $view->setArguments($args);
       }
     }
-    return $view->executeDisplay($element['#view_display_id']);
+    // Pass off to core Views preRender handler.
+    return View::preRenderViewElement([
+      '#type' => 'view',
+      '#view' => $view,
+      '#display_id' => $element['#view_display_id'],
+      '#arguments' => $args,
+      '#embed' => TRUE,
+    ]);
   }
 
   /**
