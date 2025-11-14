@@ -63,7 +63,7 @@ class FieldParamConverter implements ParamConverterInterface {
         $neoField = $list->first();
       }
     }
-    else {
+    elseif (isset($defaults['entity_type_id'])) {
       $entityTypeId = $defaults['entity_type_id'];
       $entityType = $this->entityTypeManager->getDefinition($entityTypeId);
       $bundle = $defaults['bundle'] ?? $entityTypeId;
@@ -78,6 +78,9 @@ class FieldParamConverter implements ParamConverterInterface {
         $field = $fields[$fieldName];
         $neoField = $field->getFieldItem();
       }
+    }
+    else {
+      throw new \InvalidArgumentException('Unable to convert parameter without entity_type_id.');
     }
     if (!empty($neoField) && ($defaults['neo_draft'] ?? FALSE)) {
       $neoField->enforceAsDraft();
