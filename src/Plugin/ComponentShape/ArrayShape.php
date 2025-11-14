@@ -64,11 +64,13 @@ class ArrayShape extends ChildrenShapeBase implements ComponentShapeInterablePlu
       // Arrays can supply defaults on the array itself OR the property can
       // supply defaults. If the array supplies the defaults, we merge in
       // the property defaults.
-      foreach ($this->schema['items']['properties'] as $propName => $prop) {
-        if ($prop['examples'] ?? FALSE) {
-          foreach ($examples as $delta => $example) {
-            if (!isset($example[$propName])) {
-              $examples[$delta][$propName] = $prop['examples'];
+      if (!empty($this->schema['items']['properties'])) {
+        foreach ($this->schema['items']['properties'] as $propName => $prop) {
+          if ($prop['examples'] ?? FALSE) {
+            foreach ($examples as $delta => $example) {
+              if (!isset($example[$propName])) {
+                $examples[$delta][$propName] = $prop['examples'];
+              }
             }
           }
         }
@@ -200,10 +202,10 @@ class ArrayShape extends ChildrenShapeBase implements ComponentShapeInterablePlu
           isset($values[$delta][$shapeName]) &&
           empty($values[$delta][$shapeName]) &&
           is_array($values[$delta][$shapeName]) &&
-          !$shape->isRequired()
+          !$shape->allowEmpty()
         ) {
           // The provided value is an empty array. This means we don't want this
-          // value.
+          // value. This happens before we get the actual value from the shape.
           unset($values[$delta][$shapeName]);
           continue;
         }
@@ -323,7 +325,7 @@ class ArrayShape extends ChildrenShapeBase implements ComponentShapeInterablePlu
             '#neo_size' => 'xs',
           ];
           $subform_state = SubformState::createForSubform($form[$delta][$shape->getName()], $form, $form_state);
-          $form[$delta][$shape->getName()] = $shape->getForm($form[$delta][$shape->getName()], $subform_state);
+          $form[$delta][$shape->getName()] = $this->getArrayItemForm($shape, $form[$delta][$shape->getName()], $subform_state, $delta);
         }
       }
     }
@@ -345,6 +347,26 @@ class ArrayShape extends ChildrenShapeBase implements ComponentShapeInterablePlu
       ];
     }
     return $form;
+  }
+
+  /**
+   * Get the form for an array item shape.
+   *
+   * @param \Drupal\neo_alchemist\ComponentShapePluginInterface $shape
+   *   The shape to get the form for.
+   * @param array $form
+   *   The form array.
+   * @param \Drupal\Core\Form\FormStateInterface $form_state
+   *   The form state.
+   * @param int $delta
+   *   The delta of the array item.
+   *
+   * @return array
+   *   The form array for the shape.
+   */
+  protected function getArrayItemForm(ComponentShapePluginInterface $shape, array $form, FormStateInterface $form_state, int $delta): array {
+    return $shape->getForm($form, $form_state);
+
   }
 
   /**
