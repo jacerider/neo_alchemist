@@ -63,11 +63,14 @@ class ObjectShape extends ChildrenShapeBase implements ComponentShapeExpandedPlu
    */
   protected function loadChildSchema(int|null $delta = NULL): array {
     $schema = $this->getSchema();
-    // Use complete value instead of the getDefaultValue().
-    $value = $this->getDefaultValue();
+
     // Merge in any examples to each property.
-    foreach ($schema['properties'] as $propName => &$prop) {
-      $prop['examples'] = $value[$propName] ?? $schema['examples'][$propName] ?? $prop['examples'] ?? [];
+    if (!empty($schema['properties'])) {
+      // Use complete value instead of the getDefaultValue().
+      $value = $this->getDefaultValue();
+      foreach ($schema['properties'] as $propName => &$prop) {
+        $prop['examples'] = $value[$propName] ?? $schema['examples'][$propName] ?? $prop['examples'] ?? [];
+      }
     }
     return $schema;
   }
