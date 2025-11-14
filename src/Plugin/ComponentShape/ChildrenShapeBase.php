@@ -84,7 +84,7 @@ abstract class ChildrenShapeBase extends ComponentShapePluginBase implements Com
    */
   protected function getChildSchema(int|null $delta = NULL): array {
     assert($this->isInitialized(), 'Shape must be initialized before calling getChildShapes().');
-    if (!isset($this->childSchema[$delta]) || TRUE) {
+    if (!isset($this->childSchema[$delta])) {
       $childSchema = $this->loadChildSchema($delta);
       if (!empty($childSchema['required'])) {
         foreach ($childSchema['properties'] as $propName => &$prop) {
@@ -125,6 +125,13 @@ abstract class ChildrenShapeBase extends ComponentShapePluginBase implements Com
     $key = $delta ?? 'all';
     if (!isset($this->childShapes[$key])) {
       $this->childShapes[$key] = $this->loadChildShapes($delta, $value);
+    }
+    else {
+      foreach ($this->childShapes[$key] as $shape) {
+        if (!empty($value[$shape->getName()])) {
+          $shape->setFieldItemValue($value[$shape->getName()]);
+        }
+      }
     }
     return $this->childShapes[$key];
   }
