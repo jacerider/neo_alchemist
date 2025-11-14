@@ -30,7 +30,7 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
  */
 #[ComponentSlot(
   id: 'entity_field',
-  label: new TranslatableMarkup('Field Display'),
+  label: new TranslatableMarkup('Entity Field Display'),
   description: new TranslatableMarkup('Render a entity field.'),
 )]
 final class EntityFieldSlot extends ComponentSlotPluginBase implements ContainerFactoryPluginInterface {
@@ -210,7 +210,7 @@ final class EntityFieldSlot extends ComponentSlotPluginBase implements Container
       }
       if ($entity instanceof ContentEntityInterface && $entity->hasField($fieldName) && !$entity->get($fieldName)->isEmpty()) {
         return $entity->get($fieldName)->view([
-          'label' => 'hidden',
+          'label' => $this->configuration['field_label'],
           'type' => $this->configuration['field_plugin'],
           'settings' => $this->configuration['field_settings'],
           'third_party_settings' => $this->configuration['field_third_party_settings'],
