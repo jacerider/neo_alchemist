@@ -377,6 +377,7 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
     protected ComponentValuePluginManagerInterface $valueManager,
   ) {
     parent::__construct([], $plugin_id, $plugin_definition);
+    $this->schema = $this->buildSchema($schema);
     // Set default options.
     $this->options['empty'] = new ComponentShapeOption($this->optionEmptyInitValue, $this->optionEmptyInitAccess);
     $this->options['default'] = new ComponentShapeOption($this->optionDefaultInitValue, $this->optionDefaultInitAccess);
@@ -515,7 +516,7 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
     // Create the field item.
     $this->fieldItem = $this->buildFieldItem($this->getFieldType(), $this->getFieldStorageSettings(), $this->getFieldInstanceSettings());
     $defaultValue = $this->getDefaultValue();
-    $this->setFieldItemValue($defaultValue);
+    $this->setFieldItemValue($defaultValue, 'default');
 
     // Overlay the field/entity value.
     // We first check if the parent value is set. This value comes from
@@ -535,7 +536,7 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
     foreach ($instances as $instance) {
       $overrideValue = $instance->provideOverrideValue($overrideValue, $defaultValue);
       if ($overrideValue) {
-        $this->setFieldItemValue($overrideValue);
+        $this->setFieldItemValue($overrideValue, NULL);
       }
       if (!$instance->shouldContinueProcessing()) {
         break;
@@ -555,11 +556,6 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
     }
 
     if (!is_null($overrideValue)) {
-      // Allow providers to modify the final override value.
-      foreach ($instances as $instance) {
-        $overrideValue = $instance->alterValue($overrideValue, 'override');
-      }
-
       $this->setFieldItemValue($overrideValue);
     }
     $this->initialized = TRUE;
@@ -783,6 +779,13 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
    */
   public function getSchema(): array {
     return $this->schema;
+  }
+
+  /**
+   * Build the schema on initialization.
+   */
+  protected function buildSchema($schema): array {
+    return $schema;
   }
 
   /**
@@ -1284,6 +1287,13 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
   /**
    * {@inheritDoc}
    */
+  public function allowEmpty(): bool {
+    return !$this->isRequired();
+  }
+
+  /**
+   * {@inheritDoc}
+   */
   public function setEditable(bool $editable = TRUE): self {
     $this->editable = $editable;
     return $this;
@@ -1620,7 +1630,7 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
     if (!empty($this->schema['properties'])) {
       if (!is_array($value)) {
         // If we do not have an array we assume we have an incorrect value.
-        $value = $this->getDefaultValue();
+        $value = $this->getDefaultFieldItemValue();
       }
     }
     foreach ($this->getValueCollection()->getAllowedInstances('modify') as $instance) {
@@ -1629,6 +1639,22 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
         break;
       }
     }
+    return $value;
+  }
+
+  /**
+   * Adapt the value to the SDC format.
+   *
+   * The incoming value is the value from the field item. The return value
+   * should be the value that is passed to the SDC.
+   *
+   * @param mixed $value
+   *   The value to adapt.
+   *
+   * @return mixed
+   *   The adapted value.
+   */
+  protected function adaptValue(mixed $value): mixed {
     return $value;
   }
 
@@ -1650,13 +1676,6 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
   }
 
   /**
-   * {@inheritDoc}
-   */
-  public function adaptValue(mixed $value): mixed {
-    return $value;
-  }
-
-  /**
    * Omits the wrapping main property name for single-property field types.
    *
    * This reduces the verbosity of the data stored in `component_tree` fields,
@@ -1672,7 +1691,7 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
    * @see \Drupal\Core\Field\FieldItemBase::setValue()
    *  @see \Drupal\Core\Field\FieldInputValueNormalizerTrait::normalizeValue()
    */
-  public function denormalizeValue(array $field_item_value): mixed {
+  final protected function denormalizeValue(array $field_item_value): mixed {
     return match (count($this->fieldItem->getDataDefinition()->getPropertyDefinitions())) {
       1 => $field_item_value[$this->fieldItem::mainPropertyName()] ?? NULL,
       default => $field_item_value,
@@ -1694,15 +1713,6 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
       }
       if ($fieldDefaultValue = $this->getFieldDefaultValue()) {
         $value = $fieldDefaultValue;
-      }
-      // Set the value so providers can use it.
-      $this->setFieldItemValue($value);
-      // Allow providers to modify the final default value.
-      foreach ($instances as $instance) {
-        $value = $instance->alterValue($value, 'default');
-        if (!$instance->shouldContinueProcessing()) {
-          break;
-        }
       }
       if (!$value && $this->isRequired()) {
         $value = $originalValue;
@@ -1762,7 +1772,15 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
    */
   public function getDefaultFieldItemValue(): array {
     $fieldItem = clone $this->fieldItem;
-    $fieldItem->setValue($this->getDefaultValue());
+    $value = $this->getDefaultValue();
+    // Set the value so providers can use it.
+    $this->fieldItem->setValue($value);
+    $instances = $this->getValueCollection()->getAllowedInstances('value');
+    // Allow providers to modify the final override value.
+    foreach ($instances as $instance) {
+      $value = $instance->alterValue($value, 'default');
+    }
+    $fieldItem->setValue($value);
     return $fieldItem->getValue();
   }
 
@@ -1770,6 +1788,7 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
    * {@inheritDoc}
    */
   public function setOverrideValue(mixed $value): self {
+    assert(!$this->isInitialized(), 'Override value should be set before initialization.');
     $this->overrideValue = $value;
     return $this;
   }
@@ -1830,9 +1849,18 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
   /**
    * {@inheritDoc}
    */
-  public function setFieldItemValue(mixed $value): self {
+  public function setFieldItemValue(mixed $value, ?string $alterType = 'override'): self {
     // If if value is an array but we are not in an array type, we use the first
     // value 0 if set.
+    if ($alterType) {
+      // Set the value so providers can use it.
+      $this->fieldItem->setValue($value);
+      $instances = $this->getValueCollection()->getAllowedInstances('value');
+      // Allow providers to modify the final override value.
+      foreach ($instances as $instance) {
+        $value = $instance->alterValue($value, $alterType);
+      }
+    }
     if (is_array($value) && !$this->isIterable()) {
       $value = $value[0] ?? $value;
     }
