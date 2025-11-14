@@ -277,7 +277,7 @@ trait ComponentValueChildrenMatchTrait {
     $delta = 0;
     if ($entities) {
       $parentId = $parentId ?? $shape->id();
-      foreach ($entities as $entity) {
+      foreach (array_filter($entities) as $entity) {
         $shape->addCacheableDependency($entity);
         foreach ($shapeNames as $shapeName) {
           $shapeId = implode('~', [$parentId, $shapeName]);
