@@ -152,7 +152,7 @@ final class ViewsHeaderSlot extends ViewsSlotBase {
           $render = $handler->render();
           if (!empty($render)) {
             $build[$id] = $render;
-            $this->addCacheableDependency($view->display_handler->getCacheMetadata());
+            $this->addViewAsCacheableDependency($view);
           }
         }
       }
