@@ -202,7 +202,7 @@ class ArrayShape extends ChildrenShapeBase implements ComponentShapeInterablePlu
           isset($values[$delta][$shapeName]) &&
           empty($values[$delta][$shapeName]) &&
           is_array($values[$delta][$shapeName]) &&
-          !$shape->allowEmpty()
+          $shape->allowUnsetEmpty()
         ) {
           // The provided value is an empty array. This means we don't want this
           // value. This happens before we get the actual value from the shape.

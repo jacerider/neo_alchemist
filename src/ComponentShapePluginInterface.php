@@ -655,12 +655,12 @@ interface ComponentShapePluginInterface extends PluginInspectionInterface, Deriv
   public function isRequired(): bool;
 
   /**
-   * Determines if the component shape allows empty values.
+   * Determines if the component shape can be unset if empty.
    *
    * @return bool
    *   TRUE if the component shape allows empty values, FALSE otherwise.
    */
-  public function allowEmpty(): bool;
+  public function allowUnsetEmpty(): bool;
 
   /**
    * Sets the editable state of the component.

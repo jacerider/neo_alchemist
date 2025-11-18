@@ -1287,7 +1287,7 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
   /**
    * {@inheritDoc}
    */
-  public function allowEmpty(): bool {
+  public function allowUnsetEmpty(): bool {
     return !$this->isRequired();
   }
 
