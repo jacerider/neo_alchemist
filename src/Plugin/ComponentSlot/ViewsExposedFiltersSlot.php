@@ -24,7 +24,7 @@ final class ViewsExposedFiltersSlot extends ViewsSlotBase {
   protected function toViewsRenderable(ViewExecutable $view): array {
     /** @var \Drupal\views\Plugin\views\exposed_form\ExposedFormPluginInterface $plugin */
     $plugin = $view->display_handler->getPlugin('exposed_form');
-    $this->addCacheableDependency($view->display_handler->getCacheMetadata());
+    $this->addViewAsCacheableDependency($view);
     return $plugin->renderExposedForm();
   }
 
