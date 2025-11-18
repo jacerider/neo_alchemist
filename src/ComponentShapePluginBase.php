@@ -1715,7 +1715,7 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
         $value = $fieldDefaultValue;
       }
       // Set the value so providers can use it.
-      $this->setFieldItemValue($value);
+      $this->setFieldItemValue($value, FALSE);
       // Allow providers to modify the final default value.
       foreach ($instances as $instance) {
         $value = $instance->alterValue($value, 'default');
