@@ -104,6 +104,19 @@ abstract class ViewsSlotBase extends ComponentSlotPluginBase {
   abstract protected function toViewsRenderable(ViewExecutable $view): array;
 
   /**
+   * Add the view's cache metadata as a cacheable dependency.
+   */
+  protected function addViewAsCacheableDependency(ViewExecutable $view): void {
+    $this->addCacheableDependency($view->display_handler->getCacheMetadata());
+
+    /** @var \Drupal\views\Plugin\views\cache\CachePluginBase $cache_plugin */
+    $cache_plugin = $view->display_handler->getPlugin('cache');
+    $cacheableMetadata = $this->getCacheableMetadata();
+    $cacheableMetadata->setCacheMaxAge($cache_plugin->getCacheMaxAge());
+    $cacheableMetadata->addCacheTags($cache_plugin->getCacheTags());
+  }
+
+  /**
    * {@inheritdoc}
    */
   public static function isApplicable(ComponentInterface $component) {
