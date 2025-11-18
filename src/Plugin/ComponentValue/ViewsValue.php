@@ -321,7 +321,14 @@ final class ViewsValue extends ComponentValuePluginBase implements ContainerFact
         $view = Views::getView($this->configuration['view_id']);
         if ($view) {
           $view->setDisplay($this->configuration['view_display_id']);
-          $this->shape->addCacheableDependency($view);
+          // Add cache metadata from the display handler.
+          $this->shape->addCacheableDependency($view->display_handler->getCacheMetadata());
+          /** @var \Drupal\views\Plugin\views\cache\CachePluginBase $cache_plugin */
+          $cache_plugin = $view->display_handler->getPlugin('cache');
+          $cacheableMetadata = $this->shape->getCacheableMetadata();
+          $cacheableMetadata->setCacheMaxAge($cache_plugin->getCacheMaxAge());
+          $cacheableMetadata->addCacheTags($cache_plugin->getCacheTags());
+
           if ($this->configuration['view_items_per_page'] ?? NULL) {
             $view->setItemsPerPage($this->configuration['view_items_per_page']);
           }
@@ -369,8 +376,6 @@ final class ViewsValue extends ComponentValuePluginBase implements ContainerFact
           }
           $view->preExecute();
           $view->execute();
-          $cacheableMetadata = CacheableMetadata::createFromRenderArray($view->element);
-          $this->shape->addCacheableDependency($cacheableMetadata);
           $this->view = $view;
           // Set a context for use by slots.
           $this->shape->getComponent()->setPropShapeContext('views', $this->shape, $view);
@@ -388,12 +393,6 @@ final class ViewsValue extends ComponentValuePluginBase implements ContainerFact
       return $value;
     }
     if ($view = $this->getView()) {
-
-      /** @var \Drupal\views\Plugin\views\cache\CachePluginBase $cache_plugin */
-      $cache_plugin = $view->display_handler->getPlugin('cache');
-      $cacheableMetadata = $this->shape->getCacheableMetadata();
-      $cacheableMetadata->setCacheMaxAge($cache_plugin->getCacheMaxAge());
-      $cacheableMetadata->addCacheTags($cache_plugin->getCacheTags());
 
       // Get entities.
       $entities = [];
