@@ -6,6 +6,7 @@
     data: any;
     parents: string[];
     children: string[];
+    events?: Record<string, any>;
   }
 
   /**
@@ -69,6 +70,10 @@
   let regionUuid: string | null = null;
   let layerLevel: -1 | 0 | 1 | 2 = -1;
   let layerInteractSize: 'desktop' | 'tablet' | 'mobile' = 'desktop';
+  let passthroughTimeout: ReturnType<typeof setTimeout> | null = null;
+  let eventLastUuid: string | null = null;
+  const eventHistory: Record<string, Array<string>> = {};
+  const eventNewHistory: Record<string, Record<string, Array<string>>> = {};
 
   // Iframe load handling
   let iframeProcessing = 0;
@@ -109,7 +114,7 @@
   container.addEventListener('alchemistManageScale', scaleCallback as EventListener);
   container.addEventListener('alchemistManageScaleEnd', () => {
     elementsPosition();
-    layerShow(layerUuid, true);
+    layerShow(layerUuid, true, true);
   });
 
   // Handle postMessage communication
@@ -128,7 +133,6 @@
   const onChild:any = {
     structureData: function (data: any) {
       structureData = data.data;
-      // Handle the received structure data as needed
     },
     positionData: function (data: any) {
       iframeFinished++;
@@ -143,7 +147,53 @@
       const size = data.size as 'desktop' | 'tablet' | 'mobile';
       positionData[size] = data.data;
       elementsPosition();
+      layerShow(layerUuid, true, true);
     },
+    onEvent: function (data: any) {
+      const eventType = data.eventType as string;
+      const eventUuid = data.uuid as string;
+      const eventParentUuid = getEventParentUuid(eventUuid);
+      const eventGroup = getEventGroup(eventUuid);
+      if (!eventParentUuid || !eventGroup) {
+        return;
+      }
+
+      sizes.forEach(size => {
+        if (size !== data.size) {
+          const iframe = iframes[size];
+          if (!iframe.contentWindow) {
+            return;
+          }
+          iframe.contentWindow.postMessage({
+            type: 'doEvent',
+            uuid: eventUuid,
+            eventType: eventType,
+          }, "*");
+        }
+      });
+
+      switch (eventType) {
+        case 'mouseover':
+          eventHistory[eventUuid] = [];
+          eventNewHistory[eventGroup] = eventNewHistory[eventParentUuid] || {};
+          eventNewHistory[eventGroup][eventUuid] = [];
+          break;
+        case 'mouseenter':
+          clearTimeout(passthroughTimeout || undefined);
+          container.classList.add('neo-alchemist--passthrough');
+          break;
+        case 'mouseleave':
+          passthroughTimeout = setTimeout(() => {
+            container.classList.remove('neo-alchemist--passthrough');
+          }, 50);
+          break;
+      }
+      eventLastUuid = data.uuid;
+      // console.log('eventData', eventLastUuid, eventParentUuid, getEventGroup(eventUuid));
+      eventHistory[eventUuid].push(eventType);
+      eventNewHistory[eventGroup][eventUuid].push(eventType);
+      console.log(eventNewHistory);
+    }
   };
 
   initialize();
@@ -295,12 +345,13 @@
     // Reset overlay state
     overlayState = {};
     // Clear existing elements
-    container.querySelectorAll<HTMLElement>('.neo-alchemist--element').forEach(element => {
+    container.querySelectorAll<HTMLElement>('.neo-alchemist--element, .neo-alchemist--event').forEach(element => {
       element.remove();
     });
 
     // Build structure elements
     const elementBase = container.querySelector('.neo-alchemist--element-base') as HTMLElement;
+    const eventBase = container.querySelector('.neo-alchemist--event-base') as HTMLElement;
     Object.entries(structureData).forEach(([uuid, data]) => {
       structureElements[uuid] = {} as Record<'desktop' | 'tablet' | 'mobile', HTMLElement>;
       sizes.forEach(size => {
@@ -344,6 +395,28 @@
         });
         wrapper.appendChild(element);
         structureElements[uuid][size] = element;
+        if (data.events) {
+          Object.keys(data.events).forEach(eventId => {
+            const eventTrigger = eventBase.cloneNode(true) as HTMLElement;
+            eventTrigger.classList.remove('neo-alchemist--event-base');
+            eventTrigger.classList.add('neo-alchemist--event');
+            eventTrigger.setAttribute('data-event-id', eventId);
+            eventTrigger.setAttribute('data-size', size);
+            eventTrigger.style.display = 'none';
+            eventTrigger.style.zIndex = '40';
+            if (debugElements) {
+              eventTrigger.style.border = '1px solid orange';
+            }
+            eventTrigger.addEventListener('mouseenter', () => {
+              layerInteractSize = size;
+              clearTimeout(passthroughTimeout || undefined);
+              container.classList.add('neo-alchemist--passthrough');
+            });
+            wrapper.appendChild(eventTrigger);
+            structureElements[eventId] = structureElements[eventId] || {} as Record<'desktop' | 'tablet' | 'mobile', HTMLElement>;
+            structureElements[eventId][size] = eventTrigger;
+          });
+        }
       });
     });
 
@@ -351,7 +424,21 @@
     elementsToggle();
 
     if (layerUuid) {
-      layerShow(layerUuid);
+      if (eventLastUuid && eventHistory[eventLastUuid]) {
+        // This support one level of tracking. Will need more work to support
+        // multiple levels.
+        eventHistory[eventLastUuid].forEach(eventType => {
+          Object.entries(iframes).forEach(([size, iframe]) => {
+            iframe.contentWindow?.postMessage({
+              type: 'doEvent',
+              size: size,
+              uuid: eventLastUuid,
+              eventType: eventType,
+            });
+          });
+        });
+      }
+      layerShow(layerUuid, true, true);
     }
   }
 
@@ -373,6 +460,26 @@
     overlayTimeouts[level] = setTimeout(() => {
       overlayHide(uuid);
     }, 200);
+  }
+
+  function getEventGroup(eventUuid: string): any {
+    for (const uuid in structureData) {
+      const data = structureData[uuid];
+      if (data.events && data.events[eventUuid]) {
+        return data.events[eventUuid];
+      }
+    }
+    return null;
+  }
+
+  function getEventParentUuid(eventUuid: string): string | null {
+    for (const uuid in structureData) {
+      const data = structureData[uuid];
+      if (data.events && data.events[eventUuid]) {
+        return uuid;
+      }
+    }
+    return null;
   }
 
   /**
@@ -480,14 +587,6 @@
     shadeHideLevel(level);
   }
 
-  function overlayHideAll(): void {
-    overlayState = {};
-    levels.forEach(level => {
-      overlayHideLevel(level);
-    });
-    shadeHideAll();
-  }
-
   function overlayHideLevel(level: 0 | 1 | 2): void {
     sizes.forEach(size => {
       const overlay = overlayElements[size][level];
@@ -535,12 +634,6 @@
       shade.classList.add('bg-base-950/60');
     }
     createClipPath(shade, structureElements[uuid][size], container, heightOffset);
-  }
-
-  function shadeHideAll(): void {
-    levels.forEach(level => {
-      shadeHideLevel(level);
-    });
   }
 
   function shadeHideLevel(level: 0 | 1 | 2): void {
@@ -684,7 +777,12 @@
     }
   }
 
-  function layerShow(uuid: string | null = null, force: boolean = false): void {
+  // let layerTimeout: ReturnType<typeof setTimeout> | null = null;
+  function layerShow(uuid: string | null = null, force: boolean = false, instant: boolean = false): void {
+    if (!uuid && !layerUuid) {
+      return;
+    }
+
     let level : -1 | 0 | 1 | 2 = -1;
     let parents: string[] = [];
     if (uuid === layerUuid) {
@@ -700,6 +798,13 @@
       else {
         uuid = null;
       }
+    }
+
+    if (instant) {
+      container.classList.add('neo-alchemist--instant');
+      setTimeout(() => {
+        container.classList.remove('neo-alchemist--instant');
+      });
     }
 
     if (uuid) {
@@ -726,7 +831,7 @@
       });
     }
     else {
-      overlayHideAll();
+      hideAll();
     }
 
     elementsToggle(uuid);
@@ -756,6 +861,25 @@
     const data = structureData[layerUuid];
     const lastParent = data.parents[data.parents.length - 1] || null;
     layerShow(lastParent);
+  }
+
+  function hideAll(): void {
+    overlayState = {};
+    levels.forEach(level => {
+      overlayHideLevel(level);
+      shadeHideLevel(level);
+    });
+    if (layerUuid && structureData[layerUuid]) {
+      const data = structureData[layerUuid];
+      if (data.events) {
+        Object.keys(data.events).forEach(eventId => {
+          sizes.forEach(size => {
+            const eventTrigger = structureElements[eventId][size];
+            eventTrigger.style.display = 'none';
+          });
+        });
+      }
+    }
   }
 
   /**
@@ -798,39 +922,67 @@
     Object.entries(structureData).forEach(([elementUuid, data]) => {
       const dataLevel = data.parents.length as 0 | 1 | 2;
       sizes.forEach(size => {
-        const element = structureElements[elementUuid][size];
+        // const element = structureElements[elementUuid][size];
         if (dataLevel <= level) {
           if (uuid) {
             if (children.includes(elementUuid)) {
-              showLayer(element);
+              showLayer(elementUuid, size);
             }
             else if (uuid === elementUuid || parents.includes(elementUuid)) {
-              showLayer(element, false);
+              showLayer(elementUuid, size, false);
             }
             else {
-              hideLayer(element);
+              hideLayer(elementUuid, size);
             }
             return;
           }
           else {
-            showLayer(element);
+            showLayer(elementUuid, size);
           }
         }
         else {
-          hideLayer(element);
+          hideLayer(elementUuid, size);
         }
       });
     });
   }
 
-  function hideLayer(element: HTMLElement): void {
-    element.style.display = 'none';
-    element.style.pointerEvents = 'none';
-  }
-
-  function showLayer(element: HTMLElement, interact: boolean = true): void {
+  function showLayer(uuid: string, size: 'desktop' | 'tablet' | 'mobile', interact: boolean = true): void {
+    const element = structureElements[uuid][size];
+    const data = structureData[uuid];
     element.style.display = 'block';
     element.style.pointerEvents = interact ? 'auto' : 'none';
+    if (interact) {
+      const lastParent = data.parents[data.parents.length - 1];
+      if (lastParent) {
+        const parentData = structureData[lastParent];
+        if (parentData.events) {
+          Object.keys(parentData.events).forEach(eventId => {
+            const eventTrigger = structureElements[eventId][size];
+            eventTrigger.style.display = 'block';
+          });
+        }
+      }
+    }
+    else if (data.events) {
+      Object.keys(data.events).forEach(eventId => {
+        const eventTrigger = structureElements[eventId][size];
+        eventTrigger.style.display = 'none';
+      });
+    }
+  }
+
+  function hideLayer(uuid: string, size: 'desktop' | 'tablet' | 'mobile'): void {
+    const element = structureElements[uuid][size];
+    const data = structureData[uuid];
+    element.style.display = 'none';
+    element.style.pointerEvents = 'none';
+    if (data.events) {
+      Object.keys(data.events).forEach(eventId => {
+        const eventTrigger = structureElements[eventId][size];
+        eventTrigger.style.display = 'none';
+      });
+    }
   }
 
   function actionExecute(

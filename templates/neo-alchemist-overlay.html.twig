@@ -8,6 +8,9 @@
   set element_classes = 'absolute'
 %}
 {%
+  set event_classes = 'absolute cursor-pointer'
+%}
+{%
   set op_wrapper_classes = 'neo-alchemist--overlay-actions absolute flex items-center justify-center left-0 right-0 pointer-events-none transition'
 %}
 {%
@@ -47,3 +50,4 @@
   </div>
 </div>
 <div class="neo-alchemist--element-base {{ element_classes }}" data-alchemist-ignore></div>
+<div class="neo-alchemist--event-base {{ event_classes }}" data-alchemist-ignore></div>

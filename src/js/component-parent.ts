@@ -44,8 +44,6 @@
       let scrollLeft = container.scrollLeft;
       let needsScroll = false;
 
-      console.log(elementRect.height, containerRect.height);
-
       // Determine if vertical scrolling is needed
       if (elementRect.height > containerRect.height) {
         // alert('help');

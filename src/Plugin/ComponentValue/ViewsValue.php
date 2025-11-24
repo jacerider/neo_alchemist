@@ -6,7 +6,6 @@ namespace Drupal\neo_alchemist\Plugin\ComponentValue;
 
 use Drupal\Component\Utility\Html;
 use Drupal\Component\Utility\NestedArray;
-use Drupal\Core\Cache\CacheableMetadata;
 use Drupal\Core\DependencyInjection\DependencySerializationTrait;
 use Drupal\Core\Entity\ContentEntityInterface;
 use Drupal\Core\Entity\EntityTypeInterface;
@@ -397,7 +396,7 @@ final class ViewsValue extends ComponentValuePluginBase implements ContainerFact
       // Get entities.
       $entities = [];
       foreach (array_map(fn($row) => $row->_entity, $view->result) as $entity) {
-        $entities[] = $entity;
+        $entities[$entity->id()] = $entity;
       }
 
       $args = $view->args;
@@ -418,7 +417,7 @@ final class ViewsValue extends ComponentValuePluginBase implements ContainerFact
         $value = [];
       }
       else {
-        $results = $this->getChildrenMatchValues($this->shape, $entities, $this->configuration);
+        $results = $this->getChildrenMatchValues($this->shape, array_values($entities), $this->configuration);
         if (!empty($results) || empty($this->configuration['continue'])) {
           $this->stopFurtherProcessing();
           // Merge any views-generated values.

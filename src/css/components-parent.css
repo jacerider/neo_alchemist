@@ -1,0 +1,16 @@
+.neo-alchemist--passthrough {
+
+  .neo-alchemist--shade,
+  .neo-alchemist--overlay,
+  .neo-alchemist--element,
+  .neo-alchemist--event {
+    pointer-events: none !important;
+  }
+}
+
+.neo-alchemist--instant {
+  .neo-alchemist--shade,
+  .neo-alchemist--overlay {
+    transition-duration: 0s !important;
+  }
+}

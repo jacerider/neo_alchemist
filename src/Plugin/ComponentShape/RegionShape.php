@@ -37,7 +37,7 @@ class RegionShape extends ArrayShape implements ComponentShapeRegionPluginInterf
    * {@inheritDoc}
    */
   public function allowUnsetEmpty(): bool {
-    return TRUE;
+    return FALSE;
   }
 
   /**
