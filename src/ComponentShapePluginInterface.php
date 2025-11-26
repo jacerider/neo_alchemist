@@ -350,6 +350,17 @@ interface ComponentShapePluginInterface extends PluginInspectionInterface, Deriv
   public function getValueCollection(): ComponentShapePluginCollection;
 
   /**
+   * Determines if a value plugin is allowed for the shape.
+   *
+   * @param array $definition
+   *   The plugin definition.
+   *
+   * @return bool
+   *   TRUE if the value plugin is allowed, FALSE otherwise.
+   */
+  public function allowValuePlugin(array $definition): bool;
+
+  /**
    * Checks if the component is rebuilding.
    *
    * Will be true if the component is being rebuilt without being saved.
@@ -484,44 +495,6 @@ interface ComponentShapePluginInterface extends PluginInspectionInterface, Deriv
   public function getNestedTitle($includeRoot = TRUE): string;
 
   /**
-   * Adds a nested value provider to the component.
-   *
-   * @param string|int $id
-   *   The ID of the nested element.
-   * @param string $providerId
-   *   The ID of the provider.
-   * @param array $settings
-   *   An array of settings for the provider.
-   *
-   * @return self
-   *   Returns the instance of the class for method chaining.
-   */
-  public function addNestedValueProvider($id, string $providerId, array $settings): self;
-
-  /**
-   * Retrieves the nested value providers.
-   *
-   * @return array
-   *   An array of nested value providers.
-   */
-  public function getNestedValueProviders(): array;
-
-  /**
-   * Adds a nested value provider to the component.
-   *
-   * @param string|int $id
-   *   The ID of the nested element.
-   * @param string $providerId
-   *   The ID of the provider.
-   * @param array $settings
-   *   An array of settings for the provider.
-   *
-   * @return self
-   *   Returns the instance of the class for method chaining.
-   */
-  public function addNestedValueModifier($id, string $providerId, array $settings): self;
-
-  /**
    * Set the array of child shape nested ids that are expaneded.
    *
    * @param array $expanded
@@ -590,14 +563,6 @@ interface ComponentShapePluginInterface extends PluginInspectionInterface, Deriv
   public function belongsToExpanded(): bool;
 
   /**
-   * Retrieves the nested value modifiers.
-   *
-   * @return array
-   *   An array of nested value modifiers.
-   */
-  public function getNestedValueModifiers(): array;
-
-  /**
    * Sets the active status of the component shape.
    *
    * @param bool $active
@@ -653,6 +618,14 @@ interface ComponentShapePluginInterface extends PluginInspectionInterface, Deriv
    *   Returns TRUE if the prop is required, FALSE otherwise.
    */
   public function isRequired(): bool;
+
+  /**
+   * Determines if the component shape can be marked as required.
+   *
+   * @return bool
+   *   TRUE if the component shape allows being required, FALSE otherwise.
+   */
+  public function allowRequired(): bool;
 
   /**
    * Determines if the component shape can be unset if empty.
