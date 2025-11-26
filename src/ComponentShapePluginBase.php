@@ -1156,31 +1156,8 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
   /**
    * {@inheritDoc}
    */
-  public function addNestedValueProvider($id, string $providerId, array $settings): self {
-    $this->providersNested[$id][$providerId] = $settings;
-    return $this;
-  }
-
-  /**
-   * {@inheritDoc}
-   */
-  public function getNestedValueProviders(): array {
-    return $this->providersNested;
-  }
-
-  /**
-   * {@inheritDoc}
-   */
-  public function addNestedValueModifier($id, string $modifierId, array $settings): self {
-    $this->modifiersNested[$id][$modifierId] = $settings;
-    return $this;
-  }
-
-  /**
-   * {@inheritDoc}
-   */
-  public function getNestedValueModifiers(): array {
-    return $this->modifiersNested;
+  public function allowValuePlugin(array $definition): bool {
+    return TRUE;
   }
 
   /**
@@ -1281,7 +1258,14 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
    * {@inheritDoc}
    */
   public function isRequired(): bool {
-    return $this->required;
+    return $this->required && $this->allowRequired();
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  public function allowRequired(): bool {
+    return TRUE;
   }
 
   /**
