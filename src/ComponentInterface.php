@@ -120,6 +120,14 @@ interface ComponentInterface extends ConfigEntityInterface, RenderableInterface,
   public function getComponentSlots(): array;
 
   /**
+   * Gets the component size.
+   *
+   * @return string|null
+   *   The size.
+   */
+  public function getSize(): ?string;
+
+  /**
    * Gets the thumbnail id.
    *
    * @return string|null
