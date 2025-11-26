@@ -13,6 +13,7 @@ use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Render\Element;
 use Drupal\neo_alchemist\ComponentShapeStylePluginInterface;
+use Drupal\neo_alchemist\ComponentSizePluginManager;
 use Drupal\neo_icon\IconTrait;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
@@ -22,13 +23,6 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
 final class ComponentManageForm extends EntityForm {
 
   use IconTrait;
-
-  /**
-   * The entity.
-   *
-   * @var \Drupal\neo_alchemist\ComponentInterface
-   */
-  protected $entity;
 
   /**
    * The entity type bundle info service.
@@ -45,12 +39,20 @@ final class ComponentManageForm extends EntityForm {
   protected $entityTypeManager;
 
   /**
+   * The component value size plugin manager.
+   *
+   * @var \Drupal\neo_alchemist\ComponentSizePluginManager
+   */
+  protected $componentValueSizeManager;
+
+  /**
    * {@inheritdoc}
    */
   public static function create(ContainerInterface $container) {
     return new static(
       $container->get('entity_type.bundle.info'),
-      $container->get('entity_type.manager')
+      $container->get('entity_type.manager'),
+      $container->get('plugin.manager.neo_component_size')
     );
   }
 
@@ -61,10 +63,13 @@ final class ComponentManageForm extends EntityForm {
    *   The entity type bundle info service.
    * @param \Drupal\Core\Entity\EntityTypeManagerInterface $entity_type_manager
    *   The entity manager service.
+   * @param \Drupal\neo_alchemist\ComponentSizePluginManager $component_value_size_manager
+   *   The component value size plugin manager.
    */
-  public function __construct(EntityTypeBundleInfoInterface $entity_type_bundle_info, EntityTypeManagerInterface $entity_type_manager) {
+  public function __construct(EntityTypeBundleInfoInterface $entity_type_bundle_info, EntityTypeManagerInterface $entity_type_manager, ComponentSizePluginManager $component_value_size_manager) {
     $this->entityTypeBundleInfo = $entity_type_bundle_info;
     $this->entityTypeManager = $entity_type_manager;
+    $this->componentValueSizeManager = $component_value_size_manager;
   }
 
   /**
@@ -73,26 +78,38 @@ final class ComponentManageForm extends EntityForm {
   public function form(array $form, FormStateInterface $form_state): array {
     $form = parent::form($form, $form_state);
     $form_state->set('neo_component_form', TRUE);
+    /** @var \Drupal\neo_alchemist\ComponentInterface $entity */
+    $entity = $this->entity;
 
     $form += $this->buildPropsForm($form, $form_state);
     $form += $this->buildSlotsForm($form, $form_state);
     $form += $this->buildFiltersForm($form, $form_state);
     $form += $this->buildAccessForm($form, $form_state);
 
-    $thumbnailId = $this->entity->getThumbnailId();
+    $form['size'] = [
+      '#type' => 'select',
+      '#title' => $this->t('Size'),
+      '#description' => $this->t('The size of the component. This will limit where the component can be used based on the size settings of the parent field or region shape.'),
+      '#options' => array_map(fn ($def) => $def['label'], $this->componentValueSizeManager->getDefinitions()),
+      '#default_value' => $entity->getSize(),
+      '#empty_option' => $this->t('Any'),
+      '#neo_size' => 'sm',
+    ];
+
+    $thumbnailId = $entity->getThumbnailId();
     $form['thumbnail'] = [
       '#type' => 'neo_config_file',
       '#title' => $this->t('Thumbnail'),
-      '#filename' => Html::getClass('component-' . $this->entity->id()),
+      '#filename' => Html::getClass('component-' . $entity->id()),
       '#extensions' => ['png'],
       '#dependencies' => [
-        $this->entity->getConfigDependencyKey() => [
-          $this->entity->getConfigDependencyName(),
+        $entity->getConfigDependencyKey() => [
+          $entity->getConfigDependencyName(),
         ],
       ],
       '#default_value' => $thumbnailId,
     ];
-    if (!$thumbnailId && ($thumbnail = $this->entity->getDefaultThumbnail())) {
+    if (!$thumbnailId && ($thumbnail = $entity->getDefaultThumbnail())) {
       $form['thumbnail']['#field_prefix'] = [
         '#theme' => 'image',
         '#uri' => $thumbnail,
@@ -123,16 +140,16 @@ final class ComponentManageForm extends EntityForm {
       ];
     }
 
-    if ($this->entity->getTargetEntityTypeId()) {
+    if ($entity->getTargetEntityTypeId()) {
       $form['entity_preview'] = [
         '#type' => 'entity_autocomplete',
         '#title' => $this->t('Select a preview entity'),
         '#description' => $this->t('Select an entity to use when previewing this component. This setting is specific to the current site environment.'),
-        '#target_type' => $this->entity->getTargetEntityTypeId(),
-        '#default_value' => $this->entity->getTargetPreviewEntity(),
+        '#target_type' => $entity->getTargetEntityTypeId(),
+        '#default_value' => $entity->getTargetPreviewEntity(),
         '#selection_handler' => 'default',
       ];
-      if ($target_bundle = $this->entity->getTargetEntityBundle()) {
+      if ($target_bundle = $entity->getTargetEntityBundle()) {
         $form['entity_preview']['#selection_settings']['target_bundles'] = [$target_bundle];
       }
     }
@@ -168,7 +185,9 @@ final class ComponentManageForm extends EntityForm {
    *   The form.
    */
   protected function buildPropsForm(array $form, FormStateInterface $form_state): array {
-    $shapes = array_filter($this->entity->getPropShapes(), fn ($shape) => $shape->access('manage_value'));
+    /** @var \Drupal\neo_alchemist\ComponentInterface $entity */
+    $entity = $this->entity;
+    $shapes = array_filter($entity->getPropShapes(), fn ($shape) => $shape->access('manage_value'));
     if ($shapes) {
       $form['props'] = [
         '#type' => 'table',
@@ -177,12 +196,12 @@ final class ComponentManageForm extends EntityForm {
           '#tag' => 'div',
           '#attributes' => ['class' => ['flex', 'items-center']],
           'title' => [
-            '#markup' => $this->t('Value Props') . ($this->entity->isAggregate() ? ' (' . $this->t('aggregated') . ')' : ''),
+            '#markup' => $this->t('Value Props') . ($entity->isAggregate() ? ' (' . $this->t('aggregated') . ')' : ''),
           ],
           'add' => [
             '#type' => 'link',
-            '#title' => $this->entity->isAggregate() ? $this->t('Disable Aggregation') : $this->t('Enable Aggregation'),
-            '#url' => $this->entity->toUrl('aggregate-form'),
+            '#title' => $entity->isAggregate() ? $this->t('Disable Aggregation') : $this->t('Enable Aggregation'),
+            '#url' => $entity->toUrl('aggregate-form'),
             '#attributes' => [
               'class' => ['use-ajax', 'btn btn-xs ml-auto'],
               'data-dialog-type' => 'modal',
@@ -261,7 +280,7 @@ final class ComponentManageForm extends EntityForm {
         $links = [];
         $links['edit'] = [
           'title' => $this->t('Customize'),
-          'url' => $this->entity->toUrl('edit-prop-form')->setRouteParameter('prop', $propName),
+          'url' => $entity->toUrl('edit-prop-form')->setRouteParameter('prop', $propName),
           'attributes' => [
             'class' => ['use-ajax'],
             'data-dialog-type' => 'modal',
@@ -304,7 +323,9 @@ final class ComponentManageForm extends EntityForm {
    *   The form.
    */
   protected function buildSlotsForm(array $form, FormStateInterface $form_state): array {
-    $slots = $this->entity->getSlots();
+    /** @var \Drupal\neo_alchemist\ComponentInterface $entity */
+    $entity = $this->entity;
+    $slots = $entity->getSlots();
     if ($slots) {
       $form['slots'] = [
         '#type' => 'table',
@@ -337,7 +358,7 @@ final class ComponentManageForm extends EntityForm {
         $links = [];
         $links['edit'] = [
           'title' => $this->t('Customize'),
-          'url' => $this->entity->toUrl('edit-slot-form')->setRouteParameter('slot', $slotName),
+          'url' => $entity->toUrl('edit-slot-form')->setRouteParameter('slot', $slotName),
           'attributes' => [
             'class' => ['use-ajax'],
             'data-dialog-type' => 'modal',
@@ -374,7 +395,9 @@ final class ComponentManageForm extends EntityForm {
    *   The form.
    */
   protected function buildFiltersForm(array $form, FormStateInterface $form_state): array {
-    $filters = $this->entity->getFilters();
+    /** @var \Drupal\neo_alchemist\ComponentInterface $entity */
+    $entity = $this->entity;
+    $filters = $entity->getFilters();
     $form['filters'] = [
       '#type' => 'table',
       '#caption' => [
@@ -387,7 +410,7 @@ final class ComponentManageForm extends EntityForm {
         'add' => [
           '#type' => 'link',
           '#title' => $this->t('Add Filter'),
-          '#url' => $this->entity->toUrl('add-filter-form'),
+          '#url' => $entity->toUrl('add-filter-form'),
           '#attributes' => [
             'class' => ['use-ajax', 'btn btn-xs ml-auto'],
             'data-dialog-type' => 'modal',
@@ -445,7 +468,7 @@ final class ComponentManageForm extends EntityForm {
       $links = [];
       $links['edit'] = [
         'title' => $this->t('Customize'),
-        'url' => $this->entity->toUrl('edit-filter-form')->setRouteParameter('uuid', $uuid),
+        'url' => $entity->toUrl('edit-filter-form')->setRouteParameter('uuid', $uuid),
         'attributes' => [
           'class' => ['use-ajax'],
           'data-dialog-type' => 'modal',
@@ -482,7 +505,9 @@ final class ComponentManageForm extends EntityForm {
    *   The form.
    */
   protected function buildAccessForm(array $form, FormStateInterface $form_state): array {
-    $instances = $this->entity->getAccessInstances();
+    /** @var \Drupal\neo_alchemist\ComponentInterface $entity */
+    $entity = $this->entity;
+    $instances = $entity->getAccessInstances();
     $form['access'] = [
       '#type' => 'table',
       '#caption' => [
@@ -495,7 +520,7 @@ final class ComponentManageForm extends EntityForm {
         'add' => [
           '#type' => 'link',
           '#title' => $this->t('Add Access'),
-          '#url' => $this->entity->toUrl('add-access-form'),
+          '#url' => $entity->toUrl('add-access-form'),
           '#attributes' => [
             'class' => ['use-ajax', 'btn btn-xs ml-auto'],
             'data-dialog-type' => 'modal',
@@ -549,7 +574,7 @@ final class ComponentManageForm extends EntityForm {
       $links = [];
       $links['edit'] = [
         'title' => $this->t('Customize'),
-        'url' => $this->entity->toUrl('edit-access-form')->setRouteParameter('uuid', $uuid),
+        'url' => $entity->toUrl('edit-access-form')->setRouteParameter('uuid', $uuid),
         'attributes' => [
           'class' => ['use-ajax'],
           'data-dialog-type' => 'modal',
@@ -608,8 +633,10 @@ final class ComponentManageForm extends EntityForm {
    * {@inheritdoc}
    */
   public function save(array $form, FormStateInterface $form_state): int {
+    /** @var \Drupal\neo_alchemist\ComponentInterface $entity */
+    $entity = $this->entity;
     if ($entityPreview = $form_state->getValue('entity_preview')) {
-      $this->entity->setTargetPreviewEntity($entityPreview);
+      $entity->setTargetPreviewEntity($entityPreview);
     }
 
     // Save the generated thumbnail.
@@ -619,15 +646,15 @@ final class ComponentManageForm extends EntityForm {
       if (!empty($data[1])) {
         /** @var \Drupal\neo_config_file\ConfigFileGenerator $generator */
         $generator = \Drupal::service('neo_config_file.generator');
-        $configFile = $generator->createFromBase64($data[1], 'component-' . str_replace('_', '-', $this->entity->id()) . '.png', 500, 500);
+        $configFile = $generator->createFromBase64($data[1], 'component-' . str_replace('_', '-', $entity->id()) . '.png', 500, 500);
         if ($configFile) {
-          $this->entity->set('thumbnail', $configFile->id());
+          $entity->set('thumbnail', $configFile->id());
         }
       }
     }
 
     $result = parent::save($form, $form_state);
-    $this->messenger()->addStatus($this->t('Updated component %label.', ['%label' => $this->entity->label()]));
+    $this->messenger()->addStatus($this->t('Updated component %label.', ['%label' => $entity->label()]));
     return $result;
   }
 
@@ -635,7 +662,9 @@ final class ComponentManageForm extends EntityForm {
    * {@inheritdoc}
    */
   public function reset(array $form, FormStateInterface $form_state): int {
-    $this->entity->setSetting('props', []);
+    /** @var \Drupal\neo_alchemist\ComponentInterface $entity */
+    $entity = $this->entity;
+    $entity->setSetting('props', []);
     $result = parent::save($form, $form_state);
     return $result;
   }
