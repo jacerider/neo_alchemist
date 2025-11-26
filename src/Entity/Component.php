@@ -86,6 +86,7 @@ use Drupal\neo_icon\IconTrait;
  *     "schema",
  *     "component",
  *     "aggregate",
+ *     "size",
  *     "thumbnail",
  *     "settings",
  *     "target_entity_type",
@@ -145,6 +146,13 @@ class Component extends ConfigEntityBase implements ComponentInterface {
    * @var bool
    */
   protected bool $aggregate = FALSE;
+
+  /**
+   * The size.
+   *
+   * @var string|null
+   */
+  protected ?string $size;
 
   /**
    * The thumbnail.
@@ -353,8 +361,15 @@ class Component extends ConfigEntityBase implements ComponentInterface {
   /**
    * {@inheritdoc}
    */
+  public function getSize(): ?string {
+    return $this->size ?? NULL;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
   public function getThumbnailId(): ?string {
-    return $this->thumbnail;
+    return $this->thumbnail ?? NULL;
   }
 
   /**
