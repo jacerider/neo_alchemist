@@ -90,6 +90,9 @@ final class ComponentValuePluginManager extends DefaultPluginManager implements 
       if (!$definition['class']::isApplicable($shape)) {
         return FALSE;
       }
+      if (!$shape->allowValuePlugin($definition)) {
+        return FALSE;
+      }
       if (!empty($definition['entity_types'])) {
         $entityTypeId = $shape->getTargetEntityType();
         $bundle = $shape->getTargetEntityBundle();
