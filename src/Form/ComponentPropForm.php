@@ -27,13 +27,6 @@ final class ComponentPropForm extends EntityForm {
   use ComponentAjaxFormHelperTrait;
 
   /**
-   * The entity.
-   *
-   * @var \Drupal\neo_alchemist\ComponentInterface
-   */
-  protected $entity;
-
-  /**
    * The entity type bundle info service.
    *
    * @var \Drupal\Core\Entity\EntityTypeBundleInfoInterface
@@ -92,11 +85,13 @@ final class ComponentPropForm extends EntityForm {
    * {@inheritdoc}
    */
   public function buildForm(array $form, FormStateInterface $form_state, ?string $prop = NULL) {
+    /** @var \Drupal\neo_alchemist\ComponentInterface $entity */
+    $entity = $this->entity;
     $form_state->set('neo_component_manage_id', ComponentManageHelper::getId($this->entity));
-    $this->shape = $this->entity->getPropShape($prop);
+    $this->shape = $entity->getPropShape($prop);
     $form['#title'] = $this->t('Edit %prop_label from %label', [
       '%prop_label' => $this->shape->getTitle(),
-      '%label' => $this->entity->label(),
+      '%label' => $entity->label(),
     ]);
     return parent::buildForm($form, $form_state);
   }
@@ -110,7 +105,15 @@ final class ComponentPropForm extends EntityForm {
   protected function getPluginShapes() {
     $expanded = $this->shape->getExpanded();
     if ($expanded) {
-      return $this->shape->getPluginShapes(TRUE);
+      $shapes = $this->shape->getPluginShapes(TRUE);
+      if ($this->shape->isRoot() && $this->shape->isIterable()) {
+        // Perhaps on arrays we always want to show root? This needs more time
+        // to think through. Currently probably not working.
+        $shapes = [
+          $this->shape->id() => $this->shape,
+        ] + $shapes;
+      }
+      return $shapes;
     }
     if ($this->shape->allowConfigurablePlugins()) {
       return [$this->shape->id() => $this->shape];
@@ -122,6 +125,8 @@ final class ComponentPropForm extends EntityForm {
    * {@inheritdoc}
    */
   public function form(array $form, FormStateInterface $form_state): array {
+    /** @var \Drupal\neo_alchemist\ComponentInterface $entity */
+    $entity = $this->entity;
     $form = parent::form($form, $form_state);
     $wrapperId = Html::getId('alchemist-component-prop-form');
     $form['#id'] = $wrapperId;
@@ -133,7 +138,7 @@ final class ComponentPropForm extends EntityForm {
     $isActive = $shape->isActive();
 
     if (!$form_state->get('original_prop')) {
-      $props = $this->entity->getSetting('props', []);
+      $props = $entity->getSetting('props', []);
       $form_state->set('original_prop', $props[$this->shape->getName()] ?? []);
     }
 
@@ -205,7 +210,7 @@ final class ComponentPropForm extends EntityForm {
         '#title' => $this->t('Required'),
         '#description' => $this->t('Require this property to be set for all component instances.'),
         '#default_value' => $this->shape->isRequired(),
-        '#disabled' => $this->shape->isEnforcedRequired(),
+        '#access' => $this->shape->allowRequired(),
       ];
     }
 
@@ -319,6 +324,8 @@ final class ComponentPropForm extends EntityForm {
    * {@inheritdoc}
    */
   public function validateForm(array &$form, FormStateInterface $form_state) {
+    /** @var \Drupal\neo_alchemist\ComponentInterface $entity */
+    $entity = $this->entity;
     parent::validateForm($form, $form_state);
     if ($form_state->getErrors()) {
       return;
@@ -364,7 +371,7 @@ final class ComponentPropForm extends EntityForm {
     }
 
     if (!$form_state->getErrors()) {
-      $this->entity->setPropShapeSettings($shape);
+      $entity->setPropShapeSettings($shape);
     }
   }
 
@@ -399,9 +406,11 @@ final class ComponentPropForm extends EntityForm {
    * {@inheritdoc}
    */
   public function save(array $form, FormStateInterface $form_state): int {
+    /** @var \Drupal\neo_alchemist\ComponentInterface $entity */
+    $entity = $this->entity;
     $result = parent::save($form, $form_state);
-    $this->messenger()->addStatus($this->t('Updated prop %label.', ['%label' => $this->entity->label()]));
-    $form_state->setRedirectUrl($this->entity->toUrl());
+    $this->messenger()->addStatus($this->t('Updated prop %label.', ['%label' => $entity->label()]));
+    $form_state->setRedirectUrl($entity->toUrl());
     return $result;
   }
 
