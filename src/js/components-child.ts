@@ -16,7 +16,7 @@
     if (!component) return;
     const uuid = component.dataset.componentUuid;
     if (!uuid) return;
-    const eventUuid = uuid + '--event-' + eventCount;
+    const eventUuid = uuid + ':event:' + eventCount;
     el.dataset.eventUuid = eventUuid;
     eventsByParent[uuid] = eventsByParent[uuid] || {};
     eventsByParent[uuid][eventUuid] = el;
@@ -28,7 +28,7 @@
     ] as const;
 
     mouseEvents.forEach(eventType => {
-      el?.addEventListener(eventType, (e) => {
+      el?.addEventListener(eventType, (_e) => {
         if (broadcastSkip) {
           broadcastSkip = false;
           return;
@@ -146,7 +146,13 @@
     }
     Object.keys(eventsByParent[uuid]).forEach(eventUuid => {
       const eventEl = eventsByParent[uuid][eventUuid];
-      data[eventUuid] = uuid + ':' +(eventEl.dataset.event || eventUuid);
+      const eventInfo = eventEl.dataset.event ? JSON.parse(eventEl.dataset.event) : {};
+      data[eventUuid] = {
+        type: eventInfo.event || 'click',
+        group: eventInfo.group ? uuid + ':event:' + eventInfo.group : eventUuid,
+        action: eventInfo.action || '',
+      };
+      console.log('eventInfo', data[eventUuid]);
     });
     return data;
   }
@@ -236,17 +242,6 @@
     const observer = new MutationObserver((mutations) => {
       mutations.forEach((mutation) => {
         callback(mutation);
-        // console.log('Target:', mutation.target);
-
-        // if (mutation.type === 'childList') {
-        //   console.log('Added nodes:', mutation.addedNodes);
-        //   console.log('Removed nodes:', mutation.removedNodes);
-        // } else if (mutation.type === 'attributes') {
-        //   console.log('Attribute changed:', mutation.attributeName);
-        //   console.log('Old value:', mutation.oldValue);
-        // } else if (mutation.type === 'characterData') {
-        //   console.log('Text content changed');
-        // }
       });
     });
     observer.observe(element, {
