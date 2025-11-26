@@ -5,12 +5,16 @@ declare(strict_types=1);
 namespace Drupal\neo_alchemist\Plugin\ComponentShape;
 
 use Drupal\Component\Serialization\Json;
+use Drupal\Core\Access\AccessResult;
+use Drupal\Core\Access\AccessResultInterface;
 use Drupal\Core\Form\FormStateInterface;
+use Drupal\Core\Session\AccountInterface;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\Core\Template\Attribute;
 use Drupal\neo_alchemist\Attribute\ComponentShape;
 use Drupal\neo_alchemist\ComponentInstanceInterface;
 use Drupal\neo_alchemist\ComponentShapeRegionPluginInterface;
+use Drupal\neo_alchemist\ComponentSizesInterface;
 use Drupal\neo_icon\IconTrait;
 
 /**
@@ -20,9 +24,16 @@ use Drupal\neo_icon\IconTrait;
   prop: 'region',
   label: new TranslatableMarkup('Region'),
 )]
-class RegionShape extends ArrayShape implements ComponentShapeRegionPluginInterface {
+class RegionShape extends ArrayShape implements ComponentShapeRegionPluginInterface, ComponentSizesInterface {
 
   use IconTrait;
+
+  /**
+   * The sizes allowed for this region.
+   *
+   * @var array
+   */
+  protected array $sizes = [];
 
   /**
    * {@inheritDoc}
@@ -36,8 +47,65 @@ class RegionShape extends ArrayShape implements ComponentShapeRegionPluginInterf
   /**
    * {@inheritDoc}
    */
+  public function allowExpanded(): bool {
+    return FALSE;
+  }
+
+  /**
+   * {@inheritDoc}
+   */
   public function allowUnsetEmpty(): bool {
     return FALSE;
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  public function allowRequired(): bool {
+    return FALSE;
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  protected function checkAccess(string $operation, AccountInterface $account): AccessResultInterface {
+    if ($operation === 'create_nested') {
+      return AccessResult::forbidden('Cannnot nest regions within regions.');
+    }
+    return parent::checkAccess($operation, $account);
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  public function allowValuePlugin(array $definition): bool {
+    return in_array('region', $definition['ref_types'] ?? [], TRUE);
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  public function setSizes(array $sizes): self {
+    $this->sizes = $sizes;
+    return $this;
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  public function getSizes(): array {
+    return $this->sizes;
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  public function allowSize(?string $size = NULL): bool {
+    $sizes = $this->getSizes();
+    if (empty($sizes)) {
+      return TRUE;
+    }
+    return in_array($size, $sizes, TRUE);
   }
 
   /**
