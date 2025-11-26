@@ -248,7 +248,19 @@ abstract class ChildrenShapeBase extends ComponentShapePluginBase implements Com
    */
   public function getChildShapePlugins(string $shapeId): array {
     if ($this->isRoot()) {
-      return $this->childShapePlugins[$shapeId] ?? [];
+      $plugins = [];
+      if ($this->isIterable()) {
+        // Merge in plugins stored on root shape. We only need to do this for
+        // iterable shapes as non-iterable shapes will automatically be pulled
+        // from the base shape because they do not have a delta.
+        foreach ($this->getPlugins()[$shapeId] ?? [] as $plugin_id => $plugin) {
+          $plugins[$plugin_id] = [
+            'status' => TRUE,
+            'settings' => $plugin['settings'],
+          ];
+        }
+      }
+      return $plugins + ($this->childShapePlugins[$shapeId] ?? []);
     }
     else {
       return $this->getChildRootShape()->getChildShapePlugins($shapeId);
