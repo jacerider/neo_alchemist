@@ -8,6 +8,7 @@ use Drupal\Component\Serialization\Json;
 use Drupal\Core\Controller\ControllerBase;
 use Drupal\Core\Template\Attribute;
 use Drupal\neo_alchemist\ComponentGroupPluginManager;
+use Drupal\neo_alchemist\ComponentShapeRegionPluginInterface;
 use Drupal\neo_alchemist\Plugin\Field\FieldType\ComponentTreeItem;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\HttpFoundation\Request;
@@ -49,8 +50,16 @@ final class InstanceComponentLibraryController extends ControllerBase {
     /** @var \Drupal\neo_alchemist\ComponentStorage $storage */
     $storage = $this->entityTypeManager()->getStorage('neo_component');
     $query = [];
-    if ($parent = $request->query->get('parent')) {
+    $parent = $request->query->get('parent');
+    $parentComponent = NULL;
+    $parentShape = NULL;
+    if ($parent) {
       $query['parent'] = $parent;
+      [$parentUuid, $shapeId] = explode('--', (string) $parent);
+      $parentComponent = $neo_field->getComponent($parentUuid);
+      if ($parentComponent) {
+        $parentShape = $parentComponent->getPropShapesAll(NULL, TRUE)[$shapeId] ?? NULL;
+      }
     }
     if ($before = $request->query->get('before')) {
       $query['before'] = $before;
@@ -63,7 +72,7 @@ final class InstanceComponentLibraryController extends ControllerBase {
     foreach (array_map(function ($component) use ($neo_field) {
       return $neo_field->createComponent($component);
     }, $storage->loadByEntity($neo_field->getEntity())) as $component) {
-      if (!$component->access('create')) {
+      if (!$component->access('create', NULL, FALSE, $parentShape)) {
         continue;
       }
       $group = $component->getGroup();
