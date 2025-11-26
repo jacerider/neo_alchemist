@@ -20,6 +20,7 @@ use Drupal\Core\TypedData\DataDefinition;
 use Drupal\Core\Url;
 use Drupal\neo_alchemist\ComponentInstanceInterface;
 use Drupal\neo_alchemist\ComponentInterface;
+use Drupal\neo_alchemist\ComponentSizesInterface;
 use Drupal\neo_alchemist\Entity\Component;
 use Drupal\neo_alchemist\Entity\ComponentFieldConfig;
 use Drupal\neo_alchemist\Plugin\DataType\ComponentPropsValues;
@@ -55,7 +56,7 @@ use Drupal\neo_alchemist\Plugin\Field\NeoComponentTreeList;
   cardinality: 1,
   list_class: NeoComponentTreeList::class,
 )]
-class ComponentTreeItem extends FieldItemBase implements RenderableInterface {
+class ComponentTreeItem extends FieldItemBase implements RenderableInterface, ComponentSizesInterface {
 
   /**
    * The data definition.
@@ -91,6 +92,7 @@ class ComponentTreeItem extends FieldItemBase implements RenderableInterface {
   public static function defaultFieldSettings() {
     return [
       'allow_custom' => FALSE,
+      'sizes' => [],
       'defaults' => [],
     ];
   }
@@ -108,12 +110,29 @@ class ComponentTreeItem extends FieldItemBase implements RenderableInterface {
       '#default_value' => $settings['allow_custom'] ?? FALSE,
     ];
 
+    $element['sizes'] = [
+      '#type' => 'checkboxes',
+      '#title' => $this->t('Supported component sizes'),
+      '#description' => $this->t('Select the sizes that can be assigned to regions in this field. If no sizes are selected, all sizes will be available.'),
+      '#options' => self::getSizeOptions(),
+      '#default_value' => $settings['sizes'] ?? [],
+      '#element_validate' => [[__CLASS__, 'validateSizes']],
+      '#tooltip' => FALSE,
+    ];
+
     $element['defaults'] = [
       '#type' => 'value',
       '#value' => $settings['defaults'] ?? [],
     ];
 
     return $element;
+  }
+
+  /**
+   * Validates the sizes selection.
+   */
+  public static function validateSizes(array $element, FormStateInterface $form_state) {
+    $form_state->setValue($element['#parents'], array_filter($form_state->getValue($element['#parents'])));
   }
 
   /**
@@ -125,6 +144,16 @@ class ComponentTreeItem extends FieldItemBase implements RenderableInterface {
     $summary[] = new FormattableMarkup('Allow customization: @value', [
       '@value' => !empty($settings['allow_custom']) ? 'Yes' : 'No',
     ]);
+    if (!empty($settings['sizes'])) {
+      $sizes = self::getSizeOptions();
+      $size_options = [];
+      foreach ($settings['sizes'] as $size) {
+        $size_options[] = $sizes[$size] ?? $size;
+      }
+      $summary[] = new FormattableMarkup('Supported sizes: @sizes', [
+        '@sizes' => implode(', ', $size_options),
+      ]);
+    }
     return $summary;
   }
 
@@ -883,6 +912,46 @@ class ComponentTreeItem extends FieldItemBase implements RenderableInterface {
    */
   protected function getState() {
     return \Drupal::state();
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  public function setSizes(array $sizes): self {
+    $settings['sizes'] = $sizes;
+    return $this;
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  public function getSizes(): array {
+    $settings = $this->getSettings();
+    return $settings['sizes'] ?? [];
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  public function allowSize(?string $size = NULL): bool {
+    $sizes = $this->getSizes();
+    if (empty($sizes)) {
+      return TRUE;
+    }
+    return in_array($size, $sizes, TRUE);
+  }
+
+  /**
+   * Gets the size options.
+   *
+   * @return array
+   *   An array of size options.
+   */
+  public static function getSizeOptions(): array {
+    return array_map(
+      fn ($size) => $size['label'],
+      \Drupal::service('plugin.manager.neo_component_size')->getDefinitions()
+    );
   }
 
 }
