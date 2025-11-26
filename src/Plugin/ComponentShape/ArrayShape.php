@@ -10,6 +10,7 @@ use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Form\SubformState;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\neo_alchemist\Attribute\ComponentShape;
+use Drupal\neo_alchemist\ComponentShapeExpandedPluginInterface;
 use Drupal\neo_alchemist\ComponentShapeInterablePluginInterface;
 use Drupal\neo_alchemist\ComponentShapePluginInterface;
 use Drupal\neo_alchemist\Drush\Generators\NeoComponentPropGeneratorInterface;
@@ -24,7 +25,7 @@ use DrupalCodeGenerator\Validator\Required;
   prop: 'array',
   label: new TranslatableMarkup('Array'),
 )]
-class ArrayShape extends ChildrenShapeBase implements ComponentShapeInterablePluginInterface {
+class ArrayShape extends ChildrenShapeBase implements ComponentShapeInterablePluginInterface, ComponentShapeExpandedPluginInterface {
 
   /**
    * The single prop shape.
@@ -39,6 +40,13 @@ class ArrayShape extends ChildrenShapeBase implements ComponentShapeInterablePlu
   public function init(): self {
     $this->getOptionEmpty()->setAccess(FALSE, 'Array shapes cannot be set as empty.');
     return parent::init();
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  public function allowExpanded(): bool {
+    return TRUE;
   }
 
   /**
@@ -190,7 +198,7 @@ class ArrayShape extends ChildrenShapeBase implements ComponentShapeInterablePlu
     foreach ($this->getChildShapeList($values) as $delta => $shapes) {
       /** @var \Drupal\neo_alchemist\ComponentShapePluginInterface[] $shapes */
       foreach ($shapes as $shapeName => $shape) {
-        if (!isset($values[$delta][$shapeName]) && !$shape->isRequired()) {
+        if (!isset($values[$delta][$shapeName]) && $shape->allowUnsetEmpty()) {
           // No value was provided and the shape is not required so we skip it.
           continue;
         }
