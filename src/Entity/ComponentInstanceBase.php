@@ -9,6 +9,9 @@ use Drupal\Core\Entity\ContentEntityInterface;
 use Drupal\Core\Session\AccountInterface;
 use Drupal\neo_alchemist\ComponentFieldConfigInterface;
 use Drupal\neo_alchemist\ComponentInstanceInterface;
+use Drupal\neo_alchemist\ComponentShapePluginInterface;
+use Drupal\neo_alchemist\ComponentShapeRegionPluginInterface;
+use Drupal\neo_alchemist\ComponentSizesInterface;
 use Drupal\neo_alchemist\Plugin\DataType\ComponentTreeStructure;
 use Drupal\neo_alchemist\Plugin\Field\FieldType\ComponentTreeItem;
 
@@ -186,10 +189,38 @@ abstract class ComponentInstanceBase extends Component implements ComponentInsta
   /**
    * {@inheritDoc}
    */
-  public function access($operation, ?AccountInterface $account = NULL, $return_as_object = FALSE) {
+  public function access($operation, ?AccountInterface $account = NULL, $return_as_object = FALSE, ?ComponentShapePluginInterface $parentShape = NULL): bool|AccessResult {
     // When in preview, all components are allowed to be viewed.
     if ($operation === 'view' && $this->isPreview()) {
-      return AccessResult::allowed();
+      return $return_as_object ? AccessResult::allowed() : TRUE;
+    }
+    if ($operation === 'create') {
+      $size = $this->getSize();
+      if (!$this->getFieldItem()->allowSize($size)) {
+        return $return_as_object ? AccessResult::forbidden('Size not allowed in field.') : FALSE;
+      }
+      $targetEntity = $this->getTargetEntity();
+      $targetEntityTypeId = $this->getTargetEntityTypeId();
+      $targetEntityBundle = $this->getTargetEntityBundle();
+      if ($targetEntityTypeId && $targetEntityTypeId !== $targetEntity->getEntityTypeId()) {
+        return $return_as_object ? AccessResult::forbidden('Invalid target entity type.') : FALSE;
+      }
+      if ($targetEntityBundle && $targetEntityBundle !== $targetEntity->bundle()) {
+        return $return_as_object ? AccessResult::forbidden('Invalid target entity bundle.') : FALSE;
+      }
+      if ($parentShape) {
+        if ($parentShape instanceof ComponentSizesInterface) {
+          if (!$parentShape->allowSize($size)) {
+            return $return_as_object ? AccessResult::forbidden('Size not allowed in parent shape.') : FALSE;
+          }
+        }
+        foreach ($this->getPropShapesAll() as $shape) {
+          $access = $shape->access('create_nested', $account, TRUE);
+          if ($access->isForbidden()) {
+            return $return_as_object ? $access : FALSE;
+          }
+        }
+      }
     }
     // Check plugin access.
     $access = $this->checkAccess($operation, $account);
@@ -197,14 +228,7 @@ abstract class ComponentInstanceBase extends Component implements ComponentInsta
       return $return_as_object ? $access : FALSE;
     }
     // Check field item access.
-    $targetEntity = $this->getTargetEntity();
-    $targetEntityTypeId = $this->getTargetEntityTypeId();
-    $targetEntityBundle = $this->getTargetEntityBundle();
-    $access = match(TRUE) {
-      $operation === 'create' && $targetEntityTypeId && $targetEntityTypeId !== $targetEntity->getEntityTypeId() => AccessResult::forbidden('Invalid target entity type.'),
-      $operation === 'create' && $targetEntityBundle && $targetEntityBundle !== $targetEntity->bundle() => AccessResult::forbidden('Invalid target entity bundle.'),
-      default => $this->getFieldItem()->access($operation, $account, TRUE),
-    };
+    $access = $this->getFieldItem()->access($operation, $account, TRUE);
     return $return_as_object ? $access : $access->isAllowed();
   }
 
