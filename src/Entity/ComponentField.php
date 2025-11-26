@@ -9,6 +9,7 @@ use Drupal\Core\Entity\ContentEntityInterface;
 use Drupal\Core\Session\AccountInterface;
 use Drupal\Core\Url;
 use Drupal\neo_alchemist\ComponentFieldInterface;
+use Drupal\neo_alchemist\ComponentShapePluginInterface;
 
 /**
  * A component instance.
@@ -41,7 +42,7 @@ final class ComponentField extends ComponentInstanceBase implements ComponentFie
   /**
    * {@inheritDoc}
    */
-  public function access($operation, ?AccountInterface $account = NULL, $return_as_object = FALSE) {
+  public function access($operation, ?AccountInterface $account = NULL, $return_as_object = FALSE, ?ComponentShapePluginInterface $parentShape = NULL): bool|AccessResult {
     $targetEntity = $this->getTargetEntity();
     $targetEntityTypeId = $this->getTargetEntityTypeId();
     $targetEntityBundle = $this->getTargetEntityBundle();
