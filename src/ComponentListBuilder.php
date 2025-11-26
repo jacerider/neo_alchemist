@@ -20,6 +20,13 @@ final class ComponentListBuilder extends ConfigEntityListBuilder {
   protected $limit = 100;
 
   /**
+   * The sizes cache.
+   *
+   * @var array
+   */
+  protected array $sizes;
+
+  /**
    * {@inheritdoc}
    */
   protected const SORT_KEY = 'label';
@@ -29,10 +36,9 @@ final class ComponentListBuilder extends ConfigEntityListBuilder {
    */
   public function render() {
     $build = parent::render();
-
     $groups = [];
     foreach ($build['table']['#rows'] as $row) {
-      $groups[$row['entity']['#group']][] = $row;
+      $groups[$row['scope']['#group']][] = $row;
     }
 
     $tables = [];
@@ -61,7 +67,8 @@ final class ComponentListBuilder extends ConfigEntityListBuilder {
   public function buildHeader(): array {
     $header['thumbnail'] = $this->t('Thumbnail');
     $header['label'] = $this->t('Label');
-    $header['entity'] = $this->t('Scope');
+    $header['scope'] = $this->t('Scope');
+    $header['size'] = $this->t('Size');
     $header['access'] = $this->t('Access');
     $header['status'] = $this->t('Status');
     return $header + parent::buildHeader();
@@ -99,12 +106,20 @@ final class ComponentListBuilder extends ConfigEntityListBuilder {
 
     $targetEntityDefinition = $entity->getTargetEntityTypeDefinition();
     $targetBundle = $entity->getTargetEntityBundle();
-    $row['entity'] = [
+    $row['scope'] = [
       '#group' => $entity->getGroup(),
       '#neo_size' => 'min',
       '#neo_style' => 'xs',
       'data' => [
         '#markup' => $targetEntityDefinition ? $targetEntityDefinition->getLabel() . ($targetBundle ? '<br>(' . $targetBundle . ')' : '') : 'All',
+      ],
+    ];
+
+    $row['size'] = [
+      '#neo_size' => 'min',
+      '#neo_style' => 'xs',
+      'data' => [
+        '#markup' => $entity->getSize() ? ($this->getSizesAsOptions()[$entity->getSize()] ?? $this->t('All')) : $this->t('All'),
       ],
     ];
 
@@ -139,6 +154,22 @@ final class ComponentListBuilder extends ConfigEntityListBuilder {
         'url' => $entity->toUrl(),
       ],
     ] + parent::getDefaultOperations($entity);
+  }
+
+  /**
+   * Get sizes as options.
+   *
+   * @return array
+   *   The sizes options.
+   */
+  protected function getSizesAsOptions(): array {
+    if (!isset($this->sizes)) {
+      $size_plugin_manager = \Drupal::service('plugin.manager.neo_component_size');
+      $this->sizes = array_map(function ($definition) {
+        return $definition['label'];
+      }, $size_plugin_manager->getDefinitions());
+    }
+    return $this->sizes;
   }
 
 }
