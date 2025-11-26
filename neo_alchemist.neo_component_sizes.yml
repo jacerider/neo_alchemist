@@ -1,0 +1,25 @@
+# See https://tailwindcss.com/docs/responsive-design#using-custom-breakpoints
+2xl:
+  label: '2x Large'
+  description: '42rem'
+  weight: -15
+xl:
+  label: 'Extra Large'
+  description: '36rem'
+  weight: -10
+lg:
+  label: 'Large'
+  description: '32rem'
+  weight: -5
+md:
+  label: 'Medium'
+  description: '28rem'
+  weight: 0
+sm:
+  label: 'Small'
+  description: '24rem'
+  weight: 5
+xs:
+  label: 'Extra Small'
+  description: '20rem'
+  weight: 10
