@@ -14,6 +14,7 @@ neo_alchemist.neo_component.*:
       type: string
     group:
       type: string
+      label: 'Group'
       constraints:
         PluginExists:
           manager: plugin.manager.neo_component_group
@@ -26,9 +27,17 @@ neo_alchemist.neo_component.*:
     aggregate:
       type: boolean
       label: 'Aggregate'
+    size:
+      type: string
+      label: 'Size'
+      constraints:
+        PluginExists:
+          manager: plugin.manager.neo_component_size
+      nullable: true
     thumbnail:
       type: string
       label: 'Thumbnail'
+      nullable: true
     component:
       type: string
       label: 'Single-Directory Component'
@@ -649,6 +658,30 @@ neo_alchemist.neo_component_slot.views_pager:
       type: string
       label: Context
 
+neo_alchemist.neo_component_slot.views:
+  type: mapping
+  label: Views pager slot provider
+  mapping:
+    view_id:
+      type: string
+      label: View ID
+    view_display_id:
+      type: string
+      label: View Display ID
+    view_items_per_page:
+      type: integer
+      label: Items per page
+    view_items_offset:
+      type: integer
+      label: Items offset
+    view_arguments:
+      type: sequence
+      label: The view arguments
+      nullable: true
+      sequence:
+        type: string
+        label: 'Argument'
+
 neo_alchemist_neo_component_settings.access:
   type: sequence
   label: 'Access'
@@ -751,6 +784,15 @@ field.field_settings.neo_component_tree:
     allow_custom:
       type: boolean
       label: 'Allow custom'
+    sizes:
+      type: sequence
+      label: Sizes
+      sequence:
+        type: string
+        label: 'Size'
+        constraints:
+          PluginExists:
+            manager: plugin.manager.neo_component_size
     defaults:
       type: mapping
       mapping:
