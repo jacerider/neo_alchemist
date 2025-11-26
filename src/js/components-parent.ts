@@ -71,9 +71,12 @@
   let layerLevel: -1 | 0 | 1 | 2 = -1;
   let layerInteractSize: 'desktop' | 'tablet' | 'mobile' = 'desktop';
   let passthroughTimeout: ReturnType<typeof setTimeout> | null = null;
-  let eventLastUuid: string | null = null;
-  const eventHistory: Record<string, Array<string>> = {};
-  const eventNewHistory: Record<string, Record<string, Array<string>>> = {};
+  let eventPendingStatus = false;
+  let eventPendingHistory: Array<string> = [];
+  const eventHistory: Record<string, {
+    uuid: string;
+    events: Array<string>;
+  }> = {};
 
   // Iframe load handling
   let iframeProcessing = 0;
@@ -152,11 +155,7 @@
     onEvent: function (data: any) {
       const eventType = data.eventType as string;
       const eventUuid = data.uuid as string;
-      const eventParentUuid = getEventParentUuid(eventUuid);
-      const eventGroup = getEventGroup(eventUuid);
-      if (!eventParentUuid || !eventGroup) {
-        return;
-      }
+      const eventData = getEventData(eventUuid);
 
       sizes.forEach(size => {
         if (size !== data.size) {
@@ -174,9 +173,8 @@
 
       switch (eventType) {
         case 'mouseover':
-          eventHistory[eventUuid] = [];
-          eventNewHistory[eventGroup] = eventNewHistory[eventParentUuid] || {};
-          eventNewHistory[eventGroup][eventUuid] = [];
+          eventPendingHistory = [];
+          eventPendingStatus = false;
           break;
         case 'mouseenter':
           clearTimeout(passthroughTimeout || undefined);
@@ -186,13 +184,26 @@
           passthroughTimeout = setTimeout(() => {
             container.classList.remove('neo-alchemist--passthrough');
           }, 50);
+          if (eventPendingStatus) {
+            if (eventData.action === 'toggle' && eventHistory[eventData.group]) {
+              delete eventHistory[eventData.group];
+            }
+            else {
+              eventHistory[eventData.group] = {
+                uuid: eventUuid,
+                events: eventPendingHistory,
+              };
+            }
+          }
           break;
       }
-      eventLastUuid = data.uuid;
-      // console.log('eventData', eventLastUuid, eventParentUuid, getEventGroup(eventUuid));
-      eventHistory[eventUuid].push(eventType);
-      eventNewHistory[eventGroup][eventUuid].push(eventType);
-      console.log(eventNewHistory);
+
+      eventPendingHistory.push(eventType);
+
+      if (eventType === eventData.type) {
+        // Only record the event if it matches the defined type.
+        eventPendingStatus = true;
+      }
     }
   };
 
@@ -406,6 +417,7 @@
             eventTrigger.style.zIndex = '40';
             if (debugElements) {
               eventTrigger.style.border = '1px solid orange';
+              eventTrigger.style.display = '';
             }
             eventTrigger.addEventListener('mouseenter', () => {
               layerInteractSize = size;
@@ -424,16 +436,16 @@
     elementsToggle();
 
     if (layerUuid) {
-      if (eventLastUuid && eventHistory[eventLastUuid]) {
-        // This support one level of tracking. Will need more work to support
-        // multiple levels.
-        eventHistory[eventLastUuid].forEach(eventType => {
-          Object.entries(iframes).forEach(([size, iframe]) => {
-            iframe.contentWindow?.postMessage({
-              type: 'doEvent',
-              size: size,
-              uuid: eventLastUuid,
-              eventType: eventType,
+      if (eventHistory && Object.keys(eventHistory).length > 0) {
+        Object.entries(eventHistory).forEach(([_eventGroup, eventInfo]) => {
+          eventInfo.events.forEach(eventType => {
+            Object.entries(iframes).forEach(([size, iframe]) => {
+              iframe.contentWindow?.postMessage({
+                type: 'doEvent',
+                size: size,
+                uuid: eventInfo.uuid,
+                eventType: eventType,
+              });
             });
           });
         });
@@ -462,21 +474,11 @@
     }, 200);
   }
 
-  function getEventGroup(eventUuid: string): any {
+  function getEventData(eventUuid: string): any {
     for (const uuid in structureData) {
       const data = structureData[uuid];
       if (data.events && data.events[eventUuid]) {
         return data.events[eventUuid];
-      }
-    }
-    return null;
-  }
-
-  function getEventParentUuid(eventUuid: string): string | null {
-    for (const uuid in structureData) {
-      const data = structureData[uuid];
-      if (data.events && data.events[eventUuid]) {
-        return uuid;
       }
     }
     return null;
