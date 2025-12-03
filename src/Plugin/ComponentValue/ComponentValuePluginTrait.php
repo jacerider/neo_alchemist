@@ -60,6 +60,7 @@ trait ComponentValuePluginTrait {
           '#title' => $this->t('Enable %plugin', [
             '%plugin' => $instance->label(),
           ]),
+          '#neo_size' => 'xs',
           '#description' => $instance->getPluginDefinition()['description'],
           '#default_value' => $pluginStatus,
           '#ajax' => [
@@ -72,6 +73,7 @@ trait ComponentValuePluginTrait {
           $pluginSettingsForm = [
             '#type' => 'fieldset',
             '#title' => $this->t('@label Settings', ['@label' => $instance->label()]),
+            '#neo_size' => 'xs',
             '#parents' => array_merge($form['#parents'], [
               'plugins',
               $pluginName,
