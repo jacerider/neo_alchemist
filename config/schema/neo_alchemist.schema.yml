@@ -173,6 +173,9 @@ neo_alchemist.neo_component_value.heading:
     supertitle_page:
       type: boolean
       label: Supertitle page title
+    supertitle_entity:
+      type: boolean
+      label: Title entity label
     supertitle_value:
       type: string
       label: Supertitle default value
@@ -185,6 +188,9 @@ neo_alchemist.neo_component_value.heading:
     title_page:
       type: boolean
       label: Title page title
+    title_entity:
+      type: boolean
+      label: Title entity label
     title_value:
       type: string
       label: Title default value
@@ -200,6 +206,9 @@ neo_alchemist.neo_component_value.heading:
     subtitle_page:
       type: boolean
       label: Subtitle page title
+    subtitle_entity:
+      type: boolean
+      label: Title entity label
     subtitle_value:
       type: string
       label: Subtitle default value
@@ -286,7 +295,7 @@ neo_alchemist.neo_component_value.entity_filter:
 
 neo_alchemist.neo_component_value.entity_reference:
   type: mapping
-  label: 'Menu value provider'
+  label: 'Entity reference value provider'
   mapping:
     entity:
       type: string
@@ -299,7 +308,7 @@ neo_alchemist.neo_component_value.entity_reference:
 
 neo_alchemist.neo_component_value.entity_load:
   type: mapping
-  label: 'Menu value provider'
+  label: 'Entity load value provider'
   mapping:
     entity_type:
       type: string
@@ -615,6 +624,17 @@ neo_alchemist.neo_component_slot.entity:
       type: string
       label: Filter
 
+neo_alchemist.neo_component_slot.entity_display:
+  type: mapping
+  label: 'Entity display provider'
+  mapping:
+    bundle:
+      type: string
+      label: Bundle
+    display:
+      type: string
+      label: Display
+
 neo_alchemist.neo_component_slot.product_variation_field:
   type: mapping
   label: 'Product variation field slot provider'
@@ -724,6 +744,9 @@ neo_alchemist.neo_component_shape_fields:
         type: neo_alchemist.neo_component_render_field_format
       shape_fields:
         type: neo_alchemist.neo_component_shape_fields
+      shape_published:
+        type: boolean
+        label: Shape published
       plugins:
         type: sequence
         label: Plugins
