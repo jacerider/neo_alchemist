@@ -148,6 +148,35 @@ final class MatcherReference extends MatcherBase {
   }
 
   /**
+   * Get a single reference entity for a given entity type and key.
+   *
+   * @param string $entityTypeId
+   *   The entity type ID.
+   * @param string $key
+   *   The key.
+   *
+   * @return \Drupal\Core\Entity\EntityInterface|null
+   *   The reference entity, if found.
+   */
+  public function getReferenceEntityByEntityType(string $entityTypeId, string $key): ?EntityInterface {
+    $references = $this->getReferences($entityTypeId);
+    if (isset($references[$key])) {
+      $reference = $references[$key];
+      $entityTypeId = $reference['definition']->getSetting('target_type');
+
+      $entityType = $this->entityTypeManager->getDefinition($entityTypeId);
+      $data = [];
+      if ($bundleKey = $entityType->getKey('bundle')) {
+        $bundles = $reference['definition']->getSetting('handler_settings')['target_bundles'] ?: [$entityTypeId];
+        $bundle = reset($bundles);
+        $data[$bundleKey] = $bundle;
+      }
+      return $this->entityTypeManager->getStorage($entityTypeId)->create($data);
+    }
+    return NULL;
+  }
+
+  /**
    * Get a single reference entity for a given key.
    *
    * @param \Drupal\Core\Entity\ContentEntityInterface $entity
