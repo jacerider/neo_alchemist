@@ -109,7 +109,7 @@ trait ComponentValueMatchTrait {
     $groups = array_keys($options);
     $groups = array_combine($groups, $groups);
     asort($groups);
-    $group = $form_state->get('group');
+    $group = $form_state->get('group--' . $form['#id']);
     if (!$group) {
       foreach ($options as $optionGroup => $ops) {
         foreach ($ops as $key => $label) {
@@ -126,7 +126,7 @@ trait ComponentValueMatchTrait {
       '#title' => $this->t('Group'),
       '#description' => $this->t('Select the group to use as the value.'),
       '#options' => $groups,
-      '#empty_option' => $this->t('- Select -'),
+      '#empty_option' => $this->t('- None -'),
       '#default_value' => $group,
       '#required' => TRUE,
       '#ajax' => [
@@ -135,7 +135,8 @@ trait ComponentValueMatchTrait {
       ],
     ];
 
-    if ($group) {
+    if ($group && isset($options[$group])) {
+      $field = isset($options[$group][$field]) ? $field : NULL;
       $suboptions = $options[$group];
       $form['field'] = [
         '#type' => 'select',
@@ -190,8 +191,11 @@ trait ComponentValueMatchTrait {
   public static function validateMatchConfigurationForm(array &$element, FormStateInterface $form_state, array &$complete_form) {
     // Unset group so it is not saved. It is only used in the UI.
     $values = $form_state->getValue($element['#parents']);
-    $form_state->set('group', $values['group']);
+    $form_state->set('group--' . $element['#id'], $values['group']);
     unset($values['group']);
+    if (empty($values['field'])) {
+      $values['field'] = NULL;
+    }
     $form_state->setValue($element['#parents'], $values);
   }
 
