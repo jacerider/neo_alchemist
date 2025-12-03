@@ -42,15 +42,18 @@ final class HeadingValue extends ComponentValuePluginBase implements ContainerFa
       'supertitle_default' => FALSE,
       'supertitle_empty' => FALSE,
       'supertitle_page' => FALSE,
+      'supertitle_entity' => FALSE,
       'supertitle_value' => NULL,
       'title_edit' => TRUE,
       'title_default' => FALSE,
       'title_page' => FALSE,
+      'title_entity' => FALSE,
       'title_value' => NULL,
       'subtitle_edit' => TRUE,
       'subtitle_default' => FALSE,
       'subtitle_empty' => FALSE,
       'subtitle_page' => FALSE,
+      'subtitle_entity' => FALSE,
       'subtitle_value' => NULL,
       'size_edit' => TRUE,
       'size_default' => FALSE,
@@ -106,9 +109,11 @@ final class HeadingValue extends ComponentValuePluginBase implements ContainerFa
         '#title' => $label,
       ];
       if (isset($this->configuration["{$key}_edit"])) {
+        $allowOverride = !empty($this->configuration["{$key}_page"]) || !empty($this->configuration["{$key}_entity"]);
         $form["{$key}"]["edit"] = [
           '#type' => 'checkbox',
-          '#title' => $this->t('Allow @op', ['@op' => empty($this->configuration["{$key}_page"]) ? 'edit' : 'override']),
+          '#title' => $this->t('Allow @op', ['@op' => $allowOverride ? 'override' : 'edit']),
+          '#neo_size' => 'xs',
           '#default_value' => $this->configuration["{$key}_edit"],
           '#ajax' => [
             'callback' => [static::class, 'refreshAjax'],
@@ -120,6 +125,7 @@ final class HeadingValue extends ComponentValuePluginBase implements ContainerFa
         $form["{$key}"]["default"] = [
           '#type' => 'checkbox',
           '#title' => $this->t('Default'),
+          '#neo_size' => 'xs',
           '#description' => $this->t('If checked, the default option will be enabled on component creation.'),
           '#default_value' => $this->configuration["{$key}_default"],
           '#disabled' => empty($this->configuration["{$key}_edit"]) || !empty($this->configuration["{$key}_empty"]),
@@ -133,6 +139,7 @@ final class HeadingValue extends ComponentValuePluginBase implements ContainerFa
         $form["{$key}"]["empty"] = [
           '#type' => 'checkbox',
           '#title' => $this->t('Hide'),
+          '#neo_size' => 'xs',
           '#description' => $this->t('If checked, the hide option will be enabled on component creation.'),
           '#default_value' => $this->configuration["{$key}_empty"],
           '#disabled' => !empty($this->configuration["{$key}_default"]),
@@ -145,8 +152,23 @@ final class HeadingValue extends ComponentValuePluginBase implements ContainerFa
       if (isset($this->configuration["{$key}_page"])) {
         $form["{$key}"]["page"] = [
           '#type' => 'checkbox',
-          '#title' => $this->t('Use page title as value'),
+          '#title' => $this->t('Use %title as value', ['%title' => $this->t('page title')]),
+          '#neo_size' => 'xs',
           '#default_value' => $this->configuration["{$key}_page"],
+          '#access' => empty($this->configuration["{$key}_entity"]),
+          '#ajax' => [
+            'callback' => [static::class, 'refreshAjax'],
+            'wrapper' => $wrapperId,
+          ],
+        ];
+      }
+      if (isset($this->configuration["{$key}_entity"]) && $this->getShape()->getComponent()->getTargetEntityTypeId()) {
+        $form["{$key}"]["entity"] = [
+          '#type' => 'checkbox',
+          '#title' => $this->t('Use %title as value', ['%title' => $this->t('entity label')]),
+          '#neo_size' => 'xs',
+          '#default_value' => $this->configuration["{$key}_entity"],
+          '#access' => empty($this->configuration["{$key}_page"]),
           '#ajax' => [
             'callback' => [static::class, 'refreshAjax'],
             'wrapper' => $wrapperId,
@@ -169,10 +191,10 @@ final class HeadingValue extends ComponentValuePluginBase implements ContainerFa
             '#title' => $this->t('Value'),
             '#default_value' => $this->configuration["{$key}_value"] ?? $childShapes[$key]->getDefaultValue(),
             '#description' => $this->t('The default value for the @label.', ['@label' => $label]),
-            '#access' => empty($this->configuration["{$key}_page"]),
           ];
         }
       }
+      $form["{$key}"]['value']['#access'] = empty($this->configuration["{$key}_page"]) && empty($this->configuration["{$key}_entity"]);
     }
 
     return $form;
@@ -229,17 +251,17 @@ final class HeadingValue extends ComponentValuePluginBase implements ContainerFa
     }
 
     if ($this->configuration['hide']) {
-      $shape->getOptionEmpty()->setValue(TRUE, 'Heading hidden by Heading value provider.');
+      $shape->getOptionEmpty()->setLockedValue(TRUE, 'Heading hidden by Heading value provider.');
     }
 
     foreach (['supertitle', 'title', 'subtitle'] as $field) {
-      if (($this->configuration["{$field}_page"] ?? FALSE) && $this->shape->getOptionDefault()->isEnabled()) {
+      if (($this->configuration["{$field}_page"] ?? $this->configuration["{$field}_entity"] ?? FALSE) && $this->shape->getOptionDefault()->isEnabled()) {
         $shape->setDefaultNestedOptionDefault($field);
       }
       if ($this->configuration["{$field}_default"]) {
         $shape->setDefaultNestedOptionDefault($field);
       }
-      elseif ($this->configuration["{$field}_empty"] ?? $this->configuration["{$field}_page"]) {
+      elseif ($this->configuration["{$field}_empty"] ?? $this->configuration["{$field}_page"] ?? $this->configuration["{$field}_entity"] ?? FALSE) {
         $shape->setDefaultNestedOptionEmpty($field);
       }
       if (!($this->configuration["{$field}_edit"] ?? TRUE)) {
@@ -264,8 +286,11 @@ final class HeadingValue extends ComponentValuePluginBase implements ContainerFa
    */
   public function provideDefaultValue(mixed $value): mixed {
     foreach (['supertitle', 'title', 'subtitle'] as $field) {
-      if ($this->configuration["{$field}_page"]) {
+      if (!empty($this->configuration["{$field}_page"])) {
         $value[$field] = $this->getPageTitle();
+      }
+      elseif (!empty($this->configuration["{$field}_entity"])) {
+        $value[$field] = $this->getShape()->getEntity()->label();
       }
       else {
         $value[$field] = $this->configuration["{$field}_value"] ?? NULL;
