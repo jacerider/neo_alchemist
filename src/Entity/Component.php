@@ -599,8 +599,10 @@ class Component extends ConfigEntityBase implements ComponentInterface {
    * {@inheritdoc}
    */
   public function getTargetPreviewEntity(): ?ContentEntityInterface {
-    if ($entityId = \Drupal::state()->get('neo_alchemist.' . $this->id() . '.preview_entity')) {
-      return \Drupal::entityTypeManager()->getStorage($this->getTargetEntityTypeId())->load($entityId);
+    $entityId = \Drupal::state()->get('neo_alchemist.' . $this->id() . '.preview_entity');
+    $entityTypeId = $this->getTargetEntityTypeId();
+    if ($entityId && $entityTypeId) {
+      return \Drupal::entityTypeManager()->getStorage($entityTypeId)->load($entityId);
     }
     return NULL;
   }
