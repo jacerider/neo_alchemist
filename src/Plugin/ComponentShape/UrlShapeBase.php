@@ -41,6 +41,7 @@ class UrlShapeBase extends ComponentShapePluginBase {
     $value['options'] = $value['options'] ?? [];
     $value['icon'] = $value['icon'] ?? '';
     $value['target'] = $value['target'] ?? '_self';
+    $value['access'] = $value['access'] ?? TRUE;
     return $value;
   }
 
@@ -56,7 +57,7 @@ class UrlShapeBase extends ComponentShapePluginBase {
         $value['access'] = $item->getUrl()->access();
       }
       catch (\Exception $e) {
-        $value['access'] = TRUE;
+        $value['access'] = $value['access'] ?? TRUE;
       }
       return $value;
     }
@@ -71,7 +72,6 @@ class UrlShapeBase extends ComponentShapePluginBase {
       if ($url = $this->getLinkitUrl($this->getFieldItem())) {
         $value['uri'] = $url->toString();
       }
-      $value['access'] = $value['access'] ?? TRUE;
       // Use target if passed in with the options.
       if (empty($value['target']) && !empty($value['options']['attributes']['target'])) {
         $value['target'] = $value['options']['attributes']['target'];
