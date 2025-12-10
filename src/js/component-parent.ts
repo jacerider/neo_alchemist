@@ -179,6 +179,38 @@
       };
     });
 
+    const content = container.querySelector('.neo-alchemist-manage--wrapper') as HTMLIFrameElement;
+    const form = container.querySelector('.neo-alchemist-manage--form') as HTMLIFrameElement;
+    const scroll = container.querySelector('.neo-alchemist-manage--scroll') as HTMLIFrameElement;
+    if (scroll) {
+      let observer = setupAutoAdjustWidth(scroll);
+      const drag = container.querySelector('.neo-alchemist-manage--drag') as HTMLIFrameElement;
+      const expand = form.querySelector('.neo-alchemist-manage--expand') as HTMLElement;
+      const collapse = form.querySelector('.neo-alchemist-manage--collapse') as HTMLElement;
+      if (expand && collapse) {
+        expand.addEventListener('click', function (e) {
+          e.preventDefault();
+          if (wrapper) {
+            drag.style.opacity = '0';
+          }
+          observer.disconnect();
+          const scrollOffsetRight = window.innerWidth - scroll.getBoundingClientRect().right;
+          expand.classList.toggle('hidden');
+          collapse.classList.toggle('hidden');
+          scroll.style.width = 'calc(100vw - ' + (scrollOffsetRight * 2) + 'px)';
+        });
+        collapse.addEventListener('click', function (e) {
+          e.preventDefault();
+          if (wrapper) {
+            drag.style.opacity = '';
+          }
+          expand.classList.toggle('hidden');
+          collapse.classList.toggle('hidden');
+          observer = setupAutoAdjustWidth(scroll);
+        });
+      }
+    }
+
     const active: string = localStorage.getItem('neo-alchemist-size') || 'split';
     [
       {id: 'expand', contentHeight: '0%', formHeight: '100%', hideIframe: true, hideForm: false, active: active === 'expand'},
@@ -186,8 +218,6 @@
       {id: 'contract', contentHeight: '100%', formHeight: '0%', hideIframe: false, hideForm: true, active: active === 'contract'}
     ].forEach(data => {
       once('neo.alchemist', '.neo-alchemist-manage--size-' + data.id, container).forEach(el => {
-        const content = container.querySelector('.neo-alchemist-manage--wrapper') as HTMLIFrameElement;
-        const form = container.querySelector('.neo-alchemist-manage--form') as HTMLIFrameElement;
         if (data.active) {
           el.classList.add('is-active');
           content.style.height = data.contentHeight;
@@ -444,6 +474,80 @@
 
     initialized = true;
   };
+
+  function setupAutoAdjustWidth(parentElement: HTMLElement): {
+    disconnect: () => void;
+  } {
+    // Resize observer for size changes
+    const resizeObserver = new ResizeObserver(() => {
+      adjustParentWidth(parentElement);
+    });
+
+    // Mutation observer for DOM changes (new elements added)
+    const mutationObserver = new MutationObserver(() => {
+      // Re-observe all descendants when DOM changes
+      const allDescendants = parentElement.querySelectorAll('*');
+      allDescendants.forEach((element) => {
+        resizeObserver.observe(element as HTMLElement);
+      });
+
+      adjustParentWidth(parentElement);
+    });
+
+    // Initial observation
+    resizeObserver.observe(parentElement);
+    const allDescendants = parentElement.querySelectorAll('*');
+    allDescendants.forEach((element) => {
+      resizeObserver.observe(element as HTMLElement);
+    });
+
+    // Watch for DOM changes
+    mutationObserver.observe(parentElement, {
+      childList: true,
+      subtree: true
+    });
+
+    // Initial adjustment
+    adjustParentWidth(parentElement);
+
+    return {
+      disconnect: () => {
+        resizeObserver.disconnect();
+        mutationObserver.disconnect();
+      }
+    };
+  }
+
+  function adjustParentWidth(parentElement: HTMLElement): void {
+    parentElement.style.width = '';
+    const allDescendants = parentElement.querySelectorAll('*');
+    const parentRect = parentElement.getBoundingClientRect();
+
+    // Get the parent's padding
+    const computedStyle = window.getComputedStyle(parentElement);
+    const paddingLeft = parseFloat(computedStyle.paddingLeft);
+    const paddingRight = parseFloat(computedStyle.paddingRight);
+
+    let maxRightEdge: number = 0;
+
+    allDescendants.forEach((element) => {
+      const el = element as HTMLElement;
+      const rect = el.getBoundingClientRect();
+
+      // Calculate how far the right edge extends from the parent's content area
+      // (parent's left + padding left is where content starts)
+      const rightEdge = rect.right - (parentRect.left + paddingLeft);
+
+      if (rightEdge > maxRightEdge) {
+        maxRightEdge = rightEdge;
+      }
+    });
+
+    if (maxRightEdge > 0) {
+      // Add padding to the content width
+      parentElement.style.width = `${maxRightEdge + paddingLeft + paddingRight}px`;
+    }
+  }
 
   /**
    * Fades out an element and moves it up 1rem while removing it from the DOM
