@@ -137,6 +137,24 @@ function template_preprocess_neo_alchemist_manage(&$variables) {
       $variables["src_$size"] = $iframeUrl->toString();
     }
   }
+  $variables['toolbar']['expand'] = [
+    '#type' => 'link',
+    '#title' => neo_icon('Expand', 'arrow-from-right')->iconOnly(),
+    '#url' => Url::fromRoute('<current>'),
+    '#tooltip' => t('Expand'),
+    '#attributes' => [
+      'class' => ['neo-alchemist-manage--expand text-base-0 hover:text-primary'],
+    ],
+  ];
+  $variables['toolbar']['collapse'] = [
+    '#type' => 'link',
+    '#title' => neo_icon('Expand', 'arrow-from-left')->iconOnly(),
+    '#url' => Url::fromRoute('<current>'),
+    '#tooltip' => t('Collapse'),
+    '#attributes' => [
+      'class' => ['neo-alchemist-manage--collapse hidden text-base-0 hover:text-primary'],
+    ],
+  ];
 }
 
 /**
