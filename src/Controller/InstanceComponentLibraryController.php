@@ -8,8 +8,8 @@ use Drupal\Component\Serialization\Json;
 use Drupal\Core\Controller\ControllerBase;
 use Drupal\Core\Template\Attribute;
 use Drupal\neo_alchemist\ComponentGroupPluginManager;
-use Drupal\neo_alchemist\ComponentShapeRegionPluginInterface;
 use Drupal\neo_alchemist\Plugin\Field\FieldType\ComponentTreeItem;
+use Drupal\neo_icon\IconTrait;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\HttpFoundation\Request;
 
@@ -17,6 +17,8 @@ use Symfony\Component\HttpFoundation\Request;
  * Returns responses for Neo | Alchemist routes.
  */
 final class InstanceComponentLibraryController extends ControllerBase {
+
+  use IconTrait;
 
   /**
    * The component group plugin manager.
@@ -76,10 +78,19 @@ final class InstanceComponentLibraryController extends ControllerBase {
         continue;
       }
       $group = $component->getGroup();
+      $access = NULL;
+      if ($instances = $component->getAccessInstances()) {
+        $labels = [];
+        foreach ($instances as $instance) {
+          $labels[] = $instance->label();
+        }
+        $access['#markup'] = '<div class="badge bg-alert text-alert-content px-2">' . $this->adminIcon($this->t('Limited access by:') . ' ' . implode(', ', $labels), 'lock')->iconOnly() . '</div>';
+      }
       $components[$group][$component->id()] = [
         'label' => $component->label(),
         'description' => $component->getDescription(),
         'thumbnail' => $component->getThumbnail(),
+        'access' => $access,
         'attributes' => new Attribute([
           'href' => $neo_field->toUrl('add')->setRouteParameter('neo_component', $component->id())->setOption('query', $query)->toString(),
           'class' => ['use-ajax'],
