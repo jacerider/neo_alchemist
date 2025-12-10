@@ -66,8 +66,8 @@
           setTimeout(() => {
             if (Drupal.CKEditor5Instances.size) {
               once('neo.alchemist', '#' + formId + ' [data-ckeditor5-id]').forEach(_el => {
-                Drupal.CKEditor5Instances.forEach((values) => {
-                  values.model.document.on( 'change:data', () => {
+                Drupal.CKEditor5Instances.forEach((editor) => {
+                  editor.model.document.on( 'change:data', () => {
                     throttledInput();
                   });
                 });
