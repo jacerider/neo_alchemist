@@ -10,11 +10,14 @@
               <div class="w-full h-30 overflow-hidden">
                 <img src="{{ component.thumbnail }}" alt="{{ component.label }}" class="object-cover object-top w-full h-30 hover:object-bottom transition-all duration-700" />
               </div>
-              <div class="flex justify-center w-full bg-base-900/90 text-base-900-content text-xs px-2 py-1">
+              <div class="flex gap-2 justify-center w-full bg-base-900/90 text-base-900-content text-xs px-2 py-1">
                 <div class="truncate">{{ component.label }}</div>
               </div>
               {% if component.description %}
                 {{ component.description|neo_tooltip_content }}
+              {% endif %}
+              {% if component.access %}
+                <div class="absolute top-2 right-2">{{ component.access }}</div>
               {% endif %}
             </a>
           {% endfor %}
