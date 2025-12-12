@@ -91,12 +91,12 @@
     {% endif %}
 
     {% if form and form_position == 'side' %}
-      <div class="neo-alchemist-manage--form neo-alchemist--form-side absolute flex flex-col right-4 py-4" style="top: var(--alchemist-displace-offset-top, 0px); bottom: var(--alchemist-displace-offset-bottom, 0px);">
+      <div class="neo-alchemist-manage--form neo-alchemist--form-side absolute flex flex-col rounded-lg shadow-lg overflow-hidden">
         {% if toolbar %}
-          <div class="flex gap-2 bg-base-950 px-4 py-2 rounded-t-lg">{{ toolbar }}</div>
+          <div class="flex gap-2 bg-base-950 px-4 py-2">{{ toolbar }}</div>
         {% endif %}
-        <div class="neo-alchemist-manage--scroll bg-base-0 overflow-y-scroll w-120 rounded-b-lg shadow-lg p-4">
-          {{ form|neo_class('p-0')|neo_class('mt-0', 'inner_attributes') }}
+        <div class="neo-alchemist-manage--scroll bg-base-0 px-4 grow">
+          {{ form|neo_class('p-0 pt-4')|neo_class('mt-0', 'inner_attributes') }}
         </div>
       </div>
     {% endif %}
