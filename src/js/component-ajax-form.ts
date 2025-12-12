@@ -65,11 +65,11 @@
         if (Drupal.CKEditor5Instances) {
           setTimeout(() => {
             if (Drupal.CKEditor5Instances.size) {
-              once('neo.alchemist', '#' + formId + ' [data-ckeditor5-id]').forEach(_el => {
-                Drupal.CKEditor5Instances.forEach((editor) => {
-                  editor.model.document.on( 'change:data', () => {
-                    throttledInput();
-                  });
+              Drupal.CKEditor5Instances.forEach((editor) => {
+                // console.log(editor.ui.view);
+                // editor.ui.view.element.style.maxHeight = '200px';
+                editor.model.document.on( 'change:data', () => {
+                  throttledInput();
                 });
               });
             }
