@@ -128,6 +128,9 @@
     const iframes = container.querySelectorAll('iframe');
     const wrapper:HTMLElement|null = container.querySelector('.neo-alchemist-manage--wrapper');
     const messages = document.querySelector('.alchemist-messages');
+    const content = container.querySelector('.neo-alchemist-manage--wrapper') as HTMLIFrameElement;
+    const form = container.querySelector('.neo-alchemist-manage--form') as HTMLIFrameElement;
+    const scroll = container.querySelector('.neo-alchemist-manage--scroll') as HTMLIFrameElement;
 
     const drag = container.querySelector('.neo-alchemist-manage--drag') as HTMLElement;
     waitForAllIframesToLoad(iframes).then(() => {
@@ -179,34 +182,35 @@
       };
     });
 
-    const content = container.querySelector('.neo-alchemist-manage--wrapper') as HTMLIFrameElement;
-    const form = container.querySelector('.neo-alchemist-manage--form') as HTMLIFrameElement;
-    const scroll = container.querySelector('.neo-alchemist-manage--scroll') as HTMLIFrameElement;
     if (scroll) {
-      let observer = setupAutoAdjustWidth(scroll);
-      const drag = container.querySelector('.neo-alchemist-manage--drag') as HTMLIFrameElement;
+      const resizeObserver = new ResizeObserver(() => {
+        if (scroll && scroll.scrollWidth > scroll.offsetWidth) {
+          // Get the parent's padding
+          const computedStyle = window.getComputedStyle(scroll);
+          const paddingRight = parseFloat(computedStyle.paddingRight);
+          scroll.style.width = scroll.offsetWidth + paddingRight + (scroll.scrollWidth - scroll.offsetWidth) + 'px';
+        }
+      });
+      resizeObserver.observe(scroll);
+
       const expand = form.querySelector('.neo-alchemist-manage--expand') as HTMLElement;
       const collapse = form.querySelector('.neo-alchemist-manage--collapse') as HTMLElement;
-      if (expand && collapse) {
+      if (drag && expand && collapse) {
         expand.addEventListener('click', function (e) {
           e.preventDefault();
-          if (wrapper) {
-            drag.style.opacity = '0';
-          }
-          observer.disconnect();
-          const scrollOffsetRight = window.innerWidth - scroll.getBoundingClientRect().right;
+          resizeObserver.disconnect();
+          drag.style.opacity = '0';
           expand.classList.toggle('hidden');
           collapse.classList.toggle('hidden');
-          scroll.style.width = 'calc(100vw - ' + (scrollOffsetRight * 2) + 'px)';
+          scroll.classList.toggle('expanded');
         });
         collapse.addEventListener('click', function (e) {
           e.preventDefault();
-          if (wrapper) {
-            drag.style.opacity = '';
-          }
+          drag.style.opacity = '';
           expand.classList.toggle('hidden');
           collapse.classList.toggle('hidden');
-          observer = setupAutoAdjustWidth(scroll);
+          scroll.classList.toggle('expanded');
+          resizeObserver.observe(scroll);
         });
       }
     }
@@ -239,34 +243,6 @@
           form.style.height = data.formHeight;
           form.style.transform = data.hideForm ? 'scale(0.5)' : '';
           form.style.opacity = data.hideForm ? '0' : '';
-        });
-      });
-    });
-
-    const focusButtons = container.querySelectorAll('.neo-alchemist--focus');
-    [
-      {size: 'desktop', active: true},
-      {size: 'tablet', active: false},
-      {size: 'mobile', active: false},
-    ].forEach(data => {
-      once('neo.alchemist', '.neo-alchemist--focus[data-size="' + data.size + '"]').forEach(el => {
-        if (data.active) {
-          el.classList.add('is-active');
-        }
-        el.addEventListener('click', (e) => {
-          e.preventDefault();
-          const iframe = getIframe(data.size as string);
-          if (iframe) {
-            focusButtons.forEach((el) => {
-              el.classList.remove('is-active');
-            });
-            el.classList.add('is-active');
-            iframe.closest('.neo-alchemist--iframe-wrapper')?.scrollIntoView({
-              behavior: 'smooth',
-              block: 'start',
-              inline: 'center',
-            });
-          }
         });
       });
     });
@@ -320,7 +296,7 @@
     };
 
     // Pad the edges of the drag area
-    const padding = (document.body.clientWidth) / 3;
+    const padding = Math.floor(document.body.clientWidth * 0.9);
     drag.style.paddingLeft = padding + 'px';
     drag.style.paddingRight = padding + 'px';
 
@@ -393,13 +369,44 @@
       let scrollTop:number;
 
       if (wrapper) {
-        if (localStorage.getItem(id + '-scroll-left')) {
-          wrapper.scrollLeft = parseInt(localStorage.getItem(id + '-scroll-left') || '0', 10);
+        const initScrollLeft = parseInt(localStorage.getItem(id + '-scroll-left') || '0');
+        const initScrollTop = parseInt(localStorage.getItem(id + '-scroll-top') || '0');
+        if (initScrollLeft) {
+          wrapper.scrollLeft = initScrollLeft;
         }
-        if (localStorage.getItem(id + '-scroll-top')) {
-          wrapper.scrollTop = parseInt(localStorage.getItem(id + '-scroll-top') || '0', 10);
+        if (initScrollTop) {
+          wrapper.scrollTop = initScrollTop;
         }
       }
+
+      const focusButtons = container.querySelectorAll('.neo-alchemist--focus');
+      const mostVisibleSize = getMostVisibleIframe()?.getAttribute('data-size') || null;
+      [
+        {size: 'desktop', active: mostVisibleSize === 'desktop'},
+        {size: 'tablet', active: mostVisibleSize === 'tablet'},
+        {size: 'mobile', active: mostVisibleSize === 'mobile'},
+      ].forEach(data => {
+        once('neo.alchemist', '.neo-alchemist--focus[data-size="' + data.size + '"]').forEach(el => {
+          if (data.active) {
+            el.classList.add('is-active');
+          }
+          el.addEventListener('click', (e) => {
+            e.preventDefault();
+            const iframe = getIframe(data.size as string);
+            if (iframe) {
+              focusButtons.forEach((el) => {
+                el.classList.remove('is-active');
+              });
+              el.classList.add('is-active');
+              iframe.closest('.neo-alchemist--iframe-wrapper')?.scrollIntoView({
+                behavior: 'smooth',
+                block: 'start',
+                inline: 'center',
+              });
+            }
+          });
+        });
+      });
 
       function allowDrag(el: HTMLElement): boolean {
         // Check if target has data-alchemist-ignore
@@ -460,6 +467,13 @@
             focusButtons.forEach((el) => {
               el.classList.remove('is-active');
             });
+            const mostVisibleSize = getMostVisibleIframe()?.getAttribute('data-size') || null;
+            if (mostVisibleSize) {
+              const focusButton = container.querySelector('.neo-alchemist--focus[data-size="' + mostVisibleSize + '"]');
+              if (focusButton) {
+                focusButton.classList.add('is-active');
+              }
+            }
           }
         }
       }
@@ -472,82 +486,50 @@
       return Array.from(iframes).find(el => el.getAttribute('data-size') === size) as HTMLIFrameElement | undefined;
     }
 
-    initialized = true;
-  };
+    /**
+     * Get the most visible iframe within the container
+     */
+    function getMostVisibleIframe(): HTMLElement | null {
+      const children = Array.from(iframes) as HTMLElement[];
+      const containerRect = container.getBoundingClientRect();
 
-  function setupAutoAdjustWidth(parentElement: HTMLElement): {
-    disconnect: () => void;
-  } {
-    // Resize observer for size changes
-    const resizeObserver = new ResizeObserver(() => {
-      adjustParentWidth(parentElement);
-    });
+      let mostVisibleDiv: HTMLElement | null = null;
+      let maxVisibleArea = 0;
+      let foundFullyVisible = false;
 
-    // Mutation observer for DOM changes (new elements added)
-    const mutationObserver = new MutationObserver(() => {
-      // Re-observe all descendants when DOM changes
-      const allDescendants = parentElement.querySelectorAll('*');
-      allDescendants.forEach((element) => {
-        resizeObserver.observe(element as HTMLElement);
+      children.forEach((child) => {
+        const childRect = child.getBoundingClientRect();
+
+        // Calculate the visible portion
+        const visibleLeft = Math.max(childRect.left, containerRect.left);
+        const visibleRight = Math.min(childRect.right, containerRect.right);
+
+        // Calculate visible width (0 if not visible at all)
+        const visibleWidth = Math.max(0, visibleRight - visibleLeft);
+
+        // Check if element is fully visible
+        const isFullyVisible =
+          childRect.left >= containerRect.left &&
+          childRect.right <= containerRect.right;
+
+        // If we found a fully visible element and haven't found one before, prioritize it
+        if (isFullyVisible && !foundFullyVisible) {
+          mostVisibleDiv = child;
+          maxVisibleArea = visibleWidth;
+          foundFullyVisible = true;
+        }
+        // If we already found a fully visible element, ignore partially visible ones
+        else if (!foundFullyVisible && visibleWidth > maxVisibleArea) {
+          maxVisibleArea = visibleWidth;
+          mostVisibleDiv = child;
+        }
       });
 
-      adjustParentWidth(parentElement);
-    });
-
-    // Initial observation
-    resizeObserver.observe(parentElement);
-    const allDescendants = parentElement.querySelectorAll('*');
-    allDescendants.forEach((element) => {
-      resizeObserver.observe(element as HTMLElement);
-    });
-
-    // Watch for DOM changes
-    mutationObserver.observe(parentElement, {
-      childList: true,
-      subtree: true
-    });
-
-    // Initial adjustment
-    adjustParentWidth(parentElement);
-
-    return {
-      disconnect: () => {
-        resizeObserver.disconnect();
-        mutationObserver.disconnect();
-      }
-    };
-  }
-
-  function adjustParentWidth(parentElement: HTMLElement): void {
-    parentElement.style.width = '';
-    const allDescendants = parentElement.querySelectorAll('*');
-    const parentRect = parentElement.getBoundingClientRect();
-
-    // Get the parent's padding
-    const computedStyle = window.getComputedStyle(parentElement);
-    const paddingLeft = parseFloat(computedStyle.paddingLeft);
-    const paddingRight = parseFloat(computedStyle.paddingRight);
-
-    let maxRightEdge: number = 0;
-
-    allDescendants.forEach((element) => {
-      const el = element as HTMLElement;
-      const rect = el.getBoundingClientRect();
-
-      // Calculate how far the right edge extends from the parent's content area
-      // (parent's left + padding left is where content starts)
-      const rightEdge = rect.right - (parentRect.left + paddingLeft);
-
-      if (rightEdge > maxRightEdge) {
-        maxRightEdge = rightEdge;
-      }
-    });
-
-    if (maxRightEdge > 0) {
-      // Add padding to the content width
-      parentElement.style.width = `${maxRightEdge + paddingLeft + paddingRight}px`;
+      return mostVisibleDiv;
     }
-  }
+
+    initialized = true;
+  };
 
   /**
    * Fades out an element and moves it up 1rem while removing it from the DOM
