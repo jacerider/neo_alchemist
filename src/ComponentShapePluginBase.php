@@ -2008,7 +2008,7 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
       return $form;
     }
 
-    $form['#attributes']['class'][] = 'neo-alchemist--component-form';
+    $form['#attributes']['class'][] = 'neo-alchemist--component-form-shape';
     $form['#attached']['library'][] = 'neo_alchemist/component.form';
 
     $this->prepForm($form, $form_state);
