@@ -17,6 +17,10 @@ heading:
       title: Size
       type: heading_size
       apply: false
+    anchor:
+      title: Anchor
+      type: slug
+      description: An anchor will allow linking directly to this component. Just add "#[your-anchor]" to the end of the URL when linking to this page.
   examples:
     supertitle: Example supertitle
     title: Example title
@@ -24,6 +28,7 @@ heading:
   twig:
     prefix: '{% if %name% %}'
     content:
+      - '{% if %name%.anchor %}<a name="{{ %name%.anchor }}" title="{{ %name%.title }}"></a>{% endif %}'
       - '<div{{ %name%.size }}>'
       - '  {% if %name%.supertitle %}<div class="component-supertitle">{{ %name%.supertitle }}</div>{% endif %}'
       - '  <h2 class="component-title">{{ %name%.title }}</h2>'
@@ -403,6 +408,10 @@ breadcrumb:
     suffix:
       - '</nav>'
       - '{% endif %}'
+
+slug:
+  title: Slug
+  type: string
 
 region:
   title: Region
