@@ -25,6 +25,9 @@ component.parent:
   neo: true
   js:
     src/js/component-parent.ts: {}
+  css:
+    component:
+      src/css/components-parent.css: {}
   dependencies:
     - core/drupal
 
