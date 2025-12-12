@@ -138,6 +138,9 @@ final class InstanceComponentForm extends ContentEntityForm {
   public function buildForm(array $form, FormStateInterface $form_state) {
     $form = parent::buildForm($form, $form_state);
 
+    $form['#attributes']['class'][] = 'neo-alchemist--component-form';
+    $form['#attached']['library'][] = 'neo_alchemist/component.form';
+
     $form['footer'] = [
       '#type' => 'container',
       '#attributes' => [
@@ -146,7 +149,7 @@ final class InstanceComponentForm extends ContentEntityForm {
     ];
 
     if ($form['values']['#access'] ?? FALSE) {
-      $form['footer']['#attributes']['class'][] = '!mt-0 py-3 translate-y-4 border-t';
+      $form['footer']['#attributes']['class'][] = 'mb-0 py-3 border-t';
     }
     elseif (!empty($form['description'])) {
       $form['footer']['#attributes']['class'][] = 'mt-3';
@@ -177,6 +180,9 @@ final class InstanceComponentForm extends ContentEntityForm {
     ];
 
     $form['actions']['#weight'] = 1000;
+    $form['actions']['#attributes']['class'][] = 'mt-0';
+    $form['footer']['actions'] = $form['actions'];
+    unset($form['actions']);
     return $form;
   }
 
