@@ -1,4 +1,18 @@
 .neo-alchemist--component-form {
+
+  .ck.ck-editor__top {
+    position: sticky;
+    top: 0;
+    border-bottom: 1px solid rgba(var(--color-base-300));
+  }
+
+  .ck-editor__editable_inline {
+    max-height: none !important;
+  }
+}
+
+.neo-alchemist--component-form-shape {
+
   .media-library-item {
     width: calc(var(--spacing) * 36);
   }
