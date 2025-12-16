@@ -39,7 +39,7 @@ class SchemeShape extends StyleShapeBase {
   /**
    * {@inheritDoc}
    */
-  public function getFieldOptions(): ?array {
+  public function getFieldOptions(): array {
     $options = parent::getFieldOptions();
 
     if ($this->isInitialized()) {
