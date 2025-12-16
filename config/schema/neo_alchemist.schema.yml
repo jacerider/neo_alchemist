@@ -624,6 +624,36 @@ neo_alchemist.neo_component_slot.entity:
       type: string
       label: Filter
 
+neo_alchemist.neo_component_slot.form:
+  type: mapping
+  label: 'Form provider'
+  mapping:
+    form_class:
+      type: string
+      label: Form class
+    form_arg1:
+      type: mapping
+      label: Form Arg 1
+      nullable: true
+      mapping:
+        type:
+          type: string
+          label: Type
+        value:
+          type: string
+          label: Value
+    form_arg2:
+      type: mapping
+      label: Form Arg 2
+      nullable: true
+      mapping:
+        type:
+          type: string
+          label: Type
+        value:
+          type: string
+          label: Value
+
 neo_alchemist.neo_component_slot.entity_display:
   type: mapping
   label: 'Entity display provider'
@@ -853,6 +883,9 @@ field.field_settings.neo_component_tree:
                     shape:
                       type: string
                       label: Shape type
+                    ref:
+                      type: string
+                      label: Ref
                     value:
                       type: ignore
                       label: Value
