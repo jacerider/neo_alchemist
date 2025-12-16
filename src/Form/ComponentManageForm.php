@@ -632,25 +632,36 @@ final class ComponentManageForm extends EntityForm {
   /**
    * {@inheritdoc}
    */
+  public function validateForm(array &$form, FormStateInterface $form_state) {
+    /** @var \Drupal\neo_alchemist\ComponentInterface $entity */
+    $entity = $this->entity;
+    parent::validateForm($form, $form_state);
+
+    if (!$form_state->hasAnyErrors()) {
+      // Save the generated thumbnail.
+      $thumbnailData = trim($form_state->getValue('thumbnail_generate_data', ''));
+      if (!empty($thumbnailData)) {
+        $data = explode(',', $thumbnailData);
+        if (!empty($data[1])) {
+          /** @var \Drupal\neo_config_file\ConfigFileGenerator $generator */
+          $generator = \Drupal::service('neo_config_file.generator');
+          $configFile = $generator->createFromBase64($data[1], 'component-' . str_replace('_', '-', $entity->id()) . '.png', 500, 500);
+          if ($configFile) {
+            $form_state->setValue('thumbnail', $configFile->id());
+          }
+        }
+      }
+    }
+  }
+
+  /**
+   * {@inheritdoc}
+   */
   public function save(array $form, FormStateInterface $form_state): int {
     /** @var \Drupal\neo_alchemist\ComponentInterface $entity */
     $entity = $this->entity;
     if ($entityPreview = $form_state->getValue('entity_preview')) {
       $entity->setTargetPreviewEntity($entityPreview);
-    }
-
-    // Save the generated thumbnail.
-    $thumbnailData = trim($form_state->getValue('thumbnail_generate_data', ''));
-    if (!empty($thumbnailData)) {
-      $data = explode(',', $thumbnailData);
-      if (!empty($data[1])) {
-        /** @var \Drupal\neo_config_file\ConfigFileGenerator $generator */
-        $generator = \Drupal::service('neo_config_file.generator');
-        $configFile = $generator->createFromBase64($data[1], 'component-' . str_replace('_', '-', $entity->id()) . '.png', 500, 500);
-        if ($configFile) {
-          $entity->set('thumbnail', $configFile->id());
-        }
-      }
     }
 
     $result = parent::save($form, $form_state);
