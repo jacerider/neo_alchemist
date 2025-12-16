@@ -190,6 +190,9 @@
           const paddingRight = parseFloat(computedStyle.paddingRight);
           scroll.style.width = scroll.offsetWidth + paddingRight + (scroll.scrollWidth - scroll.offsetWidth) + 'px';
         }
+        // else {
+        //   scroll.style.width = '620px';
+        // }
       });
       resizeObserver.observe(scroll);
 
@@ -369,8 +372,8 @@
       let scrollTop:number;
 
       if (wrapper) {
-        const initScrollLeft = parseInt(localStorage.getItem(id + '-scroll-left') || '0');
-        const initScrollTop = parseInt(localStorage.getItem(id + '-scroll-top') || '0');
+        const initScrollLeft = parseInt(localStorage.getItem(id + '-scroll-l') || '0');
+        const initScrollTop = parseInt(localStorage.getItem(id + '-scroll-t') || '0');
         if (initScrollLeft) {
           wrapper.scrollLeft = initScrollLeft;
         }
@@ -453,8 +456,8 @@
 
       function handleDragEnd(): void {
         if (wrapper) {
-          localStorage.setItem(id + '-scroll-left', wrapper.scrollLeft.toString());
-          localStorage.setItem(id + '-scroll-top', wrapper.scrollTop.toString());
+          localStorage.setItem(id + '-scroll-l', wrapper.scrollLeft.toString());
+          localStorage.setItem(id + '-scroll-t', wrapper.scrollTop.toString());
           el.style.cursor = 'grab';
           document.removeEventListener('mouseup', handleDragEnd);
           document.removeEventListener('mousemove', handleMouseMove);
