@@ -76,7 +76,7 @@ class StyleShape extends StyleShapeBase {
   /**
    * {@inheritDoc}
    */
-  public function getFieldOptions(): ?array {
+  public function getFieldOptions(): array {
     if (array_key_exists('styles', $this->schema)) {
       $values = array_map(function ($style) {
         return $style['label'] ?? 'Unnamed';
