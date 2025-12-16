@@ -131,17 +131,17 @@ final class EntityFilter extends ComponentFilterPluginBase implements ContainerF
     if ($this->configuration['entity_type'] && $value) {
       $values = explode($this->configuration['multiple_operator'], $value);
 
-      $entities = [];
       if ($this->configuration['multiple']) {
-        $entities = $this->entityTypeManager->getStorage($this->configuration['entity_type'])->loadMultiple($values);
+        return (string) count($values);
       }
       else {
         $value = reset($values);
         $entities = [$this->entityTypeManager->getStorage($this->configuration['entity_type'])->load($value)];
-      }
-      $entities = array_filter($entities);
-      if ($entities) {
-        return implode(', ', array_map(fn($entity) => $entity->label(), $entities));
+        $entities = array_filter($entities);
+        if ($entities) {
+          $summary = implode(', ', array_map(fn($entity) => $entity->label(), $entities));
+          return substr($summary, 0, 40) . (strlen($summary) > 40 ? '...' : '');
+        }
       }
     }
     return NULL;
