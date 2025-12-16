@@ -1500,14 +1500,15 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
   /**
    * {@inheritDoc}
    */
-  public function getFieldOptions(): ?array {
+  public function getFieldOptions(): array {
     if (array_key_exists('enum', $this->schema)) {
-      return array_map(fn ($v) => [
-        'value' => $v,
-        'label' => ucwords(str_replace(['-', '_'], ' ', (string) $v)),
-      ], $this->schema['enum']);
+      $options = [];
+      foreach ($this->schema['enum'] as $v) {
+        $options[$v] = ucwords(str_replace(['-', '_'], ' ', (string) $v));
+      }
+      return $options;
     }
-    return NULL;
+    return [];
   }
 
   /**
