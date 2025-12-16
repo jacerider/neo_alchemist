@@ -797,11 +797,11 @@ interface ComponentShapePluginInterface extends PluginInspectionInterface, Deriv
    * does, it returns the associated value, which is expected to be an array of
    * options. If the 'enum' key does not exist, it returns NULL.
    *
-   * @return array|null
+   * @return array
    *   An array of field options if the 'enum' key exists in the schema, or NULL
    *   if the 'enum' key is not present.
    */
-  public function getFieldOptions(): ?array;
+  public function getFieldOptions(): array;
 
   /**
    * Retrieves the field item list for the component shape.
