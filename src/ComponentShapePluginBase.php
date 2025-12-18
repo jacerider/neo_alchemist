@@ -595,7 +595,13 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
    */
   protected function initOptions(): self {
     $logMessage = 'Set by initOptions() in shape.';
-    if ($options = $this->getOptions($this->id(TRUE))) {
+    $options = $this->getOptions($this->id());
+    if ($this->getDelta() !== NULL) {
+      // When a delta is set, we also check for options stored without the
+      // delta.
+      $options = $this->getOptions($this->id(TRUE)) + $options;
+    }
+    if ($options) {
       foreach (array_keys($this->options) as $optionType) {
         if (isset($options[$optionType])) {
           $option = $this->options[$optionType];
@@ -2212,8 +2218,6 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
   public static function ajaxRefresh(array $form, FormStateInterface $form_state) {
     $trigger = $form_state->getTriggeringElement();
     $levels = $trigger['#ajax_level'] ?? -2;
-    die;
-    // Go one level up in the form, to the widgets container.
     $element = NestedArray::getValue($form, array_slice($trigger['#array_parents'], 0, $levels));
     return $element;
   }
