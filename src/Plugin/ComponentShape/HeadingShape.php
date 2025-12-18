@@ -25,12 +25,14 @@ class HeadingShape extends ObjectShape {
   protected function form(array $form, FormStateInterface $form_state): array {
     $form = parent::form($form, $form_state);
     $form['anchor']['widget']['widget'][0]['value']['#neo_size'] = 'xs';
-    $form['anchor']['widget']['widget'][0]['value']['#slug']['source'] = array_merge($form['title']['widget']['widget'][0]['value']['#field_parents'], [
-      'widget',
-      'widget',
-      0,
-      'value',
-    ]);
+    if (!empty($form['title']['widget'])) {
+      $form['anchor']['widget']['widget'][0]['value']['#slug']['source'] = array_merge($form['title']['widget']['widget'][0]['value']['#field_parents'], [
+        'widget',
+        'widget',
+        0,
+        'value',
+      ]);
+    }
     $form['size']['#neo_size'] = 'xs';
     return $form;
   }
@@ -39,8 +41,8 @@ class HeadingShape extends ObjectShape {
    * {@inheritDoc}
    */
   protected function preRenderValue(mixed $value, Attribute $attributes): mixed {
-    // Use the anchor value if provided, otherwise generate from title.
-    $anchor = $value['anchor'] ?? ($value['title'] ? Str::machine($value['title'], '-') : NULL);
+    // Use the anchor.
+    $anchor = Str::machine($value['anchor'] ?? $value['title'] ?? '', '-');
     $attributes->setAttribute('id', $anchor);
     $attributes->addClass('scroll-mt-neo-t');
     if ($value['title'] ?? NULL) {
