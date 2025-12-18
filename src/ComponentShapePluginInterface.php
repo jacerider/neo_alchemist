@@ -1277,6 +1277,60 @@ interface ComponentShapePluginInterface extends PluginInspectionInterface, Deriv
   public function setNestedOptionAccess(string $name, bool $value = FALSE): self;
 
   /**
+   * Retrieves a nested option for a given name and option name.
+   *
+   * @param string $name
+   *   The name of the nested option.
+   * @param string $optionName
+   *   The name of the option to retrieve.
+   * @param bool $prependCurrentId
+   *   Whether to prepend the current ID to the nested option name.
+   *
+   * @return mixed
+   *   The value of the nested option, or NULL if not found.
+   */
+  public function getNestedOption(string $name, string $optionName, bool $prependCurrentId = TRUE): bool;
+
+  /**
+   * Retrieves the 'empty' nested option for a given name.
+   *
+   * @param string $name
+   *   The name of the nested option.
+   * @param bool $value
+   *   The default value to return if the option is not found.
+   *
+   * @return bool
+   *   The value of the 'empty' nested option.
+   */
+  public function getNestedOptionEmpty(string $name, bool $value = TRUE): bool;
+
+  /**
+   * Retrieves the 'default' nested option for a given name.
+   *
+   * @param string $name
+   *   The name of the nested option.
+   * @param bool $value
+   *   The default value to return if the option is not found.
+   *
+   * @return bool
+   *   The value of the 'default' nested option.
+   */
+  public function getNestedOptionDefault(string $name, bool $value = TRUE): bool;
+
+  /**
+   * Retrieves the 'access' nested option for a given name.
+   *
+   * @param string $name
+   *   The name of the nested option.
+   * @param bool $value
+   *   The default value to return if the option is not found.
+   *
+   * @return bool
+   *   The value of the 'access' nested option.
+   */
+  public function getNestedOptionAccess(string $name, bool $value = FALSE): bool;
+
+  /**
    * Checks if the field definition is supported by the shape.
    *
    * This differs from the support calls in that if it returns FALSE then
