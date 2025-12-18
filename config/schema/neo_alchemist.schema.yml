@@ -528,6 +528,20 @@ neo_alchemist.neo_component_filter.entity:
       sequence:
         type: string
         label: 'Bundle'
+    include:
+      type: sequence
+      label: Include
+      nullable: true
+      sequence:
+        type: string
+        label: 'ID'
+    exclude:
+      type: sequence
+      label: Exclude
+      nullable: true
+      sequence:
+        type: string
+        label: 'ID'
 
 neo_alchemist.neo_component_settings.slots:
   type: sequence
