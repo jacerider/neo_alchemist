@@ -18,6 +18,7 @@ use Drupal\neo_alchemist\ComponentShapeChildrenPluginInterface;
 use Drupal\neo_alchemist\ComponentShapePluginInterface;
 use Drupal\neo_alchemist\ComponentValuePluginBase;
 use Drupal\neo_alchemist\MatcherField;
+use Drupal\neo_alchemist\MatcherReference;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
@@ -61,6 +62,13 @@ final class EntityFilterValue extends ComponentValuePluginBase implements Contai
   protected MatcherField $matcherField;
 
   /**
+   * The reference matcher.
+   *
+   * @var \Drupal\neo_alchemist\MatcherReference
+   */
+  protected MatcherReference $matcherReference;
+
+  /**
    * {@inheritdoc}
    */
   public function __construct(
@@ -71,11 +79,13 @@ final class EntityFilterValue extends ComponentValuePluginBase implements Contai
     EntityTypeManagerInterface $entity_type_manager,
     EntityTypeBundleInfoInterface $entity_type_bundle_info,
     MatcherField $matcher_field,
+    MatcherReference $matcher_reference,
   ) {
     parent::__construct($plugin_id, $plugin_definition, $shape, $configuration);
     $this->entityTypeManager = $entity_type_manager;
     $this->entityTypeBundleInfo = $entity_type_bundle_info;
     $this->matcherField = $matcher_field;
+    $this->matcherReference = $matcher_reference;
   }
 
   /**
@@ -89,7 +99,8 @@ final class EntityFilterValue extends ComponentValuePluginBase implements Contai
       $configuration['settings'],
       $container->get('entity_type.manager'),
       $container->get('entity_type.bundle.info'),
-      $container->get('neo_alchemist.matcher_field')
+      $container->get('neo_alchemist.matcher_field'),
+      $container->get('neo_alchemist.matcher_reference')
     );
   }
 
@@ -99,6 +110,7 @@ final class EntityFilterValue extends ComponentValuePluginBase implements Contai
   public function defaultConfiguration() {
     return [
       'filter' => '',
+      'entity' => '',
     ] + $this->childrenMatchDefaultConfiguration();
   }
 
@@ -145,6 +157,27 @@ final class EntityFilterValue extends ComponentValuePluginBase implements Contai
           $entityTypeId = $plugin->getEntityTypeId();
           $bundles = $plugin->getEntityBundles();
           $bundle = count($bundles) > 1 ? NULL : reset($bundles);
+
+          $options = $this->matcherReference->getReferencesAsOptions($entityTypeId, $bundle);
+          $entityKey = $this->configuration['entity'];
+          $form['entity'] = [
+            '#type' => 'select',
+            '#title' => $this->t('Target entity type'),
+            '#options' => $options,
+            '#default_value' => $entityKey,
+            '#empty_option' => $this->t('- Select -'),
+            '#required' => TRUE,
+            '#ajax' => [
+              'callback' => [static::class, 'refreshAjax'],
+              'wrapper' => $wrapperId,
+            ],
+          ];
+          if ($entityKey) {
+            $entity = $this->matcherReference->getReferenceEntityByEntityType($entityTypeId, $entityKey, TRUE);
+            $entityTypeId = $entity->getEntityTypeId();
+            $bundle = $entity->bundle();
+          }
+
           $form += $this->buildChildrenMatchConfigurationForm($this->shape, $form, $form_state, $entityTypeId, $bundle, $this->configuration);
         }
       }
@@ -178,6 +211,20 @@ final class EntityFilterValue extends ComponentValuePluginBase implements Contai
     }
 
     $entities = $plugin->getEntities();
+
+    // Support referenced entities.
+    $entityKey = $this->configuration['entity'];
+    if ($entityKey) {
+      $referencedEntities = [];
+      foreach ($entities as $entity) {
+        $field = $this->matcherReference->getReferenceField($entity, $entityKey, $this->shape->getComponent()->getCacheableMetadata());
+        foreach ($field as $item) {
+          $referencedEntities[] = $item->entity;
+        }
+      }
+      $entities = $referencedEntities;
+    }
+
     $results = $this->getChildrenMatchValues($this->shape, $entities, $this->configuration);
     if (!empty($results) || empty($this->configuration['continue'])) {
       $value = $results;
