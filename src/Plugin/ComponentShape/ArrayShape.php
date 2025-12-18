@@ -273,7 +273,10 @@ class ArrayShape extends ChildrenShapeBase implements ComponentShapeInterablePlu
     if (!$form_state->get($id . '-count')) {
       $form_state->set($id . '-count', $count);
     }
-    $description[] = $this->getDescription();
+    $description = [];
+    if ($desc = $this->getDescription()) {
+      $description[] = $desc;
+    }
     if ($max || $min) {
       if ($max && $min) {
         $description[] = $this->t('Must have between <strong>@min</strong> and <strong>@max</strong> items.', [
