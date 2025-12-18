@@ -126,6 +126,9 @@ final class InstanceComponentForm extends ContentEntityForm {
     $this->after = $form_state->get('after');
     $form_state->set('neo_component_form', TRUE);
 
+    // This form is only shown when previewing or managing a component.
+    $this->instance->setPreview(TRUE);
+
     $form_state->set('neo_component_manage_id', ComponentManageHelper::getId($this->instance->getFieldItem()));
     $form_state->set('original_values', $this->instance->getValues());
     $this->store->delete($this->instance->getFieldItem()->getDraftKey($this->instance->uuid()));
