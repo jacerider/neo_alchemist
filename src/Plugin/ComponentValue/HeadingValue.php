@@ -242,6 +242,22 @@ final class HeadingValue extends ComponentValuePluginBase implements ContainerFa
   /**
    * {@inheritdoc}
    */
+  public function formAlter(array &$element, FormStateInterface $form_state) {
+    if (!empty($element['title']['_options']['default'])) {
+      // Ajax on the default title checkbox will refresh the whole heading
+      // value provider form.
+      $element['title']['_options']['default']['#ajax']['wrapper'] = $element['#id'];
+      $element['title']['_options']['default']['#ajax_level'] = -3;
+      if ($this->shape->getNestedOptionDefault('title')) {
+        // Hide the anchor when no title editing is allowed.
+        $element['anchor']['#access'] = FALSE;
+      }
+    }
+  }
+
+  /**
+   * {@inheritdoc}
+   */
   public function onShapeInit() {
     parent::onShapeInit();
     $shape = $this->shape;
@@ -254,6 +270,7 @@ final class HeadingValue extends ComponentValuePluginBase implements ContainerFa
       $shape->getOptionEmpty()->setLockedValue(TRUE, 'Heading hidden by Heading value provider.');
     }
 
+    $dynamicAnchor = FALSE;
     foreach (['supertitle', 'title', 'subtitle'] as $field) {
       if (($this->configuration["{$field}_page"] ?? $this->configuration["{$field}_entity"] ?? FALSE) && $this->shape->getOptionDefault()->isEnabled()) {
         $shape->setDefaultNestedOptionDefault($field);
@@ -270,6 +287,9 @@ final class HeadingValue extends ComponentValuePluginBase implements ContainerFa
         }
         $shape->setNestedOptionDefault($field);
         $shape->setNestedOptionAccess($field);
+        if ($field === 'title') {
+          $dynamicAnchor = TRUE;
+        }
       }
     }
     if ($this->configuration['size_default']) {
@@ -278,6 +298,13 @@ final class HeadingValue extends ComponentValuePluginBase implements ContainerFa
     if (!$this->configuration['size_edit']) {
       $shape->setNestedOptionDefault('size');
       $shape->setNestedOptionAccess('size');
+    }
+    if ($this->shape->getNestedOptionDefault('title')) {
+      $dynamicAnchor = TRUE;
+    }
+    if ($dynamicAnchor) {
+      $shape->setNestedOptionDefault('anchor');
+      $shape->setNestedOptionAccess('anchor');
     }
   }
 
@@ -299,6 +326,7 @@ final class HeadingValue extends ComponentValuePluginBase implements ContainerFa
     if ($this->configuration['size_value']) {
       $value['size'] = $this->configuration['size_value'];
     }
+    $value['anchor'] = $value['title'];
     $this->stopFurtherProcessing();
     return $value;
   }
