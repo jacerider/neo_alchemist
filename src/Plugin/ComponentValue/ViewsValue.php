@@ -276,7 +276,9 @@ final class ViewsValue extends ComponentValuePluginBase implements ContainerFact
       $viewFieldOptions['- Views -']['_view:' . $fieldName] = $field->adminLabel();
     }
 
-    $form['field']['#options'] = [key($form['field']['#options']) => reset($form['field']['#options'])] + $viewFieldOptions + $form['field']['#options'];
+    if (isset($form['field']['#options'])) {
+      $form['field']['#options'] = [key($form['field']['#options']) => reset($form['field']['#options'])] + $viewFieldOptions + $form['field']['#options'];
+    }
   }
 
   /**
