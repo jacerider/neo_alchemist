@@ -114,7 +114,9 @@ final class DefaultValue extends ComponentValuePluginBase implements ContainerFa
       $this->defaultShape->setDefaultNestedOptions($this->configuration['options'] ?? []);
       $this->defaultShape->init();
       $this->defaultShape->getOptionDefault()->alwaysShowForm(TRUE, 'Always show form when default.');
-      $this->defaultShape->getOptionEmpty()->alwaysShowForm(TRUE, 'Always show form when default.');
+      if (!$this->defaultShape->isIterable()) {
+        $this->defaultShape->getOptionEmpty()->alwaysShowForm(TRUE, 'Always show form when default.');
+      }
     }
     return $this->defaultShape;
   }
