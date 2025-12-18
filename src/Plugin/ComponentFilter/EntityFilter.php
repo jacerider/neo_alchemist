@@ -345,6 +345,7 @@ final class EntityFilter extends ComponentFilterPluginBase implements ContainerF
         if (!$allowMultiple && is_array($defaultValue)) {
           $defaultValue = reset($defaultValue) ?: '';
         }
+        asort($options);
         if ($fieldType === 'radios') {
           $options = ['' => $this->t('- None -')] + $options;
         }
@@ -371,10 +372,12 @@ final class EntityFilter extends ComponentFilterPluginBase implements ContainerF
       return NULL;
     }
     $value = $value['value'];
-    if (is_array($value)) {
-      if (!$this->configuration['multiple']) {
-        $value = [reset($value)];
-      }
+    $allowMultiple = !empty($this->configuration['multiple']);
+    if (is_array($value) && !$allowMultiple) {
+      $value = [reset($value)];
+    }
+    if (!$allowMultiple) {
+      return $value;
     }
     switch ($this->configuration['field_type']) {
       case 'autocomplete':
