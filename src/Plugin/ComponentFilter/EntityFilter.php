@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\neo_alchemist\Plugin\ComponentFilter;
 
+use Drupal\Core\Config\Entity\ConfigEntityTypeInterface;
 use Drupal\Core\DependencyInjection\DependencySerializationTrait;
 use Drupal\Core\Entity\EntityInterface;
 use Drupal\Core\Entity\EntityTypeBundleInfoInterface;
@@ -83,6 +84,8 @@ final class EntityFilter extends ComponentFilterPluginBase implements ContainerF
       'multiple_operator' => '+',
       'entity_type' => '',
       'bundles' => [],
+      'include' => [],
+      'exclude' => [],
       'entity_preview' => NULL,
     ];
   }
@@ -156,11 +159,12 @@ final class EntityFilter extends ComponentFilterPluginBase implements ContainerF
       '#title' => $this->t('Field type'),
       '#options' => [
         'autocomplete' => $this->t('Autocomplete'),
-        // 'select' => $this->t('Select'),
-        // 'options' => $this->t('Options'),
+        'select' => $this->t('Select'),
+        'options' => $this->t('Options'),
       ],
       '#default_value' => $this->configuration['field_type'],
       '#required' => TRUE,
+      '#ajax' => $form['#form_ajax'],
     ];
 
     $form['multiple'] = [
@@ -195,9 +199,9 @@ final class EntityFilter extends ComponentFilterPluginBase implements ContainerF
     ];
 
     if ($entityTypeId) {
-      $target_entity_type = $entityTypes[$entityTypeId];
+      $targetEntityType = $entityTypes[$entityTypeId];
       $bundleIds = $this->configuration['bundles'];
-      if ($target_entity_type->hasKey('bundle') && ($bundles = $this->entityTypeBundleInfo->getBundleInfo($entityTypeId))) {
+      if ($targetEntityType->hasKey('bundle') && ($bundles = $this->entityTypeBundleInfo->getBundleInfo($entityTypeId))) {
         $options = array_map(
           fn ($bundle) => $bundle['label'],
           $bundles
@@ -207,12 +211,38 @@ final class EntityFilter extends ComponentFilterPluginBase implements ContainerF
           '#type' => 'checkboxes',
           '#title' => $this->t('Entity Bundle'),
           '#description' => $this->t('Scope this component to a specific %label type bundle.', [
-            '%label' => $target_entity_type->getLabel(),
+            '%label' => $targetEntityType->getLabel(),
           ]),
           '#default_value' => $bundleIds,
           '#options' => $options,
           '#empty_option' => $this->t('- All -'),
-          '#required' => TRUE,
+        ];
+      }
+      $allowIdSelection = $this->configuration['field_type'] !== 'autocomplete';
+      if ($allowIdSelection) {
+        $options = [];
+        $storage = $this->entityTypeManager->getStorage($entityTypeId);
+        $entities = $storage->loadMultiple();
+        foreach ($entities as $entity) {
+          $options[$entity->id()] = $entity->label();
+        }
+        $includes = $this->configuration['include'] ? $this->entityTypeManager->getStorage($entityTypeId)->loadMultiple($this->configuration['include']) : [];
+        $form['include'] = [
+          '#type' => 'entity_autocomplete',
+          '#title' => $this->t('Include entities'),
+          '#description' => $this->t('These entities will be available for selection in the filter. Leave empty to allow all entities. Be careful when using this with content entities IDs may not exist on different environments.'),
+          '#target_type' => $entityTypeId,
+          '#tags' => TRUE,
+          '#default_value' => $includes,
+        ];
+        $excludes = $this->configuration['exclude'] ? $this->entityTypeManager->getStorage($entityTypeId)->loadMultiple($this->configuration['exclude']) : [];
+        $form['exclude'] = [
+          '#type' => 'entity_autocomplete',
+          '#title' => $this->t('Exclude entities'),
+          '#description' => $this->t('These entities will be excluded from selection in the filter. Leave empty to allow all entities. Be careful when using this with content entities IDs may not exist on different environments.'),
+          '#target_type' => $entityTypeId,
+          '#tags' => TRUE,
+          '#default_value' => $excludes,
         ];
       }
 
@@ -238,6 +268,16 @@ final class EntityFilter extends ComponentFilterPluginBase implements ContainerF
   protected function configurationValidate(array $form, FormStateInterface $form_state): void {
     $form_state->setValue('bundles', array_values(array_filter($form_state->getValue('bundles') ?? [])));
 
+    foreach (['include', 'exclude'] as $key) {
+      $values = [];
+      if ($entities = array_filter($form_state->getValue($key) ?? [])) {
+        foreach ($entities as $entity) {
+          $values[] = $entity['target_id'];
+        }
+      }
+      $form_state->setValue($key, $values);
+    }
+
     $entityPreview = $form_state->getValue('entity_preview');
     if ($entityPreview) {
       \Drupal::state()->set($this->getEntityPreviewKey(), $entityPreview);
@@ -253,12 +293,13 @@ final class EntityFilter extends ComponentFilterPluginBase implements ContainerF
       return $form;
     }
     $value = $this->filter->getValue();
+    $allowMultiple = !empty($this->configuration['multiple']);
     switch ($this->configuration['field_type']) {
       case 'autocomplete':
         $default = NULL;
         if ($value) {
           $value = explode($this->configuration['multiple_operator'], $value);
-          if ($this->configuration['multiple']) {
+          if ($allowMultiple) {
             $default = $this->entityTypeManager->getStorage($this->configuration['entity_type'])->loadMultiple($value);
           }
           else {
@@ -270,13 +311,53 @@ final class EntityFilter extends ComponentFilterPluginBase implements ContainerF
           '#type' => 'entity_autocomplete',
           '#description' => $this->filter->getDescription(),
           '#default_value' => $default,
-          '#tags' => !empty($this->configuration['multiple']),
+          '#tags' => $allowMultiple,
           '#target_type' => $this->configuration['entity_type'],
           '#required' => $this->filter->isRequired(),
         ];
         if ($bundles = array_values(array_filter($this->configuration['bundles']))) {
           $form['value']['#selection_settings']['target_bundles'] = $bundles;
         }
+        break;
+
+      case 'select':
+      case 'options':
+        $options = [];
+        $ids = $this->entityTypeManager->getStorage($this->configuration['entity_type'])->getQuery()
+          ->accessCheck(TRUE)
+          ->range(0, 100);
+        if ($bundles = array_values(array_filter($this->configuration['bundles']))) {
+          $ids->condition($this->entityTypeManager->getDefinition($this->configuration['entity_type'])->getKey('bundle'), $bundles, 'IN');
+        }
+        $ids = $ids->execute();
+        if ($ids) {
+          $ids = array_diff($ids, $this->configuration['exclude'] ?? []);
+          if ($this->configuration['include'] && is_array($this->configuration['include'])) {
+            $ids = array_intersect($ids, $this->configuration['include']);
+          }
+          $entities = $this->entityTypeManager->getStorage($this->configuration['entity_type'])->loadMultiple($ids);
+          foreach ($entities as $entity) {
+            $options[$entity->id()] = $entity->label();
+          }
+        }
+        $fieldType = $this->configuration['field_type'] === 'select' ? 'select' : ($allowMultiple ? 'checkboxes' : 'radios');
+        $defaultValue = $value ?? [];
+        if (!$allowMultiple && is_array($defaultValue)) {
+          $defaultValue = reset($defaultValue) ?: '';
+        }
+        if ($fieldType === 'radios') {
+          $options = ['' => $this->t('- None -')] + $options;
+        }
+        $form['value'] = [
+          '#type' => $fieldType,
+          '#description' => $this->filter->getDescription(),
+          '#default_value' => $defaultValue,
+          '#options' => $options,
+          '#empty_option' => $this->t('- Select -'),
+          '#multiple' => $allowMultiple,
+          '#target_type' => $this->configuration['entity_type'],
+          '#required' => $this->filter->isRequired(),
+        ];
         break;
     }
     return $form;
@@ -294,9 +375,12 @@ final class EntityFilter extends ComponentFilterPluginBase implements ContainerF
       if (!$this->configuration['multiple']) {
         $value = [reset($value)];
       }
-      return implode($this->configuration['multiple_operator'], array_map(fn($item) => $item['target_id'], $value)) ?? NULL;
     }
-    return $value;
+    switch ($this->configuration['field_type']) {
+      case 'autocomplete':
+        return implode($this->configuration['multiple_operator'], array_map(fn($item) => $item['target_id'], $value)) ?? NULL;
+    }
+    return implode($this->configuration['multiple_operator'], (array) $value) ?? NULL;
   }
 
   /**
