@@ -595,7 +595,7 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
    */
   protected function initOptions(): self {
     $logMessage = 'Set by initOptions() in shape.';
-    if ($options = $this->getOptions($this->id())) {
+    if ($options = $this->getOptions($this->id(TRUE))) {
       foreach (array_keys($this->options) as $optionType) {
         if (isset($options[$optionType])) {
           $option = $this->options[$optionType];
@@ -2038,7 +2038,7 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
 
     $form['_options'] = [
       '#type' => 'container',
-      '#weight' => !empty($form['#title']) ? -10 : 0,
+      '#weight' => !empty($form['#title']) ? -10 : 10,
       '#neo_region' => 'legend_end',
       '#access' => FALSE,
       '#attributes' => [
@@ -2211,8 +2211,10 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
    */
   public static function ajaxRefresh(array $form, FormStateInterface $form_state) {
     $trigger = $form_state->getTriggeringElement();
+    $levels = $trigger['#ajax_level'] ?? -2;
+    die;
     // Go one level up in the form, to the widgets container.
-    $element = NestedArray::getValue($form, array_slice($trigger['#array_parents'], 0, -2));
+    $element = NestedArray::getValue($form, array_slice($trigger['#array_parents'], 0, $levels));
     return $element;
   }
 
@@ -2420,6 +2422,42 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
   public function setNestedOptionAccess(string $name, bool $value = FALSE): self {
     $this->setNestedOption($name, 'access', $value);
     return $this;
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  public function getNestedOption(string $name, string $optionName, bool $prependCurrentId = TRUE): bool {
+    if ($prependCurrentId) {
+      $name = $this->id() . '~' . $name;
+    }
+    if ($this->isRoot()) {
+      return !empty($this->nestedOptions[$name][$optionName]);
+    }
+    else {
+      return $this->getRootShape()->getNestedOption($name, $optionName, FALSE);
+    }
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  public function getNestedOptionEmpty(string $name, bool $value = TRUE): bool {
+    return $this->getNestedOption($name, 'empty', $value);
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  public function getNestedOptionDefault(string $name, bool $value = TRUE): bool {
+    return $this->getNestedOption($name, 'default', $value);
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  public function getNestedOptionAccess(string $name, bool $value = FALSE): bool {
+    return $this->getNestedOption($name, 'access', $value);
   }
 
   /**
