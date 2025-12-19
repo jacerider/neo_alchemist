@@ -63,10 +63,8 @@ class ObjectShape extends ChildrenShapeBase implements ComponentShapeExpandedPlu
    */
   protected function loadChildSchema(int|null $delta = NULL): array {
     $schema = $this->getSchema();
-
     // Merge in any examples to each property.
     if (!empty($schema['properties'])) {
-      // Use complete value instead of the getDefaultValue().
       $value = $this->getDefaultValue();
       foreach ($schema['properties'] as $propName => &$prop) {
         $prop['examples'] = $value[$propName] ?? $schema['examples'][$propName] ?? $prop['examples'] ?? [];
@@ -85,10 +83,14 @@ class ObjectShape extends ChildrenShapeBase implements ComponentShapeExpandedPlu
       // we return an empty value so none of the children get populted.
       return $value;
     }
-    // When a shape is expanded, we allow it to build its own values.
-    $shapeValue = $this->isExpanded() ? NULL : $value;
-    foreach ($this->getChildShapes(NULL, $shapeValue) as $shapeName => $shape) {
-      $value[$shapeName] = $shape->getValue();
+    $forceChildDefaultValue = $this->forceChildDefaultValues();
+    foreach ($this->getChildShapes(NULL, $value) as $shapeName => $shape) {
+      if ($forceChildDefaultValue) {
+        $value[$shapeName] = $shape->buildDefaultValue();
+      }
+      else {
+        $value[$shapeName] = $shape->getValue();
+      }
       if (empty($value[$shapeName])) {
         // Do not include empty values or values that are set to empty.
         unset($value[$shapeName]);
@@ -110,7 +112,7 @@ class ObjectShape extends ChildrenShapeBase implements ComponentShapeExpandedPlu
       $this->enforceLocked();
     }
     if ($shapes) {
-      $values = $this->getFieldItemValue();
+      $values = $this->buildValue();
       $form['#type'] = 'fieldset';
       $form['#title'] = $this->getTitle();
       $form['#description'] = $this->getDescription();
@@ -131,10 +133,9 @@ class ObjectShape extends ChildrenShapeBase implements ComponentShapeExpandedPlu
         }
         $subform = [
           '#type' => 'container',
-          '#parents' => $form['#parents'],
+          '#parents' => array_merge($form['#parents']),
         ];
-        $subform_state = SubformState::createForSubform($subform, $form, $form_state);
-        $form[$shape->getName()] = $shape->getForm($subform, $subform_state);
+        $form[$shape->getName()] = $shape->getForm($subform, $form_state);
       }
     }
     return $form;

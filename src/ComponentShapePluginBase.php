@@ -22,6 +22,7 @@ use Drupal\Core\Field\FieldItemListInterface;
 use Drupal\Core\Field\WidgetInterface;
 use Drupal\Core\Field\WidgetPluginManager;
 use Drupal\Core\Form\FormStateInterface;
+use Drupal\Core\Form\SubformStateInterface;
 use Drupal\Core\Plugin\ContainerFactoryPluginInterface;
 use Drupal\Core\Render\Element;
 use Drupal\Core\Session\AccountInterface;
@@ -596,7 +597,7 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
   protected function initOptions(): self {
     $logMessage = 'Set by initOptions() in shape.';
     $options = $this->getOptions($this->id());
-    if ($this->getDelta() !== NULL) {
+    if (!$options && $this->getDelta() !== NULL) {
       // When a delta is set, we also check for options stored without the
       // delta.
       $options = $this->getOptions($this->id(TRUE)) + $options;
@@ -1544,7 +1545,7 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
       // @see \Drupal\file\Plugin\Field\FieldWidget\FileWidget
       // @see \Drupal\image\Plugin\Field\FieldWidget\ImageWidget
       if ($hostEntity = $this->getEntity()) {
-        $field->setContext(NULL, EntityAdapter::createFromEntity($hostEntity));
+        $field->setContext($fieldStorageDefinition->getName(), EntityAdapter::createFromEntity($hostEntity));
         assert($fieldStorageDefinition instanceof FieldStorageDefinition);
         $fieldStorageDefinition->setTargetEntityTypeId($hostEntity->getEntityTypeId());
       }
@@ -1621,7 +1622,7 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
     if (!empty($this->schema['properties'])) {
       if (!is_array($value)) {
         // If we do not have an array we assume we have an incorrect value.
-        $value = $this->getDefaultFieldItemValue();
+        $value = $this->buildDefaultValue();
       }
     }
     foreach ($this->getValueCollection()->getAllowedInstances('modify') as $instance) {
@@ -1725,6 +1726,30 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
   /**
    * {@inheritDoc}
    */
+  public function buildDefaultValue(): mixed {
+    $value = $this->getDefaultValue();
+    if (is_array($value)) {
+      $value = $this->denormalizeValue($value);
+    }
+    if (is_null($value)) {
+      return [];
+    }
+    $value = $this->adaptValue($value);
+    foreach ($this->getValueCollection()->getAllowedInstances('modify') as $instance) {
+      $value = $instance->modifyValue($value);
+      if (!$instance->shouldContinueProcessing()) {
+        break;
+      }
+    }
+    if ($this->isRendering()) {
+      $value = $this->preRenderValue($value, $this->getRenderAttributes());
+    }
+    return $value;
+  }
+
+  /**
+   * {@inheritDoc}
+   */
   public function getDefaultFieldItemValue(): array {
     $fieldItem = clone $this->fieldItem;
     $fieldItem->setValue($this->getDefaultValue());
@@ -1779,6 +1804,21 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
   /**
    * {@inheritDoc}
    */
+  public function setParentValue(mixed $value): self {
+    $this->parentValue = $value;
+    return $this;
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  public function getParentValue(): mixed {
+    return $this->parentValue;
+  }
+
+  /**
+   * {@inheritDoc}
+   */
   public function setOverrideValue(mixed $value): self {
     assert(!$this->isInitialized(), 'Override value should be set before initialization.');
     $this->overrideValue = $value;
@@ -1793,18 +1833,13 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
   }
 
   /**
-   * {@inheritDoc}
+   * Check if shape has an override value.
+   *
+   * @return bool
+   *   TRUE if shape has an override value, FALSE otherwise.
    */
-  public function setParentValue(mixed $value): self {
-    $this->parentValue = $value;
-    return $this;
-  }
-
-  /**
-   * {@inheritDoc}
-   */
-  public function getParentValue(): mixed {
-    return $this->parentValue;
+  protected function hasOverrideValue(): bool {
+    return isset($this->parentValue) || isset($this->overrideValue);
   }
 
   /**
@@ -2187,7 +2222,8 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
       $form['widget'] = [
         '#parents' => $form['#parents'],
       ];
-      $form['widget'] = $widget->form($this->getFieldItemList(), $form['widget'], $form_state);
+      $widget_form_state = $form_state instanceof SubformStateInterface ? $form_state->getCompleteFormState() : $form_state;
+      $form['widget'] = $widget->form($this->getFieldItemList(), $form['widget'], $widget_form_state);
       $this->formWidgetAlter($form['widget'], $form_state);
     }
     return $form;

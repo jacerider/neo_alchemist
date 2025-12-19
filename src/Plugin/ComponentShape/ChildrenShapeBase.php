@@ -137,6 +137,16 @@ abstract class ChildrenShapeBase extends ComponentShapePluginBase implements Com
   }
 
   /**
+   * Determine if we should force child default values.
+   *
+   * @return bool
+   *   Whether to force child default values.
+   */
+  protected function forceChildDefaultValues(): bool {
+    return !$this->hasOverrideValue() && $this->isExpanded();
+  }
+
+  /**
    * {@inheritDoc}
    */
   public function hideChildShape(string $shapeId, $hide = TRUE): self {

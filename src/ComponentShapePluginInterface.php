@@ -888,6 +888,16 @@ interface ComponentShapePluginInterface extends PluginInspectionInterface, Deriv
   public function getDefaultValue(): mixed;
 
   /**
+   * Build the default value for the prop.
+   *
+   * This will return the default value ready for component usage.
+   *
+   * @return mixed
+   *   The built default value.
+   */
+  public function buildDefaultValue(): mixed;
+
+  /**
    * Get the default value of the field item.
    *
    * @return array|string

@@ -147,7 +147,7 @@ final class InstanceComponentForm extends ContentEntityForm {
     $form['footer'] = [
       '#type' => 'container',
       '#attributes' => [
-        'class' => ['sticky bottom-0 bg-base-0'],
+        'class' => ['sticky bottom-0 bg-base-0 z-10'],
       ],
     ];
 

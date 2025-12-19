@@ -8,6 +8,7 @@ use Drupal\Component\Utility\NestedArray;
 use Drupal\Core\Field\FieldDefinitionInterface;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Form\SubformState;
+use Drupal\Core\Form\SubformStateInterface;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\neo_alchemist\Attribute\ComponentShape;
 use Drupal\neo_alchemist\ComponentShapeExpandedPluginInterface;
@@ -136,7 +137,6 @@ class ArrayShape extends ChildrenShapeBase implements ComponentShapeInterablePlu
    */
   protected function loadChildSchema(int|null $delta = 0): array {
     $schema = $this->getSchema();
-    // Use complete value instead of the getDefaultValue().
     $defaultValue = $this->getDefaultValue();
 
     if (empty($schema['items'])) {
@@ -195,6 +195,8 @@ class ArrayShape extends ChildrenShapeBase implements ComponentShapeInterablePlu
    */
   protected function buildValue(): mixed {
     $values = parent::buildValue();
+
+    $forceChildDefaultValue = $this->forceChildDefaultValues();
     foreach ($this->getChildShapeList($values) as $delta => $shapes) {
       /** @var \Drupal\neo_alchemist\ComponentShapePluginInterface[] $shapes */
       foreach ($shapes as $shapeName => $shape) {
@@ -202,8 +204,8 @@ class ArrayShape extends ChildrenShapeBase implements ComponentShapeInterablePlu
           // No value was provided and the shape is not required so we skip it.
           continue;
         }
-        if ($shape->getOptionDefault()->isEnabled()) {
-          $values[$delta][$shapeName] = $shape->getDefaultValue();
+        if ($forceChildDefaultValue || $shape->getOptionDefault()->isEnabled()) {
+          $values[$delta][$shapeName] = $shape->buildDefaultValue();
           continue;
         }
         if (
@@ -242,7 +244,7 @@ class ArrayShape extends ChildrenShapeBase implements ComponentShapeInterablePlu
     $parents = array_merge($form['#parents'] ?? [], [$this->getName()]);
     $id = $form['#id'];
 
-    $values = $form_state->get($id) ?? $this->getFieldItemValue();
+    $values = $form_state->get($id) ?? $this->buildValue();
 
     // A delta has been flagged for removal.
     $remove = $form_state->get($id . '-remove');
@@ -308,6 +310,7 @@ class ArrayShape extends ChildrenShapeBase implements ComponentShapeInterablePlu
             '@label' => $itemLabel,
             '@delta' => $delta + 1,
           ]),
+          // '#parents' => array_merge($form['#parents'], [$delta]),
         ];
         if ($min < $count) {
           $form[$delta]['remove'] = [
@@ -335,8 +338,7 @@ class ArrayShape extends ChildrenShapeBase implements ComponentShapeInterablePlu
             '#parents' => array_merge($form['#parents'], [$delta]),
             '#neo_size' => 'xs',
           ];
-          $subform_state = SubformState::createForSubform($form[$delta][$shape->getName()], $form, $form_state);
-          $form[$delta][$shape->getName()] = $this->getArrayItemForm($shape, $form[$delta][$shape->getName()], $subform_state, $delta);
+          $form[$delta][$shape->getName()] = $this->getArrayItemForm($shape, $form[$delta][$shape->getName()], $form_state, $delta);
         }
       }
     }
@@ -385,7 +387,7 @@ class ArrayShape extends ChildrenShapeBase implements ComponentShapeInterablePlu
    */
   public function validateForm(array $form, FormStateInterface $form_state, array $values): void {
     parent::validateForm($form, $form_state, $values);
-    $shapeList = $this->getChildShapeList();
+    $shapeList = $this->getChildShapeList($values);
     foreach ($shapeList as $delta => $shapes) {
       foreach ($shapes as $shapeName => $shape) {
         if (isset($form[$delta][$shapeName])) {
@@ -401,7 +403,7 @@ class ArrayShape extends ChildrenShapeBase implements ComponentShapeInterablePlu
    */
   public function massageFormValues(array $values, array $original_values, array $form, FormStateInterface $form_state): ?array {
     foreach ($values as $delta => $value) {
-      $shapes = $this->getChildShapes((int) $delta);
+      $shapes = $this->getChildShapes((int) $delta, $value);
       foreach ($shapes as $shapeName => $shape) {
         $shapeValue = $values[$delta][$shapeName] ?? [];
         // If the shape value is an array, continue the massage process.

@@ -106,7 +106,7 @@ final class DefaultValue extends ComponentValuePluginBase implements ContainerFa
       }
 
       $this->defaultShape
-        ->setParentValue($this->configuration['default'] ?? $this->shape->getDefaultValue())
+        ->setParentValue($this->configuration['default'] ?? $this->shape->buildDefaultValue())
         ->setExpanded($this->shape->getExpanded());
       foreach ($this->shape->getParentShapes() as $parentShape) {
         $this->defaultShape->addParentShape($parentShape);
