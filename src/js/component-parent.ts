@@ -126,11 +126,11 @@
 
     let initialized: boolean = false;
     const iframes = container.querySelectorAll('iframe');
-    const wrapper:HTMLElement|null = container.querySelector('.neo-alchemist-manage--wrapper');
+    const wrapper = container.querySelector('.neo-alchemist-manage--wrapper') as HTMLElement;
     const messages = document.querySelector('.alchemist-messages');
-    const content = container.querySelector('.neo-alchemist-manage--wrapper') as HTMLIFrameElement;
+    const formWrapper = container.querySelector('.neo-alchemist-manage--form-wrapper') as HTMLElement;
+    const scroll = container.querySelector('.neo-alchemist-manage--form-scroll') as HTMLElement;
     const form = container.querySelector('.neo-alchemist-manage--form') as HTMLIFrameElement;
-    const scroll = container.querySelector('.neo-alchemist-manage--scroll') as HTMLIFrameElement;
 
     const drag = container.querySelector('.neo-alchemist-manage--drag') as HTMLElement;
     waitForAllIframesToLoad(iframes).then(() => {
@@ -184,25 +184,24 @@
 
     if (scroll) {
       const resizeObserver = new ResizeObserver(() => {
+        scroll.style.width = '';
         if (scroll && scroll.scrollWidth > scroll.offsetWidth) {
           // Get the parent's padding
           const computedStyle = window.getComputedStyle(scroll);
           const paddingRight = parseFloat(computedStyle.paddingRight);
           scroll.style.width = scroll.offsetWidth + paddingRight + (scroll.scrollWidth - scroll.offsetWidth) + 'px';
         }
-        // else {
-        //   scroll.style.width = '620px';
-        // }
       });
-      resizeObserver.observe(scroll);
+      resizeObserver.observe(form);
 
-      const expand = form.querySelector('.neo-alchemist-manage--expand') as HTMLElement;
-      const collapse = form.querySelector('.neo-alchemist-manage--collapse') as HTMLElement;
+      const expand = formWrapper.querySelector('.neo-alchemist-manage--expand') as HTMLElement;
+      const collapse = formWrapper.querySelector('.neo-alchemist-manage--collapse') as HTMLElement;
       if (drag && expand && collapse) {
         expand.addEventListener('click', function (e) {
           e.preventDefault();
           resizeObserver.disconnect();
           drag.style.opacity = '0';
+          scroll.style.width = '';
           expand.classList.toggle('hidden');
           collapse.classList.toggle('hidden');
           scroll.classList.toggle('expanded');
@@ -213,7 +212,7 @@
           expand.classList.toggle('hidden');
           collapse.classList.toggle('hidden');
           scroll.classList.toggle('expanded');
-          resizeObserver.observe(scroll);
+          resizeObserver.observe(form);
         });
       }
     }
@@ -227,11 +226,11 @@
       once('neo.alchemist', '.neo-alchemist-manage--size-' + data.id, container).forEach(el => {
         if (data.active) {
           el.classList.add('is-active');
-          content.style.height = data.contentHeight;
-          form.style.height = data.formHeight;
+          wrapper.style.height = data.contentHeight;
+          formWrapper.style.height = data.formHeight;
         }
-        content.style.transition = 'all 500ms';
-        form.style.transition = 'all 500ms';
+        wrapper.style.transition = 'all 500ms';
+        formWrapper.style.transition = 'all 500ms';
         el.addEventListener('click', (e) => {
           e.preventDefault();
           const sizes = container.querySelectorAll('.neo-alchemist--sizing');
@@ -240,12 +239,12 @@
           });
           localStorage.setItem('neo-alchemist-size', data.id);
           el.classList.add('is-active');
-          content.style.height = data.contentHeight;
-          content.style.transform = data.hideIframe ? 'scale(0.5)' : '';
-          content.style.opacity = data.hideIframe ? '0' : '';
-          form.style.height = data.formHeight;
-          form.style.transform = data.hideForm ? 'scale(0.5)' : '';
-          form.style.opacity = data.hideForm ? '0' : '';
+          wrapper.style.height = data.contentHeight;
+          wrapper.style.transform = data.hideIframe ? 'scale(0.5)' : '';
+          wrapper.style.opacity = data.hideIframe ? '0' : '';
+          formWrapper.style.height = data.formHeight;
+          formWrapper.style.transform = data.hideForm ? 'scale(0.5)' : '';
+          formWrapper.style.opacity = data.hideForm ? '0' : '';
         });
       });
     });
