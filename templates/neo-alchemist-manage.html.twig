@@ -85,18 +85,18 @@
         <a class="neo-alchemist-manage--size-split neo-alchemist--sizing {{ sizing }}" href="#">{{ icon('compress') }} {{ 'Split View'|t }}</a>
         <a class="neo-alchemist-manage--size-contract neo-alchemist--sizing {{ sizing }}" href="#">{{ icon('arrow-to-bottom') }} {{ 'Preview View'|t }}</a>
       </div>
-      <div class="neo-alchemist-manage--form flex-auto overflow-auto bg-base-0">
-        {{ form }}
+      <div class="neo-alchemist-manage--form-wrapper flex-auto overflow-auto bg-base-0">
+        {{ form|neo_class('neo-alchemist-manage--form') }}
       </div>
     {% endif %}
 
     {% if form and form_position == 'side' %}
-      <div class="neo-alchemist-manage--form neo-alchemist--form-side absolute flex flex-col rounded-lg shadow-lg overflow-hidden">
+      <div class="neo-alchemist-manage--form-wrapper neo-alchemist--form-side absolute flex flex-col rounded-lg shadow-lg overflow-hidden">
         {% if toolbar %}
           <div class="flex gap-2 bg-base-950 px-4 py-2">{{ toolbar }}</div>
         {% endif %}
-        <div class="neo-alchemist-manage--scroll bg-base-0 px-4 grow">
-          {{ form|neo_class('p-0 pt-4')|neo_class('mt-0', 'inner_attributes') }}
+        <div class="neo-alchemist-manage--form-scroll bg-base-0 px-4 grow">
+          {{ form|neo_class('neo-alchemist-manage--form p-0 pt-4')|neo_class('mt-0', 'inner_attributes') }}
         </div>
       </div>
     {% endif %}
