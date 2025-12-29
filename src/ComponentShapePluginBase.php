@@ -1596,7 +1596,7 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
     }
     $value = $this->buildValue();
     if ($this->isRendering()) {
-      $value = $this->preRenderValue($value, $this->getRenderAttributes());
+      $value = $this->buildRenderValue($value, $this->getRenderAttributes());
     }
     return $value;
   }
@@ -1625,12 +1625,6 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
         $value = $this->buildDefaultValue();
       }
     }
-    foreach ($this->getValueCollection()->getAllowedInstances('modify') as $instance) {
-      $value = $instance->modifyValue($value);
-      if (!$instance->shouldContinueProcessing()) {
-        break;
-      }
-    }
     return $value;
   }
 
@@ -1647,6 +1641,30 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
    *   The adapted value.
    */
   protected function adaptValue(mixed $value): mixed {
+    return $value;
+  }
+
+  /**
+   * Prepares the value before rendering.
+   *
+   * This method can be overridden in subclasses to modify the value
+   * before it is rendered. By default, it returns the value unchanged.
+   *
+   * The returned value must pass validation against the schema.
+   *
+   * @param mixed $value
+   *   The value to be prepared.
+   * @param \Drupal\Core\Template\Attribute $attributes
+   *   The attributes that belong to the rendering component.
+   */
+  private function buildRenderValue(mixed $value, Attribute $attributes): mixed {
+    $value = $this->preRenderValue($value, $attributes);
+    foreach ($this->getValueCollection()->getAllowedInstances('modify') as $instance) {
+      $value = $instance->modifyValue($value);
+      if (!$instance->shouldContinueProcessing()) {
+        break;
+      }
+    }
     return $value;
   }
 
@@ -1735,14 +1753,8 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
       return [];
     }
     $value = $this->adaptValue($value);
-    foreach ($this->getValueCollection()->getAllowedInstances('modify') as $instance) {
-      $value = $instance->modifyValue($value);
-      if (!$instance->shouldContinueProcessing()) {
-        break;
-      }
-    }
     if ($this->isRendering()) {
-      $value = $this->preRenderValue($value, $this->getRenderAttributes());
+      $value = $this->buildRenderValue($value, $this->getRenderAttributes());
     }
     return $value;
   }
