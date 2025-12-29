@@ -51,7 +51,7 @@ final class LinkTitleValue extends ComponentValuePluginBase {
   /**
    * {@inheritdoc}
    */
-  public function modifyValue(mixed $value): mixed {
+  public function alterValue(mixed $value, string $type): mixed {
     $value['title'] = $this->configuration['value'];
     return $value;
   }
