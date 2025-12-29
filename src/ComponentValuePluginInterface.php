@@ -128,7 +128,7 @@ interface ComponentValuePluginInterface extends ConfigurableInterface, PluginFor
   public function alterValue(mixed $value, string $type): mixed;
 
   /**
-   * Modifies the given value.
+   * Modifies the component value when rendering.
    *
    * This method takes a value of any type and returns the modified value.
    *
