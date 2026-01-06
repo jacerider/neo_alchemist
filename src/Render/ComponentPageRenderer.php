@@ -47,7 +47,7 @@ class ComponentPageRenderer extends BareHtmlPageRenderer {
     ModuleHandlerInterface $module_handler,
     ThemeManagerInterface $theme_manager,
   ) {
-    parent::__construct($renderer, $html_response_attachments_processor);
+    parent::__construct($renderer, $html_response_attachments_processor, NULL);
     $this->moduleHandler = $module_handler;
     $this->themeManager = $theme_manager;
   }
