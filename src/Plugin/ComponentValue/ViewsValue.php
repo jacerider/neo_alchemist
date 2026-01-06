@@ -398,7 +398,7 @@ final class ViewsValue extends ComponentValuePluginBase implements ContainerFact
       // Get entities.
       $entities = [];
       foreach (array_map(fn($row) => $row->_entity, $view->result) as $entity) {
-        $entities[$entity->id()] = $entity;
+        $entities[$entity->id()][] = $entity;
       }
 
       $args = $view->args;
@@ -414,12 +414,19 @@ final class ViewsValue extends ComponentValuePluginBase implements ContainerFact
           $entities = $orderedEntities;
         }
       }
+      $finalEntities = [];
+      foreach ($entities as $entityGroup) {
+        foreach ($entityGroup as $entity) {
+          $finalEntities[] = $entity;
+        }
+      }
+      $entities = $finalEntities;
       if (!$entities && empty($this->configuration['continue'])) {
         $this->stopFurtherProcessing();
         $value = [];
       }
       else {
-        $results = $this->getChildrenMatchValues($this->shape, array_values($entities), $this->configuration);
+        $results = $this->getChildrenMatchValues($this->shape, $entities, $this->configuration);
         if (!empty($results) || empty($this->configuration['continue'])) {
           $this->stopFurtherProcessing();
           // Merge any views-generated values.
