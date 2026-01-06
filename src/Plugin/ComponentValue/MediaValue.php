@@ -5,13 +5,17 @@ declare(strict_types=1);
 namespace Drupal\neo_alchemist\Plugin\ComponentValue;
 
 use Drupal\Component\Utility\Html;
+use Drupal\Core\Ajax\AjaxResponse;
+use Drupal\Core\Ajax\ReplaceCommand;
 use Drupal\Core\DependencyInjection\DependencySerializationTrait;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Form\FormStateInterface;
+use Drupal\Core\Form\SubformStateInterface;
 use Drupal\Core\Plugin\ContainerFactoryPluginInterface;
 use Drupal\Core\Render\Element;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\media\MediaInterface;
+use Drupal\neo\Helpers\NestedArray;
 use Drupal\neo_alchemist\Attribute\ComponentValue;
 use Drupal\neo_alchemist\ComponentShapeMediaPluginInterface;
 use Drupal\neo_alchemist\ComponentShapePluginInterface;
@@ -186,6 +190,9 @@ final class MediaValue extends ComponentValuePluginBase implements ContainerFact
     }
     if (!empty($element['widget'])) {
       $element['#title'] = $element['widget']['widget']['#title'];
+      if (isset($element['widget']['widget']['open_button'])) {
+        $element['widget']['widget']['open_button']['#attributes']['class'][] = 'btn-xs';
+      }
       if ($element['#type'] === 'fieldset') {
         $element['widget']['widget']['#title_display'] = 'invisible';
       }
@@ -220,7 +227,58 @@ final class MediaValue extends ComponentValuePluginBase implements ContainerFact
     }
     else {
       $element['preview'] = $preview;
+      // Allow adding media directly.
+      $element['override'] = [
+        '#type' => 'submit',
+        '#value' => $this->t('Add media'),
+        '#name' => str_replace('-', '_', $element['#id']) . '_override',
+        '#neo_override' => TRUE,
+        '#attributes' => [
+          'class' => ['btn-xs mt-2'],
+        ],
+        '#submit' => [
+          [get_class($this), 'submitOverride'],
+        ],
+        '#ajax' => [
+          'callback' => [$this, 'ajaxOverride'],
+          'wrapper' => $element['#id'],
+        ],
+      ];
     }
+  }
+
+  /**
+   * Submit handler for ajax override.
+   */
+  public static function submitOverride(array $form, FormStateInterface $form_state) {
+    $form_state->setRebuild();
+  }
+
+  /**
+   * Ajax callback for override.
+   */
+  public function ajaxOverride(array $form, FormStateInterface $form_state) {
+    $shape = $this->shape;
+    $trigger = $form_state->getTriggeringElement();
+    $parents = array_slice($trigger['#array_parents'], 0, -1);
+    $element = NestedArray::getValue($form, $parents);
+
+    if (!empty(Element::getVisibleChildren($element['widget']['widget']['selection']))) {
+      // If there is a media item selected, just return the element.
+      return NestedArray::getValue($form, $parents);
+    }
+
+    $widgetForm = $element['widget']['widget'];
+    $widget = $shape->getWidget();
+    $widgetFormState = $form_state instanceof SubformStateInterface ? $form_state->getCompleteFormState() : $form_state;
+    $widgetOpenButton = $widgetForm['open_button'];
+    $widgetFormState->setTriggeringElement($widgetOpenButton);
+    $widgetClass = get_class($widget);
+
+    /** @var \Drupal\Core\Ajax\AjaxResponse $response */
+    $response = $widgetClass::openMediaLibrary($widgetForm, $widgetFormState);
+    $response->addCommand(new ReplaceCommand('#' . $element['#id'], $element));
+    return $response;
   }
 
   /**
@@ -228,6 +286,14 @@ final class MediaValue extends ComponentValuePluginBase implements ContainerFact
    */
   public function massageValuesAlter(array &$values, array $submitted_values, array $original_values, array $form, FormStateInterface $form_state): void {
     $shape = $this->shape;
+
+    $trigger = $form_state->getTriggeringElement();
+    if ($trigger['#neo_override'] ?? FALSE) {
+      // Set default to disabled when overriding.
+      $options = $shape->getOptions();
+      $options['default'] = 0;
+      $this->getShape()->setOptions($options);
+    }
     if ($shape->getScope() === 'config') {
       if (empty($values)) {
         $values = NULL;
