@@ -471,7 +471,7 @@ class ArrayShape extends ChildrenShapeBase implements ComponentShapeInterablePlu
     // array.
     $userInput = $form_state->getUserInput();
     NestedArray::unsetValue($userInput, $rowParents);
-    NestedArray::setValue($userInput, $parents, array_values(NestedArray::getValue($userInput, $parents)));
+    NestedArray::setValue($userInput, $parents, array_values(NestedArray::getValue($userInput, $parents) ?? []));
     $form_state->setUserInput($userInput);
 
     $form_state->setRebuild();
