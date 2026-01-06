@@ -2287,6 +2287,10 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
     $this->setOptions($options);
     // Remove options so that they are not processed or stored.
     $form_state->unsetValue('_options');
+    // Clear options from user input.
+    $userInput = $form_state->getUserInput();
+    NestedArray::unsetValue($userInput, $form['#parents'] ?? []);
+    $form_state->setUserInput($userInput);
     if (empty($values) && $this->isRequired()) {
       $form_state->setError($form, $this->getTitle() . ' is required.');
     }
