@@ -10,7 +10,6 @@ use Drupal\Core\Session\AccountInterface;
 use Drupal\neo_alchemist\ComponentFieldConfigInterface;
 use Drupal\neo_alchemist\ComponentInstanceInterface;
 use Drupal\neo_alchemist\ComponentShapePluginInterface;
-use Drupal\neo_alchemist\ComponentShapeRegionPluginInterface;
 use Drupal\neo_alchemist\ComponentSizesInterface;
 use Drupal\neo_alchemist\Plugin\DataType\ComponentTreeStructure;
 use Drupal\neo_alchemist\Plugin\Field\FieldType\ComponentTreeItem;
