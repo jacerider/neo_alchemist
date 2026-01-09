@@ -7,6 +7,7 @@ namespace Drupal\neo_alchemist\Plugin\Field\FieldType;
 use Drupal\Component\Render\FormattableMarkup;
 use Drupal\Component\Serialization\Json;
 use Drupal\Core\Access\AccessResult;
+use Drupal\Core\Entity\RevisionableInterface;
 use Drupal\Core\Field\Attribute\FieldType;
 use Drupal\Core\Field\FieldDefinitionInterface;
 use Drupal\Core\Field\FieldItemBase;
@@ -257,15 +258,24 @@ class ComponentTreeItem extends FieldItemBase implements RenderableInterface, Co
    */
   public function access($operation, ?AccountInterface $account = NULL, $return_as_object = FALSE) {
     $account = $account ?? \Drupal::currentUser();
-    $access = match(TRUE) {
-      $operation === 'create' && $this->belongsToFieldConfig() => AccessResult::allowedIfHasPermission($account, 'administer ' . $this->getEntity()->getEntityTypeId() . ' fields'),
-      $operation === 'create' => AccessResult::allowedIf($this->getSetting('allow_custom'))->andIf($this->getEntity()->access('update', $account, TRUE)),
-      $operation === 'publish' => AccessResult::allowedIf($this->hasDraft())->andIf($this->getEntity()->access('update', $account, TRUE)),
-      $operation === 'revert' => AccessResult::allowedIf($this->hasDraft())->andIf($this->getEntity()->access('update', $account, TRUE)),
-      $operation === 'reset' => AccessResult::allowedIf(!$this->belongsToFieldConfig() && !$this->getParent()->isDefault())->andIf($this->getEntity()->access('update', $account, TRUE)),
-      $operation === 'sort' => AccessResult::allowedIf($this->getEntity()->access('update', $account, TRUE)),
-      default => $this->getEntity()->access($operation, $account, TRUE),
-    };
+    if ($operation === 'publish') {
+      $entity = $this->getEntity();
+      $allow = $this->hasDraft();
+      if (!$allow && $entity instanceof RevisionableInterface) {
+        $allow = !$entity->isDefaultRevision();
+      }
+      $access = AccessResult::allowedIf($allow)->andIf($this->getEntity()->access('update', $account, TRUE));
+    }
+    else {
+      $access = match(TRUE) {
+        $operation === 'create' && $this->belongsToFieldConfig() => AccessResult::allowedIfHasPermission($account, 'administer ' . $this->getEntity()->getEntityTypeId() . ' fields'),
+        $operation === 'create' => AccessResult::allowedIf($this->getSetting('allow_custom'))->andIf($this->getEntity()->access('update', $account, TRUE)),
+        $operation === 'revert' => AccessResult::allowedIf($this->hasDraft())->andIf($this->getEntity()->access('update', $account, TRUE)),
+        $operation === 'reset' => AccessResult::allowedIf(!$this->belongsToFieldConfig() && !$this->getParent()->isDefault())->andIf($this->getEntity()->access('update', $account, TRUE)),
+        $operation === 'sort' => AccessResult::allowedIf($this->getEntity()->access('update', $account, TRUE)),
+        default => $this->getEntity()->access($operation, $account, TRUE),
+      };
+    }
     return $return_as_object ? $access : $access->isAllowed();
   }
 
@@ -696,7 +706,7 @@ class ComponentTreeItem extends FieldItemBase implements RenderableInterface, Co
    */
   public function saveComponents(): int {
     if ($this->belongsToFieldConfig()) {
-      return $this->getFieldDefinition()->setComponentValuesFromFieldItem($this)->save();
+      return (int) $this->getFieldDefinition()->setComponentValuesFromFieldItem($this)->save();
     }
     else {
       if ($this->isDraft()) {
@@ -704,7 +714,7 @@ class ComponentTreeItem extends FieldItemBase implements RenderableInterface, Co
         return SAVED_UPDATED;
       }
       $this->deleteDraft();
-      return $this->getEntity()->save();
+      return (int) $this->getEntity()->save();
     }
   }
 
