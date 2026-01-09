@@ -204,7 +204,7 @@ class ComponentManageHelper {
     if ($instance->access('publish')) {
       $build['publish'] = [
         '#type' => 'neo_modal_link',
-        '#title' => neo_icon_admin(t('Publish')),
+        '#title' => neo_icon_admin(t('Save')),
         '#url' => $instance->toUrl('publish'),
         '#attributes' => [
           'class' => ['use-ajax', 'btn', 'btn-xs', 'btn-success'],
