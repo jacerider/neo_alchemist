@@ -166,7 +166,6 @@ final class EntityFilterValue extends ComponentValuePluginBase implements Contai
             '#options' => $options,
             '#default_value' => $entityKey,
             '#empty_option' => $this->t('- Select -'),
-            '#required' => TRUE,
             '#ajax' => [
               'callback' => [static::class, 'refreshAjax'],
               'wrapper' => $wrapperId,
