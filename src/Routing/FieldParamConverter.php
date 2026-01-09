@@ -56,6 +56,16 @@ class FieldParamConverter implements ParamConverterInterface {
     if (isset($defaults['entity_type_id']) && isset($defaults[$defaults['entity_type_id']]) && $defaults[$defaults['entity_type_id']] instanceof ContentEntityInterface) {
       $entity = $defaults[$defaults['entity_type_id']];
       if ($entity->hasField($fieldName)) {
+        if ($entity->getEntityType()->isRevisionable()) {
+          /** @var \Drupal\Core\Entity\ContentEntityStorageInterface $storage */
+          $storage = $this->entityTypeManager->getStorage($defaults['entity_type_id']);
+          $currentRevisionId = $entity->getRevisionId();
+          $latestRevisionId = $storage->getLatestRevisionId($entity->id());
+          if ($currentRevisionId !== $latestRevisionId) {
+            $entity = $storage->loadRevision($latestRevisionId);
+          }
+        }
+
         $list = $entity->get($fieldName);
         if ($list->isEmpty()) {
           $list->appendItem([]);
