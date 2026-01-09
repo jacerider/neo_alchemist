@@ -473,7 +473,7 @@ function neo_alchemist_entity_operation(EntityInterface $entity) {
       if ($url->access()) {
         $operations['alchemist'] = [
           'title' => t('Manage Layout'),
-          'weight' => 0,
+          'weight' => 15,
           'url' => $url,
         ];
       }
