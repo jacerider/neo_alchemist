@@ -7,6 +7,7 @@
 
 declare(strict_types=1);
 
+use Drupal\content_moderation\Form\EntityModerationForm;
 use Drupal\Core\Entity\ContentEntityFormInterface;
 use Drupal\Core\Entity\ContentEntityInterface;
 use Drupal\Core\Entity\ContentEntityTypeInterface;
@@ -28,6 +29,7 @@ use Drupal\neo_alchemist\Form\InstanceComponentRevertForm;
 use Drupal\neo_alchemist\Form\InstanceComponentSortForm;
 use Drupal\neo_alchemist\Plugin\Field\NeoComponentTreeList;
 use Drupal\neo_tooltip\Tooltip;
+use Drupal\node\NodeInterface;
 
 function neo_alchemist_recursive_update_value(array $props, $originalShapeKey, $originalShapeValue, $newShapeKey, $newShapeValue, &$found = FALSE) {
   foreach ($props as &$data) {
@@ -530,18 +532,33 @@ function neo_alchemist_entity_view_alter(array &$build, EntityInterface $entity,
   $fieldableFields = array_filter($build, function ($key) {
     return substr($key, 0, 6) === 'field_';
   }, ARRAY_FILTER_USE_KEY);
+  $alchemistFields = array_filter($fieldableFields, function ($field) {
+    return isset($field['#field_type']) && $field['#field_type'] === 'neo_component_tree';
+  });
+  $hasAlchemistFields = !empty($alchemistFields);
   // If we only have one fieldable field and it is a component tree field, we
   // render the entity using the neo_alchemist_entity theme.
   if (count($fieldableFields) === 1) {
-    $isAlchemistField = !empty(array_filter($fieldableFields, function ($field) {
-      return isset($field['#field_type']) && $field['#field_type'] === 'neo_component_tree';
-    }));
-    if ($isAlchemistField) {
+    if ($hasAlchemistFields) {
       $build['#tag'] = '';
       if (!empty($build['#attributes'] ?? [])) {
         $build['#tag'] = 'div';
       }
       $build['#theme'] = 'neo_alchemist_entity';
+    }
+  }
+  $isDefaultViewMode = in_array($display->getMode(), ['default', 'full']);
+  if ($hasAlchemistFields && $entity instanceof NodeInterface && $isDefaultViewMode) {
+    // Convert to full page so hardcoded not title does not show.
+    $build['#page'] = TRUE;
+    // Show revision message if not default revision.
+    if (!$entity->isNew() && !$entity->isDefaultRevision()) {
+      $dateFormatter = \Drupal::service('date.formatter');
+      $info = t('Showing revision of %title from %date', [
+        '%title' => $entity->label(),
+        '%date' => $dateFormatter->format($entity->getRevisionCreationTime()),
+      ]);
+      \Drupal::messenger()->addWarning($info);
     }
   }
 }
