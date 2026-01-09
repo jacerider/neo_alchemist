@@ -39,6 +39,14 @@ class RouteSubscriber extends RouteSubscriberBase {
         elseif ($collection->get("entity.$entityTypeId.edit-form")) {
           $baseRoute = $collection->get("entity.{$entityTypeId}.edit-form");
         }
+        if ($collection->get("entity.{$entityTypeId}.latest_version")) {
+          $versionRoute = $collection->get("entity.{$entityTypeId}.latest_version");
+          $versionRoute->setOption('_neo_alchemist', $entityTypeId);
+        }
+        if ($collection->get("entity.{$entityTypeId}.revision")) {
+          $revisionRoute = $collection->get("entity.{$entityTypeId}.revision");
+          $revisionRoute->setOption('_neo_alchemist', $entityTypeId);
+        }
         if ($baseRoute) {
           $baseRoute->setOption('_neo_alchemist', $entityTypeId);
           $route = new Route($entityType->getLinkTemplate('alchemist'));
@@ -104,7 +112,7 @@ class RouteSubscriber extends RouteSubscriberBase {
             $route
               ->setDefaults([
                 '_controller' => 'Drupal\neo_alchemist\Controller\InstanceComponentPublishController',
-                'title' => 'Publish',
+                'title' => 'Save',
               ] + $defaults)
               ->setOption('parameters', $fieldParameters)
               ->setOption('_admin_route', TRUE)
