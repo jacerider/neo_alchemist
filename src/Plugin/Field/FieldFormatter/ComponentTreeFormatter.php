@@ -40,7 +40,7 @@ class ComponentTreeFormatter extends FormatterBase {
     assert($items->count() === 1);
     assert($items[0] instanceof ComponentTreeItem);
     // This field type is single-cardinality: delta 0 is rendered.
-    return [0 => $items[0]->toRenderable()];
+    return [$items[0]->toRenderable()];
   }
 
 }
