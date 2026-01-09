@@ -99,6 +99,10 @@ trait ComponentValueTitleResolverTrait {
    */
   private function fetchPageTitle(): mixed {
     $title = NULL;
+    // Handle entity revision routes.
+    if ($this->routeMatch->getRouteName() === 'entity.' . $this->shape->getEntity()->getEntityTypeId() . '.revision') {
+      return $this->shape->getEntity()->label();
+    }
     $route = $this->routeMatch->getRouteObject();
     if ($route) {
       $title = $this->titleResolver->getTitle($this->request, $route);
