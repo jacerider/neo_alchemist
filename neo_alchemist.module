@@ -327,6 +327,11 @@ function neo_alchemist_content_entity_form_redirect(array $form, FormStateInterf
   if ($formObject instanceof ContentEntityFormInterface) {
     $entity = $formObject->getEntity();
     if ($entity->hasLinkTemplate('alchemist')) {
+      // remove 'destination' query parameter from current request to avoid
+      // interfering with our redirect.
+      $request = \Drupal::request();
+      $request->query->remove('destination');
+
       $form_state->setRedirectUrl($entity->toUrl('alchemist'));
     }
   }
