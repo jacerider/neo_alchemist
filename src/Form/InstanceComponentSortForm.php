@@ -86,7 +86,8 @@ final class InstanceComponentSortForm extends ContentEntityForm {
       ],
     ];
     $weight = 0;
-    foreach ($this->fieldItem->toOptions($parentUuid, $shapeId) as $uuid => $label) {
+    $options = $this->fieldItem->toOptions($parentUuid, $shapeId);
+    foreach ($options as $uuid => $label) {
       $row = [];
       $row['#attributes']['class'] = ['draggable'];
       if ($uuid === $focusUuid) {
@@ -100,6 +101,7 @@ final class InstanceComponentSortForm extends ContentEntityForm {
         '#title' => t('Weight'),
         '#title_display' => 'invisible',
         '#default_value' => $weight,
+        '#delta' => count($options) / 2,
         '#attributes' => [
           'class' => [
             'draggable-weight',
