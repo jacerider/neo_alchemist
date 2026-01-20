@@ -44,7 +44,7 @@ class HeadingShape extends ObjectShape {
     // Use the anchor.
     $anchor = Str::machine($value['anchor'] ?? $value['title'] ?? '', '-');
     $attributes->setAttribute('id', $anchor);
-    $attributes->addClass('scroll-mt-neo-t');
+    $attributes->addClass('scroll-mt-[calc(var(--spacing-neo-t)+20px)]');
     if ($value['title'] ?? NULL) {
       $attributes->setAttribute('data-component-title', $value['title']);
     }

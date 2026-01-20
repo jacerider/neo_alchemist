@@ -11,10 +11,13 @@
   set event_classes = 'absolute cursor-pointer'
 %}
 {%
-  set op_wrapper_classes = 'neo-alchemist--overlay-actions absolute flex items-center justify-center left-0 right-0 pointer-events-none transition'
+  set op_wrapper_classes = 'neo-alchemist--overlay-actions absolute flex items-center justify-center left-0 right-0 pointer-events-none transition gap-1'
 %}
 {%
-  set op_classes = 'bg-primary-500 text-primary-500-content px-2 py-1 text-xs transition pointer-events-auto hover:bg-base-600 hover:text-base-600-content'
+  set op_add_classes = 'bg-primary-500 text-primary-500-content px-2 py-1 text-xs transition pointer-events-auto hover:bg-base-600 hover:text-base-600-content'
+%}
+{%
+  set op_move_classes = 'bg-base-500 text-base-500-content px-2 py-1 text-xs transition pointer-events-auto hover:bg-base-600 hover:text-base-600-content'
 %}
 <div class="neo-alchemist--panel neo-alchemist--panel-top fixed" style="display: none;" data-alchemist-ignore data-alchemist-nodrag>
   <div class="flex gap-2 items-center bg-base-900 text-base-900-content shadow py-2 px-4">
@@ -43,10 +46,12 @@
     {# Label will go here. #}
   </div>
   <div class="{{ op_wrapper_classes }} bottom-full">
-    {{ op_add_before|neo_class(['rounded-t', op_classes]) }}
+    {{ op_add_before|neo_class(['rounded-t', op_add_classes]) }}
+    {{ op_move_up|neo_class(['rounded-t', op_move_classes]) }}
   </div>
   <div class="{{ op_wrapper_classes }} top-full">
-    {{ op_add_after|neo_class(['rounded-b', op_classes]) }}
+    {{ op_add_after|neo_class(['rounded-b', op_add_classes]) }}
+    {{ op_move_down|neo_class(['rounded-b', op_move_classes]) }}
   </div>
 </div>
 <div class="neo-alchemist--element-base {{ element_classes }}" data-alchemist-ignore></div>

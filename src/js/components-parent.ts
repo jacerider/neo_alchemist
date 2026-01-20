@@ -26,6 +26,7 @@
     delete: (uuid: string) => void;
     clone: (uuid: string) => void;
     add: (uuid: string, position: string) => void;
+    move: (uuid: string, direction: string) => void;
   }
 
   // Elements
@@ -42,6 +43,8 @@
     const size = iframe.dataset.size as 'desktop' | 'tablet' | 'mobile';
     iframes[size] = iframe;
   });
+  Drupal.neoAlchemist = Drupal.neoAlchemist || {};
+  Drupal.neoAlchemist.iframes = iframes;
 
   // Data
   const structureElements: Record<string, Record<'desktop' | 'tablet' | 'mobile', HTMLElement>> = {};
@@ -609,12 +612,6 @@
     }, transitionSpeed);
   }
 
-  // function shadeShow(uuid: string): void {
-  //   sizes.forEach(size => {
-  //     shadeShowLevel(uuid, size);
-  //   });
-  // }
-
   function shadeShowLevel(uuid: string, size: 'desktop' | 'tablet' | 'mobile'): void {
     const data = structureData[uuid];
     const level = data.parents.length as 0 | 1 | 2;
@@ -1092,6 +1089,20 @@
         url: url,
         dialogType: 'modal',
         dialog: baseModalOptions,
+      }).execute();
+    },
+
+    move: (uuid: string, direction: string): void => {
+      let url = `${drupalSettings.neoAlchemist.baseUrl}/move/${uuid}/${direction}`;
+      if (layerUuid) {
+        const data = structureData[layerUuid];
+        const parent = data.parents[data.parents.length - 1] || null;
+        if (parent) {
+          url += `&parent=${parent}`;
+        }
+      }
+      Drupal.ajax({
+        url: url,
       }).execute();
     },
   };

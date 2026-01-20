@@ -1173,7 +1173,7 @@ class Component extends ConfigEntityBase implements ComponentInterface {
   /**
    * {@inheritdoc}
    */
-  public function toRenderable() {
+  public function toRenderable($isFirst = FALSE, $isLast = FALSE): array {
     if ($this->isPreview()) {
       // When rendering as preview, we need to set the target entity so that
       // shapes and slots that utilize route parameters will have something
@@ -1199,7 +1199,7 @@ class Component extends ConfigEntityBase implements ComponentInterface {
     }
 
     if ($this->isManagePreview()) {
-      $build = $this->prepareRenderableForPreview($build);
+      $build = $this->prepareRenderableForPreview($build, $isFirst, $isLast);
     }
 
     $cacheableMetadata = $this->getCacheableMetadata();
@@ -1213,11 +1213,15 @@ class Component extends ConfigEntityBase implements ComponentInterface {
    *
    * @param array $build
    *   The render array build.
+   * @param bool $isFirst
+   *   Whether this is the first component in a list.
+   * @param bool $isLast
+   *   Whether this is the last component in a list.
    *
    * @return array
    *   The modified render array build.
    */
-  private function prepareRenderableForPreview(array $build): array {
+  private function prepareRenderableForPreview(array $build, $isFirst = FALSE, $isLast = FALSE): array {
     $alerts = [];
     $warnings = [];
     if (!$this->isPublished()) {
@@ -1237,6 +1241,8 @@ class Component extends ConfigEntityBase implements ComponentInterface {
         'clone' => $this->access('clone'),
         'add-before' => $this->access('create'),
         'add-after' => $this->access('create'),
+        'move-up' => $this->access('sort') && !$isFirst,
+        'move-down' => $this->access('sort') && !$isLast,
       ],
     ];
 

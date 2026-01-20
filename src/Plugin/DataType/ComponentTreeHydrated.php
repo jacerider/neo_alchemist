@@ -129,7 +129,13 @@ class ComponentTreeHydrated extends TypedData implements RenderableInterface {
 
     $build = [];
     foreach ($hydrated as $component_subtree_uuid => $component_instances) {
+      // Get first and last UUIDs for caching purposes.
+      $uuids = array_keys($component_instances);
+      $first = reset($uuids);
+      $last = end($uuids);
       foreach ($component_instances as $component_instance_uuid => $component_instance) {
+        $isFirst = $first === $component_instance_uuid;
+        $isLast = $last === $component_instance_uuid;
         $instance = $item->getComponent($component_instance_uuid);
         $cacheableMetadata->addCacheableDependency($instance);
         if (!$instance->access('view')) {
@@ -147,8 +153,7 @@ class ComponentTreeHydrated extends TypedData implements RenderableInterface {
             }
           }
         }
-        // $instance->getPropShapes();
-        $build[$component_subtree_uuid][$component_instance_uuid] = $instance->toRenderable();
+        $build[$component_subtree_uuid][$component_instance_uuid] = $instance->toRenderable($isFirst, $isLast);
       }
     }
     return $build;

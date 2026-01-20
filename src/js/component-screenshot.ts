@@ -5,6 +5,33 @@
 
   window.addEventListener('message', function(e) {
     const data = e.data;
+    if (typeof data.type === 'string' && data.type === 'screenshotComponents') {
+      const components = this.document.querySelectorAll('[data-component-uuid]') as NodeListOf<HTMLElement>;
+      const images:any = {};
+      let completed = 0;
+      components.forEach((el) => {
+        const component = el as HTMLElement;
+        if (!component.dataset.componentUuid) {
+          return;
+        }
+        const componentUuid = component.dataset.componentUuid as string;
+        html2canvas(component, {
+          useCORS: true,
+        }).then((canvas:any) => {
+          images[componentUuid] = canvas.toDataURL();
+          completed++;
+          if (completed === components.length) {
+            window.parent.postMessage({
+              type: 'screenshotComponents',
+              id: id,
+              size: size,
+              images: images,
+            }, '*');
+          }
+        });
+      });
+      return;
+    }
     if (typeof data.type === 'string' && data.type === 'screenshot') {
       const wrapper = document.querySelector('.neo-alchemist-preview') as HTMLElement;
       if (!wrapper) {
@@ -19,8 +46,6 @@
       wrapper.style.justifyContent = 'start';
       wrapper.style.padding = '15px 0 0';
       wrapper.style.boxShadow = 'inset 0 0 0 2px black';
-      // wrapper.style.border = '2px dotted black';
-      // wrapper.style.borderStyle = 'inset';
       const components = this.document.querySelectorAll('[data-component-id]') as NodeListOf<HTMLElement>;
       components.forEach((el) => {
         el.style.width = '1024px';

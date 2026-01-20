@@ -207,6 +207,18 @@ class RouteSubscriber extends RouteSubscriberBase {
               ->setOption('_admin_route', TRUE)
               ->setRequirement('_neo_component', "neo_component.delete");
             $collection->add("entity.{$entityTypeId}.alchemist.delete", $route);
+
+            // Component move route.
+            $route = new Route($entityType->getLinkTemplate('alchemist') . "/{neo_field}/move/{neo_component}/{direction}");
+            $route
+              ->setDefaults([
+                '_controller' => 'Drupal\neo_alchemist\Controller\InstanceComponentMoveController',
+                '_title_callback' => 'Drupal\neo_alchemist\Controller\InstanceComponentMoveController::getTitle',
+              ] + $defaults)
+              ->setOption('parameters', $fieldComponentParameters)
+              ->setOption('_admin_route', TRUE)
+              ->setRequirement('_neo_component_field', "neo_field.sort");
+            $collection->add("entity.{$entityTypeId}.alchemist.move", $route);
           }
         }
 
@@ -340,6 +352,16 @@ class RouteSubscriber extends RouteSubscriberBase {
               ->setOptions($fieldComponentOptions)
               ->setRequirement('_neo_component', "neo_component.delete");
             $collection->add("entity.{$entityTypeId}.field_ui.alchemist.delete", $route);
+
+            $route = new Route("$path/alchemist/{neo_field}/move/{neo_component}/{direction}");
+            $route
+              ->setDefaults([
+                '_controller' => 'Drupal\neo_alchemist\Controller\InstanceComponentMoveController',
+                'title' => 'Move',
+              ] + $defaults)
+              ->setOptions($fieldComponentOptions)
+              ->setRequirement('_neo_component_field', "neo_field.sort");
+            $collection->add("entity.{$entityTypeId}.field_ui.alchemist.move", $route);
           }
         }
       }

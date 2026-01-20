@@ -65,11 +65,12 @@ final class InstanceComponentSortForm extends ContentEntityForm {
     $focusUuid = $form_state->get('uuid');
     $parentUuid = $form_state->get('parentUuid');
     $shapeId = $form_state->get('shapeId');
+    $form['#attached']['library'][] = 'neo_alchemist/component.sort';
+    $form['#attributes']['class'][] = 'neo-component-sort-form';
 
     // Add #process and #after_build callbacks.
     $form['#process'][] = '::processForm';
     $form['#after_build'][] = '::afterBuild';
-
     $form['values'] = [
       '#type' => 'table',
       '#id' => 'neo-components-sort',
@@ -90,11 +91,12 @@ final class InstanceComponentSortForm extends ContentEntityForm {
     foreach ($options as $uuid => $label) {
       $row = [];
       $row['#attributes']['class'] = ['draggable'];
+      $row['#attributes']['data-component-sort-uuid'] = $uuid;
       if ($uuid === $focusUuid) {
         $row['#attributes']['class'][] = 'tr--focus';
       }
       $row['label'] = [
-        '#markup' => $label . ' <small>(' . $uuid . ')</small>',
+        '#markup' => '<div class="flex items-center gap-4"><span class="thumbnail"></span>' . $label . ' <small>(' . $uuid . ')</small></div>',
       ];
       $row['weight'] = [
         '#type' => 'weight',

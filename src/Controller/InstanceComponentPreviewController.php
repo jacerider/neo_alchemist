@@ -4,12 +4,10 @@ declare(strict_types=1);
 
 namespace Drupal\neo_alchemist\Controller;
 
-use Drupal\Component\Serialization\Json;
 use Drupal\Core\Cache\CacheableMetadata;
 use Drupal\Core\Controller\ControllerBase;
 use Drupal\Core\Render\BareHtmlPageRendererInterface;
 use Drupal\Core\TempStore\PrivateTempStoreFactory;
-use Drupal\neo_alchemist\Plugin\DataType\ComponentTreeStructure;
 use Drupal\neo_alchemist\Plugin\Field\FieldType\ComponentTreeItem;
 use Drupal\neo_icon\IconTrait;
 use Symfony\Component\DependencyInjection\ContainerInterface;
@@ -60,6 +58,9 @@ final class InstanceComponentPreviewController extends ControllerBase {
     }
     else {
       $build = $this->all($neo_field);
+      if ($request->query->get('size') === 'desktop') {
+        $build['#attached']['library'][] = 'neo_alchemist/component.screenshot';
+      }
     }
     return $this->bareHtmlPageRenderer->renderBarePage($build, $this->getTitle($neo_field), 'front')->addCacheableDependency((new CacheableMetadata())->setCacheMaxAge(0));
   }

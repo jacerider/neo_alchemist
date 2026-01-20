@@ -66,8 +66,6 @@
           setTimeout(() => {
             if (Drupal.CKEditor5Instances.size) {
               Drupal.CKEditor5Instances.forEach((editor) => {
-                // console.log(editor.ui.view);
-                // editor.ui.view.element.style.maxHeight = '200px';
                 editor.model.document.on( 'change:data', () => {
                   throttledInput();
                 });

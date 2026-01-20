@@ -357,7 +357,7 @@ class ComponentTreeItem extends FieldItemBase implements RenderableInterface, Co
    * components associated with the specified parent UUID. It loads each
    * component and adds its label to the options array.
    *
-   * @param string $parentUuid
+   * @param string|null $parentUuid
    *   The UUID of the parent component. Defaults to the root UUID.
    * @param string|null $slot
    *   The slot within the parent component. If provided, only components within
@@ -367,9 +367,12 @@ class ComponentTreeItem extends FieldItemBase implements RenderableInterface, Co
    *   An associative array where the keys are component UUIDs and the values
    *   are component labels.
    */
-  public function toOptions(string $parentUuid = ComponentTreeStructure::ROOT_UUID, ?string $slot = NULL) {
+  public function toOptions(?string $parentUuid = ComponentTreeStructure::ROOT_UUID, ?string $slot = NULL) {
     if ($parentUuid !== ComponentTreeStructure::ROOT_UUID && $slot === NULL) {
       throw new \InvalidArgumentException('When sorting on a non-root parent, a slot is required.');
+    }
+    if (empty($parentUuid)) {
+      $parentUuid = ComponentTreeStructure::ROOT_UUID;
     }
     $options = [];
     $tree = $this->get('tree');
@@ -585,6 +588,9 @@ class ComponentTreeItem extends FieldItemBase implements RenderableInterface, Co
   public function sortComponents(array $componentInstanceIds, string $parentUuid = ComponentTreeStructure::ROOT_UUID, $slot = NULL): self {
     $tree = $this->get('tree');
     assert($tree instanceof ComponentTreeStructure);
+    if (empty($parentUuid)) {
+      $parentUuid = ComponentTreeStructure::ROOT_UUID;
+    }
     $tree->sortComponents($componentInstanceIds, $parentUuid, $slot);
     return $this;
   }

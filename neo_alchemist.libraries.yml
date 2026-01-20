@@ -70,6 +70,15 @@ component.ajax:
     - core/drupal
     - core/drupal.ajax
 
+component.sort:
+  version: VERSION
+  neo: true
+  js:
+    src/js/component-sort.ts: {}
+  dependencies:
+    - core/once
+    - core/drupal
+
 utilities:
   version: VERSION
   neo:

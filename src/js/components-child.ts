@@ -152,7 +152,6 @@
         group: eventInfo.group ? uuid + ':event:' + eventInfo.group : eventUuid,
         action: eventInfo.action || '',
       };
-      console.log('eventInfo', data[eventUuid]);
     });
     return data;
   }
