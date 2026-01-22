@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Drupal\neo_alchemist\Plugin\ComponentValue;
 
 use Drupal\Component\Utility\Html;
-use Drupal\Core\Ajax\AjaxResponse;
 use Drupal\Core\Ajax\ReplaceCommand;
 use Drupal\Core\DependencyInjection\DependencySerializationTrait;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
@@ -385,7 +384,7 @@ final class MediaValue extends ComponentValuePluginBase implements ContainerFact
     if ($shape instanceof ComponentShapeMediaPluginInterface) {
       $media = $shape->getFieldItem()->entity;
       if ($media instanceof MediaInterface) {
-        $value = $shape->getValueFromMedia($media);
+        $value = $shape->getValueFromMedia($media) + $value;
       }
     }
     if ($title !== NULL) {
