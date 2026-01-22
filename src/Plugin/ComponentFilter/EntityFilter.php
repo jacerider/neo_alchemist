@@ -341,6 +341,9 @@ final class EntityFilter extends ComponentFilterPluginBase implements ContainerF
         }
         $fieldType = $this->configuration['field_type'] === 'select' ? 'select' : ($allowMultiple ? 'checkboxes' : 'radios');
         $defaultValue = $value ?? [];
+        if ($allowMultiple && is_string($defaultValue)) {
+          $defaultValue = explode($this->configuration['multiple_operator'], $defaultValue);
+        }
         if (!$allowMultiple && is_array($defaultValue)) {
           $defaultValue = reset($defaultValue) ?: '';
         }
