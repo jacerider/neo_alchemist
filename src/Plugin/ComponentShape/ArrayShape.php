@@ -301,6 +301,13 @@ class ArrayShape extends ChildrenShapeBase implements ComponentShapeInterablePlu
     $form['#required'] = $this->isRequired();
 
     if (!empty($shapeList)) {
+      $addNew = FALSE;
+      if ($trigger = $form_state->getTriggeringElement()) {
+        if ($trigger['#op'] ?? '' === 'add') {
+          $addNew = TRUE;
+        }
+      }
+      $lastKey = array_key_last($shapeList);
       foreach ($shapeList as $delta => $shapes) {
         /** @var \Drupal\neo_alchemist\ComponentShapePluginInterface[] $shapes */
         $form[$delta] = [
@@ -310,8 +317,10 @@ class ArrayShape extends ChildrenShapeBase implements ComponentShapeInterablePlu
             '@label' => $itemLabel,
             '@delta' => $delta + 1,
           ]),
-          // '#parents' => array_merge($form['#parents'], [$delta]),
         ];
+        if ($addNew && $delta === $lastKey) {
+          $form[$delta]['#open'] = TRUE;
+        }
         if ($min < $count) {
           $form[$delta]['remove'] = [
             '#type' => 'submit',
@@ -349,6 +358,7 @@ class ArrayShape extends ChildrenShapeBase implements ComponentShapeInterablePlu
         '#value' => $this->t('Add @label', [
           '@label' => $itemLabel,
         ]),
+        '#op' => 'add',
         '#neo_size' => 'xs',
         '#submit' => [[get_class($this), 'addMoreSubmit']],
         '#limit_validation_errors' => [],
