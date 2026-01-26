@@ -4,24 +4,27 @@ declare(strict_types=1);
 
 namespace Drupal\neo_alchemist\Plugin\ComponentValue;
 
-use Drupal\Component\Serialization\Json;
 use Drupal\Core\Form\FormStateInterface;
-use Drupal\Core\Plugin\ContainerFactoryPluginInterface;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\neo\Helpers\NestedArray;
 use Drupal\neo_alchemist\Attribute\ComponentValue;
+use Drupal\neo_alchemist\ComponentShapeStylePluginInterface;
 use Drupal\neo_alchemist\ComponentValuePluginBase;
 
 /**
  * Plugin implementation of the neo_component_value_provider.
+ *
+ * This plugin can be used on both image fields and on the image_size style
+ * shape. It provides values differently based on the context.
  */
 #[ComponentValue(
   id: 'media_image_size',
   label: new TranslatableMarkup('Media Image Size'),
   description: new TranslatableMarkup('Provide the ability to allow the image size to be set on the component.'),
-  group: 'providers',
+  group: 'modifiers',
   ref_types: [
     'image',
+    'image_size',
   ],
   weight: 10,
 )]
@@ -39,8 +42,17 @@ final class MediaImageSizeValue extends ComponentValuePluginBase {
           'height' => '',
         ],
       ],
-      // 'override' => TRUE,
     ];
+  }
+
+  /**
+   * Check if the shape is an image size shape.
+   *
+   * @return bool
+   *   TRUE if the shape is an image size shape, FALSE otherwise.
+   */
+  protected function isStyle(): bool {
+    return $this->shape instanceof ComponentShapeStylePluginInterface;
   }
 
   /**
@@ -57,7 +69,7 @@ final class MediaImageSizeValue extends ComponentValuePluginBase {
 
     $form['info'] = [
       '#type' => 'markup',
-      '#markup' => '<div class="messages messages--warning">' . $this->t('This modifier will work as long as your template is rendering images with {{ neo_image_style(image.src, {scaleCrop: {width: 100, height: 100}}, image.alt) }}.') . '</div>',
+      '#markup' => '<div class="messages messages--warning">' . $this->t('This modifier will work as long as your template is rendering images with something like: {{ neo_image_style(image.src, image.size|default({scaleCrop: {width: 100, height: 100}}), image.alt) }}.') . '</div>',
     ];
 
     $form['sizes'] = [
@@ -66,7 +78,6 @@ final class MediaImageSizeValue extends ComponentValuePluginBase {
       '#attributes' => [
         'id' => $id,
       ],
-      // '#access' => $count > 0,
     ];
 
     for ($i = 0; $i < $count; $i++) {
@@ -148,9 +159,11 @@ final class MediaImageSizeValue extends ComponentValuePluginBase {
    * {@inheritdoc}
    */
   public function provideDefaultValue(mixed $value): mixed {
-    $value['size'] = NULL;
-    if ($overrideValue = $this->shape->getOverrideValue()) {
-      $value['size'] = $overrideValue['size'] ?? NULL;
+    if (!$this->isStyle()) {
+      $value['size'] = NULL;
+      if ($overrideValue = $this->shape->getOverrideValue()) {
+        $value['size'] = $overrideValue['size'] ?? NULL;
+      }
     }
     return $value;
   }
@@ -158,12 +171,24 @@ final class MediaImageSizeValue extends ComponentValuePluginBase {
   /**
    * {@inheritdoc}
    */
-  public function alterValue(mixed $value, string $type): mixed {
-    if ($size = $this->getSize($value['size'] ?? NULL)) {
-      $value['size'] = $size['size']['dimensions'] ?? [];
+  public function modifyValue(mixed $value): mixed {
+    if ($this->isStyle()) {
+      // If this is a style shape, we just return the size dimensions.
+      $size = NULL;
+      if ($overrideValue = $this->shape->getOverrideValue()) {
+        $size = $overrideValue['value'] ?: NULL;
+      }
+      if ($size = $this->getSize($size)) {
+        return $size['size']['dimensions'] ?? [];
+      }
     }
     else {
-      $value['size'] = [];
+      if ($size = $this->getSize($value['size'] ?? NULL)) {
+        $value['size'] = $size['size']['dimensions'] ?? [];
+      }
+      else {
+        $value['size'] = NULL;
+      }
     }
     return $value;
   }
@@ -172,6 +197,10 @@ final class MediaImageSizeValue extends ComponentValuePluginBase {
    * {@inheritdoc}
    */
   public function massageValuesAlter(array &$values, array $submitted_values, array $original_values, array $form, FormStateInterface $form_state): void {
+    if ($this->isStyle()) {
+      // We do not need to massage the values.
+      return;
+    }
     $values['size'] = $submitted_values['size'] ?? NULL;
   }
 
@@ -182,6 +211,13 @@ final class MediaImageSizeValue extends ComponentValuePluginBase {
     $options = array_map(function ($size) {
       return $size['label'];
     }, $this->configuration['sizes']);
+
+    if ($this->isStyle()) {
+      // If this is a style shape, provide the select options directly.
+      $element['value']['#options'] = $options;
+      return;
+    }
+
     $element['size'] = [
       '#type' => 'select',
       '#title' => $this->t('Image Size'),

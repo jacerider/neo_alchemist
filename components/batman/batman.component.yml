@@ -21,9 +21,9 @@ props:
           alt: 'Boring placeholder'
           width: 300
           height: 200
-    region:
-      title: Region
-      type: region
+    # region:
+    #   title: Region
+    #   type: region
     # markup:
     #   type: markup
     #   title: Markup
@@ -107,28 +107,28 @@ props:
     #           alt: 'Boring placeholder'
     #           width: 300
     #           height: 200
-    a:
-      type: object
-      title: AA
-      properties:
-        b:
-          type: string
-          title: B
-        bb:
-          type: object
-          title: BB
-          properties:
-            c:
-              type: string
-              title: C
-            image:
-              title: 'Image'
-              type: image
-              examples:
-                - src: https://placehold.co/300x200.png
-                  alt: 'Boring placeholder'
-                  width: 300
-                  height: 200
+    # a:
+    #   type: object
+    #   title: AA
+    #   properties:
+    #     b:
+    #       type: string
+    #       title: B
+    #     bb:
+    #       type: object
+    #       title: BB
+    #       properties:
+    #         c:
+    #           type: string
+    #           title: C
+    #         image:
+    #           title: 'Image'
+    #           type: image
+    #           examples:
+    #             - src: https://placehold.co/300x200.png
+    #               alt: 'Boring placeholder'
+    #               width: 300
+    #               height: 200
             # cc:
             #   type: object
             #   title: CC
@@ -179,29 +179,37 @@ props:
     #               alt: 'Boring placeholder'
     #               width: 300
     #               height: 200
-    # tmp_array:
-    #   type: array
-    #   title: Tmp Array
-    #   description: A super array.
-    #   # @todo Add examples here.
-    #   examples:
-    #     - title: Google
-    #       url: https://google.com
-    #     - title: Yahoo
-    #       url: https://yahoo.com
-    #   items:
-    #     type: object
-    #     title: Items
-    #     required:
-    #       - title
-    #     properties:
-    #       title:
-    #         type: string
-    #         title: Title
-    #         description: The item title.
-    #       url:
-    #         type: url
-    #         title: URL
+    tmp_array:
+      type: array
+      title: Tmp Array
+      description: A super array.
+      # @todo Add examples here.
+      examples:
+        - title: Google
+          url: https://google.com
+        - title: Yahoo
+          url: https://yahoo.com
+      items:
+        type: object
+        title: Items
+        required:
+          - title
+        properties:
+          title:
+            type: string
+            title: Title
+            description: The item title.
+          url:
+            type: url
+            title: URL
+          image:
+            title: 'Image'
+            type: image
+            examples:
+              - src: https://placehold.co/300x200.png
+                alt: 'Boring placeholder'
+                width: 300
+                height: 200
 
     # email:
     #   type: email
@@ -366,6 +374,27 @@ props:
     #           max:
     #             type: string
     #             title: Max
+    spacing:
+      type: spacing
+    image_size:
+      type: image_size
+      styles:
+        sm:
+          label: Small
+          value:
+            op: focal
+            width: 100
+            height: 100
+        md:
+          label: Medium
+          value:
+            op: focal
+            width: 200
+            height: 200
+        scale:
+          label: Scale
+          value:
+            width: 300
 slots:
   first:
     title: First

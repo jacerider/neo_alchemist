@@ -78,7 +78,7 @@ image:
     prefix: '{% if %name% %}'
     content:
       - '{# To render an image using Neo dynamic styles #}'
-      - '{{ neo_image_style(%name%.src, {focal: {width: 200, height: 100}}, %name%.alt) }}'
+      - '{{ neo_image_style(%name%.src, image.size|default({focal: {width: 200, height: 100}}), %name%.alt) }}'
       - '{# Neo dynamic styles can be:'
       - '  - Exact: {exact: {width: 200, height: 100}}'
       - '  - Size: {size: {width: 200, height: 100}}'
@@ -89,9 +89,9 @@ image:
       - '  - Focal Width: {focalWidth: {width: 200}}'
       - '#}'
       - '{# Responsive image #}'
-      - '{# neo_image(image.src, {sm: {op: "focal", width: 200, height: 100}, md: {op: "focal", width: 400, height: 300}}, image.alt) #}'
+      - '{# neo_image(image.src, image.size|default({sm: {op: "focal", width: 200, height: 100}, md: {op: "focal", width: 400, height: 300}}), image.alt) #}'
       - '{# URL to image #}'
-      - '{# neo_image_style_url(%name%.src, {scale: {width: 200}}) #}'
+      - '{# neo_image_style_url(%name%.src, image.size|default({scale: {width: 200}})) #}'
     suffix: '{% endif %}'
 
 image-uri:
@@ -425,6 +425,11 @@ scheme:
   description: The color scheme of the component.
   type: string
   examples: default
+
+image_size:
+  title: Image Size
+  description: The size of the images.
+  type: array
 
 style:
   title: Style

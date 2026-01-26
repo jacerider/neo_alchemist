@@ -80,6 +80,7 @@ final class ComponentManageForm extends EntityForm {
     $form_state->set('neo_component_form', TRUE);
     /** @var \Drupal\neo_alchemist\ComponentInterface $entity */
     $entity = $this->entity;
+    $form['#neo_style'] = 'clean';
 
     $form += $this->buildPropsForm($form, $form_state);
     $form += $this->buildSlotsForm($form, $form_state);

@@ -8,7 +8,6 @@ use Drupal\Component\Utility\NestedArray;
 use Drupal\Core\Field\FieldDefinitionInterface;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Form\SubformState;
-use Drupal\Core\Form\SubformStateInterface;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\neo_alchemist\Attribute\ComponentShape;
 use Drupal\neo_alchemist\ComponentShapeExpandedPluginInterface;

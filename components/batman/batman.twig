@@ -16,7 +16,10 @@
 
   {% if image %}
     <div>
-      {{ neo_image_style(image.src, {scaleCrop: {width: 300, height: 200}}, image.alt) }}
+      {# Size: {{ image.size }} #}
+      {# {{ neo_image_style(image.src, image.size, image.alt) }} #}
+      {{ neo_image_style(image.src, image.size|default({scaleCrop: {width: 300, height: 200}}), image.alt) }}
+      {# {{ neo_image_style_url(image.src, image.size|default({scaleCrop: {width: 300, height: 200}}), image.alt) }} #}
     </div>
   {% endif %}
   <div>
@@ -82,6 +85,18 @@
               <div>{{ link('View Now', item.url.uri, item.url.options)|neo_class('btn btn-sm') }}</div>
             {% endif %}
           </div>
+        </div>
+      {% endfor %}
+    </div>
+  {% endif %}
+  {% if tmp_array %}
+    <div>
+      {% for entry in tmp_array %}
+        <div>
+          <div class="font-bold">{{ entry.title }}</div>
+          <div>{{ entry.url.uri }}</div>
+          <div>{{ neo_image(entry.image.src, image_size|default({sm: {op: "focal", width: 200, height: 100}}), entry.image.alt) }}</div>
+          {# <div>{{ neo_image_style_url(entry.image.src, image_size|default({scaleCrop: {width: 200, height: 100}}), entry.image.alt) }}</div> #}
         </div>
       {% endfor %}
     </div>
