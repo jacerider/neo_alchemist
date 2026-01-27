@@ -260,9 +260,9 @@ final class ViewsValue extends ComponentValuePluginBase implements ContainerFact
   }
 
   /**
-   * Alter the configuration form for a child match.
+   * Alter the available child match options.
    */
-  protected function alterChildMatchConfigurationForm(ComponentShapePluginInterface $shape, &$form, FormStateInterface $form_state, $entityTypeId, $bundle = NULL, array $configuration = []) {
+  protected function alterChildMatchOptions(array &$options, ComponentShapePluginInterface $shape, FormStateInterface $form_state) {
     if ($shape->getType() !== 'string') {
       return;
     }
@@ -271,14 +271,31 @@ final class ViewsValue extends ComponentValuePluginBase implements ContainerFact
     // Support fields directly rendered by views.
     /** @var \Drupal\views\Plugin\views\field\FieldPluginBase[] $fields */
     $fields = $display->getHandlers('field');
-    $viewFieldOptions = [];
     foreach ($fields as $fieldName => $field) {
-      $viewFieldOptions['- Views -']['_view:' . $fieldName] = $field->adminLabel();
+      $options['- Views -']['_view:' . $fieldName] = $field->adminLabel();
     }
+  }
 
-    if (isset($form['field']['#options'])) {
-      $form['field']['#options'] = [key($form['field']['#options']) => reset($form['field']['#options'])] + $viewFieldOptions + $form['field']['#options'];
-    }
+  /**
+   * Alter the configuration form for a child match.
+   */
+  protected function alterChildMatchConfigurationForm(ComponentShapePluginInterface $shape, &$form, FormStateInterface $form_state, $entityTypeId, $bundle = NULL, array $configuration = []) {
+    // if ($shape->getType() !== 'string') {
+    //   return;
+    // }
+    // $view = $form_state->get('view');
+    // $display = $view->getDisplay();
+    // // Support fields directly rendered by views.
+    // /** @var \Drupal\views\Plugin\views\field\FieldPluginBase[] $fields */
+    // $fields = $display->getHandlers('field');
+    // $viewFieldOptions = [];
+    // foreach ($fields as $fieldName => $field) {
+    //   $viewFieldOptions['- Views -']['_view:' . $fieldName] = $field->adminLabel();
+    // }
+
+    // if (isset($form['field']['#options'])) {
+    //   $form['field']['#options'] = [key($form['field']['#options']) => reset($form['field']['#options'])] + $viewFieldOptions + $form['field']['#options'];
+    // }
   }
 
   /**
@@ -394,33 +411,34 @@ final class ViewsValue extends ComponentValuePluginBase implements ContainerFact
       return $value;
     }
     if ($view = $this->getView()) {
-
       // Get entities.
       $entities = [];
       foreach (array_map(fn($row) => $row->_entity, $view->result) as $entity) {
-        $entities[$entity->id()][] = $entity;
+        $entities[] = $entity;
       }
 
       $args = $view->args;
       if (!empty($this->configuration['view_arguments_sort']) && !empty($args[0])) {
         $ids = explode('+', $args[0]);
         if (count($ids) > 1) {
+          $groupedEntities = [];
+          foreach ($entities as $entity) {
+            $groupedEntities[$entity->id()][] = $entity;
+          }
           $orderedEntities = [];
           foreach ($ids as $id) {
-            if (isset($entities[$id])) {
-              $orderedEntities[$id] = $entities[$id];
+            if (isset($groupedEntities[$id])) {
+              $orderedEntities[$id] = $groupedEntities[$id];
             }
           }
-          $entities = $orderedEntities;
+          $groupedEntities = $orderedEntities;
+          foreach ($groupedEntities as $entityGroup) {
+            foreach ($entityGroup as $entity) {
+              $entities[] = $entity;
+            }
+          }
         }
       }
-      $finalEntities = [];
-      foreach ($entities as $entityGroup) {
-        foreach ($entityGroup as $entity) {
-          $finalEntities[] = $entity;
-        }
-      }
-      $entities = $finalEntities;
       if (!$entities && empty($this->configuration['continue'])) {
         $this->stopFurtherProcessing();
         $value = [];
