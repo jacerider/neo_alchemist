@@ -158,6 +158,7 @@ trait ComponentValueChildrenMatchTrait {
     if ($shape->isExpandable()) {
       $options['- Shape -']['_expand'] = $this->t('Expand to configure child shapes');
     }
+    $this->alterChildMatchOptions($options, $shape, $form_state);
 
     $field = $configuration['field'] ?? NULL;
     $groups = array_keys($options);
@@ -338,6 +339,12 @@ trait ComponentValueChildrenMatchTrait {
       $values = [];
     }
     $form_state->setValue($element['#parents'], $values);
+  }
+
+  /**
+   * Alter the available child match options.
+   */
+  protected function alterChildMatchOptions(array &$options, ComponentShapePluginInterface $shape, FormStateInterface $form_state) {
   }
 
   /**
