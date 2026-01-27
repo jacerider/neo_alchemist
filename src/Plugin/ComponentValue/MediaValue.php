@@ -382,6 +382,11 @@ final class MediaValue extends ComponentValuePluginBase implements ContainerFact
     $title = $value['title'] ?? NULL;
     $shape = $this->shape;
     if ($shape instanceof ComponentShapeMediaPluginInterface) {
+      if (is_string($value)) {
+        $value = [
+          'target_id' => $value,
+        ];
+      }
       $media = $shape->getFieldItem()->entity;
       if ($media instanceof MediaInterface) {
         $value = $shape->getValueFromMedia($media) + $value;
