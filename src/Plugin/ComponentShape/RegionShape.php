@@ -112,6 +112,7 @@ class RegionShape extends ArrayShape implements ComponentShapeRegionPluginInterf
    * {@inheritDoc}
    */
   protected function preRenderValue(mixed $value, Attribute $attributes): mixed {
+    $value = parent::preRenderValue($value, $attributes);
     $component = $this->getComponent();
     $regionAttributes = new Attribute([
       'class' => ['neo-region'],

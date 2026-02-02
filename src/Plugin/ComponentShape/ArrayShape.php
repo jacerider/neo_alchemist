@@ -194,7 +194,6 @@ class ArrayShape extends ChildrenShapeBase implements ComponentShapeInterablePlu
    */
   protected function buildValue(): mixed {
     $values = parent::buildValue();
-
     $forceChildDefaultValue = $this->forceChildDefaultValues();
     foreach ($this->getChildShapeList($values) as $delta => $shapes) {
       /** @var \Drupal\neo_alchemist\ComponentShapePluginInterface[] $shapes */

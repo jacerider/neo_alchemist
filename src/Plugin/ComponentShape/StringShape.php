@@ -6,6 +6,7 @@ namespace Drupal\neo_alchemist\Plugin\ComponentShape;
 
 use Drupal\Core\Render\Markup;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
+use Drupal\Core\Template\Attribute;
 use Drupal\neo_alchemist\Attribute\ComponentShape;
 use Drupal\neo_alchemist\ComponentShapePluginBase;
 use Drupal\neo_alchemist\Drush\Generators\NeoComponentTwig;
@@ -34,8 +35,8 @@ class StringShape extends ComponentShapePluginBase {
   /**
    * {@inheritDoc}
    */
-  protected function buildValue(): mixed {
-    $value = parent::buildValue();
+  protected function preRenderValue(mixed $value, Attribute $attributes): mixed {
+    $value = parent::preRenderValue($value, $attributes);
     if (is_string($value) && $value !== strip_tags($value)) {
       $value = Markup::create($value);
     }

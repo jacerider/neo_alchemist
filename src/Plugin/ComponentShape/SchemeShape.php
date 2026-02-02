@@ -57,6 +57,7 @@ class SchemeShape extends StyleShapeBase {
    * {@inheritDoc}
    */
   protected function preRenderValue(mixed $value, Attribute $attributes): mixed {
+    $value = parent::preRenderValue($value, $attributes);
     $target_id = $value['target_id'] ?? $value;
     $finalValue = new ComponentShapeStyleAttribute([], $target_id);
     if ($target_id && is_string($target_id)) {

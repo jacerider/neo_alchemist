@@ -62,6 +62,7 @@ class ImageSize extends StyleShapeBase {
    * {@inheritDoc}
    */
   protected function preRenderValue(mixed $value, Attribute $attributes): mixed {
+    $value = parent::preRenderValue($value, $attributes);
     $finalValue = [];
     $styles = $this->schema['styles'] ?? [];
     if ($styles) {

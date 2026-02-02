@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Drupal\neo_alchemist\Plugin\ComponentShape;
 
 use Drupal\Core\Field\FieldDefinitionInterface;
+use Drupal\Core\Template\Attribute;
 use Drupal\neo\NeoLinkitFormatterTrait;
 use Drupal\neo_alchemist\ComponentShapePluginBase;
 
@@ -67,7 +68,8 @@ class UrlShapeBase extends ComponentShapePluginBase {
   /**
    * {@inheritDoc}
    */
-  public function adaptValue(mixed $value): mixed {
+  protected function preRenderValue(mixed $value, Attribute $attributes): mixed {
+    $value = parent::preRenderValue($value, $attributes);
     if (!empty($value)) {
       if ($url = $this->getLinkitUrl($this->getFieldItem())) {
         $value['uri'] = $url->toString();

@@ -41,6 +41,7 @@ class HeadingShape extends ObjectShape {
    * {@inheritDoc}
    */
   protected function preRenderValue(mixed $value, Attribute $attributes): mixed {
+    $value = parent::preRenderValue($value, $attributes);
     // Use the anchor.
     $anchor = Str::machine($value['anchor'] ?? $value['title'] ?? '', '-');
     $attributes->setAttribute('id', $anchor);

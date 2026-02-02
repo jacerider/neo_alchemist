@@ -51,6 +51,7 @@ class SlugShape extends ComponentShapePluginBase {
    * {@inheritDoc}
    */
   protected function preRenderValue(mixed $value, Attribute $attributes): mixed {
+    $value = parent::preRenderValue($value, $attributes);
     if ($value) {
       if (in_array($value, self::$slugs)) {
         $suffix = 2;

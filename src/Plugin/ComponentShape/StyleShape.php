@@ -112,6 +112,7 @@ class StyleShape extends StyleShapeBase {
    * {@inheritDoc}
    */
   protected function preRenderValue(mixed $value, Attribute $attributes): mixed {
+    $value = parent::preRenderValue($value, $attributes);
     $finalValue = new ComponentShapeStyleAttribute([], $value ?: NULL);
     if ($value && isset($this->schema['styles'][$value]['value'])) {
       $finalValue->addClass($this->schema['styles'][$value]['value']);
