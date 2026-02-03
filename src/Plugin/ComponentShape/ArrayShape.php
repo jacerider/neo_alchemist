@@ -305,6 +305,7 @@ class ArrayShape extends ChildrenShapeBase implements ComponentShapeInterablePlu
           $addNew = TRUE;
         }
       }
+      $total = count($shapeList);
       $lastKey = array_key_last($shapeList);
       foreach ($shapeList as $delta => $shapes) {
         /** @var \Drupal\neo_alchemist\ComponentShapePluginInterface[] $shapes */
@@ -315,7 +316,41 @@ class ArrayShape extends ChildrenShapeBase implements ComponentShapeInterablePlu
             '@label' => $itemLabel,
             '@delta' => $delta + 1,
           ]),
+          '#attributes' => [
+            'class' => ['neo-alchemist-draggable-item'],
+          ],
         ];
+        if ($total > 1) {
+          if ($delta === 0) {
+            $form[$delta]['#prefix'] = '<div class="neo-alchemist-draggable-list mb-2">';
+          }
+          elseif ($delta === $lastKey) {
+            $form[$delta]['#suffix'] = '</div>';
+          }
+          $form[$delta]['drag'] = [
+            '#type' => 'neo_icon',
+            '#icon' => 'arrows-alt',
+            '#icon_attributes' => [
+              'class' => [
+                'neo-alchemist-draggable-handle',
+                'text-sm mr-1 border rounded block p-1 cursor-move bg-base-100',
+              ],
+            ],
+            '#neo_region' => 'legend_end',
+          ];
+          $form[$delta]['_weight'] = [
+            '#type' => 'hidden',
+            '#title' => $this->t('Weight for @label @delta', [
+              '@label' => $itemLabel,
+              '@delta' => $delta + 1,
+            ]),
+            '#title_display' => 'invisible',
+            '#default_value' => $delta,
+            '#attributes' => [
+              'class' => ['neo-alchemist-draggable-weight'],
+            ],
+          ];
+        }
         if ($addNew && $delta === $lastKey) {
           $form[$delta]['#open'] = TRUE;
         }
@@ -410,6 +445,16 @@ class ArrayShape extends ChildrenShapeBase implements ComponentShapeInterablePlu
    * {@inheritDoc}
    */
   public function massageFormValues(array $values, array $original_values, array $form, FormStateInterface $form_state): ?array {
+    $options = $values['_options'] ?? [];
+    unset($values['_options']);
+    // Support draggable.
+    usort($values, function ($a, $b) {
+      $weightA = isset($a['_weight']) ? (int) $a['_weight'] : 0;
+      $weightB = isset($b['_weight']) ? (int) $b['_weight'] : 0;
+      return $weightA <=> $weightB;
+    });
+    $values['_options'] = $options;
+
     foreach ($values as $delta => $value) {
       $shapes = $this->getChildShapes((int) $delta, $value);
       foreach ($shapes as $shapeName => $shape) {

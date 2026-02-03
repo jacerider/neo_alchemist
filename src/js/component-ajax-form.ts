@@ -61,6 +61,191 @@
           throttledInput();
         });
       });
+      // Draggable.
+      once('neo.alchemist', '#' + formId + ' .neo-alchemist-draggable-list').forEach(el => {
+        function updateWeights(list: HTMLElement) {
+          const items = Array.from(list.querySelectorAll<HTMLElement>('.neo-alchemist-draggable-item'));
+          items.forEach((item, idx) => {
+            // Try select or input inside the .neo-alchemist-draggable-weight element.
+            const weightInput = item.querySelector<HTMLElement>('.neo-alchemist-draggable-weight');
+            console.log('weightInput', weightInput);
+            if (weightInput) {
+              try {
+                const valueStr = String(idx);
+                console.log(weightInput, 'setting weight to', valueStr);
+                if (weightInput instanceof HTMLInputElement) {
+                  // Update property and attribute for inputs, then notify listeners.
+                  weightInput.value = valueStr;
+                  weightInput.setAttribute('value', valueStr);
+                  weightInput.dispatchEvent(new Event('input', { bubbles: true }));
+                  weightInput.dispatchEvent(new Event('change', { bubbles: true }));
+                }
+                else if (weightInput instanceof HTMLSelectElement) {
+                  // Prefer selecting an option that matches the index; otherwise select closest index.
+                  if (Array.from(weightInput.options).some(o => o.value === valueStr)) {
+                    weightInput.value = valueStr;
+                  }
+                  else {
+                    const optIndex = Math.max(0, Math.min(idx, weightInput.options.length - 1));
+                    weightInput.selectedIndex = optIndex;
+                  }
+                  weightInput.dispatchEvent(new Event('change', { bubbles: true }));
+                }
+              }
+              catch (e) {
+                // ignore exceptions from setting values on unexpected inputs
+              }
+            }
+          });
+        }
+
+        // Create a simple draggable implementation using pointer events.
+        el.querySelectorAll<HTMLElement>('.neo-alchemist-draggable-handle').forEach(handle => {
+          let dragging = false;
+          let draggedItem: HTMLElement | null = null;
+          let placeholder: HTMLElement | null = null;
+          let clone: HTMLElement | null = null;
+          let startY = 0;
+          let offsetY = 0;
+          let hasMoved = false;
+          let clickSuppressed = false;
+
+          // Prevent clicks on the handle from toggling the parent <details> when a drag occurred.
+          handle.addEventListener('click', (e: MouseEvent) => {
+            if (hasMoved || clickSuppressed) {
+              e.preventDefault();
+              e.stopPropagation();
+            }
+          }, true);
+
+          handle.addEventListener('pointerdown', (e: PointerEvent) => {
+            // Only left click or touch
+            if (e.button && e.button !== 0) return;
+            const targetItem = handle.closest('.neo-alchemist-draggable-item') as HTMLElement | null;
+            if (!targetItem) return;
+
+            e.preventDefault();
+            (e.target as Element).setPointerCapture(e.pointerId);
+
+            dragging = true;
+            draggedItem = targetItem;
+            hasMoved = false;
+            clickSuppressed = false;
+
+            const rect = targetItem.getBoundingClientRect();
+            startY = e.clientY;
+            offsetY = startY - rect.top;
+
+            // Placeholder
+            placeholder = document.createElement('div');
+            placeholder.className = 'neo-alchemist-draggable-placeholder';
+            placeholder.style.height = rect.height + 'px';
+            placeholder.style.width = rect.width + 'px';
+            placeholder.style.boxSizing = 'border-box';
+            placeholder.style.margin = getComputedStyle(targetItem).margin;
+
+            targetItem.parentNode?.insertBefore(placeholder, targetItem);
+
+            // Clone for dragging visuals. Clone keeps appearance but not active form state.
+            clone = targetItem.cloneNode(true) as HTMLElement;
+            clone.classList.add('neo-alchemist-draggable-dragging');
+            clone.style.position = 'fixed';
+            clone.style.left = rect.left + 'px';
+            clone.style.top = rect.top + 'px';
+            clone.style.width = rect.width + 'px';
+            clone.style.pointerEvents = 'none';
+            clone.style.zIndex = '9999';
+            document.body.appendChild(clone);
+
+            // Hide original item while dragging so form inputs remain in place but are not visible twice.
+            targetItem.style.display = 'none';
+
+            const onPointerMove = (ev: PointerEvent) => {
+              if (!dragging || !clone || !placeholder) return;
+              ev.preventDefault();
+
+              const clientY = ev.clientY;
+
+              // Mark as moved if we exceed a small threshold so simple clicks still toggle details.
+              if (!hasMoved && Math.abs(clientY - startY) > 5) {
+                hasMoved = true;
+              }
+
+              clone.style.top = (clientY - offsetY) + 'px';
+
+              // Determine insertion point based on midlines of items in list.
+              const listItems = Array.from(el.querySelectorAll<HTMLElement>('.neo-alchemist-draggable-item'))
+                .filter(i => i !== draggedItem);
+
+              let inserted = false;
+              for (const it of listItems) {
+                const r = it.getBoundingClientRect();
+                const midpoint = r.top + r.height / 2;
+                if (clientY < midpoint) {
+                  if (placeholder.parentNode !== it.parentNode || placeholder.nextSibling !== it) {
+                    it.parentNode?.insertBefore(placeholder, it);
+                  }
+                  inserted = true;
+                  break;
+                }
+              }
+              if (!inserted) {
+                // put at end
+                el.appendChild(placeholder);
+              }
+
+              // Auto-scroll if near edges
+              const scrollMargin = 40;
+              const listRect = el.getBoundingClientRect();
+              if (clientY - listRect.top < scrollMargin) {
+                el.scrollTop -= 10;
+              }
+              else if (listRect.bottom - clientY < scrollMargin) {
+                el.scrollTop += 10;
+              }
+            };
+
+            const onPointerUp = (ev: PointerEvent) => {
+              if (!dragging) return;
+              ev.preventDefault();
+              dragging = false;
+
+              // Place the original item where placeholder is
+              if (placeholder && draggedItem) {
+                if (placeholder.parentNode) {
+                  placeholder.parentNode.insertBefore(draggedItem, placeholder);
+                  placeholder.remove();
+                }
+                // restore display
+                draggedItem.style.display = '';
+
+                // Clean up clone
+                if (clone && clone.parentNode) {
+                  clone.parentNode.removeChild(clone);
+                }
+
+                // Update weights and refresh
+                updateWeights(el as HTMLElement);
+                throttledInput();
+              }
+
+              // If we detected movement, suppress the following click that would toggle a parent <details>
+              if (hasMoved) {
+                clickSuppressed = true;
+                // Clear suppression on next tick so real clicks still work.
+                setTimeout(() => { clickSuppressed = false; hasMoved = false; }, 0);
+              }
+
+              // Remove listeners
+              document.removeEventListener('pointermove', onPointerMove);
+              document.removeEventListener('pointerup', onPointerUp);
+            };
+
+            document.addEventListener('pointermove', onPointerMove);
+            document.addEventListener('pointerup', onPointerUp);
+          });
+        });
+      });
       once('neo.alchemist', '#' + formId).forEach(el => {
         if (Drupal.CKEditor5Instances) {
           setTimeout(() => {
