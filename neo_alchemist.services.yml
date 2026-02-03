@@ -1,4 +1,8 @@
 services:
+  neo_alchemist.settings:
+    parent: neo_settings.repository
+    arguments: ['neo_alchemist']
+
   neo_component_page_renderer:
     class: Drupal\neo_alchemist\Render\ComponentPageRenderer
     arguments: ['@renderer', '@html_response.attachments_processor', '@module_handler', '@theme.manager']
