@@ -1,3 +1,7 @@
+neo_alchemist.alchemist:
+  word: alchemist
+  icon: flask-potion
+  prefix: admin
 neo_alchemist.layout:
   word: layout
   icon: drafting-compass
