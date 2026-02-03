@@ -68,11 +68,9 @@
           items.forEach((item, idx) => {
             // Try select or input inside the .neo-alchemist-draggable-weight element.
             const weightInput = item.querySelector<HTMLElement>('.neo-alchemist-draggable-weight');
-            console.log('weightInput', weightInput);
             if (weightInput) {
               try {
                 const valueStr = String(idx);
-                console.log(weightInput, 'setting weight to', valueStr);
                 if (weightInput instanceof HTMLInputElement) {
                   // Update property and attribute for inputs, then notify listeners.
                   weightInput.value = valueStr;
