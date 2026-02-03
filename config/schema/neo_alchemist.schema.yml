@@ -1,3 +1,11 @@
+neo_alchemist.settings:
+  type: config_object
+  label: 'Neo | Alchemist settings'
+  mapping:
+    anchor_override_status:
+      type: boolean
+      label: Allow overriding anchors
+
 neo_alchemist.neo_component.*:
   type: config_entity
   label: Component
