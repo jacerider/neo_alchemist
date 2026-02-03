@@ -33,6 +33,13 @@ final class HeadingValue extends ComponentValuePluginBase implements ContainerFa
   use ComponentValueTitleResolverTrait;
 
   /**
+   * Flag to allow anchor override.
+   *
+   * @var bool
+   */
+  protected static bool $allowAnchorOverride;
+
+  /**
    * {@inheritdoc}
    */
   public function defaultConfiguration() {
@@ -299,6 +306,10 @@ final class HeadingValue extends ComponentValuePluginBase implements ContainerFa
       $shape->setNestedOptionDefault('size');
       $shape->setNestedOptionAccess('size');
     }
+    if (!$this->allowAnchorOverride()) {
+      // Set access to false if anchor override is not allowed.
+      $shape->setNestedOptionAccess('anchor');
+    }
     if ($this->shape->getNestedOptionDefault('title')) {
       $dynamicAnchor = TRUE;
     }
@@ -329,6 +340,18 @@ final class HeadingValue extends ComponentValuePluginBase implements ContainerFa
     $value['anchor'] = $value['title'];
     $this->stopFurtherProcessing();
     return $value;
+  }
+
+  /**
+   * Determine if anchor override is allowed.
+   */
+  protected function allowAnchorOverride(): bool {
+    if (!isset(static::$allowAnchorOverride)) {
+      /** @var \Drupal\neo_alchemist\Settings\AlchemistSettings $settings */
+      $settings = \Drupal::service('neo_alchemist.settings')->getActive();
+      static::$allowAnchorOverride = $settings ? $settings->getValue('anchor_override_status') : TRUE;
+    }
+    return static::$allowAnchorOverride;
   }
 
 }
