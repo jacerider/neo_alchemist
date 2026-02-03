@@ -144,12 +144,12 @@ class ObjectShape extends ChildrenShapeBase implements ComponentShapeExpandedPlu
   /**
    * {@inheritDoc}
    */
-  public function validateForm(array $form, FormStateInterface $form_state, array $values): void {
-    parent::validateForm($form, $form_state, $values);
+  public function validateForm(array $form, FormStateInterface $form_state): void {
+    parent::validateForm($form, $form_state);
     foreach ($this->getChildShapes() as $shape) {
       if (isset($form[$shape->getName()])) {
         $subform_state = SubformState::createForSubform($form[$shape->getName()], $form, $form_state);
-        $shape->validateForm($form[$shape->getName()], $subform_state, $values[$shape->getName()] ?? []);
+        $shape->validateForm($form[$shape->getName()], $subform_state);
       }
     }
   }

@@ -1043,10 +1043,8 @@ interface ComponentShapePluginInterface extends PluginInspectionInterface, Deriv
    *   The parent form.
    * @param \Drupal\Core\Form\FormStateInterface $form_state
    *   The parent form state.
-   * @param array $values
-   *   The form values.
    */
-  public function validateForm(array $form, FormStateInterface $form_state, array $values): void;
+  public function validateForm(array $form, FormStateInterface $form_state): void;
 
   /**
    * Massage the form values.

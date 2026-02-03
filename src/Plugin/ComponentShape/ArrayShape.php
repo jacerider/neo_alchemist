@@ -428,14 +428,26 @@ class ArrayShape extends ChildrenShapeBase implements ComponentShapeInterablePlu
   /**
    * {@inheritDoc}
    */
-  public function validateForm(array $form, FormStateInterface $form_state, array $values): void {
-    parent::validateForm($form, $form_state, $values);
+  public function validateForm(array $form, FormStateInterface $form_state): void {
+    // Support draggable.
+    $values = $form_state->getValues();
+    $options = $values['_options'] ?? [];
+    unset($values['_options']);
+    usort($values, function ($a, $b) {
+      $weightA = isset($a['_weight']) ? (int) $a['_weight'] : 0;
+      $weightB = isset($b['_weight']) ? (int) $b['_weight'] : 0;
+      return $weightA <=> $weightB;
+    });
+    $values['_options'] = $options;
+    $form_state->setValues($values);
+
+    parent::validateForm($form, $form_state);
     $shapeList = $this->getChildShapeList($values);
     foreach ($shapeList as $delta => $shapes) {
       foreach ($shapes as $shapeName => $shape) {
         if (isset($form[$delta][$shapeName])) {
           $subform_state = SubformState::createForSubform($form[$delta][$shapeName], $form, $form_state);
-          $shape->validateForm($form[$delta][$shapeName], $subform_state, $values[$delta][$shapeName] ?? []);
+          $shape->validateForm($form[$delta][$shapeName], $subform_state);
         }
       }
     }
@@ -445,16 +457,6 @@ class ArrayShape extends ChildrenShapeBase implements ComponentShapeInterablePlu
    * {@inheritDoc}
    */
   public function massageFormValues(array $values, array $original_values, array $form, FormStateInterface $form_state): ?array {
-    $options = $values['_options'] ?? [];
-    unset($values['_options']);
-    // Support draggable.
-    usort($values, function ($a, $b) {
-      $weightA = isset($a['_weight']) ? (int) $a['_weight'] : 0;
-      $weightB = isset($b['_weight']) ? (int) $b['_weight'] : 0;
-      return $weightA <=> $weightB;
-    });
-    $values['_options'] = $options;
-
     foreach ($values as $delta => $value) {
       $shapes = $this->getChildShapes((int) $delta, $value);
       foreach ($shapes as $shapeName => $shape) {

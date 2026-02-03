@@ -2273,15 +2273,16 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
   /**
    * {@inheritDoc}
    */
-  public function validateForm(array $form, FormStateInterface $form_state, array $values): void {
+  public function validateForm(array $form, FormStateInterface $form_state): void {
+    $values = $form_state->getValues();
     $options = $form_state->getValue('_options') ?? [];
     if (isset($options['default'])) {
       $options['default'] = (int) $options['default'];
     }
-    if (isset($values['empty'])) {
+    if (isset($options['empty'])) {
       $options['empty'] = (int) $options['empty'];
     }
-    if (isset($values['access'])) {
+    if (isset($options['access'])) {
       $options['access'] = (int) $options['access'];
     }
     $this->setOptions($options);
