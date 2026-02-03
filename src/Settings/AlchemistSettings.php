@@ -45,10 +45,4 @@ class AlchemistSettings extends SettingsBase {
     return $form;
   }
 
-  /**
-   * {@inheritdoc}
-   */
-  public function validateForm($form, FormStateInterface $form_state) {
-  }
-
 }
