@@ -20,6 +20,13 @@ use Drupal\neo_alchemist\Attribute\ComponentShape;
 class HeadingShape extends ObjectShape {
 
   /**
+   * Flag to allow anchor override.
+   *
+   * @var bool
+   */
+  protected static bool $allowAnchorOverride;
+
+  /**
    * {@inheritDoc}
    */
   protected function form(array $form, FormStateInterface $form_state): array {
@@ -33,6 +40,9 @@ class HeadingShape extends ObjectShape {
         'value',
       ]);
     }
+    if (!$this->allowAnchorOverride()) {
+      $form['anchor']['#access'] = FALSE;
+    }
     $form['size']['#neo_size'] = 'xs';
     return $form;
   }
@@ -43,13 +53,31 @@ class HeadingShape extends ObjectShape {
   protected function preRenderValue(mixed $value, Attribute $attributes): mixed {
     $value = parent::preRenderValue($value, $attributes);
     // Use the anchor.
-    $anchor = Str::machine($value['anchor'] ?? $value['title'] ?? '', '-');
+    if (!$this->allowAnchorOverride()) {
+      $anchor = $value['title'] ?? '';
+    }
+    else {
+      $anchor = $value['anchor'] ?? $value['title'] ?? '';
+    }
+    $anchor = Str::machine($anchor, '-');
     $attributes->setAttribute('id', $anchor);
     $attributes->addClass('scroll-mt-[calc(var(--spacing-neo-t)+20px)]');
     if ($value['title'] ?? NULL) {
       $attributes->setAttribute('data-component-title', $value['title']);
     }
     return $value;
+  }
+
+  /**
+   * Determine if anchor override is allowed.
+   */
+  protected function allowAnchorOverride(): bool {
+    if (!isset(static::$allowAnchorOverride)) {
+      /** @var \Drupal\neo_alchemist\Settings\AlchemistSettings $settings */
+      $settings = \Drupal::service('neo_alchemist.settings')->getActive();
+      static::$allowAnchorOverride = $settings ? $settings->getValue('anchor_override_status') : TRUE;
+    }
+    return static::$allowAnchorOverride;
   }
 
 }
