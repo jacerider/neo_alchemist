@@ -43,7 +43,6 @@ final class FieldStorageDefinition extends BaseFieldDefinition {
     // without modifying the entity being worked on.
     $field_item_definition = $this->getItemDefinition();
     if (is_subclass_of($field_item_definition->getClass(), OptionsProviderInterface::class)) {
-      // @phpstan-ignore-next-line
       return \Drupal::typedDataManager()->createInstance($field_item_definition->getDataType(), [
         'name' => $property_name,
         'parent' => new FieldItemList($this, $property_name, EntityAdapter::createFromEntity($entity)),
