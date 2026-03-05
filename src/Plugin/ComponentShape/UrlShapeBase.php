@@ -71,9 +71,32 @@ class UrlShapeBase extends ComponentShapePluginBase {
   protected function preRenderValue(mixed $value, Attribute $attributes): mixed {
     $value = parent::preRenderValue($value, $attributes);
     if (!empty($value)) {
-      if ($url = $this->getLinkitUrl($this->getFieldItem())) {
+      // Check if we have Linkit data attributes in options['attributes'].
+      // The Neo Link widget stores them there, but getLinkitUrl() expects
+      // them directly in options for proper entity URL substitution.
+      $fieldItem = $this->getFieldItem();
+
+      if (!empty($value['options']['attributes']['data-entity-type']) ||
+          !empty($value['options']['attributes']['data-entity-uuid'])) {
+        // Create a clone of the field item to avoid modifying the original.
+        $fieldItem = clone $fieldItem;
+        $itemValue = $fieldItem->getValue();
+        $itemValue['options'] = $itemValue['options'] ?? [];
+
+        // Move Linkit data from attributes to options root.
+        foreach (['data-entity-type', 'data-entity-uuid', 'data-entity-substitution'] as $key) {
+          if (isset($value['options']['attributes'][$key])) {
+            $itemValue['options'][$key] = $value['options']['attributes'][$key];
+          }
+        }
+
+        $fieldItem->setValue($itemValue);
+      }
+
+      if ($url = $this->getLinkitUrl($fieldItem)) {
         $value['uri'] = $url->toString();
       }
+
       // Use target if passed in with the options.
       if (empty($value['target']) && !empty($value['options']['attributes']['target'])) {
         $value['target'] = $value['options']['attributes']['target'];
