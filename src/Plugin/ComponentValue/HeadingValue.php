@@ -9,6 +9,7 @@ use Drupal\Component\Utility\NestedArray;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Plugin\ContainerFactoryPluginInterface;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
+use Drupal\neo\Helpers\Str;
 use Drupal\neo_alchemist\Attribute\ComponentValue;
 use Drupal\neo_alchemist\ComponentShapeChildrenPluginInterface;
 use Drupal\neo_alchemist\ComponentValuePluginBase;
@@ -326,7 +327,7 @@ final class HeadingValue extends ComponentValuePluginBase implements ContainerFa
     if ($this->configuration['size_value']) {
       $value['size'] = $this->configuration['size_value'];
     }
-    $value['anchor'] = $value['title'];
+    $value['anchor'] = $value['title'] ? Str::machine($value['title'], '-') : NULL;
     $this->stopFurtherProcessing();
     return $value;
   }
