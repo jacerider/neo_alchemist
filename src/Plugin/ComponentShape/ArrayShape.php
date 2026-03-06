@@ -146,6 +146,12 @@ class ArrayShape extends ChildrenShapeBase implements ComponentShapeInterablePlu
         'type' => [$schema['items']['type']],
       ];
     }
+
+    if (count($schema['items']['properties']) === 1) {
+      // When we only have a single property, we make that property required
+      // because it is the only way to have a value for the array item.
+      $schema['items']['required'][] = key($schema['items']['properties']);
+    }
     // Merge in any examples set on array.
     foreach ($schema['items']['properties'] as $propName => &$prop) {
       if ($this->isSingleProp()) {
