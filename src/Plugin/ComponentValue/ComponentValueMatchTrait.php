@@ -67,31 +67,47 @@ trait ComponentValueMatchTrait {
     if (!$field) {
       return NULL;
     }
-    switch ($field) {
-      case '_render':
-        $item = $this->matcherField->getEntityField($this->shape->getEntity(), $this->configuration['render_field'], $published, $shape->getCacheableMetadata());
-        if ($item && !$item->isEmpty() && !empty($this->configuration['render_field_format']['field_plugin'])) {
-          $build = $item->view([
-            'type' => $this->configuration['render_field_format']['field_plugin'],
-            'label' => $this->configuration['render_field_format']['field_label'] ?? 'hidden',
-            'settings' => $this->configuration['render_field_format']['field_settings'] ?? [],
-          ]);
-          $cacheableMetadata = CacheableMetadata::createFromRenderArray($build);
-          $shape->addCacheableDependency($cacheableMetadata);
-          return ComponentPropRenderable::create($build);
-        }
-        return NULL;
 
-      default:
-        $properties = $properties ?? $this->configuration['field_properties'] ?? [];
-        return $this->matcherField->getEntityValue(
-          entity: $shape->getEntity(),
-          key: $field,
-          properties: $properties,
-          published: $published,
-          cacheableMetadata: $shape->getCacheableMetadata()
-        );
+    if ($field === '_render') {
+      return $this->getMatchRenderValue($shape, $published);
     }
+
+    return $this->matcherField->getEntityValue(
+      entity: $shape->getEntity(),
+      key: $field,
+      properties: $properties ?? $this->configuration['field_properties'] ?? [],
+      published: $published,
+      cacheableMetadata: $shape->getCacheableMetadata()
+    );
+  }
+
+  /**
+   * Gets the rendered field value for a _render match.
+   *
+   * @param \Drupal\neo_alchemist\ComponentShapePluginInterface $shape
+   *   The shape plugin.
+   * @param bool|null $published
+   *   Whether to only return values from published entities.
+   *
+   * @return \Drupal\neo_alchemist\ComponentPropRenderable|null
+   *   The renderable prop, or NULL if the field is empty or unconfigured.
+   */
+  private function getMatchRenderValue(ComponentShapePluginInterface $shape, ?bool $published): ?ComponentPropRenderable {
+    $formatConfig = $this->configuration['render_field_format'] ?? [];
+    if (empty($formatConfig['field_plugin'])) {
+      return NULL;
+    }
+    $item = $this->matcherField->getEntityField($this->shape->getEntity(), $this->configuration['render_field'], $published, $shape->getCacheableMetadata());
+    if (!$item || $item->isEmpty()) {
+      return NULL;
+    }
+    $build = $item->view([
+      'type' => $formatConfig['field_plugin'],
+      'label' => $formatConfig['field_label'] ?? 'hidden',
+      'settings' => $formatConfig['field_settings'] ?? [],
+    ]);
+    $shape->addCacheableDependency(CacheableMetadata::createFromRenderArray($build));
+    return ComponentPropRenderable::create($build);
   }
 
   /**
@@ -106,17 +122,16 @@ trait ComponentValueMatchTrait {
     if ($shape->getRef() === 'markup') {
       $options['- Shape -']['_render'] = $this->t('Render with field formatter');
     }
-    $groups = array_keys($options);
-    $groups = array_combine($groups, $groups);
+    $groupNames = array_keys($options);
+    $groups = array_combine($groupNames, $groupNames);
     asort($groups);
+
     $group = $form_state->get('group--' . $form['#id']);
-    if (!$group) {
+    if (!$group && $field) {
       foreach ($options as $optionGroup => $ops) {
-        foreach ($ops as $key => $label) {
-          if ($key === $field) {
-            $group = $optionGroup;
-            break 2;
-          }
+        if (isset($ops[$field])) {
+          $group = $optionGroup;
+          break;
         }
       }
     }
@@ -137,12 +152,11 @@ trait ComponentValueMatchTrait {
 
     if ($group && isset($options[$group])) {
       $field = isset($options[$group][$field]) ? $field : NULL;
-      $suboptions = $options[$group];
       $form['field'] = [
         '#type' => 'select',
         '#title' => $this->t('Field'),
         '#description' => $this->t('Select the field to use as the value.'),
-        '#options' => $suboptions,
+        '#options' => $options[$group],
         '#empty_option' => $this->t('- Select -'),
         '#default_value' => $field,
         '#required' => TRUE,
@@ -153,36 +167,49 @@ trait ComponentValueMatchTrait {
       ];
 
       if ($field === '_render') {
-        $renderFieldId = $this->configuration['render_field'] ?? NULL;
-        $form['render_field'] = [
-          '#type' => 'select',
-          '#title' => $this->t('Field to render'),
-          '#required' => TRUE,
-          '#options' => $this->matcherField->getMatchesAsOptions($shape, $entityTypeId, $bundle, NULL, TRUE),
-          '#default_value' => $renderFieldId,
-          '#ajax' => [
-            'callback' => [static::class, 'refreshMatchAjax'],
-            'wrapper' => $wrapperId,
-          ],
-        ];
-        if ($renderFieldId) {
-          $renderField = $this->matcherField->getFieldDefinition($shape, $renderFieldId, $entityTypeId, $bundle, NULL, TRUE);
-          if ($renderField) {
-            $form['render_field_format'] = [
-              '#type' => 'fieldset',
-              '#title' => $this->t('Formatter'),
-            ];
-            $renderFieldFormatConfiguration = $this->configuration['render_field_format'] ?? [];
-            $form['render_field_format'] = $this->formatterConfigurationForm($form['render_field_format'], $form_state, $renderField, $renderFieldFormatConfiguration, [
-              'callback' => [static::class, 'refreshMatchFieldFormatAjax'],
-              'wrapper' => $wrapperId,
-            ]);
-          }
-        }
+        $this->buildRenderFieldForm($form, $form_state, $shape, $entityTypeId, $bundle, $wrapperId);
       }
     }
 
     return $form;
+  }
+
+  /**
+   * Builds the render field sub-form for _render matches.
+   */
+  private function buildRenderFieldForm(array &$form, FormStateInterface $form_state, ComponentShapePluginInterface $shape, ?string $entityTypeId, ?string $bundle, string $wrapperId): void {
+    $renderFieldId = $this->configuration['render_field'] ?? NULL;
+    $form['render_field'] = [
+      '#type' => 'select',
+      '#title' => $this->t('Field to render'),
+      '#required' => TRUE,
+      '#options' => $this->matcherField->getMatchesAsOptions($shape, $entityTypeId, $bundle, NULL, TRUE),
+      '#default_value' => $renderFieldId,
+      '#ajax' => [
+        'callback' => [static::class, 'refreshMatchAjax'],
+        'wrapper' => $wrapperId,
+      ],
+    ];
+    if (!$renderFieldId) {
+      return;
+    }
+    $renderField = $this->matcherField->getFieldDefinition($shape, $renderFieldId, $entityTypeId, $bundle, NULL, TRUE);
+    if (!$renderField) {
+      return;
+    }
+    $form['render_field_format'] = $this->formatterConfigurationForm(
+      [
+        '#type' => 'fieldset',
+        '#title' => $this->t('Formatter'),
+      ],
+      $form_state,
+      $renderField,
+      $this->configuration['render_field_format'] ?? [],
+      [
+        'callback' => [static::class, 'refreshMatchFieldFormatAjax'],
+        'wrapper' => $wrapperId,
+      ]
+    );
   }
 
   /**
@@ -212,13 +239,14 @@ trait ComponentValueMatchTrait {
       '#title' => $this->t('Field Properties'),
     ];
     foreach ($this->shape->getChildShapes() as $name => $childShape) {
-      $shapeProperties = $childShape->getFieldItem()->getFieldDefinition()->getFieldStorageDefinition()->getPropertyDefinitions();
-      $shapeProperty = reset($shapeProperties);
-      $options = array_map(function ($property) {
-        return $property->getLabel();
-      }, array_filter($fieldProperties, function ($property) use ($shapeProperty) {
-        return $property->getDataType() === $shapeProperty->getDataType();
-      }));
+      $shapeProperty = reset($childShape->getFieldItem()->getFieldDefinition()->getFieldStorageDefinition()->getPropertyDefinitions());
+      $targetDataType = $shapeProperty->getDataType();
+      $options = [];
+      foreach ($fieldProperties as $propName => $property) {
+        if ($property->getDataType() === $targetDataType) {
+          $options[$propName] = $property->getLabel();
+        }
+      }
       $form['field_properties'][$name] = [
         '#type' => 'select',
         '#title' => $childShape->getTitle(),
