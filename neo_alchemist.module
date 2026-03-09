@@ -7,7 +7,6 @@
 
 declare(strict_types=1);
 
-use Drupal\content_moderation\Form\EntityModerationForm;
 use Drupal\Core\Entity\ContentEntityFormInterface;
 use Drupal\Core\Entity\ContentEntityInterface;
 use Drupal\Core\Entity\ContentEntityTypeInterface;
@@ -28,9 +27,30 @@ use Drupal\neo_alchemist\Form\InstanceComponentResetForm;
 use Drupal\neo_alchemist\Form\InstanceComponentRevertForm;
 use Drupal\neo_alchemist\Form\InstanceComponentSortForm;
 use Drupal\neo_alchemist\Plugin\Field\NeoComponentTreeList;
-use Drupal\neo_tooltip\Tooltip;
 use Drupal\node\NodeInterface;
 
+/**
+ * Recursively updates a shape value within a nested props array.
+ *
+ * Searches for a matching shape key/value pair and replaces it with a new
+ * key/value pair.
+ *
+ * @param array $props
+ *   The props array to search through.
+ * @param string $originalShapeKey
+ *   The original shape key to find.
+ * @param mixed $originalShapeValue
+ *   The original shape value to match.
+ * @param string $newShapeKey
+ *   The new shape key to set.
+ * @param mixed $newShapeValue
+ *   The new shape value to set.
+ * @param bool $found
+ *   Reference flag indicating whether the value was found.
+ *
+ * @return array
+ *   The updated props array.
+ */
 function neo_alchemist_recursive_update_value(array $props, $originalShapeKey, $originalShapeValue, $newShapeKey, $newShapeValue, &$found = FALSE) {
   foreach ($props as &$data) {
     if (is_array($data)) {
@@ -210,64 +230,28 @@ function template_preprocess_neo_alchemist_overlay(&$variables) {
     ];
   }
 
-  $label = t('Add Component Before');
-  $variables['op_add_before'] = [
-    '#type' => 'link',
-    '#title' => neo_icon_admin($label, 'plus')->iconOnly(),
-    '#url' => Url::fromRoute('<current>'),
-    '#tooltip' => $label,
-    '#tooltip_options' => [
-      'placement' => 'top',
-    ],
-    '#attributes' => [
-      'class' => ['neo-alchemist--op'],
-      'data-op' => 'add-before',
-    ],
+  $positionOps = [
+    'add-before' => ['label' => t('Add Component Before'), 'icon' => 'plus', 'placement' => 'top'],
+    'move-up' => ['label' => t('Move Component Up'), 'icon' => 'sort-size-up-alt', 'placement' => 'top'],
+    'add-after' => ['label' => t('Add Component After'), 'icon' => 'plus', 'placement' => 'bottom'],
+    'move-down' => ['label' => t('Move Component Down'), 'icon' => 'sort-size-down-alt', 'placement' => 'bottom'],
   ];
-  $label = t('Move Component Up');
-  $variables['op_move_up'] = [
-    '#type' => 'link',
-    '#title' => neo_icon_admin($label, 'sort-size-up-alt')->iconOnly(),
-    '#url' => Url::fromRoute('<current>'),
-    '#tooltip' => $label,
-    '#tooltip_options' => [
-      'placement' => 'top',
-    ],
-    '#attributes' => [
-      'class' => ['neo-alchemist--op'],
-      'data-op' => 'move-up',
-    ],
-  ];
-
-  $label = t('Add Component After');
-  $variables['op_add_after'] = [
-    '#type' => 'link',
-    '#title' => neo_icon_admin($label, 'plus')->iconOnly(),
-    '#url' => Url::fromRoute('<current>'),
-    '#tooltip' => $label,
-    '#tooltip_options' => [
-      'placement' => 'bottom',
-    ],
-    '#attributes' => [
-      'class' => ['neo-alchemist--op'],
-      'data-op' => 'add-after',
-    ],
-  ];
-
-  $label = t('Move Component Down');
-  $variables['op_move_down'] = [
-    '#type' => 'link',
-    '#title' => neo_icon_admin($label, 'sort-size-down-alt')->iconOnly(),
-    '#url' => Url::fromRoute('<current>'),
-    '#tooltip' => $label,
-    '#tooltip_options' => [
-      'placement' => 'bottom',
-    ],
-    '#attributes' => [
-      'class' => ['neo-alchemist--op'],
-      'data-op' => 'move-down',
-    ],
-  ];
+  foreach ($positionOps as $op => $config) {
+    $varKey = 'op_' . str_replace('-', '_', $op);
+    $variables[$varKey] = [
+      '#type' => 'link',
+      '#title' => neo_icon_admin($config['label'], $config['icon'])->iconOnly(),
+      '#url' => Url::fromRoute('<current>'),
+      '#tooltip' => $config['label'],
+      '#tooltip_options' => [
+        'placement' => $config['placement'],
+      ],
+      '#attributes' => [
+        'class' => ['neo-alchemist--op'],
+        'data-op' => $op,
+      ],
+    ];
+  }
 }
 
 /**
@@ -280,7 +264,7 @@ function template_preprocess_neo_alchemist_overlay(&$variables) {
 function neo_alchemist_commerce_product_view_alter(array &$build, EntityInterface $entity, EntityViewDisplayInterface $display) {
   $hasNeoField = FALSE;
   foreach (Element::children($build) as $key) {
-    if (substr($key, 0, 10) !== 'variation_' && !empty($build[$key]['#neo_component_tree'])) {
+    if (!str_starts_with($key, 'variation_') && !empty($build[$key]['#neo_component_tree'])) {
       $hasNeoField = TRUE;
       break;
     }
@@ -289,7 +273,7 @@ function neo_alchemist_commerce_product_view_alter(array &$build, EntityInterfac
     return;
   }
   foreach (Element::children($build) as $key) {
-    if (substr($key, 0, 10) === 'variation_') {
+    if (str_starts_with($key, 'variation_')) {
       unset($build[$key]);
     }
   }
@@ -306,7 +290,6 @@ function neo_alchemist_form_alter(array &$form, FormStateInterface $form_state, 
       $form['field_storage']['#access'] = FALSE;
       $form['description']['#access'] = FALSE;
       $form['required']['#access'] = FALSE;
-      // unset($form['form_token']);
     }
   }
   if ($formObject instanceof ContentEntityFormInterface && in_array($formObject->getOperation(), ['default', 'edit'])) {
@@ -419,26 +402,38 @@ function neo_alchemist_entity_type_alter(array &$entity_types) {
             $baseRoute = $entityType->getLinkTemplate('edit-form');
           }
           if ($baseRoute) {
-            $entityType->setLinkTemplate('alchemist', $baseRoute . '/alchemist');
-            $entityType->setLinkTemplate('alchemist.manage', "$baseRoute/alchemist/{neo_field}");
-            $entityType->setLinkTemplate('alchemist.preview', "$baseRoute/alchemist/{neo_field}/preview");
-            $entityType->setLinkTemplate('alchemist.library', "$baseRoute/alchemist/{neo_field}/library");
-            $entityType->setLinkTemplate('alchemist.publish', "$baseRoute/alchemist/{neo_field}/publish");
-            $entityType->setLinkTemplate('alchemist.revert', "$baseRoute/alchemist/{neo_field}/revert");
-            $entityType->setLinkTemplate('alchemist.reset', "$baseRoute/alchemist/{neo_field}/reset");
-            $entityType->setLinkTemplate('alchemist.sort', "$baseRoute/alchemist/{neo_field}/sort");
-            $entityType->setLinkTemplate('alchemist.add', "$baseRoute/alchemist/{neo_field}/add/{neo_component}");
-            $entityType->setLinkTemplate('alchemist.edit', "$baseRoute/alchemist/{neo_field}/edit/{neo_component}");
-            $entityType->setLinkTemplate('alchemist.region', "$baseRoute/alchemist/{neo_field}/region/{neo_component}");
-            $entityType->setLinkTemplate('alchemist.clone', "$baseRoute/alchemist/{neo_field}/clone/{neo_component}");
-            $entityType->setLinkTemplate('alchemist.delete', "$baseRoute/alchemist/{neo_field}/delete/{neo_component}");
-            $entityType->setFormClass('alchemist', InstanceComponentForm::class);
-            $entityType->setFormClass('alchemist_publish', InstanceComponentPublishForm::class);
-            $entityType->setFormClass('alchemist_revert', InstanceComponentRevertForm::class);
-            $entityType->setFormClass('alchemist_reset', InstanceComponentResetForm::class);
-            $entityType->setFormClass('alchemist_sort', InstanceComponentSortForm::class);
-            $entityType->setFormClass('alchemist_edit', InstanceComponentForm::class);
-            $entityType->setFormClass('alchemist_delete', InstanceComponentDeleteForm::class);
+            $field = '{neo_field}';
+            $component = '{neo_component}';
+            $linkTemplates = [
+              'alchemist' => "$baseRoute/alchemist",
+              'alchemist.manage' => "$baseRoute/alchemist/$field",
+              'alchemist.preview' => "$baseRoute/alchemist/$field/preview",
+              'alchemist.library' => "$baseRoute/alchemist/$field/library",
+              'alchemist.publish' => "$baseRoute/alchemist/$field/publish",
+              'alchemist.revert' => "$baseRoute/alchemist/$field/revert",
+              'alchemist.reset' => "$baseRoute/alchemist/$field/reset",
+              'alchemist.sort' => "$baseRoute/alchemist/$field/sort",
+              'alchemist.add' => "$baseRoute/alchemist/$field/add/$component",
+              'alchemist.edit' => "$baseRoute/alchemist/$field/edit/$component",
+              'alchemist.region' => "$baseRoute/alchemist/$field/region/$component",
+              'alchemist.clone' => "$baseRoute/alchemist/$field/clone/$component",
+              'alchemist.delete' => "$baseRoute/alchemist/$field/delete/$component",
+            ];
+            foreach ($linkTemplates as $key => $template) {
+              $entityType->setLinkTemplate($key, $template);
+            }
+            $formClasses = [
+              'alchemist' => InstanceComponentForm::class,
+              'alchemist_publish' => InstanceComponentPublishForm::class,
+              'alchemist_revert' => InstanceComponentRevertForm::class,
+              'alchemist_reset' => InstanceComponentResetForm::class,
+              'alchemist_sort' => InstanceComponentSortForm::class,
+              'alchemist_edit' => InstanceComponentForm::class,
+              'alchemist_delete' => InstanceComponentDeleteForm::class,
+            ];
+            foreach ($formClasses as $operation => $class) {
+              $entityType->setFormClass($operation, $class);
+            }
           }
           break;
         }
@@ -532,10 +527,7 @@ function neo_alchemist_preprocess_block(&$variables) {
  * Implements hook_preprocess_region__content().
  */
 function neo_alchemist_preprocess_region__content(&$variables) {
-  $variables['alchemist'] = FALSE;
-  if (neo_alchemist_route_is_alchemist()) {
-    $variables['alchemist'] = TRUE;
-  }
+  $variables['alchemist'] = neo_alchemist_route_is_alchemist();
 }
 
 /**
@@ -564,7 +556,7 @@ function template_preprocess_neo_alchemist_entity(array &$variables) {
 function neo_alchemist_entity_view_alter(array &$build, EntityInterface $entity, EntityViewDisplayInterface $display) {
   // We consider only fieldable fields.
   $fieldableFields = array_filter($build, function ($key) {
-    return substr($key, 0, 6) === 'field_';
+    return str_starts_with($key, 'field_');
   }, ARRAY_FILTER_USE_KEY);
   $alchemistFields = array_filter($fieldableFields, function ($field) {
     return isset($field['#field_type']) && $field['#field_type'] === 'neo_component_tree';
@@ -613,7 +605,7 @@ function neo_alchemist_route_is_alchemist() {
   $routeObject = $routeMatch->getRouteObject();
   $entityTypeId = $routeObject->getOption('_neo_alchemist');
   if (!$entityTypeId) {
-    return;
+    return $isAlchemistRoute;
   }
   $entityView = $routeObject->getDefault('_entity_view') ?? $entityTypeId . '.default';
   [, $viewModeId] = explode('.', $entityView);

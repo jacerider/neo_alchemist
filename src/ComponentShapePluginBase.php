@@ -354,7 +354,7 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
    *
    * @var \Drupal\Core\Cache\CacheableMetadata
    */
-  protected CacheableMetadata $cachaeableMetadata;
+  protected CacheableMetadata $cacheableMetadata;
 
   /**
    * The value collection.
@@ -475,10 +475,10 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
    * {@inheritdoc}
    */
   public function getCacheableMetadata(): CacheableMetadata {
-    if (!isset($this->cachaeableMetadata)) {
-      $this->cachaeableMetadata = new CacheableMetadata();
+    if (!isset($this->cacheableMetadata)) {
+      $this->cacheableMetadata = new CacheableMetadata();
     }
-    return $this->cachaeableMetadata;
+    return $this->cacheableMetadata;
   }
 
   /**

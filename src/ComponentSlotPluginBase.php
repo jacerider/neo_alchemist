@@ -38,7 +38,7 @@ abstract class ComponentSlotPluginBase extends PluginBase implements ComponentSl
    *
    * @var \Drupal\Core\Cache\CacheableMetadata
    */
-  protected CacheableMetadata $cachaeableMetadata;
+  protected CacheableMetadata $cacheableMetadata;
 
   /**
    * Creates a toolbar item instance.

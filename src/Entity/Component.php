@@ -215,6 +215,13 @@ class Component extends ConfigEntityBase implements ComponentInterface {
   protected bool $rebuilding = FALSE;
 
   /**
+   * The cached SDC component plugin.
+   *
+   * @var \Drupal\Core\Plugin\Component|null|false
+   */
+  protected ComponentPlugin|null|false $componentPlugin = FALSE;
+
+  /**
    * The prop shapes.
    *
    * @var \Drupal\neo_alchemist\ComponentShapePluginInterface[]
@@ -254,7 +261,7 @@ class Component extends ConfigEntityBase implements ComponentInterface {
    *
    * @var \Drupal\Core\Cache\CacheableMetadata
    */
-  protected CacheableMetadata $cachaeableMetadata;
+  protected CacheableMetadata $cacheableMetadata;
 
   /**
    * {@inheritdoc}
@@ -274,18 +281,27 @@ class Component extends ConfigEntityBase implements ComponentInterface {
    * {@inheritdoc}
    */
   public function getGroupLabel(): MarkupInterface|string {
-    $group = $this->getGroup();
-    $groups = \Drupal::service('plugin.manager.neo_component_group')->getDefinitions();
-    return $groups[$group]['label'] ?? $group;
+    $definition = $this->getGroupDefinition();
+    return $definition['label'] ?? $this->getGroup();
   }
 
   /**
    * {@inheritdoc}
    */
   public function getGroupDescription(): MarkupInterface|string {
-    $group = $this->getGroup();
+    $definition = $this->getGroupDefinition();
+    return $definition['description'] ?? '';
+  }
+
+  /**
+   * Gets the group plugin definition for this component's group.
+   *
+   * @return array
+   *   The group plugin definition, or an empty array if not found.
+   */
+  protected function getGroupDefinition(): array {
     $groups = \Drupal::service('plugin.manager.neo_component_group')->getDefinitions();
-    return $groups[$group]['description'] ?? '';
+    return $groups[$this->getGroup()] ?? [];
   }
 
   /**
@@ -336,12 +352,17 @@ class Component extends ConfigEntityBase implements ComponentInterface {
    * {@inheritdoc}
    */
   public function getComponent(): ?ComponentPlugin {
-    /** @var \Drupal\Core\Theme\ComponentPluginManager $manager */
-    $manager = \Drupal::service('plugin.manager.sdc');
-    if (!$manager->hasDefinition($this->getComponentId())) {
-      return NULL;
+    if ($this->componentPlugin === FALSE) {
+      /** @var \Drupal\Core\Theme\ComponentPluginManager $manager */
+      $manager = \Drupal::service('plugin.manager.sdc');
+      if (!$manager->hasDefinition($this->getComponentId())) {
+        $this->componentPlugin = NULL;
+      }
+      else {
+        $this->componentPlugin = $manager->find($this->getComponentId());
+      }
     }
-    return $manager->find($this->getComponentId());
+    return $this->componentPlugin;
   }
 
   /**
@@ -384,16 +405,15 @@ class Component extends ConfigEntityBase implements ComponentInterface {
    */
   public function getThumbnail(): ?string {
     if ($thumbnailId = $this->getThumbnailId()) {
-      /** @var \Drupal\neo_config_file\ConfigFileInterface $configFile */
+      /** @var \Drupal\neo_config_file\ConfigFileInterface|null $configFile */
       $configFile = $this->entityTypeManager()->getStorage('neo_config_file')->load($thumbnailId);
-      if ($configFile) {
-        if ($file = $configFile->getFile()) {
-          return \Drupal::service('file_url_generator')->generateAbsoluteString($file->getFileUri());
-        }
+      $file = $configFile?->getFile();
+      if ($file) {
+        return \Drupal::service('file_url_generator')->generateAbsoluteString($file->getFileUri());
       }
     }
-    if ($this->getDefaultThumbnail()) {
-      return '/' . $this->getDefaultThumbnail();
+    if ($defaultThumbnail = $this->getDefaultThumbnail()) {
+      return '/' . $defaultThumbnail;
     }
     return '/' . \Drupal::service('extension.list.module')->getPath('neo_alchemist') . '/images/thumbnail.jpg';
   }
@@ -662,11 +682,11 @@ class Component extends ConfigEntityBase implements ComponentInterface {
    * {@inheritdoc}
    */
   public function getCacheableMetadata(): CacheableMetadata {
-    if (!isset($this->cachaeableMetadata)) {
-      $this->cachaeableMetadata = new CacheableMetadata();
-      $this->cachaeableMetadata->addCacheableDependency($this);
+    if (!isset($this->cacheableMetadata)) {
+      $this->cacheableMetadata = new CacheableMetadata();
+      $this->cacheableMetadata->addCacheableDependency($this);
     }
-    return $this->cachaeableMetadata;
+    return $this->cacheableMetadata;
   }
 
   /**
@@ -1047,13 +1067,13 @@ class Component extends ConfigEntityBase implements ComponentInterface {
             $shape->onPluginAdd($pluginType);
           }
         }
-        // Process all props and store the settings.
-        $this->setSetting('props', []);
-        foreach ($rootShapes as $shape) {
-          $this->setPropShapeSettings($shape);
-        }
-        $this->setSetting('props', $this->getAllPropShapeSettings());
       }
+      // Process all props and store the settings.
+      $this->setSetting('props', []);
+      foreach ($rootShapes as $shape) {
+        $this->setPropShapeSettings($shape);
+      }
+      $this->setSetting('props', $this->getAllPropShapeSettings());
     }
     else {
       /** @var \Drupal\neo_alchemist\ComponentInterface $original */
@@ -1304,6 +1324,7 @@ class Component extends ConfigEntityBase implements ComponentInterface {
    */
   public function __sleep(): array {
     return array_diff(parent::__sleep(), [
+      'componentPlugin',
       'propShapes',
       'propShapeContexts',
       'slots',
