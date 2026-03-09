@@ -438,40 +438,6 @@ final class MatcherField extends MatcherBase {
     int $level,
     array $parentDefinitions = [],
   ): array {
-    if ($shape->isScalar()) {
-      return $this->matchScalar($entityDataDefinition, $shape, $level, $parentDefinitions);
-    }
-    else {
-      return $this->matchIterable($entityDataDefinition, $shape, $level, $parentDefinitions);
-    }
-  }
-
-  /**
-   * Matches an iterable entity data definition with a component shape plugin.
-   *
-   * This method attempts to match an iterable entity data definition with a
-   * given component shape plugin at a specified level. It delegates the actual
-   * matching logic to the matchScalar method.
-   *
-   * @param \Drupal\Core\Entity\TypedData\EntityDataDefinitionInterface $entityDataDefinition
-   *   The entity data definition to match.
-   * @param \Drupal\neo_alchemist\ComponentShapePluginInterface $shape
-   *   The component shape plugin to match against.
-   * @param int $level
-   *   The current level of matching.
-   * @param array $parentDefinitions
-   *   (optional) An array of parent definitions for context. Defaults to an
-   *   empty array.
-   *
-   * @return array
-   *   An array of matched definitions.
-   */
-  private function matchIterable(
-    EntityDataDefinitionInterface $entityDataDefinition,
-    ComponentShapePluginInterface $shape,
-    int $level,
-    array $parentDefinitions = [],
-  ) {
     return $this->matchScalar($entityDataDefinition, $shape, $level, $parentDefinitions);
   }
 
@@ -503,8 +469,7 @@ final class MatcherField extends MatcherBase {
   ) {
     $matches = [];
 
-    $isRequired = $shape->isRequired();
-    $shapeFieldDefinition = $shape->getFieldItemList()->getFieldDefinition();
+    $requireRequired = $shape->isRequired() || $shape->getFieldItemList()->getFieldDefinition()->isRequired();
     $fieldDefinitions = $this->dataDefinitions($entityDataDefinition);
     $fieldDefinitions += $this->dynamicFieldDefinitions($fieldDefinitions, $shape);
     $fieldDefinitions += $this->dynamicEntityDefinitions($entityDataDefinition, $shape);
@@ -514,92 +479,76 @@ final class MatcherField extends MatcherBase {
       if ($fieldDefinition instanceof ComponentFieldConfigInterface) {
         continue;
       }
-      if ($isRequired && !$fieldDefinition->isRequired()) {
+      // Skip non-required fields when the shape requires a value.
+      if ($requireRequired && !$fieldDefinition->isRequired()) {
         continue;
       }
-      $parentFieldDefinitions = array_merge($parentDefinitions, [$fieldDefinition]);
-
-      // If shape field is required, but the field definition is not, skip.
-      if ($shapeFieldDefinition->isRequired() && !$fieldDefinition->isRequired()) {
-        continue;
-      }
-
-      // Check if the field definition is allowed.
       if (!$shape->allowFieldDefinition($fieldDefinition)) {
         continue;
       }
 
-      // Check if the field definition is supported.
+      $parentFieldDefinitions = [...$parentDefinitions, $fieldDefinition];
+
       if ($shape->supportsFieldDefinition($fieldDefinition)) {
-        $matches[$this->key($parentFieldDefinitions)] = [
-          'title' => $this->label($parentFieldDefinitions),
-          'group' => $this->group($parentFieldDefinitions),
-          'definition' => $fieldDefinition,
-          'weight' => $level,
-        ];
+        $matches[$this->key($parentFieldDefinitions)] = $this->buildMatchEntry($parentFieldDefinitions, $fieldDefinition, $level);
         continue;
       }
 
       $properties = $this->dataDefinitions($fieldDefinition);
-      // Check if all field properties are supported.
+
       if ($shape->supportsFieldProperties($fieldDefinition, $properties)) {
-        $matches[$this->key($parentFieldDefinitions)] = [
-          'title' => $this->label($parentFieldDefinitions),
-          'group' => $this->group($parentFieldDefinitions),
-          'definition' => $fieldDefinition,
-          'weight' => $level,
-        ];
+        $matches[$this->key($parentFieldDefinitions)] = $this->buildMatchEntry($parentFieldDefinitions, $fieldDefinition, $level);
         continue;
       }
-      uasort($matches, function ($a, $b) {
-        $a_weight = $a['weight'] ?? 0;
-        $b_weight = $b['weight'] ?? 0;
-        if ($a_weight == $b_weight) {
-          $a_label = $a['title'];
-          $b_label = $b['title'];
-          return strnatcasecmp((string) $a_label, (string) $b_label);
-        }
-        return ($a_weight < $b_weight) ? 1 : -1;
-      });
 
       foreach ($properties as $propertyName => $property) {
         $isReference = $this->isReference($property);
         if ($isReference === NULL) {
-          // Neither a reference nor a primitive.
           continue;
         }
         if ($isReference) {
-          if ($level === 0) {
-            continue;
-          }
-          if ($property instanceof DataReferenceDefinitionInterface && is_a($property->getClass(), EntityReference::class, TRUE)) {
+          if ($level > 0 && $property instanceof DataReferenceDefinitionInterface && is_a($property->getClass(), EntityReference::class, TRUE)) {
             $target = $property->getTargetDefinition();
             assert($target instanceof EntityDataDefinitionInterface);
             $matches += $this->match($target, $shape, $level - 1, $parentFieldDefinitions);
           }
+          continue;
         }
-        // Check if single field property is supported.
-        elseif ($shape->supportsFieldProperty($fieldDefinition, $property)) {
-          $matches[$this->key($parentFieldDefinitions, $propertyName)] = [
-            'title' => $this->label($parentFieldDefinitions, $property->getLabel()),
-            'group' => $this->group($parentFieldDefinitions),
-            'definition' => $fieldDefinition,
-            'weight' => $level,
-          ];
+        if ($shape->supportsFieldProperty($fieldDefinition, $property)) {
+          $matches[$this->key($parentFieldDefinitions, $propertyName)] = $this->buildMatchEntry($parentFieldDefinitions, $fieldDefinition, $level, $property->getLabel());
         }
       }
 
       foreach ($shape->getMatches($fieldDefinition) as $match => $label) {
-        $matches[$this->key($parentFieldDefinitions, $match)] = [
-          'title' => $this->label($parentFieldDefinitions, $label),
-          'group' => $this->group($parentFieldDefinitions),
-          'definition' => $fieldDefinition,
-          'weight' => $level,
-        ];
+        $matches[$this->key($parentFieldDefinitions, $match)] = $this->buildMatchEntry($parentFieldDefinitions, $fieldDefinition, $level, $label);
       }
     }
 
     return $matches;
+  }
+
+  /**
+   * Builds a match entry array.
+   *
+   * @param array $parentDefinitions
+   *   The parent field definitions.
+   * @param \Drupal\Core\Field\FieldDefinitionInterface $fieldDefinition
+   *   The field definition.
+   * @param int $weight
+   *   The weight for sorting.
+   * @param string|null $propertyLabel
+   *   (optional) A property label suffix.
+   *
+   * @return array
+   *   The match entry.
+   */
+  private function buildMatchEntry(array $parentDefinitions, FieldDefinitionInterface $fieldDefinition, int $weight, ?string $propertyLabel = NULL): array {
+    return [
+      'title' => $this->label($parentDefinitions, $propertyLabel),
+      'group' => $this->group($parentDefinitions),
+      'definition' => $fieldDefinition,
+      'weight' => $weight,
+    ];
   }
 
   /**
@@ -628,13 +577,8 @@ final class MatcherField extends MatcherBase {
       if ($fieldDefinition instanceof ComponentFieldConfigInterface) {
         continue;
       }
-      $parentFieldDefinitions = array_merge($parentDefinitions, [$fieldDefinition]);
-      $matches[$this->key($parentFieldDefinitions)] = [
-        'title' => $this->label($parentFieldDefinitions),
-        'group' => $this->group($parentFieldDefinitions),
-        'definition' => $fieldDefinition,
-        'weight' => $level,
-      ];
+      $parentFieldDefinitions = [...$parentDefinitions, $fieldDefinition];
+      $matches[$this->key($parentFieldDefinitions)] = $this->buildMatchEntry($parentFieldDefinitions, $fieldDefinition, $level);
 
       $properties = $this->dataDefinitions($fieldDefinition);
       foreach ($properties as $propertyName => $property) {
@@ -675,72 +619,61 @@ final class MatcherField extends MatcherBase {
   ): array {
     $entityDefinitions = [];
     $isRequired = $shape->isRequired();
-
-    $entityType = $this->entityTypeManager->getDefinition($entityDataDefinition->getEntityTypeId());
+    $entityTypeId = $entityDataDefinition->getEntityTypeId();
+    $entityType = $this->entityTypeManager->getDefinition($entityTypeId);
+    $entityLabel = $entityDataDefinition->getLabel();
+    $labelPrefix = $entityLabel ? '(' . $entityLabel . ') ' : '';
 
     if ($entityType->hasKey('label')) {
-      $fieldName = '_entity:label';
-      $label = $entityDataDefinition->getLabel();
-      $label = ($label ? '(' . $label . ') ' : '') . $this->t('Label');
-      $entityDefinitions[$fieldName] = BaseFieldDefinition::create('string')
-        ->setLabel($label)
-        ->setName($fieldName)
-        ->setTargetEntityTypeId($entityDataDefinition->getEntityTypeId())
-        ->setRequired($isRequired);
+      $entityDefinitions['_entity:label'] = $this->createDynamicDefinition('string', $labelPrefix . $this->t('Label'), '_entity:label', $entityTypeId, $isRequired);
     }
 
-    $fieldName = '_entity:icon';
-    $label = $entityDataDefinition->getLabel();
-    $label = ($label ? '(' . $label . ') ' : '') . $this->t('Icon');
-    $entityDefinitions[$fieldName] = BaseFieldDefinition::create('string')
-      ->setLabel($label)
-      ->setName($fieldName)
-      ->setTargetEntityTypeId($entityDataDefinition->getEntityTypeId())
-      ->setRequired($isRequired);
+    $entityDefinitions['_entity:icon'] = $this->createDynamicDefinition('string', $labelPrefix . $this->t('Icon'), '_entity:icon', $entityTypeId, $isRequired);
 
     // Config entity type definitions.
     if ($entityType instanceof ConfigEntityTypeInterface) {
-      $fieldName = '_entity:label_page';
-      $label = $entityDataDefinition->getLabel();
-      $label = ($label ? '(' . $label . ') ' : '') . $this->t('Label (with System Page to Page conversion)');
-      $entityDefinitions[$fieldName] = BaseFieldDefinition::create('string')
-        ->setLabel($label)
-        ->setName($fieldName)
-        ->setTargetEntityTypeId($entityDataDefinition->getEntityTypeId())
-        ->setRequired($isRequired);
-
-      $fieldName = '_entity:icon_page';
-      $label = $entityDataDefinition->getLabel();
-      $label = ($label ? '(' . $label . ') ' : '') . $this->t('Icon (with System Page to Page conversion)');
-      $entityDefinitions[$fieldName] = BaseFieldDefinition::create('string')
-        ->setLabel($label)
-        ->setName($fieldName)
-        ->setTargetEntityTypeId($entityDataDefinition->getEntityTypeId())
-        ->setRequired($isRequired);
+      $entityDefinitions['_entity:label_page'] = $this->createDynamicDefinition('string', $labelPrefix . $this->t('Label (with System Page to Page conversion)'), '_entity:label_page', $entityTypeId, $isRequired);
+      $entityDefinitions['_entity:icon_page'] = $this->createDynamicDefinition('string', $labelPrefix . $this->t('Icon (with System Page to Page conversion)'), '_entity:icon_page', $entityTypeId, $isRequired);
     }
 
     // Content entity type definitions.
     if ($entityType instanceof ContentEntityTypeInterface) {
       foreach ($entityType->getLinkTemplates() as $templateId => $template) {
-        if (substr($templateId, 0, 10) === 'alchemist.') {
+        if (str_starts_with($templateId, 'alchemist.')) {
           continue;
         }
         $fieldName = '_entity:link:' . $templateId;
-        $label = $entityDataDefinition->getLabel();
-        $label = '(' . $this->t('Link') . ') ' . ucwords(str_replace([
-          '-',
-          '_',
-          '.',
-        ], ' ', $templateId));
-        $entityDefinitions[$fieldName] = BaseFieldDefinition::create('link')
-          ->setLabel($label)
-          ->setName($fieldName)
-          ->setTargetEntityTypeId($entityDataDefinition->getEntityTypeId())
-          ->setRequired($isRequired);
+        $label = '(' . $this->t('Link') . ') ' . ucwords(str_replace(['-', '_', '.'], ' ', $templateId));
+        $entityDefinitions[$fieldName] = $this->createDynamicDefinition('link', $label, $fieldName, $entityTypeId, $isRequired);
       }
     }
 
     return $entityDefinitions;
+  }
+
+  /**
+   * Creates a dynamic BaseFieldDefinition.
+   *
+   * @param string $type
+   *   The field type.
+   * @param string $label
+   *   The field label.
+   * @param string $name
+   *   The field name.
+   * @param string $entityTypeId
+   *   The target entity type ID.
+   * @param bool $required
+   *   Whether the field is required.
+   *
+   * @return \Drupal\Core\Field\BaseFieldDefinition
+   *   The base field definition.
+   */
+  private function createDynamicDefinition(string $type, string $label, string $name, string $entityTypeId, bool $required): BaseFieldDefinition {
+    return BaseFieldDefinition::create($type)
+      ->setLabel($label)
+      ->setName($name)
+      ->setTargetEntityTypeId($entityTypeId)
+      ->setRequired($required);
   }
 
   /**
@@ -813,15 +746,15 @@ final class MatcherField extends MatcherBase {
     return match ($property) {
       'label' => [$entity->label()],
       'label_page' => [$entity->id() === 'system' ? 'Page' : $entity->label()],
-      'icon' => call_user_func(function () use ($entity) {
+      'icon' => (function () use ($entity) {
         $icon = neo_icon_entity($entity)->getIcon();
-        return [$icon ? $icon->getName() : ''];
-      }),
-      'icon_page' => call_user_func(function () use ($entity) {
+        return [$icon?->getName() ?? ''];
+      })(),
+      'icon_page' => (function () use ($entity) {
         $labelOverride = $entity->id() === 'system' ? 'Page' : NULL;
         $icon = neo_icon_entity($entity, $labelOverride)->getIcon();
-        return [$icon ? $icon->getName() : ''];
-      }),
+        return [$icon?->getName() ?? ''];
+      })(),
       'link' => $this->getEntityDefinitionLink($entity, $subProperty),
       default => [],
     };
@@ -843,8 +776,8 @@ final class MatcherField extends MatcherBase {
     string $type,
   ): array {
     return match ($type) {
-      'empty' => [$field->isEmpty() ? TRUE : FALSE],
-      'not_empty' => [$field->isEmpty() ? FALSE : TRUE],
+      'empty' => [$field->isEmpty()],
+      'not_empty' => [!$field->isEmpty()],
       default => $field->getValue(),
     };
   }
