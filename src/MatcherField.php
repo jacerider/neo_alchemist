@@ -121,6 +121,7 @@ final class MatcherField extends MatcherBase {
     }
     // Get the field.
     $field = $this->getEntityField($entity, $key, $published, $cacheableMetadata);
+
     if ($field) {
       $value = $field->getValue();
       if ($property) {
@@ -136,6 +137,13 @@ final class MatcherField extends MatcherBase {
           foreach ($value as $delta => $val) {
             foreach ($properties as $name => $prop) {
               $v[$delta][$name] = $val[$prop] ?? NULL;
+              // Special handling for uri fields to support options.
+              if ($prop === 'uri' && !empty($val['options']) && in_array($field->getFieldDefinition()->getType(), ['uri', 'link'])) {
+                $v[$delta][$name] = [
+                  'uri' => $v[$delta][$name],
+                  'options' => $val['options'] ?? [],
+                ];
+              }
               if (!$v[$delta][$name] && $prop === 'target_id' && !empty($val['entity'])) {
                 // Support passing entities directly.
                 $v[$delta][$name]['entity'] = $val['entity'];
