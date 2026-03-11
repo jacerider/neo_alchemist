@@ -122,11 +122,25 @@ final class InstanceComponentLibraryController extends ControllerBase {
       }
     }
 
+    $build['form'] = [
+      '#type' => 'container',
+      '#attributes' => ['class' => ['neo-alchemist-library-form card p-3 mb-6']],
+    ];
+
+    $build['form']['search'] = [
+      '#type' => 'search',
+      '#attributes' => ['class' => ['neo-alchemist-library-search']],
+      '#placeholder' => $this->t('Search components...'),
+    ];
+
     $build['library'] = [
       '#theme' => 'neo_alchemist_library',
       '#groups' => $groups,
       '#attached' => [
-        'library' => ['core/drupal.dialog.ajax'],
+        'library' => [
+          'core/drupal.dialog.ajax',
+          'neo_alchemist/component.library',
+        ],
       ],
     ];
 

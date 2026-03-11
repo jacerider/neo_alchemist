@@ -79,6 +79,15 @@ component.sort:
     - core/once
     - core/drupal
 
+component.library:
+  version: VERSION
+  neo: true
+  js:
+    src/js/component-library.ts: {}
+  dependencies:
+    - core/once
+    - core/drupal
+
 utilities:
   version: VERSION
   neo:
