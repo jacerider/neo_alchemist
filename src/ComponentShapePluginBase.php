@@ -2331,6 +2331,13 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
   /**
    * {@inheritDoc}
    */
+  public function massageFinalValues(array $values): ?array {
+    return $values;
+  }
+
+  /**
+   * {@inheritDoc}
+   */
   public function getOptionEmpty(): ComponentShapeOption {
     return $this->options['empty'];
   }

@@ -237,6 +237,14 @@ class ArrayShape extends ChildrenShapeBase implements ComponentShapeInterablePlu
         }
       }
     }
+    if ($this->isRendering()) {
+      usort($values, function ($a, $b) {
+        $weightA = isset($a['_weight']) ? (int) $a['_weight'] : 0;
+        $weightB = isset($b['_weight']) ? (int) $b['_weight'] : 0;
+        return $weightA <=> $weightB;
+      });
+      $values = array_values($values);
+    }
     return $values;
   }
 
@@ -427,26 +435,13 @@ class ArrayShape extends ChildrenShapeBase implements ComponentShapeInterablePlu
    */
   protected function getArrayItemForm(ComponentShapePluginInterface $shape, array $form, FormStateInterface $form_state, int $delta): array {
     return $shape->getForm($form, $form_state);
-
   }
 
   /**
    * {@inheritDoc}
    */
   public function validateForm(array $form, FormStateInterface $form_state): void {
-    // Support draggable.
     $values = $form_state->getValues();
-    $options = $values['_options'] ?? [];
-    unset($values['_options']);
-    usort($values, function ($a, $b) {
-      $weightA = isset($a['_weight']) ? (int) $a['_weight'] : 0;
-      $weightB = isset($b['_weight']) ? (int) $b['_weight'] : 0;
-      return $weightA <=> $weightB;
-    });
-    $values['_options'] = $options;
-    $form_state->setValues($values);
-
-    parent::validateForm($form, $form_state);
     $shapeList = $this->getChildShapeList($values);
     foreach ($shapeList as $delta => $shapes) {
       foreach ($shapes as $shapeName => $shape) {
@@ -456,6 +451,7 @@ class ArrayShape extends ChildrenShapeBase implements ComponentShapeInterablePlu
         }
       }
     }
+    parent::validateForm($form, $form_state);
   }
 
   /**
@@ -479,6 +475,37 @@ class ArrayShape extends ChildrenShapeBase implements ComponentShapeInterablePlu
       }
     }
     return parent::massageFormValues($values, $original_values, $form, $form_state);
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  public function massageFinalValues(array $values): ?array {
+    // This is insane. In order to avoid unncessary complexity, sorting only
+    // changes the order of elements in the dom. It is only when they are
+    // submitted that we actually change the saved order. As a result, we have
+    // to make sure the 'options' are assigned to the correct delta.
+    // @todo change when and how getNestedOptions() is calculated.
+    $id = $this->id();
+    $newValue = [];
+    $newOptions = [];
+    foreach ($values['value'] as $delta => $value) {
+      if (isset($value['_weight'])) {
+        $newDelta = $value['_weight'];
+        unset($value['_weight']);
+        $newValue[$newDelta] = $value;
+        foreach ($value as $name => $val) {
+          if (isset($values['options'][$id . '~' . $name . '~' . $delta])) {
+            $newOptions[$id . '~' . $name . '~' . $newDelta] = $values['options'][$id . '~' . $name . '~' . $delta];
+          }
+        }
+      }
+    }
+    ksort($newValue);
+    $values['value'] = array_values($newValue + $values['value']);
+    $values['options'] = $newOptions + $values['options'];
+
+    return $values;
   }
 
   /**

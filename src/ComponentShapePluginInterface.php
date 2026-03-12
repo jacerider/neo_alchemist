@@ -1064,6 +1064,17 @@ interface ComponentShapePluginInterface extends PluginInspectionInterface, Deriv
   public function massageFormValues(array $values, array $original_values, array $form, FormStateInterface $form_state): ?array;
 
   /**
+   * Massage the final values.
+   *
+   * @param array $values
+   *   The shape values.
+   *
+   * @return array|null
+   *   The massaged final values.
+   */
+  public function massageFinalValues(array $values): ?array;
+
+  /**
    * Retrieves the 'empty' option from the component shape plugin options.
    *
    * @return \Drupal\neo_alchemist\ComponentShapeOption

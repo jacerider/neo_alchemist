@@ -401,6 +401,13 @@ final class InstanceComponentForm extends ContentEntityForm {
     $this->instance->setRebuilding(FALSE);
     $form_state->setRedirectUrl($this->instance->toUrl());
 
+    // Update shapes.
+    $values = $this->instance->getValues();
+    foreach ($this->instance->getPropShapes() as $propName => $shape) {
+      $values['props'][$propName] = $shape->massageFinalValues($values['props'][$propName] ?? []);
+    }
+    $this->instance->setValues($values);
+
     $fieldItem = $this->instance->getFieldItem();
     $fieldDefinition = $fieldItem->getFieldDefinition();
     $this->messenger()->addStatus($this->t('@op component %name successfully on %label: %field_label.', [
