@@ -124,7 +124,6 @@
 
             e.preventDefault();
             (e.target as Element).setPointerCapture(e.pointerId);
-
             dragging = true;
             draggedItem = targetItem;
             hasMoved = false;
@@ -153,7 +152,7 @@
             clone.style.width = rect.width + 'px';
             clone.style.pointerEvents = 'none';
             clone.style.zIndex = '9999';
-            document.body.appendChild(clone);
+            targetItem.closest('form')?.appendChild(clone);
 
             // Hide original item while dragging so form inputs remain in place but are not visible twice.
             targetItem.style.display = 'none';
