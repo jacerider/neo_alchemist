@@ -711,6 +711,16 @@ class ComponentTreeItem extends FieldItemBase implements RenderableInterface, Co
    *   In case of failures an exception is thrown.
    */
   public function saveComponents(): int {
+    // Remove non-existing components.
+    $tree = $this->get('tree');
+    assert($tree instanceof ComponentTreeStructure);
+
+    foreach ($tree->getComponentInstanceUuids() as $uuid) {
+      if (!$this->getComponent($uuid)) {
+        $this->removeComponent($uuid);
+      }
+    }
+
     if ($this->belongsToFieldConfig()) {
       return (int) $this->getFieldDefinition()->setComponentValuesFromFieldItem($this)->save();
     }

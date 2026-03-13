@@ -103,6 +103,9 @@ abstract class ComponentInstanceBase extends Component implements ComponentInsta
     if ($parentUuid || $slot) {
       assert($parentUuid && $slot, 'Both parentUuid and slot must be provided together.');
       $parentComponent = $this->getFieldItem()->getComponent($parentUuid);
+      if (!$parentComponent) {
+        return $this;
+      }
       assert($parentComponent instanceof ComponentInstanceInterface, 'Parent component must be a valid ComponentInstanceInterface.');
       // Currently we use component shapes as slots.
       $allShapes = $parentComponent->getPropShapesAll(NULL, TRUE);

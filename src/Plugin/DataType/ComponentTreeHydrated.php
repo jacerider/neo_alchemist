@@ -72,6 +72,15 @@ class ComponentTreeHydrated extends TypedData implements RenderableInterface {
       'slot' => $slot,
       'uuid' => $uuid,
     ]) {
+      if (!isset($hydrated[$parent_uuid])) {
+        // This component's parent does not exist, likely because it is
+        // unpublished or the component was deleted and we are not in draft
+        // mode, so we skip it and all of its children. We also remove it from
+        // the hydrated list to avoid leaving orphaned components in the final
+        // tree.
+        unset($hydrated[$uuid]);
+        continue;
+      }
       assert(array_key_exists('slots', $hydrated[$parent_uuid]));
 
       // Remove default slot value: this slot is populated.

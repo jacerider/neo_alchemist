@@ -487,9 +487,11 @@ class ArrayShape extends ChildrenShapeBase implements ComponentShapeInterablePlu
     // to make sure the 'options' are assigned to the correct delta.
     // @todo change when and how getNestedOptions() is calculated.
     $id = $this->id();
+    $originalValue = $values['value'] ?? [];
+    $originalOptions = $values['options'] ?? [];
     $newValue = [];
     $newOptions = [];
-    foreach ($values['value'] as $delta => $value) {
+    foreach ($originalValue as $delta => $value) {
       if (isset($value['_weight'])) {
         $newDelta = $value['_weight'];
         unset($value['_weight']);
@@ -502,8 +504,9 @@ class ArrayShape extends ChildrenShapeBase implements ComponentShapeInterablePlu
       }
     }
     ksort($newValue);
-    $values['value'] = array_values($newValue + $values['value']);
-    $values['options'] = $newOptions + $values['options'];
+    $newValue = array_values($newValue);
+    $values['value'] = array_values($newValue + $originalValue);
+    $values['options'] = $newOptions + $originalOptions;
 
     return $values;
   }
