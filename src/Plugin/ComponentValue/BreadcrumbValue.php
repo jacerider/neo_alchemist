@@ -8,6 +8,7 @@ use Drupal\Core\Breadcrumb\BreadcrumbBuilderInterface;
 use Drupal\Core\DependencyInjection\DependencySerializationTrait;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Plugin\ContainerFactoryPluginInterface;
+use Drupal\Core\Render\Element;
 use Drupal\Core\Routing\RouteMatchInterface;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\neo_alchemist\Attribute\ComponentValue;
@@ -150,6 +151,9 @@ final class BreadcrumbValue extends ComponentValuePluginBase implements Containe
         $route = $routeMatch->getRouteObject();
         if ($route) {
           $title = \Drupal::service('title_resolver')->getTitle($request, $route);
+          if (Element::isRenderArray($title)) {
+            $title = \Drupal::service('renderer')->render($title);
+          }
           $value['_current'] = [
             'title' => $title,
             'url' => [],
@@ -157,6 +161,7 @@ final class BreadcrumbValue extends ComponentValuePluginBase implements Containe
         }
       }
     }
+
     return $value;
   }
 
