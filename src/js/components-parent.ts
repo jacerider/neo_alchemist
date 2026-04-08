@@ -1098,7 +1098,7 @@
         const data = structureData[layerUuid];
         const parent = data.parents[data.parents.length - 1] || null;
         if (parent) {
-          url += `&parent=${parent}`;
+          url += `?parent=${parent}`;
         }
       }
       Drupal.ajax({
