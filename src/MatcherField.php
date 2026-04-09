@@ -515,7 +515,7 @@ final class MatcherField extends MatcherBase {
           continue;
         }
         if ($shape->supportsFieldProperty($fieldDefinition, $property)) {
-          $matches[$this->key($parentFieldDefinitions, $propertyName)] = $this->buildMatchEntry($parentFieldDefinitions, $fieldDefinition, $level, $property->getLabel());
+          $matches[$this->key($parentFieldDefinitions, $propertyName)] = $this->buildMatchEntry($parentFieldDefinitions, $fieldDefinition, $level, (string) $property->getLabel());
         }
       }
 
