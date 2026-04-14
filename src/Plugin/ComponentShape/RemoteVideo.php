@@ -50,9 +50,10 @@ class RemoteVideo extends MediaShapeBase {
    */
   public function getValueFromMedia(MediaInterface $media): array {
     $source = $media->getSource();
+    $thumbnailUri = $source->getMetadata($media, 'thumbnail_uri');
     return [
       'src' => $source->getSourceFieldValue($media),
-      'thumbnail' => $source->getMetadata($media, 'thumbnail_uri'),
+      'thumbnail' => !empty($thumbnailUri) ? \Drupal::service('file_url_generator')->generateAbsoluteString($thumbnailUri) : NULL,
       'thumbnail_width' => $source->getMetadata($media, 'width'),
       'thumbnail_height' => $source->getMetadata($media, 'height'),
       'title' => $source->getMetadata($media, 'title'),
