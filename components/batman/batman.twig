@@ -14,6 +14,13 @@
     {{ a.bb.cc.d }}
   {% endif %}
 
+  {% if remote_video %}
+    <div>
+      {{ neo_modal(neo_image_style(remote_video.thumbnail, {scaleCrop: {width: 480, height: 360}}, remote_video.title), {video: remote_video.src}, 'media') }}
+      {{ neo_oembed(remote_video.src) }}
+    </div>
+  {% endif %}
+
   {% if image %}
     <div>
       {# Size: {{ image.size }} #}

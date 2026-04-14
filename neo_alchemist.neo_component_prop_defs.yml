@@ -136,6 +136,44 @@ file-uri:
     content: '<a href="{{ neo_uri(%name%.src) }}" target="_blank">{{ %name%.title }}: {{ %name%.name }}</a>'
     suffix: '{% endif %}'
 
+remote_video:
+  title: Remote Video
+  type: object
+  required:
+    - src
+  properties:
+    src:
+      title: Image URL
+      type: uri
+    thumbnail:
+      title: Image URL
+      type: image-uri
+    thumbnail_width:
+      title: Image width
+      type:
+        - integer
+        - 'null'
+    thumbnail_height:
+      title: Image height
+      type:
+        - integer
+        - 'null'
+    title:
+      title: Alternative text
+      type: string
+  examples:
+    src: https://www.youtube.com/watch?v=ScMzIvxBSi4
+    thumbnail: https://img.youtube.com/vi/ScMzIvxBSi4/hqdefault.jpg
+    title: Placeholder Video
+  twig:
+    prefix: '{% if %name% %}'
+    content:
+      - '{# To render a video as a modal #}'
+      - "{{ neo_modal(neo_image_style(%name%.thumbnail, {scaleCrop: {width: 480, height: 360}}, %name%.title), {video: %name%.src}, 'media') }}"
+      - '{# To render a video inline #}'
+      - '{{ neo_oembed(%name%.src) }}'
+    suffix: '{% endif %}'
+
 email:
   title: Email
   type: string

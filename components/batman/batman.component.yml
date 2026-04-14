@@ -21,6 +21,13 @@ props:
           alt: 'Boring placeholder'
           width: 300
           height: 200
+    remote_video:
+      title: 'Remote Video'
+      type: remote_video
+      examples:
+        - src: https://www.youtube.com/watch?v=ScMzIvxBSi4
+          thumbnail: https://img.youtube.com/vi/ScMzIvxBSi4/hqdefault.jpg
+          title: 'Placeholder Video'
     # region:
     #   title: Region
     #   type: region
