@@ -171,6 +171,12 @@
 
     // Watch for errors.
     iframes.forEach(iframe => {
+      if (iframe.dataset.size === 'desktop') {
+        const wrap = iframe.closest('.neo-alchemist--iframe-wrapper') as HTMLElement;
+        if (wrap && wrap.clientWidth > window.innerWidth && window.innerWidth > 920) {
+          wrap.style.width = (window.innerWidth - 20 ) + 'px';
+        }
+      }
       iframe.onload = () => {
         if (iframe.contentWindow) {
           const html = iframe.contentWindow.document.querySelector('html');
