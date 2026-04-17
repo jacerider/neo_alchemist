@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Drupal\neo_alchemist\Plugin\ComponentShape;
 
 use Drupal\Core\Field\FieldDefinitionInterface;
+use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Template\Attribute;
 use Drupal\neo\NeoLinkitFormatterTrait;
 use Drupal\neo_alchemist\ComponentShapePluginBase;
@@ -75,24 +76,6 @@ class UrlShapeBase extends ComponentShapePluginBase {
       // The Neo Link widget stores them there, but getLinkitUrl() expects
       // them directly in options for proper entity URL substitution.
       $fieldItem = $this->getFieldItem();
-
-      if (!empty($value['options']['attributes']['data-entity-type']) ||
-          !empty($value['options']['attributes']['data-entity-uuid'])) {
-        // Create a clone of the field item to avoid modifying the original.
-        $fieldItem = clone $fieldItem;
-        $itemValue = $fieldItem->getValue();
-        $itemValue['options'] = $itemValue['options'] ?? [];
-
-        // Move Linkit data from attributes to options root.
-        foreach (['data-entity-type', 'data-entity-uuid', 'data-entity-substitution'] as $key) {
-          if (isset($value['options']['attributes'][$key])) {
-            $itemValue['options'][$key] = $value['options']['attributes'][$key];
-          }
-        }
-
-        $fieldItem->setValue($itemValue);
-      }
-
       if ($url = $this->getLinkitUrl($fieldItem)) {
         $value['uri'] = $url->toString();
       }
