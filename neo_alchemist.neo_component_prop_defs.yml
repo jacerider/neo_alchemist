@@ -47,6 +47,33 @@ markup:
     content: '<div class="prose prose-lg">{{ %name% }}</div>'
     suffix: '{% endif %}'
 
+media:
+  title: Media
+  type: object
+  media_types:
+    - image
+  required:
+    - src
+  properties:
+    src:
+      title: Image URL
+      type: uri
+    title:
+      title: Title
+      type: string
+  twig:
+    prefix: '{% if %name% %}'
+    content:
+      - '{# The entity id #}'
+      - '{{ %name%.entity_id }}'
+      - '{# The src or entity id depending on the media type source #}'
+      - '{{ %name%.src }}'
+      - '{# The entity label #}'
+      - '{{ %name%.title }}'
+      - '{# To rendered full view mode of the entity #}'
+      - '{{ %name%.render }}'
+    suffix: '{% endif %}'
+
 image:
   title: Image
   type: object
@@ -159,7 +186,7 @@ remote_video:
         - integer
         - 'null'
     title:
-      title: Alternative text
+      title: Totle
       type: string
   examples:
     src: https://www.youtube.com/watch?v=ScMzIvxBSi4
