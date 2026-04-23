@@ -466,7 +466,11 @@ class Component extends ConfigEntityBase implements ComponentInterface {
    * {@inheritdoc}
    */
   public function isComponentPreview(): bool {
-    return \Drupal::routeMatch()->getRouteName() === 'entity.neo_component.preview';
+    $routeName = \Drupal::routeMatch()->getRouteName();
+    return in_array($routeName, [
+      'entity.neo_component.preview',
+      'neo_alchemist.sdc_preview',
+    ], TRUE);
   }
 
   /**
