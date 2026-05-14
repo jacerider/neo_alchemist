@@ -9,7 +9,7 @@ use Drupal\Core\Cache\CacheableMetadata;
 use Drupal\Core\Entity\ContentEntityInterface;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\neo_alchemist\ComponentPropRenderable;
-use Drupal\neo_alchemist\ComponentShapeChildrenPluginInterface;
+use Drupal\neo_alchemist\ComponentShapeChildrenMatchPluginInterface;
 use Drupal\neo_alchemist\ComponentShapePluginInterface;
 use Drupal\neo_alchemist\Event\ComponentValueEvent;
 use Drupal\neo_alchemist\FieldFormatterTrait;
@@ -61,7 +61,7 @@ trait ComponentValueChildrenMatchTrait {
   /**
    * Configuration form for the value provider plugin.
    */
-  protected function buildChildrenMatchConfigurationForm(ComponentShapeChildrenPluginInterface $shape, $form, FormStateInterface $form_state, $entityTypeId, $bundle = NULL, array $configuration = []): array {
+  protected function buildChildrenMatchConfigurationForm(ComponentShapeChildrenMatchPluginInterface $shape, $form, FormStateInterface $form_state, $entityTypeId, $bundle = NULL, array $configuration = []): array {
     $wrapperId = $form['#id'];
     $childShapes = $shape->getChildShapes();
     if ($childShapes) {
@@ -257,7 +257,7 @@ trait ComponentValueChildrenMatchTrait {
             break;
 
           case '_expand':
-            if ($shape instanceof ComponentShapeChildrenPluginInterface) {
+            if ($shape instanceof ComponentShapeChildrenMatchPluginInterface) {
               foreach ($shape->getChildShapes() as $childShapeName => $childShape) {
                 $form['shape_fields'][$childShapeName] = [
                   '#id' => $wrapperId . '-' . $childShapeName,
@@ -364,14 +364,14 @@ trait ComponentValueChildrenMatchTrait {
   /**
    * Get the values for the shape matcher.
    */
-  protected function getChildrenMatchValues(ComponentShapeChildrenPluginInterface $shape, array $entities, array $configuration = [], ?string $parentId = NULL): mixed {
+  protected function getChildrenMatchValues(ComponentShapeChildrenMatchPluginInterface $shape, array $entities, array $configuration = [], ?string $parentId = NULL): mixed {
     return $this->fetchChildrenMatchValues($shape->getChildShapeNames(), $shape, $entities, $configuration, $parentId);
   }
 
   /**
    * Recursively fetch the values for the shape matcher.
    */
-  protected function fetchChildrenMatchValues(array $shapeNames, ComponentShapeChildrenPluginInterface $shape, array $entities, array $configuration = [], ?string $parentId = NULL): mixed {
+  protected function fetchChildrenMatchValues(array $shapeNames, ComponentShapeChildrenMatchPluginInterface $shape, array $entities, array $configuration = [], ?string $parentId = NULL): mixed {
     /** @var \Drupal\Core\Entity\ContentEntityInterface[] $entities */
     $values = [];
     $delta = 0;
@@ -451,7 +451,7 @@ trait ComponentValueChildrenMatchTrait {
   /**
    * Fetch children match values for expand fields.
    */
-  protected function fetchChildrenMatchValuesDefault(string $shapeId, string $shapeName, int $delta, ComponentShapeChildrenPluginInterface $shape, ContentEntityInterface $entity, array $configuration): mixed {
+  protected function fetchChildrenMatchValuesDefault(string $shapeId, string $shapeName, int $delta, ComponentShapeChildrenMatchPluginInterface $shape, ContentEntityInterface $entity, array $configuration): mixed {
     $shape->defaultChildShape($shapeId, TRUE);
     return NULL;
   }
@@ -459,7 +459,7 @@ trait ComponentValueChildrenMatchTrait {
   /**
    * Fetch children match values for expand fields.
    */
-  protected function fetchChildrenMatchValuesEvent(string $shapeId, string $shapeName, int $delta, ComponentShapeChildrenPluginInterface $shape, ContentEntityInterface $entity, array $configuration): mixed {
+  protected function fetchChildrenMatchValuesEvent(string $shapeId, string $shapeName, int $delta, ComponentShapeChildrenMatchPluginInterface $shape, ContentEntityInterface $entity, array $configuration): mixed {
     $event = new ComponentValueEvent($shape, [], $entity, $delta, $shapeId);
     $this->getEventDispatcher()->dispatch($event, ComponentValueEvent::EVENT_NAME);
     $value = $event->getValue();
@@ -470,7 +470,7 @@ trait ComponentValueChildrenMatchTrait {
   /**
    * Fetch children match values for default fields.
    */
-  protected function fetchChildrenMatchValuesExpand(string $shapeId, string $shapeName, int $delta, ComponentShapeChildrenPluginInterface $shape, ContentEntityInterface $entity, array $configuration): mixed {
+  protected function fetchChildrenMatchValuesExpand(string $shapeId, string $shapeName, int $delta, ComponentShapeChildrenMatchPluginInterface $shape, ContentEntityInterface $entity, array $configuration): mixed {
     if ($configuration['shape_fields']) {
       $childShapeNames = array_keys($configuration['shape_fields']);
       return $this->fetchChildrenMatchValues($childShapeNames, $shape, [$entity], $configuration, $shapeId);
@@ -481,7 +481,7 @@ trait ComponentValueChildrenMatchTrait {
   /**
    * Fetch children match values for default fields.
    */
-  protected function fetchChildrenMatchValuesReference(string $shapeId, string $shapeName, int $delta, ComponentShapeChildrenPluginInterface $shape, ContentEntityInterface $entity, array $configuration): mixed {
+  protected function fetchChildrenMatchValuesReference(string $shapeId, string $shapeName, int $delta, ComponentShapeChildrenMatchPluginInterface $shape, ContentEntityInterface $entity, array $configuration): mixed {
     if ($configuration['shape_fields']) {
       $entityKey = explode('~', $configuration['field'])[1];
       $field = $this->matcherReference->getReferenceField($entity, $entityKey, $shape->getCacheableMetadata());
@@ -496,7 +496,7 @@ trait ComponentValueChildrenMatchTrait {
   /**
    * Fetch children match values for default fields.
    */
-  protected function fetchChildrenMatchValuesRender(string $shapeId, string $shapeName, int $delta, ComponentShapeChildrenPluginInterface $shape, ContentEntityInterface $entity, array $configuration): mixed {
+  protected function fetchChildrenMatchValuesRender(string $shapeId, string $shapeName, int $delta, ComponentShapeChildrenMatchPluginInterface $shape, ContentEntityInterface $entity, array $configuration): mixed {
     if (!empty($configuration['render_field'])) {
       $item = $this->matcherField->getEntityField($entity, $configuration['render_field'], !empty($configuration['shape_published']), $shape->getCacheableMetadata());
       if ($item && !$item->isEmpty() && !empty($configuration['render_field_format']['field_plugin'])) {
@@ -516,7 +516,7 @@ trait ComponentValueChildrenMatchTrait {
   /**
    * Fetch children match values for raw fields.
    */
-  protected function fetchChildrenMatchValuesRaw(string $shapeId, string $shapeName, int $delta, ComponentShapeChildrenPluginInterface $shape, ContentEntityInterface $entity, array $configuration): mixed {
+  protected function fetchChildrenMatchValuesRaw(string $shapeId, string $shapeName, int $delta, ComponentShapeChildrenMatchPluginInterface $shape, ContentEntityInterface $entity, array $configuration): mixed {
     $fieldName = substr($configuration['field'], 5);
     return match ($fieldName) {
       'boolean_true' => TRUE,

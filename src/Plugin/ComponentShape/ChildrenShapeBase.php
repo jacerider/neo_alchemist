@@ -17,6 +17,7 @@ use Drupal\neo_alchemist\ComponentShapePluginInterface;
 abstract class ChildrenShapeBase extends ComponentShapePluginBase implements ComponentShapeChildrenPluginInterface {
 
   use ShapeManagerDependentShapeTrait;
+  use ChildShapeStateTrait;
 
   /**
    * The child schema.
@@ -29,34 +30,6 @@ abstract class ChildrenShapeBase extends ComponentShapePluginBase implements Com
    * @var \Drupal\neo_alchemist\ComponentShapePluginInterface[][]
    */
   protected $childShapes;
-
-  /**
-   * A list of child shapes to hide.
-   *
-   * @var bool[]
-   */
-  protected $hideChildShapes = [];
-
-  /**
-   * A list of child shapes to set as default.
-   *
-   * @var bool[]
-   */
-  protected $defaultChildShapes = [];
-
-  /**
-   * A list of child shapes to set as locked.
-   *
-   * @var bool[]
-   */
-  protected $lockChildShapes = [];
-
-  /**
-   * A list of child shape plugins.
-   *
-   * @var array[]
-   */
-  protected $childShapePlugins = [];
 
   /**
    * Get the schema properties.
@@ -144,157 +117,6 @@ abstract class ChildrenShapeBase extends ComponentShapePluginBase implements Com
    */
   protected function forceChildDefaultValues(): bool {
     return !$this->hasOverrideValue() && $this->isExpanded();
-  }
-
-  /**
-   * {@inheritDoc}
-   */
-  public function hideChildShape(string $shapeId, $hide = TRUE): self {
-    assert(!$this->isInitialized(), 'Shape cannot be initialized before hiding child shapes.');
-    if ($this->isRoot()) {
-      $this->hideChildShapes[$shapeId] = $hide;
-    }
-    else {
-      return $this->getChildRootShape()->hideChildShape($shapeId, $hide);
-    }
-    return $this;
-  }
-
-  /**
-   * {@inheritDoc}
-   */
-  public function isHiddenChildShape(string $shapeId): ?bool {
-    if ($this->isRoot()) {
-      return $this->hideChildShapes[$shapeId] ?? NULL;
-    }
-    else {
-      return $this->getChildRootShape()->isHiddenChildShape($shapeId);
-    }
-  }
-
-  /**
-   * {@inheritDoc}
-   */
-  public function defaultChildShape(string $shapeId, $default = TRUE): self {
-    assert(!$this->isInitialized(), 'Shape cannot be initialized before defaulting child shapes.');
-    if ($this->isRoot()) {
-      $this->defaultChildShapes[$shapeId] = $default;
-    }
-    else {
-      return $this->getChildRootShape()->defaultChildShape($shapeId, $default);
-    }
-    return $this;
-  }
-
-  /**
-   * {@inheritDoc}
-   */
-  public function isDefaultChildShape(string $shapeId): ?bool {
-    if ($this->isRoot()) {
-      return $this->defaultChildShapes[$shapeId] ?? NULL;
-    }
-    else {
-      return $this->getChildRootShape()->isDefaultChildShape($shapeId);
-    }
-  }
-
-  /**
-   * {@inheritDoc}
-   */
-  public function lockChildShape(string $shapeId, $lock = TRUE): self {
-    assert(!$this->isInitialized(), 'Shape cannot be initialized before locking child shapes.');
-    if ($this->isRoot()) {
-      $this->lockChildShapes[$shapeId] = $lock;
-    }
-    else {
-      return $this->getChildRootShape()->lockChildShape($shapeId, $lock);
-    }
-    return $this;
-  }
-
-  /**
-   * {@inheritDoc}
-   */
-  public function isLockedChildShape(string $shapeId): ?bool {
-    if ($this->isRoot()) {
-      return $this->lockChildShapes[$shapeId] ?? NULL;
-    }
-    else {
-      return $this->getChildRootShape()->isLockedChildShape($shapeId);
-    }
-  }
-
-  /**
-   * {@inheritDoc}
-   */
-  public function enableChildShapePlugin(string $shapeId, string $pluginId, array $settings = []): self {
-    if ($this->isRoot()) {
-      $this->childShapePlugins[$shapeId][$pluginId] = [
-        'status' => TRUE,
-        'settings' => $settings,
-      ];
-    }
-    else {
-      return $this->getChildRootShape()->enableChildShapePlugin($shapeId, $pluginId, $settings);
-    }
-    return $this;
-  }
-
-  /**
-   * {@inheritDoc}
-   */
-  public function disableChildShapePlugin(string $shapeId, string $pluginId): self {
-    if ($this->isRoot()) {
-      $this->childShapePlugins[$shapeId][$pluginId]['status'] = FALSE;
-    }
-    else {
-      return $this->getChildRootShape()->disableChildShapePlugin($shapeId, $pluginId);
-    }
-    return $this;
-  }
-
-  /**
-   * {@inheritDoc}
-   */
-  public function getChildShapePlugins(string $shapeId): array {
-    if ($this->isRoot()) {
-      $plugins = [];
-      if ($this->isIterable()) {
-        // Merge in plugins stored on root shape. We only need to do this for
-        // iterable shapes as non-iterable shapes will automatically be pulled
-        // from the base shape because they do not have a delta.
-        foreach ($this->getPlugins()[$shapeId] ?? [] as $plugin_id => $plugin) {
-          $plugins[$plugin_id] = [
-            'status' => TRUE,
-            'settings' => $plugin['settings'],
-          ];
-        }
-      }
-      return $plugins + ($this->childShapePlugins[$shapeId] ?? []);
-    }
-    else {
-      return $this->getChildRootShape()->getChildShapePlugins($shapeId);
-    }
-    return [];
-  }
-
-  /**
-   * Gets the root shape that implements ComponentShapeChildrenPluginInterface.
-   *
-   * @return \Drupal\neo_alchemist\ComponentShapeChildrenPluginInterface
-   *   The root shape that implements ComponentShapeChildrenPluginInterface.
-   */
-  protected function getChildRootShape(): ComponentShapeChildrenPluginInterface {
-    if ($this->isRoot()) {
-      return $this;
-    }
-    else {
-      $rootShape = $this->getRootShape();
-      if ($rootShape instanceof ComponentShapeChildrenPluginInterface) {
-        return $rootShape;
-      }
-    }
-    throw new \RuntimeException('Root shape does not implement ComponentShapeChildrenPluginInterface.');
   }
 
   /**

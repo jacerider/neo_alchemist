@@ -18,9 +18,21 @@ use DrupalCodeGenerator\InputOutput\Interviewer;
   default_field_type: 'link',
   default_field_widget: 'neo_link',
 )]
-class LinkShape extends UrlShapeBase {
+class LinkShape extends StructuredObjectShapeBase {
 
-  use ModuleHandlerDependentShapeTrait;
+  use UrlShapeTrait;
+
+  /**
+   * {@inheritdoc}
+   */
+  protected function alterFieldItemValue(mixed &$value): void {
+    if (isset($value['uri']) && is_array($value['uri'])) {
+      // When using the matcher, the value may come in as a nested array with
+      // the URI under 'uri' and URI options under 'options'.
+      $value['options'] = $value['uri']['options'] ?? $value['options'] ?? [];
+      $value['uri'] = $value['uri']['uri'] ?? '';
+    }
+  }
 
   /**
    * {@inheritDoc}

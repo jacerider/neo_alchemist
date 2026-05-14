@@ -14,7 +14,7 @@ use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Plugin\ContainerFactoryPluginInterface;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\neo_alchemist\Attribute\ComponentValue;
-use Drupal\neo_alchemist\ComponentShapeChildrenPluginInterface;
+use Drupal\neo_alchemist\ComponentShapeChildrenMatchPluginInterface;
 use Drupal\neo_alchemist\ComponentShapePluginInterface;
 use Drupal\neo_alchemist\ComponentValuePluginBase;
 use Drupal\neo_alchemist\MatcherField;
@@ -128,7 +128,7 @@ final class EntityLoadValue extends ComponentValuePluginBase implements Containe
    * Configuration form for the value provider plugin.
    */
   protected function configurationForm(array $form, FormStateInterface $form_state, array &$complete_form): array {
-    assert($this->shape instanceof ComponentShapeChildrenPluginInterface);
+    assert($this->shape instanceof ComponentShapeChildrenMatchPluginInterface);
     $wrapperId = Html::getId(implode('-', $form['#parents']) . '-' . $this->getPluginId());
     $form['#id'] = $wrapperId;
 
@@ -209,7 +209,7 @@ final class EntityLoadValue extends ComponentValuePluginBase implements Containe
    * {@inheritdoc}
    */
   public function provideDefaultValue(mixed $value): mixed {
-    if (!$this->shape instanceof ComponentShapeChildrenPluginInterface) {
+    if (!$this->shape instanceof ComponentShapeChildrenMatchPluginInterface) {
       return $value;
     }
 
