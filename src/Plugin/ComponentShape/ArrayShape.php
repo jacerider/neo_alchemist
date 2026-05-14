@@ -203,19 +203,23 @@ class ArrayShape extends ChildrenShapeBase implements ComponentShapeInterablePlu
     foreach ($this->getChildShapeList($values) as $delta => $shapes) {
       /** @var \Drupal\neo_alchemist\ComponentShapePluginInterface[] $shapes */
       foreach ($shapes as $shapeName => $shape) {
-        if (!isset($values[$delta][$shapeName]) && $shape->allowUnsetEmpty()) {
+        $allowUnsetEmpty = $shape->allowUnsetEmpty();
+        if (!isset($values[$delta][$shapeName]) && $allowUnsetEmpty) {
           // No value was provided and the shape is not required so we skip it.
+          unset($values[$delta][$shapeName]);
           continue;
         }
         if ($forceChildDefaultValue || $shape->getOptionDefault()->isEnabled()) {
           $values[$delta][$shapeName] = $shape->buildDefaultValue();
-          continue;
+          if (!empty($values[$delta][$shapeName])) {
+            continue;
+          }
         }
         if (
           isset($values[$delta][$shapeName]) &&
           empty($values[$delta][$shapeName]) &&
           is_array($values[$delta][$shapeName]) &&
-          $shape->allowUnsetEmpty()
+          $allowUnsetEmpty
         ) {
           // The provided value is an empty array. This means we don't want this
           // value. This happens before we get the actual value from the shape.
