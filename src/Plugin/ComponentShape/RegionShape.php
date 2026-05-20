@@ -47,6 +47,18 @@ class RegionShape extends ArrayShape implements ComponentShapeRegionPluginInterf
   /**
    * {@inheritDoc}
    */
+  protected function buildValue(): mixed {
+    // A region stores a flat list of child component UUIDs. They are resolved
+    // into renderables by preRenderValue(). The per-item child-shape processing
+    // in ArrayShape::buildValue() is intended for keyed/typed array items and
+    // does not apply to region component references.
+    $values = $this->buildRawValue();
+    return is_array($values) ? array_values($values) : [];
+  }
+
+  /**
+   * {@inheritDoc}
+   */
   public function allowExpanded(): bool {
     return FALSE;
   }

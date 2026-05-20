@@ -195,10 +195,20 @@ class ArrayShape extends ChildrenShapeBase implements ComponentShapeInterablePlu
   }
 
   /**
+   * Builds the raw array value without per-item child-shape processing.
+   *
+   * @return mixed
+   *   The denormalized field item value, before child shapes are applied.
+   */
+  protected function buildRawValue(): mixed {
+    return parent::buildValue();
+  }
+
+  /**
    * {@inheritDoc}
    */
   protected function buildValue(): mixed {
-    $values = parent::buildValue();
+    $values = $this->buildRawValue();
     $forceChildDefaultValue = $this->forceChildDefaultValues();
     foreach ($this->getChildShapeList($values) as $delta => $shapes) {
       /** @var \Drupal\neo_alchemist\ComponentShapePluginInterface[] $shapes */
