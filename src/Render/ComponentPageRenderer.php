@@ -57,6 +57,16 @@ class ComponentPageRenderer extends BareHtmlPageRenderer {
    */
   public function renderBarePage(array $content, $title, $scope, array $page_additions = []) {
 
+    // This service overrides the core bare HTML page renderer, which core also
+    // uses for the maintenance, install, update and batch pages. In those
+    // cases the third argument is a real page theme hook (e.g.
+    // "maintenance_page") rather than a neo component scope ("front"/"back").
+    // Defer to the standard renderer so the matching page template (e.g.
+    // maintenance-page.html.twig) is applied.
+    if (is_string($scope) && str_ends_with($scope, '_page')) {
+      return parent::renderBarePage($content, $title, $scope, $page_additions);
+    }
+
     // Allow hooks to add attachments to $page['#attached'].
     $this->renderer->executeInRenderContext(new RenderContext(), function () use (&$content) {
       $this->invokePageAttachmentHooks($content);
