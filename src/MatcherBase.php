@@ -106,19 +106,18 @@ abstract class MatcherBase {
           return [];
         }
         assert($dd->getClass() === EntityAdapter::class);
-        $entity_type_id = $dd->getEntityTypeId();
-        assert(is_string($entity_type_id));
+        $entityTypeId = $dd->getEntityTypeId();
+        assert(is_string($entityTypeId));
         // If no bundles or multiple bundles are specified, inspect the base
         // fields. Otherwise (if a single bundle is specified), inspect all
         // fields.
         if ($dd->getBundles() !== NULL && count($dd->getBundles()) === 1) {
-          return $this->entityFieldManager->getFieldDefinitions($entity_type_id, $dd->getBundles()[0]);
+          return $this->entityFieldManager->getFieldDefinitions($entityTypeId, $dd->getBundles()[0]);
         }
-        $entityTypeId = $dd->getConstraint('EntityType');
         $entityType = $this->entityTypeManager->getDefinition($entityTypeId);
         if (empty($entityType->getBundleEntityType())) {
           // For entity types without bundles, return the base fields.
-          return $this->entityFieldManager->getBaseFieldDefinitions($entity_type_id, $entity_type_id);
+          return $this->entityFieldManager->getBaseFieldDefinitions($entityTypeId, $entityTypeId);
         }
         if ($allBundles) {
           $bundles = $this->entityTypeBundleInfo->getBundleInfo($entityTypeId);
@@ -135,7 +134,7 @@ abstract class MatcherBase {
           }
           return $definitions;
         }
-        return $this->entityFieldManager->getBaseFieldDefinitions($entity_type_id);
+        return $this->entityFieldManager->getBaseFieldDefinitions($entityTypeId);
       })($dd),
       // Field level.
       $dd instanceof FieldDefinitionInterface => $this->recurseDataDefinitionInterface($dd->getItemDefinition()),
@@ -169,15 +168,15 @@ abstract class MatcherBase {
           return [];
         }
         assert($dd->getClass() === EntityAdapter::class);
-        $entity_type_id = $dd->getEntityTypeId();
-        assert(is_string($entity_type_id));
+        $entityTypeId = $dd->getEntityTypeId();
+        assert(is_string($entityTypeId));
         // If no bundles or multiple bundles are specified, inspect the base
         // fields. Otherwise (if a single bundle is specified), inspect all
         // fields.
         if ($dd->getBundles() !== NULL && count($dd->getBundles()) === 1) {
-          return $this->entityFieldManager->getFieldDefinitions($entity_type_id, $dd->getBundles()[0]);
+          return $this->entityFieldManager->getFieldDefinitions($entityTypeId, $dd->getBundles()[0]);
         }
-        return $this->entityFieldManager->getBaseFieldDefinitions($entity_type_id);
+        return $this->entityFieldManager->getBaseFieldDefinitions($entityTypeId);
       })($dd),
       // Field level.
       $dd instanceof FieldDefinitionInterface => $this->recurseDataDefinitionInterface($dd->getItemDefinition()),
