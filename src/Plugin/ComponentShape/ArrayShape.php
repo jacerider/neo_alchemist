@@ -174,7 +174,7 @@ class ArrayShape extends ChildrenShapeBase implements ComponentShapeInterablePlu
       $this->singlePropShape = NULL;
       if ($this->isSingleProp()) {
         $shapes = $this->getChildShapes(0);
-        $this->singlePropShape = reset($shapes);
+        $this->singlePropShape = reset($shapes) ?: NULL;
       }
     }
     return $this->singlePropShape;
