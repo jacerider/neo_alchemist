@@ -7,11 +7,6 @@
 {%
   set heading_wrapper_classes = links ? ['mb-2', 'flex', 'flex-col', 'md:flex-row', 'items-center'] : []
 %}
-{%
-  set heading_classes = heading_class.getValue() == 'non-alt'
-    ? 'component-title font-semibold'
-    : 'component-title-alt'
-%}
 
 <div{{ attributes.addClass(classes) }}>
   {% if heading or links %}
@@ -20,7 +15,7 @@
       {% if heading %}
         <div{{ heading.size }}>
           {% if heading.supertitle %}<div class="component-supertitle">{{ heading.supertitle }}</div>{% endif %}
-          <h2 class="{{ heading_classes }}">{{ heading.title }}</h2>
+          <h2 class="component-title">{{ heading.title }}</h2>
           {% if heading.subtitle %}<div class="component-subtitle">{{ heading.subtitle }}</div>{% endif %}
         </div>
       {% endif %}
