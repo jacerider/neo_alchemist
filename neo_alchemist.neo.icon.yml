@@ -10,3 +10,7 @@ neo_alchemist.component:
   word: component
   icon: shapes
   prefix: admin
+neo_alchemist.registry:
+  word: registry
+  icon: books
+  prefix: admin

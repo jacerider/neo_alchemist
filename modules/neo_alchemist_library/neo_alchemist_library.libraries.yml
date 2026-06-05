@@ -1,0 +1,4 @@
+tailwind_jit:
+  header: true
+  js:
+    lib/js/tailwindcss-browser.js: { minified: true, preprocess: false }

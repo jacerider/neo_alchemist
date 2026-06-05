@@ -20,6 +20,7 @@ services:
       - '@library.discovery'
       - '@theme.registry'
       - '@plugin.manager.neo_component_prop_def'
+      - '@extension.list.module'
       - '%app.root%'
 
   neo_alchemist_library.build_advisor:

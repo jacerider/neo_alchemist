@@ -92,10 +92,15 @@ final class ExternalLibraryController extends ControllerBase {
         ],
       ];
 
-      // Operations: install.
+      // Operations: preview (new tab) + install.
       $row['operations']['data'] = [
         '#type' => 'operations',
         '#links' => [
+          'preview' => [
+            'title' => $this->t('Preview'),
+            'url' => Url::fromRoute('neo_alchemist_library.preview', ['component' => $name]),
+            'attributes' => ['target' => '_blank'],
+          ],
           'install' => [
             'title' => $this->t('Install'),
             'url' => Url::fromRoute('neo_alchemist_library.install', ['component' => $name]),

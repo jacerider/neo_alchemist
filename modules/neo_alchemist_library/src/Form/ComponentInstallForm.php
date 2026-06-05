@@ -7,6 +7,7 @@ namespace Drupal\neo_alchemist_library\Form;
 use Drupal\Core\Extension\ThemeHandlerInterface;
 use Drupal\Core\Form\FormBase;
 use Drupal\Core\Form\FormStateInterface;
+use Drupal\Core\Url;
 use Drupal\neo_alchemist_library\BuildAdvisor;
 use Drupal\neo_alchemist_library\Registry\ComponentInstaller;
 use Drupal\neo_alchemist_library\Registry\RegistryClient;
@@ -71,6 +72,18 @@ final class ComponentInstallForm extends FormBase {
       '#type' => 'item',
       '#title' => $item->title,
       '#markup' => $item->description,
+    ];
+
+    // Live preview (rendered + Tailwind-JIT styled in an isolated iframe).
+    $form['preview'] = [
+      '#type' => 'html_tag',
+      '#tag' => 'iframe',
+      '#attributes' => [
+        'src' => Url::fromRoute('neo_alchemist_library.preview', ['component' => $component])->toString(),
+        'title' => $this->t('Preview of @name', ['@name' => $item->title]),
+        'loading' => 'lazy',
+        'style' => 'width:100%;min-height:440px;border:1px solid #e5e7eb;border-radius:8px;background:#fff;',
+      ],
     ];
 
     // Pre-flight: warn before installing if the component references prop types

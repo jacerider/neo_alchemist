@@ -21,3 +21,14 @@ neo_alchemist_library.install:
     _form: 'Drupal\neo_alchemist_library\Form\ComponentInstallForm'
   requirements:
     _permission: 'administer neo_alchemist'
+
+neo_alchemist_library.preview:
+  path: '/admin/config/neo/alchemist/library/{component}/preview'
+  defaults:
+    _title: 'Component preview'
+    _controller: '\Drupal\neo_alchemist_library\Controller\ComponentPreviewController'
+  requirements:
+    _permission: 'administer neo_alchemist'
+  options:
+    _neo_alchemist_preview: TRUE
+    _admin_route: FALSE

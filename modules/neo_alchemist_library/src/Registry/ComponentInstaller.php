@@ -7,6 +7,7 @@ namespace Drupal\neo_alchemist_library\Registry;
 use Drupal\Core\Asset\LibraryDiscoveryInterface;
 use Drupal\Core\Cache\Cache;
 use Drupal\Core\Config\ConfigFactoryInterface;
+use Drupal\Core\Extension\ModuleExtensionList;
 use Drupal\Core\Extension\ThemeExtensionList;
 use Drupal\Core\Extension\ThemeHandlerInterface;
 use Drupal\Core\File\FileExists;
@@ -31,6 +32,15 @@ final class ComponentInstaller {
   const REGISTRY_NAMESPACE = 'front';
 
   /**
+   * The provider (module) that owns transient preview components.
+   *
+   * Previews are materialized as components of this submodule so nothing is
+   * written into the user's theme. The "@front/" twig namespace is rewritten to
+   * this provider's namespace so shared partials resolve under the module.
+   */
+  const PREVIEW_PROVIDER = 'neo_alchemist_library';
+
+  /**
    * Constructs the ComponentInstaller.
    */
   public function __construct(
@@ -43,6 +53,7 @@ final class ComponentInstaller {
     protected readonly LibraryDiscoveryInterface $libraryDiscovery,
     protected readonly Registry $themeRegistry,
     protected readonly ComponentPropDefPluginManager $propDefManager,
+    protected readonly ModuleExtensionList $moduleExtensionList,
     protected readonly string $appRoot,
   ) {}
 
@@ -125,6 +136,87 @@ final class ComponentInstaller {
       throw new RegistryException(sprintf("Theme '%s' is not installed.", $name));
     }
     return $name;
+  }
+
+  /**
+   * Materializes a registry component as a transient submodule-owned SDC.
+   *
+   * Writes the bundle to this submodule's components/ (and templates/ for any
+   * shared partials, with the "@front/" namespace rewritten to the module's),
+   * so nothing touches the user's theme, then registers it with SDC. Call
+   * cleanupPreview() with the returned handle when done.
+   *
+   * @param string $name
+   *   The registry component machine name to preview.
+   *
+   * @return array{componentId: string, previewId: string, createdPaths: string[]}
+   *   A handle for rendering and cleanup.
+   *
+   * @throws \Drupal\neo_alchemist_library\Registry\RegistryException
+   *   When the component cannot be fetched.
+   */
+  public function materializePreview(string $name): array {
+    $item = $this->registryClient->getItem($name);
+    $previewId = 'preview_' . substr(md5($name . uniqid('', TRUE)), 0, 10);
+    $moduleAbs = $this->appRoot . '/' . $this->moduleExtensionList->getPath(self::PREVIEW_PROVIDER);
+    $componentDir = $moduleAbs . '/components/' . $previewId;
+    $created = [];
+
+    foreach ($item->files as $file) {
+      if ($file->isComponentFile()) {
+        $dir = dirname($file->path);
+        $newBase = $this->renameBasename(basename($file->path), $item->name, $previewId);
+        $relInComp = $dir === '.' ? $newBase : $dir . '/' . $newBase;
+        $abs = $componentDir . '/' . $relInComp;
+        // Rewrite "@front/..." to the module namespace so partials resolve here.
+        $content = $this->prepareContent($file, $relInComp, self::PREVIEW_PROVIDER);
+        $this->rawWrite($abs, $content);
+      }
+      else {
+        $abs = $moduleAbs . '/templates/' . $file->path;
+        $content = $this->prepareContent($file, $file->path, self::PREVIEW_PROVIDER);
+        $this->rawWrite($abs, $content);
+        // Track partials for individual cleanup (don't delete the whole dir).
+        $created[] = $abs;
+      }
+    }
+    $created[] = $componentDir;
+
+    // Make the transient component discoverable to SDC.
+    $this->pluginManagerSdc->clearCachedDefinitions();
+
+    return [
+      'componentId' => self::PREVIEW_PROVIDER . ':' . $previewId,
+      'previewId' => $previewId,
+      'createdPaths' => $created,
+    ];
+  }
+
+  /**
+   * Removes a materialized preview and refreshes SDC definitions.
+   *
+   * @param array{createdPaths?: string[]} $handle
+   *   The handle returned by materializePreview().
+   */
+  public function cleanupPreview(array $handle): void {
+    foreach ($handle['createdPaths'] ?? [] as $path) {
+      if (is_dir($path)) {
+        $this->fileSystem->deleteRecursive($path);
+      }
+      elseif (is_file($path)) {
+        $this->fileSystem->delete($path);
+      }
+    }
+    $this->pluginManagerSdc->clearCachedDefinitions();
+  }
+
+  /**
+   * Writes content to an absolute path, creating directories as needed.
+   */
+  protected function rawWrite(string $abs, string $content): void {
+    $dir = dirname($abs);
+    $this->fileSystem->prepareDirectory($dir, FileSystemInterface::CREATE_DIRECTORY | FileSystemInterface::MODIFY_PERMISSIONS);
+    $this->fileSystem->saveData($content, $abs, FileExists::Replace);
   }
 
   /**
