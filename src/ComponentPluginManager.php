@@ -145,6 +145,26 @@ class ComponentPluginManager extends ThemeComponentPluginManager {
     elseif (!empty($prop['items'])) {
       $prop['items'] = array_map([__CLASS__, 'alterProp'], ['items' => $prop['items']])['items'];
     }
+
+    // Gracefully handle a prop whose type references a prop def (or class) that
+    // does not exist on this site — e.g. an SDC pulled from another project that
+    // used a custom prop type. Left unresolved, core's ComponentValidator treats
+    // the unknown type as a class name and throws an InvalidComponentException,
+    // breaking the whole component. Fall back to a permissive string so the
+    // component still loads; the prop simply gets no specialized widget/handling
+    // until the missing prop definition is provided.
+    $rootType = is_array($prop['type'] ?? NULL) ? reset($prop['type']) : ($prop['type'] ?? NULL);
+    if (is_string($rootType) && $rootType !== ''
+      && !in_array($rootType, ['string', 'number', 'integer', 'boolean', 'object', 'array', 'null'], TRUE)
+      && !isset($propDefinitions[$rootType])
+      && !class_exists($rootType)
+      && !interface_exists($rootType)
+    ) {
+      \Drupal::logger('neo_alchemist')->warning('Unknown component prop type %type; falling back to "string". A module or theme providing this prop definition may be missing.', ['%type' => $rootType]);
+      $prop['type'] = 'string';
+      unset($prop['ref']);
+    }
+
     return $prop;
   }
 
