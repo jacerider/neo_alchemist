@@ -480,7 +480,18 @@ slug:
 
 region:
   title: Region
-  type: array
+  # A region's stored value is a list of child component UUIDs (array), but at
+  # render time RegionShape::preRenderValue() turns it into a wrapper render
+  # array (an associative array, i.e. a JSON object). Drupal core only exempts
+  # render-array props from JSON Schema "type" errors when the prop is at the
+  # top level (it looks the value up by the flat property name); for a region
+  # nested inside an array item the property path is "parent[delta].region" and
+  # the exemption silently fails. Allowing "object" here lets the rendered
+  # region pass validation in both the top-level and nested cases.
+  # @see \Drupal\Core\Theme\Component\ComponentValidator::validateProps()
+  type:
+    - array
+    - object
   items:
     title: Component
     type: string
