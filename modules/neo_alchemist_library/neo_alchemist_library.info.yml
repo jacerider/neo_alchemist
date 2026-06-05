@@ -1,0 +1,8 @@
+name: 'Neo | Alchemist Library'
+type: module
+description: 'Browse and install starter components from an external component registry (shadcn-style).'
+package: Neo
+version: 0.0.0
+core_version_requirement: ^10.3 || ^11
+dependencies:
+  - neo_alchemist:neo_alchemist

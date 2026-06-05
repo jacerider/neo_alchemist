@@ -1,0 +1,13 @@
+neo_alchemist_library.settings:
+  type: config_object
+  label: 'Neo Alchemist Library settings'
+  mapping:
+    registries:
+      type: sequence
+      label: 'Registry base URLs'
+      sequence:
+        type: string
+        label: 'Registry base URL'
+    default_theme:
+      type: string
+      label: 'Default target theme'

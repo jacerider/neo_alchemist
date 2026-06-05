@@ -1,0 +1,5 @@
+neo_alchemist_library.browser:
+  title: 'Component Registry'
+  parent: system.admin_config_neo
+  description: 'Browse and install starter components from the registry.'
+  route_name: neo_alchemist_library.browser

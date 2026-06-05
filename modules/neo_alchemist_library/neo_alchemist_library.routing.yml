@@ -1,0 +1,23 @@
+neo_alchemist_library.browser:
+  path: '/admin/config/neo/alchemist/library'
+  defaults:
+    _title: 'Component Registry'
+    _controller: '\Drupal\neo_alchemist_library\Controller\ExternalLibraryController'
+  requirements:
+    _permission: 'administer neo_alchemist'
+
+neo_alchemist_library.settings:
+  path: '/admin/config/neo/alchemist/library/settings'
+  defaults:
+    _title: 'Registry settings'
+    _form: 'Drupal\neo_alchemist_library\Form\LibrarySettingsForm'
+  requirements:
+    _permission: 'administer neo_alchemist'
+
+neo_alchemist_library.install:
+  path: '/admin/config/neo/alchemist/library/{component}/install'
+  defaults:
+    _title: 'Install component'
+    _form: 'Drupal\neo_alchemist_library\Form\ComponentInstallForm'
+  requirements:
+    _permission: 'administer neo_alchemist'

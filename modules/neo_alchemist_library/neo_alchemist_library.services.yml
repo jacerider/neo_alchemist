@@ -1,0 +1,29 @@
+services:
+  neo_alchemist_library.registry_client:
+    class: Drupal\neo_alchemist_library\Registry\RegistryClient
+    arguments:
+      - '@http_client'
+      - '@cache.default'
+      - '@config.factory'
+      - '@datetime.time'
+      - '@logger.factory'
+
+  neo_alchemist_library.component_installer:
+    class: Drupal\neo_alchemist_library\Registry\ComponentInstaller
+    arguments:
+      - '@neo_alchemist_library.registry_client'
+      - '@file_system'
+      - '@extension.list.theme'
+      - '@theme_handler'
+      - '@config.factory'
+      - '@plugin.manager.sdc'
+      - '@library.discovery'
+      - '@theme.registry'
+      - '@plugin.manager.neo_component_prop_def'
+      - '%app.root%'
+
+  neo_alchemist_library.build_advisor:
+    class: Drupal\neo_alchemist_library\BuildAdvisor
+    arguments:
+      - '@module_handler'
+      - '%app.root%'

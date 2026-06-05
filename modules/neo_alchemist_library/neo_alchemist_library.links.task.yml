@@ -1,0 +1,14 @@
+neo_alchemist_library.browser:
+  title: 'Registry'
+  route_name: neo_alchemist_library.browser
+  base_route: entity.neo_component.collection
+
+neo_alchemist_library.list:
+  title: 'List'
+  route_name: neo_alchemist_library.browser
+  parent_id: neo_alchemist_library.browser
+
+neo_alchemist_library.settings:
+  title: 'Registry Settings'
+  route_name: neo_alchemist_library.settings
+  parent_id: neo_alchemist_library.browser

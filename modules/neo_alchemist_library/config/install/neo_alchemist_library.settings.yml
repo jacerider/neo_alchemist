@@ -1,0 +1,3 @@
+registries:
+  - 'https://raw.githubusercontent.com/jacerider/neo-alchemist-components/master'
+default_theme: ''

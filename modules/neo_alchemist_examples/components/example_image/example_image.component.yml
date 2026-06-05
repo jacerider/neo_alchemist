@@ -1,0 +1,50 @@
+$schema: 'https://git.drupalcode.org/project/drupal/-/raw/10.1.x/core/modules/sdc/src/metadata.schema.json'
+name: 'Example | Image'
+status: stable
+description: 'Coolness for images'
+neo: true
+props:
+  type: object
+  properties:
+    images:
+      type: array
+      title: Images
+      examples:
+        -
+          image:
+            src: https://placehold.co/1200x575.png
+            alt: Example image
+            width: 1200
+      items:
+        type: object
+        title: Items
+        properties:
+          image:
+            type: image
+            title: Image
+          caption:
+            type: markup
+            title: Caption
+            examples: ''
+    description:
+      type: markup
+      title: Description
+      examples: '<p>Description</p>'
+    containment:
+      type: containment
+      apply: true
+    spacing:
+      type: spacing
+    image_size:
+      type: image_size
+      styles:
+        default:
+          label: Default
+          value:
+            op: focal
+            width: 1200
+            height: 575
+        scale:
+          label: Scale Width
+          value:
+            width: 1200

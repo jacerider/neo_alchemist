@@ -1,0 +1,51 @@
+{%
+  set classes = [
+    'my-component',
+  ]
+%}
+<div {{ attributes.addClass(classes) }}>
+  {# Images: Start #}
+  {% if images %}
+    {%
+      set swiper = swiper('images')
+    %}
+    <div{{ swiper.getWrapperAttributes().addClass('relative !m-0') }}>
+      {{ swiper.getLibrary() }}
+      <div{{ swiper.getSlidesAttributes() }}>
+        {% for item in images %}
+          <div{{ swiper.getSlideAttributes() }}>
+            {% if item.image %}
+              {# To render an image using Neo dynamic styles #}
+              {{ neo_image(item.image.src, image_size|default({default: {op: "focal", width: 1200, height: 575}}), item.image.alt)|neo_class('w-full object-cover object-center') }}
+            {% endif %}
+            {% if item.caption %}
+              <div class="text-sm mt-2 text-center">{{ item.caption }}</div>
+            {% endif %}
+          </div>
+        {% endfor %}
+      </div>
+      <div class=" bottom-0 w-full z-10">
+        <div class="container-content flex items-center">
+          {% if swiper.hasNavigation() and swiper.hasPagination() %}
+            <div class="flex flex-grow-0 gap-3 mx-auto">
+              {% set navClasses = 'cursor-pointer w-12 h-12 flex items-center justify-center hover:opacity-50 transition' %}
+              <div{{ swiper.getNavigationPrevAttributes().addClass(navClasses) }}>{{ icon('chevron-left') }}</div>
+              <div{{ swiper.getPaginationAttributes().addClass('!relative flex items-center !top-auto !bottom-auto !w-auto') }}></div>
+              <div{{ swiper.getNavigationNextAttributes().addClass(navClasses) }}>{{ icon('chevron-right') }}</div>
+            </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  {% endif %}
+  {# Images: End #}
+
+  {# Description: Start #}
+  {% if description %}
+    <div class='pt-2 text-center prose max-w-none'>
+      {{ description }}
+    </div>
+  {% endif %}
+  {# Description: End #}
+
+</div>

@@ -1,0 +1,9 @@
+services:
+  neo_alchemist_library.commands:
+    class: Drupal\neo_alchemist_library\Commands\DrushCommands
+    arguments:
+      - '@neo_alchemist_library.registry_client'
+      - '@neo_alchemist_library.component_installer'
+      - '@neo_alchemist_library.build_advisor'
+    tags:
+      - { name: drush.command }

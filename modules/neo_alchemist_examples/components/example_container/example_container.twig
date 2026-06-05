@@ -1,0 +1,49 @@
+{%
+  set classes = [
+    'container-content',
+    'my-component',
+  ]
+%}
+{%
+  set heading_wrapper_classes = links ? ['mb-2', 'flex', 'flex-col', 'md:flex-row', 'items-center'] : []
+%}
+{%
+  set heading_classes = heading_class.getValue() == 'non-alt'
+    ? 'component-title font-semibold'
+    : 'component-title-alt'
+%}
+
+<div{{ attributes.addClass(classes) }}>
+  {% if heading or links %}
+  <div class="{{ heading_wrapper_classes|join(' ') }}">
+    {# Heading: Start #}
+      {% if heading %}
+        <div{{ heading.size }}>
+          {% if heading.supertitle %}<div class="component-supertitle">{{ heading.supertitle }}</div>{% endif %}
+          <h2 class="{{ heading_classes }}">{{ heading.title }}</h2>
+          {% if heading.subtitle %}<div class="component-subtitle">{{ heading.subtitle }}</div>{% endif %}
+        </div>
+      {% endif %}
+    {# Heading: End #}
+    {# Links: Start #}
+      {% if links %}
+        <div class='mt-2 md:mt-0 md:ml-auto'>
+        {% for item in links %}
+          <div>
+          {# Link: Start #}
+          {% if item.link %}
+            <a{{ item.button_style }} href="{{ neo_uri(item.link.uri, item.link.options) }}">
+              {{ item.link.title }}
+            </a>
+          {% endif %}
+          {# Link: End #}
+          </div>
+        {% endfor %}
+        </div>
+      {% endif %}
+    {# Links: End #}
+  </div>
+  {% endif %}
+
+  {% block content %}{% endblock %}
+</div>
