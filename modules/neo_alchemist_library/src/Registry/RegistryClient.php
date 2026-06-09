@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\neo_alchemist_library\Registry;
 
+use Drupal\Core\Cache\Cache;
 use Drupal\Component\Datetime\TimeInterface;
 use Drupal\Core\Cache\CacheBackendInterface;
 use Drupal\Core\Config\ConfigFactoryInterface;
@@ -59,6 +60,7 @@ final class RegistryClient {
    * Returns the configured registry base URLs (or paths), in priority order.
    *
    * @return string[]
+   *   The configured registry base URLs.
    */
   public function getRegistryUrls(): array {
     $registries = $this->configFactory->get('neo_alchemist_library.settings')->get('registries') ?? [];
@@ -78,7 +80,8 @@ final class RegistryClient {
    * Each entry is the summary array from registry.json plus a "_registry" key
    * holding the base URL it was fetched from.
    *
-   * @return array<string, array>
+   * @return array
+   *   The registry index keyed by component machine name.
    *
    * @throws \Drupal\neo_alchemist_library\Registry\RegistryException
    *   When no registry could be reached and nothing is cached.
@@ -173,7 +176,7 @@ final class RegistryClient {
    * Clears all cached registry documents.
    */
   public function clearCache(): void {
-    \Drupal\Core\Cache\Cache::invalidateTags([self::CACHE_TAG]);
+    Cache::invalidateTags([self::CACHE_TAG]);
   }
 
   /**

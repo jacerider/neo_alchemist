@@ -168,7 +168,7 @@ final class ComponentInstaller {
         $newBase = $this->renameBasename(basename($file->path), $item->name, $previewId);
         $relInComp = $dir === '.' ? $newBase : $dir . '/' . $newBase;
         $abs = $componentDir . '/' . $relInComp;
-        // Rewrite "@front/..." to the module namespace so partials resolve here.
+        // Rewrite "@front/..." to the module namespace so partials resolve.
         $content = $this->prepareContent($file, $relInComp, self::PREVIEW_PROVIDER);
         $this->rawWrite($abs, $content);
       }

@@ -19,7 +19,7 @@ final class RegistryItem {
    * @param string $description
    *   One line description.
    * @param string $status
-   *   stable|beta|experimental|deprecated.
+   *   Stability: stable, beta, experimental or deprecated.
    * @param string[] $libraries
    *   Drupal library dependencies declared by the component (informational).
    * @param string[] $registryDependencies

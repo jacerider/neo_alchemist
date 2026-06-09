@@ -59,19 +59,20 @@ final class ExternalLibraryController extends ControllerBase {
     foreach ($index as $name => $component) {
       $row = [];
 
-      // Thumbnail (remote URL).
-      $row['thumbnail'] = [];
-      if (!empty($component['thumbnail'])) {
-        $row['thumbnail']['data'] = [
-          '#theme' => 'image',
-          '#uri' => $component['thumbnail'],
-          '#alt' => $component['title'] ?? $name,
-          '#attributes' => [
-            'style' => 'display: block; max-width: 100px; max-height: 80px;',
-            'loading' => 'lazy',
-          ],
-        ];
-      }
+      // Thumbnail (remote URL, falling back to neo_alchemist's default image).
+      $thumbnail = !empty($component['thumbnail'])
+        ? $component['thumbnail']
+        : $this->moduleHandler()->getModule('neo_alchemist')->getPath() . '/images/thumbnail.jpg';
+      $row['thumbnail']['data'] = [
+        '#theme' => 'image',
+        '#uri' => $thumbnail,
+        '#alt' => $component['title'] ?? $name,
+        '#attributes' => [
+          'style' => 'display: block; max-width: 100px; max-height: 80px;',
+          'loading' => 'lazy',
+        ],
+      ];
+      $row['thumbnail']['#neo_size'] = 'min';
 
       // Name + description + status + library badges.
       $libraries = $component['libraries'] ?? [];

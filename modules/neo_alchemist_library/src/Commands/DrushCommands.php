@@ -72,9 +72,12 @@ class DrushCommands extends CoreCommands {
   /**
    * Add a starter component into a theme's components directory.
    *
-   * @command neo:alchemist:add
    * @param string $component
    *   The registry component machine name to install.
+   * @param array $options
+   *   The command options.
+   *
+   * @command neo:alchemist:add
    * @option name
    *   New machine name for the installed component (defaults to $component).
    * @option theme
@@ -91,12 +94,15 @@ class DrushCommands extends CoreCommands {
    *   Install, then compile assets with the theme build.
    * @aliases neoa-add
    */
-  public function addComponent(string $component, array $options = [
-    'name' => NULL,
-    'theme' => NULL,
-    'force' => FALSE,
-    'build' => FALSE,
-  ]): int {
+  public function addComponent(
+    string $component,
+    array $options = [
+      'name' => NULL,
+      'theme' => NULL,
+      'force' => FALSE,
+      'build' => FALSE,
+    ],
+  ): int {
     // Verify the component exists before prompting.
     try {
       if (!$this->registryClient->has($component)) {

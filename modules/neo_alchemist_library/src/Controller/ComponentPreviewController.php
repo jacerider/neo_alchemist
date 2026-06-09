@@ -106,10 +106,17 @@ final class ComponentPreviewController extends ControllerBase {
             ],
             // Static safelist of neo color + component-spacing utilities (plain
             // CSS, no @theme so the :root variables are never clobbered).
+            // Wrapped in @layer utilities (with the canonical Tailwind layer
+            // order declared up front) so these do NOT trump responsive
+            // utilities the JIT generates — e.g. `md:mt-0` must still override
+            // `mt-component`. Unlayered rules beat layered ones, so they must
+            // live in the same layer as the JIT output.
             [
               [
                 '#tag' => 'style',
-                '#value' => trim($this->buildNeoColorUtilityCss() . "\n" . $this->buildNeoSpacingUtilityCss()),
+                '#value' => "@layer theme, base, components, utilities;\n@layer utilities {\n"
+                . trim($this->buildNeoColorUtilityCss() . "\n" . $this->buildNeoSpacingUtilityCss())
+                . "\n}",
               ],
               'neo_alchemist_library_neo_utilities',
             ],
@@ -118,8 +125,8 @@ final class ComponentPreviewController extends ControllerBase {
         'component' => $entity->toRenderable(),
       ];
 
-      // renderBarePage renders the component to HTML here, so cleanup afterwards
-      // is safe — the twig has already been read from disk.
+      // renderBarePage renders the component now, so cleanup afterwards is
+      // safe — the twig has already been read from disk.
       return $this->bareHtmlPageRenderer
         ->renderBarePage($build, 'Preview: ' . ($definition['name'] ?? $component), 'front')
         ->addCacheableDependency((new CacheableMetadata())->setCacheMaxAge(0));
@@ -145,8 +152,8 @@ final class ComponentPreviewController extends ControllerBase {
    * any palette utility not present can be added via buildNeoColorUtilityCss().
    */
   protected function buildJitConfigCss(): string {
-    // Import the default theme (breakpoints, spacing, sizing) + utilities so the
-    // JIT can generate responsive variants (md:/lg:) and scale utilities a
+    // Import the default theme (breakpoints, spacing, sizing) + utilities so
+    // the JIT can generate responsive variants (md:/lg:) and scale utilities a
     // brand-new component uses. The default theme intentionally has no
     // base/primary/secondary/accent palette, so neo_color's triplet variables
     // are NOT clobbered; neo palette utilities come from front.css +
@@ -203,11 +210,23 @@ final class ComponentPreviewController extends ControllerBase {
       'component-xl' => 'calc(var(--spacing-component, var(--spacing)) * 3)',
     ];
     $props = [
-      'p' => 'padding', 'px' => 'padding-inline', 'py' => 'padding-block',
-      'pt' => 'padding-top', 'pr' => 'padding-right', 'pb' => 'padding-bottom', 'pl' => 'padding-left',
-      'm' => 'margin', 'mx' => 'margin-inline', 'my' => 'margin-block',
-      'mt' => 'margin-top', 'mr' => 'margin-right', 'mb' => 'margin-bottom', 'ml' => 'margin-left',
-      'gap' => 'gap', 'gap-x' => 'column-gap', 'gap-y' => 'row-gap',
+      'p' => 'padding',
+      'px' => 'padding-inline',
+      'py' => 'padding-block',
+      'pt' => 'padding-top',
+      'pr' => 'padding-right',
+      'pb' => 'padding-bottom',
+      'pl' => 'padding-left',
+      'm' => 'margin',
+      'mx' => 'margin-inline',
+      'my' => 'margin-block',
+      'mt' => 'margin-top',
+      'mr' => 'margin-right',
+      'mb' => 'margin-bottom',
+      'ml' => 'margin-left',
+      'gap' => 'gap',
+      'gap-x' => 'column-gap',
+      'gap-y' => 'row-gap',
     ];
     $rules = [];
     foreach ($values as $token => $value) {

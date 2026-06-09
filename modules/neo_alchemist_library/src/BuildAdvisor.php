@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\neo_alchemist_library;
 
+use Drupal\neo_build\NeoBuild;
 use Drupal\Core\Extension\ModuleHandlerInterface;
 use Symfony\Component\Process\Process;
 
@@ -40,7 +41,7 @@ final class BuildAdvisor {
     if (!$this->moduleHandler->moduleExists('neo_build') || !method_exists('\Drupal\neo_build\NeoBuild', 'getNeoState')) {
       return FALSE;
     }
-    return (bool) \Drupal\neo_build\NeoBuild::getNeoState('dev', FALSE);
+    return (bool) NeoBuild::getNeoState('dev', FALSE);
   }
 
   /**

@@ -197,7 +197,8 @@ final class ComponentInstallForm extends FormBase {
   /**
    * Builds the installed-theme options list.
    *
-   * @return array<string, string>
+   * @return array
+   *   Theme labels keyed by machine name.
    */
   protected function getThemeOptions(): array {
     $options = [];
