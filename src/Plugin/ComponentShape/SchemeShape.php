@@ -37,6 +37,22 @@ class SchemeShape extends StyleShapeBase {
   }
 
   /**
+   * {@inheritdoc}
+   */
+  public function getStyleOptions(): array {
+    $options = [];
+    // Scheme options are defined in code (as neo_scheme entities) rather than
+    // in a prop def `styles` list, so expose the full, unfiltered set here.
+    foreach (Scheme::getSchemes() as $scheme) {
+      $options[$scheme->id()] = [
+        'label' => (string) $scheme->label(),
+        'value' => $scheme->getSelector(),
+      ];
+    }
+    return $options;
+  }
+
+  /**
    * {@inheritDoc}
    */
   public function getFieldOptions(): array {
@@ -50,7 +66,10 @@ class SchemeShape extends StyleShapeBase {
       }
     }
 
-    return $options;
+    // Honor the site-wide include/exclude configuration, consistent with
+    // StyleShape. This layers on top of the per-component widget include/exclude
+    // applied above.
+    return $this->filterStyleSettings($options);
   }
 
   /**

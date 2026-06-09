@@ -4,8 +4,11 @@ declare(strict_types=1);
 
 namespace Drupal\neo_alchemist\Form;
 
+use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Form\ConfigFormBase;
 use Drupal\Core\Form\FormStateInterface;
+use Drupal\neo_alchemist\ComponentShapePluginManager;
+use Drupal\neo_alchemist\ComponentShapeStylePluginInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
@@ -21,6 +24,20 @@ final class ComponentStyleSettingsForm extends ConfigFormBase {
   protected $propManager;
 
   /**
+   * The component shape plugin manager.
+   *
+   * @var \Drupal\neo_alchemist\ComponentShapePluginManager
+   */
+  protected ComponentShapePluginManager $shapeManager;
+
+  /**
+   * The entity type manager.
+   *
+   * @var \Drupal\Core\Entity\EntityTypeManagerInterface
+   */
+  protected EntityTypeManagerInterface $entityTypeManager;
+
+  /**
    * {@inheritdoc}
    */
   public static function create(ContainerInterface $container) {
@@ -29,6 +46,8 @@ final class ComponentStyleSettingsForm extends ConfigFormBase {
      */
     $instance = parent::create($container);
     $instance->propManager = $container->get('plugin.manager.neo_component_prop_def');
+    $instance->shapeManager = $container->get('plugin.manager.neo_component_shape');
+    $instance->entityTypeManager = $container->get('entity_type.manager');
     return $instance;
   }
 
@@ -51,10 +70,53 @@ final class ComponentStyleSettingsForm extends ConfigFormBase {
    */
   public function buildForm(array $form, FormStateInterface $form_state): array {
     $config = $this->configFactory->getEditable('neo_alchemist.style_settings');
-    $definitions = $this->propManager->getDefinitions();
-    $styles = array_filter($definitions, function ($def) {
-      return $def['type'] === 'style';
-    });
+
+    // Instead of reading the raw `styles` list off each prop def, instantiate
+    // the component shape each prop def resolves to and ask it for the options
+    // it exposes (::getStyleOptions()). This lets style options be defined in
+    // code (e.g. SchemeShape, whose options are neo_scheme entities) without a
+    // static `styles` list in a prop def, while still letting administrators
+    // include/exclude them here. The transient component below only satisfies
+    // the shape constructor; getStyleOptions() does not use it.
+    $component = $this->entityTypeManager->getStorage('neo_component')->create([]);
+    $styles = [];
+    foreach ($this->propManager->getDefinitions() as $style_id => $definition) {
+      $schema = $definition;
+      $schema['name'] = $style_id;
+      // Resolve the prop def to its shape by machine name so code-defined
+      // shapes (e.g. `scheme`) are matched. When no shape is registered under
+      // that name, getInstance() falls back to the prop type — that is how the
+      // type:style prop defs (spacing, text_align, …) resolve to StyleShape.
+      $schema['ref'] = $style_id;
+      try {
+        $shape = $this->shapeManager->getInstance([
+          'schema' => $schema,
+          'settings' => [],
+          'component' => $component,
+        ]);
+      }
+      catch (\Throwable $e) {
+        // Be resilient to prop defs from other modules whose shapes cannot be
+        // instantiated here; skip them rather than breaking the whole form.
+        \Drupal::logger('neo_alchemist')->warning('Could not build style options for prop def %id: @message', [
+          '%id' => $style_id,
+          '@message' => $e->getMessage(),
+        ]);
+        continue;
+      }
+      if (!$shape instanceof ComponentShapeStylePluginInterface) {
+        continue;
+      }
+      $options = $shape->getStyleOptions();
+      if (!$options) {
+        continue;
+      }
+      $styles[$style_id] = [
+        'title' => $definition['title'] ?? $style_id,
+        'description' => $definition['description'] ?? '',
+        'options' => $options,
+      ];
+    }
 
     if ($styles) {
       uasort($styles, function ($a, $b) {
@@ -81,10 +143,10 @@ final class ComponentStyleSettingsForm extends ConfigFormBase {
             'exclude' => $this->t('Exclude'),
             'include' => $this->t('Include'),
           ],
-          '#default_value' => 'exclude',
+          '#default_value' => $config->get('styles.' . $style_id . '.mode') ?? 'exclude',
         ];
         $options = [];
-        foreach ($style['styles'] as $key => $data) {
+        foreach ($style['options'] as $key => $data) {
           $options[$key] = $data['label'] . ' <small>(Key: <strong>' . $key . '</strong> | Value: ' . $data['value'] . ')</small>';
         }
         $styleForm['values'] = [
