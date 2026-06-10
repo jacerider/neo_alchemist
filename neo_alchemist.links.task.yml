@@ -8,9 +8,10 @@ entity.neo_component.collection:
   weight: -10
 
 neo_alchemist.sdc_preview_list:
-  title: 'Preview SDC components'
+  title: 'Preview'
   route_name: 'neo_alchemist.sdc_preview_list'
   base_route: entity.neo_component.collection
+  weight: -5
 
 neo_alchemist.component_style_settings:
   title: 'Style Settings'

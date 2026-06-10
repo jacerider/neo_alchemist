@@ -18,6 +18,14 @@ neo_alchemist.sdc_preview:
   path: '/admin/config/neo/alchemist/preview/{component}'
   defaults:
     _title: 'Preview SDC component'
+    _controller: '\Drupal\neo_alchemist\Controller\SdcPreviewManageController'
+  requirements:
+    _permission: 'administer neo_alchemist'
+
+neo_alchemist.sdc_preview_frame:
+  path: '/admin/config/neo/alchemist/preview/{component}/frame'
+  defaults:
+    _title: 'Preview SDC component'
     _controller: '\Drupal\neo_alchemist\Controller\SdcPreviewController'
   requirements:
     _permission: 'administer neo_alchemist'

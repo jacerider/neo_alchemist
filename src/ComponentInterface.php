@@ -414,6 +414,79 @@ interface ComponentInterface extends ConfigEntityInterface, RenderableInterface,
   public function resetPreviewStyle(): self;
 
   /**
+   * Check if the component has preview value overrides.
+   *
+   * @return bool
+   *   TRUE if the component has preview values, FALSE otherwise.
+   */
+  public function hasPreviewValues(): bool;
+
+  /**
+   * Get the preview value overrides for the component.
+   *
+   * The returned array mirrors the structure produced when editing a placed
+   * component instance, e.g. ['props' => [propName => ['ref' => ..., 'value' =>
+   * ..., 'options' => ...]]]. It is used to seed prop shapes during preview
+   * rendering and never persists to configuration.
+   *
+   * @return array
+   *   The preview value overrides.
+   */
+  public function getPreviewValues(): array;
+
+  /**
+   * Set the preview value overrides for the component.
+   *
+   * @param array $values
+   *   The value overrides, structured like the values of a placed component
+   *   instance (see ::getPreviewValues()).
+   *
+   * @return $this
+   *   The current object for method chaining.
+   */
+  public function setPreviewValues(array $values): self;
+
+  /**
+   * Delete the preview value overrides for this component.
+   *
+   * @return $this
+   *   The current object for method chaining.
+   */
+  public function resetPreviewValues(): self;
+
+  /**
+   * Get the preview context (neighbor components) for the component.
+   *
+   * Used by the SDC preview workspace to render sibling components above and/or
+   * below the previewed one for spacing tests. Never persists to configuration.
+   *
+   * @return array
+   *   ['above' => string|null, 'below' => string|null] of SDC ids, or [].
+   */
+  public function getPreviewContext(): array;
+
+  /**
+   * Set the preview context (neighbor components) for the component.
+   *
+   * @param string|null $above
+   *   The SDC id to render above the component, or NULL.
+   * @param string|null $below
+   *   The SDC id to render below the component, or NULL.
+   *
+   * @return $this
+   *   The current object for method chaining.
+   */
+  public function setPreviewContext(?string $above, ?string $below): self;
+
+  /**
+   * Delete the preview context for this component.
+   *
+   * @return $this
+   *   The current object for method chaining.
+   */
+  public function resetPreviewContext(): self;
+
+  /**
    * Load prop shapes.
    *
    * @param array $schema

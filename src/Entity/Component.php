@@ -52,6 +52,8 @@ use Drupal\neo_icon\IconTrait;
  *       "delete" = "Drupal\Core\Entity\EntityDeleteForm",
  *       "manage" = "Drupal\neo_alchemist\Form\ComponentManageForm",
  *       "style" = "Drupal\neo_alchemist\Form\ComponentStyleForm",
+ *       "preview_value" = "Drupal\neo_alchemist\Form\SdcPreviewForm",
+ *       "preview_context" = "Drupal\neo_alchemist\Form\SdcPreviewContextForm",
  *     },
  *   },
  *   config_prefix = "neo_component",
@@ -469,7 +471,7 @@ class Component extends ConfigEntityBase implements ComponentInterface {
     $routeName = \Drupal::routeMatch()->getRouteName();
     return in_array($routeName, [
       'entity.neo_component.preview',
-      'neo_alchemist.sdc_preview',
+      'neo_alchemist.sdc_preview_frame',
     ], TRUE);
   }
 
@@ -678,7 +680,82 @@ class Component extends ConfigEntityBase implements ComponentInterface {
   /**
    * {@inheritdoc}
    */
+  public function hasPreviewValues(): bool {
+    return !empty($this->getPreviewValues());
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function getPreviewValues(): array {
+    $cache = \Drupal::cache();
+    if ($data = $cache->get('neo_alchemist.' . $this->id() . '.preview_values')) {
+      return $data->data;
+    }
+    return [];
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function setPreviewValues(array $values): self {
+    // Reload prop shapes so the new overrides are reflected immediately within
+    // the current request (e.g. form rebuilds).
+    unset($this->propShapes);
+    \Drupal::cache()->set('neo_alchemist.' . $this->id() . '.preview_values', $values, strtotime('+1 hour'));
+    return $this;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function resetPreviewValues(): self {
+    unset($this->propShapes);
+    \Drupal::cache()->delete('neo_alchemist.' . $this->id() . '.preview_values');
+    return $this;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function getPreviewContext(): array {
+    $cache = \Drupal::cache();
+    if ($data = $cache->get('neo_alchemist.' . $this->id() . '.preview_context')) {
+      return $data->data;
+    }
+    return [];
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function setPreviewContext(?string $above, ?string $below): self {
+    \Drupal::cache()->set('neo_alchemist.' . $this->id() . '.preview_context', [
+      'above' => $above ?: NULL,
+      'below' => $below ?: NULL,
+    ], strtotime('+1 hour'));
+    return $this;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function resetPreviewContext(): self {
+    \Drupal::cache()->delete('neo_alchemist.' . $this->id() . '.preview_context');
+    return $this;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
   public function getValues(): array {
+    // When previewing a config-scope component (e.g. the SDC preview
+    // workspace), return any cache-backed preview-value overrides so the shapes
+    // are seeded with the values a developer is editing. These overrides never
+    // persist to configuration.
+    if ($this->isPreview() && $this->getScope() === 'config') {
+      return $this->getPreviewValues();
+    }
     return [];
   }
 
