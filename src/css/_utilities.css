@@ -1,3 +1,19 @@
+/**
+ * Component spacing.
+ *
+ * `component-spacing-*` sets `--spacing-component`, which the `*-component`
+ * spacing utilities (e.g. `my-component`, `py-component`, `p-component-sm`)
+ * consume. Use margin (`my-component`) on plain components so the gap between
+ * stacked components collapses to a single spacing; use padding
+ * (`py-component`) on components that paint a background so the background fills
+ * the gap.
+ *
+ * Background sections: add the `component-bg` marker class to the section root
+ * (alongside `bg-default`). When two adjacent `component-bg` sections resolve to
+ * the same colour scheme, generated CSS pulls the second up by one spacing unit
+ * so the doubled padding collapses back to a single, continuous-background gap.
+ * @see \Drupal\neo_alchemist\EventSubscriber\NeoBuildInlineEventSubscriber
+ */
 @utility component-spacing-base {
   --spacing-component: calc(var(--spacing) * var(--spacing-base-mult, 2));
 
