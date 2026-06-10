@@ -89,9 +89,6 @@ final class SdcPreviewListController extends ControllerBase {
             'url' => Url::fromRoute('neo_alchemist.sdc_preview', [
               'component' => $definition['id'],
             ]),
-            'attributes' => [
-              'target' => '_blank',
-            ],
           ],
         ],
       ];
