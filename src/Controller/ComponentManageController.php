@@ -61,7 +61,11 @@ final class ComponentManageController extends ControllerBase {
     // Resize.
     $build['#top_end'] = ComponentManageHelper::buildIframeOperations($neo_component);
 
-    return $this->bareHtmlPageRenderer->renderBarePage($build, 'Manage: ' . $neo_component->label(), 'back');
+    $title = 'Manage: ' . $neo_component->label();
+    // The page renderer ignores its $title argument, so set the page title via
+    // the page additions where template_preprocess_html() reads it for the
+    // document <title>.
+    return $this->bareHtmlPageRenderer->renderBarePage($build, $title, 'back', ['#title' => $title]);
   }
 
   /**
