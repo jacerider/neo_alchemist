@@ -350,7 +350,7 @@ final class ComponentManageForm extends EntityForm {
 
       foreach ($slots as $slotName => $slot) {
         $row = [];
-        $row['property']['#markup'] = $slot->getTitle() . ' <small>(' . $slot->getName() . ')</small>';
+        $row['property']['#markup'] = ((string) $slot->getTitle()) . ' <small>(' . $slot->getName() . ')</small>';
 
         $row['plugins']['#markup'] = implode(', ', array_map(function ($plugin) {
           return $plugin->label();
