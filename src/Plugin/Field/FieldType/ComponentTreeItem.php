@@ -272,7 +272,7 @@ class ComponentTreeItem extends FieldItemBase implements RenderableInterface, Co
         $operation === 'create' => AccessResult::allowedIf($this->getSetting('allow_custom'))->andIf($this->getEntity()->access('update', $account, TRUE)),
         $operation === 'revert' => AccessResult::allowedIf($this->hasDraft())->andIf($this->getEntity()->access('update', $account, TRUE)),
         $operation === 'reset' => AccessResult::allowedIf(!$this->belongsToFieldConfig() && !$this->getParent()->isDefault())->andIf($this->getEntity()->access('update', $account, TRUE)),
-        $operation === 'sort' => AccessResult::allowedIf($this->getEntity()->access('update', $account, TRUE)),
+        $operation === 'sort' => $this->getEntity()->access('update', $account, TRUE),
         default => $this->getEntity()->access($operation, $account, TRUE),
       };
     }
