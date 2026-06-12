@@ -79,18 +79,46 @@ aliases (mapped to `base-0` / `base-950`).
 > matching `-content` color so it stays readable in every scheme:
 > `class="bg-primary text-primary-content"`.
 
+### Gray scales fall back to `base`
+
+> **Prefer `base`.** In components you author, use `base` / `bg-default` for
+> neutral surfaces and text — that is the house style. The gray-family fallback
+> below is a safety net for pasted markup, **not** a reason to reach for `gray-*`.
+> When adapting copied markup, convert `gray-*` (etc.) to the matching `base-*`.
+
+The site standardizes neutral colors on **`base`**, so Tailwind's gray-family
+scales — **`gray`, `slate`, `zinc`, `neutral`, `stone`** — are automatically
+aliased to `base` whenever that pallet isn't enabled. Markup copied from the
+internet that uses `bg-gray-100`, `text-slate-700`, `border-zinc-200`, etc. still
+works: each maps to the matching `base` shade and is **scheme-reactive** (it
+resolves through `--color-base-*`, like `bg-default`).
+
+- `bg-gray-100` → `base-100`, `text-slate-700` → `base-700`, … (full `50…950`
+  scale plus `-content`).
+- If a gray-family pallet is explicitly enabled in neo_color, it keeps its own
+  colors (the alias only fills the gap).
+- Only the **neutral** family falls back. Non-neutral internet colors (`blue`,
+  `red`, …) are not aliased — enable that pallet or use `primary`/`accent`.
+
+> Implementation: neo_color's `NeoBuildEventSubscriber`.
+
 ### Scheme-reactive defaults
 
-Three special utilities resolve to **whatever the active scheme defines**:
+Inside a scheme, **two things apply automatically — no class needed**:
 
-| Class | Resolves to |
+| What | Behavior |
 | --- | --- |
-| `bg-default` | the scheme's base background (`--background-color-default`) |
-| `text-default` | the scheme's base text color (`--text-color-default`) |
-| `border-default` | the scheme's base border color |
+| Text color | Unstyled text uses the scheme's readable foreground. Override with any `text-*` utility (or an explicit color) — directly-set always wins. |
+| Border color | Any element with a border width uses the scheme's border color. |
 
-Use these for "neutral surface" backgrounds and body text so the component adapts to
-any scheme without per-scheme code.
+So a surface usually only needs `bg-default` (the scheme's base background,
+`--background-color-default`) — text and borders follow on their own. The
+`text-default` utility still exists (resolves to `--text-color-default`) for when
+you want to re-assert the scheme foreground on something that overrode it.
+
+> `bg-default` is intentionally **not** automatic — apply it where you want a
+> surface fill, so a bare scheme wrapper never paints an unexpected background.
+> Give text a background (`bg-default` or otherwise) so its contrast is defined.
 
 ### The `scheme` prop
 
@@ -379,9 +407,11 @@ automatically.
 ## Quick reference
 
 **Colors**
-- Surfaces/text: `bg-default`, `text-default`, `border-default` (scheme-aware).
+- Surfaces/text: `bg-default`, `text-default` (scheme-aware).
 - Palettes: `base`, `primary`, `secondary`, `accent` → `bg-…`, `text-…`, `border-…`,
   shades `-0…-950`, and `-content` companions.
+- Gray family (`gray`, `slate`, `zinc`, `neutral`, `stone`) falls back to `base` when
+  not enabled — pasted internet markup using them works and is scheme-reactive.
 - Scheme variants: `scheme:`, `dark:`, `color:`, `{scheme-id}:`.
 
 **Spacing**
