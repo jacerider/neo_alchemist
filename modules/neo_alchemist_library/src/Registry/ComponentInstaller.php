@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Drupal\neo_alchemist_library\Registry;
 
+use Drupal\Component\Serialization\Yaml;
+use Drupal\Core\Asset\LibraryDiscoveryCollector;
 use Drupal\Core\Asset\LibraryDiscoveryInterface;
 use Drupal\Core\Cache\Cache;
 use Drupal\Core\Config\ConfigFactoryInterface;
@@ -12,7 +14,6 @@ use Drupal\Core\Extension\ThemeExtensionList;
 use Drupal\Core\Extension\ThemeHandlerInterface;
 use Drupal\Core\File\FileExists;
 use Drupal\Core\File\FileSystemInterface;
-use Drupal\Core\Serialization\Yaml;
 use Drupal\Core\Theme\ComponentPluginManager;
 use Drupal\Core\Theme\Registry;
 use Drupal\neo_alchemist\ComponentPropDefPluginManager;
@@ -441,7 +442,13 @@ final class ComponentInstaller {
    */
   protected function refreshCaches(): void {
     $this->pluginManagerSdc->clearCachedDefinitions();
-    $this->libraryDiscovery->clearCachedDefinitions();
+    if ($this->libraryDiscovery instanceof LibraryDiscoveryCollector) {
+      $this->libraryDiscovery->clear();
+    }
+    else {
+      // @phpstan-ignore method.deprecated
+      $this->libraryDiscovery->clearCachedDefinitions();
+    }
     $this->themeRegistry->reset();
     Cache::invalidateTags(['rendered']);
   }
