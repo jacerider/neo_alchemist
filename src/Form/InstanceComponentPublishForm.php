@@ -112,6 +112,7 @@ class InstanceComponentPublishForm extends EntityConfirmFormBase {
         $form_state->setRedirectUrl($this->entity->toUrl('latest-version'));
       }
     }
+    $this->entity->set('changed', \Drupal::time()->getRequestTime());
     $result = $fieldItem->saveComponents();
     $this->messenger()->addStatus($this->t('Components have been published successfully on %label: %field_label.', [
       '%label' => $this->entity->label(),
