@@ -4,7 +4,9 @@ namespace Drupal\neo_alchemist\Form;
 
 use Drupal\Core\Entity\EntityConfirmFormBase;
 use Drupal\Core\Entity\SynchronizableInterface;
+use Drupal\Core\Field\WidgetPluginManager;
 use Drupal\Core\Form\FormStateInterface;
+use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
  * Component form.
@@ -28,6 +30,32 @@ class InstanceComponentPublishForm extends EntityConfirmFormBase {
   protected $fieldItem;
 
   /**
+   * The field widget plugin manager.
+   *
+   * @var \Drupal\Core\Field\WidgetPluginManager
+   */
+  protected $widgetManager;
+
+  /**
+   * {@inheritdoc}
+   */
+  public static function create(ContainerInterface $container) {
+    return new static(
+      $container->get('plugin.manager.field.widget'),
+    );
+  }
+
+  /**
+   * InstanceComponentPublishForm constructor.
+   *
+   * @param \Drupal\Core\Field\WidgetPluginManager $widget_manager
+   *   The field widget plugin manager.
+   */
+  public function __construct(WidgetPluginManager $widget_manager) {
+    $this->widgetManager = $widget_manager;
+  }
+
+  /**
    * Gets the actual form array to be built.
    *
    * @see \Drupal\Core\Entity\EntityForm::processForm()
@@ -43,10 +71,8 @@ class InstanceComponentPublishForm extends EntityConfirmFormBase {
         ->load($this->entity->getEntityTypeId() . '.' . $this->entity->bundle() . '.default');
       $component = $formDisplay->getComponent('moderation_state');
       if ($component) {
-        // Get the widget plugin manager.
-        $widget_manager = \Drupal::service('plugin.manager.field.widget');
         // Create the widget instance.
-        $widget = $widget_manager->getInstance([
+        $widget = $this->widgetManager->getInstance([
           'field_definition' => $this->entity->getFieldDefinition('moderation_state'),
           'form_mode' => 'default',
           'configuration' => $component,
@@ -108,11 +134,15 @@ class InstanceComponentPublishForm extends EntityConfirmFormBase {
         }
       }
       $this->entity->set('moderation_state', $moderationState);
-      if ($this->entity->getEntityType()->hasLinkTemplate('latest-version') && !$this->entity->isDefaultRevision()) {
-        $form_state->setRedirectUrl($this->entity->toUrl('latest-version'));
-      }
     }
     $result = $fieldItem->saveComponents();
+    // saveComponents() saves $this->entity, so Content Moderation's presave has
+    // now flipped isDefaultRevision() to reflect the saved revision. If the
+    // save created a non-default (forward) revision, e.g. published -> draft,
+    // redirect to the latest-version route.
+    if ($moderationState && $this->entity->getEntityType()->hasLinkTemplate('latest-version') && !$this->entity->isDefaultRevision()) {
+      $form_state->setRedirectUrl($this->entity->toUrl('latest-version'));
+    }
     $this->messenger()->addStatus($this->t('Components have been published successfully on %label: %field_label.', [
       '%label' => $this->entity->label(),
       '%field_label' => $fieldItem->getFieldDefinition()->getLabel(),
