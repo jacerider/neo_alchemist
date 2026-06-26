@@ -7,6 +7,7 @@ namespace Drupal\neo_alchemist\Plugin\Field\FieldType;
 use Drupal\Component\Render\FormattableMarkup;
 use Drupal\Component\Serialization\Json;
 use Drupal\Core\Access\AccessResult;
+use Drupal\Core\Entity\EntityChangedInterface;
 use Drupal\Core\Entity\RevisionableInterface;
 use Drupal\Core\Field\Attribute\FieldType;
 use Drupal\Core\Field\FieldDefinitionInterface;
@@ -730,7 +731,13 @@ class ComponentTreeItem extends FieldItemBase implements RenderableInterface, Co
         return SAVED_UPDATED;
       }
       $this->deleteDraft();
-      return (int) $this->getEntity()->save();
+      $entity = $this->getEntity();
+      if ($entity instanceof EntityChangedInterface) {
+        // Update the changed time to ensure that the entity is marked as
+        // updated.
+        $entity->setChangedTime(\Drupal::time()->getRequestTime());
+      }
+      return (int) $entity->save();
     }
   }
 
