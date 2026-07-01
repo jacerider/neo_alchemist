@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\neo_alchemist\Plugin\ComponentShape;
 
+use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\Core\Template\Attribute;
 use Drupal\neo_alchemist\Attribute\ComponentShape;
@@ -70,6 +71,24 @@ class SchemeShape extends StyleShapeBase {
     // StyleShape. This layers on top of the per-component widget include/exclude
     // applied above.
     return $this->filterStyleSettings($options);
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  protected function formWidgetAlter(array &$form, FormStateInterface $form_state): void {
+    // The neo_scheme widget builds its option list directly from
+    // Scheme::getSchemes() and never consults getFieldOptions(), so the
+    // site-wide include/exclude configuration (neo_alchemist.style_settings)
+    // that getFieldOptions() applies via filterStyleSettings() never reaches
+    // the rendered picker. Constrain the widget to exactly the shape's allowed
+    // options by funneling their ids through the element's #include list.
+    if (isset($form['widget']) && $allowed = array_keys($this->getFieldOptions())) {
+      $existing = array_filter((array) ($form['widget']['#include'] ?? []));
+      $form['widget']['#include'] = $existing
+        ? array_values(array_intersect($existing, $allowed))
+        : $allowed;
+    }
   }
 
   /**
