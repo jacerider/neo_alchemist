@@ -50,7 +50,7 @@ final class ComponentField extends ComponentInstanceBase implements ComponentFie
     $access = match(TRUE) {
       $operation === 'create' && $targetEntityTypeId && $targetEntityTypeId !== $targetEntity->getEntityTypeId() => AccessResult::forbidden('Invalid target entity type.'),
       $operation === 'create' && $targetEntityBundle && $targetEntityBundle !== $targetEntity->bundle() => AccessResult::forbidden('Invalid target entity bundle.'),
-      default => AccessResult::allowedIfHasPermission($account, 'administer ' . $targetEntityTypeId . ' fields')
+      default => AccessResult::allowedIfHasPermission($account, 'administer ' . $targetEntity->getEntityTypeId() . ' fields')
     };
     return $return_as_object ? $access : $access->isAllowed();
   }
