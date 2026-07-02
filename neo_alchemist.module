@@ -20,6 +20,7 @@ use Drupal\field\FieldConfigInterface;
 use Drupal\field\FieldStorageConfigInterface;
 use Drupal\field_ui\Form\FieldConfigEditForm;
 use Drupal\media_library\MediaLibraryState;
+use Drupal\neo_alchemist\Entity\ComponentFieldConfig;
 use Drupal\neo_alchemist\Form\InstanceComponentDeleteForm;
 use Drupal\neo_alchemist\Form\InstanceComponentForm;
 use Drupal\neo_alchemist\Form\InstanceComponentPublishForm;
@@ -468,7 +469,7 @@ function neo_alchemist_entity_bundle_field_info_alter(&$fields, EntityTypeInterf
   // fields.
   foreach ($fields as $id => $field) {
     /** @var \Drupal\Core\Field\Fiel $field */
-    if ($field instanceof FieldConfigInterface && $field->getType() === 'neo_component_tree') {
+    if ($field instanceof FieldConfigInterface && $field->getType() === 'neo_component_tree' && !$field instanceof ComponentFieldConfig) {
       $entity_class = 'Drupal\neo_alchemist\Entity\ComponentFieldConfig';
       $instance = new $entity_class($field->toArray(), 'field_config');
       $fields[$id] = $instance;
