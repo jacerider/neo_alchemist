@@ -4,8 +4,8 @@ entity.neo_component.overview:
   description: 'List of components to extend site functionality.'
   route_name: entity.neo_component.collection
 
-neo_alchemist.sdc_preview_list:
-  title: 'Preview SDC components'
-  parent: system.admin_config_neo
-  description: 'Preview available SDC components without creating an entity.'
-  route_name: neo_alchemist.sdc_preview_list
+# neo_alchemist.sdc_preview_list:
+#   title: 'Preview SDC components'
+#   parent: system.admin_config_neo
+#   description: 'Preview available SDC components without creating an entity.'
+#   route_name: neo_alchemist.sdc_preview_list
