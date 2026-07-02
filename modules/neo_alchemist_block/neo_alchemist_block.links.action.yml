@@ -1,0 +1,5 @@
+entity.neo_alchemist_block.add_form:
+  route_name: entity.neo_alchemist_block.add_form
+  title: 'Add Alchemist block'
+  appears_on:
+    - entity.neo_alchemist_block.collection

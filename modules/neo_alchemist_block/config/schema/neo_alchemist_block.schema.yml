@@ -1,0 +1,61 @@
+neo_alchemist_block.block.*:
+  type: config_entity
+  label: 'Alchemist block'
+  mapping:
+    id:
+      type: string
+      label: ID
+    label:
+      type: label
+      label: Label
+    uuid:
+      type: string
+    description:
+      type: text
+      label: Description
+    components:
+      type: mapping
+      label: Components
+      mapping:
+        tree:
+          type: sequence
+          sequence:
+            type: sequence
+            sequence:
+              type: mapping
+              label: Component
+              mapping:
+                uuid:
+                  type: string
+                  label: UUID
+                  constraints:
+                    Uuid: {}
+                component:
+                  type: string
+                  label: Component Type
+        props:
+          type: sequence
+          sequence:
+            type: mapping
+            label: 'Component data'
+            mapping:
+              status:
+                type: boolean
+                label: Status
+              props:
+                type: sequence
+                label: Prop
+                sequence:
+                  type: mapping
+                  mapping:
+                    shape:
+                      type: string
+                      label: Shape type
+                    ref:
+                      type: string
+                      label: Ref
+                    value:
+                      type: ignore
+                      label: Value
+                    options:
+                      type: neo_alchemist.neo_component_options

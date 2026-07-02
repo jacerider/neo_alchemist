@@ -1,0 +1,5 @@
+entity.neo_alchemist_block.collection:
+  title: 'Alchemist Blocks'
+  parent: system.admin_config_neo
+  description: 'Manage Alchemist blocks that can be placed in Block layout.'
+  route_name: entity.neo_alchemist_block.collection

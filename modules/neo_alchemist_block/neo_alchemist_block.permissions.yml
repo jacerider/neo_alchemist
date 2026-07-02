@@ -1,0 +1,8 @@
+administer neo_alchemist_block:
+  title: 'Administer Alchemist blocks'
+  description: 'Create, edit and delete Alchemist block entities.'
+  restrict access: true
+administer neo_alchemist_block_host fields:
+  title: 'Manage Alchemist block components'
+  description: 'Add, edit and remove components within Alchemist blocks.'
+  restrict access: true

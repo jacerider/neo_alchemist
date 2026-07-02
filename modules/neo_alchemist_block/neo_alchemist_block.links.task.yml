@@ -1,0 +1,5 @@
+entity.neo_alchemist_block.collection:
+  title: 'Blocks'
+  route_name: entity.neo_alchemist_block.collection
+  base_route: entity.neo_component.collection
+  weight: -4

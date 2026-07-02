@@ -1,0 +1,26 @@
+<?php
+
+/**
+ * @file
+ * Provides Alchemist blocks for use in Block layout.
+ */
+
+declare(strict_types=1);
+
+use Drupal\Core\Entity\EntityTypeInterface;
+use Drupal\neo_alchemist_block\Entity\AlchemistBlock;
+use Drupal\neo_alchemist_block\Entity\AlchemistBlockFieldConfig;
+
+/**
+ * Implements hook_entity_bundle_field_info().
+ */
+function neo_alchemist_block_entity_bundle_field_info(EntityTypeInterface $entity_type, $bundle, array $base_field_definitions) {
+  $fields = [];
+  if ($entity_type->id() === AlchemistBlockFieldConfig::HOST_ENTITY_TYPE_ID) {
+    $block = AlchemistBlock::load($bundle);
+    if ($block) {
+      $fields[AlchemistBlockFieldConfig::FIELD_NAME] = AlchemistBlockFieldConfig::createFromBlock($block);
+    }
+  }
+  return $fields;
+}
