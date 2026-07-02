@@ -36,6 +36,11 @@ final class MediaValue extends ComponentValuePluginBase implements ContainerFact
   use DependencySerializationTrait;
 
   /**
+   * The file extensions allowed for config-hosted (neo_config_file) images.
+   */
+  protected const CONFIG_FILE_EXTENSIONS = ['png', 'jpg', 'jpeg', 'webp', 'svg'];
+
+  /**
    * The entity type manager.
    */
   protected EntityTypeManagerInterface $entityTypeManager;
@@ -126,7 +131,7 @@ final class MediaValue extends ComponentValuePluginBase implements ContainerFact
             '#type' => 'neo_config_file',
             '#title' => $mediaType->label(),
             '#filename' => Html::getClass($shape->getComponent()->id() . '-' . $shape->id()),
-            '#extensions' => ['png'],
+            '#extensions' => static::CONFIG_FILE_EXTENSIONS,
             '#dependencies' => [
               $component->getConfigDependencyKey() => [
                 $component->getConfigDependencyName(),
@@ -186,6 +191,31 @@ final class MediaValue extends ComponentValuePluginBase implements ContainerFact
       $preview['empty_selection'] = [
         '#markup' => '<div class="description">' . $defaultMessage . '</div>',
       ];
+    }
+    if ($shape instanceof ComponentShapeMediaPluginInterface && $shape->getScope() === 'field' && ($mediaType = $this->getImageMediaType())) {
+      // Config-hosted component values (field default layouts and Alchemist
+      // blocks) must travel through config sync, so media entities cannot be
+      // referenced. Replace the media library widget with a neo_config_file
+      // upload, which stores the file itself in config.
+      unset($element['widget']);
+      if ($preview) {
+        $element['preview'] = $preview;
+      }
+      $component = $shape->getComponent();
+      $fieldDefinition = $component->getFieldItem()->getFieldDefinition();
+      $element['config_file'] = [
+        '#type' => 'neo_config_file',
+        '#title' => $shape->getTitle(),
+        '#filename' => Html::getClass($component->uuid() . '-' . $shape->id()),
+        '#extensions' => static::CONFIG_FILE_EXTENSIONS,
+        '#dependencies' => [
+          $fieldDefinition->getConfigDependencyKey() => [
+            $fieldDefinition->getConfigDependencyName(),
+          ],
+        ],
+        '#default_value' => $shape->getFieldItemValue()['config_file'] ?? NULL,
+      ];
+      return;
     }
     if (!empty($element['widget'])) {
       $element['#title'] = $element['widget']['widget']['#title'];
@@ -285,6 +315,14 @@ final class MediaValue extends ComponentValuePluginBase implements ContainerFact
    */
   public function massageValuesAlter(array &$values, array $submitted_values, array $original_values, array $form, FormStateInterface $form_state): void {
     $shape = $this->shape;
+
+    if ($shape instanceof ComponentShapeMediaPluginInterface && $shape->getScope() === 'field' && $this->getImageMediaType()) {
+      // Config-hosted values are stored as neo_config_file references.
+      // @see ::formAlter()
+      $configFileId = $submitted_values['config_file'] ?? NULL;
+      $values = $configFileId ? ['config_file' => $configFileId] : NULL;
+      return;
+    }
 
     $trigger = $form_state->getTriggeringElement();
     if ($trigger['#neo_override'] ?? FALSE) {
@@ -387,15 +425,82 @@ final class MediaValue extends ComponentValuePluginBase implements ContainerFact
           'target_id' => $value,
         ];
       }
-      $media = $shape->getFieldItem()->entity;
-      if ($media instanceof MediaInterface) {
-        $value = $shape->getValueFromMedia($media) + $value;
+      if (!empty($value['config_file']) && is_string($value['config_file'])) {
+        // Config-hosted values reference a neo_config_file instead of a media
+        // entity; hydrate from the stored file.
+        if ($mediaValue = $this->getValueFromConfigFile($value['config_file'])) {
+          $value = $mediaValue + $value;
+        }
+      }
+      else {
+        $media = $shape->getFieldItem()->entity;
+        if ($media instanceof MediaInterface) {
+          $value = $shape->getValueFromMedia($media) + $value;
+        }
       }
     }
     if ($title !== NULL) {
       $value['title'] = $title;
     }
     return $value;
+  }
+
+  /**
+   * Builds a media value from a neo_config_file entity.
+   *
+   * Wraps the stored file in an unsaved media entity so that the shape's
+   * getValueFromMedia() can produce the same value structure as a real media
+   * reference would.
+   *
+   * @param string $configFileId
+   *   The neo_config_file entity ID.
+   *
+   * @return array
+   *   The media value, or an empty array if the file could not be resolved.
+   */
+  protected function getValueFromConfigFile(string $configFileId): array {
+    $shape = $this->shape;
+    if (!$shape instanceof ComponentShapeMediaPluginInterface) {
+      return [];
+    }
+    $mediaType = $this->getImageMediaType();
+    if (!$mediaType) {
+      return [];
+    }
+    /** @var \Drupal\neo_config_file\ConfigFileInterface|null $configFile */
+    $configFile = $this->entityTypeManager->getStorage('neo_config_file')->load($configFileId);
+    if (!$configFile) {
+      return [];
+    }
+    $file = $configFile->getFile();
+    if (!$file) {
+      return [];
+    }
+    /** @var \Drupal\media\MediaInterface $media */
+    $media = $this->entityTypeManager->getStorage('media')->create([
+      'bundle' => $mediaType->id(),
+    ]);
+    /** @var \Drupal\Core\Field\FieldDefinitionInterface $field */
+    $field = $media->getSource()->getSourceFieldDefinition($media->bundle->entity);
+    $media->get($field->getName())->setValue($file);
+    $shape->addCacheableDependency($configFile);
+    return $shape->getValueFromMedia($media);
+  }
+
+  /**
+   * Gets the first supported media type that uses the image source.
+   *
+   * @return \Drupal\media\MediaTypeInterface|null
+   *   The image media type, or NULL if none of the supported types use the
+   *   image source.
+   */
+  protected function getImageMediaType() {
+    foreach ($this->getMediaTypes() as $mediaType) {
+      if ($mediaType->getSource()->getPluginId() === 'image') {
+        return $mediaType;
+      }
+    }
+    return NULL;
   }
 
   /**
