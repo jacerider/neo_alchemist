@@ -85,6 +85,9 @@ class ComponentPageRenderer extends BareHtmlPageRenderer {
       '#attributes' => $wrapper_attributes,
       '#is_alchemist' => TRUE,
       'page' => [
+        // Feeds the <title> head tag via template_preprocess_html(); the plain
+        // (non-#type-page) render array means it is not rendered as an <h1>.
+        '#title' => $title,
         'content' => $content,
       ] + $page_additions,
     ];
