@@ -186,7 +186,6 @@ final class MenuValue extends ComponentValuePluginBase implements ContainerFacto
     ];
     $tree = $this->menuTree->transform($tree, $manipulators);
     $menu = $this->menuTree->build($tree);
-
     if (!empty($menu['#items'])) {
       foreach ($menu['#items'] as $item) {
         /** @var \Drupal\Core\Url $url */
