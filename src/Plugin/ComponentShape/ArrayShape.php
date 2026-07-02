@@ -245,6 +245,13 @@ class ArrayShape extends ChildrenShapeBase implements ComponentShapeInterablePlu
             unset($values[$delta]);
             continue 2;
           }
+          elseif (is_array($values[$delta][$shapeName]) && $allowUnsetEmpty) {
+            // The shape resolved to an empty array (no value). Omit it rather
+            // than passing an empty array to the component, which would fail
+            // validation for scalar props (e.g. an unset icon on a menu item).
+            unset($values[$delta][$shapeName]);
+            continue;
+          }
         }
         elseif ($this->isSingleProp()) {
           $values[$delta] = $values[$delta][$shapeName];
