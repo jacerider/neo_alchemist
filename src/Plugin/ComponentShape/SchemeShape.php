@@ -19,13 +19,11 @@ use Drupal\neo_color\Element\Scheme;
   label: new TranslatableMarkup('Color Scheme'),
   default_field_type: 'neo_scheme',
   default_field_widget: 'neo_scheme',
-  default_plugins: [
-    'widget' => [
-      'settings' => [
-        'include' => ['default', 'primary', 'secondary', 'accent'],
-      ],
-    ],
-  ],
+  // No default `include`: expose every enabled scheme and let the site-wide
+  // component style settings (neo_alchemist.style_settings) do the filtering.
+  // A hardcoded id list silently collapses the picker whenever a site disables
+  // or renames those schemes (e.g. sites that enable the *_solid variants).
+  default_plugins: ['widget'],
 )]
 class SchemeShape extends StyleShapeBase {
 
