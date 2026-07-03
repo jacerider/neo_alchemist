@@ -311,6 +311,7 @@ final class ComponentSlotForm extends EntityForm {
         $subform_state = SubformState::createForSubform($form['plugins']['form']['settings'], $form, $form_state);
         $plugin->validateConfigurationForm($form['plugins']['form']['settings'], $subform_state);
         $plugin->setConfiguration($subform_state->getValues());
+        $plugin->submitConfigurationForm($form['plugins']['form']['settings'], $subform_state);
       }
     }
     elseif ($op === 'update') {
@@ -319,6 +320,7 @@ final class ComponentSlotForm extends EntityForm {
       $subform_state = SubformState::createForSubform($form['plugins']['form']['settings'], $form, $form_state);
       $plugin->validateConfigurationForm($form['plugins']['form']['settings'], $subform_state);
       $plugin->setConfiguration($subform_state->getValues());
+      $plugin->submitConfigurationForm($form['plugins']['form']['settings'], $subform_state);
       $form_state->set('uuid', NULL);
       $form_state->set('op', 'list');
     }
