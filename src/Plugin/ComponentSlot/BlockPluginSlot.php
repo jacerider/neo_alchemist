@@ -169,6 +169,35 @@ final class BlockPluginSlot extends ComponentSlotPluginBase implements Container
   }
 
   /**
+   * {@inheritdoc}
+   */
+  public function submitConfigurationForm(array &$form, FormStateInterface $form_state) {
+    if (empty($form['block_settings'])) {
+      return;
+    }
+    $block_plugin = $this->configuration['block_plugin'];
+    if (!$block_plugin || !$this->blockManager->hasDefinition($block_plugin)) {
+      return;
+    }
+    $plugin = $this->blockManager->createInstance($block_plugin, $this->configuration['block_settings']);
+    $subform_state = SubformState::createForSubform($form['block_settings'], $form, $form_state);
+    // Run the block plugin's own submit handler so its values are massaged the
+    // same way as a standalone block placement (e.g. NeoModalBlockBase collapses
+    // its header/footer block tables into their canonical structure). Without
+    // this the raw nested form values are stored, which do not match the block
+    // plugin's config schema. blockSubmit() is called directly rather than
+    // submitConfigurationForm() to avoid overwriting label/label_display, whose
+    // form elements are hidden in this context.
+    if (method_exists($plugin, 'blockSubmit')) {
+      $plugin->blockSubmit($form['block_settings'], $subform_state);
+    }
+    else {
+      $plugin->submitConfigurationForm($form['block_settings'], $subform_state);
+    }
+    $this->configuration['block_settings'] = $plugin->getConfiguration();
+  }
+
+  /**
    * Ajax callback.
    */
   public static function refreshAjax(array $form, FormStateInterface $form_state) {
