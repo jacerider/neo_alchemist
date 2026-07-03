@@ -1,0 +1,321 @@
+---
+name: neo-component
+description: Create and modify Drupal Single Directory Components (SDC) for the neo_alchemist module. Use when the user asks to build, add, edit, or scaffold a page-building component in web/themes/front/components — or when referencing terms like "Neo component", "Alchemist component", "SDC", or file patterns like *.component.yml and *.twig under the theme's components directory.
+allowed-tools: Read, Write, Edit, Glob, Grep, Bash
+---
+
+# Creating Neo Alchemist Components
+
+The site uses the `neo_alchemist` module (Drupal contrib) to provide page-building via Drupal Single Directory Components (SDC). Components live in [web/themes/front/components/](web/themes/front/components/) and can be composed into pages by editors.
+
+> **Modifying the neo_alchemist module itself** (its PHP — shapes, plugins, services, the render pipeline)? That's a different job — use the `neo-alchemist-dev` skill and [web/modules/contrib/neo_alchemist/ARCHITECTURE.md](web/modules/contrib/neo_alchemist/ARCHITECTURE.md). This skill is for authoring components in a theme.
+
+## Directory layout
+
+Every component is a folder. Required files:
+
+```
+web/themes/front/components/<machine_name>/
+├── <machine_name>.component.yml   # Schema/prop definitions (REQUIRED)
+├── <machine_name>.twig            # Render template (REQUIRED)
+├── README.md                      # Editor/developer notes (optional)
+├── <machine_name>.js              # Component-local JS (optional, auto-loaded)
+├── <machine_name>.css             # Component-local CSS (optional, auto-loaded)
+└── thumbnail.png                  # Preview image (optional)
+```
+
+The `machine_name` MUST match the folder and file names. Use snake_case (e.g. `cards_s1`, `media_text_s1`). The `_s1`/`_s2` suffix is the site convention for "style 1/2" variants.
+
+## The `.component.yml` file
+
+Every component yml starts with this boilerplate:
+
+```yaml
+$schema: 'https://git.drupalcode.org/project/drupal/-/raw/10.1.x/core/modules/sdc/src/metadata.schema.json'
+name: 'Human Readable Name'
+status: stable
+description: 'One sentence for editors.'
+neo: true   # REQUIRED — tells Alchemist this is a managed component
+props:
+  type: object
+  properties:
+    # props defined here
+  required:
+    # optional list of required prop keys
+slots:
+  # optional named slots
+```
+
+Key fields:
+- **`neo: true`** — required flag. Without it the component is not picked up by Alchemist.
+- **`status`** — `stable`, `beta`, `experimental`, or `deprecated`.
+- **`libraryOverrides.dependencies`** — attach Drupal libraries (e.g. `neo/library.alpine` for Alpine.js).
+
+## Prop types (Alchemist shapes)
+
+Alchemist extends SDC with custom "shapes" — reusable prop definitions from [neo_alchemist.neo_component_prop_defs.yml](web/modules/contrib/neo_alchemist/neo_alchemist.neo_component_prop_defs.yml). Use these by name rather than raw JSON Schema.
+
+> **Get shapes from the CLI (authoritative):** `drush neo:alchemist:shapes` lists every available shape; `drush neo:alchemist:shapes <name>` (e.g. `heading`) dumps that shape's resolved schema, a paste-ready `.component.yml` prop snippet, and its Twig render pattern. Prefer this over guessing from the summary below.
+
+### Content shapes
+- `heading` — object with `supertitle`, `title`, `subtitle`, `size`, `anchor`. Always provide `examples` with the three text fields.
+- `markup` — rich text / array. Use for prose descriptions.
+- `string` — plain text.
+- `image` — object `{src, alt, width, height}`. Render with `neo_image_style()` or `neo_image()`.
+- `image-uri` — just an image URL.
+- `file` — object `{src, title, name}` for downloadable files.
+- `remote_video` — YouTube/Vimeo embed `{src, thumbnail, title}`.
+- `icon` — icon machine name (rendered via `icon(name)` Twig function). Find valid names with `drush neo:icon:list <search>` (e.g. `drush neo:icon:list arrow`) — don't guess, invalid names render nothing.
+- `link` — button-style link `{uri, title, options, icon, target, access}`. Usually paired with a `button_style`.
+- `url` — similar to link but for anchor-style links.
+- `email`, `telephone`, `uri` — single-value types.
+- `address` — postal address object.
+- `menu` — editable list of nav items `{title, description, icon, url}` (each item's `url` is a full `url` shape, so it keeps `target`/`access`; use `item.title` for the label). Prefer this for navigation over a hand-rolled `array` of links.
+- `breadcrumb` — array of `{title, url}`.
+- `slug` — anchor/slug string.
+- `media` — Drupal media entity reference.
+
+### Style shapes (applied as CSS classes via attributes)
+
+> **Authoritative styling guide:** [web/modules/contrib/neo_alchemist/STYLING.md](web/modules/contrib/neo_alchemist/STYLING.md) covers schemes, colors, spacing, and containers in full. The essentials are summarized here and in the Twig patterns below.
+
+- `scheme` — color-scheme selector. With `apply: true` it adds a `scheme-*` class to the root, which **re-scopes every color utility** (`bg-default`, `bg-primary`, …) to the chosen scheme — and a scheme region adapts its default **text color, border color, link colors, and `.btn*` button colors automatically** (see "What the scheme system handles for you"). Let the scheme recolor the component; don't hardcode one scheme's colors.
+- `spacing` — vertical component spacing (`xs|sm|md|lg|xl|2xl|3xl`). Has `apply: true` built in: it adds a `component-spacing-*` class to the root, which sets the `--spacing-component` CSS variable. You **consume** that variable with `my-component`/`py-component` etc. — the prop itself does NOT add `my-component` (see Twig patterns).
+- `containment` — horizontal width (`xs|sm|md|lg|full`). `apply: true` to auto-add. (Or use the `container-content` / `container-center` utilities directly — see Twig patterns.)
+- `text_align` — `left|center|right` → `text-left|center|right`.
+- `heading_size` — `xs|sm|md|lg|xl|2xl|3xl` → `title-*`. Attached automatically to the `heading` shape (rendered via `<div{{ heading.size }}>`).
+- `button_style` — solid/outline/text variants in base/primary/secondary/accent (`btn`, `btn-outline-primary`, `btn-text-accent`, …).
+- `button_size` — `xs|sm|md|lg|xl|2xl|3xl` → `btn-*`.
+
+> `component-bg` is **not** a prop — it's a marker class you add (with `bg-default`) to a background-section root so adjacent same-scheme sections collapse their doubled spacing. See the "Root element & structure" Twig patterns below.
+
+### Structural shapes
+- `region` — a nested drop zone where editors can place more components (used for tabs, accordions, containers with children).
+- `array` — a repeater. Pair with `items:` to define the per-row schema, and provide `examples:` with sample rows (use `TRUE` as a placeholder entry if the items have no required text fields).
+
+> **Reach for a semantic composite shape before hand-rolling an `array` of objects.** Several shapes already model common repeating structures — `menu` (nav links), `breadcrumb`, `address`, `file`, `remote_video`, `media` — and single composites like `link`/`url` and `heading`. They're one line instead of a nested `array → object → …`, get a purpose-built editor UI, and carry the right sub-fields (e.g. a `menu` item's `url` is the full `url` shape). Only hand-roll an `array` when no existing shape fits. Run `drush neo:alchemist:shapes` to scan them first.
+
+### Inline custom `style` shapes
+Define a per-component style selector inline:
+
+```yaml
+border_top:
+  type: style
+  title: 'Border Top'
+  apply: false        # don't auto-inject; reference via .getValue() in twig
+  examples: none
+  styles:
+    none:
+      label: None
+      value: border-t-0
+    top:
+      label: Top
+      value: border-t
+```
+
+`apply: true` auto-adds the `value` as a class on the element. `apply: false` lets you read it in Twig with `name.getValue()` and branch logic yourself.
+
+### `maxItems`
+Set on an `array` prop to cap editor input (e.g. `maxItems: 1` for a single optional CTA).
+
+## Slots
+
+Slots are named regions in the Twig template that editors fill with other components (block-level composition, not prop data). Declare in yml:
+
+```yaml
+slots:
+  content:
+    title: Content
+```
+
+And render in Twig with `{% block content %}{% endblock %}`. See [web/modules/contrib/neo_alchemist/modules/neo_alchemist_examples/components/example_container/](web/modules/contrib/neo_alchemist/modules/neo_alchemist_examples/components/example_container/) for a working example.
+
+> **Slot vs region prop:** Use `slots` for top-level composable content areas. Use a `region` prop inside an `array` when you have multiple repeating drop zones (e.g. each tab or accordion panel gets its own region).
+
+## The `.twig` file
+
+### Root element & structure
+
+Always put `{{ attributes.addClass(classes) }}` on a **single root element** — Alchemist injects the classes from `apply: true` style props (scheme, spacing, …) there. Pick one of two layout patterns depending on whether the component paints a background.
+
+**Plain component (no background)** — spacing as margin so it collapses with neighbors:
+
+```twig
+<div {{ attributes.addClass(['container-content', 'my-component']) }}>
+  ...
+</div>
+```
+
+**Background / full-bleed section** — background spans the viewport, content is constrained, spacing as padding so the background fills it:
+
+```twig
+{% set classes = ['bg-default', 'component-bg'] %}   {# scheme-aware bg + collapse marker #}
+<div {{ attributes.addClass(classes) }}>              {# full-width background #}
+  <div class="container-content py-component">         {# centered content + vertical spacing #}
+    ...
+  </div>
+</div>
+```
+
+Rules of thumb:
+- **`container-content`** = centered, responsive max-width, **with** side gutters (the standard content wrapper). **`container-center`** = same but **no** gutters. Both are provided globally by the neo base theme.
+- **`my-component`** (margin — collapses between stacked components) vs **`py-component`** (padding — for background sections, since margin sits outside the background). Both read `--spacing-component` set by the `spacing` prop; size variants exist (`p-component-sm`, `m-component-lg`, …).
+- **`component-bg`** marker: add it (alongside `bg-default`) to a background-section root so two adjacent same-scheme sections collapse their doubled spacing into a single, continuous-background gap.
+- **Colors:** apply `bg-default` (scheme-reactive) where you want a surface fill — text and borders inside a scheme then adapt **automatically with no class** (see next section). Use the `base|primary|secondary|accent` palettes (shades `-0…-950`, with `-content` foreground pairings, e.g. `bg-primary text-primary-content`) for emphasis. Full details in [web/modules/contrib/neo_alchemist/STYLING.md](web/modules/contrib/neo_alchemist/STYLING.md).
+- **Prefer `base`; gray is a fallback.** Use `base` / `bg-default` for neutrals in components you author — that's the house style — and convert `gray-*` to `base-*` when adapting pasted markup. As a safety net, Tailwind's neutral scales (`gray`, `slate`, `zinc`, `neutral`, `stone`) auto-fall back to `base` when those pallets aren't enabled, so copied markup using `bg-gray-100`, `text-slate-700`, etc. still renders correctly and stays scheme-reactive. (Non-neutral colors like `blue`/`red` are **not** aliased.)
+
+### What the scheme system handles for you
+
+Inside any `scheme-*` region (including the un-schemed page root), these adapt with **no classes at all** — every scheme picks contrast-checked values, including dark and colorized schemes. Writing extra color classes for these is at best redundant and at worst fights the scheme:
+
+| Concern | What to write | What NOT to write |
+|---|---|---|
+| Body text | nothing — inherits the scheme's readable foreground | `text-default` (only needed to *re-assert* after an override), `text-base-900` |
+| Borders | just a border width (`border`, `border-t-4`) | `border-default`, per-scheme border colors |
+| Text links | a bare `<a>` — gets scheme-aware link + hover colors | `text-primary-600 hover:text-primary-800` |
+| Buttons | the `.btn*` classes (`btn`, `btn-primary`, `btn-outline-accent`, `btn-text-secondary`, …) | hand-built buttons from `bg-*`/`text-*` utilities — they won't retune per scheme and lose the managed hover states |
+| Prose links | `prose` — links inside it follow the scheme link color | per-link color classes |
+
+Semantic CSS variables, for component-local CSS or inline styles (all scheme-scoped):
+`--text-color-default`, `--background-color-default`, `--color-border-default`, `--link-color` / `--link-color-hover`, `--color-{base|primary|secondary|accent}-{0…950}` (+ `-content`), and `--color-shadow-{0…950}` — a brand-tinted shadow ramp **guaranteed darker than the surface** in every scheme (use it for `box-shadow` colors that won't glow on dark/colorized schemes, e.g. `box-shadow: 0 8px 20px -6px rgb(var(--color-shadow-500) / 0.45)`).
+
+### Rendering props
+
+| Shape | Twig pattern |
+|---|---|
+| `heading` | `<div{{ heading.size }}>` then access `.supertitle`, `.title`, `.subtitle`, `.anchor` |
+| `markup` | `{{ description }}` wrapped in `<div class="prose max-w-none">` |
+| `image` | `{{ neo_image_style(img.src, {focal: {width: 1200, height: 575}}, img.alt) }}` or `neo_image()` for responsive |
+| `icon` | `{{ icon(name) }}` — add modifiers: `|icon_class('text-3xl')`, `|icon_only`, `|icon_library('regular')` |
+| `link` | `<a{{ item.button_style }} href="{{ neo_uri(item.link.uri, item.link.options) }}">{{ item.link.title }}</a>` |
+| `url` | Same as link — check `item.link.access` for permission-gated links |
+| `remote_video` | `{{ neo_oembed(video.src) }}` inline, or `{{ neo_modal(thumb, {video: src}, 'media') }}` |
+| `region` | `{{ accordion.region }}` — auto-renders nested components |
+| `style` (apply:false) | `{{ border_top.getValue() }}` or `.addClass()` |
+| `array` | `{% for item in items %} ... {% endfor %}` |
+
+### Preview-mode hooks
+
+When the component has interactive state (tabs, accordions), expose event hooks to the Alchemist editor preview. These are no-ops at runtime:
+
+```twig
+<button
+  {% if neoIsPreview %}
+    data-event='{"group": "tabs"}'   {# grouped: only one visible at a time #}
+    data-event='{"action": "toggle"}' {# toggle: independent show/hide #}
+    data-event                        {# basic: just allow clicks in preview #}
+  {% endif %}
+>
+```
+
+### Fixed / floating roots and the preview iframe
+
+A component whose root is `position: fixed` (or `absolute`) has **no flow height**, so the Alchemist preview iframe — which sizes to document height — collapses and the component looks blank even though it renders. Render it **in-flow for preview**: switch the positioning behind `{% if neoIsPreview %}`, and give it a solid background if it's normally transparent (e.g. a header that overlays a hero). `drush neo:alchemist:render` renders the preview branch by default; add `--live` to render the runtime (`neoIsPreview` false) path.
+
+```twig
+{% set classes = ['transition-all'] %}
+{% if neoIsPreview %}
+  {% set classes = classes|merge(['relative', 'bg-default']) %}   {# in-flow + visible in the iframe #}
+{% else %}
+  {% set classes = classes|merge(['fixed', 'top-displace-t', 'inset-x-0', 'z-50']) %}
+{% endif %}
+<header {{ attributes.addClass(classes) }}> … </header>
+```
+
+**Pin to `top-displace-t`, not `top-0`.** A `fixed`/`sticky` root pinned to `top-0` renders *behind* the Drupal admin toolbar for logged-in users. `top-displace-t` sets `top: var(--spacing-displace-t)`, which resolves to the toolbar height (`--drupal-displace-offset-top`, `0px` when there's no toolbar) — so the element sits just below the toolbar for admins and flush with the top for anonymous visitors. This mirrors the theme's own `.region--header` ([web/themes/front/templates/region/region--header.html.twig](web/themes/front/templates/region/region--header.html.twig)). Related utilities from the same displace tokens: `mt-displace-t` (margin), `h-displace`/`min-h-displace`/`max-h-displace` (viewport height minus toolbars).
+
+### Alpine.js
+
+Add `- neo/library.alpine` to `libraryOverrides.dependencies` in the yml. For the Collapse plugin, also `{{ attach_library('neo/library.alpine.collapse') }}` at the top of the twig. Use `x-data`, `x-show`, `x-collapse`, `x-cloak` as normal.
+
+### Swiper (carousels)
+
+Image carousels use the built-in `swiper()` Twig function — see [web/modules/contrib/neo_alchemist/modules/neo_alchemist_examples/components/image/image.twig](web/modules/contrib/neo_alchemist/modules/neo_alchemist_examples/components/image/image.twig) for the canonical pattern (`swiper.getWrapperAttributes()`, `getSlideAttributes()`, `getNavigationPrevAttributes()`, etc.).
+
+## Workflow for a new component
+
+1. **Pick a machine name** — snake_case, typically `<purpose>_s<n>` (e.g. `testimonial_s1`). Confirm it's not already taken with `drush neo:alchemist:components` (lists every Neo component with its provider, prop, and slot counts).
+2. **Find the closest existing component** and read its yml + twig. Copy that pattern — don't invent from scratch.
+3. **Create the folder** at `web/themes/front/components/<name>/`.
+4. **Write `<name>.component.yml`** — always include `$schema`, `name`, `status: stable`, `neo: true`, and a `spacing` prop. Use existing shapes (`heading`, `markup`, `image`, etc.) rather than raw JSON Schema types.
+5. **Provide `examples:`** for every prop — these populate the Alchemist editor's default values and the preview. Arrays with `region` or booleans can use `- TRUE` as placeholder rows.
+6. **Write `<name>.twig`** — root div with `{{ attributes.addClass(classes) }}`, wrap optional sections in `{% if ... %}`, use `neo_uri()` for all URLs, `icon()` for icons, `neo_image_style()` for images.
+7. **Test interactive elements** with `{% if neoIsPreview %}data-event...{% endif %}` so the editor preview remains clickable.
+8. **Clear the cache** (`drush cr`) after adding a new component — SDC registration is cached.
+9. **Verify from the CLI before finishing** — run `drush neo:alchemist:validate <provider>:<name>` then `drush neo:alchemist:render <provider>:<name>`. Don't hand off a component you haven't rendered. See "Verify from the CLI" below.
+
+## Preview & iterate
+
+Each Alchemist SDC has a live preview workspace:
+
+```
+/admin/config/neo/alchemist/preview/{provider}:{machine_name}
+```
+
+e.g. `/admin/config/neo/alchemist/preview/front:accordion_test`. There you can:
+- Edit every editable prop/style (scheme, spacing, alignment, text, …) and see the
+  preview refresh instantly — great for sanity-checking `examples` and prop wiring.
+- Use the **Above** / **Below** selectors to render neighbor components around the one
+  you're previewing — the right way to test spacing between stacked components and the
+  `component-bg` same-color collapse.
+- View at desktop/tablet/mobile widths.
+
+With the neo build watcher running, edits to the `.twig`/`.css`/`.yml` reload the
+preview automatically. For how the asset build works — running the watcher, when a
+new Tailwind class needs a rebuild, front vs back scopes, dev-server vs `dist/` — see
+the **neo-build** skill.
+
+**Always sanity-check a component under more than one scheme** (the Color Scheme
+style prop in the preview): at minimum the default, one dark, and one colorized
+scheme. Get the list of enabled schemes with `drush neo:color:schemes` (id,
+label, and whether each is dark/colorized), then render under one with
+`drush neo:alchemist:render <id> --scheme=<scheme>`. `/admin/config/neo/scheme-preview`
+shows every enabled scheme's surfaces, button matrix, link colors, and palette
+ramps — the reference for what your component's colors will resolve to per scheme.
+
+## Verify from the CLI
+
+You don't need a browser to confirm a component works. Two commands close the loop:
+
+- **`drush neo:alchemist:validate <provider>:<name>`** — static lint. Flags missing
+  `neo: true`, props with no `examples`, unknown prop types, `{% if/for %}` references
+  to props that aren't declared, and dynamically-assembled Tailwind classes that won't
+  compile. Exits non-zero on hard errors.
+- **`drush neo:alchemist:render <provider>:<name>`** — renders the component headlessly
+  from its `examples` and reports PASS/FAIL, surfacing Twig/render errors as a message
+  instead of a white screen. Add `--html` to print the markup, `--scheme=<id>` to render
+  under a scheme, and `--live` to render the runtime path (`neoIsPreview` false) instead
+  of the editor preview.
+
+Supporting introspection: `drush neo:alchemist:components` (list all), `drush neo:alchemist:info <id>`
+(one component's resolved props/slots/libraries), `drush neo:alchemist:shapes [name]`,
+`drush neo:icon:list <search>` (icon names, from Neo Icon), `drush neo:color:schemes`
+(color schemes, from Neo Color). All tabular commands accept `--format=json` for
+machine parsing.
+
+## Common pitfalls
+
+> Most of the pitfalls below are now caught automatically — run `drush neo:alchemist:validate <id>`
+> and `drush neo:alchemist:render <id>` and they'll flag missing `neo: true`, missing
+> `examples`, unknown prop types, and dynamic Tailwind classes before you ship.
+
+
+- **Forgetting `neo: true`** — component won't appear in Alchemist's picker.
+- **Raw `{{ url }}` instead of `{{ neo_uri(link.uri, link.options) }}`** — breaks internal `internal:/` URIs.
+- **Missing `examples`** — editor shows empty previews and broken defaults.
+- **Not wrapping in `{% if prop %}`** — component renders empty scaffolding when editor leaves fields blank.
+- **Using `heading.title` for the `<h2>`** but forgetting `<div{{ heading.size }}>` — heading size prop won't apply.
+- **New style prop with `apply: true` but missing `examples`** — class won't be present on first render.
+- **Using `my-component` on a background section** — margin sits *outside* the background, leaving an unfilled gap. Background sections use `py-component` on the inner `container-content` wrapper, with `bg-default` + `component-bg` on the root.
+- **Background section without the `component-bg` marker** — two adjacent same-color sections stack double padding. Add `component-bg` (next to `bg-default`) so the seam collapses.
+- **Dynamic Tailwind class names never compile.** The build only emits classes that appear **literally** in scanned source — `bg-{{ color }}-500`, `'text-' ~ tone`, or classes assembled in JS produce nothing in the CSS. Enumerate full class names (in the yml `styles:` values, a Twig mapping, or a comment), or use inline CSS variables for genuinely data-driven color: `style="background-color: rgb(var(--color-{{ pallet }}-500))"` works because the *variables* always exist.
+- **Hardcoding one scheme's colors** (e.g. `bg-base-0`) on a component meant to be recolored — use `bg-default` for the surface and let text/borders adapt automatically so the `scheme` prop can recolor it.
+- **Coloring links or buttons by hand** — `text-primary-600` on an `<a>`, or a "button" built from `bg-primary text-white` utilities, will be unreadable on some schemes (the bare brand tokens can match the surface on colorized schemes). Bare `<a>` elements and the `.btn*` classes are contrast-managed per scheme, hover states included.
+- **Placeholder image dimensions out of sync with the twig transform** — the `placehold.co/WxH.png` URL (and `width`/`height` fields) in the prop's `examples:` should match the dimensions produced by `neo_image_style()` / `neo_image()` in the twig. The right target depends on the size op (see [web/modules/contrib/neo_image/README.md](web/modules/contrib/neo_image/README.md)):
+  - Fixed-output ops — `scaleCrop`, `crop`, `focal`, `exact`, and `auto` with both width+height: placeholder must be exactly `{width}x{height}`. E.g. `{scaleCrop: {width: 300, height: 200}}` → `placehold.co/300x200.png`, `width: 300, height: 200`.
+  - Width-only ops — `scale`, `focalWidth`, and `auto` with only width (or only height): output keeps the source aspect, so pick a placeholder that matches the *intended display aspect* (e.g. a `scale: {width: 1200}` slot shown in a 4:3 container → `placehold.co/1200x900.png`).
+  - Responsive `neo_image()` with multiple breakpoints: use the largest breakpoint's dimensions for the placeholder.
+  - Items rendered via a shared include (e.g. `@front/includes/list_s1--items.html.twig` uses `scaleCrop: 75x75`): match the include's dimensions, not the wrapper component.
+- **Fixed/floating component blank in the Alchemist preview** — a `position: fixed`/`absolute` root has no flow height, so the preview iframe collapses. Render it in-flow (`relative`) behind `{% if neoIsPreview %}`, with a solid background if it's normally transparent. See "Fixed / floating roots and the preview iframe".
+- **Fixed/sticky component hidden behind the admin toolbar** — pinning a `fixed`/`sticky` root to `top-0` puts it under the Drupal toolbar for logged-in users. Use `top-displace-t` instead (offsets by the toolbar height, `0px` when absent). See "Fixed / floating roots and the preview iframe".
+- **Clearing cache** — after editing `.component.yml`, run `drush cr` or the prop changes won't reflect.
