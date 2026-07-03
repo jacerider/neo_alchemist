@@ -60,7 +60,7 @@ class ComponentManageHelper {
       '#type' => 'html_tag',
       '#tag' => 'div',
       '#attributes' => [
-        'class' => ['btn-group'],
+        'class' => ['btn-group', 'flush'],
       ],
     ];
     // Scale.
@@ -84,7 +84,7 @@ class ComponentManageHelper {
       '#type' => 'html_tag',
       '#tag' => 'div',
       '#attributes' => [
-        'class' => ['btn-group'],
+        'class' => ['btn-group', 'flush'],
       ],
     ];
     // Resize.
