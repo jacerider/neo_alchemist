@@ -173,6 +173,9 @@ final class MenuValue extends ComponentValuePluginBase implements ContainerFacto
     $menu_id = $this->configuration['menu_id'];
     // Build the typical default set of menu tree parameters.
     $parameters = $this->menuTree->getCurrentRouteMenuTreeParameters($menu_id);
+    // Load the entire tree, not just the active trail, so that every item's
+    // children are available for nested (dropdown) rendering.
+    $parameters->expandedParents = [];
 
     // Load the tree based on this set of parameters.
     $tree = $this->menuTree->load($menu_id, $parameters);
@@ -186,25 +189,52 @@ final class MenuValue extends ComponentValuePluginBase implements ContainerFacto
     ];
     $tree = $this->menuTree->transform($tree, $manipulators);
     $menu = $this->menuTree->build($tree);
-    if (!empty($menu['#items'])) {
-      foreach ($menu['#items'] as $item) {
-        /** @var \Drupal\Core\Url $url */
-        $url = $item['url'];
-        $options = $url->getOptions();
-        $attributes = $options['attributes'] ?? [];
-        $value[] = [
+    return $this->buildItems($menu['#items'] ?? []);
+  }
+
+  /**
+   * Recursively map built menu render-array items to the menu value shape.
+   *
+   * @param array $items
+   *   The `#items` (or a nested `below`) array from MenuLinkTree::build().
+   *   Each item carries the same shape at every level (title, url, below), so
+   *   nested children are processed with the same logic.
+   *
+   * @return array
+   *   A list of menu items, each with an optional nested `below` list of the
+   *   same shape.
+   */
+  private function buildItems(array $items): array {
+    $result = [];
+    foreach ($items as $item) {
+      /** @var \Drupal\Core\Url $url */
+      $url = $item['url'];
+      $options = $url->getOptions();
+      $attributes = $options['attributes'] ?? [];
+      $entry = [
+        'title' => $item['title'],
+        'description' => $attributes['title'] ?? '',
+        'icon' => $attributes['data-icon'] ?? '',
+        // Drupal menu-state flags carried through from MenuLinkTree::build().
+        // in_active_trail reflects the current route. Because the full tree is
+        // loaded above (expandedParents reset), is_expanded is TRUE for any item
+        // with children and is_collapsed is always FALSE — i.e. they describe the
+        // rendered (fully expanded) tree rather than each link's "expanded" flag.
+        'in_active_trail' => !empty($item['in_active_trail']),
+        'is_expanded' => !empty($item['is_expanded']),
+        'is_collapsed' => !empty($item['is_collapsed']),
+        'url' => [
           'title' => $item['title'],
-          'description' => $attributes['title'] ?? '',
-          'icon' => $attributes['data-icon'] ?? '',
-          'url' => [
-            'title' => $item['title'],
-            'uri' => $url->toUriString(),
-            'options' => $options,
-          ],
-        ];
+          'uri' => $url->toUriString(),
+          'options' => $options,
+        ],
+      ];
+      if (!empty($item['below'])) {
+        $entry['below'] = $this->buildItems($item['below']);
       }
+      $result[] = $entry;
     }
-    return $value;
+    return $result;
   }
 
 }
