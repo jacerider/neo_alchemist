@@ -346,13 +346,19 @@
         }
         scaleWrapper.style.transform = `scale(${scale})`;
         if (wrapper) {
-          // Reset position each time scale is changed
-          const rect = scaleWrapper.getBoundingClientRect();
-          wrapper.scrollTo({
-            top: 0,
-            left: rect.left + wrapper.scrollLeft,
-            behavior: initialized ? 'smooth' : 'auto',
-          });
+          if (!initialized) {
+            // On initial load, center the desktop frame in the viewport.
+            centerIframe('desktop', 'auto');
+          }
+          else {
+            // Reset position each time scale is changed
+            const rect = scaleWrapper.getBoundingClientRect();
+            wrapper.scrollTo({
+              top: 0,
+              left: rect.left + wrapper.scrollLeft,
+              behavior: 'smooth',
+            });
+          }
         }
         if (!initialized) {
           scaleWrapper.style.transition = 'transform 0.2s ease-in-out';
@@ -492,6 +498,27 @@
      */
     function getIframe(size: string): HTMLIFrameElement | undefined {
       return Array.from(iframes).find(el => el.getAttribute('data-size') === size) as HTMLIFrameElement | undefined;
+    }
+
+    /**
+     * Horizontally center a frame within the scrollable wrapper.
+     */
+    function centerIframe(size: string, behavior: ScrollBehavior = 'auto'): void {
+      const iframe = getIframe(size);
+      if (!iframe || !wrapper) {
+        return;
+      }
+      const wrap = (iframe.closest('.neo-alchemist--iframe-wrapper') as HTMLElement) || iframe;
+      const wrapRect = wrap.getBoundingClientRect();
+      const wrapperRect = wrapper.getBoundingClientRect();
+      // Content-space left edge of the frame, then offset to center it.
+      const contentLeft = wrapRect.left - wrapperRect.left + wrapper.scrollLeft;
+      const targetLeft = contentLeft + (wrapRect.width / 2) - (wrapper.clientWidth / 2);
+      wrapper.scrollTo({
+        top: 0,
+        left: Math.max(0, targetLeft),
+        behavior,
+      });
     }
 
     /**
