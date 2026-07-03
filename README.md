@@ -4,6 +4,10 @@ INTRODUCTION
 Provides component creation and management utilizing Drupal single directory
 components.
 
+For a developer's map of the module internals — the `neo_component` entity, the
+ComponentShape/prop-def plugin system, the render pipeline, services, and extension
+points — see [ARCHITECTURE.md](ARCHITECTURE.md).
+
 
 REQUIREMENTS
 ------------
