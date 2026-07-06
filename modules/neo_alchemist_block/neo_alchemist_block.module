@@ -7,9 +7,11 @@
 
 declare(strict_types=1);
 
+use Drupal\Core\Block\BlockPluginInterface;
 use Drupal\Core\Entity\EntityTypeInterface;
 use Drupal\neo_alchemist_block\Entity\AlchemistBlock;
 use Drupal\neo_alchemist_block\Entity\AlchemistBlockFieldConfig;
+use Drupal\neo_alchemist_block\Plugin\Block\AlchemistBlock as AlchemistBlockPlugin;
 
 /**
  * Implements hook_entity_bundle_field_info().
@@ -23,4 +25,18 @@ function neo_alchemist_block_entity_bundle_field_info(EntityTypeInterface $entit
     }
   }
   return $fields;
+}
+
+/**
+ * Implements hook_block_view_BASE_BLOCK_ID_alter() for neo_alchemist_block.
+ *
+ * When the block's "Wrap in block markup" setting is disabled, appends a
+ * #pre_render callback that strips the block.html.twig wrapper so the block's
+ * components render directly at the root of the region.
+ */
+function neo_alchemist_block_block_view_neo_alchemist_block_alter(array &$build, BlockPluginInterface $block) {
+  $configuration = $block->getConfiguration();
+  if (empty($configuration['wrapper'])) {
+    $build['#pre_render'][] = [AlchemistBlockPlugin::class, 'removeBlockWrapper'];
+  }
 }

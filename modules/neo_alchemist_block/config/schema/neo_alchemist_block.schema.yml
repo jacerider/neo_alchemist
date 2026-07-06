@@ -1,3 +1,12 @@
+block.settings.neo_alchemist_block:*:
+  type: block_settings
+  label: 'Alchemist block'
+  mapping:
+    # @see \Drupal\neo_alchemist_block\Plugin\Block\AlchemistBlock::defaultConfiguration()
+    wrapper:
+      type: boolean
+      label: 'Wrap in block markup'
+
 neo_alchemist_block.block.*:
   type: config_entity
   label: 'Alchemist block'
