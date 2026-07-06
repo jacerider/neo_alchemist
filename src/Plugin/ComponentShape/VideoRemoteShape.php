@@ -18,7 +18,7 @@ use DrupalCodeGenerator\InputOutput\Interviewer;
   label: new TranslatableMarkup('Remote Video'),
   default_plugins: ['media'],
 )]
-class RemoteVideo extends MediaShapeBase {
+class VideoRemoteShape extends MediaShapeBase {
 
   /**
    * {@inheritDoc}
