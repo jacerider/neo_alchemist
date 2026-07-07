@@ -1299,11 +1299,36 @@ class Component extends ConfigEntityBase implements ComponentInterface {
       $build['#slots'] = array_filter(array_map(fn($slot) => $slot->toRenderable(), $slots));
     }
 
+    $cacheableMetadata = $this->getCacheableMetadata();
+
+    // Let modules and themes alter a component's build and cacheability. Two
+    // hooks fire: the generic hook_neo_component_build_alter() and a
+    // component-specific hook_neo_component_build_BASE_ID_alter(), where
+    // BASE_ID is the component id with non-alphanumerics replaced by
+    // underscores (e.g. "front:bottom" => "front_bottom"). Prefer the specific
+    // variant — it runs no code for any other component. This method is only
+    // reached on a cache miss (the component build is not itself
+    // render-cached), so the per-component cost is one alter() pass over
+    // cached, usually-empty listener lists. Alter cacheability via
+    // $cacheableMetadata (applied below), not $build['#cache'], which applyTo()
+    // overwrites. The raw #props are exposed here, before any preview wrapper.
+    //
+    // Module and active-theme alter invocations are separate: ModuleHandler
+    // runs module implementations, ThemeManager runs the active theme chain's.
+    // Both are invoked (modules first, theme last, matching Drupal convention)
+    // because components are authored in themes — a theme's own .theme is the
+    // natural home for a component-specific alter.
+    $hooks = [
+      'neo_component_build',
+      'neo_component_build_' . preg_replace('/[^a-z0-9_]+/', '_', $this->getComponentId()),
+    ];
+    $this->moduleHandler()->alter($hooks, $build, $cacheableMetadata, $this);
+    \Drupal::theme()->alter($hooks, $build, $cacheableMetadata, $this);
+
     if ($this->isManagePreview()) {
       $build = $this->prepareRenderableForPreview($build, $isFirst, $isLast);
     }
 
-    $cacheableMetadata = $this->getCacheableMetadata();
     $cacheableMetadata->applyTo($build);
 
     return $build;
