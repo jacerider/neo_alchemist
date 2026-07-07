@@ -201,6 +201,56 @@ remote_video:
       - '{{ neo_oembed(%name%.src) }}'
     suffix: '{% endif %}'
 
+video:
+  title: Video
+  type: object
+  required:
+    - src
+  properties:
+    src:
+      title: Video URL
+      type: video-uri
+    poster:
+      title: Poster Image URL
+      # Plain string (not image-uri): the poster is derived from the media
+      # thumbnail, never hand-entered, and typing it as image-uri would inject
+      # that shape's placehold.co default onto every posterless video.
+      type: string
+    mime:
+      title: MIME Type
+      type: string
+    width:
+      title: Video width
+      type:
+        - integer
+        - 'null'
+    height:
+      title: Video height
+      type:
+        - integer
+        - 'null'
+  examples:
+    src: theme://videos/placeholder.mp4
+  twig:
+    prefix: '{% if %name% %}'
+    content:
+      - '{# A locally-hosted video. Autoplaying background videos must be muted. #}'
+      - '<video autoplay muted loop playsinline preload="auto"{% if %name%.poster %} poster="{{ %name%.poster }}"{% endif %}>'
+      - '  <source src="{{ %name%.src }}"{% if %name%.mime %} type="{{ %name%.mime }}"{% endif %}>'
+      - '</video>'
+    suffix: '{% endif %}'
+
+video-uri:
+  title: Video URL
+  type: string
+  format: uri-reference
+  pattern: ^(\/|theme:\/\/|component:\/\/|https?:\/\/).*\.(?i)(mp4|webm|ogg|mov)(\?.*)?(#.*)?$
+  examples: theme://videos/placeholder.mp4
+  twig:
+    prefix: '{% if %name% %}'
+    content: '<video src="{{ %name% }}" muted loop playsinline></video>'
+    suffix: '{% endif %}'
+
 email:
   title: Email
   type: string
@@ -413,6 +463,28 @@ menu:
       url:
         title: URI
         type: url
+      below:
+        title: Children
+        type: array
+        items:
+          title: Menu Items
+          type: object
+          required:
+            - title
+            - url
+          properties:
+            title:
+              title: Title
+              type: string
+            description:
+              title: Description
+              type: string
+            icon:
+              title: Icon
+              type: icon
+            url:
+              title: URI
+              type: url
   twig:
     prefix: '{% if %name% %}'
     content:
