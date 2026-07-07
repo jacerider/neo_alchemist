@@ -8,7 +8,9 @@
 declare(strict_types=1);
 
 use Drupal\Core\Block\BlockPluginInterface;
+use Drupal\Core\Entity\EntityInterface;
 use Drupal\Core\Entity\EntityTypeInterface;
+use Drupal\Core\Url;
 use Drupal\neo_alchemist_block\Entity\AlchemistBlock;
 use Drupal\neo_alchemist_block\Entity\AlchemistBlockFieldConfig;
 use Drupal\neo_alchemist_block\Plugin\Block\AlchemistBlock as AlchemistBlockPlugin;
@@ -39,4 +41,39 @@ function neo_alchemist_block_block_view_neo_alchemist_block_alter(array &$build,
   if (empty($configuration['wrapper'])) {
     $build['#pre_render'][] = [AlchemistBlockPlugin::class, 'removeBlockWrapper'];
   }
+}
+
+/**
+ * Implements hook_entity_operation().
+ *
+ * Adds a "Layout" operation to Alchemist block placements on the Block layout
+ * page, linking to the component management (layout) UI for that block.
+ */
+function neo_alchemist_block_entity_operation(EntityInterface $entity): array {
+  $operations = [];
+  // Only act on block placement config entities backed by an Alchemist block
+  // derivative (plugin id "neo_alchemist_block:<alchemist_block_id>").
+  if ($entity->getEntityTypeId() !== 'block') {
+    return $operations;
+  }
+  /** @var \Drupal\block\BlockInterface $entity */
+  $plugin_id = $entity->getPluginId();
+  $prefix = 'neo_alchemist_block:';
+  if (!str_starts_with($plugin_id, $prefix)) {
+    return $operations;
+  }
+  $url = Url::fromRoute('entity.neo_alchemist_block_host.field_ui.alchemist.manage', [
+    'neo_alchemist_block' => substr($plugin_id, strlen($prefix)),
+    'neo_field' => AlchemistBlockFieldConfig::getKeyFromFieldname(AlchemistBlockFieldConfig::FIELD_NAME),
+  ]);
+  // hook_entity_operation results are not access-filtered by the renderer, so
+  // only expose the link when the current user can reach the layout UI.
+  if ($url->access()) {
+    $operations['neo_alchemist_layout'] = [
+      'title' => t('Layout'),
+      'weight' => -50,
+      'url' => $url,
+    ];
+  }
+  return $operations;
 }
