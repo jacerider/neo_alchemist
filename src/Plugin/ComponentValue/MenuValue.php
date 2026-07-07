@@ -84,6 +84,14 @@ final class MenuValue extends ComponentValuePluginBase implements ContainerFacto
   public function defaultConfiguration() {
     return [
       'menu_id' => '',
+      // Menu-level controls, mirroring
+      // \Drupal\system\Plugin\Block\SystemMenuBlock.
+      'level' => 1,
+      'depth' => 0,
+      // Default to the whole tree expanded: a component renders the menu
+      // structurally (headers, footers, mega menus), not by the current page's
+      // active trail. This preserves the provider's original behaviour.
+      'expand_all_items' => TRUE,
     ];
   }
 
@@ -146,7 +154,56 @@ final class MenuValue extends ComponentValuePluginBase implements ContainerFacto
       '#default_value' => $menuId,
     ];
 
+    // Menu-level controls, mirroring
+    // \Drupal\system\Plugin\Block\SystemMenuBlock::blockForm(). They are grouped
+    // under a details element for display and flattened back to the top level in
+    // configurationMassage().
+    $depthOptions = range(0, $this->menuTree->maxDepth());
+    unset($depthOptions[0]);
+
+    $form['menu_levels'] = [
+      '#type' => 'details',
+      '#title' => $this->t('Menu levels'),
+      '#open' => ($this->configuration['level'] ?? 1) != 1 || ($this->configuration['depth'] ?? 0) != 0,
+    ];
+    $form['menu_levels']['level'] = [
+      '#type' => 'select',
+      '#title' => $this->t('Initial menu level'),
+      '#default_value' => $this->configuration['level'] ?? 1,
+      '#options' => $depthOptions,
+      '#description' => $this->t('The menu will start rendering from this level. Use level 1 for the whole menu.'),
+      '#required' => TRUE,
+    ];
+    $depthOptions[0] = $this->t('Unlimited');
+    $form['menu_levels']['depth'] = [
+      '#type' => 'select',
+      '#title' => $this->t('Number of levels to display'),
+      '#default_value' => $this->configuration['depth'] ?? 0,
+      '#options' => $depthOptions,
+      '#description' => $this->t('This maximum number includes the initial level.'),
+      '#required' => TRUE,
+    ];
+    $form['menu_levels']['expand_all_items'] = [
+      '#type' => 'checkbox',
+      '#title' => $this->t('Expand all menu links'),
+      '#default_value' => !empty($this->configuration['expand_all_items']),
+      '#description' => $this->t('Render the whole menu tree expanded rather than only the current page’s trail. Recommended for structural placements such as headers and footers.'),
+    ];
+
     return $form;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  protected function configurationMassage(array $values, array $form, FormStateInterface $form_state): array {
+    // The menu-level controls are grouped under a details element for display;
+    // store them flat alongside menu_id (matching defaultConfiguration()).
+    if (isset($values['menu_levels']) && is_array($values['menu_levels'])) {
+      $values += $values['menu_levels'];
+      unset($values['menu_levels']);
+    }
+    return $values;
   }
 
   /**
@@ -160,7 +217,8 @@ final class MenuValue extends ComponentValuePluginBase implements ContainerFacto
    * {@inheritdoc}
    */
   public function provideDefaultValue(mixed $value): mixed {
-    $menu = $this->getMenu($this->configuration['menu_id']);
+    $menu_id = $this->configuration['menu_id'];
+    $menu = $this->getMenu($menu_id);
     if (!$menu) {
       return $value;
     }
@@ -170,12 +228,45 @@ final class MenuValue extends ComponentValuePluginBase implements ContainerFacto
     // Cache based on the menu.
     $this->shape->addCacheableDependency($menu);
 
-    $menu_id = $this->configuration['menu_id'];
-    // Build the typical default set of menu tree parameters.
+    $level = (int) ($this->configuration['level'] ?? 1);
+    $depth = (int) ($this->configuration['depth'] ?? 0);
+    $expandAll = !empty($this->configuration['expand_all_items']);
+
+    // Build the default set of menu tree parameters. This seeds the active
+    // trail, which is needed below when the initial level is greater than 1.
     $parameters = $this->menuTree->getCurrentRouteMenuTreeParameters($menu_id);
-    // Load the entire tree, not just the active trail, so that every item's
-    // children are available for nested (dropdown) rendering.
-    $parameters->expandedParents = [];
+    if ($expandAll) {
+      // Load the entire tree, not just the active trail, so that every item's
+      // children are available for nested (dropdown / multi-column) rendering.
+      $parameters->expandedParents = [];
+    }
+
+    // Mirror \Drupal\system\Plugin\Block\SystemMenuBlock: the initial level sets
+    // the minimum depth; the (relative) number of levels to display sets the
+    // maximum depth (0 = unlimited, capped at the tree's maximum depth).
+    $parameters->setMinDepth($level);
+    if ($depth > 0) {
+      $parameters->setMaxDepth(min($level + $depth - 1, $this->menuTree->maxDepth()));
+    }
+
+    // For an initial level greater than 1, show only the active trail's subtree
+    // rooted at that level. If the current page has no ancestor at that level,
+    // there is nothing to render.
+    if ($level > 1) {
+      if (count($parameters->activeTrail) >= $level) {
+        // The active trail array is child-first; reverse it and take the parent
+        // at the configured start level as the new root.
+        $menu_trail_ids = array_reverse(array_values($parameters->activeTrail));
+        $menu_root = $menu_trail_ids[$level - 1];
+        $parameters->setRoot($menu_root)->setMinDepth(1);
+        if ($depth > 0) {
+          $parameters->setMaxDepth(min($level - 1 + $depth - 1, $this->menuTree->maxDepth()));
+        }
+      }
+      else {
+        return $value;
+      }
+    }
 
     // Load the tree based on this set of parameters.
     $tree = $this->menuTree->load($menu_id, $parameters);
@@ -188,8 +279,8 @@ final class MenuValue extends ComponentValuePluginBase implements ContainerFacto
       ['callable' => 'menu.default_tree_manipulators:generateIndexAndSort'],
     ];
     $tree = $this->menuTree->transform($tree, $manipulators);
-    $menu = $this->menuTree->build($tree);
-    return $this->buildItems($menu['#items'] ?? []);
+    $build = $this->menuTree->build($tree);
+    return $this->buildItems($build['#items'] ?? []);
   }
 
   /**

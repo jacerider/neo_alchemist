@@ -161,6 +161,15 @@ neo_alchemist.neo_component_value.menu:
     menu_id:
       type: string
       label: Menu ID
+    level:
+      type: integer
+      label: 'Initial menu level'
+    depth:
+      type: integer
+      label: 'Number of levels to display'
+    expand_all_items:
+      type: boolean
+      label: 'Expand all menu links'
 
 neo_alchemist.neo_component_value.heading:
   type: mapping
