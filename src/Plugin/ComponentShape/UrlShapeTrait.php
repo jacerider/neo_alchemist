@@ -44,7 +44,7 @@ trait UrlShapeTrait {
     }
     $value['options'] = $value['options'] ?? [];
     $value['icon'] = $value['icon'] ?? '';
-    $value['target'] = $value['target'] ?? '_self';
+    $value['target'] = in_array($value['target'] ?? NULL, ['_self', '_blank'], TRUE) ? $value['target'] : '_self';
     $value['access'] = $value['access'] ?? TRUE;
     return $value;
   }
@@ -89,7 +89,13 @@ trait UrlShapeTrait {
       if (empty($value['target']) && !empty($value['options']['attributes']['target'])) {
         $value['target'] = $value['options']['attributes']['target'];
       }
-      $value['target'] = $value['target'] ?? '_self';
+      // Guarantee a value in the target enum. A blank or otherwise invalid
+      // target (e.g. '0' from a formatter's "no target" option, or a value
+      // supplied by a value provider) would fail SDC prop validation and
+      // white-screen the page, so fall back to '_self'.
+      if (!in_array($value['target'] ?? NULL, ['_self', '_blank'], TRUE)) {
+        $value['target'] = '_self';
+      }
       unset($value['options']['attributes']);
     }
     return $value;
