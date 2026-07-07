@@ -1,5 +1,8 @@
 entity.neo_alchemist_block.add_form:
   route_name: entity.neo_alchemist_block.add_form
-  title: 'Add Alchemist block'
+  class: Drupal\neo_alchemist_block\Plugin\Menu\LocalAction\AddAlchemistBlockAction
+  title: 'Add Alchemist Block Region'
   appears_on:
     - entity.neo_alchemist_block.collection
+    - block.admin_display
+    - block.admin_display_theme
