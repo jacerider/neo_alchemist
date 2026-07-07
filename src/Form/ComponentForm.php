@@ -9,6 +9,7 @@ use Drupal\Core\Entity\EntityForm;
 use Drupal\Core\Entity\EntityTypeBundleInfoInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Form\FormStateInterface;
+use Drupal\neo_alchemist\ComponentAccessFactory;
 use Drupal\neo_alchemist\ComponentGroupPluginManager;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
@@ -46,6 +47,13 @@ final class ComponentForm extends EntityForm {
   protected $componentGroupManager;
 
   /**
+   * The component access factory.
+   *
+   * @var \Drupal\neo_alchemist\ComponentAccessFactory
+   */
+  protected $accessFactory;
+
+  /**
    * {@inheritdoc}
    */
   public static function create(ContainerInterface $container) {
@@ -53,6 +61,7 @@ final class ComponentForm extends EntityForm {
       $container->get('entity_type.bundle.info'),
       $container->get('entity_type.manager'),
       $container->get('plugin.manager.neo_component_group'),
+      $container->get('neo_component.access.factory'),
     );
   }
 
@@ -65,15 +74,19 @@ final class ComponentForm extends EntityForm {
    *   The entity manager service.
    * @param \Drupal\neo_alchemist\ComponentGroupPluginManager $component_group_manager
    *   The component group plugin manager.
+   * @param \Drupal\neo_alchemist\ComponentAccessFactory $access_factory
+   *   The component access factory.
    */
   public function __construct(
     EntityTypeBundleInfoInterface $entity_type_bundle_info,
     EntityTypeManagerInterface $entity_type_manager,
     ComponentGroupPluginManager $component_group_manager,
+    ComponentAccessFactory $access_factory,
   ) {
     $this->entityTypeBundleInfo = $entity_type_bundle_info;
     $this->entityTypeManager = $entity_type_manager;
     $this->componentGroupManager = $component_group_manager;
+    $this->accessFactory = $access_factory;
   }
 
   /**
@@ -180,6 +193,16 @@ final class ComponentForm extends EntityForm {
    * {@inheritdoc}
    */
   public function save(array $form, FormStateInterface $form_state): int {
+    // Components created in the "special" group are protected by default, so
+    // only users with the "use protected components" permission can manage
+    // them.
+    if ($this->entity->isNew() && $this->entity->getGroup() === 'special' && !$this->hasProtectedAccess()) {
+      $access = $this->accessFactory->get($this->entity);
+      $access->setPluginId('protected');
+      $this->entity->setAccess($access);
+      $this->messenger()->addStatus($this->t('This component has been protected by default because it is in the "special" group. Only users with the "use protected components" permission can manage this component.'));
+    }
+
     $result = parent::save($form, $form_state);
     $message_args = ['%label' => $this->entity->label()];
     $this->messenger()->addStatus(
@@ -190,6 +213,21 @@ final class ComponentForm extends EntityForm {
     );
     $form_state->setRedirectUrl($this->entity->toUrl());
     return $result;
+  }
+
+  /**
+   * Determines whether the component already has a protected access instance.
+   *
+   * @return bool
+   *   TRUE if a "protected" access plugin is already configured.
+   */
+  protected function hasProtectedAccess(): bool {
+    foreach ($this->entity->getAccessInstances() as $access) {
+      if ($access->getPluginId() === 'protected') {
+        return TRUE;
+      }
+    }
+    return FALSE;
   }
 
 }
