@@ -198,15 +198,50 @@ final class MediaValue extends ComponentValuePluginBase implements ContainerFact
       // referenced. Replace the media library widget with a neo_config_file
       // upload, which stores the file itself in config.
       unset($element['widget']);
-      if ($preview) {
-        $element['preview'] = $preview;
+      // Mirror the media widget: while the default is in use, show the preview
+      // plus an override button (instead of the upload) whose AJAX wrapper is
+      // the whole shape. Clicking it turns the default off (via #neo_override,
+      // see ::massageValuesAlter()) and re-renders the shape, revealing the
+      // upload — so choosing a custom image automatically unchecks "Default".
+      if ($this->shape->getOptionDefault()->isEnabled()) {
+        if ($preview) {
+          $element['preview'] = $preview;
+        }
+        $element['override'] = [
+          '#type' => 'submit',
+          '#value' => $this->t('Upload @label', ['@label' => strtolower($shape->getTitle())]),
+          '#name' => str_replace('-', '_', $element['#id']) . '_override',
+          '#neo_override' => TRUE,
+          '#attributes' => [
+            'class' => ['btn-xs mt-2'],
+          ],
+          '#submit' => [
+            [get_class($this), 'submitOverride'],
+          ],
+          '#ajax' => [
+            'callback' => [$this, 'ajaxConfigFileOverride'],
+            'wrapper' => $element['#id'],
+          ],
+        ];
+        return;
       }
       $component = $shape->getComponent();
       $fieldDefinition = $component->getFieldItem()->getFieldDefinition();
+      // The filename must be STABLE across form rebuilds. The component
+      // instance UUID is regenerated on every build of the add form, so keying
+      // the filename on it renames the upload each rebuild and spawns a new
+      // neo_config_file per name. Derive it instead from the host field, the
+      // component type and the shape — stable across rebuilds and add→edit, and
+      // unique per (field/block, component, prop).
+      $filenameSeed = implode('-', [
+        $fieldDefinition->getConfigDependencyName(),
+        $component->id(),
+        $shape->id(),
+      ]);
       $element['config_file'] = [
         '#type' => 'neo_config_file',
         '#title' => $shape->getTitle(),
-        '#filename' => Html::getClass($component->uuid() . '-' . $shape->id()),
+        '#filename' => Html::getClass($filenameSeed),
         '#extensions' => static::CONFIG_FILE_EXTENSIONS,
         '#dependencies' => [
           $fieldDefinition->getConfigDependencyKey() => [
@@ -284,6 +319,18 @@ final class MediaValue extends ComponentValuePluginBase implements ContainerFact
   }
 
   /**
+   * Ajax callback for the config-file override button.
+   *
+   * Re-renders the whole shape so that, with the default now turned off, the
+   * neo_config_file upload replaces the override button.
+   */
+  public function ajaxConfigFileOverride(array $form, FormStateInterface $form_state) {
+    $trigger = $form_state->getTriggeringElement();
+    $parents = array_slice($trigger['#array_parents'], 0, -1);
+    return NestedArray::getValue($form, $parents);
+  }
+
+  /**
    * Ajax callback for override.
    */
   public function ajaxOverride(array $form, FormStateInterface $form_state) {
@@ -319,7 +366,18 @@ final class MediaValue extends ComponentValuePluginBase implements ContainerFact
     if ($shape instanceof ComponentShapeMediaPluginInterface && $shape->getScope() === 'field' && $this->getImageMediaType()) {
       // Config-hosted values are stored as neo_config_file references.
       // @see ::formAlter()
+      $trigger = $form_state->getTriggeringElement();
       $configFileId = $submitted_values['config_file'] ?? NULL;
+      // Turn the "Default" option off when the user switches to a custom image,
+      // either by clicking the override button (#neo_override) or by uploading
+      // a file — mirroring the media widget so the custom image is shown.
+      if (($trigger['#neo_override'] ?? FALSE) || $configFileId) {
+        $options = $shape->getOptions();
+        if (!empty($options['default'])) {
+          $options['default'] = 0;
+          $shape->setOptions($options);
+        }
+      }
       $values = $configFileId ? ['config_file' => $configFileId] : NULL;
       return;
     }
