@@ -165,6 +165,15 @@ class ComponentPluginManager extends ThemeComponentPluginManager {
       unset($prop['ref']);
     }
 
+    // Drop an empty `required` array. JSON Schema (and core's SDC validator)
+    // requires `required` to hold at least one property name, so `required: []`
+    // is invalid. It can slip in from a component yml or the editor declaring the
+    // key with no entries — this was previously masked whenever a prop def merged
+    // in its own non-empty `required`, and only surfaces once that def omits it.
+    if (isset($prop['required']) && is_array($prop['required']) && $prop['required'] === []) {
+      unset($prop['required']);
+    }
+
     return $prop;
   }
 
