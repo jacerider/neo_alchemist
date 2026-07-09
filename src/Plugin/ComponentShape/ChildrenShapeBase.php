@@ -32,6 +32,13 @@ abstract class ChildrenShapeBase extends ComponentShapePluginBase implements Com
   protected $childShapes;
 
   /**
+   * Uninitialized child shapes used only for value resolution.
+   *
+   * @var \Drupal\neo_alchemist\ComponentShapePluginInterface[]|null
+   */
+  protected ?array $valueResolverShapes = NULL;
+
+  /**
    * Get the schema properties.
    *
    * Can be called before the child has been initialized.
@@ -272,6 +279,49 @@ abstract class ChildrenShapeBase extends ComponentShapePluginBase implements Com
       return $shape;
     }, $this->shapeManager->getInstancesFromSchema($schema, $this->getComponent()));
     return $childShapes;
+  }
+
+  /**
+   * Get uninitialized child shapes for value resolution.
+   *
+   * NOT getChildShapes()/getChildSchema(): those route through
+   * loadChildSchema() -> getDefaultValue() and would recurse infinitely,
+   * since resolveValue() runs while getDefaultValue() is being memoized.
+   * These instances are never init()'d; resolveValue() must not need it.
+   *
+   * @return \Drupal\neo_alchemist\ComponentShapePluginInterface[]
+   *   The uninitialized child shapes, keyed by property name.
+   */
+  protected function getValueResolverShapes(): array {
+    if (!isset($this->valueResolverShapes)) {
+      $properties = $this->getChildSchemaProperties();
+      $this->valueResolverShapes = $properties ? $this->getChildShapesFromSchema([
+        'type' => 'object',
+        'properties' => $properties,
+      ]) : [];
+    }
+    return $this->valueResolverShapes;
+  }
+
+  /**
+   * Resolve each child slice of a value through its child shape.
+   *
+   * Keys with no matching child shape (such as `_weight`) pass through
+   * untouched.
+   *
+   * @param array $value
+   *   The value, keyed by child property name.
+   *
+   * @return array
+   *   The value with each child slice resolved.
+   */
+  protected function resolveChildValues(array $value): array {
+    foreach ($this->getValueResolverShapes() as $name => $shape) {
+      if (array_key_exists($name, $value)) {
+        $value[$name] = $shape->resolveValue($value[$name]);
+      }
+    }
+    return $value;
   }
 
 }

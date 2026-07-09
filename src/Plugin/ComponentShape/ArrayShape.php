@@ -35,6 +35,18 @@ class ArrayShape extends ChildrenShapeBase implements ComponentShapeInterablePlu
   protected ?ComponentShapePluginInterface $singlePropShape;
 
   /**
+   * The uninitialized item shape used only for value resolution.
+   *
+   * @var \Drupal\neo_alchemist\ComponentShapePluginInterface|null
+   */
+  protected ?ComponentShapePluginInterface $itemValueResolverShape = NULL;
+
+  /**
+   * Whether the item value resolver shape has been loaded.
+   */
+  protected bool $itemValueResolverShapeLoaded = FALSE;
+
+  /**
    * {@inheritDoc}
    */
   public function init(): self {
@@ -85,6 +97,55 @@ class ArrayShape extends ChildrenShapeBase implements ComponentShapeInterablePlu
       }
     }
     return $examples;
+  }
+
+  /**
+   * {@inheritDoc}
+   *
+   * Array values are keyed by delta, not by child property name, so each
+   * item is routed through the item shape rather than the value itself.
+   */
+  public function resolveValue(mixed $value): mixed {
+    if (!is_array($value) || !$value) {
+      return $value;
+    }
+    if ($shape = $this->getItemValueResolverShape()) {
+      foreach ($value as $delta => $item) {
+        if (is_int($delta)) {
+          $value[$delta] = $shape->resolveValue($item);
+        }
+      }
+    }
+    return $value;
+  }
+
+  /**
+   * Get the uninitialized item shape used for value resolution.
+   *
+   * Passes the full items schema so `ref` (e.g. an array of `image` items,
+   * where alterProp() has set `ref: image` and expanded the image's own
+   * sub-properties into `items.properties`) picks the media plugin rather
+   * than a plain object — unlike loadChildSchema(), which only carries
+   * `type`. Plain object items resolve to an ObjectShape, which recurses
+   * into each item property.
+   *
+   * @return \Drupal\neo_alchemist\ComponentShapePluginInterface|null
+   *   The item shape, or NULL when the items schema cannot resolve one.
+   */
+  protected function getItemValueResolverShape(): ?ComponentShapePluginInterface {
+    if (!$this->itemValueResolverShapeLoaded) {
+      $this->itemValueResolverShapeLoaded = TRUE;
+      $items = $this->getSchema()['items'] ?? [];
+      if (!empty($items['type']) || !empty($items['ref'])) {
+        $items += ['type' => 'object'];
+        $shapes = $this->getChildShapesFromSchema([
+          'type' => 'object',
+          'properties' => ['value' => $items],
+        ]);
+        $this->itemValueResolverShape = reset($shapes) ?: NULL;
+      }
+    }
+    return $this->itemValueResolverShape;
   }
 
   /**

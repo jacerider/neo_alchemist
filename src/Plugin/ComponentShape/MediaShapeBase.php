@@ -33,30 +33,52 @@ abstract class MediaShapeBase extends ObjectShape implements ComponentShapeMedia
   /**
    * {@inheritDoc}
    */
-  public function getDefaultSchemaValue(): mixed {
-    $value = parent::getDefaultSchemaValue();
-    if (!empty($value['src'])) {
-      // If string starts with 'theme://' it should point to the theme.
-      if (str_starts_with($value['src'], 'theme://')) {
-        $themeHandler = \Drupal::service('theme_handler');
-        $defaultTheme = \Drupal::config('system.theme')->get('default');
-        $themePath = $themeHandler->getTheme($defaultTheme)->getPath();
-        $imagePath = $themePath . '/' . str_replace('theme://', '', $value['src']);
-        // Generate absolute URL for the image.
-        $value['src'] = \Drupal::service('file_url_generator')->generateString($imagePath);
-      }
-      if (str_starts_with($value['src'], 'component://')) {
-        $imagePath = $this->getComponent()->getPath() . '/' . str_replace('component://', '', $value['src']);
-        // Generate absolute URL for the image.
-        $value['src'] = \Drupal::service('file_url_generator')->generateString($imagePath);
-      }
-      $isExternal = UrlHelper::isExternal($value['src']);
-      if (!$isExternal) {
-        $definition = $this->getComponent()->getComponentDefinition();
-        $path = str_replace(DRUPAL_ROOT, '', $definition['path']) . '/' . ltrim($value['src'], '/');
-        if (file_exists(ltrim($path, '/'))) {
-          $value['src'] = $path;
-        }
+  public function resolveValue(mixed $value): mixed {
+    $value = parent::resolveValue($value);
+    if (is_array($value)) {
+      $value = $this->resolveMediaSrc($value);
+    }
+    return $value;
+  }
+
+  /**
+   * Resolve a media value's `src`.
+   *
+   * `theme://<path>` resolves against the default theme, `component://<path>`
+   * against this component's folder, and a bare relative path against the
+   * component folder when the file exists. External URLs and already-resolved
+   * paths are left unchanged, so this is safe to call more than once.
+   *
+   * @param array $value
+   *   The media value (expects a `src` key).
+   *
+   * @return array
+   *   The value with a resolved `src`.
+   */
+  protected function resolveMediaSrc(array $value): array {
+    if (empty($value['src']) || !is_string($value['src'])) {
+      return $value;
+    }
+    // If string starts with 'theme://' it should point to the theme.
+    if (str_starts_with($value['src'], 'theme://')) {
+      $themeHandler = \Drupal::service('theme_handler');
+      $defaultTheme = \Drupal::config('system.theme')->get('default');
+      $themePath = $themeHandler->getTheme($defaultTheme)->getPath();
+      $imagePath = $themePath . '/' . str_replace('theme://', '', $value['src']);
+      // Generate absolute URL for the image.
+      $value['src'] = \Drupal::service('file_url_generator')->generateString($imagePath);
+    }
+    if (str_starts_with($value['src'], 'component://')) {
+      $imagePath = $this->getComponent()->getPath() . '/' . str_replace('component://', '', $value['src']);
+      // Generate absolute URL for the image.
+      $value['src'] = \Drupal::service('file_url_generator')->generateString($imagePath);
+    }
+    $isExternal = UrlHelper::isExternal($value['src']);
+    if (!$isExternal) {
+      $definition = $this->getComponent()->getComponentDefinition();
+      $path = str_replace(DRUPAL_ROOT, '', $definition['path']) . '/' . ltrim($value['src'], '/');
+      if (file_exists(ltrim($path, '/'))) {
+        $value['src'] = $path;
       }
     }
     return $value;

@@ -76,6 +76,17 @@ class ObjectShape extends ChildrenShapeBase implements ComponentShapeExpandedPlu
   /**
    * {@inheritDoc}
    */
+  public function resolveValue(mixed $value): mixed {
+    $value = parent::resolveValue($value);
+    if (is_array($value) && $value) {
+      $value = $this->resolveChildValues($value);
+    }
+    return $value;
+  }
+
+  /**
+   * {@inheritDoc}
+   */
   protected function buildValue(): mixed {
     $value = parent::buildValue();
     if (empty($value) && !$this->allowExpanded()) {

@@ -1658,6 +1658,7 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
    *   The attributes that belong to the rendering component.
    */
   private function buildRenderValue(mixed $value, Attribute $attributes): mixed {
+    $value = $this->resolveValue($value);
     $value = $this->preRenderValue($value, $attributes);
     foreach ($this->getValueCollection()->getAllowedInstances('modify') as $instance) {
       $value = $instance->modifyValue($value);
@@ -1713,7 +1714,7 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
    */
   public function getDefaultValue(): mixed {
     if (!isset($this->defaultValue)) {
-      $value = $originalValue = $this->getDefaultSchemaValue();
+      $value = $originalValue = $this->resolveValue($this->getDefaultSchemaValue());
       $instances = $this->getValueCollection()->getAllowedInstances('default');
       foreach ($instances as $instance) {
         $value = $instance->provideDefaultValue($value);
@@ -1773,6 +1774,13 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
    */
   public function getDefaultSchemaValue(): mixed {
     return $this->schema['examples'] ?? [];
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  public function resolveValue(mixed $value): mixed {
+    return $value;
   }
 
   /**

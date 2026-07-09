@@ -880,6 +880,25 @@ interface ComponentShapePluginInterface extends PluginInspectionInterface, Deriv
   public function getDefaultSchemaValue(): mixed;
 
   /**
+   * Resolve a value into its final usable form.
+   *
+   * Called with the schema default during default-value assembly and with the
+   * full value (stored or default) just before rendering, so implementations
+   * MUST be idempotent. May be invoked on a shape that has not been
+   * initialized, so implementations MUST NOT rely on the field item or any
+   * init()-time state. The returned value must keep the schema's shape.
+   * Container shapes (object/array) recurse into their children so every
+   * nested shape gets a chance to resolve its own slice of the value.
+   *
+   * @param mixed $value
+   *   The value to resolve.
+   *
+   * @return mixed
+   *   The resolved value.
+   */
+  public function resolveValue(mixed $value): mixed;
+
+  /**
    * Get the default value of the prop.
    *
    * @return mixed
