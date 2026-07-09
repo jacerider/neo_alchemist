@@ -1,8 +1,6 @@
 heading:
   title: Heading
   type: object
-  required:
-    - title
   properties:
     supertitle:
       title: Supertitle
@@ -31,7 +29,7 @@ heading:
       - '{% if %name%.anchor %}<a name="{{ %name%.anchor }}" title="{{ %name%.title }}"></a>{% endif %}'
       - '<div{{ %name%.size }}>'
       - '  {% if %name%.supertitle %}<div class="component-supertitle">{{ %name%.supertitle }}</div>{% endif %}'
-      - '  <h2 class="component-title">{{ %name%.title }}</h2>'
+      - '  {% if %name%.title %}<h2 class="component-title">{{ %name%.title }}</h2>{% endif %}'
       - '  {% if %name%.subtitle %}<div class="component-subtitle">{{ %name%.subtitle }}</div>{% endif %}'
       - '</div>'
     suffix: '{% endif %}'
