@@ -44,11 +44,16 @@ The `machine_name` MUST match the folder and file names. Use snake_case (e.g. `c
 > **Tailwind version: v4** (the neo build runs Tailwind CSS 4). This matters for
 > sizing: v4's spacing scale is **dynamic** — `--spacing` is `0.25rem` and any
 > integer generates a utility on demand, `w-<n>` → `calc(var(--spacing) * n)`.
-> So a size that lands on the 4px grid should use the **numeric class, not an
-> arbitrary value**: `h-135` (540px) not `h-[540px]`, `w-130` (520px) not
-> `w-[520px]`, `w-105` (420px), `w-65` (260px). To convert, divide the px by 4
-> (`540 / 4 = 135`). Numeric classes are rem-based (scale with root font-size) and
-> stay on the design grid; prefer them for widths/heights/padding/margins/gaps.
+> So a size that lands on the 4px grid should **always** use the numeric class and
+> **never** an arbitrary value — small sizes too: `w-6` (24px) not `w-[24px]`,
+> `size-8` (32px) not `size-[32px]`, `h-135` (540px) not `h-[540px]`, `w-130`
+> (520px) not `w-[520px]`, `w-105` (420px), `w-65` (260px). To convert, divide the
+> px by 4 (`24 / 4 = 6`, `540 / 4 = 135`). Numeric classes are rem-based (scale with
+> root font-size) and stay on the design grid; prefer them for
+> widths/heights/padding/margins/gaps. An arbitrary `w-[…]` / `h-[…]` / `p-[…]` /
+> `gap-[…]` is a **last resort** — treat one as a smell that a scale step was
+> missed, and convert it (`w-[16px]`→`w-4`, `mt-[12px]`→`mt-3`) unless the value is
+> genuinely off-grid.
 > **Reserve arbitrary `[...]` values for genuinely off-grid values** that have no
 > scale step: sub-step font sizes (`text-[0.62rem]`), em letter-spacing
 > (`tracking-[0.34em]`), unitless line-heights (`leading-[1.15]`), custom
