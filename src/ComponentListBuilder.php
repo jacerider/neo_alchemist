@@ -103,6 +103,11 @@ final class ComponentListBuilder extends ConfigEntityListBuilder {
     if ($description = $entity->getDescription()) {
       $row['label']['data']['description']['#markup'] = '<div><small>' . $description . '</small></div>';
     }
+    // The source SDC has been removed but the config entity remains. Flag it so
+    // it can be recognised and deleted from the list.
+    if (!$entity->getComponent()) {
+      $row['label']['data']['missing']['#markup'] = '<div class="text-alert"><small>' . $this->adminIcon($this->t('Missing component: @id — the source component no longer exists. Delete this entry to clean it up.', ['@id' => $entity->getComponentId()]), 'exclamation-triangle')->render() . '</small></div>';
+    }
 
     $targetEntityDefinition = $entity->getTargetEntityTypeDefinition();
     $targetBundle = $entity->getTargetEntityBundle();
@@ -146,14 +151,21 @@ final class ComponentListBuilder extends ConfigEntityListBuilder {
    * {@inheritdoc}
    */
   public function getDefaultOperations(EntityInterface $entity) {
-    /** @var \Drupal\Core\Config\Entity\ConfigEntityInterface $entity */
+    /** @var \Drupal\neo_alchemist\ComponentInterface $entity */
+    $operations = parent::getDefaultOperations($entity);
+    // An orphaned component (its source SDC was removed) cannot be customized,
+    // edited or previewed without fatalling. Only allow deletion so the stale
+    // config entity can be cleaned up.
+    if (!$entity->getComponent()) {
+      return array_intersect_key($operations, ['delete' => TRUE]);
+    }
     return [
       'customize' => [
         'title' => $this->t('Customize'),
         'weight' => -10,
         'url' => $entity->toUrl(),
       ],
-    ] + parent::getDefaultOperations($entity);
+    ] + $operations;
   }
 
   /**

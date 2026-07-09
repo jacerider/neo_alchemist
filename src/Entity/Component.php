@@ -371,14 +371,14 @@ class Component extends ConfigEntityBase implements ComponentInterface {
    * {@inheritdoc}
    */
   public function getComponentSchema(): ?array {
-    return $this->getComponent()->metadata->schema;
+    return $this->getComponent()?->metadata->schema;
   }
 
   /**
    * {@inheritdoc}
    */
   public function getComponentSlots(): array {
-    return $this->getComponent()->metadata->slots ?? [];
+    return $this->getComponent()?->metadata->slots ?? [];
   }
 
   /**
@@ -399,7 +399,7 @@ class Component extends ConfigEntityBase implements ComponentInterface {
    * {@inheritdoc}
    */
   public function getDefaultThumbnail(): ?string {
-    return $this->getComponent()->metadata->getThumbnailPath();
+    return $this->getComponent()?->metadata->getThumbnailPath();
   }
 
   /**
@@ -424,7 +424,7 @@ class Component extends ConfigEntityBase implements ComponentInterface {
    * {@inheritdoc}
    */
   public function getPath(): string {
-    return $this->getComponent()->metadata->path ?? NULL;
+    return $this->getComponent()?->metadata->path ?? '';
   }
 
   /**
