@@ -26,6 +26,36 @@ web/themes/front/components/<machine_name>/
 
 The `machine_name` MUST match the folder and file names. Use snake_case (e.g. `cards_s1`, `media_text_s1`). The `_s1`/`_s2` suffix is the site convention for "style 1/2" variants.
 
+> **Favor Tailwind utilities in the `.twig`; treat `<machine_name>.css` as a last resort.**
+> Layout, spacing, sizing, color (scheme utilities like `text-accent-500`, `bg-primary`,
+> `border-primary-600`), typography — including arbitrary values like `text-[0.62rem]`,
+> `tracking-[0.34em]`, `aspect-[5/4]`, `basis-[calc((100%_-_5rem)/5)]` (use `_` for the
+> spaces a value needs) — and **interaction states** (`hover:`, `group` + `group-hover:`,
+> `focus-visible:`, `disabled:`, `motion-reduce:`) all have utilities. Write them as
+> classes; drive per-element hover choreography with `group`/`group-hover:` on the card,
+> not a `.css` `:hover` rule. Reach for a component `.css` file **only** for what
+> genuinely has no utility: `@keyframes`, gradient overlays, exact-value `box-shadow`s,
+> scrollbar hiding, `::before`/`::after` decorative content, and styling elements you
+> don't emit (e.g. the `<img>` produced by `neo_image_style()` can't take classes). If
+> you catch yourself writing `display: flex`, `padding`, `color`, or `:hover` in a
+> component `.css`, convert it to utilities. See [hero_video](web/themes/front/components/hero_video/hero_video.css) —
+> its `.css` is just keyframes/gradients/exact shadows; all layout is utilities in the twig.
+
+> **Tailwind version: v4** (the neo build runs Tailwind CSS 4). This matters for
+> sizing: v4's spacing scale is **dynamic** — `--spacing` is `0.25rem` and any
+> integer generates a utility on demand, `w-<n>` → `calc(var(--spacing) * n)`.
+> So a size that lands on the 4px grid should use the **numeric class, not an
+> arbitrary value**: `h-135` (540px) not `h-[540px]`, `w-130` (520px) not
+> `w-[520px]`, `w-105` (420px), `w-65` (260px). To convert, divide the px by 4
+> (`540 / 4 = 135`). Numeric classes are rem-based (scale with root font-size) and
+> stay on the design grid; prefer them for widths/heights/padding/margins/gaps.
+> **Reserve arbitrary `[...]` values for genuinely off-grid values** that have no
+> scale step: sub-step font sizes (`text-[0.62rem]`), em letter-spacing
+> (`tracking-[0.34em]`), unitless line-heights (`leading-[1.15]`), custom
+> transition timings (`duration-[1.2s]`), aspect ratios (`aspect-[4/3]`), and
+> `calc()` (`basis-[calc((100%_-_5rem)/5)]`). (This is Tailwind v4, so the color
+> theme is JS-registered, not `@theme` — see the neo-build skill.)
+
 ## The `.component.yml` file
 
 Every component yml starts with this boilerplate:
@@ -58,14 +88,14 @@ Alchemist extends SDC with custom "shapes" — reusable prop definitions from [n
 > **Get shapes from the CLI (authoritative):** `drush neo:alchemist:shapes` lists every available shape; `drush neo:alchemist:shapes <name>` (e.g. `heading`) dumps that shape's resolved schema, a paste-ready `.component.yml` prop snippet, and its Twig render pattern. Prefer this over guessing from the summary below.
 
 ### Content shapes
-- `heading` — object with `supertitle`, `title`, `subtitle`, `size`, `anchor`. Always provide `examples` with the three text fields.
+- `heading` — object with `supertitle`, `title`, `subtitle`, `size`, `anchor`. Provide `examples` with the text fields you use. `title` is **optional** — a heading may be `supertitle`/`subtitle`-only (handy when reusing this shape for a two-tone item caption/label whose emphasized word is the only text, e.g. a single accent word). When you hand-render the heading, guard each part with `{% if %}` so a missing `title` doesn't emit an empty `<h2>`.
 - `markup` — rich text / array. Use for prose descriptions.
 - `string` — plain text.
-- `image` — object `{src, alt, width, height}`. Render with `neo_image_style()` or `neo_image()`.
+- `image` — object `{src, alt, width, height}`. Render with `neo_image_style()` or `neo_image()`. The `src` accepts a URL/path **or** one of two local-asset schemes, resolved to a real URL by the image shape: **`component://<path>`** points at a file bundled *inside the component folder* (e.g. store `web/themes/front/components/callout_s1/images/monogram.png` and set `src: 'component://images/monogram.png'`), and **`theme://<path>`** points at the default theme's directory. Prefer `component://` for a component's own default/decorative art (a monogram, emblem, texture) — it ships and versions with the component and needs no editor upload or external `placehold.co` URL. Real content images still come from the editor (a `media`/uploaded image).
 - `image-uri` — just an image URL.
 - `file` — object `{src, title, name}` for downloadable files.
 - `remote_video` — YouTube/Vimeo embed `{src, thumbnail, title}`.
-- `icon` — icon machine name (rendered via `icon(name)` Twig function). Find valid names with `drush neo:icon:list <search>` (e.g. `drush neo:icon:list arrow`) — don't guess, invalid names render nothing.
+- `icon` — icon machine name (rendered via `icon(name)` Twig function). Find valid names with `drush neo:icon:list <search>` (e.g. `drush neo:icon:list arrow`) — don't guess, invalid names render nothing. **Strip the library prefix that `neo:icon:list` prints.** The command lists names like `regular-chevron-left`, but `icon()` wants the bare name: `icon('chevron-left')` renders — `icon('regular-chevron-left')` renders **nothing** (silently, no error). So from a listed name drop the leading `regular-`/`solid-`/`light-`/etc. segment. To force a specific library, use the `|icon_library('name')` filter, not a name prefix.
 - `link` — button-style link `{uri, title, options, icon, target, access}`. Usually paired with a `button_style`.
 - `url` — similar to link but for anchor-style links.
 - `email`, `telephone`, `uri` — single-value types.
@@ -176,6 +206,8 @@ Inside any `scheme-*` region (including the un-schemed page root), these adapt w
 | Buttons | the `.btn*` classes (`btn`, `btn-primary`, `btn-outline-accent`, `btn-text-secondary`, …) | hand-built buttons from `bg-*`/`text-*` utilities — they won't retune per scheme and lose the managed hover states |
 | Prose links | `prose` — links inside it follow the scheme link color | per-link color classes |
 
+**Button classes (compose directly in Twig).** A `.btn*` is built from two independent axes: a **style/color** class — `btn` (solid), `btn-outline-{primary|secondary|accent|base}`, `btn-text-{…}` — plus an optional **size** class: `btn-xs`, `btn-sm`, `btn` (default, `md`), `btn-lg`, `btn-xl`, `btn-2xl`, `btn-3xl`. E.g. `class="btn btn-outline-primary btn-lg"`. Prefer a size class over hand-tuning `px-*`/`py-*`/`text-[…]` on a button — it keeps it on the managed, scheme-aware scale (contrast-checked colors + hover states per scheme). The `button_style` / `button_size` style props emit these for `link` props; use the raw classes when you hand-write the `<a>`/`<button>`.
+
 Semantic CSS variables, for component-local CSS or inline styles (all scheme-scoped):
 `--text-color-default`, `--background-color-default`, `--color-border-default`, `--link-color` / `--link-color-hover`, `--color-{base|primary|secondary|accent}-{0…950}` (+ `-content`), and `--color-shadow-{0…950}` — a brand-tinted shadow ramp **guaranteed darker than the surface** in every scheme (use it for `box-shadow` colors that won't glow on dark/colorized schemes, e.g. `box-shadow: 0 8px 20px -6px rgb(var(--color-shadow-500) / 0.45)`).
 
@@ -231,6 +263,21 @@ Add `- neo/library.alpine` to `libraryOverrides.dependencies` in the yml. For th
 ### Swiper (carousels)
 
 Image carousels use the built-in `swiper()` Twig function — see [web/modules/contrib/neo_alchemist/modules/neo_alchemist_examples/components/image/image.twig](web/modules/contrib/neo_alchemist/modules/neo_alchemist_examples/components/image/image.twig) for the canonical pattern (`swiper.getWrapperAttributes()`, `getSlideAttributes()`, `getNavigationPrevAttributes()`, etc.).
+
+### Animating a component (neo_animate)
+
+Scroll-reveal animations come from the `neo_animate` module — see the **neo-animate** skill for the full system. The short version: add the props
+
+```yaml
+animate: { type: animate }
+animate_speed: { type: animate_speed }
+animate_delay: { type: animate_delay }
+animate_stagger: { type: animate_stagger }
+```
+
+and the component root reveals on scroll (editor-selectable, `apply: true`, no twig change). For a staggered cascade, also put `neo-animate-item` on the repeating element in the twig. No `libraryOverrides` needed — the driver is attached globally. Never write `neo-animate--animated` or raw catalog classes (`neo-animate--fadeInUp`) statically; authors write markers only.
+
+> **Background components (`bg-default component-bg`): don't reveal the root.** `apply: true` puts the reveal on the root, so the whole **colored block** animates in. Instead override `apply: false` on `animate`/`animate_speed`/`animate_delay` in the yml and apply them to an inner content wrapper — and if the component staggers, move `animate_stagger` there too (the enter class and `neo-animate-stagger` must share one element, or the cascade silently no-ops). The reveal props are Attribute objects, so **merge** them onto the wrapper (`getValue()` returns the raw key, not the classes): `<div{{ animate.merge(animate_speed).merge(animate_delay).merge(animate_stagger).addClass(['container-content','py-component']) }}>`. Full details + the non-stagger case in the **neo-animate** skill's *Background components* section.
 
 ## Workflow for a new component
 
@@ -311,6 +358,7 @@ machine parsing.
 - **Dynamic Tailwind class names never compile.** The build only emits classes that appear **literally** in scanned source — `bg-{{ color }}-500`, `'text-' ~ tone`, or classes assembled in JS produce nothing in the CSS. Enumerate full class names (in the yml `styles:` values, a Twig mapping, or a comment), or use inline CSS variables for genuinely data-driven color: `style="background-color: rgb(var(--color-{{ pallet }}-500))"` works because the *variables* always exist.
 - **Hardcoding one scheme's colors** (e.g. `bg-base-0`) on a component meant to be recolored — use `bg-default` for the surface and let text/borders adapt automatically so the `scheme` prop can recolor it.
 - **Coloring links or buttons by hand** — `text-primary-600` on an `<a>`, or a "button" built from `bg-primary text-white` utilities, will be unreadable on some schemes (the bare brand tokens can match the surface on colorized schemes). Bare `<a>` elements and the `.btn*` classes are contrast-managed per scheme, hover states included.
+- **Overloading the component `.css`.** Layout, spacing, color, sizing, and hover states all have Tailwind utilities — put them in the `.twig` (use arbitrary values like `text-[0.62rem]`/`basis-[calc((100%_-_5rem)/5)]` for off-scale numbers, and `group`/`group-hover:` for per-element hover). A `.css` full of `display:flex` / `padding` / `color` / `:hover` is a smell; the file is only for what has no utility (keyframes, gradient overlays, exact shadows, scrollbar-hide, `::after` content, styling a generated `<img>`).
 - **Placeholder image dimensions out of sync with the twig transform** — the `placehold.co/WxH.png` URL (and `width`/`height` fields) in the prop's `examples:` should match the dimensions produced by `neo_image_style()` / `neo_image()` in the twig. The right target depends on the size op (see [web/modules/contrib/neo_image/README.md](web/modules/contrib/neo_image/README.md)):
   - Fixed-output ops — `scaleCrop`, `crop`, `focal`, `exact`, and `auto` with both width+height: placeholder must be exactly `{width}x{height}`. E.g. `{scaleCrop: {width: 300, height: 200}}` → `placehold.co/300x200.png`, `width: 300, height: 200`.
   - Width-only ops — `scale`, `focalWidth`, and `auto` with only width (or only height): output keeps the source aspect, so pick a placeholder that matches the *intended display aspect* (e.g. a `scale: {width: 1200}` slot shown in a 4:3 container → `placehold.co/1200x900.png`).
