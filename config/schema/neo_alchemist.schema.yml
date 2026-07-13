@@ -588,6 +588,15 @@ neo_alchemist.neo_component_settings.slots:
 neo_alchemist.neo_component_slot.*:
   type: mapping
 
+neo_alchemist.neo_component_slot.block:
+  type: mapping
+  label: 'Block slot provider'
+  mapping:
+    block_id:
+      type: string
+      label: 'Block'
+      nullable: true
+
 neo_alchemist.neo_component_slot.block_plugin:
   type: mapping
   label: 'Block plugin slot provider'
