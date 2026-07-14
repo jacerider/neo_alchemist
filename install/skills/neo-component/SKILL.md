@@ -35,8 +35,11 @@ The `machine_name` MUST match the folder and file names. Use snake_case (e.g. `c
 > classes; drive per-element hover choreography with `group`/`group-hover:` on the card,
 > not a `.css` `:hover` rule. Reach for a component `.css` file **only** for what
 > genuinely has no utility: `@keyframes`, gradient overlays, exact-value `box-shadow`s,
-> scrollbar hiding, `::before`/`::after` decorative content, and styling elements you
-> don't emit (e.g. the `<img>` produced by `neo_image_style()` can't take classes). If
+> scrollbar hiding, `::before`/`::after` decorative content, and styling nested
+> elements inside markup you don't hand-write. (The `<img>` from `neo_image_style()` is
+> **not** such a case — you can't `.addClass()` its render array, but you *can* pass it a
+> `class` via the function's 5th `attributes` argument:
+> `neo_image_style(src, {…}, alt, '', {class: ['h-7', 'w-auto']})`.) If
 > you catch yourself writing `display: flex`, `padding`, `color`, or `:hover` in a
 > component `.css`, convert it to utilities. See [hero_video](web/themes/front/components/hero_video/hero_video.css) —
 > its `.css` is just keyframes/gradients/exact shadows; all layout is utilities in the twig.
@@ -223,6 +226,7 @@ Semantic CSS variables, for component-local CSS or inline styles (all scheme-sco
 | `heading` | `<div{{ heading.size }}>` then access `.supertitle`, `.title`, `.subtitle`, `.anchor` |
 | `markup` | `{{ description }}` wrapped in `<div class="prose max-w-none">` |
 | `image` | `{{ neo_image_style(img.src, {focal: {width: 1200, height: 575}}, img.alt) }}` or `neo_image()` for responsive |
+| `image` (**SVG**, e.g. a logo) | Image styles can't rasterize an SVG, so the original file is emitted and the size op only sets HTML `width`/`height` attributes — which the theme's base reset (`img{height:auto}` in `@layer base`) then overrides. A viewBox-only SVG has no intrinsic size, so it collapses to 0×0. **Size it with a CSS class** (utilities win over the base layer): `{{ neo_image_style(logo.src, {scale: {height: 30}}, logo.alt, '', {class: ['h-7', 'w-auto']}) }}` |
 | `icon` | `{{ icon(name) }}` — add modifiers: `|icon_class('text-3xl')`, `|icon_only`, `|icon_library('regular')` |
 | `link` | `<a{{ item.button_style }} href="{{ neo_uri(item.link.uri, item.link.options) }}">{{ item.link.title }}</a>` |
 | `url` | Same as link — check `item.link.access` for permission-gated links |
@@ -369,6 +373,7 @@ machine parsing.
   - Width-only ops — `scale`, `focalWidth`, and `auto` with only width (or only height): output keeps the source aspect, so pick a placeholder that matches the *intended display aspect* (e.g. a `scale: {width: 1200}` slot shown in a 4:3 container → `placehold.co/1200x900.png`).
   - Responsive `neo_image()` with multiple breakpoints: use the largest breakpoint's dimensions for the placeholder.
   - Items rendered via a shared include (e.g. `@front/includes/list_s1--items.html.twig` uses `scaleCrop: 75x75`): match the include's dimensions, not the wrapper component.
+- **SVG (e.g. a logo) rendered via `neo_image_style` collapses to 0×0 / a tiny square** — image styles are raster ops (GD), so an SVG can't be transformed: the original file is emitted and the size op only sets HTML `width`/`height` attributes. The theme's base reset (`img{height:auto}` in `@layer base`) overrides those attributes, and a viewBox-only SVG has no intrinsic size, so it renders at 0×0 (or a fabricated square if a single-axis op is used). Fix by sizing with a **CSS class** via the 5th `attributes` arg — utilities beat the base layer: `{{ neo_image_style(logo.src, {scale: {height: 30}}, logo.alt, '', {class: ['h-7', 'w-auto']}) }}`. (`w-auto` lets the browser derive width from the SVG's `viewBox` aspect ratio.)
 - **Fixed/floating component blank in the Alchemist preview** — a `position: fixed`/`absolute` root has no flow height, so the preview iframe collapses. Render it in-flow (`relative`) behind `{% if neoIsPreview %}`, with a solid background if it's normally transparent. See "Fixed / floating roots and the preview iframe".
 - **Fixed/sticky component hidden behind the admin toolbar** — pinning a `fixed`/`sticky` root to `top-0` puts it under the Drupal toolbar for logged-in users. Use `top-displace-t` instead (offsets by the toolbar height, `0px` when absent). See "Fixed / floating roots and the preview iframe".
 - **Clearing cache** — after editing `.component.yml`, run `drush cr` or the prop changes won't reflect.
