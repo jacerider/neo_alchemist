@@ -123,7 +123,7 @@ image-uri:
   title: Image URL
   type: string
   format: uri-reference
-  pattern: ^(\/|theme:\/\/|component:\/\/|https?:\/\/).*\.(?i)(png|gif|jpg|jpeg|webp|avif)(\?.*)?(#.*)?$
+  pattern: ^(\/|theme:\/\/|component:\/\/|https?:\/\/).*\.(?i)(png|gif|jpg|jpeg|webp|avif|svg)(\?.*)?(#.*)?$
   examples: https://placehold.co/100x100.png
   twig:
     prefix: '{% if %name% %}'
