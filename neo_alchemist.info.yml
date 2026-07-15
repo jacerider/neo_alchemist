@@ -8,5 +8,6 @@ neo: true
 dependencies:
   - drupal:ckeditor5
   - drupal:media
+  - drupal:options
   - neo:neo
   - neo_tooltip:neo_tooltip
