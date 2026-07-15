@@ -1,0 +1,53 @@
+$schema: 'https://git.drupalcode.org/project/drupal/-/raw/10.1.x/core/modules/sdc/src/metadata.schema.json'
+name: 'Example | Header'
+status: stable
+description: 'A site header demonstrating the Alchemist mega menu pattern: primary items with children open a full-width click-to-open panel of link columns, and neo_alchemist_menu component region items render their component tree inside the panel.'
+neo: true
+libraryOverrides:
+  dependencies:
+    - neo/library.alpine
+props:
+  type: object
+  properties:
+    brand:
+      type: string
+      title: 'Brand'
+      description: 'Site name shown at the left, linked to the front page.'
+      examples:
+        - 'Example Site'
+    menu:
+      type: menu
+      title: 'Menu'
+      description: 'Primary navigation. Bind this to the "menu" value provider with enough depth (3) so second-level items become panel columns and third-level items become column links. A child flagged as a neo_alchemist_menu component region renders its component tree inside the panel instead of a link.'
+      examples:
+        -
+          title: 'About'
+          url: 'internal:/'
+        -
+          title: 'Features'
+          url: 'internal:/'
+          below:
+            -
+              title: 'Getting Started'
+              url: 'internal:/'
+              below:
+                - { title: 'Installation', url: 'internal:/' }
+                - { title: 'Configuration', url: 'internal:/' }
+                - { title: 'First Component', url: 'internal:/' }
+            -
+              title: 'Guides'
+              url: 'internal:/'
+              below:
+                - { title: 'Theming', url: 'internal:/' }
+                - { title: 'Color Schemes', url: 'internal:/' }
+                - { title: 'Icons', url: 'internal:/' }
+            -
+              title: 'Featured'
+              url: 'internal:/'
+              region: true
+        -
+          title: 'Pricing'
+          url: 'internal:/'
+        -
+          title: 'Blog'
+          url: 'internal:/'

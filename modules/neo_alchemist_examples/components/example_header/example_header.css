@@ -1,0 +1,9 @@
+/*
+ * Alpine pre-init guard: elements carrying x-cloak (the mega menu panels)
+ * stay hidden until Alpine initializes and removes the attribute — otherwise
+ * every panel flashes open, stacked, on page load. No Tailwind utility can
+ * express this attribute-scoped rule.
+ */
+[x-cloak] {
+  display: none !important;
+}

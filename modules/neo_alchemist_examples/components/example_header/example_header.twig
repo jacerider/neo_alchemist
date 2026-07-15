@@ -1,0 +1,97 @@
+{#
+  Example | Header — reference implementation of the Alchemist mega menu.
+
+  - `menu` is the Alchemist `menu` shape. Bind it to the "menu" value provider
+    (depth 3) so it is populated from a real Drupal menu: level 1 renders as
+    the nav items, level 2 as panel columns, level 3 as column links.
+  - An item with children opens a full-width panel on click (Alpine —
+    `neo/library.alpine` via libraryOverrides). Re-click, outside click or
+    Escape closes it; `aria-expanded` tracks the state on the trigger.
+  - With neo_alchemist_menu enabled, a "component region" child carries the
+    runtime keys `region` (TRUE) and `content` (a render array of the item's
+    component tree) — print the content instead of rendering a link.
+  - The underline indicator uses only CSS state: hover/focus via a named
+    group on the trigger, the open panel via `group-aria-expanded/link:`, and
+    the active trail statically.
+  - Colors stay scheme-aware: `bg-default` surfaces, unclassed borders and a
+    `bg-primary` accent — no per-scheme color classes.
+#}
+{% set classes = ['relative', 'flex', 'items-center', 'gap-8', 'w-full', 'px-6', 'bg-default', 'component-bg'] %}
+<header {{ attributes.addClass(classes) }}>
+
+  {% if brand %}
+    <a href="{{ path('<front>') }}" class="py-6 text-lg font-bold no-underline shrink-0">{{ brand }}</a>
+  {% endif %}
+
+  {% if menu %}
+    <nav class="flex items-center gap-6" aria-label="Primary"
+         x-data="{ open: null }" @click.outside="open = null" @keydown.escape.window="open = null">
+      {% for item in menu %}
+        {# A region item at the top level has no panel to render into. #}
+        {% if not item.region %}
+          {% set has_panel = item.below is not empty %}
+          <div>
+            <a href="{{ neo_uri(item.url.uri, item.url.options) }}"
+               class="group/link relative flex items-center py-6 text-sm font-semibold uppercase tracking-wide no-underline"
+               {%- if has_panel %}
+               @click.prevent="open = open === {{ loop.index }} ? null : {{ loop.index }}"
+               aria-haspopup="true"
+               :aria-expanded="open === {{ loop.index }} ? 'true' : 'false'"
+               {%- if neoIsPreview %} data-event{% endif %}
+               {%- endif %}>
+              {{ item.title }}
+              {# Underline indicator: hover/focus, while this item's panel is
+                 open (aria-expanded on the trigger) and on the active trail. #}
+              <span class="absolute inset-x-0 bottom-0 h-1 bg-primary transition-opacity {{ item.in_active_trail ? 'opacity-100' : 'opacity-0 group-hover/link:opacity-100 group-focus-within/link:opacity-100 group-aria-expanded/link:opacity-100' }}" aria-hidden="true"></span>
+            </a>
+
+            {% if has_panel %}
+              {# Full-width panel sheeting below the header; opens on click,
+                 closes on re-click, outside click or Escape. In the editor
+                 preview it renders in-flow instead of absolute — the preview
+                 iframe sizes to flow height, so an absolute panel would open
+                 clipped and invisible. #}
+              <div x-cloak x-show="open === {{ loop.index }}" x-transition.opacity.duration.150ms
+                   class="{{ neoIsPreview ? 'w-max max-w-none' : 'absolute inset-x-0 top-full z-20' }} bg-default border-t shadow-lg">
+                <div class="container-content flex items-start gap-10 py-8">
+                  {% for child in item.below %}
+                    {% if not loop.first %}
+                      <div class="w-px self-stretch bg-base-200 shrink-0"></div>
+                    {% endif %}
+                    {% if child.region %}
+                      {# neo_alchemist_menu component region: the editor curates
+                         this area at /admin/structure/menu — render its tree. #}
+                      <div class="flex-1 min-w-0">
+                        {% if child.content %}
+                          {{ child.content }}
+                        {% elseif neoIsPreview %}
+                          <div class="p-6 border border-dashed text-sm text-center">{{ child.title }}</div>
+                        {% endif %}
+                      </div>
+                    {% else %}
+                      {# A link column: the child is the heading, its children
+                         are the links. #}
+                      <div class="w-48 shrink-0">
+                        <a href="{{ neo_uri(child.url.uri, child.url.options|default({})) }}" class="font-bold no-underline">{{ child.title }}</a>
+                        {% if child.below %}
+                          <ul class="mt-4 flex flex-col">
+                            {% for sub in child.below %}
+                              <li class="border-b last:border-b-0">
+                                <a href="{{ neo_uri(sub.url.uri, sub.url.options|default({})) }}" class="block py-2 text-sm no-underline{{ sub.in_active_trail ? ' font-bold' : '' }}">{{ sub.title }}</a>
+                              </li>
+                            {% endfor %}
+                          </ul>
+                        {% endif %}
+                      </div>
+                    {% endif %}
+                  {% endfor %}
+                </div>
+              </div>
+            {% endif %}
+          </div>
+        {% endif %}
+      {% endfor %}
+    </nav>
+  {% endif %}
+
+</header>
