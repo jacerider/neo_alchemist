@@ -1,0 +1,6 @@
+neo_alchemist_menu.add_region:
+  route_name: entity.menu.add_link_form
+  class: Drupal\neo_alchemist_menu\Plugin\Menu\LocalAction\AddMenuRegionAction
+  title: 'Add component region'
+  appears_on:
+    - entity.menu.edit_form

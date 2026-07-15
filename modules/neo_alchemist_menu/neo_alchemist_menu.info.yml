@@ -1,0 +1,12 @@
+name: 'Neo | Alchemist Menu'
+type: module
+description: 'Allows menu items to act as Alchemist component regions for building mega menus.'
+package: Neo
+version: 0.0.0
+core_version_requirement: ^10.3 || ^11
+neo: true
+dependencies:
+  - neo_alchemist:neo_alchemist
+  - drupal:menu_link_content
+  - drupal:menu_ui
+  - drupal:field

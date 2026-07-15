@@ -1,0 +1,264 @@
+<?php
+
+/**
+ * @file
+ * Primary module hooks for Neo | Alchemist Menu module.
+ */
+
+declare(strict_types=1);
+
+use Drupal\Component\Utility\Html;
+use Drupal\Core\Access\AccessResult;
+use Drupal\Core\Entity\EntityInterface;
+use Drupal\Core\Form\FormStateInterface;
+use Drupal\Core\Menu\MenuLinkTreeElement;
+use Drupal\Core\Render\Element;
+use Drupal\Core\Session\AccountInterface;
+use Drupal\Core\Url;
+use Drupal\menu_link_content\MenuLinkContentInterface;
+use Drupal\menu_link_content\Plugin\Menu\MenuLinkContent as MenuLinkContentPlugin;
+use Drupal\neo_alchemist\ComponentShapePluginInterface;
+use Drupal\neo_alchemist_menu\MenuRegion;
+
+/**
+ * Implements hook_ENTITY_TYPE_access() for menu_link_content.
+ *
+ * Core gates menu_link_content 'view' behind "administer menu" — menu links
+ * are normally rendered through the menu system, not viewed as entities. A
+ * region item's component tree, however, renders as public content inside
+ * its menu (the tree render checks entity view access), so enabled region
+ * items are viewable like the menu they live in. The menu's own access
+ * filtering (checkAccess manipulator) still applies to the tree itself.
+ */
+function neo_alchemist_menu_menu_link_content_access(EntityInterface $entity, $operation, AccountInterface $account) {
+  if ($operation === 'view' && $entity instanceof MenuLinkContentInterface && MenuRegion::isRegionItem($entity)) {
+    return AccessResult::allowedIf($entity->isEnabled())->addCacheableDependency($entity);
+  }
+  return AccessResult::neutral();
+}
+
+/**
+ * Implements hook_form_FORM_ID_alter() for the menu link content form.
+ *
+ * Adds the "Component region" checkbox. When checked the link/expanded/
+ * description elements are hidden, the uri is forced to route:<nolink> and
+ * the region flag is stored in the link options (the same storage
+ * neo_menu_link uses for its per-item extras).
+ */
+function neo_alchemist_menu_form_menu_link_content_menu_link_content_form_alter(array &$form, FormStateInterface $form_state, $form_id) {
+  /** @var \Drupal\Core\Entity\EntityFormInterface $form_object */
+  $form_object = $form_state->getFormObject();
+  /** @var \Drupal\menu_link_content\MenuLinkContentInterface $entity */
+  $entity = $form_object->getEntity();
+
+  $enabled = FALSE;
+  if (!$entity->isNew()) {
+    $enabled = MenuRegion::isRegionItem($entity);
+  }
+  elseif (\Drupal::request()->query->get('neo_region')) {
+    $enabled = TRUE;
+  }
+
+  // Requiredness is enforced in the validate callback instead: a region item
+  // gets a <nolink> uri while a normal item must provide one.
+  if (isset($form['link']['widget'][0]['uri'])) {
+    $form['link']['widget'][0]['uri']['#required'] = FALSE;
+  }
+
+  $html_id = Html::getUniqueId('neo-alchemist-menu-region');
+  $form['neo_region'] = [
+    '#type' => 'checkbox',
+    '#title' => t('Component region'),
+    '#description' => t('If selected, this menu item acts as an Alchemist component region rendered inside its parent item instead of as a link.'),
+    '#default_value' => $enabled,
+    '#id' => $html_id,
+    '#weight' => -9,
+  ];
+
+  foreach (['link', 'expanded', 'description'] as $key) {
+    if (isset($form[$key])) {
+      $form[$key]['#states']['invisible']['#' . $html_id] = ['checked' => TRUE];
+    }
+  }
+
+  // The "Save and Configure Layout" button neo_alchemist adds to every form
+  // of an alchemist-enabled entity only makes sense for region items.
+  if (isset($form['actions']['alchemist'])) {
+    $form['actions']['alchemist']['#states']['visible']['#' . $html_id] = ['checked' => TRUE];
+  }
+
+  array_unshift($form['#validate'], 'neo_alchemist_menu_form_menu_link_content_menu_link_content_form_validate');
+}
+
+/**
+ * Validation callback for the menu link content form.
+ */
+function neo_alchemist_menu_form_menu_link_content_menu_link_content_form_validate(&$form, FormStateInterface $form_state) {
+  if ($form_state->getValue('neo_region')) {
+    // Region items must live under a parent item; at the menu root there is
+    // no mega menu panel to render them in.
+    $parent = $form_state->getValue('menu_parent');
+    if (is_string($parent) && trim(substr($parent, strpos($parent, ':') + 1)) === '') {
+      $form_state->setError($form['menu_parent'], t('A mega menu region must be placed under a parent menu item.'));
+    }
+    $form_state->setValue(['link', 0, 'uri'], 'route:<nolink>');
+    $form_state->setValue(['link', 0, 'options', MenuRegion::OPTION_KEY], TRUE);
+  }
+  else {
+    if (!$form_state->getValue(['link', 0, 'uri'], FALSE)) {
+      $form_state->setError($form['link']['widget'][0]['uri'], t('@name field is required.', ['@name' => $form['link']['widget'][0]['uri']['#title']]));
+    }
+    // Strip a stale region flag when the checkbox is unchecked.
+    $options = $form_state->getValue(['link', 0, 'options'], []);
+    if (is_array($options) && array_key_exists(MenuRegion::OPTION_KEY, $options)) {
+      unset($options[MenuRegion::OPTION_KEY]);
+      $form_state->setValue(['link', 0, 'options'], $options);
+    }
+  }
+}
+
+/**
+ * Implements hook_entity_operation_alter().
+ *
+ * neo_alchemist adds a generic "Layout" operation to every menu link once
+ * the component tree field exists. Scope it to region items and point it
+ * straight at the Alchemist manage route for the components field.
+ */
+function neo_alchemist_menu_entity_operation_alter(array &$operations, EntityInterface $entity) {
+  if ($entity->getEntityTypeId() !== 'menu_link_content' || !isset($operations['alchemist'])) {
+    return;
+  }
+  /** @var \Drupal\menu_link_content\MenuLinkContentInterface $entity */
+  if (!MenuRegion::isRegionItem($entity)) {
+    unset($operations['alchemist']);
+    return;
+  }
+  $operations['alchemist']['title'] = t('Layout');
+  $operations['alchemist']['url'] = Url::fromRoute('entity.menu_link_content.alchemist.manage', [
+    'menu_link_content' => $entity->id(),
+    'neo_field' => MenuRegion::FIELD_KEY,
+  ]);
+  $operations['alchemist']['weight'] = -100;
+}
+
+/**
+ * Implements hook_form_FORM_ID_alter() for the menu overview form.
+ *
+ * Badges region rows in the menu overview tree.
+ */
+function neo_alchemist_menu_form_menu_edit_form_alter(array &$form, FormStateInterface $form_state, $form_id) {
+  if (empty($form['links']['links'])) {
+    return;
+  }
+  foreach (Element::children($form['links']['links']) as $key) {
+    $element = &$form['links']['links'][$key];
+    $item = $element['#item'] ?? NULL;
+    if (!$item instanceof MenuLinkTreeElement || !$item->link instanceof MenuLinkContentPlugin) {
+      continue;
+    }
+    $definition = $item->link->getPluginDefinition();
+    if (!MenuRegion::isRegionOptions($definition['options'] ?? [])) {
+      continue;
+    }
+    if (is_array($element['title'])) {
+      $element['title']['#suffix'] = ($element['title']['#suffix'] ?? '') . ' <em class="neo-alchemist-menu-region-badge text-xs">(' . t('component region') . ')</em>';
+    }
+  }
+}
+
+/**
+ * Implements hook_preprocess_menu().
+ *
+ * Region items only render inside Alchemist mega menu panels; strip them
+ * from classic menu.html.twig renders so they never appear as dead <nolink>
+ * entries.
+ */
+function neo_alchemist_menu_preprocess_menu(&$variables) {
+  if (!empty($variables['items'])) {
+    $variables['items'] = _neo_alchemist_menu_strip_region_items($variables['items']);
+  }
+}
+
+/**
+ * Recursively removes region items from a classic menu render.
+ *
+ * @param array $items
+ *   The menu items as passed to menu.html.twig.
+ *
+ * @return array
+ *   The items without region items.
+ */
+function _neo_alchemist_menu_strip_region_items(array $items): array {
+  foreach ($items as $key => &$item) {
+    if (MenuRegion::isRegionOptions($item['url']->getOptions())) {
+      unset($items[$key]);
+      continue;
+    }
+    if (!empty($item['below'])) {
+      $item['below'] = _neo_alchemist_menu_strip_region_items($item['below']);
+    }
+  }
+  return $items;
+}
+
+/**
+ * Implements hook_neo_slide_menu_item_alter().
+ *
+ * Region items render their component tree inside slide menus (neo's
+ * slide_menu element, used for mobile menus) — the mobile counterpart of the
+ * mega menu panel rendering. Items whose tree cannot be resolved or is still
+ * empty are dropped rather than shown as dead rows.
+ */
+function neo_alchemist_menu_neo_slide_menu_item_alter(?array &$item, MenuLinkTreeElement $element) {
+  if ($item === NULL || !MenuRegion::isRegionOptions($element->link->getUrlObject()->getOptions())) {
+    return;
+  }
+  $entity = MenuRegion::loadFromLink($element->link);
+  if (!$entity || !$entity->hasField(MenuRegion::FIELD_NAME)) {
+    $item = NULL;
+    return;
+  }
+  /** @var \Drupal\neo_alchemist\Plugin\Field\NeoComponentTreeList $list */
+  $list = $entity->get(MenuRegion::FIELD_NAME);
+  if ($list->isEmpty()) {
+    $item = NULL;
+    return;
+  }
+  $item = [
+    'content' => $list->first()->toRenderable(),
+    'content_attributes' => ['class' => ['neo-slide-menu--region']],
+    'item_attributes' => ['class' => ['neo-slide-menu--region-item']],
+  ];
+}
+
+/**
+ * Implements hook_neo_alchemist_menu_value_item_alter().
+ *
+ * Turns flagged menu items into region entries for the "menu" component
+ * value: item.region is TRUE and item.content holds the render array of the
+ * item's component tree (NULL while the tree is still empty).
+ */
+function neo_alchemist_menu_neo_alchemist_menu_value_item_alter(?array &$entry, array $item, ComponentShapePluginInterface $shape) {
+  if ($entry === NULL || !MenuRegion::isRegionOptions($entry['url']['options'] ?? [])) {
+    return;
+  }
+  $entity = MenuRegion::loadFromPluginItem($item);
+  if (!$entity || !$entity->hasField(MenuRegion::FIELD_NAME)) {
+    // Only entity-backed links can carry a component tree; drop a flagged
+    // item we cannot resolve rather than rendering a dead <nolink> link.
+    $entry = NULL;
+    return;
+  }
+  // Invalidate components rendering this value when the region item (and
+  // with it the embedded component tree) changes.
+  $shape->addCacheableDependency($entity);
+  $entry['region'] = TRUE;
+  // Children of a region item are never rendered as links.
+  unset($entry['below']);
+  $entry['content'] = NULL;
+  /** @var \Drupal\neo_alchemist\Plugin\Field\NeoComponentTreeList $list */
+  $list = $entity->get(MenuRegion::FIELD_NAME);
+  if (!$list->isEmpty()) {
+    $entry['content'] = $list->first()->toRenderable();
+  }
+}

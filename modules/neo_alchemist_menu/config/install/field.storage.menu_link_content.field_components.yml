@@ -1,0 +1,21 @@
+langcode: en
+status: true
+dependencies:
+  module:
+    - menu_link_content
+    - neo_alchemist
+  enforced:
+    module:
+      - neo_alchemist_menu
+id: menu_link_content.field_components
+field_name: field_components
+entity_type: menu_link_content
+type: neo_component_tree
+settings: {  }
+module: neo_alchemist
+locked: false
+cardinality: 1
+translatable: true
+indexes: {  }
+persist_with_no_fields: false
+custom_storage: false

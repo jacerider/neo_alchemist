@@ -1,0 +1,25 @@
+langcode: en
+status: true
+dependencies:
+  config:
+    - field.storage.menu_link_content.field_components
+  module:
+    - neo_alchemist
+  enforced:
+    module:
+      - neo_alchemist_menu
+id: menu_link_content.menu_link_content.field_components
+field_name: field_components
+entity_type: menu_link_content
+bundle: menu_link_content
+label: Components
+description: 'Component region rendered inside the parent menu item mega menu panel.'
+required: false
+translatable: false
+default_value: {  }
+default_value_callback: ''
+settings:
+  allow_custom: true
+  sizes: {  }
+  defaults: {  }
+field_type: neo_component_tree
