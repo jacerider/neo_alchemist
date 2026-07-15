@@ -13,6 +13,10 @@ use Drupal\neo_alchemist\Plugin\DataType\ComponentTreeStructure;
 
 /**
  * Defines an item list class for map fields.
+ *
+ * @method \Drupal\neo_alchemist\Plugin\Field\FieldType\ComponentTreeItem first()
+ * @method \Drupal\neo_alchemist\Plugin\Field\FieldType\ComponentTreeItem get($index)
+ * @method \Drupal\neo_alchemist\Plugin\Field\FieldType\ComponentTreeItem offsetGet($offset)
  */
 class NeoComponentTreeList extends FieldItemList {
 
