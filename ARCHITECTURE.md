@@ -220,6 +220,12 @@ From [neo_alchemist.services.yml](neo_alchemist.services.yml):
 - **`modules/neo_alchemist_examples/`** — example components (`neo: true`) used as
   reference/starters.
 - **`modules/neo_alchemist_block/`** — expose components through Drupal's block system.
+- **`modules/neo_alchemist_menu/`** — mega menus via **component region** menu items: a
+  `menu_link_content` item flagged with `options[neo_region]` carries its own component
+  tree (a `field_components` config field shipped by the module) that the `menu` value
+  provider exposes to components as runtime `region`/`content` item keys via
+  `hook_neo_alchemist_menu_value_item_alter()`. Full guide: the `neo-alchemist-menu`
+  skill (`modules/neo_alchemist_menu/install/skills/`).
 
 ---
 
@@ -247,6 +253,13 @@ From [neo_alchemist.services.yml](neo_alchemist.services.yml):
 - **A ComponentValue / Slot / Filter / Access plugin** — add a class in the matching
   `src/Plugin/Component*/` dir with the matching `#[Component*]` attribute; it's
   auto-discovered by its manager. Slots/filters/access surface in the component edit UI.
+- **Per-item data on the `menu` value provider** — implement
+  `hook_neo_alchemist_menu_value_item_alter(&$entry, $item, $shape)` (documented in
+  [neo_alchemist.api.php](neo_alchemist.api.php)). Extra `$entry` keys flow through the
+  `menu` prop schema to twig (precedent: `in_active_trail`); set `$entry = NULL` to drop
+  an item; add cacheability via `$shape->addCacheableDependency()` — provider-added
+  dependencies are merged into the component build after `getPropValue()` runs.
+  Canonical consumer: `modules/neo_alchemist_menu/`.
 - **A Drush command** — add a method to `NeoAlchemistCommands` with `#[CLI\Command]`;
   inject services via `#[Autowire(service: '…')]` (the class uses `AutowireTrait`).
 - After any plugin/attribute/service change: **`drush cr`** (discovery is cached), and run
