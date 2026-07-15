@@ -38,6 +38,7 @@ components and **transient previews** built from the SDC's `examples` via
 | Preview | `src/ComponentPreviewBuilder.php`, `src/Controller/SdcPreviewController.php` |
 | Drush | `src/Drush/Commands/NeoAlchemistCommands.php`, `src/Drush/Generators/` |
 | Services | `neo_alchemist.services.yml` |
+| Submodules | `modules/` — `neo_alchemist_block` (config-entity trees as blocks), `neo_alchemist_menu` (mega menu component-region items — see the **neo-alchemist-menu** skill), `neo_alchemist_examples`, `neo_alchemist_library` |
 
 ## The shape system (the main extension surface)
 
@@ -53,6 +54,7 @@ attribute keys the plugin by `prop`. Canonical example: `StringShape`. See ARCHI
 - **ComponentShape** → `src/Plugin/ComponentShape/MyShape.php` with `#[ComponentShape(prop:'my_type', …)]` extends `ComponentShapePluginBase`; implement `preRenderValue()` (+ optional `getGenerationExamples()`/`onGenerateTwig()`); add a `my_type:` entry to `neo_alchemist.neo_component_prop_defs.yml`; `drush cr`.
 - **Pure prop-def** (no PHP) → add an entry to any `*.neo_component_prop_defs.yml`.
 - **Slot / Filter / Access / Value plugin** → class in `src/Plugin/Component*/` with the matching `#[Component*]` attribute; auto-discovered.
+- **Per-item data on the `menu` value provider** (badges, mega menu regions, …) → implement `hook_neo_alchemist_menu_value_item_alter()` (documented in `neo_alchemist.api.php`); extra `$entry` keys flow through to twig, `$entry = NULL` drops an item, and cacheability goes through `$shape->addCacheableDependency()`.
 - **Drush command** → method on `NeoAlchemistCommands` with `#[CLI\Command]`; inject via `#[Autowire(service:'…')]` (`AutowireTrait`).
 
 ## Introspect at runtime instead of reading plugins
@@ -72,3 +74,11 @@ their owning modules: `drush neo:icon:list`, `drush neo:color:schemes`.)
 - `neoIsPreview` is a prop set in `toRenderable()`; it's TRUE in the editor preview and in
   `neo:alchemist:render` by default, FALSE under `--live`. The CLI render deliberately
   avoids `renderBarePage` (page attachment hooks need an HTTP request/route).
+- **`neo:alchemist:render` always renders from the SDC `examples`** — even with `--live`,
+  which only flips `neoIsPreview`. ComponentValue providers configured on a saved
+  `neo_component` (menu, media, …) run only on the real site; verify provider-driven
+  output by loading actual pages.
+- Value-provider cacheability: dependencies added during `getPropValue()` (via
+  `$shape->addCacheableDependency()`) are merged into the component build **after** the
+  value is computed (`Component::getPropValues()`) — never merge shape metadata before
+  the providers have run, or their tags are silently lost.

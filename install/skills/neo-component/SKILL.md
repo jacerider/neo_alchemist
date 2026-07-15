@@ -108,7 +108,7 @@ Alchemist extends SDC with custom "shapes" — reusable prop definitions from [n
 - `url` — similar to link but for anchor-style links.
 - `email`, `telephone`, `uri` — single-value types.
 - `address` — postal address object.
-- `menu` — editable list of nav items `{title, description, icon, url}` (each item's `url` is a full `url` shape, so it keeps `target`/`access`; use `item.title` for the label). Prefer this for navigation over a hand-rolled `array` of links.
+- `menu` — editable list of nav items `{title, description, icon, url}` (each item's `url` is a full `url` shape, so it keeps `target`/`access`; use `item.title` for the label). Prefer this for navigation over a hand-rolled `array` of links. When fed by the `menu` value provider, items also carry runtime keys the schema doesn't list: `in_active_trail`/`is_expanded`/`is_collapsed`, nested `below` children, and — with `neo_alchemist_menu` enabled — `region: true` + `content` (a render array) on **component region** items: render with `{% if item.region %}{{ item.content }}{% endif %}` instead of a link. Mega menu reference: [web/themes/front/components/header_s1/header_s1.twig](web/themes/front/components/header_s1/header_s1.twig) and the **neo-alchemist-menu** skill.
 - `breadcrumb` — array of `{title, url}`.
 - `slug` — anchor/slug string.
 - `media` — Drupal media entity reference.
