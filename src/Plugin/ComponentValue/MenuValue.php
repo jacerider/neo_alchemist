@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace Drupal\neo_alchemist\Plugin\ComponentValue;
 
 use Drupal\Component\Utility\Html;
+use Drupal\Core\Cache\CacheableMetadata;
 use Drupal\Core\DependencyInjection\DependencySerializationTrait;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
+use Drupal\Core\Extension\ModuleHandlerInterface;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Menu\MenuLinkTreeInterface;
 use Drupal\Core\Plugin\ContainerFactoryPluginInterface;
@@ -49,6 +51,13 @@ final class MenuValue extends ComponentValuePluginBase implements ContainerFacto
   protected MenuLinkTreeInterface $menuTree;
 
   /**
+   * The module handler service.
+   *
+   * @var \Drupal\Core\Extension\ModuleHandlerInterface
+   */
+  protected ModuleHandlerInterface $moduleHandler;
+
+  /**
    * {@inheritdoc}
    */
   public function __construct(
@@ -58,10 +67,12 @@ final class MenuValue extends ComponentValuePluginBase implements ContainerFacto
     array $configuration,
     EntityTypeManagerInterface $entity_type_manager,
     MenuLinkTreeInterface $menu_link_tree,
+    ModuleHandlerInterface $module_handler,
   ) {
     parent::__construct($plugin_id, $plugin_definition, $shape, $configuration);
     $this->entityTypeManager = $entity_type_manager;
     $this->menuTree = $menu_link_tree;
+    $this->moduleHandler = $module_handler;
   }
 
   /**
@@ -75,6 +86,7 @@ final class MenuValue extends ComponentValuePluginBase implements ContainerFacto
       $configuration['settings'],
       $container->get('entity_type.manager'),
       $container->get('menu.link_tree'),
+      $container->get('module_handler'),
     );
   }
 
@@ -155,9 +167,9 @@ final class MenuValue extends ComponentValuePluginBase implements ContainerFacto
     ];
 
     // Menu-level controls, mirroring
-    // \Drupal\system\Plugin\Block\SystemMenuBlock::blockForm(). They are grouped
-    // under a details element for display and flattened back to the top level in
-    // configurationMassage().
+    // \Drupal\system\Plugin\Block\SystemMenuBlock::blockForm(). They are
+    // grouped under a details element for display and flattened back to the
+    // top level in configurationMassage().
     $depthOptions = range(0, $this->menuTree->maxDepth());
     unset($depthOptions[0]);
 
@@ -241,9 +253,9 @@ final class MenuValue extends ComponentValuePluginBase implements ContainerFacto
       $parameters->expandedParents = [];
     }
 
-    // Mirror \Drupal\system\Plugin\Block\SystemMenuBlock: the initial level sets
-    // the minimum depth; the (relative) number of levels to display sets the
-    // maximum depth (0 = unlimited, capped at the tree's maximum depth).
+    // Mirror \Drupal\system\Plugin\Block\SystemMenuBlock: the initial level
+    // sets the minimum depth; the (relative) number of levels to display sets
+    // the maximum depth (0 = unlimited, capped at the tree's maximum depth).
     $parameters->setMinDepth($level);
     if ($depth > 0) {
       $parameters->setMaxDepth(min($level + $depth - 1, $this->menuTree->maxDepth()));
@@ -280,6 +292,11 @@ final class MenuValue extends ComponentValuePluginBase implements ContainerFacto
     ];
     $tree = $this->menuTree->transform($tree, $manipulators);
     $build = $this->menuTree->build($tree);
+    // The tree build carries the menu link cacheability (menu_link_content
+    // entity tags, the route.menu_active_trails:{menu} cache context from
+    // getCurrentRouteMenuTreeParameters(), access results); merge it into the
+    // shape so menu edits invalidate components rendering this value.
+    $this->shape->addCacheableDependency(CacheableMetadata::createFromRenderArray($build));
     return $this->buildItems($build['#items'] ?? []);
   }
 
@@ -307,10 +324,11 @@ final class MenuValue extends ComponentValuePluginBase implements ContainerFacto
         'description' => $attributes['title'] ?? '',
         'icon' => $attributes['data-icon'] ?? '',
         // Drupal menu-state flags carried through from MenuLinkTree::build().
-        // in_active_trail reflects the current route. Because the full tree is
-        // loaded above (expandedParents reset), is_expanded is TRUE for any item
-        // with children and is_collapsed is always FALSE — i.e. they describe the
-        // rendered (fully expanded) tree rather than each link's "expanded" flag.
+        // in_active_trail reflects the current route. Because the full tree
+        // is loaded above (expandedParents reset), is_expanded is TRUE for
+        // any item with children and is_collapsed is always FALSE — i.e. they
+        // describe the rendered (fully expanded) tree rather than each link's
+        // "expanded" flag.
         'in_active_trail' => !empty($item['in_active_trail']),
         'is_expanded' => !empty($item['is_expanded']),
         'is_collapsed' => !empty($item['is_collapsed']),
@@ -322,6 +340,13 @@ final class MenuValue extends ComponentValuePluginBase implements ContainerFacto
       ];
       if (!empty($item['below'])) {
         $entry['below'] = $this->buildItems($item['below']);
+      }
+      // Let modules enrich or veto individual items (set $entry to NULL to
+      // drop one). Extra keys survive into the component prop (see the
+      // in_active_trail flags above); cacheability belongs on $this->shape.
+      $this->moduleHandler->alter('neo_alchemist_menu_value_item', $entry, $item, $this->shape);
+      if ($entry === NULL) {
+        continue;
       }
       $result[] = $entry;
     }
