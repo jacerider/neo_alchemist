@@ -867,14 +867,18 @@ class Component extends ConfigEntityBase implements ComponentInterface {
         continue;
       }
 
-      // Always add the shape cacheable metadata to the component.
-      $cacheableMetadata->addCacheableDependency($shape->getCacheableMetadata());
-
       // We call getPropValue() instead of getValue() so that shapes have
       // the opportunity to modify the value before it is returned in a way
       // that may not be compatible with the field item but is still valid
       // for SDC.
       $value = $shape->getPropValue($attributes);
+
+      // Always add the shape cacheable metadata to the component. This must
+      // happen after getPropValue() so dependencies added while building the
+      // value (e.g. a value provider calling addCacheableDependency()) are
+      // included; merging earlier would snapshot the metadata before they
+      // exist.
+      $cacheableMetadata->addCacheableDependency($shape->getCacheableMetadata());
 
       if (is_null($value)) {
         continue;
