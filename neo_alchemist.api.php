@@ -8,6 +8,7 @@
 use Drupal\Core\Cache\Cache;
 use Drupal\Core\Cache\CacheableMetadata;
 use Drupal\Core\Datetime\DrupalDateTime;
+use Drupal\neo_alchemist\ComponentShapePluginInterface;
 use Drupal\neo_alchemist\Entity\Component;
 
 /**
@@ -86,6 +87,46 @@ function hook_neo_component_build_BASE_ID_alter(array &$build, CacheableMetadata
   $next_year = new DrupalDateTime(($now->format('Y') + 1) . '-01-01 00:00:00');
   $seconds = $next_year->getTimestamp() - $now->getTimestamp();
   $cacheability->setCacheMaxAge(Cache::mergeMaxAges($cacheability->getCacheMaxAge(), $seconds));
+}
+
+/**
+ * Alter each item produced by the "menu" component value provider.
+ *
+ * Invoked once per menu item (recursively, children included) as
+ * \Drupal\neo_alchemist\Plugin\ComponentValue\MenuValue::buildItems() maps the
+ * built menu tree onto the `menu` prop shape. $entry already carries the
+ * documented item keys (title, description, icon, url, below) plus the
+ * runtime menu-state flags (in_active_trail, is_expanded, is_collapsed).
+ *
+ * Any extra keys added here survive into the component prop and are available
+ * in the component's twig — the menu item JSON schema does not forbid
+ * additional properties. Set $entry to NULL to drop the item from the value
+ * entirely.
+ *
+ * Add cacheability for anything the outcome depends on via
+ * $shape->addCacheableDependency(); it bubbles into the component build.
+ *
+ * @param array|null $entry
+ *   The mapped menu item value. Keys: title, description, icon,
+ *   in_active_trail, is_expanded, is_collapsed, url (title/uri/options) and,
+ *   when the item has children, below (nested items of the same shape,
+ *   already altered). Set to NULL to drop the item.
+ * @param array $item
+ *   The source item from MenuLinkTree::build()'s #items, including
+ *   original_link (\Drupal\Core\Menu\MenuLinkInterface) and the
+ *   \Drupal\Core\Url object under 'url'. Treat as read-only context.
+ * @param \Drupal\neo_alchemist\ComponentShapePluginInterface $shape
+ *   The shape the value is being provided for; use it to add cacheable
+ *   dependencies.
+ *
+ * @see \Drupal\neo_alchemist\Plugin\ComponentValue\MenuValue
+ */
+function hook_neo_alchemist_menu_value_item_alter(?array &$entry, array $item, ComponentShapePluginInterface $shape): void {
+  // Example: expose a per-link option (stored in the link's options array,
+  // e.g. by a form alter on the menu link edit form) to the component twig.
+  if (!empty($entry['url']['options']['badge'])) {
+    $entry['badge'] = $entry['url']['options']['badge'];
+  }
 }
 
 /**
