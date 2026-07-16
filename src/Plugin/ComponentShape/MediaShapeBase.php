@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Drupal\neo_alchemist\Plugin\ComponentShape;
 
 use Drupal\Component\Utility\UrlHelper;
+use Drupal\Core\Cache\CacheableMetadata;
 use Drupal\Core\Field\FieldDefinitionInterface;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\file\FileInterface;
@@ -139,6 +140,62 @@ abstract class MediaShapeBase extends ObjectShape implements ComponentShapeMedia
       }
     }
     return $file;
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  public function getPreviewPlaceholder(): mixed {
+    // A media prop cannot carry an example in the .component.yml — the value is
+    // a media entity, not something authorable in YAML — so borrow a real one
+    // of a supported type. This shows the frontend dev the component rendering
+    // with genuine media rather than a stand-in that behaves differently.
+    $media = $this->loadPreviewMedia();
+    if (!$media) {
+      return NULL;
+    }
+    $this->addCacheableDependency($media);
+    return $this->getValueFromMedia($media) ?: NULL;
+  }
+
+  /**
+   * Loads a media entity to preview a required, empty media prop with.
+   *
+   * Picks the most recently created published media of a type this shape
+   * accepts. Access is checked so a preview never surfaces media the viewer
+   * could not otherwise see.
+   *
+   * @return \Drupal\media\MediaInterface|null
+   *   A media entity, or NULL if the site has none of a supported type.
+   */
+  protected function loadPreviewMedia(): ?MediaInterface {
+    $mediaTypes = $this->getSupportedMediaTypes();
+    if (!$mediaTypes) {
+      return NULL;
+    }
+
+    // Creating a first media entity of a supported type should make the preview
+    // start working, so the emptiness of this query is itself cacheable state.
+    $cacheability = new CacheableMetadata();
+    foreach ($mediaTypes as $mediaType) {
+      $cacheability->addCacheTags(['media_list:' . $mediaType]);
+    }
+    $this->addCacheableDependency($cacheability);
+
+    $storage = $this->entityTypeManager->getStorage('media');
+    $ids = $storage->getQuery()
+      ->accessCheck(TRUE)
+      ->condition('bundle', $mediaTypes, 'IN')
+      ->condition('status', 1)
+      ->sort('created', 'DESC')
+      ->range(0, 1)
+      ->execute();
+    if (!$ids) {
+      return NULL;
+    }
+
+    $media = $storage->load(reset($ids));
+    return $media instanceof MediaInterface ? $media : NULL;
   }
 
   /**

@@ -1779,6 +1779,13 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
   /**
    * {@inheritDoc}
    */
+  public function getPreviewPlaceholder(): mixed {
+    return NULL;
+  }
+
+  /**
+   * {@inheritDoc}
+   */
   public function resolveValue(mixed $value): mixed {
     return $value;
   }

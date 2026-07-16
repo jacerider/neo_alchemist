@@ -238,6 +238,16 @@ class Component extends ConfigEntityBase implements ComponentInterface {
   protected array $propShapeContexts = [];
 
   /**
+   * Required props left empty in preview, keyed by prop name.
+   *
+   * Populated by getPropValues() for shapes that were required, empty, and had
+   * no getPreviewPlaceholder() to stand in. Only ever populated in preview.
+   *
+   * @var (string|\Drupal\Component\Render\MarkupInterface)[]
+   */
+  protected array $unsatisfiedRequiredProps = [];
+
+  /**
    * The slots.
    *
    * @var \Drupal\neo_alchemist\ComponentSlot[]
@@ -861,6 +871,7 @@ class Component extends ConfigEntityBase implements ComponentInterface {
     $values = [];
     $attributes = new Attribute();
     $cacheableMetadata = $this->getCacheableMetadata();
+    $this->unsatisfiedRequiredProps = [];
     foreach ($this->getPropShapes() as $shapeId => $shape) {
       if (!$shape->isActive()) {
         // Skip inactive shapes.
@@ -873,17 +884,30 @@ class Component extends ConfigEntityBase implements ComponentInterface {
       // for SDC.
       $value = $shape->getPropValue($attributes);
 
+      // A required prop with no value is dropped below like any other empty
+      // prop, and SDC then fails its required-prop schema assertion — taking
+      // down the whole render rather than just the prop. In a preview there is
+      // no content builder to have filled the prop in, so give the shape a
+      // chance to stand in something renderable. This is preview-only: a live
+      // render is left exactly as it was, and content builders are still held
+      // to the requirement by the shape's own form validation.
+      if ($this->isPreview() && $shape->isRequired() && $this->isPropValueEmpty($value)) {
+        $value = $shape->getPreviewPlaceholder();
+        if ($this->isPropValueEmpty($value)) {
+          // The shape had nothing to stand in. Record it so toRenderable() can
+          // render a notice naming the prop instead of letting SDC fail.
+          $this->unsatisfiedRequiredProps[$shapeId] = $shape->getTitle();
+        }
+      }
+
       // Always add the shape cacheable metadata to the component. This must
-      // happen after getPropValue() so dependencies added while building the
-      // value (e.g. a value provider calling addCacheableDependency()) are
-      // included; merging earlier would snapshot the metadata before they
-      // exist.
+      // happen after getPropValue() and getPreviewPlaceholder() so dependencies
+      // added while building the value (e.g. a value provider calling
+      // addCacheableDependency()) are included; merging earlier would snapshot
+      // the metadata before they exist.
       $cacheableMetadata->addCacheableDependency($shape->getCacheableMetadata());
 
-      if (is_null($value)) {
-        continue;
-      }
-      if (!is_bool($value) && empty($value)) {
+      if ($this->isPropValueEmpty($value)) {
         continue;
       }
       $values[$shapeId] = $value;
@@ -894,6 +918,22 @@ class Component extends ConfigEntityBase implements ComponentInterface {
 
     $values['attributes'] = $attributes;
     return $values;
+  }
+
+  /**
+   * Determines whether a prop value is empty and should not be passed to SDC.
+   *
+   * FALSE is a meaningful value for a boolean prop, so booleans are never
+   * considered empty.
+   *
+   * @param mixed $value
+   *   The prop value.
+   *
+   * @return bool
+   *   TRUE if the value is empty.
+   */
+  protected function isPropValueEmpty(mixed $value): bool {
+    return !is_bool($value) && empty($value);
   }
 
   /**
@@ -1290,17 +1330,30 @@ class Component extends ConfigEntityBase implements ComponentInterface {
       }
     }
 
-    $build = [
-      '#type' => 'component',
-      '#component' => $this->getComponentId(),
-      '#props' => $this->getPropValues(),
-    ];
-    // Add unique identifiers to props.
-    $build['#props']['neoId'] = $this->id();
-    $build['#props']['neoUuid'] = $this->uuid();
-    $build['#props']['neoIsPreview'] = $this->isPreview();
-    if ($slots = $this->getSlots()) {
-      $build['#slots'] = array_filter(array_map(fn($slot) => $slot->toRenderable(), $slots));
+    // Populates $this->unsatisfiedRequiredProps as a side effect, so it must be
+    // called before that is read below.
+    $props = $this->getPropValues();
+
+    if ($this->unsatisfiedRequiredProps) {
+      // Preview-only. Rendering the component would hand SDC a missing required
+      // prop and fail its schema assertion, replacing the page with a stack
+      // trace. Name the prop instead — the frontend dev sees what is missing,
+      // and the requirement itself is untouched.
+      $build = $this->buildUnsatisfiedRequiredPropsNotice();
+    }
+    else {
+      $build = [
+        '#type' => 'component',
+        '#component' => $this->getComponentId(),
+        '#props' => $props,
+      ];
+      // Add unique identifiers to props.
+      $build['#props']['neoId'] = $this->id();
+      $build['#props']['neoUuid'] = $this->uuid();
+      $build['#props']['neoIsPreview'] = $this->isPreview();
+      if ($slots = $this->getSlots()) {
+        $build['#slots'] = array_filter(array_map(fn($slot) => $slot->toRenderable(), $slots));
+      }
     }
 
     $cacheableMetadata = $this->getCacheableMetadata();
@@ -1322,6 +1375,9 @@ class Component extends ConfigEntityBase implements ComponentInterface {
     // Both are invoked (modules first, theme last, matching Drupal convention)
     // because components are authored in themes — a theme's own .theme is the
     // natural home for a component-specific alter.
+    //
+    // In preview, $build may be the unsatisfied-required-props notice rather
+    // than the component, so it has no #props to read or alter.
     $hooks = [
       'neo_component_build',
       'neo_component_build_' . preg_replace('/[^a-z0-9_]+/', '_', $this->getComponentId()),
@@ -1336,6 +1392,51 @@ class Component extends ConfigEntityBase implements ComponentInterface {
     $cacheableMetadata->applyTo($build);
 
     return $build;
+  }
+
+  /**
+   * Builds the notice shown in place of a component missing required props.
+   *
+   * Reached only in preview, and only for required props that were empty and
+   * whose shape had no getPreviewPlaceholder() to offer — a `media` prop, for
+   * instance, when the site has no media of a supported type to borrow. The
+   * audience is the frontend dev looking at the component preview, so it names
+   * the props and points at the two ways to resolve it.
+   *
+   * Styling is inline rather than themed: this renders inside whatever theme
+   * the preview uses, and a dev notice should not depend on a Tailwind rebuild
+   * to be legible.
+   *
+   * @return array
+   *   The notice render array.
+   */
+  protected function buildUnsatisfiedRequiredPropsNotice(): array {
+    return [
+      '#type' => 'inline_template',
+      '#template' => <<<'TWIG'
+        <div{{ attributes }} style="margin:1rem;padding:1rem 1.25rem;border:1px dashed #b45309;border-radius:.375rem;background:#fffbeb;color:#78350f;font-family:system-ui,sans-serif;font-size:.875rem;line-height:1.5;">
+          <strong style="display:block;margin-bottom:.5rem;">{{ label }} cannot be previewed</strong>
+          <p style="margin:0 0 .5rem;">
+            {{ props|length > 1 ? 'These required props have' : 'This required prop has' }}
+            no value, and no example to preview with:
+            <strong>{{ props|join(', ') }}</strong>.
+          </p>
+          <p style="margin:0;">
+            Content builders are required to fill {{ props|length > 1 ? 'these in' : 'this in' }},
+            so there is no default to fall back on here. To preview the component,
+            either create content of the type the prop accepts, or give the prop
+            a <code>getPreviewPlaceholder()</code> in its shape plugin.
+          </p>
+        </div>
+      TWIG,
+      '#context' => [
+        'label' => $this->label(),
+        'props' => array_map('strval', $this->unsatisfiedRequiredProps),
+        // Where prepareRenderableForPreview() hangs the editor chrome, so the
+        // notice stays selectable in the component tree like any component.
+        'attributes' => new Attribute(),
+      ],
+    ];
   }
 
   /**
@@ -1376,9 +1477,16 @@ class Component extends ConfigEntityBase implements ComponentInterface {
       ],
     ];
 
-    $build['#props']['attributes']->addClass(!$this->isPublished() ? 'opacity-50' : '');
-    $build['#props']['attributes']->setAttribute('data-component-uuid', $this->uuid());
-    $build['#props']['attributes']->setAttribute('data-component', Json::encode($data));
+    // Normally the component's own attributes prop. When a required prop could
+    // not be satisfied in preview, $build is the notice instead, which carries
+    // its attributes in #context — the editor chrome still belongs on it so the
+    // component stays selectable.
+    $attributes = $build['#props']['attributes'] ?? $build['#context']['attributes'] ?? NULL;
+    if ($attributes instanceof Attribute) {
+      $attributes->addClass(!$this->isPublished() ? 'opacity-50' : '');
+      $attributes->setAttribute('data-component-uuid', $this->uuid());
+      $attributes->setAttribute('data-component', Json::encode($data));
+    }
     return $build;
   }
 

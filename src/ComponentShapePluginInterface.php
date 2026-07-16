@@ -880,6 +880,33 @@ interface ComponentShapePluginInterface extends PluginInspectionInterface, Deriv
   public function getDefaultSchemaValue(): mixed;
 
   /**
+   * Get a stand-in value to render a required prop with during preview.
+   *
+   * A required prop with no `examples` has no value in a preview, so it is
+   * dropped from the props passed to SDC, which trips SDC's required-prop
+   * schema assertion and takes the whole preview down. This lets a shape hand
+   * back something schema-valid to render in its place instead.
+   *
+   * This exists so `examples` does not have to be pressed into service as
+   * preview data: `examples` feeds getDefaultSchemaValue() and so becomes the
+   * live fallback value too, which would quietly satisfy a prop that content
+   * builders are supposed to be forced to fill in.
+   *
+   * Only consulted when the component is in preview and the shape is required
+   * and empty, so it can never leak into a live render. The content-builder
+   * requirement is enforced separately by form validation.
+   *
+   * @return mixed
+   *   A render-ready value in the same form getPropValue() would return, or
+   *   NULL if the shape cannot produce one — in which case the preview shows a
+   *   notice naming the unsatisfied prop instead of rendering the component.
+   *
+   * @see \Drupal\neo_alchemist\ComponentInterface::getPropValues()
+   * @see \Drupal\neo_alchemist\ComponentShapePluginInterface::validateForm()
+   */
+  public function getPreviewPlaceholder(): mixed;
+
+  /**
    * Resolve a value into its final usable form.
    *
    * Called with the schema default during default-value assembly and with the
