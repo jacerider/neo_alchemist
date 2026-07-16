@@ -88,11 +88,33 @@
     }
   };
 
+  /**
+   * Whether a frame has finished loading its own document.
+   *
+   * readyState alone is a trap: a frame that has not navigated yet — because it
+   * still holds data-src, or because the browser has not got to its src — sits
+   * on about:blank, which reports 'complete' straight away. Checking the
+   * location too distinguishes "done" from "not started".
+   */
+  function iframeHasLoaded(iframe: HTMLIFrameElement): boolean {
+    if (iframe.dataset.src) {
+      return false;
+    }
+    try {
+      return iframe.contentDocument?.readyState === 'complete'
+        && !!iframe.contentWindow
+        && iframe.contentWindow.location.href !== 'about:blank';
+    }
+    catch (e) {
+      return false;
+    }
+  }
+
   function waitForAllIframesToLoad(iframes: NodeListOf<HTMLIFrameElement>): Promise<void> {
     if (iframes) {
       const promises = Array.from(iframes).map((iframe) => {
         return new Promise<void>((resolve) => {
-          if (iframe.contentDocument?.readyState === 'complete') {
+          if (iframeHasLoaded(iframe)) {
             resolve();
           } else {
             iframe.addEventListener('load', () => resolve(), { once: true });
@@ -103,6 +125,73 @@
       return Promise.all(promises).then(() => {});
     }
     return Promise.resolve();
+  }
+
+  /**
+   * Starts the deferred previews one at a time, once the previous has loaded.
+   *
+   * The previews are separate documents that each pull the same ~25 core script
+   * URLs (jquery, once, drupal.js…). Pointing all three at their src up front
+   * means three concurrent requests for every one of those URLs. Firefox
+   * services same-URL parallel requests off a cache entry that is still being
+   * written, and intermittently hands one of them an empty body — a 200 with no
+   * network error, so the script "loads", defines nothing, and every later
+   * script dies on `X is not defined`. Chrome does not do this, which is why it
+   * only ever reproduced in Firefox.
+   *
+   * Chaining the loads means a URL is never requested twice at once; the second
+   * and third frames then read a warm cache, so this costs little.
+   *
+   * Frames opt in by carrying data-src instead of src — see
+   * neo-alchemist-manage.html.twig.
+   */
+  function staggerIframeLoads(iframes: NodeListOf<HTMLIFrameElement>): void {
+    const deferred = Array.from(iframes).filter((iframe) => iframe.dataset.src && !iframe.getAttribute('src'));
+    if (!deferred.length) {
+      return;
+    }
+
+    const start = (index: number): void => {
+      const iframe = deferred[index];
+      if (!iframe) {
+        return;
+      }
+      let advanced = false;
+      const advance = () => {
+        if (advanced) {
+          return;
+        }
+        advanced = true;
+        start(index + 1);
+      };
+      iframe.addEventListener('load', advance, { once: true });
+      // A frame that never fires load must not strand the ones behind it.
+      setTimeout(advance, 10000);
+      iframe.src = iframe.dataset.src as string;
+      delete iframe.dataset.src;
+    };
+
+    // Wait for whichever frame was left eager (desktop) before starting. It is
+    // usually still on about:blank at this point, so ask iframeHasLoaded()
+    // rather than readyState — otherwise the chain starts immediately and the
+    // frames overlap after all, which is the whole thing being avoided.
+    const eager = Array.from(iframes).find((iframe) => iframe.getAttribute('src'));
+    if (!eager || iframeHasLoaded(eager)) {
+      start(0);
+    }
+    else {
+      let started = false;
+      const begin = () => {
+        if (started) {
+          return;
+        }
+        started = true;
+        start(0);
+      };
+      eager.addEventListener('load', begin, { once: true });
+      // Do not let a stalled first frame block the others indefinitely.
+      setTimeout(begin, 10000);
+    }
   }
 
   function init(container:HTMLElement): void {
@@ -131,6 +220,86 @@
     const formWrapper = container.querySelector('.neo-alchemist-manage--form-wrapper') as HTMLElement;
     const scroll = container.querySelector('.neo-alchemist-manage--form-scroll') as HTMLElement;
     const form = container.querySelector('.neo-alchemist-manage--form') as HTMLIFrameElement;
+
+    /**
+     * Records where the canvas sits so a refresh can restore it.
+     */
+    function savePosition(): void {
+      if (!wrapper) {
+        return;
+      }
+      localStorage.setItem(id + '-scroll-l', wrapper.scrollLeft.toString());
+      localStorage.setItem(id + '-scroll-t', wrapper.scrollTop.toString());
+    }
+
+    /**
+     * Puts the canvas back where it was left, if anywhere.
+     *
+     * Safe to call before the previews have loaded: the canvas gets its width
+     * from the inline widths on the frame wrappers, so the horizontal offset —
+     * the one that is actually visible — is valid immediately. Vertical can
+     * clamp while the frames are still unsized, which is why this runs a second
+     * time once they have all reported in.
+     *
+     * @return TRUE if a stored position was applied.
+     */
+    function restorePosition(): boolean {
+      if (!wrapper) {
+        return false;
+      }
+      const rawLeft = localStorage.getItem(id + '-scroll-l');
+      const rawTop = localStorage.getItem(id + '-scroll-t');
+      if (rawLeft === null && rawTop === null) {
+        return false;
+      }
+      const left = parseInt(rawLeft || '0', 10);
+      const top = parseInt(rawTop || '0', 10);
+      wrapper.scrollLeft = Number.isNaN(left) ? 0 : left;
+      wrapper.scrollTop = Number.isNaN(top) ? 0 : top;
+      return true;
+    }
+
+    /**
+     * Records the canvas position once a smooth scroll has come to rest.
+     *
+     * Dragging can save on mouseup because the canvas is already where it ends
+     * up. The size and scale buttons scroll with behavior:'smooth', which
+     * animates — reading the offsets straight after the call would store where
+     * the canvas set off from, which is what made those buttons restore the
+     * previous manual position instead of their own.
+     */
+    let settleTimer: number | undefined;
+    let settling = false;
+    const onSettleScroll = (): void => {
+      window.clearTimeout(settleTimer);
+      settleTimer = window.setTimeout(() => {
+        if (wrapper) {
+          wrapper.removeEventListener('scroll', onSettleScroll);
+        }
+        settling = false;
+        savePosition();
+      }, 120);
+    };
+    function savePositionWhenSettled(): void {
+      if (!wrapper) {
+        return;
+      }
+      if (!settling) {
+        wrapper.addEventListener('scroll', onSettleScroll);
+        settling = true;
+      }
+      // Arm the timer up front: if the target is already in view no scroll
+      // event ever fires, and the position still needs recording.
+      onSettleScroll();
+    }
+
+    /**
+     * Whether a canvas position was left behind to go back to.
+     */
+    function hasStoredPosition(): boolean {
+      return localStorage.getItem(id + '-scroll-l') !== null
+        || localStorage.getItem(id + '-scroll-t') !== null;
+    }
 
     const drag = container.querySelector('.neo-alchemist-manage--drag') as HTMLElement;
     waitForAllIframesToLoad(iframes).then(() => {
@@ -187,6 +356,10 @@
         }
       };
     });
+
+    // Only after every onload above is registered, so no deferred frame can
+    // load before its handler exists.
+    staggerIframeLoads(iframes);
 
     if (scroll) {
       const resizeObserver = new ResizeObserver(() => {
@@ -271,7 +444,11 @@
           if (iframeSize) {
             iframeSize.innerHTML = iframe.clientWidth + '×' + height;
           }
-          if (wrapper && sizeCount === iframes.length) {
+          // Reveal as soon as the first preview has sized itself, not once all
+          // of them have. The frames load in sequence now, so waiting for the
+          // last would hold the page blank behind two loads the user is not
+          // even looking at yet.
+          if (wrapper && sizeCount >= 1) {
             wrapper.style.visibility = '';
           }
         }
@@ -326,12 +503,24 @@
           });
           el.classList.add('is-active');
           setScale(data.scale);
+          // Only on click. setScale() also runs during init, where saving would
+          // overwrite the stored position with the default one.
+          savePositionWhenSettled();
         });
       });
     });
 
     const scaleWrapper = container.querySelector('.neo-alchemist-manage--scale') as HTMLIFrameElement;
     setScale(scale);
+
+    // Restore here, and not a line earlier: setScale() puts a transform on the
+    // canvas, which is what gives it its full scrollable width. Before that the
+    // canvas is barely wider than the viewport, so a large stored offset clamps
+    // to the old maximum and stays there. Restoring now — still ahead of the
+    // reveal, which waits on the first preview reporting its size — means the
+    // canvas is already in place when it appears, instead of being centred on
+    // desktop and then jumping once every preview has loaded.
+    restorePosition();
     scaleWrapper.addEventListener('transitionend', (event: TransitionEvent) => {
       // Check if the transition was specifically for transform
       if (event.propertyName === 'transform') {
@@ -347,8 +536,12 @@
         scaleWrapper.style.transform = `scale(${scale})`;
         if (wrapper) {
           if (!initialized) {
-            // On initial load, center the desktop frame in the viewport.
-            centerIframe('desktop', 'auto');
+            // On initial load, center the desktop frame in the viewport — but
+            // only as a default. A stored position is restored immediately
+            // after this and centring would just be undone.
+            if (!hasStoredPosition()) {
+              centerIframe('desktop', 'auto');
+            }
           }
           else {
             // Reset position each time scale is changed
@@ -382,16 +575,11 @@
       let scrollLeft:number
       let scrollTop:number;
 
-      if (wrapper) {
-        const initScrollLeft = parseInt(localStorage.getItem(id + '-scroll-l') || '0');
-        const initScrollTop = parseInt(localStorage.getItem(id + '-scroll-t') || '0');
-        if (initScrollLeft) {
-          wrapper.scrollLeft = initScrollLeft;
-        }
-        if (initScrollTop) {
-          wrapper.scrollTop = initScrollTop;
-        }
-      }
+      // Applied once already, before the canvas was on screen. Repeat it now
+      // that every preview has reported its height: a stored vertical offset
+      // clamps to nothing while the canvas is still empty. The horizontal
+      // offset is unchanged by this, so nothing moves on screen.
+      restorePosition();
 
       const focusButtons = container.querySelectorAll('.neo-alchemist--focus');
       const mostVisibleSize = getMostVisibleIframe()?.getAttribute('data-size') || null;
@@ -417,6 +605,7 @@
                 block: 'start',
                 inline: 'center',
               });
+              savePositionWhenSettled();
             }
           });
         });
@@ -467,8 +656,7 @@
 
       function handleDragEnd(): void {
         if (wrapper) {
-          localStorage.setItem(id + '-scroll-l', wrapper.scrollLeft.toString());
-          localStorage.setItem(id + '-scroll-t', wrapper.scrollTop.toString());
+          savePosition();
           el.style.cursor = 'grab';
           document.removeEventListener('mouseup', handleDragEnd);
           document.removeEventListener('mousemove', handleMouseMove);

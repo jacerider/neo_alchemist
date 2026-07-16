@@ -56,7 +56,9 @@
                 <div class="{{ size_classes }}"></div>
               </div>
               <div class="{{ content_classes }}">
-                <iframe class="neo-alchemist--iframe w-full" data-size="tablet" src="{{ src_tablet }}" frameborder="0"></iframe>
+                {# data-src, not src: the previews are started one at a time by
+                   staggerIframeLoads() in component-parent.ts. #}
+                <iframe class="neo-alchemist--iframe w-full" data-size="tablet" data-src="{{ src_tablet }}" frameborder="0"></iframe>
               </div>
             </div>
             <div class="{{ wrap_classes }}" style="width:440px">
@@ -67,7 +69,7 @@
                 <div class="{{ size_classes }}"></div>
               </div>
               <div class="{{ content_classes }}">
-                <iframe class="neo-alchemist--iframe w-full" data-size="mobile" src="{{ src_mobile }}" frameborder="0"></iframe>
+                <iframe class="neo-alchemist--iframe w-full" data-size="mobile" data-src="{{ src_mobile }}" frameborder="0"></iframe>
               </div>
             </div>
           </div>
