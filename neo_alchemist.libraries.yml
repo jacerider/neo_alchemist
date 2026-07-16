@@ -30,12 +30,18 @@ component.parent:
       src/css/components-parent.css: {}
   dependencies:
     - core/drupal
+    - core/once
 
 component.child:
   version: VERSION
   neo: true
   js:
     src/js/component-child.ts: {}
+  dependencies:
+    # The chunk ends `})(Drupal, once)`. This is the only JS the preview iframe
+    # attaches, so there is nothing else on that page to pull these in.
+    - core/drupal
+    - core/once
 
 component.form:
   version: VERSION
@@ -52,6 +58,8 @@ component.ajax.form:
   dependencies:
     - core/once
     - core/drupal
+    # Calls jQuery() directly, unguarded.
+    - core/jquery
 
 component.screenshot:
   version: VERSION
