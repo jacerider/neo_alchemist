@@ -2,7 +2,7 @@ name: 'Neo | Alchemist'
 type: module
 description: 'Component creation and management.'
 package: Neo
-version: 0.0.0
+version: 1.0.100
 core_version_requirement: ^10.3 || ^11
 neo: true
 dependencies:
