@@ -96,7 +96,7 @@ Alchemist extends SDC with custom "shapes" — reusable prop definitions from [n
 > **Get shapes from the CLI (authoritative):** `drush neo:alchemist:shapes` lists every available shape; `drush neo:alchemist:shapes <name>` (e.g. `heading`) dumps that shape's resolved schema, a paste-ready `.component.yml` prop snippet, and its Twig render pattern. Prefer this over guessing from the summary below.
 
 ### Content shapes
-- `heading` — object with `supertitle`, `title`, `subtitle`, `size`, `anchor`. Provide `examples` with the text fields you use. `title` is **optional** — a heading may be `supertitle`/`subtitle`-only (handy when reusing this shape for a two-tone item caption/label whose emphasized word is the only text, e.g. a single accent word). When you hand-render the heading, guard each part with `{% if %}` so a missing `title` doesn't emit an empty `<h2>`.
+- `heading` — object with `supertitle`, `title`, `subtitle`, `size`, `anchor`. Provide `examples` with the text fields you use. When the heading is the component's **main title**, render `size` (see the `heading_size` style shape below and the render table) so editors control the title grade. `title` is **optional** — a heading may be `supertitle`/`subtitle`-only (handy when reusing this shape for a two-tone item caption/label whose emphasized word is the only text, e.g. a single accent word). When you hand-render the heading, guard each part with `{% if %}` so a missing `title` doesn't emit an empty `<h2>`.
 - `markup` — rich text / array. Use for prose descriptions.
 - `string` — plain text.
 - `image` — object `{src, alt, width, height}`. Render with `neo_image_style()` or `neo_image()`. The `src` accepts a URL/path **or** one of two local-asset schemes, resolved to a real URL by the image shape: **`component://<path>`** points at a file bundled *inside the component folder* (e.g. store `web/themes/front/components/callout_s1/images/monogram.png` and set `src: 'component://images/monogram.png'`), and **`theme://<path>`** points at the default theme's directory. Prefer `component://` for a component's own default/decorative art (a monogram, emblem, texture) — it ships and versions with the component and needs no editor upload or external `placehold.co` URL. Real content images still come from the editor (a `media`/uploaded image).
@@ -121,7 +121,21 @@ Alchemist extends SDC with custom "shapes" — reusable prop definitions from [n
 - `spacing` — vertical component spacing (`xs|sm|md|lg|xl|2xl|3xl`). Has `apply: true` built in: it adds a `component-spacing-*` class to the root, which sets the `--spacing-component` CSS variable. You **consume** that variable with `my-component`/`py-component` etc. — the prop itself does NOT add `my-component` (see Twig patterns).
 - `containment` — horizontal width (`xs|sm|md|lg|full`). `apply: true` to auto-add. (Or use the `container-content` / `container-center` utilities directly — see Twig patterns.)
 - `text_align` — `left|center|right` → `text-left|center|right`.
-- `heading_size` — `xs|sm|md|lg|xl|2xl|3xl` → `title-*`. Attached automatically to the `heading` shape (rendered via `<div{{ heading.size }}>`).
+- `heading_size` — `xs|sm|md|lg|xl|2xl|3xl` → `title-*` classes (xl and up also add the
+  `title-page` marker). Built into every `heading` prop as its `size` sub-prop —
+  **use it whenever the heading prop is the component's main title**, so editors
+  control the title grade. Two-part mechanism (neo_base utilities): the `title-*`
+  class only sets CSS **variables** (`--title-size`, `--supertitle-size`,
+  `--subtitle-size`); the consumer classes `component-title` /
+  `component-supertitle` / `component-subtitle` read them and add the heading
+  font, weight, and the responsive `title-scale` factor (×0.75 mobile, ×0.875 md,
+  ×1 lg). A size class with no consumer class changes nothing. Per-size values are
+  site-tunable in [web/themes/front/src/css/_utilities.css](web/themes/front/src/css/_utilities.css)
+  (`@theme` → `--title-size-{size}`; this site runs md=4xl, lg=5xl, xl=6xl at
+  desktop). The editor default is `md` ("recommended for component title") and the
+  editor **stores it explicitly on save** — when a component is designed around a
+  different grade (a hero's page title → `xl`), set `size:` in the heading's
+  `examples` so previews and new placements start right.
 - `button_style` — solid/outline/text variants in base/primary/secondary/accent (`btn`, `btn-outline-primary`, `btn-text-accent`, …).
 - `button_size` — `xs|sm|md|lg|xl|2xl|3xl` → `btn-*`.
 
@@ -219,11 +233,21 @@ Inside any `scheme-*` region (including the un-schemed page root), these adapt w
 Semantic CSS variables, for component-local CSS or inline styles (all scheme-scoped):
 `--text-color-default`, `--background-color-default`, `--color-border-default`, `--link-color` / `--link-color-hover`, `--color-{base|primary|secondary|accent}-{0…950}` (+ `-content`), and `--color-shadow-{0…950}` — a brand-tinted shadow ramp **guaranteed darker than the surface** in every scheme (use it for `box-shadow` colors that won't glow on dark/colorized schemes, e.g. `box-shadow: 0 8px 20px -6px rgb(var(--color-shadow-500) / 0.45)`).
 
+### Finding this site's real colors
+
+Default to the tokens above — they recolor per scheme, so you rarely need a literal hex. But when a decision genuinely needs the resolved value (a gradient stop, an overlay/tint opacity, matching bundled artwork, an SVG fill), don't dig through config or compiled CSS. Three Neo Color commands report it, all `--format=json`-friendly:
+
+- **`drush neo:color:pallets`** — the enabled pallets with their brand anchor hex (the raw 500), content pairing, and which scheme role slots use each. Answers "what color *is* `primary` on this site" in one line.
+- **`drush neo:color:schemes`** — every enabled scheme with its role→pallet mapping (base/primary/secondary/accent) plus resolved surface + text hex. Schemes remap the role slots (e.g. the `accent` scheme swaps primary↔accent), so this table is how you pick the scheme that actually gives the look you want rather than one that merely exists.
+- **`drush neo:color:scheme <id>`** — one scheme resolved in full: surface/text/border, link + hover, the contrast-picked button fill/content per role, the bare role tokens, and each role's auto-contrast flag — all normalized to hex. Add `--vars` for the complete raw CSS-variable set (every ramp step, under a `vars` object) when you need a specific shade like `--color-primary-300`.
+
+Remember the resolved value is scheme-specific: if you hardcode a hex from one scheme into a component meant to be recolored, it breaks under the others. Read a value to *inform* a token-based or `--vars`-driven choice, not to replace the token.
+
 ### Rendering props
 
 | Shape | Twig pattern |
 |---|---|
-| `heading` | `<div{{ heading.size }}>` then access `.supertitle`, `.title`, `.subtitle`, `.anchor` |
+| `heading` | Canonical: `<div{{ heading.size }}>` wrapper with `component-title`/`component-supertitle`/`component-subtitle` children, then access `.supertitle`, `.title`, `.subtitle`, `.anchor`. Hand-rolled main title: put size + consumer on the h-tag itself — `<h2{{ heading.size.addClass(['component-title', 'text-balance']) }}>{{ heading.title }}</h2>` (see [list_s2](web/themes/front/components/list_s2/list_s2.twig)) |
 | `markup` | `{{ description }}` wrapped in `<div class="prose max-w-none">` |
 | `image` | `{{ neo_image_style(img.src, {focal: {width: 1200, height: 575}}, img.alt) }}` or `neo_image()` for responsive |
 | `image` (**SVG**, e.g. a logo) | Image styles can't rasterize an SVG, so the original file is emitted and the size op only sets HTML `width`/`height` attributes — which the theme's base reset (`img{height:auto}` in `@layer base`) then overrides. A viewBox-only SVG has no intrinsic size, so it collapses to 0×0. **Size it with a CSS class** (utilities win over the base layer): `{{ neo_image_style(logo.src, {scale: {height: 30}}, logo.alt, '', {class: ['h-7', 'w-auto']}) }}` |
@@ -324,8 +348,10 @@ the **neo-build** skill.
 **Always sanity-check a component under more than one scheme** (the Color Scheme
 style prop in the preview): at minimum the default, one dark, and one colorized
 scheme. Get the list of enabled schemes with `drush neo:color:schemes` (id,
-label, and whether each is dark/colorized), then render under one with
-`drush neo:alchemist:render <id> --scheme=<scheme>`. `/admin/config/neo/scheme-preview`
+label, dark/colorized, role→pallet mapping, and resolved surface/text), then render
+under one with `drush neo:alchemist:render <id> --scheme=<scheme>`. To see exactly what
+a scheme resolves colors to, `drush neo:color:scheme <id>` (see "Finding this site's real
+colors"). `/admin/config/neo/scheme-preview`
 shows every enabled scheme's surfaces, button matrix, link colors, and palette
 ramps — the reference for what your component's colors will resolve to per scheme.
 
@@ -345,9 +371,10 @@ You don't need a browser to confirm a component works. Two commands close the lo
 
 Supporting introspection: `drush neo:alchemist:components` (list all), `drush neo:alchemist:info <id>`
 (one component's resolved props/slots/libraries), `drush neo:alchemist:shapes [name]`,
-`drush neo:icon:list <search>` (icon names, from Neo Icon), `drush neo:color:schemes`
-(color schemes, from Neo Color). All tabular commands accept `--format=json` for
-machine parsing.
+`drush neo:icon:list <search>` (icon names, from Neo Icon), and the Neo Color trio
+`drush neo:color:pallets` / `neo:color:schemes` / `neo:color:scheme <id>` (this site's
+resolved colors — see "Finding this site's real colors"). All tabular commands accept
+`--format=json` for machine parsing.
 
 ## Common pitfalls
 
@@ -360,7 +387,7 @@ machine parsing.
 - **Raw `{{ url }}` instead of `{{ neo_uri(link.uri, link.options) }}`** — breaks internal `internal:/` URIs.
 - **Missing `examples`** — editor shows empty previews and broken defaults.
 - **Not wrapping in `{% if prop %}`** — component renders empty scaffolding when editor leaves fields blank.
-- **Using `heading.title` for the `<h2>`** but forgetting `<div{{ heading.size }}>` — heading size prop won't apply.
+- **Using `heading.title` for the `<h2>`** but dropping `heading.size` — the editor's Size selector silently no-ops. And `heading.size` alone isn't enough: `title-*` only sets variables, so the same element (or a child) needs `component-title` to consume them. `<h2{{ heading.size.addClass(['component-title']) }}>` is the minimal correct form for a hand-rolled main title.
 - **New style prop with `apply: true` but missing `examples`** — class won't be present on first render.
 - **Using `my-component` on a background section** — margin sits *outside* the background, leaving an unfilled gap. Background sections use `py-component` on the inner `container-content` wrapper, with `bg-default` + `component-bg` on the root.
 - **Background section without the `component-bg` marker** — two adjacent same-color sections stack double padding. Add `component-bg` (next to `bg-default`) so the seam collapses.
