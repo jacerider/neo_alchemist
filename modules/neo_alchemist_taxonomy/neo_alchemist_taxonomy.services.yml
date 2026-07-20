@@ -1,0 +1,4 @@
+services:
+  neo_alchemist_taxonomy.level_resolver:
+    class: Drupal\neo_alchemist_taxonomy\TermLevelResolver
+    arguments: ['@entity_type.manager', '@entity_field.manager']

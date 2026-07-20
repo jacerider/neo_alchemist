@@ -1,0 +1,167 @@
+<?php
+
+/**
+ * @file
+ * Primary module hooks for Neo | Alchemist Taxonomy module.
+ */
+
+declare(strict_types=1);
+
+use Drupal\Core\Access\AccessResult;
+use Drupal\Core\Access\AccessResultInterface;
+use Drupal\Core\Cache\CacheableMetadata;
+use Drupal\Core\Cache\RefinableCacheableDependencyInterface;
+use Drupal\Core\Entity\ContentEntityInterface;
+use Drupal\Core\Entity\Display\EntityViewDisplayInterface;
+use Drupal\Core\Field\FieldDefinitionInterface;
+use Drupal\Core\Field\FieldItemListInterface;
+use Drupal\Core\Form\FormStateInterface;
+use Drupal\Core\Session\AccountInterface;
+use Drupal\field\FieldConfigInterface;
+use Drupal\neo_alchemist_taxonomy\TermLevelResolver;
+use Drupal\taxonomy\TermInterface;
+
+/**
+ * Gets the term level resolver service.
+ *
+ * @return \Drupal\neo_alchemist_taxonomy\TermLevelResolver
+ *   The term level resolver.
+ */
+function neo_alchemist_taxonomy_resolver(): TermLevelResolver {
+  return \Drupal::service('neo_alchemist_taxonomy.level_resolver');
+}
+
+/**
+ * Implements hook_form_FORM_ID_alter() for field_config_edit_form.
+ */
+function neo_alchemist_taxonomy_form_field_config_edit_form_alter(array &$form, FormStateInterface $form_state): void {
+  /** @var \Drupal\field_ui\Form\FieldConfigEditForm $formObject */
+  $formObject = $form_state->getFormObject();
+  $field = $formObject->getEntity();
+  if (!$field instanceof FieldConfigInterface || $field->getType() !== 'neo_component_tree' || $field->getTargetEntityTypeId() !== 'taxonomy_term') {
+    return;
+  }
+  $form['neo_alchemist_taxonomy_level'] = [
+    '#type' => 'number',
+    '#title' => t('Term hierarchy level'),
+    '#description' => t('Render this layout only for terms at this level of the vocabulary hierarchy (1 = top level). Terms deeper than the deepest configured level use that deepest layout. Leave empty to always render this layout.'),
+    '#min' => 1,
+    '#step' => 1,
+    '#default_value' => $field->getThirdPartySetting('neo_alchemist_taxonomy', 'level') ?: NULL,
+  ];
+  $form['#entity_builders'][] = 'neo_alchemist_taxonomy_field_config_edit_form_builder';
+}
+
+/**
+ * Entity builder for the field config edit form.
+ *
+ * Stores the term hierarchy level as a third-party setting on the field.
+ */
+function neo_alchemist_taxonomy_field_config_edit_form_builder(string $entity_type, FieldConfigInterface $field, array &$form, FormStateInterface $form_state): void {
+  $level = (int) $form_state->getValue('neo_alchemist_taxonomy_level');
+  if ($level > 0) {
+    $field->setThirdPartySetting('neo_alchemist_taxonomy', 'level', $level);
+  }
+  else {
+    $field->unsetThirdPartySetting('neo_alchemist_taxonomy', 'level');
+  }
+}
+
+/**
+ * Implements hook_entity_field_access().
+ */
+function neo_alchemist_taxonomy_entity_field_access($operation, FieldDefinitionInterface $field_definition, AccountInterface $account, ?FieldItemListInterface $items = NULL): AccessResultInterface {
+  if ($operation !== 'view' || $field_definition->getType() !== 'neo_component_tree' || !$items) {
+    return AccessResult::neutral();
+  }
+  $term = $items->getEntity();
+  if (!$term instanceof TermInterface) {
+    return AccessResult::neutral();
+  }
+  $resolver = neo_alchemist_taxonomy_resolver();
+  $managed = $resolver->getManagedFields($term->bundle());
+  $fieldName = $field_definition->getName();
+  if (!isset($managed[$fieldName])) {
+    return AccessResult::neutral();
+  }
+  // Which field matches is level-dependent, so both outcomes must vary on the
+  // term and on the vocabulary's term hierarchy (an ancestor can be
+  // re-parented without this term being saved).
+  $result = $fieldName === $resolver->getMatchingFieldName($term)
+    ? AccessResult::neutral()
+    : AccessResult::forbidden('The component tree does not match the term hierarchy level.');
+  $result->addCacheableDependency($term);
+  $result->addCacheTags(['taxonomy_term_list:' . $term->bundle()]);
+  return $result;
+}
+
+/**
+ * Implements hook_ENTITY_TYPE_view() for taxonomy_term.
+ */
+function neo_alchemist_taxonomy_taxonomy_term_view(array &$build, TermInterface $term, EntityViewDisplayInterface $display, string $view_mode): void {
+  $resolver = neo_alchemist_taxonomy_resolver();
+  $managed = $resolver->getManagedFields($term->bundle());
+  if (!$managed) {
+    return;
+  }
+  // Fields denied by neo_alchemist_taxonomy_entity_field_access() still
+  // occupy their key as an empty array in the build; remove them so a term
+  // whose only remaining fieldable field is the matching component tree gets
+  // the full-page treatment in neo_alchemist_entity_view_alter().
+  $match = $resolver->getMatchingFieldName($term);
+  $meta = CacheableMetadata::createFromRenderArray($build);
+  $meta->addCacheTags(['taxonomy_term_list:' . $term->bundle()]);
+  foreach (array_keys($managed) as $fieldName) {
+    if ($fieldName === $match || !isset($build[$fieldName])) {
+      continue;
+    }
+    $meta = $meta->merge(CacheableMetadata::createFromRenderArray($build[$fieldName]));
+    unset($build[$fieldName]);
+  }
+  $meta->applyTo($build);
+}
+
+/**
+ * Implements hook_neo_alchemist_entity_component_fields_alter().
+ */
+function neo_alchemist_taxonomy_neo_alchemist_entity_component_fields_alter(array &$fieldDefinitions, ContentEntityInterface $entity): void {
+  if (!$entity instanceof TermInterface) {
+    return;
+  }
+  $resolver = neo_alchemist_taxonomy_resolver();
+  $managed = $resolver->getManagedFields($entity->bundle());
+  if (!$managed) {
+    return;
+  }
+  $match = $resolver->getMatchingFieldName($entity);
+  foreach (array_keys($managed) as $fieldName) {
+    if ($fieldName !== $match) {
+      unset($fieldDefinitions[$fieldName]);
+    }
+  }
+}
+
+/**
+ * Implements hook_menu_local_tasks_alter().
+ */
+function neo_alchemist_taxonomy_menu_local_tasks_alter(array &$data, $route_name, RefinableCacheableDependencyInterface &$cacheability): void {
+  $term = \Drupal::routeMatch()->getParameter('taxonomy_term');
+  if (!$term instanceof TermInterface) {
+    return;
+  }
+  $resolver = neo_alchemist_taxonomy_resolver();
+  $managed = $resolver->getManagedFields($term->bundle());
+  if (!$managed) {
+    return;
+  }
+  $match = $resolver->getMatchingFieldName($term);
+  foreach (array_keys($managed) as $fieldName) {
+    if ($fieldName === $match) {
+      continue;
+    }
+    unset($data['tabs'][0]['entity.neo_component_tasks:taxonomy_term.' . $fieldName]);
+    unset($data['tabs'][1]['entity.neo_component_tasks:taxonomy_term.' . $fieldName]);
+  }
+  $cacheability->addCacheableDependency($term);
+  $cacheability->addCacheTags(['taxonomy_term_list:' . $term->bundle()]);
+}

@@ -1,0 +1,7 @@
+field.field.*.*.*.third_party.neo_alchemist_taxonomy:
+  type: mapping
+  label: 'Alchemist taxonomy settings'
+  mapping:
+    level:
+      type: integer
+      label: 'Term hierarchy level'
