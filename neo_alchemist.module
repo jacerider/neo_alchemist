@@ -20,6 +20,7 @@ use Drupal\field\FieldConfigInterface;
 use Drupal\field\FieldStorageConfigInterface;
 use Drupal\field_ui\Form\FieldConfigEditForm;
 use Drupal\media_library\MediaLibraryState;
+use Drupal\neo_alchemist\ComponentFieldConfigInterface;
 use Drupal\neo_alchemist\Entity\ComponentFieldConfig;
 use Drupal\neo_alchemist\Form\InstanceComponentDeleteForm;
 use Drupal\neo_alchemist\Form\InstanceComponentForm;
@@ -707,28 +708,61 @@ function neo_alchemist_neo_token_image_alter(&$uri, &$params, ContentEntityInter
 }
 
 /**
+ * Gets the Alchemist component field definitions applicable to an entity.
+ *
+ * Filters the entity's field definitions down to Alchemist component tree
+ * fields, then lets modules narrow the set per entity via
+ * hook_neo_alchemist_entity_component_fields_alter() (e.g. to the single
+ * level-matched field on a taxonomy term).
+ *
+ * @param \Drupal\Core\Entity\ContentEntityInterface $entity
+ *   The entity to get the component field definitions for.
+ * @param bool $allow_custom_only
+ *   (optional) When TRUE, only fields that allow per-entity customization are
+ *   returned. Defaults to FALSE.
+ *
+ * @return \Drupal\neo_alchemist\ComponentFieldConfigInterface[]
+ *   The applicable component field definitions, keyed by field name.
+ */
+function neo_alchemist_entity_component_field_definitions(ContentEntityInterface $entity, bool $allow_custom_only = FALSE): array {
+  $fieldDefinitions = array_filter($entity->getFieldDefinitions(), function ($field) use ($allow_custom_only) {
+    return $field instanceof ComponentFieldConfigInterface && (!$allow_custom_only || $field->allowCustom());
+  });
+  \Drupal::moduleHandler()->alter('neo_alchemist_entity_component_fields', $fieldDefinitions, $entity);
+  return $fieldDefinitions;
+}
+
+/**
  * Gets the name of the Neo Alchemist field for a given entity.
  *
- * This function searches for a field that uses the 'neo_component_tree'
- * formatter in the entity's default view display. It caches the results to
- * improve performance for repeated calls with the same entity type and bundle.
+ * This function searches for fields that use the 'neo_component_tree'
+ * formatter in the entity's default view display, then narrows them to the
+ * ones applicable to this specific entity. The display lookup is cached per
+ * entity type and bundle.
  *
  * @param \Drupal\Core\Entity\ContentEntityInterface $entity
  *   The entity to check.
  *
  * @return string|null
- *   The name of the first Neo Alchemist field found, or NULL if none exists.
+ *   The name of the first applicable Neo Alchemist field, or NULL if none
+ *   exists.
  */
 function neo_alchemist_get_entity_field_name(ContentEntityInterface $entity) {
-  $cache = drupal_static(__FUNCTION__, []);
-  if (!isset($cache[$entity->getEntityTypeId()][$entity->bundle()])) {
+  $cache = &drupal_static(__FUNCTION__, []);
+  $entityTypeId = $entity->getEntityTypeId();
+  $bundle = $entity->bundle();
+  if (!isset($cache[$entityTypeId][$bundle])) {
     /** @var \Drupal\Core\Entity\EntityDisplayRepositoryInterface $entity_display_repository */
     $entity_display_repository = \Drupal::service('entity_display.repository');
-    $display = $entity_display_repository->getViewDisplay($entity->getEntityTypeId(), $entity->bundle());
+    $display = $entity_display_repository->getViewDisplay($entityTypeId, $bundle);
     $alchemistFields = array_filter($display->getComponents(), function ($component) {
       return isset($component['type']) && $component['type'] === 'neo_component_tree';
     });
-    $cache[$entity->getEntityTypeId()][$entity->bundle()] = $alchemistFields ? key($alchemistFields) : NULL;
+    $cache[$entityTypeId][$bundle] = array_keys($alchemistFields);
   }
-  return $cache[$entity->getEntityTypeId()][$entity->bundle()];
+  if (!$cache[$entityTypeId][$bundle]) {
+    return NULL;
+  }
+  $fieldNames = array_intersect($cache[$entityTypeId][$bundle], array_keys(neo_alchemist_entity_component_field_definitions($entity)));
+  return $fieldNames ? reset($fieldNames) : NULL;
 }

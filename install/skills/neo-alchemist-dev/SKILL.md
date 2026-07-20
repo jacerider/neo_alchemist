@@ -38,7 +38,7 @@ components and **transient previews** built from the SDC's `examples` via
 | Preview | `src/ComponentPreviewBuilder.php`, `src/Controller/SdcPreviewController.php` |
 | Drush | `src/Drush/Commands/NeoAlchemistCommands.php`, `src/Drush/Generators/` |
 | Services | `neo_alchemist.services.yml` |
-| Submodules | `modules/` — `neo_alchemist_block` (config-entity trees as blocks), `neo_alchemist_menu` (mega menu component-region items — see the **neo-alchemist-menu** skill), `neo_alchemist_examples`, `neo_alchemist_library` |
+| Submodules | `modules/` — `neo_alchemist_block` (config-entity trees as blocks), `neo_alchemist_menu` (mega menu component-region items — see the **neo-alchemist-menu** skill), `neo_alchemist_taxonomy` (per-hierarchy-level term layouts via a `level` third-party setting on tree fields), `neo_alchemist_examples`, `neo_alchemist_library` |
 
 ## The shape system (the main extension surface)
 

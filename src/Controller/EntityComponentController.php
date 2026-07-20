@@ -7,7 +7,6 @@ namespace Drupal\neo_alchemist\Controller;
 use Drupal\Core\Controller\ControllerBase;
 use Drupal\Core\Entity\ContentEntityInterface;
 use Drupal\Core\Routing\RouteMatchInterface;
-use Drupal\neo_alchemist\ComponentFieldConfigInterface;
 use Drupal\neo_alchemist\Entity\ComponentFieldConfig;
 use Symfony\Component\HttpFoundation\Request;
 
@@ -22,9 +21,7 @@ final class EntityComponentController extends ControllerBase {
   public function __invoke(Request $request, RouteMatchInterface $routeMatch) {
     $entity = $this->getEntityFromRouteMatch($routeMatch);
     assert($entity instanceof ContentEntityInterface);
-    $fieldDefinitions = array_filter($entity->getFieldDefinitions(), function ($field) {
-      return $field instanceof ComponentFieldConfigInterface && $field->allowCustom();
-    });
+    $fieldDefinitions = neo_alchemist_entity_component_field_definitions($entity, TRUE);
 
     if (count($fieldDefinitions) === 1) {
       $url = $entity->toUrl('alchemist.manage')->setRouteParameter('neo_field', ComponentFieldConfig::getKeyFromFieldname(reset($fieldDefinitions)->getName()));
@@ -70,9 +67,7 @@ final class EntityComponentController extends ControllerBase {
   public function getTitle(RouteMatchInterface $routeMatch) {
     $entity = $this->getEntityFromRouteMatch($routeMatch);
     assert($entity instanceof ContentEntityInterface);
-    $fieldDefinitions = array_filter($entity->getFieldDefinitions(), function ($field) {
-      return $field->getType() === 'neo_component_tree';
-    });
+    $fieldDefinitions = neo_alchemist_entity_component_field_definitions($entity, TRUE);
     if (count($fieldDefinitions) === 1) {
       return $this->t('Layout');
     }

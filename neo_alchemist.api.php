@@ -8,6 +8,7 @@
 use Drupal\Core\Cache\Cache;
 use Drupal\Core\Cache\CacheableMetadata;
 use Drupal\Core\Datetime\DrupalDateTime;
+use Drupal\Core\Entity\ContentEntityInterface;
 use Drupal\neo_alchemist\ComponentShapePluginInterface;
 use Drupal\neo_alchemist\Entity\Component;
 
@@ -126,6 +127,41 @@ function hook_neo_alchemist_menu_value_item_alter(?array &$entry, array $item, C
   // e.g. by a form alter on the menu link edit form) to the component twig.
   if (!empty($entry['url']['options']['badge'])) {
     $entry['badge'] = $entry['url']['options']['badge'];
+  }
+}
+
+/**
+ * Alter the Alchemist component fields applicable to a specific entity.
+ *
+ * Invoked from neo_alchemist_entity_component_field_definitions() everywhere
+ * Alchemist enumerates an entity's component tree fields: the entity "Layout"
+ * route (redirect target and picker table), its title, and the field lookup
+ * used for token/image resolution. It lets modules narrow which of an
+ * entity's component tree fields apply to that particular entity — e.g.
+ * neo_alchemist_taxonomy reduces a taxonomy term's level fields to the single
+ * field matching the term's hierarchy level.
+ *
+ * Implementations must only REMOVE entries; adding definitions here is not
+ * supported (rendering and access still operate on the entity's real fields).
+ *
+ * Note this hook does not affect rendering or route access by itself — hide
+ * fields from display via field view access (hook_entity_field_access()) and
+ * direct URLs to any field's editor keep working as an escape hatch.
+ *
+ * @param \Drupal\neo_alchemist\ComponentFieldConfigInterface[] $fieldDefinitions
+ *   The component field definitions applicable to the entity, keyed by field
+ *   name. Depending on the caller, the set may already be limited to fields
+ *   that allow per-entity customization.
+ * @param \Drupal\Core\Entity\ContentEntityInterface $entity
+ *   The entity the fields belong to.
+ *
+ * @see neo_alchemist_entity_component_field_definitions()
+ */
+function hook_neo_alchemist_entity_component_fields_alter(array &$fieldDefinitions, ContentEntityInterface $entity): void {
+  // Example: on taxonomy terms, keep only the field named for the term's
+  // vocabulary.
+  if ($entity->getEntityTypeId() === 'taxonomy_term') {
+    $fieldDefinitions = array_intersect_key($fieldDefinitions, ['field_' . $entity->bundle() => TRUE]);
   }
 }
 

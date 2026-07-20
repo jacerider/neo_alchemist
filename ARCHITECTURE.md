@@ -226,6 +226,17 @@ From [neo_alchemist.services.yml](neo_alchemist.services.yml):
   provider exposes to components as runtime `region`/`content` item keys via
   `hook_neo_alchemist_menu_value_item_alter()`. Full guide: the `neo-alchemist-menu`
   skill (`modules/neo_alchemist_menu/install/skills/`).
+- **`modules/neo_alchemist_taxonomy/`** — per-**level** term layouts: a taxonomy
+  vocabulary gets one component tree field per hierarchy level (a `level` third-party
+  setting on the field config, exposed on the field edit form), and the term's canonical
+  page renders only the field matching the term's level (terms deeper than the deepest
+  configured level fall back to it). Implemented as field `view` access denial for
+  non-matching fields plus a `hook_taxonomy_term_view()` cleanup so single-field
+  full-page theming still fires; term level walks the first-parent chain
+  (`src/TermLevelResolver.php`) and all level-dependent output carries the
+  `taxonomy_term_list:{vid}` cache tag. Editor surfaces (Layout tab redirect, local
+  tasks, token image field lookup) follow via
+  `hook_neo_alchemist_entity_component_fields_alter()`.
 
 ---
 
@@ -260,6 +271,13 @@ From [neo_alchemist.services.yml](neo_alchemist.services.yml):
   an item; add cacheability via `$shape->addCacheableDependency()` — provider-added
   dependencies are merged into the component build after `getPropValue()` runs.
   Canonical consumer: `modules/neo_alchemist_menu/`.
+- **Per-entity narrowing of which component tree fields apply** — implement
+  `hook_neo_alchemist_entity_component_fields_alter(&$fieldDefinitions, $entity)`
+  (documented in [neo_alchemist.api.php](neo_alchemist.api.php)). Invoked from
+  `neo_alchemist_entity_component_field_definitions()` wherever Alchemist enumerates an
+  entity's tree fields (the Layout route redirect/picker and the token image field
+  lookup). Remove entries only; pair with `hook_entity_field_access()` to hide the same
+  fields from rendering. Canonical consumer: `modules/neo_alchemist_taxonomy/`.
 - **A Drush command** — add a method to `NeoAlchemistCommands` with `#[CLI\Command]`;
   inject services via `#[Autowire(service: '…')]` (the class uses `AutowireTrait`).
 - After any plugin/attribute/service change: **`drush cr`** (discovery is cached), and run
