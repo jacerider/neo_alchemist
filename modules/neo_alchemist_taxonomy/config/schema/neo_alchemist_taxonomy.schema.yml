@@ -5,3 +5,23 @@ field.field.*.*.*.third_party.neo_alchemist_taxonomy:
     level:
       type: integer
       label: 'Term hierarchy level'
+
+neo_alchemist.neo_component_value.taxonomy_menu:
+  type: mapping
+  label: 'Taxonomy menu value provider'
+  mapping:
+    vocabulary:
+      type: string
+      label: 'Vocabulary'
+    root:
+      type: integer
+      label: 'Root term'
+    depth:
+      type: integer
+      label: 'Number of levels'
+    description_field:
+      type: string
+      label: 'Description field'
+    icon_field:
+      type: string
+      label: 'Icon field'
