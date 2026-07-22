@@ -31,7 +31,7 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
  */
 #[ComponentValue(
   id: 'taxonomy_children',
-  label: new TranslatableMarkup('Child Terms'),
+  label: new TranslatableMarkup('Taxonomy Child Terms'),
   description: new TranslatableMarkup("Use the current taxonomy term's child terms to provide values from their fields."),
   group: 'providers',
   prop_types: [
