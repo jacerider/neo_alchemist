@@ -109,9 +109,18 @@ abstract class ChildrenShapeBase extends ComponentShapePluginBase implements Com
     }
     else {
       foreach ($this->childShapes[$key] as $shape) {
-        if (!empty($value[$shape->getName()])) {
-          $shape->setFieldItemValue($value[$shape->getName()]);
+        if (empty($value[$shape->getName()])) {
+          continue;
         }
+        // Do not overwrite a child that resolves its own value from a value
+        // provider (e.g. an entity field). Otherwise a non-editable parent —
+        // whose own value falls back to the SDC example — pushes that example
+        // down and clobbers the child provider's value. Children with no
+        // provider of their own still receive the parent value as before.
+        if ($this->childHasOwnValueProvider($shape)) {
+          continue;
+        }
+        $shape->setFieldItemValue($value[$shape->getName()]);
       }
     }
     return $this->childShapes[$key];
@@ -369,6 +378,28 @@ abstract class ChildrenShapeBase extends ComponentShapePluginBase implements Com
       }
     }
     return $value;
+  }
+
+  /**
+   * Determines whether a child shape supplies its own value from a provider.
+   *
+   * A child with an active value provider (anything in the "providers" group
+   * other than the passive "default" fallback) resolves its own value and must
+   * not have it overwritten by a value pushed down from its parent.
+   *
+   * @param \Drupal\neo_alchemist\ComponentShapePluginInterface $shape
+   *   The child shape.
+   *
+   * @return bool
+   *   TRUE if the child has its own active value provider.
+   */
+  protected function childHasOwnValueProvider(ComponentShapePluginInterface $shape): bool {
+    foreach ($shape->getValueCollection()->getActiveInstances() as $instanceId => $instance) {
+      if ($instanceId !== 'default' && $instance->getGroup() === 'providers') {
+        return TRUE;
+      }
+    }
+    return FALSE;
   }
 
 }
