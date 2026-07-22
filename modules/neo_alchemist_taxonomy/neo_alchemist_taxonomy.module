@@ -165,3 +165,32 @@ function neo_alchemist_taxonomy_menu_local_tasks_alter(array &$data, $route_name
   $cacheability->addCacheableDependency($term);
   $cacheability->addCacheTags(['taxonomy_term_list:' . $term->bundle()]);
 }
+
+/**
+ * Implements hook_neo_alchemist_preview_entity_alter().
+ *
+ * The per-level component tree editor previews against an empty placeholder
+ * term, so entity-driven value providers (child terms, media, fallbacks) have
+ * no real content to resolve. Supply a representative saved term of the field's
+ * level so the preview matches what a real term page renders.
+ */
+function neo_alchemist_taxonomy_neo_alchemist_preview_entity_alter(?ContentEntityInterface &$entity, array $context): void {
+  // Respect an entity another implementation already supplied.
+  if ($entity) {
+    return;
+  }
+  $placeholder = $context['placeholder'] ?? NULL;
+  if (!$placeholder instanceof ContentEntityInterface || $placeholder->getEntityTypeId() !== 'taxonomy_term') {
+    return;
+  }
+  $field = $context['field_definition'] ?? NULL;
+  if (!$field instanceof FieldDefinitionInterface) {
+    return;
+  }
+  $vid = $placeholder->bundle();
+  $resolver = neo_alchemist_taxonomy_resolver();
+  $level = $resolver->getManagedFields($vid)[$field->getName()] ?? 0;
+  if ($level) {
+    $entity = $resolver->getSampleTermForLevel($vid, $level);
+  }
+}

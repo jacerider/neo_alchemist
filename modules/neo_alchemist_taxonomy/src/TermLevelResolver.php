@@ -117,6 +117,47 @@ final class TermLevelResolver {
   }
 
   /**
+   * Gets a representative saved term at a hierarchy level.
+   *
+   * Used to preview a per-level component tree against real content. Prefers a
+   * term that has children so child-driven components (e.g. a child-terms list)
+   * are not empty, falling back to the first view-accessible term at the level.
+   *
+   * @param string $vid
+   *   The vocabulary ID.
+   * @param int $level
+   *   The 1-based hierarchy level.
+   *
+   * @return \Drupal\taxonomy\TermInterface|null
+   *   A representative term, or NULL when the vocabulary has none at the level.
+   */
+  public function getSampleTermForLevel(string $vid, int $level): ?TermInterface {
+    if ($level < 1) {
+      return NULL;
+    }
+    /** @var \Drupal\taxonomy\TermStorageInterface $storage */
+    $storage = $this->entityTypeManager->getStorage('taxonomy_term');
+    // loadTree() depth is 0-based, so a 1-based level maps to depth level - 1.
+    $tree = $storage->loadTree($vid, 0, $level, FALSE);
+    $fallback = NULL;
+    foreach ($tree as $item) {
+      if ((int) $item->depth !== $level - 1) {
+        continue;
+      }
+      $term = $storage->load($item->tid);
+      if (!$term instanceof TermInterface || !$term->access('view')) {
+        continue;
+      }
+      $fallback = $fallback ?? $term;
+      // Prefer a term that actually has children so the preview isn't empty.
+      if ($storage->loadTree($vid, (int) $item->tid, 1, FALSE)) {
+        return $term;
+      }
+    }
+    return $fallback;
+  }
+
+  /**
    * Gets the component tree field that applies to a term.
    *
    * @param \Drupal\taxonomy\TermInterface $term
