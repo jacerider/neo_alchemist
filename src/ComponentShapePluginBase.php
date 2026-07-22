@@ -2605,16 +2605,21 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
       }
     }
     else {
-      if (isset($entityFieldProperties['type']) && isset($entityFieldProperties['value'])) {
+      // The field exposes multiple properties. A multi-child object shape can
+      // be supplied by such a field when their property data types overlap
+      // (e.g. a {value, label} field feeding a {value, label} object). Match by
+      // data type here; the exact per-child property mapping is resolved later
+      // (see ChildrenShapeBase::getAutoMatchProperties()).
+      if ($this instanceof ComponentShapeChildrenPluginInterface) {
         $properties = [];
-        if ($this instanceof ComponentShapeChildrenPluginInterface) {
-          foreach ($this->getChildShapes() as $childShape) {
-            $properties[$childShape->getName()] = $childShape->getFieldItem()->getFieldDefinition()->getFieldStorageDefinition()->getPropertyDefinitions();
-          }
+        foreach ($this->getChildShapes() as $childShape) {
+          $properties[$childShape->getName()] = $childShape->getFieldItem()->getFieldDefinition()->getFieldStorageDefinition()->getPropertyDefinitions();
         }
-        $needs = array_values(array_unique(array_map(fn ($v) => $v->getDataType(), $entityFieldProperties)));
-        $has = array_values(array_unique(array_map(fn ($v) => reset($v)->getDataType(), $properties)));
-        return !empty(array_intersect($needs, $has));
+        if ($properties) {
+          $needs = array_values(array_unique(array_map(fn ($v) => $v->getDataType(), $entityFieldProperties)));
+          $has = array_values(array_unique(array_map(fn ($v) => reset($v)->getDataType(), $properties)));
+          return !empty(array_intersect($needs, $has));
+        }
       }
     }
     return FALSE;

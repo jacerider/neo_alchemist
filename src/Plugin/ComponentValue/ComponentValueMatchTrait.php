@@ -8,6 +8,7 @@ use Drupal\Component\Utility\NestedArray;
 use Drupal\Core\Cache\CacheableMetadata;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\neo_alchemist\ComponentPropRenderable;
+use Drupal\neo_alchemist\ComponentShapeChildrenPluginInterface;
 use Drupal\neo_alchemist\ComponentShapePluginInterface;
 use Drupal\neo_alchemist\FieldFormatterTrait;
 use Drupal\neo_alchemist\MatcherField;
@@ -79,6 +80,41 @@ trait ComponentValueMatchTrait {
       published: $published,
       cacheableMetadata: $shape->getCacheableMetadata()
     );
+  }
+
+  /**
+   * Derive the default child-shape to field-property mapping.
+   *
+   * When "Manually assign properties" is off, AUTOMATIC mode still needs a
+   * mapping so each source field property reaches the child prop that expects
+   * it. Without one, a field whose property names never match the child names
+   * (e.g. an entity_reference/media field, whose only value is target_id)
+   * resolves to nothing. This reconstructs, with no user interaction, the same
+   * mapping the manual UI would produce.
+   *
+   * @return array
+   *   A child-shape-name => field-property-name map, or an empty array when the
+   *   shape is not a children shape or no bindable field is configured.
+   */
+  protected function getDefaultMatchProperties(): array {
+    $field = $this->configuration['field'] ?? '';
+    if (!$field || $field === '_render' || !$this->shape instanceof ComponentShapeChildrenPluginInterface) {
+      return [];
+    }
+    // Fetch only the field definition. Passing published: FALSE avoids the
+    // status gate nulling the item, and getEntityField() walks the entity
+    // without calling getMatches()/getChildShapes(), so it is safe to call
+    // during value resolution.
+    $item = $this->matcherField->getEntityField(
+      entity: $this->shape->getEntity(),
+      key: $field,
+      published: FALSE,
+      cacheableMetadata: $this->shape->getCacheableMetadata()
+    );
+    if (!$item) {
+      return [];
+    }
+    return $this->shape->getAutoMatchProperties($item->getFieldDefinition());
   }
 
   /**
@@ -233,13 +269,17 @@ trait ComponentValueMatchTrait {
     $field = $this->configuration['field'];
     $fieldDefinition = $this->matcherField->getFieldDefinition($this->shape, $field, $entityTypeId, $bundle);
     $fieldProperties = $fieldDefinition->getFieldStorageDefinition()->getPropertyDefinitions();
+    // Pre-fill each select with the same mapping AUTOMATIC mode derives, so
+    // toggling the checkbox on surfaces sensible defaults instead of blanks.
+    $autoProperties = $this->shape->getAutoMatchProperties($fieldDefinition);
 
     $form['field_properties'] = [
       '#type' => 'fieldset',
       '#title' => $this->t('Field Properties'),
     ];
     foreach ($this->shape->getChildShapes() as $name => $childShape) {
-      $shapeProperty = reset($childShape->getFieldItem()->getFieldDefinition()->getFieldStorageDefinition()->getPropertyDefinitions());
+      $definitions = $childShape->getFieldItem()->getFieldDefinition()->getFieldStorageDefinition()->getPropertyDefinitions();
+      $shapeProperty = reset($definitions);
       $targetDataType = $shapeProperty->getDataType();
       $options = [];
       foreach ($fieldProperties as $propName => $property) {
@@ -250,7 +290,7 @@ trait ComponentValueMatchTrait {
       $form['field_properties'][$name] = [
         '#type' => 'select',
         '#title' => $childShape->getTitle(),
-        '#default_value' => $this->configuration['field_properties'][$name] ?? '',
+        '#default_value' => $this->configuration['field_properties'][$name] ?? $autoProperties[$name] ?? '',
         '#options' => $options,
         '#empty_option' => $this->t('- Select -'),
         '#required' => $childShape->isRequired(),

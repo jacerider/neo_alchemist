@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\neo_alchemist\Plugin\ComponentShape;
 
+use Drupal\Core\Field\FieldDefinitionInterface;
 use Drupal\neo_alchemist\ComponentShapeChildrenPluginInterface;
 use Drupal\neo_alchemist\ComponentShapeExpandedPluginInterface;
 use Drupal\neo_alchemist\ComponentShapePluginBase;
@@ -131,6 +132,52 @@ abstract class ChildrenShapeBase extends ComponentShapePluginBase implements Com
    */
   public function getChildShapeNames(): array {
     return array_keys($this->getChildSchemaProperties());
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  public function getAutoMatchProperties(FieldDefinitionInterface $sourceField): array {
+    // Only child names are read here (a pure schema lookup). We deliberately
+    // avoid getChildShapes()/getChildSchema(), which route through
+    // getDefaultValue() and would recurse when this runs during value
+    // resolution (see getValueResolverShapes()).
+    $childNames = $this->getChildShapeNames();
+    if (!$childNames) {
+      return [];
+    }
+
+    $storage = $sourceField->getFieldStorageDefinition();
+    $sourcePropertyNames = array_keys($storage->getPropertyDefinitions());
+
+    $map = [];
+    $unmatched = [];
+    // 1. Exact name match. Reproduces the raw automatic behaviour, where the
+    // children distribution keys the field value by child prop name (e.g. an
+    // image field's alt/width/height line up by name).
+    foreach ($childNames as $childName) {
+      if (in_array($childName, $sourcePropertyNames, TRUE)) {
+        $map[$childName] = $childName;
+      }
+      else {
+        $unmatched[] = $childName;
+      }
+    }
+
+    // 2. Guarded main-property fallback. When exactly one child is left
+    // unmatched and the field exposes a main property, route it there. This
+    // makes an entity_reference/media field (main property target_id) or a
+    // link field (main property uri) populate a child prop whose name never
+    // matches a field property. The single-unmatched guard keeps the blast
+    // radius bounded: multi-child objects are left unchanged.
+    if (count($unmatched) === 1) {
+      $mainProperty = $storage->getMainPropertyName();
+      if ($mainProperty && in_array($mainProperty, $sourcePropertyNames, TRUE) && !in_array($mainProperty, $map, TRUE)) {
+        $map[reset($unmatched)] = $mainProperty;
+      }
+    }
+
+    return $map;
   }
 
   /**

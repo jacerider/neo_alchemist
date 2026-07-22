@@ -154,7 +154,12 @@ final class EntityValue extends ComponentValuePluginBase implements ContainerFac
    */
   public function provideDefaultValue(mixed $value): mixed {
     $hasOverrideValue = !empty($this->shape->getOverrideValue());
-    $properties = $this->configuration['field_assign'] ? $this->configuration['field_properties'] : [];
+    // When properties are assigned manually use that map; otherwise derive a
+    // default mapping so children props (e.g. media/entity_reference) populate
+    // automatically instead of silently resolving to nothing.
+    $properties = $this->configuration['field_assign']
+      ? $this->configuration['field_properties']
+      : $this->getDefaultMatchProperties();
     $entityValue = $this->getMatchValue($this->shape, $this->configuration['field'], $properties, FALSE);
     $hasValue = !empty($entityValue);
     $this->hasEntityValue = $hasValue;

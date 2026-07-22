@@ -166,5 +166,48 @@ function hook_neo_alchemist_entity_component_fields_alter(array &$fieldDefinitio
 }
 
 /**
+ * Supplies a representative entity for a field-config component preview.
+ *
+ * A field-config component (e.g. a per-bundle or per-level component tree) is
+ * previewed against a new, empty placeholder entity of the target bundle — it
+ * has no id, field values, or references, so entity-driven value providers
+ * resolve to nothing. This hook lets a module swap in a representative saved
+ * entity so the preview reflects real content, matching the front end.
+ *
+ * Only fires in preview (Component::isPreview()), when the host entity is a new
+ * placeholder and no preview entity was explicitly chosen. Implementations
+ * should leave $entity untouched when it is already set (another module won) or
+ * when they have no representative entity to offer.
+ *
+ * @param \Drupal\Core\Entity\ContentEntityInterface|null $entity
+ *   The preview entity to use, by reference. NULL until an implementation sets
+ *   it; must be a saved (non-new) entity of the placeholder's type and bundle.
+ * @param array $context
+ *   Associative array with:
+ *   - 'component': the ComponentInstanceInterface being previewed.
+ *   - 'field_definition': the ComponentFieldConfigInterface.
+ *   - 'placeholder': the new placeholder host ContentEntityInterface.
+ *
+ * @see \Drupal\neo_alchemist\Entity\ComponentInstanceBase::getTargetEntity()
+ */
+function hook_neo_alchemist_preview_entity_alter(?ContentEntityInterface &$entity, array $context): void {
+  // Example: preview a per-level taxonomy tree against a sample term.
+  if ($entity) {
+    return;
+  }
+  $placeholder = $context['placeholder'];
+  if ($placeholder->getEntityTypeId() === 'taxonomy_term') {
+    $ids = \Drupal::entityQuery('taxonomy_term')
+      ->accessCheck(TRUE)
+      ->condition('vid', $placeholder->bundle())
+      ->range(0, 1)
+      ->execute();
+    if ($ids) {
+      $entity = \Drupal::entityTypeManager()->getStorage('taxonomy_term')->load(reset($ids));
+    }
+  }
+}
+
+/**
  * @} End of "addtogroup hooks".
  */

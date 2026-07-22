@@ -72,14 +72,62 @@ abstract class ComponentInstanceBase extends Component implements ComponentInsta
   }
 
   /**
+   * A representative preview entity, or FALSE once resolved to none.
+   *
+   * @var \Drupal\Core\Entity\ContentEntityInterface|bool|null
+   */
+  protected ContentEntityInterface|bool|null $previewFallbackEntity = NULL;
+
+  /**
    * {@inheritDoc}
    */
   public function getTargetEntity(): ContentEntityInterface {
     $entity = $this->getFieldItem()->getEntity();
-    if ($entity->isNew() && ($preview = $this->getTargetPreviewEntity())) {
-      return $preview;
+    if ($entity->isNew()) {
+      $preview = $this->getTargetPreviewEntity();
+      if (!$preview && $this->isPreview()) {
+        // No preview entity was explicitly chosen. Let modules supply a
+        // representative saved entity (e.g. a sample taxonomy term of the
+        // field's hierarchy level) so a field-config preview renders against
+        // real content instead of an empty placeholder.
+        $preview = $this->resolvePreviewFallbackEntity($entity);
+      }
+      if ($preview) {
+        return $preview;
+      }
     }
     return $entity;
+  }
+
+  /**
+   * Resolves a representative preview entity for a placeholder host entity.
+   *
+   * A field-config preview has no real host entity — only a new placeholder of
+   * the target bundle. This lets modules swap in a representative saved entity
+   * via hook_neo_alchemist_preview_entity_alter() so the preview reflects real
+   * content. The result is cached for the life of the instance.
+   *
+   * @param \Drupal\Core\Entity\ContentEntityInterface $placeholder
+   *   The new placeholder host entity.
+   *
+   * @return \Drupal\Core\Entity\ContentEntityInterface|null
+   *   A representative saved entity, or NULL when none was supplied.
+   */
+  protected function resolvePreviewFallbackEntity(ContentEntityInterface $placeholder): ?ContentEntityInterface {
+    if ($this->previewFallbackEntity === NULL) {
+      $this->previewFallbackEntity = FALSE;
+      $preview = NULL;
+      $context = [
+        'component' => $this,
+        'field_definition' => $this->getFieldDefinition(),
+        'placeholder' => $placeholder,
+      ];
+      \Drupal::moduleHandler()->alter('neo_alchemist_preview_entity', $preview, $context);
+      if ($preview instanceof ContentEntityInterface && !$preview->isNew()) {
+        $this->previewFallbackEntity = $preview;
+      }
+    }
+    return $this->previewFallbackEntity ?: NULL;
   }
 
   /**
