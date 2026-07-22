@@ -1703,6 +1703,15 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
    *  @see \Drupal\Core\Field\FieldInputValueNormalizerTrait::normalizeValue()
    */
   final protected function denormalizeValue(array $field_item_value): mixed {
+    // A whole-field entity match yields a delta-keyed list, e.g.
+    // [0 => ['value' => 'x']]. A non-iterable shape expects a single item's
+    // property-keyed value, so reduce to the first delta before extracting the
+    // main property (mirrors the reduction setFieldItemValue() already does).
+    // Safe because a genuine property-keyed value has no integer 0 key; only
+    // iterable shapes keep the full list.
+    if (!$this->isIterable() && array_key_exists(0, $field_item_value) && is_array($field_item_value[0])) {
+      $field_item_value = $field_item_value[0];
+    }
     return match (count($this->fieldItem->getDataDefinition()->getPropertyDefinitions())) {
       1 => $field_item_value[$this->fieldItem::mainPropertyName()] ?? NULL,
       default => $field_item_value,
