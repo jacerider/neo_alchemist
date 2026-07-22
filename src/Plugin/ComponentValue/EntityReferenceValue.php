@@ -14,6 +14,7 @@ use Drupal\Core\Plugin\ContainerFactoryPluginInterface;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\neo_alchemist\Attribute\ComponentValue;
 use Drupal\neo_alchemist\ComponentShapePluginInterface;
+use Drupal\neo_alchemist\ComponentValueProcessingModeInterface;
 use Drupal\neo_alchemist\ComponentValuePluginBase;
 use Drupal\neo_alchemist\MatcherField;
 use Drupal\neo_alchemist\MatcherReference;
@@ -31,12 +32,13 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
   prop_types: [
     ComponentShapePluginInterface::ARRAY,
   ],
-  weight: 5,
+  weight: 4,
 )]
-final class EntityReferenceValue extends ComponentValuePluginBase implements ContainerFactoryPluginInterface {
+final class EntityReferenceValue extends ComponentValuePluginBase implements ContainerFactoryPluginInterface, ComponentValueProcessingModeInterface {
 
   use DependencySerializationTrait;
   use ComponentValueChildrenMatchTrait;
+  use ComponentValueProcessingModeTrait;
 
   /**
    * The entity type manager service.
@@ -109,7 +111,8 @@ final class EntityReferenceValue extends ComponentValuePluginBase implements Con
   public function defaultConfiguration() {
     return [
       'entity' => '',
-    ] + $this->childrenMatchDefaultConfiguration();
+    ] + $this->childrenMatchDefaultConfiguration()
+      + $this->processingModeDefaultConfiguration();
   }
 
   /**
@@ -148,6 +151,8 @@ final class EntityReferenceValue extends ComponentValuePluginBase implements Con
       }
     }
 
+    $form = $this->buildProcessingModeForm($form, $form_state);
+
     return $form;
   }
 
@@ -176,8 +181,9 @@ final class EntityReferenceValue extends ComponentValuePluginBase implements Con
       $component = $this->shape->getComponent();
       $field = $this->matcherReference->getReferenceField($component->getTargetEntity(), $entityKey, $component->getCacheableMetadata());
       if ($field) {
+        // Produce the value; the configurable processing mode (applied by the
+        // pipeline) decides whether to claim it or fall through when empty.
         $value = $this->getChildrenMatchValues($this->shape, $field->referencedEntities(), $this->configuration);
-        $this->stopFurtherProcessing();
       }
     }
     return $value;

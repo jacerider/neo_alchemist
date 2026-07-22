@@ -17,6 +17,7 @@ use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\neo_alchemist\Attribute\ComponentValue;
 use Drupal\neo_alchemist\ComponentShapeChildrenMatchPluginInterface;
 use Drupal\neo_alchemist\ComponentShapePluginInterface;
+use Drupal\neo_alchemist\ComponentValueProcessingModeInterface;
 use Drupal\neo_alchemist\ComponentValuePluginBase;
 use Drupal\neo_alchemist\Event\ComponentValueEntityQueryEvent;
 use Drupal\neo_alchemist\MatcherField;
@@ -38,12 +39,13 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
   ],
   weight: 5,
 )]
-final class EntityQueryValue extends ComponentValuePluginBase implements ContainerFactoryPluginInterface {
+final class EntityQueryValue extends ComponentValuePluginBase implements ContainerFactoryPluginInterface, ComponentValueProcessingModeInterface {
 
   use DependencySerializationTrait {
     __sleep as traitSleep;
   }
   use ComponentValueChildrenMatchTrait;
+  use ComponentValueProcessingModeTrait;
 
   /**
    * The entity type manager service.
@@ -143,8 +145,15 @@ final class EntityQueryValue extends ComponentValuePluginBase implements Contain
       'length' => 10,
       'length_filter' => '',
       'paging' => FALSE,
-      'continue' => FALSE,
-    ] + $this->childrenMatchDefaultConfiguration();
+    ] + $this->childrenMatchDefaultConfiguration()
+      + $this->processingModeDefaultConfiguration();
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  protected function processingModeDefault(): string {
+    return ComponentValueProcessingModeInterface::MODE_BLOCK;
   }
 
   /**
@@ -328,13 +337,9 @@ final class EntityQueryValue extends ComponentValuePluginBase implements Contain
         ];
       }
 
-      $form['continue'] = [
-        '#type' => 'checkbox',
-        '#title' => $this->t('Continue when no results'),
-        '#description' => $this->t('This will allow any following value providers to be processed if the view returns no results.'),
-        '#default_value' => $this->configuration['continue'],
-      ];
     }
+
+    $form = $this->buildProcessingModeForm($form, $form_state);
 
     return $form;
   }
@@ -458,10 +463,7 @@ final class EntityQueryValue extends ComponentValuePluginBase implements Contain
       $this->shape->getCacheableMetadata()->addCacheTags($definition->getListCacheTags());
 
       $results = $this->getChildrenMatchValues($this->shape, $entities, $this->configuration);
-      if (!empty($results) || empty($this->configuration['continue'])) {
-        $value = $results;
-        $this->stopFurtherProcessing();
-      }
+      $value = $results;
     }
     return $value;
   }

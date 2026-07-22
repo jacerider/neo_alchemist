@@ -16,6 +16,7 @@ use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\neo_alchemist\Attribute\ComponentValue;
 use Drupal\neo_alchemist\ComponentShapeChildrenPluginInterface;
 use Drupal\neo_alchemist\ComponentShapePluginInterface;
+use Drupal\neo_alchemist\ComponentValueProcessingModeInterface;
 use Drupal\neo_alchemist\ComponentValuePluginBase;
 use Drupal\system\MenuInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
@@ -32,9 +33,10 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
     'menu',
   ],
 )]
-final class MenuValue extends ComponentValuePluginBase implements ContainerFactoryPluginInterface {
+final class MenuValue extends ComponentValuePluginBase implements ContainerFactoryPluginInterface, ComponentValueProcessingModeInterface {
 
   use DependencySerializationTrait;
+  use ComponentValueProcessingModeTrait;
 
   /**
    * The entity type manager service.
@@ -104,7 +106,7 @@ final class MenuValue extends ComponentValuePluginBase implements ContainerFacto
       // structurally (headers, footers, mega menus), not by the current page's
       // active trail. This preserves the provider's original behaviour.
       'expand_all_items' => TRUE,
-    ];
+    ] + $this->processingModeDefaultConfiguration();
   }
 
   /**
@@ -201,6 +203,8 @@ final class MenuValue extends ComponentValuePluginBase implements ContainerFacto
       '#default_value' => !empty($this->configuration['expand_all_items']),
       '#description' => $this->t('Render the whole menu tree expanded rather than only the current page’s trail. Recommended for structural placements such as headers and footers.'),
     ];
+
+    $form = $this->buildProcessingModeForm($form, $form_state);
 
     return $form;
   }

@@ -17,3 +17,40 @@ function neo_alchemist_update_11001() {
     $component->save();
   }
 }
+
+/**
+* Migrate the entity query "continue" flag to the standard processing mode.
+*
+* The bespoke "continue" setting on the entity_query/entity_filter/views value
+* providers is replaced by the configurable processing mode. "continue: true"
+* maps to "stop_when_found"; "continue: false" is the new default ("block"), so
+* the key is simply removed.
+*/
+function neo_alchemist_update_11002() {
+  $queryProviders = ['entity_query', 'entity_filter', 'views'];
+  $migrate = function (array &$data) use (&$migrate, $queryProviders) {
+    foreach ($data as &$value) {
+      if (!is_array($value)) {
+        continue;
+      }
+      // A provider instance looks like ['id' => X, 'settings' => [...]].
+      if (isset($value['id'], $value['settings'])
+        && is_array($value['settings'])
+        && in_array($value['id'], $queryProviders, TRUE)
+        && array_key_exists('continue', $value['settings'])
+      ) {
+        if (!empty($value['settings']['continue'])) {
+          $value['settings']['processing_mode'] = 'stop_when_found';
+        }
+        unset($value['settings']['continue']);
+      }
+      $migrate($value);
+    }
+  };
+  foreach (\Drupal::configFactory()->listAll('neo_alchemist.neo_component.') as $name) {
+    $config = \Drupal::configFactory()->getEditable($name);
+    $data = $config->getRawData();
+    $migrate($data);
+    $config->setData($data)->save();
+  }
+}

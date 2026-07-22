@@ -170,6 +170,9 @@ neo_alchemist.neo_component_value.menu:
     expand_all_items:
       type: boolean
       label: 'Expand all menu links'
+    processing_mode:
+      type: string
+      label: 'Processing mode'
 
 neo_alchemist.neo_component_value.heading:
   type: mapping
@@ -238,6 +241,9 @@ neo_alchemist.neo_component_value.heading:
     size_value:
       type: string
       label: Size default value
+    processing_mode:
+      type: string
+      label: 'Processing mode'
 
 neo_alchemist.neo_component_value.breadcrumb:
   type: mapping
@@ -249,6 +255,9 @@ neo_alchemist.neo_component_value.breadcrumb:
     hide_home:
       type: boolean
       label: Hide home
+    processing_mode:
+      type: string
+      label: 'Processing mode'
 
 neo_alchemist.neo_component_value.default:
   type: mapping
@@ -269,6 +278,9 @@ neo_alchemist.neo_component_value.page_title:
     override:
       type: boolean
       label: Allow override
+    processing_mode:
+      type: string
+      label: 'Processing mode'
 
 field.value.map:
   type: ignore
@@ -296,6 +308,9 @@ neo_alchemist.neo_component_value.entity:
       nullable: true
     render_field_format:
       type: neo_alchemist.neo_component_render_field_format
+    processing_mode:
+      type: string
+      label: 'Processing mode'
 
 neo_alchemist.neo_component_value.entity_filter:
   type: mapping
@@ -309,6 +324,9 @@ neo_alchemist.neo_component_value.entity_filter:
     shape_published:
       type: boolean
       label: Shape published
+    processing_mode:
+      type: string
+      label: 'Processing mode'
 
 neo_alchemist.neo_component_value.entity_reference:
   type: mapping
@@ -322,6 +340,9 @@ neo_alchemist.neo_component_value.entity_reference:
     shape_published:
       type: boolean
       label: Shape published
+    processing_mode:
+      type: string
+      label: 'Processing mode'
 
 neo_alchemist.neo_component_value.entity_load:
   type: mapping
@@ -338,6 +359,9 @@ neo_alchemist.neo_component_value.entity_load:
     shape_published:
       type: boolean
       label: Shape published
+    processing_mode:
+      type: string
+      label: 'Processing mode'
 
 neo_alchemist.neo_component_value.formatted_text:
   type: mapping
@@ -400,9 +424,9 @@ neo_alchemist.neo_component_value.entity_query:
     shape_published:
       type: boolean
       label: Shape published
-    continue:
-      type: boolean
-      label: 'Continue'
+    processing_mode:
+      type: string
+      label: 'Processing mode'
 
 neo_alchemist.neo_component_value.views:
   type: mapping
@@ -435,9 +459,9 @@ neo_alchemist.neo_component_value.views:
     shape_published:
       type: boolean
       label: Shape published
-    continue:
-      type: boolean
-      label: 'Continue'
+    processing_mode:
+      type: string
+      label: 'Processing mode'
 
 
 neo_alchemist.neo_component_value.media:
@@ -451,6 +475,9 @@ neo_alchemist.neo_component_value.media:
       sequence:
         type: string
         label: 'Config File'
+    processing_mode:
+      type: string
+      label: 'Processing mode'
 
 neo_alchemist.neo_component_value.prefix:
   type: mapping

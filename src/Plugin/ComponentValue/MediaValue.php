@@ -18,6 +18,7 @@ use Drupal\neo\Helpers\NestedArray;
 use Drupal\neo_alchemist\Attribute\ComponentValue;
 use Drupal\neo_alchemist\ComponentShapeMediaPluginInterface;
 use Drupal\neo_alchemist\ComponentShapePluginInterface;
+use Drupal\neo_alchemist\ComponentValueProcessingModeInterface;
 use Drupal\neo_alchemist\ComponentValuePluginBase;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
@@ -31,9 +32,10 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
   group: 'providers',
   weight: 10,
 )]
-final class MediaValue extends ComponentValuePluginBase implements ContainerFactoryPluginInterface {
+final class MediaValue extends ComponentValuePluginBase implements ContainerFactoryPluginInterface, ComponentValueProcessingModeInterface {
 
   use DependencySerializationTrait;
+  use ComponentValueProcessingModeTrait;
 
   /**
    * The file extensions allowed for config-hosted (neo_config_file) images.
@@ -85,7 +87,7 @@ final class MediaValue extends ComponentValuePluginBase implements ContainerFact
   public function defaultConfiguration() {
     return [
       'default' => [],
-    ];
+    ] + $this->processingModeDefaultConfiguration();
   }
 
   /**
@@ -142,6 +144,8 @@ final class MediaValue extends ComponentValuePluginBase implements ContainerFact
           break;
       }
     }
+
+    $form = $this->buildProcessingModeForm($form, $form_state);
 
     return $form;
   }
@@ -456,7 +460,6 @@ final class MediaValue extends ComponentValuePluginBase implements ContainerFact
     if ($media instanceof MediaInterface) {
       $shape->addCacheableDependency($media);
       if ($mediaValue = $shape->getValueFromMedia($media)) {
-        $this->stopFurtherProcessing();
         return $mediaValue;
       }
     }

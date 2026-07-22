@@ -17,7 +17,9 @@ use Drupal\Core\Routing\RouteMatchInterface;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\neo_alchemist\Attribute\ComponentValue;
 use Drupal\neo_alchemist\ComponentShapePluginInterface;
+use Drupal\neo_alchemist\ComponentValueProcessingModeInterface;
 use Drupal\neo_alchemist\ComponentValuePluginBase;
+use Drupal\neo_alchemist\Plugin\ComponentValue\ComponentValueProcessingModeTrait;
 use Drupal\taxonomy\TermInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
@@ -41,9 +43,10 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
   ],
   weight: 10,
 )]
-final class TaxonomyMenuValue extends ComponentValuePluginBase implements ContainerFactoryPluginInterface {
+final class TaxonomyMenuValue extends ComponentValuePluginBase implements ContainerFactoryPluginInterface, ComponentValueProcessingModeInterface {
 
   use DependencySerializationTrait;
+  use ComponentValueProcessingModeTrait;
 
   /**
    * Term fields eligible to supply the per-item description.
@@ -146,7 +149,7 @@ final class TaxonomyMenuValue extends ComponentValuePluginBase implements Contai
       // Term fields mapped onto the per-item description / icon.
       'description_field' => '',
       'icon_field' => '',
-    ];
+    ] + $this->processingModeDefaultConfiguration();
   }
 
   /**
@@ -307,6 +310,8 @@ final class TaxonomyMenuValue extends ComponentValuePluginBase implements Contai
         '#default_value' => isset($iconOptions[$this->configuration['icon_field'] ?? '']) ? $this->configuration['icon_field'] : '',
       ];
     }
+
+    $form = $this->buildProcessingModeForm($form, $form_state);
 
     return $form;
   }

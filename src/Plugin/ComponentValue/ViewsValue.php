@@ -17,6 +17,7 @@ use Drupal\neo_alchemist\Attribute\ComponentValue;
 use Drupal\neo_alchemist\ComponentShapeChildrenMatchPluginInterface;
 use Drupal\neo_alchemist\ComponentShapeInterablePluginInterface;
 use Drupal\neo_alchemist\ComponentShapePluginInterface;
+use Drupal\neo_alchemist\ComponentValueProcessingModeInterface;
 use Drupal\neo_alchemist\ComponentValuePluginBase;
 use Drupal\neo_alchemist\MatcherField;
 use Drupal\views\ViewExecutable;
@@ -38,10 +39,11 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
   weight: 5,
   provider: 'views',
 )]
-final class ViewsValue extends ComponentValuePluginBase implements ContainerFactoryPluginInterface {
+final class ViewsValue extends ComponentValuePluginBase implements ContainerFactoryPluginInterface, ComponentValueProcessingModeInterface {
 
   use DependencySerializationTrait;
   use ComponentValueChildrenMatchTrait;
+  use ComponentValueProcessingModeTrait;
 
   /**
    * The entity type manager service.
@@ -105,8 +107,15 @@ final class ViewsValue extends ComponentValuePluginBase implements ContainerFact
       'view_items_offset' => 0,
       'view_arguments' => [],
       'view_arguments_sort' => FALSE,
-      'continue' => FALSE,
-    ] + $this->childrenMatchDefaultConfiguration();
+    ] + $this->childrenMatchDefaultConfiguration()
+      + $this->processingModeDefaultConfiguration();
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  protected function processingModeDefault(): string {
+    return ComponentValueProcessingModeInterface::MODE_BLOCK;
   }
 
   /**
@@ -248,13 +257,9 @@ final class ViewsValue extends ComponentValuePluginBase implements ContainerFact
         $form += $this->buildChildrenMatchConfigurationForm($this->shape, $form, $form_state, $viewEntityType->id(), $viewEntityBundle, $this->configuration);
 
       }
-      $form['continue'] = [
-        '#type' => 'checkbox',
-        '#title' => $this->t('Continue when no results'),
-        '#description' => $this->t('This will allow any following value providers to be processed if the view returns no results.'),
-        '#default_value' => $this->configuration['continue'],
-      ];
     }
+
+    $form = $this->buildProcessingModeForm($form, $form_state);
 
     return $form;
   }
@@ -277,28 +282,6 @@ final class ViewsValue extends ComponentValuePluginBase implements ContainerFact
   }
 
   /**
-   * Alter the configuration form for a child match.
-   */
-  protected function alterChildMatchConfigurationForm(ComponentShapePluginInterface $shape, &$form, FormStateInterface $form_state, $entityTypeId, $bundle = NULL, array $configuration = []) {
-    // if ($shape->getType() !== 'string') {
-    //   return;
-    // }
-    // $view = $form_state->get('view');
-    // $display = $view->getDisplay();
-    // // Support fields directly rendered by views.
-    // /** @var \Drupal\views\Plugin\views\field\FieldPluginBase[] $fields */
-    // $fields = $display->getHandlers('field');
-    // $viewFieldOptions = [];
-    // foreach ($fields as $fieldName => $field) {
-    //   $viewFieldOptions['- Views -']['_view:' . $fieldName] = $field->adminLabel();
-    // }
-
-    // if (isset($form['field']['#options'])) {
-    //   $form['field']['#options'] = [key($form['field']['#options']) => reset($form['field']['#options'])] + $viewFieldOptions + $form['field']['#options'];
-    // }
-  }
-
-  /**
    * Form validation for the value provider plugin configuration.
    */
   protected function configurationValidate(array $form, FormStateInterface $form_state): void {
@@ -310,8 +293,6 @@ final class ViewsValue extends ComponentValuePluginBase implements ContainerFact
     $form_state->setValue('view_items_offset', $offset ? (int) $offset : NULL);
     $form_state->setValue('view_arguments', array_filter($form_state->getValue('view_arguments', [])));
     $form_state->setValue('view_arguments_sort', !empty($form_state->getValue('view_arguments_sort')));
-
-    $form_state->setValue('continue', (bool) $form_state->getValue('continue'));
   }
 
   /**
@@ -439,20 +420,16 @@ final class ViewsValue extends ComponentValuePluginBase implements ContainerFact
           }
         }
       }
-      if (!$entities && empty($this->configuration['continue'])) {
-        $this->stopFurtherProcessing();
+      if (!$entities) {
         $value = [];
       }
       else {
         $results = $this->getChildrenMatchValues($this->shape, $entities, $this->configuration);
-        if (!empty($results) || empty($this->configuration['continue'])) {
-          $this->stopFurtherProcessing();
-          // Merge any views-generated values.
-          foreach ($results as $delta => $result) {
-            $results[$delta] = $result;
-          }
-          $value = $results;
+        // Merge any views-generated values.
+        foreach ($results as $delta => $result) {
+          $results[$delta] = $result;
         }
+        $value = $results;
       }
     }
     return $value;

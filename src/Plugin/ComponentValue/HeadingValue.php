@@ -12,6 +12,7 @@ use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\neo\Helpers\Str;
 use Drupal\neo_alchemist\Attribute\ComponentValue;
 use Drupal\neo_alchemist\ComponentShapeChildrenPluginInterface;
+use Drupal\neo_alchemist\ComponentValueProcessingModeInterface;
 use Drupal\neo_alchemist\ComponentValuePluginBase;
 use Drupal\neo_alchemist\Plugin\ComponentShape\ObjectShape;
 
@@ -29,9 +30,10 @@ use Drupal\neo_alchemist\Plugin\ComponentShape\ObjectShape;
   ],
   weight: 900
 )]
-final class HeadingValue extends ComponentValuePluginBase implements ContainerFactoryPluginInterface {
+final class HeadingValue extends ComponentValuePluginBase implements ContainerFactoryPluginInterface, ComponentValueProcessingModeInterface {
 
   use ComponentValueTitleResolverTrait;
+  use ComponentValueProcessingModeTrait;
 
   /**
    * {@inheritdoc}
@@ -59,7 +61,7 @@ final class HeadingValue extends ComponentValuePluginBase implements ContainerFa
       'size_edit' => TRUE,
       'size_default' => FALSE,
       'size_value' => '',
-    ];
+    ] + $this->processingModeDefaultConfiguration();
   }
 
   /**
@@ -198,6 +200,8 @@ final class HeadingValue extends ComponentValuePluginBase implements ContainerFa
       $form["{$key}"]['value']['#access'] = empty($this->configuration["{$key}_page"]) && empty($this->configuration["{$key}_entity"]);
     }
 
+    $form = $this->buildProcessingModeForm($form, $form_state);
+
     return $form;
   }
 
@@ -328,7 +332,6 @@ final class HeadingValue extends ComponentValuePluginBase implements ContainerFa
       $value['size'] = $this->configuration['size_value'];
     }
     $value['anchor'] = $value['title'] ? Str::machine($value['title'], '-') : NULL;
-    $this->stopFurtherProcessing();
     return $value;
   }
 

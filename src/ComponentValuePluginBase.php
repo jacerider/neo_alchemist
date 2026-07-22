@@ -267,6 +267,20 @@ abstract class ComponentValuePluginBase extends PluginBase implements ComponentV
   /**
    * {@inheritdoc}
    */
+  public function claimValue(): self {
+    return $this->stopFurtherProcessing();
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function hasClaimedValue(): bool {
+    return !$this->shouldContinueProcessing();
+  }
+
+  /**
+   * {@inheritdoc}
+   */
   public function isEditable(): bool {
     return TRUE;
   }

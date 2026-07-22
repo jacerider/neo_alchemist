@@ -1602,6 +1602,18 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
   }
 
   /**
+   * {@inheritdoc}
+   */
+  public function isProvidedValueEmpty(mixed $value): bool {
+    // Wrap scalars so the sentinel strip and empty() check are uniform. The
+    // `size` key is seeded by the media image size modifier and is not content,
+    // so a value carrying only `size` still counts as empty.
+    $check = is_array($value) ? $value : ['_' => $value];
+    unset($check['size']);
+    return empty($check);
+  }
+
+  /**
    * Builds the value for the component shape.
    *
    * @return mixed
@@ -1724,9 +1736,13 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
   public function getDefaultValue(): mixed {
     if (!isset($this->defaultValue)) {
       $value = $originalValue = $this->resolveValue($this->getDefaultSchemaValue());
-      $instances = $this->getValueCollection()->getAllowedInstances('default');
-      foreach ($instances as $instance) {
+      foreach ($this->getValueCollection()->getAllowedInstances('default') as $instance) {
         $value = $instance->provideDefaultValue($value);
+        // Let the configurable processing mode decide whether this provider
+        // claims the value (halting the search) or falls through to the next.
+        if ($instance instanceof ComponentValueProcessingModeInterface) {
+          $instance->applyProcessingMode($value);
+        }
         if (!$instance->shouldContinueProcessing()) {
           break;
         }
@@ -1736,8 +1752,9 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
       }
       // Set the value so providers can use it.
       $this->setFieldItemValue($value, FALSE);
-      // Allow providers to modify the final default value.
-      foreach ($instances as $instance) {
+      // Allow providers to modify the final default value. Fetch a fresh list
+      // so a claim from the provide loop above does not truncate this one.
+      foreach ($this->getValueCollection()->getAllowedInstances('default') as $instance) {
         $value = $instance->alterValue($value, 'default');
         if (!$instance->shouldContinueProcessing()) {
           break;
@@ -1922,6 +1939,9 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
       // Allow providers to modify the final override value.
       foreach ($instances as $instance) {
         $value = $instance->alterValue($value, 'override');
+        if (!$instance->shouldContinueProcessing()) {
+          break;
+        }
       }
     }
     if (is_array($value) && !$this->isIterable()) {

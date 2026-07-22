@@ -13,6 +13,7 @@ use Drupal\Core\Routing\RouteMatchInterface;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\neo_alchemist\Attribute\ComponentValue;
 use Drupal\neo_alchemist\ComponentShapePluginInterface;
+use Drupal\neo_alchemist\ComponentValueProcessingModeInterface;
 use Drupal\neo_alchemist\ComponentValuePluginBase;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
@@ -30,9 +31,10 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
     'breadcrumb',
   ],
 )]
-final class BreadcrumbValue extends ComponentValuePluginBase implements ContainerFactoryPluginInterface {
+final class BreadcrumbValue extends ComponentValuePluginBase implements ContainerFactoryPluginInterface, ComponentValueProcessingModeInterface {
 
   use DependencySerializationTrait;
+  use ComponentValueProcessingModeTrait;
 
   /**
    * The breadcrumb manager.
@@ -92,7 +94,7 @@ final class BreadcrumbValue extends ComponentValuePluginBase implements Containe
     return [
       'hide_home' => FALSE,
       'hide_current' => TRUE,
-    ];
+    ] + $this->processingModeDefaultConfiguration();
   }
 
   /**
@@ -113,6 +115,8 @@ final class BreadcrumbValue extends ComponentValuePluginBase implements Containe
       '#description' => $this->t('If checked, the current page will not be included in the breadcrumb.'),
       '#default_value' => $this->configuration['hide_current'],
     ];
+
+    $form = $this->buildProcessingModeForm($form, $form_state);
 
     return $form;
   }

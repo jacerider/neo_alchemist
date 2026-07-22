@@ -139,7 +139,7 @@ final class UserHasRoleValue extends ComponentValuePluginBase implements Contain
         break;
     }
     if (!$hasRoles) {
-      $this->stopFurtherProcessing();
+      $this->claimValue();
       return FALSE;
     }
     return $value;

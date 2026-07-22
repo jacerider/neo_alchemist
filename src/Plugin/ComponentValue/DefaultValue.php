@@ -137,12 +137,8 @@ final class DefaultValue extends ComponentValuePluginBase implements ContainerFa
   protected function configurationMassage(array $values, array $form, FormStateInterface $form_state): array {
     $defaultShape = $this->getDefaultShape();
     $values = $values[$defaultShape->getName()] ?? [];
-    // @todo We commented this out because object and arrays won't have a widget
-    // and need to pass this.
-    // if (!isset($form['widget'])) {
-    //   // We just enabled this.
-    //   return $values;
-    // }
+    // @todo Restore the "just enabled, no widget" early return. It was removed
+    // because object and array props have no widget and must still pass values.
     if (!empty(Element::children($form))) {
       $defaultShape->validateForm($form, $form_state, $values);
       $originalValues = $this->configuration['default'] ?? [];
@@ -190,7 +186,13 @@ final class DefaultValue extends ComponentValuePluginBase implements ContainerFa
    * {@inheritdoc}
    */
   public function provideDefaultValue(mixed $value): mixed {
-    return $this->configuration['default'] ?? NULL;
+    // Fallback only: preserve any value an earlier (non-claiming) provider
+    // supplied, and never return NULL over a threaded value. This provider is
+    // terminal (weight 1000) so it does not claim.
+    if (!$this->shape->isProvidedValueEmpty($value)) {
+      return $value;
+    }
+    return $this->configuration['default'] ?? $value;
   }
 
 }

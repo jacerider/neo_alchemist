@@ -117,7 +117,7 @@ final class EntityHasValue extends ComponentValuePluginBase implements Container
       cacheableMetadata: $this->shape->getCacheableMetadata()
     ));
     if (!$isEmpty) {
-      $this->stopFurtherProcessing();
+      $this->claimValue();
       return FALSE;
     }
     return $value;

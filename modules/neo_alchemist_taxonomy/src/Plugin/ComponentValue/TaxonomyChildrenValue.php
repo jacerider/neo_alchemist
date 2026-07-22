@@ -13,10 +13,12 @@ use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\neo_alchemist\Attribute\ComponentValue;
 use Drupal\neo_alchemist\ComponentShapeChildrenMatchPluginInterface;
 use Drupal\neo_alchemist\ComponentShapePluginInterface;
+use Drupal\neo_alchemist\ComponentValueProcessingModeInterface;
 use Drupal\neo_alchemist\ComponentValuePluginBase;
 use Drupal\neo_alchemist\MatcherField;
 use Drupal\neo_alchemist\MatcherReference;
 use Drupal\neo_alchemist\Plugin\ComponentValue\ComponentValueChildrenMatchTrait;
+use Drupal\neo_alchemist\Plugin\ComponentValue\ComponentValueProcessingModeTrait;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
@@ -38,10 +40,11 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
   entity_types: ['taxonomy_term.*'],
   weight: 5,
 )]
-final class TaxonomyChildrenValue extends ComponentValuePluginBase implements ContainerFactoryPluginInterface {
+final class TaxonomyChildrenValue extends ComponentValuePluginBase implements ContainerFactoryPluginInterface, ComponentValueProcessingModeInterface {
 
   use DependencySerializationTrait;
   use ComponentValueChildrenMatchTrait;
+  use ComponentValueProcessingModeTrait;
 
   /**
    * The entity type manager service.
@@ -101,7 +104,8 @@ final class TaxonomyChildrenValue extends ComponentValuePluginBase implements Co
    * {@inheritdoc}
    */
   public function defaultConfiguration() {
-    return $this->childrenMatchDefaultConfiguration();
+    return $this->childrenMatchDefaultConfiguration()
+      + $this->processingModeDefaultConfiguration();
   }
 
   /**
@@ -113,6 +117,7 @@ final class TaxonomyChildrenValue extends ComponentValuePluginBase implements Co
     $form['#id'] = $wrapperId;
     $bundle = $this->shape->getTargetEntityBundle();
     $form = $this->buildChildrenMatchConfigurationForm($this->shape, $form, $form_state, 'taxonomy_term', $bundle, $this->configuration);
+    $form = $this->buildProcessingModeForm($form, $form_state);
     return $form;
   }
 
@@ -154,7 +159,6 @@ final class TaxonomyChildrenValue extends ComponentValuePluginBase implements Co
     $this->shape->getCacheableMetadata()->addCacheTags($storage->getEntityType()->getListCacheTags());
 
     $value = $this->getChildrenMatchValues($this->shape, $children, $this->configuration);
-    $this->stopFurtherProcessing();
     return $value;
   }
 

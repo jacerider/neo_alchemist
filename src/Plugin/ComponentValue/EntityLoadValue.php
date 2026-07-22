@@ -16,6 +16,7 @@ use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\neo_alchemist\Attribute\ComponentValue;
 use Drupal\neo_alchemist\ComponentShapeChildrenMatchPluginInterface;
 use Drupal\neo_alchemist\ComponentShapePluginInterface;
+use Drupal\neo_alchemist\ComponentValueProcessingModeInterface;
 use Drupal\neo_alchemist\ComponentValuePluginBase;
 use Drupal\neo_alchemist\MatcherField;
 use Drupal\neo_alchemist\MatcherReference;
@@ -35,10 +36,11 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
   ],
   weight: 5,
 )]
-final class EntityLoadValue extends ComponentValuePluginBase implements ContainerFactoryPluginInterface {
+final class EntityLoadValue extends ComponentValuePluginBase implements ContainerFactoryPluginInterface, ComponentValueProcessingModeInterface {
 
   use DependencySerializationTrait;
   use ComponentValueChildrenMatchTrait;
+  use ComponentValueProcessingModeTrait;
 
   /**
    * The entity type manager service.
@@ -121,7 +123,8 @@ final class EntityLoadValue extends ComponentValuePluginBase implements Containe
     return [
       'entity_type' => '',
       'entity_id' => '',
-    ] + $this->childrenMatchDefaultConfiguration();
+    ] + $this->childrenMatchDefaultConfiguration()
+      + $this->processingModeDefaultConfiguration();
   }
 
   /**
@@ -187,6 +190,8 @@ final class EntityLoadValue extends ComponentValuePluginBase implements Containe
       }
     }
 
+    $form = $this->buildProcessingModeForm($form, $form_state);
+
     return $form;
   }
 
@@ -220,11 +225,11 @@ final class EntityLoadValue extends ComponentValuePluginBase implements Containe
       $entity = $storage->load($entityId);
       if ($entity) {
         $this->shape->addCacheableDependency($entity);
-        $this->stopFurtherProcessing();
         return $this->getChildrenMatchValues($this->shape, [$entity], $this->configuration);
       }
     }
-    return NULL;
+    // Can't act: pass the threaded value through rather than wiping it to NULL.
+    return $value;
   }
 
 }

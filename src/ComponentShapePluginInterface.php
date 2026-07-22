@@ -872,6 +872,21 @@ interface ComponentShapePluginInterface extends PluginInspectionInterface, Deriv
   public function getValue(): mixed;
 
   /**
+   * Determine whether a value produced by a provider is empty.
+   *
+   * Used by the value-provision contract to decide "found vs empty". Ignores
+   * non-content sentinel keys (currently `size`, seeded by the media image size
+   * modifier) so a size-only media value still counts as empty.
+   *
+   * @param mixed $value
+   *   The value threaded through the provider chain.
+   *
+   * @return bool
+   *   TRUE if the value carries no content, FALSE otherwise.
+   */
+  public function isProvidedValueEmpty(mixed $value): bool;
+
+  /**
    * Get the default defined in the schema.
    *
    * @return mixed

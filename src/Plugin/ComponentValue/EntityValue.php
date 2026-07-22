@@ -13,6 +13,7 @@ use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\neo_alchemist\Attribute\ComponentValue;
 use Drupal\neo_alchemist\ComponentShapeChildrenPluginInterface;
 use Drupal\neo_alchemist\ComponentShapePluginInterface;
+use Drupal\neo_alchemist\ComponentValueProcessingModeInterface;
 use Drupal\neo_alchemist\ComponentValuePluginBase;
 use Drupal\neo_alchemist\MatcherField;
 use Symfony\Component\DependencyInjection\ContainerInterface;
@@ -31,10 +32,11 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
   entity_types: ['*'],
   weight: 5,
 )]
-final class EntityValue extends ComponentValuePluginBase implements ContainerFactoryPluginInterface {
+final class EntityValue extends ComponentValuePluginBase implements ContainerFactoryPluginInterface, ComponentValueProcessingModeInterface {
 
   use DependencySerializationTrait;
   use ComponentValueMatchTrait;
+  use ComponentValueProcessingModeTrait;
 
   /**
    * Flag to indicate if the value has been set.
@@ -83,7 +85,7 @@ final class EntityValue extends ComponentValuePluginBase implements ContainerFac
   public function defaultConfiguration() {
     return $this->defaultMatchConfiguration() + [
       'field_assign' => FALSE,
-    ];
+    ] + $this->processingModeDefaultConfiguration();
   }
 
   /**
@@ -120,6 +122,9 @@ final class EntityValue extends ComponentValuePluginBase implements ContainerFac
         }
       }
     }
+
+    $form = $this->buildProcessingModeForm($form, $form_state);
+
     return $form;
   }
 

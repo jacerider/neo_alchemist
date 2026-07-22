@@ -195,6 +195,27 @@ interface ComponentValuePluginInterface extends ConfigurableInterface, PluginFor
   public function shouldContinueProcessing(): bool;
 
   /**
+   * Claim the value: halt the provider search after this plugin.
+   *
+   * Semantic alias of stopFurtherProcessing() for the value-provision contract:
+   * a plugin "claims" a value to declare it authoritative, so no later provider
+   * overwrites it. Modifiers still run (the modify op is resolved separately).
+   *
+   * @return self
+   *   The current instance of the class.
+   */
+  public function claimValue(): self;
+
+  /**
+   * Determines whether this plugin has claimed the value.
+   *
+   * @return bool
+   *   TRUE if the value has been claimed (the search is halted), FALSE if later
+   *   providers may still run.
+   */
+  public function hasClaimedValue(): bool;
+
+  /**
    * Determines if the component value is editable.
    *
    * If any value processor sets this to FALSE, the value will not be editable.

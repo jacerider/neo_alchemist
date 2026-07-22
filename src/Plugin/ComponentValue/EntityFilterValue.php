@@ -16,6 +16,7 @@ use Drupal\neo_alchemist\Attribute\ComponentValue;
 use Drupal\neo_alchemist\ComponentFilterPluginEntityInterface;
 use Drupal\neo_alchemist\ComponentShapeChildrenMatchPluginInterface;
 use Drupal\neo_alchemist\ComponentShapePluginInterface;
+use Drupal\neo_alchemist\ComponentValueProcessingModeInterface;
 use Drupal\neo_alchemist\ComponentValuePluginBase;
 use Drupal\neo_alchemist\MatcherField;
 use Drupal\neo_alchemist\MatcherReference;
@@ -35,10 +36,11 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
   ],
   weight: 5,
 )]
-final class EntityFilterValue extends ComponentValuePluginBase implements ContainerFactoryPluginInterface {
+final class EntityFilterValue extends ComponentValuePluginBase implements ContainerFactoryPluginInterface, ComponentValueProcessingModeInterface {
 
   use DependencySerializationTrait;
   use ComponentValueChildrenMatchTrait;
+  use ComponentValueProcessingModeTrait;
 
   /**
    * The entity type manager service.
@@ -111,7 +113,15 @@ final class EntityFilterValue extends ComponentValuePluginBase implements Contai
     return [
       'filter' => '',
       'entity' => '',
-    ] + $this->childrenMatchDefaultConfiguration();
+    ] + $this->childrenMatchDefaultConfiguration()
+      + $this->processingModeDefaultConfiguration();
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  protected function processingModeDefault(): string {
+    return ComponentValueProcessingModeInterface::MODE_BLOCK;
   }
 
   /**
@@ -181,6 +191,9 @@ final class EntityFilterValue extends ComponentValuePluginBase implements Contai
         }
       }
     }
+
+    $form = $this->buildProcessingModeForm($form, $form_state);
+
     return $form;
   }
 
@@ -225,10 +238,7 @@ final class EntityFilterValue extends ComponentValuePluginBase implements Contai
     }
 
     $results = $this->getChildrenMatchValues($this->shape, $entities, $this->configuration);
-    if (!empty($results) || empty($this->configuration['continue'])) {
-      $value = $results;
-      $this->stopFurtherProcessing();
-    }
+    $value = $results;
 
     return $value;
   }
