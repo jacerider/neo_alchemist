@@ -189,7 +189,14 @@ final class DefaultValue extends ComponentValuePluginBase implements ContainerFa
     // Fallback only: preserve any value an earlier (non-claiming) provider
     // supplied, and never return NULL over a threaded value. This provider is
     // terminal (weight 1000) so it does not claim.
-    if (!$this->shape->isProvidedValueEmpty($value)) {
+    //
+    // The incoming value seeds from the shape's schema example — the component
+    // author's placeholder. A site-builder's configured default is meant to
+    // supersede that placeholder, so treat the untouched example the same as an
+    // empty value: only a genuine provider value (one that differs from the
+    // example) is preserved.
+    $isUntouchedExample = $value === $this->shape->resolveValue($this->shape->getDefaultSchemaValue());
+    if (!$isUntouchedExample && !$this->shape->isProvidedValueEmpty($value)) {
       return $value;
     }
     return $this->configuration['default'] ?? $value;
