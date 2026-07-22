@@ -138,7 +138,7 @@ final class BreadcrumbValue extends ComponentValuePluginBase implements Containe
           'title' => $link->getText(),
           'url' => [
             'title' => $link->getText(),
-            'uri' => $uri === 'route:<none>' ? NULL : $uri,
+            'uri' => in_array($uri, ['route:<nolink>', 'route:<none>']) ? NULL : $uri,
             'options' => $options,
           ],
         ];
