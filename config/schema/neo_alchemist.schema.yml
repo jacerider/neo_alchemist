@@ -154,6 +154,22 @@ neo_alchemist.neo_component_value.link_title:
       type: string
       label: 'Link title'
 
+neo_alchemist.neo_component_value.link_uri:
+  type: mapping
+  label: 'Link URL value modifier'
+  mapping:
+    value:
+      type: string
+      label: 'Link URL'
+
+neo_alchemist.neo_component_value.token:
+  type: mapping
+  label: 'Token value modifier'
+  mapping:
+    value:
+      type: string
+      label: 'Token template'
+
 neo_alchemist.neo_component_value.menu:
   type: mapping
   label: 'Menu value provider'
@@ -416,6 +432,12 @@ neo_alchemist.neo_component_value.entity_query:
     filter_entity:
       type: string
       label: Filter by entity reference
+    filter_entity_include_children:
+      type: boolean
+      label: Include child terms in the entity reference filter
+    filter_entity_include_parents:
+      type: boolean
+      label: Include parent terms in the entity reference filter
     filter_parent:
       type: string
       label: Filter by parent term
