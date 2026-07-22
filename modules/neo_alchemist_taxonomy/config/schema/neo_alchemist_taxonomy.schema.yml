@@ -25,3 +25,13 @@ neo_alchemist.neo_component_value.taxonomy_menu:
     icon_field:
       type: string
       label: 'Icon field'
+
+neo_alchemist.neo_component_value.taxonomy_children:
+  type: mapping
+  label: 'Child terms value provider'
+  mapping:
+    shape_fields:
+      type: neo_alchemist.neo_component_shape_fields
+    shape_published:
+      type: boolean
+      label: Shape published
