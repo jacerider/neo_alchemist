@@ -1042,7 +1042,7 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
    * {@inheritDoc}
    */
   public function hasPlugin(string $pluginId): bool {
-    foreach ($this->getPlugins() as $shapeId => $plugins) {
+    foreach ($this->getPlugins() as $plugins) {
       if (isset($plugins[$pluginId])) {
         return TRUE;
       }
@@ -1109,6 +1109,14 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
       return $isRoot;
     }
     if ($isRoot) {
+      // Iterable roots keep their own list-level value providers/modifiers
+      // (the "Base" group in the prop form) even while expanded: a provider
+      // such as "menu" can generate the whole list while the expanded child
+      // shapes configure each individual item. Non-iterable roots delegate
+      // entirely to their expanded children and keep no plugins of their own.
+      if ($this->isIterable()) {
+        return TRUE;
+      }
       return !in_array($this->id(), $expanded);
     }
     // If the shape is expanded, it does not allow plugins.
