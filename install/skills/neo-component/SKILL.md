@@ -154,7 +154,7 @@ Define a per-component style selector inline:
 border_top:
   type: style
   title: 'Border Top'
-  apply: false        # don't auto-inject; reference via .getValue() in twig
+  apply: false        # don't auto-inject onto the root; place it yourself in twig
   examples: none
   styles:
     none:
@@ -165,7 +165,9 @@ border_top:
       value: border-t
 ```
 
-`apply: true` auto-adds the `value` as a class on the element. `apply: false` lets you read it in Twig with `name.getValue()` and branch logic yourself.
+The prop passed to Twig is an **`Attribute` that already carries the selected option's `value` classes** — so you emit those classes by **rendering the prop as an attribute**, never by re-typing them. `apply: true` auto-merges it onto the **root** `attributes`. `apply: false` skips that auto-merge; you render/merge it onto whatever element you choose — e.g. `<div{{ border_top.addClass(['relative']) }}>` outputs the selected `border-t*` class *plus* `relative` on that div.
+
+**`name.getValue()` returns the selected _key_ (`'top'`/`'none'`), NOT the classes** — use it **only** to branch logic (`{% if border_top.getValue() == 'top' %}…{% endif %}`), never to map the key back to hand-written classes. Re-typing the `value:` strings in the Twig (e.g. `{% set c = x.getValue() == 'short' ? 'h-72' : 'h-96' %}`) duplicates the yml, silently drifts out of sync (the yml `value:` becomes dead metadata that never renders), and is the wrong pattern. Let `styles.*.value` be the single source of truth and let the attribute carry it.
 
 ### `maxItems`
 Set on an `array` prop to cap editor input (e.g. `maxItems: 1` for a single optional CTA).
@@ -256,7 +258,7 @@ Remember the resolved value is scheme-specific: if you hardcode a hex from one s
 | `url` | Same as link — check `item.link.access` for permission-gated links |
 | `remote_video` | `{{ neo_oembed(video.src) }}` inline, or `{{ neo_modal(thumb, {video: src}, 'media') }}` |
 | `region` | `{{ accordion.region }}` — auto-renders nested components |
-| `style` (apply:false) | `{{ border_top.getValue() }}` or `.addClass()` |
+| `style` (apply:false) | Render as an attribute — `<div{{ border_top.addClass(['…']) }}>` emits the selected option's `value` classes. `.getValue()` returns the **key** — for `{% if %}` branching only, never to re-type the classes |
 | `array` | `{% for item in items %} ... {% endfor %}` |
 
 ### Preview-mode hooks
@@ -389,6 +391,7 @@ resolved colors — see "Finding this site's real colors"). All tabular commands
 - **Not wrapping in `{% if prop %}`** — component renders empty scaffolding when editor leaves fields blank.
 - **Using `heading.title` for the `<h2>`** but dropping `heading.size` — the editor's Size selector silently no-ops. And `heading.size` alone isn't enough: `title-*` only sets variables, so the same element (or a child) needs `component-title` to consume them. `<h2{{ heading.size.addClass(['component-title']) }}>` is the minimal correct form for a hand-rolled main title.
 - **New style prop with `apply: true` but missing `examples`** — class won't be present on first render.
+- **Re-mapping a `style` prop's key back to hand-written classes** — `{% set h = size.getValue() == 'short' ? 'h-72' : 'h-96' %}` duplicates the yml `styles.*.value` strings. `.getValue()` is the **key**, not the classes; the prop is already an `Attribute` carrying the option's `value`, so render it (`<div{{ size.addClass(['relative']) }}>`) and keep the yml the single source of truth. The hand map silently drifts from the yml (which then never renders) — reserve `.getValue()` for `{% if %}` branching.
 - **Using `my-component` on a background section** — margin sits *outside* the background, leaving an unfilled gap. Background sections use `py-component` on the inner `container-content` wrapper, with `bg-default` + `component-bg` on the root.
 - **Background section without the `component-bg` marker** — two adjacent same-color sections stack double padding. Add `component-bg` (next to `bg-default`) so the seam collapses.
 - **Dynamic Tailwind class names never compile.** The build only emits classes that appear **literally** in scanned source — `bg-{{ color }}-500`, `'text-' ~ tone`, or classes assembled in JS produce nothing in the CSS. Enumerate full class names (in the yml `styles:` values, a Twig mapping, or a comment), or use inline CSS variables for genuinely data-driven color: `style="background-color: rgb(var(--color-{{ pallet }}-500))"` works because the *variables* always exist.
