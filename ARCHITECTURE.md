@@ -134,7 +134,7 @@ To **inspect** shapes at runtime without reading the plugins, use
 |---|---|---|---|
 | ComponentShape | `src/Plugin/ComponentShape/` | `plugin.manager.neo_component_shape` | Map a prop `type` → field + render value (the shape system above). |
 | ComponentSlot | `src/Plugin/ComponentSlot/` | `plugin.manager.neo_component_slot` | Fill a named SDC slot from a source (`EntitySlot`, `ViewsSlot`, `BlockSlot`, `FormSlot`, `EntityFieldSlot`, …). |
-| ComponentValue | `src/Plugin/ComponentValue/` | `plugin.manager.neo_component_value` | Transform a prop value (prefix/suffix, formatting, media processing). |
+| ComponentValue | `src/Plugin/ComponentValue/` | `plugin.manager.neo_component_value` | Provide or transform a prop value — producers (`entity_reference`, `entity_query`, `media`, `default`, …) and modifiers (`prefix`/`suffix`/`format`/`size`). Run in a claim-based pipeline; see "ComponentValue processing model". |
 | ComponentFilter | `src/Plugin/ComponentFilter/` | `plugin.manager.neo_component_filter` | Conditionally include/adjust components (`StringFilter`, `OptionFilter`, `EntityFilter`, `NumberFilter`). |
 | ComponentAccess | `src/Plugin/ComponentAccess/` | `plugin.manager.neo_component_access` | Access/visibility rules for a component or prop. |
 
@@ -142,6 +142,37 @@ Supporting managers: `plugin.manager.neo_component_group`, `…_value_group`, `�
 `…_filter_options`. Each family also has a `#[Component*]` attribute in
 [src/Attribute/](src/Attribute/) and (for slot/filter/access) a small factory service
 (`neo_component.slot.factory`, `.filter.factory`, `.access.factory`).
+
+### ComponentValue processing model
+
+A prop's value is built by running its enabled ComponentValue plugins in ascending
+`weight` order across phases: **provide** (`provideDefaultValue`) → **alter**
+(`alterValue`, default + override passes) → **modify** at render (`modifyValue`), driven
+by `ComponentShapePluginBase::getDefaultValue()` / `buildRenderValue()`.
+
+The site builder picks each producer's behavior via a standard **"Processing"** select:
+
+- **Stop when found** (`MODE_STOP_WHEN_FOUND`, default) — a non-empty value is
+  authoritative (later producers skip); an empty result falls through to the next.
+- **Provide, allow changes** (`MODE_CONTINUE`) — never claims; the value survives and
+  later producers may replace it.
+- **Block if empty** (`MODE_BLOCK`) — claim always, so an empty result renders nothing
+  and no later producer runs.
+
+Modifiers always run afterward regardless. Mechanics:
+
+- **Claim** = halt the producer search. `ComponentValuePluginInterface::claimValue()`
+  (semantic alias of `stopFurtherProcessing()`; check with `hasClaimedValue()`).
+- The claim decision is centralized: a producer `implements
+  ComponentValueProcessingModeInterface` + `use ComponentValueProcessingModeTrait`, and
+  the pipeline calls `applyProcessingMode($value)`, claiming per the chosen mode +
+  `ComponentShapePluginInterface::isProvidedValueEmpty()` (shared "found vs empty" test
+  that ignores the `size` sentinel seeded by `media_image_size`). Producers no longer
+  hard-code the claim.
+- **`default`** (weight 1000) is a **fallback** — it only fills when the value is still
+  empty, so a non-claiming producer's value survives to render.
+- **Veto** producers (`user_has_role`, `entity_has_value`) opt out of the mode; they
+  `claimValue()` explicitly and return `FALSE`.
 
 **Field integration** — components can be embedded in content entities via a field:
 [src/Plugin/Field/FieldType/NeoComponentTreeList.php](src/Plugin/Field/FieldType/) (storage) +
@@ -264,6 +295,15 @@ From [neo_alchemist.services.yml](neo_alchemist.services.yml):
 - **A ComponentValue / Slot / Filter / Access plugin** — add a class in the matching
   `src/Plugin/Component*/` dir with the matching `#[Component*]` attribute; it's
   auto-discovered by its manager. Slots/filters/access surface in the component edit UI.
+- **A ComponentValue *producer*** (yields a prop value from an entity/query/etc.) — as
+  above, plus `implements ComponentValueProcessingModeInterface; use
+  ComponentValueProcessingModeTrait;`, append `processingModeDefaultConfiguration()` to
+  `defaultConfiguration()`, and call `buildProcessingModeForm()` in the config form. Then
+  just produce the value (return the incoming `$value` when you can't act — never
+  `claimValue()`/`stopFurtherProcessing()` manually; the pipeline claims per the mode).
+  Override `processingModeDefault()` to change the default mode. See "ComponentValue
+  processing model". A *modifier* instead implements `modifyValue()`/`alterValue()` and
+  never claims.
 - **Per-item data on the `menu` value provider** — implement
   `hook_neo_alchemist_menu_value_item_alter(&$entry, $item, $shape)` (documented in
   [neo_alchemist.api.php](neo_alchemist.api.php)). Extra `$entry` keys flow through the
