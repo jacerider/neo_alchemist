@@ -25,6 +25,8 @@ use Drupal\neo_alchemist\ComponentValuePluginBase;
 )]
 final class LinkTitleValue extends ComponentValuePluginBase {
 
+  use ComponentValueTokenTrait;
+
   /**
    * {@inheritdoc}
    */
@@ -41,10 +43,12 @@ final class LinkTitleValue extends ComponentValuePluginBase {
     $form['value'] = [
       '#type' => 'textfield',
       '#title' => $this->t('Title'),
-      '#description' => $this->t('The title to set on the link.'),
+      '#description' => $this->t('The title to set on the link. Tokens are supported, e.g. <code>View [term:name] Projects</code>.'),
       '#default_value' => $this->configuration['value'],
       '#required' => TRUE,
     ];
+    $form['value'] = $this->attachTokenValidation($form['value']);
+    $form['tokens'] = $this->buildTokenBrowser();
     return $form;
   }
 
@@ -52,7 +56,7 @@ final class LinkTitleValue extends ComponentValuePluginBase {
    * {@inheritdoc}
    */
   public function alterValue(mixed $value, string $type): mixed {
-    $value['title'] = $this->configuration['value'];
+    $value['title'] = $this->replaceEntityTokens((string) $this->configuration['value']);
     return $value;
   }
 
