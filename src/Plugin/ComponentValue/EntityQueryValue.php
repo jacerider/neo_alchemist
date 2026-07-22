@@ -140,6 +140,8 @@ final class EntityQueryValue extends ComponentValuePluginBase implements Contain
       'sort_field_2' => '',
       'sort_direction_2' => 'ASC',
       'filter_entity' => '',
+      'filter_entity_include_children' => FALSE,
+      'filter_entity_include_parents' => FALSE,
       'filter_parent' => '',
       'start' => 0,
       'length' => 10,
@@ -273,7 +275,28 @@ final class EntityQueryValue extends ComponentValuePluginBase implements Contain
           '#options' => $options,
           '#empty_option' => $this->t('- None -'),
           '#default_value' => $this->configuration['filter_entity'] ?? NULL,
+          '#id' => $wrapperId . '-filter-entity',
         ];
+
+        // Only meaningful when the current entity is a taxonomy term, since the
+        // hierarchy expansion walks the term tree.
+        if ($entity->getEntityTypeId() === 'taxonomy_term') {
+          $termStates = ['visible' => ['#' . $wrapperId . '-filter-entity' => ['!value' => '']]];
+          $form['filter_entity_include_children'] = [
+            '#type' => 'checkbox',
+            '#title' => $this->t('Include child terms'),
+            '#description' => $this->t('Also match results referencing any descendant of the current term (e.g. viewing "Communities" also returns projects tagged with "Single Family").'),
+            '#default_value' => $this->configuration['filter_entity_include_children'] ?? FALSE,
+            '#states' => $termStates,
+          ];
+          $form['filter_entity_include_parents'] = [
+            '#type' => 'checkbox',
+            '#title' => $this->t('Include parent terms'),
+            '#description' => $this->t('Also match results referencing any ancestor of the current term.'),
+            '#default_value' => $this->configuration['filter_entity_include_parents'] ?? FALSE,
+            '#states' => $termStates,
+          ];
+        }
       }
 
       if ($entityTypeId === 'taxonomy_term') {
@@ -413,7 +436,32 @@ final class EntityQueryValue extends ComponentValuePluginBase implements Contain
             $filterField = substr($filterField, 0, $lastPos);
           }
           $filterField = str_replace('.', '.entity.', $filterField);
-          $query->condition($filterField, $entity->id(), '=');
+
+          $filterIds = [$entity->id()];
+          if ($entity->getEntityTypeId() === 'taxonomy_term') {
+            /** @var \Drupal\taxonomy\TermStorageInterface $termStorage */
+            $termStorage = $this->entityTypeManager->getStorage('taxonomy_term');
+            if (!empty($this->configuration['filter_entity_include_children'])) {
+              // loadTree() returns all descendants of the given parent term.
+              foreach ($termStorage->loadTree($entity->bundle(), (int) $entity->id()) as $child) {
+                $filterIds[] = $child->tid;
+              }
+            }
+            if (!empty($this->configuration['filter_entity_include_parents'])) {
+              // loadAllParents() returns the term itself plus every ancestor.
+              foreach ($termStorage->loadAllParents((int) $entity->id()) as $parent) {
+                $filterIds[] = $parent->id();
+              }
+            }
+            $filterIds = array_values(array_unique($filterIds));
+          }
+
+          if (count($filterIds) > 1) {
+            $query->condition($filterField, $filterIds, 'IN');
+          }
+          else {
+            $query->condition($filterField, reset($filterIds), '=');
+          }
         }
         if ($entityTypeId === 'taxonomy_term' && $this->configuration['filter_parent']) {
           switch ($this->configuration['filter_parent']) {
