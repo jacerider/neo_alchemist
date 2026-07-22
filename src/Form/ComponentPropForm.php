@@ -105,15 +105,11 @@ final class ComponentPropForm extends EntityForm {
   protected function getPluginShapes() {
     $expanded = $this->shape->getExpanded();
     if ($expanded) {
-      $shapes = $this->shape->getPluginShapes(TRUE);
-      if ($this->shape->isRoot() && $this->shape->isIterable()) {
-        // Perhaps on arrays we always want to show root? This needs more time
-        // to think through. Currently probably not working.
-        $shapes = [
-          $this->shape->id() => $this->shape,
-        ] + $shapes;
-      }
-      return $shapes;
+      // Iterable roots stay configurable while expanded (see
+      // ComponentShapePluginBase::allowConfigurablePlugins()), so the root is
+      // already returned here as the "Base" group alongside its expanded child
+      // shapes.
+      return $this->shape->getPluginShapes(TRUE);
     }
     if ($this->shape->allowConfigurablePlugins()) {
       return [$this->shape->id() => $this->shape];
