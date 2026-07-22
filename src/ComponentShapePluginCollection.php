@@ -80,6 +80,32 @@ class ComponentShapePluginCollection extends DefaultLazyPluginCollection {
   }
 
   /**
+   * Reorders the plugin instances.
+   *
+   * Instances are processed and serialized in instance-ID order, so this is how
+   * a saved drag-and-drop order is applied. Instance IDs not present in the
+   * provided list keep their current relative order and are appended after the
+   * listed ones; unknown IDs are ignored.
+   *
+   * @param string[] $orderedInstanceIds
+   *   Instance IDs in the desired order.
+   */
+  public function setInstanceOrder(array $orderedInstanceIds): void {
+    $reordered = [];
+    foreach ($orderedInstanceIds as $instanceId) {
+      if (isset($this->instanceIds[$instanceId])) {
+        $reordered[$instanceId] = $instanceId;
+      }
+    }
+    foreach ($this->instanceIds as $instanceId) {
+      if (!isset($reordered[$instanceId])) {
+        $reordered[$instanceId] = $instanceId;
+      }
+    }
+    $this->instanceIds = $reordered;
+  }
+
+  /**
    * Sets the status of a component shape instance.
    *
    * @param string $instance_id

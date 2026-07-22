@@ -1156,11 +1156,25 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
     if (!isset($this->valueCollection)) {
       $configurations = [];
       $plugins = $this->getPlugins();
-      foreach ($this->valueManager->getFilteredDefinitionsFromShape($this) as $pluginId => $definition) {
+      $stored = $plugins[$this->id()] ?? [];
+      $definitions = $this->valueManager->getFilteredDefinitionsFromShape($this);
+      // Honor the saved (drag-and-drop) order: configured plugins first, in the
+      // order they were saved (per group, since each group renders its own
+      // table), followed by the remaining available plugins in their natural
+      // definition order. Processing filters by group, so grouping the
+      // configured plugins ahead of the rest keeps each group's saved order
+      // intact without disturbing the others.
+      $orderedIds = array_keys(array_intersect_key($stored, $definitions));
+      foreach (array_keys($definitions) as $pluginId) {
+        if (!in_array($pluginId, $orderedIds, TRUE)) {
+          $orderedIds[] = $pluginId;
+        }
+      }
+      foreach ($orderedIds as $pluginId) {
         $configurations[$pluginId] = [
           'id' => $pluginId,
-          'status' => !empty($plugins[$this->id()][$pluginId]),
-          'settings' => $plugins[$this->id()][$pluginId]['settings'] ?? [],
+          'status' => !empty($stored[$pluginId]),
+          'settings' => $stored[$pluginId]['settings'] ?? [],
         ];
       }
       $this->valueCollection = new ComponentShapePluginCollection($this, $this->valueManager, $configurations);

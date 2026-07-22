@@ -364,6 +364,27 @@ final class ComponentPropForm extends EntityForm {
         $instance->setConfiguration($settings);
         $form_state->set($originalPluginSettingsParents, $settings);
       }
+
+      // Apply the drag-and-drop order. Each group renders its own table, so
+      // collect the submitted weights per group, order each group, then
+      // reorder the collection so setPropShapeSettings() serializes the order.
+      $weightsByGroup = [];
+      foreach ($collection->getInstances() as $instanceId => $instance) {
+        $key = $instance->getGroup() . '_' . $id;
+        if (empty($form[$key]['values'][$instanceId])) {
+          continue;
+        }
+        $submitted = $form_state->getValue([$key, $instanceId], []);
+        $weightsByGroup[$instance->getGroup()][$instanceId] = $submitted['weight'] ?? 0;
+      }
+      $orderedInstanceIds = [];
+      foreach ($weightsByGroup as $weights) {
+        asort($weights);
+        $orderedInstanceIds = array_merge($orderedInstanceIds, array_keys($weights));
+      }
+      if ($orderedInstanceIds) {
+        $collection->setInstanceOrder($orderedInstanceIds);
+      }
     }
 
     if (!$form_state->getErrors()) {
