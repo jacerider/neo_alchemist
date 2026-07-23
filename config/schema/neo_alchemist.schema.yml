@@ -841,6 +841,17 @@ neo_alchemist_neo_component_settings.access:
 neo_alchemist.neo_component_access.*:
   type: mapping
 
+neo_alchemist.neo_component_access.prop_value:
+  type: mapping
+  label: 'Prop value'
+  mapping:
+    props:
+      type: sequence
+      label: 'Required props'
+      sequence:
+        type: string
+        label: 'Prop'
+
 neo_alchemist.neo_component_shape_fields:
   type: sequence
   label: The shape fields
