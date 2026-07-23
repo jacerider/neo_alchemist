@@ -886,7 +886,15 @@
    */
   function elementsPosition() {
     sizes.forEach(size => {
-      Object.entries(positionData[size]).forEach(([uuid, rect]) => {
+      // The preview iframes load deferred and report their position data one at
+      // a time, so a scale transition can finish — firing alchemistManageScaleEnd
+      // — before a given size has reported in. Skip it until it has, rather than
+      // let Object.entries() throw on undefined.
+      const positions = positionData[size];
+      if (!positions) {
+        return;
+      }
+      Object.entries(positions).forEach(([uuid, rect]) => {
         const element = structureElements[uuid][size];
         if (element) {
           const absoluteRect = calculateIframeRect(size, rect);
