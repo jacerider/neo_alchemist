@@ -137,7 +137,15 @@ class RegionShape extends ArrayShape implements ComponentShapeRegionPluginInterf
     if ($component instanceof ComponentInstanceInterface) {
       foreach ($value as $delta => $uuid) {
         $childComponent = $component->getFieldItem()->getComponent($uuid);
-        if ($childComponent && $childComponent->access('view')) {
+        if (!$childComponent) {
+          continue;
+        }
+        // Capture the child access decision's cacheability onto this region
+        // shape; it is merged into the component build via getPropValues().
+        // Boolean mode would discard value-provider list/entity tags.
+        $accessResult = $childComponent->access('view', NULL, TRUE);
+        $this->addCacheableDependency($accessResult);
+        if ($accessResult->isAllowed()) {
           $newValues[$delta] = $childComponent->toRenderable();
         }
       }

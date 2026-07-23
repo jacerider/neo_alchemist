@@ -170,10 +170,14 @@ class ComponentAccess implements ComponentAccessInterface {
    * {@inheritdoc}
    */
   public function access(string $op, AccountInterface $account): AccessResultInterface {
-    if ($account->hasPermission('administer neo_alchemist')) {
-      return AccessResult::allowed();
+    $plugin = $this->getPlugin();
+    // Administrators bypass access plugins, unless a plugin opts to be enforced
+    // even for administrators for this operation (e.g. a content-presence gate
+    // that must hide the component on the frontend for everyone).
+    if ($account->hasPermission('administer neo_alchemist') && (!$plugin || $plugin->bypassAdminAccess($op))) {
+      return AccessResult::allowed()->cachePerPermissions();
     }
-    if ($plugin = $this->getPlugin()) {
+    if ($plugin) {
       return $plugin->access($op, $account);
     }
     return AccessResult::neutral();

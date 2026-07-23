@@ -85,6 +85,16 @@ final class PropValueAccess extends ComponentAccessPluginBase {
   /**
    * {@inheritdoc}
    */
+  public function bypassAdminAccess(string $op): bool {
+    // Enforce the content-presence gate on the frontend even for
+    // administrators, so a component with no value is hidden for everyone.
+    // Backend management (update/create) still bypasses for administrators.
+    return $op !== 'view';
+  }
+
+  /**
+   * {@inheritdoc}
+   */
   public function access(string $op, AccountInterface $account): AccessResultInterface {
     // Only gate frontend visibility; never block backend management.
     if ($op !== 'view') {
@@ -96,16 +106,26 @@ final class PropValueAccess extends ComponentAccessPluginBase {
       return AccessResult::neutral();
     }
 
-    // getPropValues() is keyed by prop machine name with empty props already
-    // removed, so a present key means the prop has a non-empty resolved value.
-    $values = $this->access->getComponent()->getPropValues();
+    $component = $this->access->getComponent();
+    // Resolving props runs any value providers and accumulates their
+    // cacheability (entity_query *_list tags, entity_reference entity tags, …)
+    // on the component. getPropValues() is keyed by prop machine name with
+    // empty props already removed, so a present key means the prop has a
+    // non-empty resolved value.
+    $values = $component->getPropValues();
+    $result = AccessResult::neutral();
     foreach ($props as $propName) {
       if (!array_key_exists($propName, $values)) {
-        return AccessResult::forbidden(sprintf('The "%s" prop has no value.', $propName));
+        $result = AccessResult::forbidden(sprintf('The "%s" prop has no value.', $propName));
+        break;
       }
     }
 
-    return AccessResult::neutral();
+    // Attach the resolved-value cacheability so the decision is re-evaluated
+    // when those dependencies change. The render call sites capture this
+    // result's cacheability (see ComponentTreeHydrated / RegionShape).
+    $result->addCacheableDependency($component->getCacheableMetadata());
+    return $result;
   }
 
 }

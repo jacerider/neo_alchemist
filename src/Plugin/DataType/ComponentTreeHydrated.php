@@ -147,7 +147,12 @@ class ComponentTreeHydrated extends TypedData implements RenderableInterface {
         $isLast = $last === $component_instance_uuid;
         $instance = $item->getComponent($component_instance_uuid);
         $cacheableMetadata->addCacheableDependency($instance);
-        if (!$instance->access('view')) {
+        // Capture the access decision's cacheability (e.g. value-provider list
+        // or entity tags) so a hidden component is re-evaluated when its
+        // dependencies change. Boolean mode would discard this metadata.
+        $accessResult = $instance->access('view', NULL, TRUE);
+        $cacheableMetadata->addCacheableDependency($accessResult);
+        if (!$accessResult->isAllowed()) {
           // Skip components that are not accessible.
           continue;
         }

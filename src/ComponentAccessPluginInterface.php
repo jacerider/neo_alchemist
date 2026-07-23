@@ -42,4 +42,21 @@ interface ComponentAccessPluginInterface extends ConfigurableInterface, PluginFo
    */
   public function access(string $op, AccountInterface $account): AccessResultInterface;
 
+  /**
+   * Whether administrators bypass this access check for a given operation.
+   *
+   * Users with the "administer neo_alchemist" permission normally bypass all
+   * access plugins. A plugin can return FALSE for an operation to be enforced
+   * even for administrators (e.g. a content-presence gate that should hide the
+   * component on the frontend for everyone).
+   *
+   * @param string $op
+   *   The operation being checked (see ComponentAccessInterface::OPS).
+   *
+   * @return bool
+   *   TRUE if administrators bypass this plugin for the operation (the
+   *   default), FALSE to enforce the check even for administrators.
+   */
+  public function bypassAdminAccess(string $op): bool;
+
 }

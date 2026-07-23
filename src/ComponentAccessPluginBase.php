@@ -152,4 +152,11 @@ abstract class ComponentAccessPluginBase extends PluginBase implements Component
     return AccessResult::neutral();
   }
 
+  /**
+   * {@inheritdoc}
+   */
+  public function bypassAdminAccess(string $op): bool {
+    return TRUE;
+  }
+
 }
