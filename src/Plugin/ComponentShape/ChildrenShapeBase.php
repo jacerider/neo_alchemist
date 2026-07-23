@@ -216,7 +216,15 @@ abstract class ChildrenShapeBase extends ComponentShapePluginBase implements Com
   protected function loadChildShapes(int|null $delta = NULL, mixed $value = []): array {
     $shapes = $this->getChildShapesFromSchema($this->getChildSchema($delta), $delta);
     $count = count($shapes);
-    $value = $value ?? $this->getOverrideValue();
+    // Only distribute the stored override to children when this parent would
+    // itself use it. A non-editable (or "use default") expanded parent must not
+    // inject its stored per-instance value into children — mirror init()'s gate
+    // so each child's own value providers run instead of the stale value.
+    if (is_null($value)) {
+      $value = $this->isEditable() && !$this->getOptionDefault()->isEnabled()
+        ? $this->getOverrideValue()
+        : NULL;
+    }
     array_walk($shapes, fn ($shape) => $this->initChildShape($shape, $count, $delta, $value[$shape->getName()] ?? NULL));
     return $shapes;
   }
