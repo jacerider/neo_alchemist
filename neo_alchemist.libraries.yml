@@ -66,8 +66,11 @@ component.screenshot:
   neo: true
   js:
     src/js/component-screenshot.ts: {}
+  css:
+    component:
+      src/css/component-screenshot.css: {}
   dependencies:
-    - neo_alchemist/library.html2canvas
+    - neo_alchemist/library.snapdom
 
 component.ajax:
   version: VERSION
@@ -106,11 +109,11 @@ utilities:
 
 # Libraries
 
-library.html2canvas:
-  version: 1.5.8
+library.snapdom:
+  version: 2.18.0
   license:
     name: MIT
-    url: https://github.com/yorickshan/html2canvas-pro/blob/main/LICENSE
+    url: https://github.com/zumerlab/snapdom/blob/main/LICENSE
     gpl-compatible: true
   js:
-    lib/js/html2canvas.min.js: { minified: true, attributes: { defer: true } }
+    lib/js/snapdom.js: { minified: true, attributes: { defer: true } }

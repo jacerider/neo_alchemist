@@ -2,171 +2,274 @@
 
   const id = new URLSearchParams(window.location.search).get('id');
   const size = new URLSearchParams(window.location.search).get('size');
+  const origin = window.location.origin;
 
-  window.addEventListener('message', function(e) {
-    const data = e.data;
-    if (typeof data.type === 'string' && data.type === 'screenshotComponents') {
-      const components = this.document.querySelectorAll('[data-component-uuid]') as NodeListOf<HTMLElement>;
-      const images:any = {};
-      let completed = 0;
-      components.forEach((el) => {
-        const component = el as HTMLElement;
-        if (!component.dataset.componentUuid) {
-          return;
-        }
-        const componentUuid = component.dataset.componentUuid as string;
-        html2canvas(component, {
-          useCORS: true,
-        }).then((canvas:any) => {
-          images[componentUuid] = canvas.toDataURL();
-          completed++;
-          if (completed === components.length) {
-            window.parent.postMessage({
-              type: 'screenshotComponents',
-              id: id,
-              size: size,
-              images: images,
-            }, '*');
-          }
-        });
-      });
+  // Short components are stretched up to this landscape aspect (width:height) so
+  // they read as a clean banner in the library card with little hover-scroll.
+  // Taller components keep their natural height, so the card's hover-pan reveals
+  // exactly as much as the component actually has — no more, no less.
+  const LANDSCAPE_FLOOR = 16 / 9;
+  const OUTPUT_WIDTH = 800;
+  const DEFAULT_WIDTH = 1024;
+  const MIN_PREVIEW_WIDTH = 360;
+  const MAX_PREVIEW_WIDTH = 1440;
+
+  // Capture-mode state.
+  let active = false;
+  let requestId = '';
+  let previewWidth = DEFAULT_WIDTH;
+  // Vertical alignment of a stretched component's content: top | center | bottom.
+  let valign = 'center';
+  // The component's own rendered height at the current width, ignoring the
+  // capture-mode min-height floor. Cached so control changes don't thrash layout.
+  let naturalHeight = 0;
+  let wrapper: HTMLElement | null = null;
+  let componentEl: HTMLElement | null = null;
+  let savedWrapperStyle: string | null = null;
+  let savedComponentStyle: string | null = null;
+
+  const post = (message: Record<string, unknown>, reqId: string): void => {
+    window.parent.postMessage(Object.assign({
+      id: id,
+      size: size,
+      requestId: reqId,
+    }, message), origin);
+  };
+
+  const componentWidth = (): number => (componentEl ? componentEl.offsetWidth : previewWidth);
+
+  const floorHeight = (): number => componentWidth() / LANDSCAPE_FLOOR;
+
+  // True when the landscape floor is taller than the component's own content,
+  // i.e. the component is being stretched to fill the frame.
+  const isStretched = (): boolean => naturalHeight < floorHeight();
+
+  // Measure how tall the component is on its own — including its own min-height
+  // (e.g. a hero's min-h-208) — with our stretch override removed.
+  const measureNaturalHeight = (): void => {
+    if (!componentEl) {
+      naturalHeight = 0;
       return;
     }
-    if (typeof data.type === 'string' && data.type === 'screenshot') {
-      const wrapper = document.querySelector('.neo-alchemist-preview') as HTMLElement;
-      if (!wrapper) {
+    componentEl.style.removeProperty('min-height');
+    naturalHeight = componentEl.offsetHeight;
+  };
+
+  // Stretch only when the landscape floor is taller than the component's own
+  // content. Applied as an inline min-height so it adds to — never replaces —
+  // the component's intrinsic height; removed otherwise so tall components keep
+  // their natural layout untouched.
+  const applyFloor = (): void => {
+    if (!componentEl) {
+      return;
+    }
+    if (isStretched()) {
+      componentEl.style.minHeight = Math.round(floorHeight()) + 'px';
+    }
+    else {
+      componentEl.style.removeProperty('min-height');
+    }
+  };
+
+  // Vertical alignment only has meaning while the component is stretched — there
+  // is no empty space to distribute otherwise — so the flex class is applied
+  // only then, leaving natural-height components on their own block layout.
+  const applyValign = (): void => {
+    if (!wrapper) {
+      return;
+    }
+    const stretched = isStretched();
+    wrapper.classList.toggle('is-valign-center', stretched && valign === 'center');
+    wrapper.classList.toggle('is-valign-bottom', stretched && valign === 'bottom');
+  };
+
+  const setValign = (value: string): void => {
+    valign = value === 'top' || value === 'bottom' ? value : 'center';
+    applyValign();
+  };
+
+  const setPreviewWidth = (px: number): void => {
+    previewWidth = Math.max(MIN_PREVIEW_WIDTH, Math.min(MAX_PREVIEW_WIDTH, Math.round(px)));
+    if (wrapper) {
+      wrapper.style.setProperty('--capture-width', previewWidth + 'px');
+    }
+    // The component reflows at the new width; re-measure, re-floor, re-align.
+    measureNaturalHeight();
+    applyFloor();
+    applyValign();
+  };
+
+  const onKeydown = (e: KeyboardEvent): void => {
+    if (e.key === 'Escape') {
+      cancelCapture();
+    }
+    else if (e.key === 'Enter') {
+      doCapture();
+    }
+  };
+
+  const enterCaptureMode = (reqId: string): void => {
+    wrapper = document.querySelector('.neo-alchemist-preview');
+    componentEl = wrapper ? wrapper.querySelector('[data-component-id]') : null;
+    if (!wrapper || !componentEl) {
+      post({ type: 'thumbnailCaptureError', message: 'Preview component not found.' }, reqId);
+      return;
+    }
+    if (typeof snapdom === 'undefined') {
+      post({ type: 'thumbnailCaptureError', message: 'The snapdom capture library failed to load.' }, reqId);
+      return;
+    }
+    active = true;
+    requestId = reqId;
+    previewWidth = DEFAULT_WIDTH;
+    valign = 'center';
+    savedWrapperStyle = wrapper.getAttribute('style');
+    savedComponentStyle = componentEl.getAttribute('style');
+    wrapper.classList.add('neo-alchemist-capture-mode');
+    wrapper.style.setProperty('--capture-width', previewWidth + 'px');
+    measureNaturalHeight();
+    applyFloor();
+    applyValign();
+    document.addEventListener('keydown', onKeydown);
+    // Tell the parent to raise its toolbar and how to configure the width slider.
+    post({
+      type: 'thumbnailCaptureReady',
+      width: previewWidth,
+      minWidth: MIN_PREVIEW_WIDTH,
+      maxWidth: MAX_PREVIEW_WIDTH,
+      valign: valign,
+    }, reqId);
+  };
+
+  const exitCaptureMode = (): void => {
+    if (componentEl) {
+      if (savedComponentStyle === null) {
+        componentEl.removeAttribute('style');
+      }
+      else {
+        componentEl.setAttribute('style', savedComponentStyle);
+      }
+    }
+    if (wrapper) {
+      wrapper.classList.remove('neo-alchemist-capture-mode', 'is-valign-center', 'is-valign-bottom');
+      if (savedWrapperStyle === null) {
+        wrapper.removeAttribute('style');
+      }
+      else {
+        wrapper.setAttribute('style', savedWrapperStyle);
+      }
+    }
+    wrapper = null;
+    componentEl = null;
+    savedWrapperStyle = null;
+    savedComponentStyle = null;
+    document.removeEventListener('keydown', onKeydown);
+    active = false;
+    requestId = '';
+  };
+
+  const cancelCapture = (): void => {
+    if (!active) {
+      return;
+    }
+    const reqId = requestId;
+    exitCaptureMode();
+    post({ type: 'thumbnailCaptureCancel' }, reqId);
+  };
+
+  const doCapture = async (): Promise<void> => {
+    if (!active) {
+      return;
+    }
+    const reqId = requestId;
+    const target = componentEl;
+    if (!target) {
+      exitCaptureMode();
+      post({ type: 'thumbnailCaptureError', message: 'Preview component not found.' }, reqId);
+      return;
+    }
+    try {
+      // Rasterize the whole component (stretched to the floor when short) and
+      // scale so the stored image is OUTPUT_WIDTH wide.
+      const scale = Math.min(2, OUTPUT_WIDTH / Math.max(1, target.offsetWidth));
+      const canvas = await snapdom.toCanvas(target, {
+        scale: scale,
+        dpr: 1,
+        embedFonts: true,
+        compress: true,
+        fast: true,
+        backgroundColor: '#ffffff',
+      });
+      const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'));
+      if (!blob) {
+        throw new Error('The capture produced no image data.');
+      }
+      exitCaptureMode();
+      post({ type: 'thumbnailCaptureResult', blob: blob, width: canvas.width, height: canvas.height }, reqId);
+    }
+    catch (error) {
+      exitCaptureMode();
+      post({ type: 'thumbnailCaptureError', message: String(error) }, reqId);
+    }
+  };
+
+  const captureComponents = async (reqId: string): Promise<void> => {
+    const components = document.querySelectorAll('[data-component-uuid]') as NodeListOf<HTMLElement>;
+    const images: Record<string, string> = {};
+    await Promise.allSettled(Array.from(components).map(async (component) => {
+      const componentUuid = component.dataset.componentUuid;
+      if (!componentUuid || typeof snapdom === 'undefined') {
         return;
       }
-      wrapper.style.width = '1024px';
-      wrapper.style.maxHeight = '1024px';
-      wrapper.style.minHeight = '440px';
-      wrapper.style.overflow = 'hidden';
-      wrapper.style.display = 'flex';
-      wrapper.style.alignItems = 'start';
-      wrapper.style.justifyContent = 'start';
-      wrapper.style.padding = '15px 0 0';
-      wrapper.style.boxShadow = 'inset 0 0 0 2px black';
-      const components = this.document.querySelectorAll('[data-component-id]') as NodeListOf<HTMLElement>;
-      components.forEach((el) => {
-        el.style.width = '1024px';
-        el.style.setProperty('margin', '0px', 'important');
-        el.style.setProperty('--spacing-component', '30px');
+      const scale = Math.min(1, 400 / Math.max(1, component.offsetWidth));
+      const canvas = await snapdom.toCanvas(component, {
+        scale: scale,
+        dpr: 1,
+        compress: true,
+        fast: true,
+        backgroundColor: '#ffffff',
       });
+      images[componentUuid] = canvas.toDataURL('image/png');
+    }));
+    post({ type: 'screenshotComponents', images: images }, reqId);
+  };
 
-      const controls = this.document.createElement('div');
-      let group: HTMLDivElement;
-      let groupTitle: HTMLDivElement;
-      let links: HTMLDivElement;
-      let link: HTMLAnchorElement;
-      controls.classList.add('fixed', 'flex', 'items-end', 'p-2', 'gap-2', 'border', 'bg-base-0', 'rounded', 'shadow');
-      controls.style.top = '10px';
-      controls.style.right = '10px';
-      controls.style.zIndex = '9999';
-      this.document.body.appendChild(controls);
-
-      const actions = [
-        { name: 'Zoom', property: 'transform', subproperty: 'scale', value: 0.2 },
-        { name: 'Width', property: 'width', value: 10 },
-      ];
-
-      actions.forEach((action) => {
-        const property:string = action.property as string;
-        const subproperty = action.subproperty || null;
-        const value:number = action.value as number;
-        group = this.document.createElement('div') as HTMLDivElement;
-        controls.appendChild(group);
-
-        groupTitle = this.document.createElement('div') as HTMLDivElement;
-        groupTitle.innerHTML = action.name;
-        groupTitle.classList.add('text-xs', 'uppercase', 'font-bold', 'text-base-500');
-        group.appendChild(groupTitle);
-
-        links = this.document.createElement('div') as HTMLDivElement;
-        links.classList.add('btn-group');
-        group.appendChild(links);
-
-        link = this.document.createElement('a') as HTMLAnchorElement;
-        link.classList.add('btn', 'btn-xs');
-        link.textContent = '+';
-        link.style.minWidth = '24px';
-        link.href = '#';
-        link.addEventListener('click', (event) => {
-          event.preventDefault();
-          components.forEach((el) => {
-            if (subproperty) {
-              const current = (el.style as any)[property] ? parseFloat((el.style as any)[property].replace(subproperty + '(', '').replace(')', '')) : 1;
-              const newValue = current + value;
-              (el.style as any)[property] = `scale(${newValue})`;
-              el.style.transformOrigin = 'top left';
-            }
-            else {
-              const current = (el.style as any)[property] ? parseFloat((el.style as any)[property].replace('px', '')) : 1024;
-              const newWidth = current + value;
-              (el.style as any)[property] = `${newWidth}px`;
-            }
-          });
-        });
-        links.appendChild(link);
-
-        link = this.document.createElement('a') as HTMLAnchorElement;
-        link.classList.add('btn', 'btn-xs');
-        link.style.minWidth = '24px';
-        link.textContent = '-';
-        link.href = '#';
-        link.addEventListener('click', (event) => {
-          event.preventDefault();
-          components.forEach((el) => {
-            if (subproperty) {
-              const current = (el.style as any)[property] ? parseFloat((el.style as any)[property].replace(subproperty + '(', '').replace(')', '')) : 1;
-              const newValue = current - value;
-              (el.style as any)[property] = `scale(${newValue})`;
-              el.style.transformOrigin = 'top left';
-            }
-            else {
-              const current = (el.style as any)[property] ? parseFloat((el.style as any)[property].replace('px', '')) : 1024;
-              const newWidth = current - value;
-              (el.style as any)[property] = `${newWidth}px`;
-            }
-          });
-        });
-        links.appendChild(link);
-      });
-
-      link = this.document.createElement('a') as HTMLAnchorElement;
-      link.classList.add('btn', 'btn-xs', 'btn-alert');
-      link.textContent = 'Capture';
-      link.href = '#';
-      link.addEventListener('click', (event) => {
-        event.preventDefault();
-        wrapper.style.boxShadow = '';
-        html2canvas(wrapper, {
-          width: 1024,
-          useCORS: true,
-        }).then((canvas:any) => {
-          wrapper.style.width = '';
-          wrapper.style.maxHeight = '';
-          wrapper.style.minHeight = '';
-          wrapper.style.overflow = '';
-          wrapper.style.display = '';
-          wrapper.style.alignItems = '';
-          wrapper.style.justifyContent = '';
-          wrapper.style.padding = '';
-          components.forEach((el) => {
-            el.style.margin = '';
-            el.style.width = '';
-            el.style.transform = '';
-            el.style.transformOrigin = '';
-            el.style.setProperty('--spacing-component', '');
-          });
-          window.parent.postMessage({
-            type: 'screenshot',
-            id: id,
-            size: size,
-            dataUrl: canvas.toDataURL(),
-          }, '*');
-        });
-      });
-      controls.appendChild(link);
+  window.addEventListener('message', (e) => {
+    if (e.origin !== origin) {
+      return;
+    }
+    const data = e.data;
+    if (!data || typeof data.type !== 'string') {
+      return;
+    }
+    const reqId = typeof data.requestId === 'string' ? data.requestId : '';
+    switch (data.type) {
+      case 'screenshotComponents':
+        captureComponents(reqId);
+        break;
+      case 'thumbnailCaptureStart':
+        if (!active) {
+          enterCaptureMode(reqId);
+        }
+        break;
+      case 'thumbnailCaptureWidth':
+        if (active && typeof data.width === 'number') {
+          setPreviewWidth(data.width);
+        }
+        break;
+      case 'thumbnailCaptureValign':
+        if (active && typeof data.value === 'string') {
+          setValign(data.value);
+        }
+        break;
+      case 'thumbnailCaptureCommit':
+        if (active) {
+          doCapture();
+        }
+        break;
+      case 'thumbnailCaptureAbort':
+        cancelCapture();
+        break;
     }
   });
 

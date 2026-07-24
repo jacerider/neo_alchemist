@@ -122,24 +122,15 @@ final class ComponentManageForm extends EntityForm {
       ];
     }
 
-    if (!$thumbnailId) {
-      $form['thumbnail_generate'] = [
-        '#type' => 'button',
-        '#value' => $this->t('Capture Automatic Thumbnail'),
-        '#id' => 'neo-alchemist-thumbnail-generate-button',
-        '#attributes' => [
-          'class' => ['btn', 'btn-xs', 'mt-2'],
-        ],
-      ];
-      $form['thumbnail_generate_data'] = [
-        '#type' => 'textarea',
-        '#title' => $this->t('Thumbnail Data'),
-        '#id' => 'neo-alchemist-thumbnail-generate-data',
-        '#wrapper_attributes' => [
-          'class' => ['hidden'],
-        ],
-      ];
-    }
+    $form['thumbnail_capture'] = [
+      '#type' => 'button',
+      '#value' => $thumbnailId ? $this->t('Re-capture thumbnail') : $this->t('Capture thumbnail'),
+      '#id' => 'neo-alchemist-thumbnail-capture-button',
+      '#attributes' => [
+        'class' => ['btn', 'btn-xs', 'mt-2'],
+        'data-filename' => Html::getClass('component-' . $entity->id()),
+      ],
+    ];
 
     if ($entity->getTargetEntityTypeId()) {
       $form['entity_preview'] = [
@@ -628,31 +619,6 @@ final class ComponentManageForm extends EntityForm {
     $form_state->unsetValue('filters');
     $form_state->unsetValue('access');
     parent::copyFormValuesToEntity($entity, $form, $form_state);
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function validateForm(array &$form, FormStateInterface $form_state) {
-    /** @var \Drupal\neo_alchemist\ComponentInterface $entity */
-    $entity = $this->entity;
-    parent::validateForm($form, $form_state);
-
-    if (!$form_state->hasAnyErrors()) {
-      // Save the generated thumbnail.
-      $thumbnailData = trim($form_state->getValue('thumbnail_generate_data', ''));
-      if (!empty($thumbnailData)) {
-        $data = explode(',', $thumbnailData);
-        if (!empty($data[1])) {
-          /** @var \Drupal\neo_config_file\ConfigFileGenerator $generator */
-          $generator = \Drupal::service('neo_config_file.generator');
-          $configFile = $generator->createFromBase64($data[1], 'component-' . str_replace('_', '-', $entity->id()) . '.png', 500, 500);
-          if ($configFile) {
-            $form_state->setValue('thumbnail', $configFile->id());
-          }
-        }
-      }
-    }
   }
 
   /**

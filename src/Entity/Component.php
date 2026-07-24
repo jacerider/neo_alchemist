@@ -422,7 +422,11 @@ class Component extends ConfigEntityBase implements ComponentInterface {
       $configFile = $this->entityTypeManager()->getStorage('neo_config_file')->load($thumbnailId);
       $file = $configFile?->getFile();
       if ($file) {
-        return \Drupal::service('file_url_generator')->generateAbsoluteString($file->getFileUri());
+        $url = \Drupal::service('file_url_generator')->generateAbsoluteString($file->getFileUri());
+        // Append a cache-busting token so a re-captured thumbnail — saved to
+        // the same filename/URI as the one it replaces — is not served stale
+        // from the browser cache. The changed time updates when the bytes do.
+        return $url . (str_contains($url, '?') ? '&' : '?') . 'v=' . $file->getChangedTime();
       }
     }
     if ($defaultThumbnail = $this->getDefaultThumbnail()) {

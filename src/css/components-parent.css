@@ -31,3 +31,57 @@
     width: 100vw !important;
   }
 }
+
+/* Thumbnail capture framing toolbar (rendered in the parent window so it stays
+ * fixed in the viewport while the crop frame lives inside the preview iframe). */
+.neo-alchemist-capture-toolbar {
+  position: fixed;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid rgb(var(--color-base-300));
+  border-radius: 0.5rem;
+  background: rgb(var(--color-base-0));
+  box-shadow: 0 4px 16px rgb(0 0 0 / 0.25);
+
+  .neo-alchemist-capture-toolbar__group {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .neo-alchemist-capture-toolbar__hint {
+    font-size: 0.7rem;
+    color: rgb(var(--color-base-500));
+    max-width: 8rem;
+    line-height: 1.2;
+  }
+
+  .neo-alchemist-capture-toolbar__label {
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: rgb(var(--color-base-500));
+  }
+
+  .neo-alchemist-capture-toolbar__readout {
+    font-size: 0.7rem;
+    color: rgb(var(--color-base-500));
+    font-variant-numeric: tabular-nums;
+    min-width: 3.5em;
+  }
+
+  input[type="range"] {
+    width: 120px;
+  }
+
+  .btn.is-active {
+    background: rgb(var(--color-base-900));
+    color: rgb(var(--color-base-0));
+  }
+}

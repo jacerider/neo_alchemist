@@ -1,0 +1,40 @@
+/**
+ * Capture mode for the component thumbnail screenshot.
+ *
+ * The whole component is captured. Short components are stretched to a
+ * landscape floor (via --capture-min-height, set from JS) so they read as a
+ * clean banner in the library card; taller components keep their natural
+ * height. Only a capture-mode class and two custom properties are added while
+ * composing — the component's own inline styles are preserved and restored.
+ */
+
+.neo-alchemist-preview.neo-alchemist-capture-mode {
+  width: var(--capture-width, 1024px);
+  overflow: visible;
+  padding: 0;
+  /* A quiet frame marking the capture bounds. It sits on the wrapper, which is
+   * outside the captured component, so it never lands in the image. */
+  outline: 2px solid rgb(0 0 0 / 0.5);
+  outline-offset: 0;
+
+  [data-component-id] {
+    width: var(--capture-width, 1024px);
+    margin: 0 !important;
+    --spacing-component: 30px;
+  }
+
+  /* Vertical alignment of a stretched component's content. Off (top) leaves the
+   * component's own block flow untouched; center/bottom flex the section so its
+   * in-flow content sits in the middle or at the bottom of the stretched box. */
+  &.is-valign-center [data-component-id] {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+
+  &.is-valign-bottom [data-component-id] {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+  }
+}

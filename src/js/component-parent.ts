@@ -198,6 +198,9 @@
     const id = container.id;
 
     window.addEventListener('message', function (e) {
+      if (e.origin !== window.location.origin) {
+        return;
+      }
       const data = e.data;
       if (typeof data.id !== 'string') {
         return;
@@ -308,18 +311,258 @@
       }
     });
 
-    const screenshotButton = document.getElementById('neo-alchemist-thumbnail-generate-button');
-    if (screenshotButton) {
-      screenshotButton.addEventListener('click', (e) => {
+    const captureButton = document.getElementById('neo-alchemist-thumbnail-capture-button');
+    let captureRequestId = '';
+    let captureToolbar: HTMLElement | null = null;
+    let captureButtonLabel = captureButton ? getButtonLabel(captureButton) : '';
+    if (captureButton) {
+      captureButton.addEventListener('click', (e) => {
         e.preventDefault();
-        screenshotButton.setAttribute('disabled', 'disabled');
-        const iframe = getIframe('desktop');
-        if (iframe && iframe.contentWindow) {
-          iframe.contentWindow.postMessage({
-            type: 'screenshot',
-          }, "*");
+        if (captureRequestId) {
+          return;
         }
+        const iframe = getIframe('desktop');
+        if (!iframe || !iframe.contentWindow) {
+          return;
+        }
+        captureRequestId = window.crypto && 'randomUUID' in window.crypto
+          ? window.crypto.randomUUID()
+          : Date.now() + '-' + Math.random();
+        captureButton.setAttribute('disabled', 'disabled');
+        setButtonLabel(captureButton, Drupal.t('Composing thumbnail…'));
+        enterPreviewView();
+        centerIframe('desktop', 'smooth');
+        postToDesktop({ type: 'thumbnailCaptureStart' });
       });
+    }
+
+    // Maximize the preview while composing a thumbnail so more of the component
+    // is visible, remembering the current view to restore afterwards.
+    let priorViewButton: HTMLElement | null = null;
+    function enterPreviewView(): void {
+      const activeView = container.querySelector('.neo-alchemist--sizing.is-active');
+      priorViewButton = activeView instanceof HTMLElement ? activeView : null;
+      const previewView = container.querySelector('.neo-alchemist-manage--size-contract');
+      if (previewView instanceof HTMLElement && previewView !== priorViewButton) {
+        previewView.click();
+      }
+    }
+
+    function restorePriorView(): void {
+      if (priorViewButton) {
+        priorViewButton.click();
+        priorViewButton = null;
+      }
+    }
+
+    function postToDesktop(message: Record<string, unknown>): void {
+      const iframe = getIframe('desktop');
+      if (iframe && iframe.contentWindow && captureRequestId) {
+        iframe.contentWindow.postMessage(
+          Object.assign({ requestId: captureRequestId }, message),
+          window.location.origin,
+        );
+      }
+    }
+
+    // The framing toolbar lives in the parent window so it stays fixed in the
+    // viewport regardless of how tall the preview iframe grows. It drives the
+    // in-iframe crop frame via postMessage.
+    function buildCaptureToolbar(cfg: { width: number, minWidth: number, maxWidth: number, valign?: string }): void {
+      removeCaptureToolbar();
+      const bar = document.createElement('div');
+      bar.className = 'neo-alchemist-capture-toolbar';
+
+      const hint = document.createElement('span');
+      hint.className = 'neo-alchemist-capture-toolbar__hint';
+      hint.textContent = Drupal.t('Sized to fit the component');
+      bar.appendChild(hint);
+
+      // Vertical alignment of the content when a short component is stretched.
+      const activeValign = cfg.valign || 'center';
+      const alignGroup = document.createElement('div');
+      alignGroup.className = 'neo-alchemist-capture-toolbar__group';
+      const alignLabel = document.createElement('span');
+      alignLabel.className = 'neo-alchemist-capture-toolbar__label';
+      alignLabel.textContent = Drupal.t('Align');
+      alignGroup.appendChild(alignLabel);
+      const alignButtons = document.createElement('div');
+      alignButtons.className = 'btn-group';
+      ([['Top', 'top'], ['Center', 'center'], ['Bottom', 'bottom']] as [string, string][]).forEach(([label, value]) => {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'btn btn-xs' + (value === activeValign ? ' is-active' : '');
+        b.textContent = label;
+        b.addEventListener('click', () => {
+          alignButtons.querySelectorAll('button').forEach(el => el.classList.remove('is-active'));
+          b.classList.add('is-active');
+          postToDesktop({ type: 'thumbnailCaptureValign', value });
+        });
+        alignButtons.appendChild(b);
+      });
+      alignGroup.appendChild(alignButtons);
+      bar.appendChild(alignGroup);
+
+      const widthGroup = document.createElement('div');
+      widthGroup.className = 'neo-alchemist-capture-toolbar__group';
+      const widthLabel = document.createElement('span');
+      widthLabel.className = 'neo-alchemist-capture-toolbar__label';
+      widthLabel.textContent = Drupal.t('Width');
+      const slider = document.createElement('input');
+      slider.type = 'range';
+      slider.min = String(cfg.minWidth);
+      slider.max = String(cfg.maxWidth);
+      slider.step = '10';
+      slider.value = String(cfg.width);
+      const readout = document.createElement('span');
+      readout.className = 'neo-alchemist-capture-toolbar__readout';
+      readout.textContent = cfg.width + 'px';
+      slider.addEventListener('input', () => {
+        readout.textContent = slider.value + 'px';
+        postToDesktop({ type: 'thumbnailCaptureWidth', width: parseInt(slider.value, 10) });
+      });
+      widthGroup.appendChild(widthLabel);
+      widthGroup.appendChild(slider);
+      widthGroup.appendChild(readout);
+      bar.appendChild(widthGroup);
+
+      const actions = document.createElement('div');
+      actions.className = 'neo-alchemist-capture-toolbar__group neo-alchemist-capture-toolbar__actions';
+      const capture = document.createElement('button');
+      capture.type = 'button';
+      capture.className = 'btn btn-xs btn-alert';
+      capture.textContent = Drupal.t('Capture');
+      capture.addEventListener('click', () => postToDesktop({ type: 'thumbnailCaptureCommit' }));
+      const cancel = document.createElement('button');
+      cancel.type = 'button';
+      cancel.className = 'btn btn-xs';
+      cancel.textContent = Drupal.t('Cancel');
+      cancel.addEventListener('click', () => postToDesktop({ type: 'thumbnailCaptureAbort' }));
+      actions.appendChild(capture);
+      actions.appendChild(cancel);
+      bar.appendChild(actions);
+
+      document.body.appendChild(bar);
+      captureToolbar = bar;
+    }
+
+    function removeCaptureToolbar(): void {
+      if (captureToolbar) {
+        captureToolbar.remove();
+        captureToolbar = null;
+      }
+    }
+
+    function getButtonLabel(button: HTMLElement): string {
+      return button instanceof HTMLInputElement ? button.value : (button.textContent || '');
+    }
+
+    function setButtonLabel(button: HTMLElement, label: string): void {
+      if (button instanceof HTMLInputElement) {
+        button.value = label;
+      }
+      else {
+        button.textContent = label;
+      }
+    }
+
+    function resetCaptureButton(): void {
+      captureRequestId = '';
+      removeCaptureToolbar();
+      restorePriorView();
+      if (captureButton) {
+        captureButton.removeAttribute('disabled');
+        setButtonLabel(captureButton, captureButtonLabel);
+      }
+    }
+
+    function showCaptureMessage(text: string, type: 'status' | 'error'): void {
+      const messagesWrapper = document.querySelector('.alchemist-messages');
+      if (!messagesWrapper) {
+        return;
+      }
+      const content = document.createElement('div');
+      content.classList.add('neo-alchemist--messages-content');
+      const message = document.createElement('div');
+      message.classList.add('messages', 'messages--' + type);
+      message.textContent = text;
+      content.appendChild(message);
+      messagesWrapper.appendChild(content);
+      setTimeout(() => {
+        fadeOutAndRemove(content);
+      }, type === 'error' ? 8000 : 4000);
+    }
+
+    /**
+     * Wait for a selector to appear under root, surviving AJAX DOM swaps.
+     *
+     * Keys on stable name attributes rather than Drupal's ajax-wrapper ids,
+     * which get an incremented suffix on every rebuild.
+     */
+    function waitForElement(root: HTMLElement, selector: string, timeout: number): Promise<HTMLElement> {
+      return new Promise((resolve, reject) => {
+        const existing = root.querySelector(selector) as HTMLElement | null;
+        if (existing) {
+          resolve(existing);
+          return;
+        }
+        const timer = window.setTimeout(() => {
+          observer.disconnect();
+          reject(new Error('Timed out waiting for ' + selector));
+        }, timeout);
+        const observer = new MutationObserver(() => {
+          const el = root.querySelector(selector) as HTMLElement | null;
+          if (el) {
+            window.clearTimeout(timer);
+            observer.disconnect();
+            resolve(el);
+          }
+        });
+        observer.observe(root, { childList: true, subtree: true });
+      });
+    }
+
+    /**
+     * Feed a captured image into the thumbnail managed-file element.
+     *
+     * Behaves exactly as if the user picked the file by hand: core's
+     * fileAutoUpload behavior reacts to the change event and runs the
+     * element's upload AJAX, so all neo_config_file machinery (rename,
+     * dependencies, permanent-on-save) applies unchanged.
+     */
+    async function attachThumbnail(file: File): Promise<void> {
+      const formElement = captureButton ? captureButton.closest('form') as HTMLElement | null : null;
+      if (!formElement) {
+        resetCaptureButton();
+        return;
+      }
+      try {
+        let input = formElement.querySelector('input[type="file"][name="files[thumbnail]"]') as HTMLInputElement | null;
+        if (!input) {
+          // A thumbnail already exists: trigger the element's Remove so the
+          // upload input comes back. Drupal AJAX buttons act on mousedown.
+          const removeButton = formElement.querySelector('[name="thumbnail_remove_button"]');
+          if (!removeButton) {
+            throw new Error('Thumbnail field not found.');
+          }
+          removeButton.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
+          input = await waitForElement(formElement, 'input[type="file"][name="files[thumbnail]"]', 15000) as HTMLInputElement;
+        }
+        const transfer = new DataTransfer();
+        transfer.items.add(file);
+        input.files = transfer.files;
+        input.dispatchEvent(new Event('change', { bubbles: true }));
+        // The remove button only renders once the element holds a file, so its
+        // appearance confirms the upload completed.
+        await waitForElement(formElement, '[name="thumbnail_remove_button"]', 30000);
+        captureButtonLabel = Drupal.t('Re-capture thumbnail');
+        resetCaptureButton();
+        showCaptureMessage(Drupal.t('Thumbnail captured — save the component to keep it.'), 'status');
+      }
+      catch (_error) {
+        resetCaptureButton();
+        showCaptureMessage(Drupal.t('The captured thumbnail could not be attached — check the form for details.'), 'error');
+      }
     }
 
     if (messages) {
@@ -467,16 +710,43 @@
         }
       },
 
-      screenshot: function (data:any) {
-        const screenshotButton = document.getElementById('neo-alchemist-thumbnail-generate-button');
-        if (screenshotButton instanceof HTMLButtonElement) {
-          // set button value to 'awesome'
-          screenshotButton.innerHTML = 'Image Generated <small>Save component to finish capture</small>';
+      thumbnailCaptureReady: function (data:any) {
+        if (data.requestId !== captureRequestId) {
+          return;
         }
-        const screenshotData = document.getElementById('neo-alchemist-thumbnail-generate-data') as HTMLTextAreaElement;
-        if (screenshotData) {
-          screenshotData.value = data.dataUrl;
+        buildCaptureToolbar({
+          width: data.width,
+          minWidth: data.minWidth,
+          maxWidth: data.maxWidth,
+          valign: data.valign,
+        });
+      },
+
+      thumbnailCaptureResult: function (data:any) {
+        if (!captureButton || !captureRequestId || data.requestId !== captureRequestId) {
+          return;
         }
+        removeCaptureToolbar();
+        restorePriorView();
+        const filename = (captureButton.dataset.filename || 'thumbnail') + '.png';
+        attachThumbnail(new File([data.blob], filename, { type: 'image/png' }));
+      },
+
+      thumbnailCaptureCancel: function (data:any) {
+        if (data.requestId !== captureRequestId) {
+          return;
+        }
+        resetCaptureButton();
+      },
+
+      thumbnailCaptureError: function (data:any) {
+        if (data.requestId !== captureRequestId) {
+          return;
+        }
+        resetCaptureButton();
+        showCaptureMessage(Drupal.t('Thumbnail capture failed: @message', {
+          '@message': data.message || Drupal.t('unknown error'),
+        }), 'error');
       },
     };
 
