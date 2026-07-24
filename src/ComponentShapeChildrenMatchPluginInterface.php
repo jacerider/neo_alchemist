@@ -37,6 +37,23 @@ interface ComponentShapeChildrenMatchPluginInterface extends ComponentShapePlugi
   public function getChildShapeNames(): array;
 
   /**
+   * Get an uninitialized child shape for value resolution.
+   *
+   * Safe to call while getDefaultValue() is being memoized — unlike
+   * getChildShapes(), which routes through getChildSchema() ->
+   * getDefaultValue() and recurses when called from a value provider.
+   * The returned shape is never init()'d; use it only for schema-level
+   * introspection and value conversion (getValueFromMedia(), resolveValue()).
+   *
+   * @param string $name
+   *   The child shape (property) name.
+   *
+   * @return \Drupal\neo_alchemist\ComponentShapePluginInterface|null
+   *   The uninitialized child shape, or NULL if no child of that name exists.
+   */
+  public function getValueResolverShape(string $name): ?ComponentShapePluginInterface;
+
+  /**
    * Hide a child shape.
    *
    * @param string $shapeId

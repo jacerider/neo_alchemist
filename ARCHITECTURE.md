@@ -174,6 +174,21 @@ Modifiers always run afterward regardless. Mechanics:
 - **Veto** producers (`user_has_role`, `entity_has_value`) opt out of the mode; they
   `claimValue()` explicitly and return `FALSE`.
 
+**Children-match pseudo-fields** — producers that map entity fields onto child shapes
+(`entity_reference`, `entity_query`, `entity_load`, `entity_filter`, `views`, …) share
+`ComponentValueChildrenMatchTrait`. Its per-child "Field" select offers, besides real
+fields, `_`-prefixed pseudo-fields dispatched to `fetchChildrenMatchValues<Name>()`:
+`_default` (use the child's default), `_event` (ComponentValueEvent), `_expand`
+(configure grandchild shapes), `_reference~<key>` (follow a reference and recurse),
+`_render` (render a field with a formatter), `_raw:*` (literal boolean/string), and
+`_self` (use the **iterated entity itself** as a media-shape child's value — offered
+when iterating media entities, e.g. a media reference field as the iteration source;
+bundle support is checked strictly at fetch time and the value comes from the shape's
+`getValueFromMedia()`). The trait honors the "Only use published entities" setting by
+skipping unpublished iterated entities. Handlers resolve child shapes via
+`getValueResolverShape()` — never `getChildShapes()`, which routes through
+`getDefaultValue()` and recurses when called mid-pipeline.
+
 **Field integration** — components can be embedded in content entities via a field:
 [src/Plugin/Field/FieldType/NeoComponentTreeList.php](src/Plugin/Field/FieldType/) (storage) +
 `ComponentTreeWidget` (edit) + `ComponentTreeFormatter` (render), backed by the

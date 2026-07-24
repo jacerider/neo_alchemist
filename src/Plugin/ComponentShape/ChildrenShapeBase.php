@@ -368,6 +368,13 @@ abstract class ChildrenShapeBase extends ComponentShapePluginBase implements Com
   }
 
   /**
+   * {@inheritDoc}
+   */
+  public function getValueResolverShape(string $name): ?ComponentShapePluginInterface {
+    return $this->getValueResolverShapes()[$name] ?? NULL;
+  }
+
+  /**
    * Resolve each child slice of a value through its child shape.
    *
    * Keys with no matching child shape (such as `_weight`) pass through

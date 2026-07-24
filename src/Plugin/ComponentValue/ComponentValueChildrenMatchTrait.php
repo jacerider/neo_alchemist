@@ -7,9 +7,12 @@ namespace Drupal\neo_alchemist\Plugin\ComponentValue;
 use Drupal\Component\Utility\NestedArray;
 use Drupal\Core\Cache\CacheableMetadata;
 use Drupal\Core\Entity\ContentEntityInterface;
+use Drupal\Core\Entity\EntityPublishedInterface;
 use Drupal\Core\Form\FormStateInterface;
+use Drupal\media\MediaInterface;
 use Drupal\neo_alchemist\ComponentPropRenderable;
 use Drupal\neo_alchemist\ComponentShapeChildrenMatchPluginInterface;
+use Drupal\neo_alchemist\ComponentShapeMediaPluginInterface;
 use Drupal\neo_alchemist\ComponentShapePluginInterface;
 use Drupal\neo_alchemist\Event\ComponentValueEvent;
 use Drupal\neo_alchemist\FieldFormatterTrait;
@@ -147,6 +150,14 @@ trait ComponentValueChildrenMatchTrait {
     }
     if (in_array($shape->getRef(), ['markup', 'string'])) {
       $options['- Shape -']['_render'] = $this->t('Render with field formatter');
+    }
+    if ($shape instanceof ComponentShapeMediaPluginInterface && $entityTypeId === 'media') {
+      // The iterated entity is itself a media entity a media shape can consume
+      // (e.g. a media reference field used as the iteration source). Bundle
+      // support is deliberately not checked here — the placeholder bundle is
+      // unreliable for multi-bundle references — the strict check happens at
+      // fetch time in fetchChildrenMatchValuesSelf().
+      $options['- Shape -']['_self'] = $this->t('This entity');
     }
     if ($shape->getType() === 'boolean') {
       $options['- Raw -']['_raw:boolean_true'] = $this->t('Boolean: True');
@@ -378,6 +389,9 @@ trait ComponentValueChildrenMatchTrait {
     if ($entities) {
       $parentId = $parentId ?? $shape->id();
       foreach (array_filter($entities) as $entity) {
+        if (!empty($configuration['shape_published']) && $entity instanceof EntityPublishedInterface && !$entity->isPublished()) {
+          continue;
+        }
         $shape->addCacheableDependency($entity);
         foreach ($shapeNames as $shapeName) {
           $shapeId = implode('~', [$parentId, $shapeName]);
@@ -491,6 +505,61 @@ trait ComponentValueChildrenMatchTrait {
       }
     }
     return NULL;
+  }
+
+  /**
+   * Fetch children match values for the iterated entity itself.
+   *
+   * Used when the iteration source yields entities a child shape can consume
+   * directly — a media reference field iterated by entity_reference, a media
+   * entity query, etc. The media shape's own converter builds the value, so
+   * the child receives the same structure a stored media reference would
+   * produce.
+   */
+  protected function fetchChildrenMatchValuesSelf(string $shapeId, string $shapeName, int $delta, ComponentShapeChildrenMatchPluginInterface $shape, ContentEntityInterface $entity, array $configuration): mixed {
+    if (!$entity instanceof MediaInterface) {
+      return NULL;
+    }
+    $childShape = $this->getChildMatchShapeById($shape, $shapeId);
+    if (!$childShape instanceof ComponentShapeMediaPluginInterface || !in_array($entity->bundle(), $childShape->getSupportedMediaTypes(), TRUE)) {
+      return NULL;
+    }
+    return $childShape->getValueFromMedia($entity) ?: NULL;
+  }
+
+  /**
+   * Resolve a child shape from a children-match shape id.
+   *
+   * Handlers always receive the ROOT children-match shape while $shapeId
+   * chains as `rootId~child~grandchild` through nested _expand/_reference
+   * levels. Walks each segment via getValueResolverShape() — the accessor
+   * that is safe while getDefaultValue() is being memoized (getChildShapes()
+   * would recurse).
+   *
+   * @param \Drupal\neo_alchemist\ComponentShapeChildrenMatchPluginInterface $root
+   *   The root children-match shape.
+   * @param string $shapeId
+   *   The chained shape id.
+   *
+   * @return \Drupal\neo_alchemist\ComponentShapePluginInterface|null
+   *   The uninitialized child shape, or NULL if the path does not resolve.
+   */
+  private function getChildMatchShapeById(ComponentShapeChildrenMatchPluginInterface $root, string $shapeId): ?ComponentShapePluginInterface {
+    $path = $shapeId;
+    if (str_starts_with($path, $root->id() . '~')) {
+      $path = substr($path, strlen($root->id()) + 1);
+    }
+    $current = $root;
+    foreach (explode('~', $path) as $segment) {
+      if (!$current instanceof ComponentShapeChildrenMatchPluginInterface) {
+        return NULL;
+      }
+      $current = $current->getValueResolverShape($segment);
+      if (!$current) {
+        return NULL;
+      }
+    }
+    return $current;
   }
 
   /**

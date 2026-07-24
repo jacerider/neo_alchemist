@@ -6,6 +6,7 @@ namespace Drupal\neo_alchemist\Plugin\ComponentShape;
 
 use Drupal\neo_alchemist\ComponentShapeChildrenMatchPluginInterface;
 use Drupal\neo_alchemist\ComponentShapePluginBase;
+use Drupal\neo_alchemist\ComponentShapePluginInterface;
 
 /**
  * Base for shapes that expose structured subproperties for field matching.
@@ -28,6 +29,13 @@ abstract class StructuredObjectShapeBase extends ComponentShapePluginBase implem
   protected array $structuredChildShapes = [];
 
   /**
+   * Uninitialized child shapes used only for value resolution.
+   *
+   * @var \Drupal\neo_alchemist\ComponentShapePluginInterface[]|null
+   */
+  protected ?array $valueResolverShapes = NULL;
+
+  /**
    * Get the schema properties that define the structured children.
    *
    * Defaults to the prop's own schema `properties`. Override only if a shape
@@ -46,6 +54,26 @@ abstract class StructuredObjectShapeBase extends ComponentShapePluginBase implem
    */
   public function getChildShapeNames(): array {
     return array_keys($this->getChildSchemaProperties());
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  public function getValueResolverShape(string $name): ?ComponentShapePluginInterface {
+    if (!isset($this->valueResolverShapes)) {
+      $properties = $this->getChildSchemaProperties();
+      $this->valueResolverShapes = $properties ? $this->shapeManager->getInstancesFromSchema([
+        'type' => 'object',
+        'properties' => $properties,
+      ], $this->getComponent()) : [];
+      foreach ($this->valueResolverShapes as $shape) {
+        foreach ($this->getParentShapes() as $parentShape) {
+          $shape->addParentShape($parentShape);
+        }
+        $shape->addParentShape($this);
+      }
+    }
+    return $this->valueResolverShapes[$name] ?? NULL;
   }
 
   /**
