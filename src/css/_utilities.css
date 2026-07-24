@@ -74,3 +74,38 @@
   --spacing-md-mult: 32;
   --spacing-lg-mult: 52;
 }
+
+@utility neo-region-flush-x {
+  .neo-region {
+    > .px-container {
+      --spacing-container: 0;
+    }
+  }
+}
+
+@utility neo-region-flush-y {
+  .neo-region {
+    > div:first-child {
+      margin-top: 0 !important;
+    }
+    > div:last-child {
+      margin-bottom: 0 !important;
+    }
+  }
+}
+
+@utility neo-region-flush-t {
+  .neo-region {
+    > div:first-child {
+      margin-top: 0 !important;
+    }
+  }
+}
+
+@utility neo-region-flush-b {
+  .neo-region {
+    > div:last-child {
+      margin-bottom: 0 !important;
+    }
+  }
+}
