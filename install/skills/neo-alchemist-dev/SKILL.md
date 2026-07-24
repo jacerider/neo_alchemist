@@ -49,6 +49,27 @@ render transform). The `#[ComponentShape(prop: 'string', default_field_type: …
 attribute keys the plugin by `prop`. Canonical example: `StringShape`. See ARCHITECTURE.md
 §"Prop-def + ComponentShape system" for the full field reference.
 
+## Tree fields: locked / custom / hybrid
+
+A `neo_component_tree` field resolves what renders in
+[src/Plugin/Field/NeoComponentTreeList.php](web/modules/contrib/neo_alchemist/src/Plugin/Field/NeoComponentTreeList.php)
+from the **field default layout** (the `defaults` field setting, edited via Field-UI
+Alchemist in config scope) and the per-entity stored value:
+
+- `allow_custom` off — **locked**: the default always renders; entity values are ignored.
+- `allow_custom` on — **custom**: a saved entity tree replaces the default wholesale
+  (all-or-nothing; site builders lose control after the first entity save).
+- `allow_custom` off + a region prop with the **`region_custom`** value plugin enabled
+  (`src/Plugin/ComponentValue/RegionCustomValue.php`, no settings — enabled = flagged) —
+  **hybrid**: creators manage only the flagged regions' content per entity; the default
+  stays authoritative for structure, so header/footer changes propagate to existing
+  entities. Entities store just the region subtrees: merge-on-load / strip-on-save in
+  `NeoComponentTreeList::setValue()/preSave()/postSave()`, anchors from
+  `ComponentFieldConfig::getCustomRegions()/isHybrid()`, inherited instances locked
+  server-side in `ComponentInstanceBase::checkHybridAccess()` ("Inherited layout"
+  badge). Semantics (seed copy-on-write, explicitly-empty slots, orphan preservation) →
+  ARCHITECTURE.md §"Field modes: locked, custom, hybrid".
+
 ## Where to add X
 
 - **ComponentShape** → `src/Plugin/ComponentShape/MyShape.php` with `#[ComponentShape(prop:'my_type', …)]` extends `ComponentShapePluginBase`; implement `preRenderValue()` (+ optional `getGenerationExamples()`/`onGenerateTwig()`); add a `my_type:` entry to `neo_alchemist.neo_component_prop_defs.yml`; `drush cr`.

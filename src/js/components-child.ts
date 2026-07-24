@@ -44,6 +44,22 @@
     eventCount++;
   });
 
+  // Empty customizable regions render a "[+] Add a component" placeholder.
+  // Focusing an empty region to use the toolbar Add is unreliable, so let the
+  // placeholder open the library for its region directly: post the region id
+  // (uuid--shape) up to the parent editor, which scopes the library to it.
+  document.querySelectorAll<HTMLElement>('[data-region-add]').forEach(el => {
+    el.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      const region = el.closest('[data-region-uuid]') as HTMLElement | null;
+      const uuid = region?.dataset.regionUuid;
+      if (uuid) {
+        window.parent.postMessage({ type: 'regionAdd', uuid: uuid }, '*');
+      }
+    });
+  });
+
   window.addEventListener('message', function(e) {
     const data = e.data;
     if (typeof data.type === 'string') {

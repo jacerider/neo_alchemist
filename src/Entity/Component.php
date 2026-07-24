@@ -19,6 +19,7 @@ use Drupal\Core\Session\AccountInterface;
 use Drupal\Core\Template\Attribute;
 use Drupal\neo_alchemist\ComponentAccessInterface;
 use Drupal\neo_alchemist\ComponentFilterInterface;
+use Drupal\neo_alchemist\ComponentInstanceInterface;
 use Drupal\neo_alchemist\ComponentInterface;
 use Drupal\neo_alchemist\ComponentShapePluginInterface;
 use Drupal\neo_alchemist\ComponentSlotInterface;
@@ -1461,10 +1462,14 @@ class Component extends ConfigEntityBase implements ComponentInterface {
     if ($this->getAccessInstances()) {
       $warnings[] = $this->adminIcon('Limited Access', 'lock');
     }
+    if ($this instanceof ComponentInstanceInterface && $this->isInherited()) {
+      $warnings[] = $this->adminIcon('Global', 'lock');
+    }
     $data = [
       'label' => $this->label(),
       'alerts' => $alerts,
       'warnings' => $warnings,
+      'inherited' => $this instanceof ComponentInstanceInterface && $this->isInherited(),
       'ops' => [
         'edit' => $this->access('update'),
         'delete' => $this->access('delete'),

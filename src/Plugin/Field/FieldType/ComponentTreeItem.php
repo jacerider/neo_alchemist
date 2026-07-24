@@ -270,7 +270,7 @@ class ComponentTreeItem extends FieldItemBase implements RenderableInterface, Co
     else {
       $access = match(TRUE) {
         $operation === 'create' && $this->belongsToFieldConfig() => AccessResult::allowedIfHasPermission($account, 'administer ' . $this->getEntity()->getEntityTypeId() . ' fields'),
-        $operation === 'create' => AccessResult::allowedIf($this->getSetting('allow_custom'))->andIf($this->getEntity()->access('update', $account, TRUE)),
+        $operation === 'create' => AccessResult::allowedIf($this->getSetting('allow_custom') || $this->getFieldDefinition()->isHybrid())->andIf($this->getEntity()->access('update', $account, TRUE)),
         $operation === 'revert' => AccessResult::allowedIf($this->hasDraft())->andIf($this->getEntity()->access('update', $account, TRUE)),
         $operation === 'reset' => AccessResult::allowedIf(!$this->belongsToFieldConfig() && !$this->getParent()->isDefault())->andIf($this->getEntity()->access('update', $account, TRUE)),
         $operation === 'sort' => $this->getEntity()->access('update', $account, TRUE),
@@ -732,6 +732,19 @@ class ComponentTreeItem extends FieldItemBase implements RenderableInterface, Co
       }
       $this->deleteDraft();
       $entity = $this->getEntity();
+      $fieldName = $this->getFieldDefinition()->getName();
+      $list = $this->getParent();
+      if ($entity->get($fieldName) !== $list) {
+        // This item belongs to a detached copy created by the route param
+        // converter (typically carrying a committed draft): carry the copy's
+        // value onto the entity before persisting. A hybrid list flagged as
+        // default (reset) syncs as NULL so the entity returns to the field
+        // default — its value holds the default layout, which must not be
+        // persisted as entity-owned. Everything else syncs the list value
+        // (empty after a non-hybrid reset).
+        $empty = $list instanceof NeoComponentTreeList && $list->isHybridScope() && $list->isDefault();
+        $entity->set($fieldName, $empty ? NULL : $list->getValue(), FALSE);
+      }
       if ($entity instanceof EntityChangedInterface) {
         // Update the changed time to ensure that the entity is marked as
         // updated.
@@ -836,6 +849,13 @@ class ComponentTreeItem extends FieldItemBase implements RenderableInterface, Co
     $this->draft = $enforce;
     if ($enforce) {
       if ($draftValue = $this->getDraftValue()) {
+        $list = $this->getParent();
+        if ($list instanceof NeoComponentTreeList && $list->isHybridScope()) {
+          // Normalize the stashed draft against the current field default
+          // layout so structural changes made since the draft was stashed
+          // (e.g. a header edit or a new footer) are reflected immediately.
+          $draftValue = $list->composeHybridItemValue($draftValue);
+        }
         $this->setValue($draftValue);
       }
     }
@@ -972,6 +992,67 @@ class ComponentTreeItem extends FieldItemBase implements RenderableInterface, Co
       return TRUE;
     }
     return in_array($size, $sizes, TRUE);
+  }
+
+  /**
+   * Gets the UUIDs of the entity-owned component instances (hybrid mode).
+   *
+   * Entity-owned instances are the components living inside the field's
+   * entity-customizable regions, including nested descendants. Everything
+   * else in the tree is inherited from the field default layout.
+   *
+   * @return string[]
+   *   The entity-owned component instance UUIDs.
+   */
+  public function getEntityOwnedUuids(): array {
+    $anchors = $this->getFieldDefinition()->getCustomRegions();
+    if (!$anchors) {
+      return [];
+    }
+    $tree = Json::decode($this->get('tree')->getValue() ?? '') ?: [];
+    return NeoComponentTreeList::getSectionClosureUuids($tree, $anchors);
+  }
+
+  /**
+   * Checks if an instance is inherited from the field default layout.
+   *
+   * Only meaningful in hybrid mode on an actual entity; every instance that
+   * is not entity-owned is inherited.
+   *
+   * @param string $uuid
+   *   The component instance UUID.
+   *
+   * @return bool
+   *   TRUE when the instance is inherited, FALSE when entity-owned.
+   */
+  public function isInheritedInstance(string $uuid): bool {
+    return !in_array($uuid, $this->getEntityOwnedUuids(), TRUE);
+  }
+
+  /**
+   * Checks if a tree section may be customized per entity (hybrid mode).
+   *
+   * A section is customizable when it is a flagged custom region of the field
+   * default layout, or any region inside an entity-owned component.
+   *
+   * @param string|null $parentUuid
+   *   The parent component instance UUID, or NULL/root for the tree root.
+   * @param string|null $slot
+   *   The region shape ID within the parent.
+   *
+   * @return bool
+   *   TRUE when the section is entity-customizable, FALSE otherwise.
+   */
+  public function isCustomTarget(?string $parentUuid, ?string $slot): bool {
+    if (!$parentUuid || $parentUuid === ComponentTreeStructure::ROOT_UUID) {
+      return FALSE;
+    }
+    $anchors = $this->getFieldDefinition()->getCustomRegions();
+    if (isset($anchors[$parentUuid])) {
+      return $slot && in_array($slot, $anchors[$parentUuid]['slots'], TRUE);
+    }
+    // Any region inside an entity-owned component is freely editable.
+    return !$this->isInheritedInstance($parentUuid);
   }
 
   /**

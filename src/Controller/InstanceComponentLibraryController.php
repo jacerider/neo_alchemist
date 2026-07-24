@@ -55,6 +55,8 @@ final class InstanceComponentLibraryController extends ControllerBase {
     $parent = $request->query->get('parent');
     $parentComponent = NULL;
     $parentShape = NULL;
+    $parentUuid = NULL;
+    $shapeId = NULL;
     if ($parent) {
       $query['parent'] = $parent;
       [$parentUuid, $shapeId] = explode('--', (string) $parent);
@@ -70,9 +72,19 @@ final class InstanceComponentLibraryController extends ControllerBase {
       $query['after'] = $after;
     }
 
+    // When targeting a region, create the candidates with their parent set so
+    // access('create') evaluates the real target (hybrid mode restricts
+    // creation to entity-customizable regions).
+    $createParentUuid = NULL;
+    $createShapeId = NULL;
+    if ($parentShape && $parentShape->getRef() === 'region') {
+      $createParentUuid = $parentUuid;
+      $createShapeId = $shapeId;
+    }
+
     $components = [];
-    foreach (array_map(function ($component) use ($neo_field) {
-      return $neo_field->createComponent($component);
+    foreach (array_map(function ($component) use ($neo_field, $createParentUuid, $createShapeId) {
+      return $neo_field->createComponent($component, $createParentUuid, $createShapeId);
     }, $storage->loadByEntity($neo_field->getEntity())) as $component) {
       if (!$component->access('create', NULL, FALSE, $parentShape)) {
         continue;
@@ -120,6 +132,21 @@ final class InstanceComponentLibraryController extends ControllerBase {
           return strnatcasecmp($a['label'], $b['label']);
         });
       }
+    }
+
+    if (!$groups && !$neo_field->belongsToFieldConfig() && $neo_field->getFieldDefinition()->isHybrid()) {
+      // An empty library in hybrid mode has two unrelated causes, so explain
+      // the right one: either the target isn't an entity-customizable region
+      // at all, or it is a valid region but no component qualifies for it
+      // (e.g. none support the region's allowed component sizes).
+      $message = $neo_field->isCustomTarget($parentUuid, $shapeId)
+        ? $this->t('No components are available to add to this region.')
+        : $this->t('Components can only be added within a customizable region of this layout.');
+      return [
+        'empty' => [
+          '#markup' => '<div class="card p-3">' . $message . '</div>',
+        ],
+      ];
     }
 
     $build['form'] = [

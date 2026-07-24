@@ -25,7 +25,8 @@ class ComponentFieldAccessCheck implements AccessInterface {
     // A field has been specified, check if it is a valid field.
     $neoField = $parameters->get($field);
     if ($neoField instanceof ComponentTreeItem) {
-      if (!$neoField->belongsToFieldConfig() && !$neoField->getFieldDefinition()->allowCustom()) {
+      $fieldDefinition = $neoField->getFieldDefinition();
+      if (!$neoField->belongsToFieldConfig() && !$fieldDefinition->allowCustom() && !$fieldDefinition->isHybrid()) {
         return AccessResult::forbidden();
       }
       return $neoField->access($operation, $account, TRUE);

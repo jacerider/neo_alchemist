@@ -10,6 +10,7 @@ use Drupal\Core\Render\RenderableInterface;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\Core\TypedData\Attribute\DataType;
 use Drupal\Core\TypedData\TypedData;
+use Drupal\neo_alchemist\ComponentFieldConfigInterface;
 use Drupal\neo_alchemist\ComponentShapeRegionPluginInterface;
 use Drupal\neo_alchemist\Plugin\Field\FieldType\ComponentTreeItem;
 
@@ -182,7 +183,18 @@ class ComponentTreeHydrated extends TypedData implements RenderableInterface {
   private function getCacheability(): CacheableMetadata {
     $root = $this->getRoot();
     if ($root instanceof EntityAdapter) {
-      return CacheableMetadata::createFromObject($root->getEntity());
+      $cacheability = CacheableMetadata::createFromObject($root->getEntity());
+      // The rendered tree also depends on the field config: the field default
+      // layout (and its custom-region anchors) lives there, so a site
+      // builder's default-layout change must invalidate rendered entities.
+      $item = $this->getParent();
+      if ($item instanceof ComponentTreeItem) {
+        $definition = $item->getFieldDefinition();
+        if ($definition instanceof ComponentFieldConfigInterface) {
+          $cacheability->addCacheableDependency($definition);
+        }
+      }
+      return $cacheability;
     }
     // This appears to be an ephemeral component tree, hence it is uncacheable.
     return (new CacheableMetadata())->setCacheMaxAge(0);

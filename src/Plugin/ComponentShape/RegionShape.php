@@ -36,6 +36,17 @@ class RegionShape extends ArrayShape implements ComponentShapeRegionPluginInterf
   protected array $sizes = [];
 
   /**
+   * Whether this region is entity-customizable.
+   *
+   * Set by the 'region_custom' value plugin. When TRUE and the host field does
+   * not allow per-entity layout customization, entities may still manage this
+   * region's components ("hybrid" mode).
+   *
+   * @var bool
+   */
+  protected bool $entityCustomizable = FALSE;
+
+  /**
    * {@inheritDoc}
    */
   public function buildSchema($schema): array {
@@ -121,6 +132,29 @@ class RegionShape extends ArrayShape implements ComponentShapeRegionPluginInterf
   }
 
   /**
+   * Flags this region as entity-customizable.
+   *
+   * @param bool $customizable
+   *   (optional) Whether the region is entity-customizable. Defaults to TRUE.
+   *
+   * @return $this
+   */
+  public function setEntityCustomizable(bool $customizable = TRUE): self {
+    $this->entityCustomizable = $customizable;
+    return $this;
+  }
+
+  /**
+   * Checks if this region is entity-customizable.
+   *
+   * @return bool
+   *   TRUE if entity-customizable, FALSE otherwise.
+   */
+  public function isEntityCustomizable(): bool {
+    return $this->entityCustomizable;
+  }
+
+  /**
    * {@inheritDoc}
    */
   protected function preRenderValue(mixed $value, Attribute $attributes): mixed {
@@ -166,17 +200,36 @@ class RegionShape extends ArrayShape implements ComponentShapeRegionPluginInterf
       $data = [
         'id' => $this->id(),
         'label' => $this->getNestedTitle(),
+        'custom' => $this->isEntityCustomizable(),
       ];
       $regionAttributes->setAttribute('data-region-uuid', $component->uuid() . '--' . $this->id());
       $regionAttributes->setAttribute('data-region', Json::encode($data));
       if (empty($value)) {
-        $value['empty'] = [
-          '#type' => 'inline_template',
-          '#template' => '<div class="text-xs p-3 bg-base-100 text-base-700 border border-dashed text-center">{{ icon("info-circle") }}{{ empty_message }}</div>',
-          '#context' => [
-            'empty_message' => $message,
-          ],
-        ];
+        if ($component->isManagePreview()) {
+          // In the layout editor an empty region cannot be populated via the
+          // toolbar "Add" (which targets the field root) — and focusing an
+          // empty region to add to it is unreliable. Make the placeholder a
+          // direct add affordance: the child frame posts the region id to the
+          // parent editor, which opens the component library scoped to this
+          // region. Once a component exists, the per-component add-before /
+          // add-after ops carry the region parent normally.
+          $value['empty'] = [
+            '#type' => 'inline_template',
+            '#template' => '<button type="button" data-region-add class="neo-region-add w-full text-xs p-3 bg-base-100 text-base-700 border border-dashed text-center cursor-pointer transition-colors hover:bg-base-200 hover:text-base-900">{{ icon("plus") }}{{ empty_message }}</button>',
+            '#context' => [
+              'empty_message' => $this->t('Add a component'),
+            ],
+          ];
+        }
+        else {
+          $value['empty'] = [
+            '#type' => 'inline_template',
+            '#template' => '<div class="text-xs p-3 bg-base-100 text-base-700 border border-dashed text-center">{{ icon("info-circle") }}{{ empty_message }}</div>',
+            '#context' => [
+              'empty_message' => $message,
+            ],
+          ];
+        }
       }
     }
     if ($value) {

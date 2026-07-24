@@ -180,6 +180,70 @@ Modifiers always run afterward regardless. Mechanics:
 `ComponentTreeStructure` data type. This is how a node/paragraph holds a tree of
 components.
 
+### Field modes: locked, custom, hybrid
+
+A `neo_component_tree` field resolves its rendered tree in
+[src/Plugin/Field/NeoComponentTreeList.php](src/Plugin/Field/NeoComponentTreeList.php)
+from two sources: the **field default layout** (the `defaults` field setting, edited via
+the Field-UI Alchemist routes in config scope) and the **per-entity stored value**.
+
+- **Locked** (`allow_custom` off): the stored entity value is ignored; the field default
+  always renders.
+- **Custom** (`allow_custom` on): a saved entity value *replaces* the default wholesale
+  (all-or-nothing; the default is only a starting point).
+- **Hybrid** (`allow_custom` off + the default layout contains at least one
+  **entity-customizable region**): the default stays authoritative for the structure,
+  but entities own the *content* of flagged regions. This is the mode for
+  header/body/footer pages where creators build only the body.
+
+Hybrid mechanics:
+
+- **The flag** is the `region_custom` ComponentValue plugin
+  ([src/Plugin/ComponentValue/RegionCustomValue.php](src/Plugin/ComponentValue/RegionCustomValue.php)),
+  enabled on a region prop of a `neo_component` (it has no settings — enabling it *is*
+  the flag). `ComponentFieldConfig::getCustomRegions()` derives the **anchors**
+  (`ownerUuid` → flagged slot ids) from the default tree; `isHybrid()` is the predicate
+  used by every gate.
+- **Merge on load** (`NeoComponentTreeList::setValue()`): the entity stores only the
+  anchor sections + their descendant closure + props. Loading composes the merged tree:
+  field default structure, with each anchor slot *present in storage* replacing the
+  default seed children (present-but-empty = explicitly emptied; absent = the anchor
+  postdates the last save, seeds render). Inherited instances always render field
+  default props. The merge is idempotent — stored subsets, in-session merged values and
+  stashed drafts all normalize to the same result.
+- **Strip on save** (`preSave()`/`postSave()`): before storage write the item value is
+  replaced by the storage subset (every flagged slot is always written once the entity
+  is customized), and restored in place after. A pristine (`isDefault()`) entity
+  persists nothing. **Orphan sections** — content whose anchor was removed from the
+  default — are stashed on the list and re-emitted on save (render-inert, restored if a
+  config revert brings the anchor back).
+- **Locking** is ops-driven and server-side only:
+  `ComponentInstanceBase::checkHybridAccess()` forbids `update`/`delete`/`clone`/`sort`
+  on inherited instances (they get an "Inherited layout" badge) and `create` outside a
+  custom target (`ComponentTreeItem::isCustomTarget()`); the library/add/move/sort
+  routes enforce the same target checks. No JS changes — the editor chrome reads the
+  per-op access booleans.
+- Since the rendered tree depends on the field config, `ComponentTreeHydrated`
+  adds the field config as a cacheable dependency of every entity render.
+
+### Draft model: detached copies
+
+Editor routes carry `neo_draft => TRUE`, and
+[src/Routing/FieldParamConverter.php](src/Routing/FieldParamConverter.php) loads the
+state-stashed draft into the `{neo_field}` item via `enforceAsDraft()`. That draft state
+lives on a **detached clone** of the entity's field item list — never on the statically
+cached entity itself. Param conversion re-runs re-entrantly within a single request
+(access checks via `checkNamedRoute`, path validation, sub-requests), so mutating the
+shared item would clobber a publish flow's `enforceAsDraft(FALSE)` mid-save (the layout
+would silently stay in draft) and could bleed draft values into canonical renders. Each
+conversion instead gets its own copy (core `ItemList::__clone()` deep-clones items; the
+same isolation config scope uses in `ComponentFieldConfig::getFieldItem()`).
+
+The counterpart lives in `ComponentTreeItem::saveComponents()`: when committing (not in
+draft mode) on a detached item, the copy's value is synced onto the entity before
+`$entity->save()` — as NULL when a hybrid list is still flagged default (reset), so the
+entity returns to the field default instead of copy-on-writing the seeds.
+
 ---
 
 ## Render pipeline

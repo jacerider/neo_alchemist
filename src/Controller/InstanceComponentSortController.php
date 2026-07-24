@@ -8,6 +8,7 @@ use Drupal\Core\Controller\ControllerBase;
 use Drupal\neo_alchemist\Plugin\DataType\ComponentTreeStructure;
 use Drupal\neo_alchemist\Plugin\Field\FieldType\ComponentTreeItem;
 use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 
 /**
  * Returns responses for Neo | Alchemist routes.
@@ -20,6 +21,12 @@ final class InstanceComponentSortController extends ControllerBase {
   public function __invoke(Request $request, ComponentTreeItem $neo_field) {
     $parent = $request->query->get('parent');
     [$parentUuid, $shapeId] = explode('--', (string) ($parent ?? '--'));
+    if (!$neo_field->belongsToFieldConfig() && $neo_field->getFieldDefinition()->isHybrid()) {
+      // Hybrid mode: only entity-customizable regions may be sorted.
+      if (!$neo_field->isCustomTarget($parentUuid ?: NULL, $shapeId ?: NULL)) {
+        throw new AccessDeniedHttpException();
+      }
+    }
     return $this->entityFormBuilder()->getForm($neo_field->getEntity(), 'alchemist_sort', [
       'fieldItem' => $neo_field,
       'uuid' => $request->query->get('uuid'),

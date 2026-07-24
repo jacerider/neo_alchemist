@@ -11,6 +11,7 @@ use Drupal\Core\Url;
 use Drupal\field\Entity\FieldConfig;
 use Drupal\field\Entity\FieldStorageConfig;
 use Drupal\neo_alchemist\ComponentFieldConfigInterface;
+use Drupal\neo_alchemist\ComponentInterface;
 use Drupal\neo_alchemist\Plugin\DataType\ComponentTreeStructure;
 use Drupal\neo_alchemist\Plugin\Field\FieldType\ComponentTreeItem;
 
@@ -18,6 +19,13 @@ use Drupal\neo_alchemist\Plugin\Field\FieldType\ComponentTreeItem;
  * Defines the component Field entity.
  */
 class ComponentFieldConfig extends FieldConfig implements ComponentFieldConfigInterface {
+
+  /**
+   * Memoized entity-customizable region anchors of the default layout.
+   *
+   * @var array|null
+   */
+  protected ?array $customRegions = NULL;
 
   /**
    * {@inheritdoc}
@@ -68,6 +76,72 @@ class ComponentFieldConfig extends FieldConfig implements ComponentFieldConfigIn
    */
   public function allowCustom(): bool {
     return $this->getSetting('allow_custom');
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function getCustomRegions(): array {
+    if (!isset($this->customRegions)) {
+      $this->customRegions = [];
+      if (!$this->allowCustom() && $this->hasComponentValues()) {
+        $tree = $this->getComponentValues()['tree'] ?? [];
+        // Collect the component id of every instance placed in the default
+        // layout, in tree order.
+        $instances = [];
+        foreach ($tree as $key => $section) {
+          $lists = $key === ComponentTreeStructure::ROOT_UUID ? [$section] : array_values((array) $section);
+          foreach ($lists as $tuples) {
+            foreach ((array) $tuples as $tuple) {
+              if (!empty($tuple['uuid']) && !empty($tuple['component'])) {
+                $instances[$tuple['uuid']] = $tuple['component'];
+              }
+            }
+          }
+        }
+        // Resolve which components flag a region prop as entity-customizable.
+        // The 'region_custom' value plugin is stored per shape id, and shape
+        // ids double as the tree slot keys.
+        $slotsByComponent = [];
+        $storage = $this->entityTypeManager()->getStorage('neo_component');
+        foreach ($instances as $uuid => $componentId) {
+          if (!array_key_exists($componentId, $slotsByComponent)) {
+            $slotsByComponent[$componentId] = [];
+            $component = $storage->load($componentId);
+            if ($component instanceof ComponentInterface) {
+              foreach ($component->getAllPropShapeSettings() as $propSettings) {
+                foreach ($propSettings['plugins'] ?? [] as $shapeId => $plugins) {
+                  if (isset($plugins['region_custom'])) {
+                    $slotsByComponent[$componentId][] = $shapeId;
+                  }
+                }
+              }
+            }
+          }
+          if ($slotsByComponent[$componentId]) {
+            $this->customRegions[$uuid] = [
+              'component' => $componentId,
+              'slots' => $slotsByComponent[$componentId],
+            ];
+          }
+        }
+      }
+    }
+    return $this->customRegions;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function hasCustomRegions(): bool {
+    return !empty($this->getCustomRegions());
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function isHybrid(): bool {
+    return !$this->allowCustom() && $this->hasCustomRegions();
   }
 
   /**

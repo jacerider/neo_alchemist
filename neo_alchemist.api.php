@@ -151,7 +151,9 @@ function hook_neo_alchemist_menu_value_item_alter(?array &$entry, array $item, C
  * @param \Drupal\neo_alchemist\ComponentFieldConfigInterface[] $fieldDefinitions
  *   The component field definitions applicable to the entity, keyed by field
  *   name. Depending on the caller, the set may already be limited to fields
- *   that allow per-entity customization.
+ *   that allow per-entity customization — that set includes hybrid fields
+ *   (fields whose default layout contains entity-customizable regions; see
+ *   \Drupal\neo_alchemist\ComponentFieldConfigInterface::isHybrid()).
  * @param \Drupal\Core\Entity\ContentEntityInterface $entity
  *   The entity the fields belong to.
  *

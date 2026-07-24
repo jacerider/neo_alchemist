@@ -244,6 +244,12 @@ abstract class ComponentInstanceBase extends Component implements ComponentInsta
     if ($operation === 'view' && $this->isPreview()) {
       return $return_as_object ? AccessResult::allowed() : TRUE;
     }
+    if (!$this->getFieldItem()->belongsToFieldConfig() && $this->getFieldDefinition()->isHybrid()) {
+      $hybridAccess = $this->checkHybridAccess($operation);
+      if ($hybridAccess->isForbidden()) {
+        return $return_as_object ? $hybridAccess : FALSE;
+      }
+    }
     if ($operation === 'create') {
       $size = $this->getSize();
       if (!$this->getFieldItem()->allowSize($size)) {
@@ -280,6 +286,50 @@ abstract class ComponentInstanceBase extends Component implements ComponentInsta
     // Check field item access.
     $access = $this->getFieldItem()->access($operation, $account, TRUE);
     return $return_as_object ? $access : $access->isAllowed();
+  }
+
+  /**
+   * Checks hybrid-mode access for an operation on this instance.
+   *
+   * In hybrid mode the field default layout is authoritative for the
+   * structure: inherited instances are locked and components may only be
+   * added within entity-customizable regions.
+   *
+   * @param string $operation
+   *   The operation.
+   *
+   * @return \Drupal\Core\Access\AccessResult
+   *   Forbidden when the operation is not allowed in hybrid mode, neutral
+   *   otherwise.
+   */
+  protected function checkHybridAccess(string $operation): AccessResult {
+    if ($operation === 'create') {
+      // Adding a new component (library candidates, the add route) and the
+      // add-before/add-after ops on existing instances both target the
+      // instance's own section: it must be an entity-customizable region.
+      if (!$this->getFieldItem()->isCustomTarget($this->parentUuid, $this->parentSlot)) {
+        return AccessResult::forbidden('Components may only be added within an entity-customizable region.');
+      }
+      return AccessResult::neutral();
+    }
+    if (in_array($operation, ['update', 'delete', 'clone', 'sort', 'manage_value'], TRUE) && $this->isInherited()) {
+      return AccessResult::forbidden('This component is inherited from the field default layout.');
+    }
+    return AccessResult::neutral();
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  public function isInherited(): bool {
+    $fieldItem = $this->getFieldItem();
+    if ($fieldItem->belongsToFieldConfig() || $this->isNew()) {
+      return FALSE;
+    }
+    if (!$this->getFieldDefinition()->isHybrid()) {
+      return FALSE;
+    }
+    return $fieldItem->isInheritedInstance($this->uuid());
   }
 
   /**

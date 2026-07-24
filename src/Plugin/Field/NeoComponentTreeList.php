@@ -42,6 +42,28 @@ class NeoComponentTreeList extends FieldItemList {
   protected $scope = 'entity';
 
   /**
+   * Hybrid mode: orphaned stored sections/props preserved across saves.
+   *
+   * Orphans are stored sections whose custom-region anchor no longer exists in
+   * the field default layout. They are never rendered or edited, but they are
+   * carried through saves so a config revert that restores the anchor also
+   * restores the content.
+   *
+   * @var array
+   */
+  protected array $hybridOrphans = [
+    'tree' => [],
+    'props' => [],
+  ];
+
+  /**
+   * Hybrid mode: stash of the merged value while the subset is persisted.
+   *
+   * @var array|null
+   */
+  protected ?array $hybridMergedValue = NULL;
+
+  /**
    * {@inheritDoc}
    */
   public function __construct(DataDefinitionInterface $definition, $name = NULL, ?TypedDataInterface $parent = NULL) {
@@ -140,6 +162,12 @@ class NeoComponentTreeList extends FieldItemList {
       return;
     }
     if (!$this->belongsToFieldConfig()) {
+      if ($definition->isHybrid()) {
+        // Hybrid mode: the field default layout stays authoritative for the
+        // structure, but entities own the content of the customizable regions.
+        $this->setHybridValue($values, $notify);
+        return;
+      }
       $this->isDefault = FALSE;
       if (!$definition->allowCustom()) {
         // If custom is not allowed. Do not allow the field to be set. Note that
@@ -148,6 +176,381 @@ class NeoComponentTreeList extends FieldItemList {
       }
     }
     parent::setValue($values, $notify);
+  }
+
+  /**
+   * Sets a hybrid-mode value by merging it into the field default layout.
+   *
+   * The incoming value may be a stored subset (only custom-region sections),
+   * a full merged tree (in-session edits, drafts, legacy allow_custom copies)
+   * or empty (reset). All forms normalize to the same merged result: the field
+   * default structure with the entity-owned custom-region content overlaid.
+   *
+   * @param mixed $values
+   *   The values, as passed to ::setValue().
+   * @param bool $notify
+   *   Whether to notify the parent.
+   */
+  protected function setHybridValue($values, $notify = TRUE): void {
+    $definition = $this->getFieldDefinition();
+    $itemValue = NULL;
+    if (is_array($values)) {
+      if (array_key_exists(0, $values)) {
+        $itemValue = $values[0];
+      }
+      elseif (array_key_exists('tree', $values) || array_key_exists('props', $values)) {
+        $itemValue = $values;
+      }
+    }
+    [$storedTree, $storedProps] = static::decodeHybridItemValue(is_array($itemValue) ? $itemValue : []);
+    unset($storedTree[ComponentTreeStructure::ROOT_UUID]);
+    if (empty($storedTree)) {
+      // Nothing beyond the root: reset to the pure field default.
+      parent::setValue(NULL, $notify);
+      if ($definition->hasComponentValues()) {
+        $this->appendItem($definition->getComponentValues());
+      }
+      $this->hybridOrphans = ['tree' => [], 'props' => []];
+      $this->isDefault = TRUE;
+      return;
+    }
+    $this->isDefault = FALSE;
+    parent::setValue([0 => $this->composeHybridValue($storedTree, $storedProps)], $notify);
+  }
+
+  /**
+   * Composes the merged hybrid value for a decoded stored tree/props pair.
+   *
+   * Also stashes any orphaned sections (content whose custom-region anchor no
+   * longer exists in the default layout) so they survive the next save.
+   *
+   * @param array $storedTree
+   *   The decoded stored tree, without the root key.
+   * @param array $storedProps
+   *   The decoded stored props.
+   *
+   * @return array
+   *   The merged item value with 'tree' and 'props' JSON strings.
+   */
+  protected function composeHybridValue(array $storedTree, array $storedProps): array {
+    $definition = $this->getFieldDefinition();
+    $anchors = $definition->getCustomRegions();
+    $defaults = $definition->getComponentValues();
+    $defaultTree = $defaults['tree'] ?? [ComponentTreeStructure::ROOT_UUID => []];
+    $defaultProps = $defaults['props'] ?? [];
+
+    $mergedTree = $defaultTree;
+    $mergedProps = $defaultProps;
+    $ownedUuids = static::getSectionClosureUuids($storedTree, $anchors);
+    $ownedFlip = array_flip($ownedUuids);
+
+    foreach ($anchors as $ownerUuid => $anchor) {
+      if (!array_key_exists($ownerUuid, $storedTree)) {
+        // The anchor is not present in the stored value — it was added to the
+        // default layout after this entity was last saved. Its default seed
+        // children apply.
+        continue;
+      }
+      foreach ($anchor['slots'] as $slotId) {
+        // The stored value is authoritative for this flagged slot: drop the
+        // default seed closure before overlaying.
+        $seedTuples = $defaultTree[$ownerUuid][$slotId] ?? [];
+        foreach (static::expandTupleClosure($defaultTree, array_column($seedTuples, 'uuid')) as $seedUuid) {
+          unset($mergedTree[$seedUuid], $mergedProps[$seedUuid]);
+        }
+        $storedTuples = array_values($storedTree[$ownerUuid][$slotId] ?? []);
+        if ($storedTuples) {
+          $mergedTree[$ownerUuid][$slotId] = $storedTuples;
+        }
+        else {
+          unset($mergedTree[$ownerUuid][$slotId]);
+          if (empty($mergedTree[$ownerUuid])) {
+            unset($mergedTree[$ownerUuid]);
+          }
+        }
+      }
+    }
+
+    // Overlay the entity-owned descendant sections and props.
+    foreach ($ownedUuids as $uuid) {
+      if (isset($storedTree[$uuid])) {
+        $mergedTree[$uuid] = $storedTree[$uuid];
+      }
+      if (array_key_exists($uuid, $storedProps)) {
+        $mergedProps[$uuid] = $storedProps[$uuid];
+      }
+    }
+
+    // Stash orphaned sections: stored top-level keys that are neither an
+    // anchor, nor entity-owned, nor part of the default layout. They are kept
+    // out of the merged runtime value but re-emitted on save.
+    $defaultFlip = array_flip(static::getTreeUuids($defaultTree));
+    foreach ($storedTree as $key => $section) {
+      if (isset($anchors[$key]) || isset($ownedFlip[$key]) || isset($defaultFlip[$key])) {
+        continue;
+      }
+      $this->hybridOrphans['tree'][$key] = $section;
+      foreach ((array) $section as $slotTuples) {
+        foreach ((array) $slotTuples as $tuple) {
+          $uuid = $tuple['uuid'] ?? NULL;
+          if ($uuid && array_key_exists($uuid, $storedProps)) {
+            $this->hybridOrphans['props'][$uuid] = $storedProps[$uuid];
+          }
+        }
+      }
+    }
+
+    // Encode here: the props JSON must always be an object ('{}' when empty),
+    // which a plain empty PHP array would not produce.
+    // @see \Drupal\neo_alchemist\Plugin\DataType\ComponentPropsValues::setValue()
+    return [
+      'tree' => Json::encode($mergedTree),
+      'props' => $mergedProps ? Json::encode($mergedProps) : '{}',
+    ];
+  }
+
+  /**
+   * Normalizes a hybrid item value (e.g. a stashed draft) to a merged value.
+   *
+   * Re-composes the value against the current field default layout so that
+   * default-structure changes made since the value was stashed are reflected.
+   *
+   * @param array $itemValue
+   *   An item value with 'tree'/'props' keys (JSON strings or arrays).
+   *
+   * @return array
+   *   The merged item value with 'tree' and 'props' JSON strings.
+   */
+  public function composeHybridItemValue(array $itemValue): array {
+    [$storedTree, $storedProps] = static::decodeHybridItemValue($itemValue);
+    unset($storedTree[ComponentTreeStructure::ROOT_UUID]);
+    $this->isDefault = FALSE;
+    return $this->composeHybridValue($storedTree, $storedProps);
+  }
+
+  /**
+   * Checks if this list operates in hybrid mode on an actual entity.
+   *
+   * @return bool
+   *   TRUE when hybrid and entity scope, FALSE otherwise.
+   */
+  public function isHybridScope(): bool {
+    $definition = $this->getFieldDefinition();
+    return $definition instanceof ComponentFieldConfigInterface
+      && !$this->belongsToFieldConfig()
+      && $definition->isHybrid();
+  }
+
+  /**
+   * Extracts the entity-owned storage subset from the current merged value.
+   *
+   * Once an entity is customized, the stored value is authoritative for every
+   * custom region: each flagged slot is always written (an empty slot means
+   * "explicitly empty"), so an anchor missing from storage can only mean it
+   * was added to the default layout after this entity was last saved.
+   *
+   * @return array
+   *   An item value with 'tree' and 'props' arrays containing only the
+   *   entity-owned subset (plus preserved orphans).
+   */
+  protected function extractHybridStorageValue(): array {
+    $definition = $this->getFieldDefinition();
+    $anchors = $definition->getCustomRegions();
+    $item = $this->first();
+    [$tree, $props] = static::decodeHybridItemValue($item ? $item->getValue() : []);
+
+    $storageTree = [ComponentTreeStructure::ROOT_UUID => []];
+    $storageProps = [];
+    $ownedUuids = static::getSectionClosureUuids($tree, $anchors);
+    foreach ($anchors as $ownerUuid => $anchor) {
+      foreach ($anchor['slots'] as $slotId) {
+        $storageTree[$ownerUuid][$slotId] = array_values($tree[$ownerUuid][$slotId] ?? []);
+      }
+    }
+    foreach ($ownedUuids as $uuid) {
+      if (isset($tree[$uuid])) {
+        $storageTree[$uuid] = $tree[$uuid];
+      }
+      if (array_key_exists($uuid, $props)) {
+        $storageProps[$uuid] = $props[$uuid];
+      }
+    }
+    // Re-emit preserved orphans.
+    foreach ($this->hybridOrphans['tree'] as $key => $section) {
+      if (!isset($storageTree[$key])) {
+        $storageTree[$key] = $section;
+      }
+    }
+    foreach ($this->hybridOrphans['props'] as $uuid => $value) {
+      if (!array_key_exists($uuid, $storageProps)) {
+        $storageProps[$uuid] = $value;
+      }
+    }
+    // Guarantee tree/props parity: every tree instance needs a props entry.
+    // @see \Drupal\neo_alchemist\Plugin\Field\FieldType\ComponentTreeItem::preSave()
+    foreach (static::getTreeUuids($storageTree) as $uuid) {
+      if (!isset($storageTree[$uuid]) && !array_key_exists($uuid, $storageProps)) {
+        $storageProps[$uuid] = [];
+      }
+    }
+    return [
+      'tree' => $storageTree,
+      'props' => $storageProps,
+    ];
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function preSave() {
+    if ($this->isHybridScope()) {
+      $this->hybridMergedValue = $this->getValue();
+      if ($this->isDefault()) {
+        // Nothing has been customized: persist nothing so the field default
+        // remains fully authoritative. This tree form is what isEmpty()
+        // treats as empty, so the item is filtered out before storage write.
+        foreach ($this->list as $item) {
+          $item->setValue([
+            'tree' => Json::encode([]),
+            'props' => '{}',
+          ], FALSE);
+        }
+      }
+      else {
+        $storage = $this->extractHybridStorageValue();
+        if ($item = $this->first()) {
+          $item->setValue([
+            'tree' => Json::encode($storage['tree']),
+            'props' => $storage['props'] ? Json::encode($storage['props']) : '{}',
+          ], FALSE);
+        }
+      }
+    }
+    parent::preSave();
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function postSave($update) {
+    $result = parent::postSave($update);
+    if ($this->hybridMergedValue !== NULL) {
+      // Restore the merged runtime value that ::preSave() replaced with the
+      // storage subset. Restore in place so references held across the save
+      // keep seeing the merged value.
+      foreach ($this->hybridMergedValue as $delta => $value) {
+        if (isset($this->list[$delta])) {
+          $this->list[$delta]->setValue($value, FALSE);
+        }
+        else {
+          $this->appendItem($value);
+        }
+      }
+      $this->hybridMergedValue = NULL;
+    }
+    return $result;
+  }
+
+  /**
+   * Decodes an item value into tree and props arrays.
+   *
+   * @param array $itemValue
+   *   An item value with 'tree'/'props' keys (JSON strings or arrays).
+   *
+   * @return array
+   *   A tuple of the decoded tree and props arrays.
+   */
+  protected static function decodeHybridItemValue(array $itemValue): array {
+    $tree = $itemValue['tree'] ?? NULL;
+    $props = $itemValue['props'] ?? NULL;
+    return [
+      is_string($tree) ? (Json::decode($tree) ?: []) : (is_array($tree) ? $tree : []),
+      is_string($props) ? (Json::decode($props) ?: []) : (is_array($props) ? $props : []),
+    ];
+  }
+
+  /**
+   * Gets the closure of component UUIDs living inside custom-region anchors.
+   *
+   * @param array $tree
+   *   A decoded component tree.
+   * @param array $anchors
+   *   Custom-region anchors, as returned by
+   *   \Drupal\neo_alchemist\ComponentFieldConfigInterface::getCustomRegions().
+   *
+   * @return string[]
+   *   All component instance UUIDs placed inside the flagged slots, including
+   *   nested descendants. Anchor owners themselves are not included.
+   */
+  public static function getSectionClosureUuids(array $tree, array $anchors): array {
+    $queue = [];
+    foreach ($anchors as $ownerUuid => $anchor) {
+      foreach ($anchor['slots'] as $slotId) {
+        foreach ((array) ($tree[$ownerUuid][$slotId] ?? []) as $tuple) {
+          if (!empty($tuple['uuid'])) {
+            $queue[] = $tuple['uuid'];
+          }
+        }
+      }
+    }
+    return static::expandTupleClosure($tree, $queue);
+  }
+
+  /**
+   * Expands a list of UUIDs with all of their tree descendants.
+   *
+   * @param array $tree
+   *   A decoded component tree.
+   * @param array $uuids
+   *   The seed UUIDs.
+   *
+   * @return string[]
+   *   The seed UUIDs plus every descendant found in the tree.
+   */
+  protected static function expandTupleClosure(array $tree, array $uuids): array {
+    $found = [];
+    while ($uuids) {
+      $uuid = array_shift($uuids);
+      if (!is_string($uuid) || isset($found[$uuid])) {
+        continue;
+      }
+      $found[$uuid] = TRUE;
+      foreach ((array) ($tree[$uuid] ?? []) as $slotTuples) {
+        foreach ((array) $slotTuples as $tuple) {
+          if (!empty($tuple['uuid'])) {
+            $uuids[] = $tuple['uuid'];
+          }
+        }
+      }
+    }
+    return array_keys($found);
+  }
+
+  /**
+   * Gets every UUID referenced by a decoded component tree.
+   *
+   * @param array $tree
+   *   A decoded component tree.
+   *
+   * @return string[]
+   *   All section keys and tuple UUIDs, excluding the root key.
+   */
+  protected static function getTreeUuids(array $tree): array {
+    $uuids = [];
+    foreach ($tree as $key => $section) {
+      if ($key !== ComponentTreeStructure::ROOT_UUID) {
+        $uuids[$key] = TRUE;
+      }
+      $lists = $key === ComponentTreeStructure::ROOT_UUID ? [$section] : array_values((array) $section);
+      foreach ($lists as $tuples) {
+        foreach ((array) $tuples as $tuple) {
+          if (!empty($tuple['uuid'])) {
+            $uuids[$tuple['uuid']] = TRUE;
+          }
+        }
+      }
+    }
+    return array_keys($uuids);
   }
 
   /**

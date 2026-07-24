@@ -14,6 +14,18 @@ use Drupal\neo_alchemist\Plugin\Field\FieldType\ComponentTreeItem;
 interface ComponentInstanceInterface extends ComponentInterface {
 
   /**
+   * Checks if this instance is inherited from the field default layout.
+   *
+   * Only instances of a hybrid field on an actual entity can be inherited:
+   * everything outside the entity-customizable regions belongs to the field
+   * default layout and is not editable per entity.
+   *
+   * @return bool
+   *   TRUE when inherited, FALSE otherwise.
+   */
+  public function isInherited(): bool;
+
+  /**
    * Determines if the actual component is published.
    *
    * @return bool

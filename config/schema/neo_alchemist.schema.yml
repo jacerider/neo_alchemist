@@ -138,6 +138,21 @@ neo_alchemist.neo_component_settings.props:
 neo_alchemist.neo_component_value.*:
   type: mapping
 
+neo_alchemist.neo_component_value.region_size:
+  type: mapping
+  label: 'Region size value provider'
+  mapping:
+    sizes:
+      type: sequence
+      label: Sizes
+      sequence:
+        type: string
+        label: Size
+
+neo_alchemist.neo_component_value.region_custom:
+  type: mapping
+  label: 'Entity customizable value provider'
+
 neo_alchemist.neo_component_value.widget:
   type: mapping
   label: 'Widget value provider'
@@ -951,20 +966,19 @@ field.field_settings.neo_component_tree:
       mapping:
         tree:
           type: sequence
+          label: 'Tree sections'
           sequence:
+            # Each section is either the root (a list of "uuid,component"
+            # tuples) or a non-root component subtree (slot name => list of
+            # tuples), e.g. the children of a region placed in the default
+            # layout. The two forms diverge below this level, so the items are
+            # left untyped; the tree structure is validated at runtime by the
+            # ComponentTreeStructure constraint.
             type: sequence
+            label: 'Tree section'
             sequence:
-              type: mapping
-              label: Component
-              mapping:
-                uuid:
-                  type: string
-                  label: UUID
-                  constraints:
-                    Uuid: {}
-                component:
-                  type: string
-                  label: Component Type
+              type: ignore
+              label: 'Component tuple or slot'
         props:
           type: sequence
           sequence:

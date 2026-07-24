@@ -66,7 +66,15 @@ class FieldParamConverter implements ParamConverterInterface {
           }
         }
 
-        $list = $entity->get($fieldName);
+        // Work on a detached copy of the field item list. Route-driven draft
+        // state must never live on the statically-cached entity: param
+        // conversion re-runs re-entrantly (access checks via checkNamedRoute,
+        // path validation, sub-requests), and each run would mutate the shared
+        // item — clobbering a publish flow's enforceAsDraft(FALSE) mid-save
+        // and bleeding draft values into canonical renders. Each conversion
+        // gets its own copy instead; committing syncs the value back onto the
+        // entity in ComponentTreeItem::saveComponents().
+        $list = clone $entity->get($fieldName);
         if ($list->isEmpty()) {
           $list->appendItem([]);
         }

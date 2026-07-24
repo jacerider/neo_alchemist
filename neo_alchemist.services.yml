@@ -128,7 +128,7 @@ services:
     class: Drupal\neo_alchemist\Routing\FieldComponentParamConverter
     tags:
       - { name: paramconverter }
-    arguments: ['@entity_type.manager', '@entity_field.manager']
+    arguments: ['@entity_type.manager', '@entity_field.manager', '@request_stack']
 
   neo_alchemist.neo_build_event_subscriber:
     class: '\Drupal\neo_alchemist\EventSubscriber\NeoBuildEventSubscriber'

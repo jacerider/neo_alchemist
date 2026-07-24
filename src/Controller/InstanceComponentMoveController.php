@@ -11,6 +11,7 @@ use Drupal\neo_alchemist\ComponentInterface;
 use Drupal\neo_alchemist\ComponentManageHelper;
 use Drupal\neo_alchemist\Plugin\Field\FieldType\ComponentTreeItem;
 use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 
 /**
  * Returns responses for Neo | Alchemist routes.
@@ -26,6 +27,13 @@ final class InstanceComponentMoveController extends ControllerBase {
   public function __invoke(Request $request, ComponentTreeItem $neo_field, ComponentInterface $neo_component, string $direction) {
     $parent = $request->query->get('parent');
     [$parentUuid, $shapeId] = explode('--', (string) ($parent ?? '--'));
+    if (!$neo_field->belongsToFieldConfig() && $neo_field->getFieldDefinition()->isHybrid()) {
+      // Hybrid mode: only entity-owned components within an
+      // entity-customizable region may be moved.
+      if (!$neo_field->isCustomTarget($parentUuid ?: NULL, $shapeId ?: NULL) || $neo_field->isInheritedInstance($neo_component->uuid())) {
+        throw new AccessDeniedHttpException();
+      }
+    }
     $uuids = array_keys($neo_field->toOptions($parentUuid, $shapeId));
     $swap_with = NULL;
     switch ($direction) {

@@ -23,7 +23,7 @@ class EntityComponentAccessCheck implements AccessInterface {
     if ($parameters->has($entity_type)) {
       $entity = $parameters->get($entity_type);
       foreach ($entity->getFieldDefinitions() as $fieldDefinition) {
-        if ($fieldDefinition->getType() === 'neo_component_tree' && $fieldDefinition->allowCustom()) {
+        if ($fieldDefinition->getType() === 'neo_component_tree' && ($fieldDefinition->allowCustom() || $fieldDefinition->isHybrid())) {
           return $entity->access($operation, $account, TRUE);
         }
       }

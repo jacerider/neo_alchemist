@@ -21,6 +21,43 @@ interface ComponentFieldConfigInterface extends FieldConfigInterface {
   public function allowCustom(): bool;
 
   /**
+   * Gets the entity-customizable regions of the field default layout.
+   *
+   * A region prop becomes entity-customizable when the placed component
+   * enables the 'region_custom' value plugin on it. Each such region is an
+   * "anchor": entities store only the component subtrees living inside these
+   * anchors while the rest of the layout stays controlled by the field
+   * default.
+   *
+   * @return array
+   *   An array keyed by the anchor owner's instance UUID in the default
+   *   layout. Each entry is an array with:
+   *   - component: The neo_component config entity ID of the owner.
+   *   - slots: The customizable region shape IDs on that owner.
+   */
+  public function getCustomRegions(): array;
+
+  /**
+   * Checks if the field default layout contains entity-customizable regions.
+   *
+   * @return bool
+   *   TRUE if at least one custom region exists, FALSE otherwise.
+   */
+  public function hasCustomRegions(): bool;
+
+  /**
+   * Checks if the field operates in hybrid mode.
+   *
+   * Hybrid mode means the layout itself is not customizable per entity
+   * (allow_custom is off) but the default layout contains one or more
+   * entity-customizable regions whose content is stored per entity.
+   *
+   * @return bool
+   *   TRUE when hybrid, FALSE otherwise.
+   */
+  public function isHybrid(): bool;
+
+  /**
    * Retrieves URL parameters based on the target entity type and bundle.
    *
    * This method constructs an array of URL parameters that can be used to

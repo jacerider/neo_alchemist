@@ -303,19 +303,9 @@ function neo_alchemist_form_alter(array &$form, FormStateInterface $form_state, 
         return;
       }
 
-      $allowCustom = array_reduce(
-        array_keys($neoFields),
-        function ($carry, $fieldName) use ($entity) {
-          if (!$entity->hasField($fieldName)) {
-            return $carry;
-          }
-          /** @var \Drupal\neo_alchemist\Entity\ComponentFieldConfig $fieldDefinition */
-          $fieldDefinition = $entity->get($fieldName)->getFieldDefinition();
-          return $carry || ($fieldDefinition->allowCustom() ?? FALSE);
-        },
-        FALSE
-      );
-      if (!$allowCustom) {
+      // Only show the layout button when the entity has at least one field
+      // whose layout (or custom regions, in hybrid mode) can be customized.
+      if (empty(neo_alchemist_entity_component_field_definitions($entity, TRUE))) {
         return;
       }
 
@@ -726,7 +716,7 @@ function neo_alchemist_neo_token_image_alter(&$uri, &$params, ContentEntityInter
  */
 function neo_alchemist_entity_component_field_definitions(ContentEntityInterface $entity, bool $allow_custom_only = FALSE): array {
   $fieldDefinitions = array_filter($entity->getFieldDefinitions(), function ($field) use ($allow_custom_only) {
-    return $field instanceof ComponentFieldConfigInterface && (!$allow_custom_only || $field->allowCustom());
+    return $field instanceof ComponentFieldConfigInterface && (!$allow_custom_only || $field->allowCustom() || $field->isHybrid());
   });
   \Drupal::moduleHandler()->alter('neo_alchemist_entity_component_fields', $fieldDefinitions, $entity);
   return $fieldDefinitions;

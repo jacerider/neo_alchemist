@@ -72,6 +72,34 @@
   let layerUuid: string | null = null;
   let regionUuid: string | null = null;
   let layerLevel: -1 | 0 | 1 | 2 = -1;
+
+  // Hybrid mode: the field layout is locked, but one or more regions are
+  // entity-customizable. Inherited components (the locked owner/header/footer)
+  // become inert and customizable regions are directly clickable at the top
+  // level, so the creator interacts only with the editable regions. All of
+  // this is gated by `hybrid` — normal editing is unaffected.
+  const hybrid = !!(drupalSettings.neoAlchemist && drupalSettings.neoAlchemist.hybrid);
+  function isInheritedComponent(uuid: string | null): boolean {
+    return !!uuid && structureData[uuid]?.data?.inherited === true;
+  }
+  function isCustomRegion(uuid: string | null): boolean {
+    return !!uuid && structureData[uuid]?.type === 'region' && structureData[uuid]?.data?.custom === true;
+  }
+  // A layer that can be focused directly (without drilling through a parent).
+  function isEditableTop(uuid: string | null): boolean {
+    return hybrid && isCustomRegion(uuid);
+  }
+  // A first-level customizable region in an entity layout. Its inherited owner
+  // is inert, so the region shades as if it were the page's top level: light
+  // page shade clipped around the region, no dark shade inside the owner.
+  // Nested regions deeper in the tree keep the normal owner-scoped shading.
+  function isHybridRootRegion(uuid: string | null): boolean {
+    if (!uuid || !isEditableTop(uuid)) {
+      return false;
+    }
+    const parents = structureData[uuid].parents;
+    return parents.length === 1 && isInheritedComponent(parents[0]);
+  }
   let layerInteractSize: 'desktop' | 'tablet' | 'mobile' = 'desktop';
   let passthroughTimeout: ReturnType<typeof setTimeout> | null = null;
   let eventPendingStatus = false;
@@ -139,6 +167,13 @@
   const onChild:any = {
     structureData: function (data: any) {
       structureData = data.data;
+    },
+    regionAdd: function (data: any) {
+      // The empty-region placeholder was clicked in a preview iframe. Open the
+      // library scoped to that region (uuid--shape) regardless of focus state.
+      if (data.uuid) {
+        actions.library(data.uuid);
+      }
     },
     positionData: function (data: any) {
       iframeFinished++;
@@ -393,18 +428,28 @@
         element.style.zIndex = (20 + level).toString();
         element.addEventListener('mouseenter', () => {
           layerInteractSize = size;
-          if (layerLevel + 1 === level) {
+          if (hybrid && isInheritedComponent(uuid)) {
+            return;
+          }
+          // A customizable region is directly interactive at the top level.
+          if (layerLevel + 1 === level || (isEditableTop(uuid) && layerLevel === -1)) {
             elementHover(uuid);
           }
         });
         element.addEventListener('mouseleave', () => {
-          if (layerLevel + 1 === level) {
+          if (hybrid && isInheritedComponent(uuid)) {
+            return;
+          }
+          if (layerLevel + 1 === level || (isEditableTop(uuid) && layerLevel === -1)) {
             elementBlur(uuid);
           }
         });
         element.addEventListener('click', (e) => {
           e.preventDefault();
           e.stopPropagation();
+          if (hybrid && isInheritedComponent(uuid)) {
+            return;
+          }
           elementFocus(uuid);
         });
         wrapper.appendChild(element);
@@ -437,6 +482,9 @@
 
     elementsPosition();
     elementsToggle();
+    // Hide the root Add/Sort in hybrid mode until a region is focused. When a
+    // layer is restored below, layerShow() re-runs this.
+    actionsToggle();
 
     if (layerUuid) {
       if (eventHistory && Object.keys(eventHistory).length > 0) {
@@ -465,6 +513,10 @@
   }
 
   function elementFocus(uuid: string): void {
+    // Inherited components are inert in hybrid mode.
+    if (hybrid && isInheritedComponent(uuid)) {
+      return;
+    }
     layerShow(uuid);
   }
 
@@ -616,15 +668,16 @@
     const data = structureData[uuid];
     const level = data.parents.length as 0 | 1 | 2;
     const shade = shadeElements[size][level];
+    const rootRegion = isHybridRootRegion(uuid);
     const container = getShadeContainer(uuid, size);
-    const heightOffset = level === 1 ? 0 : 10;
+    const heightOffset = level === 1 && !rootRegion ? 0 : 10;
     const absoluteRect = calculateRect(container.getBoundingClientRect());
     shade.style.left = `${absoluteRect.left}px`;
     shade.style.top = `${absoluteRect.top}px`;
     shade.style.width = `${absoluteRect.width}px`;
     shade.style.height = `${absoluteRect.height}px`;
     shade.style.opacity = '1';
-    if (data.type === 'component') {
+    if (data.type === 'component' || rootRegion) {
       shade.classList.remove('bg-base-950/60');
       shade.classList.add('bg-base-0/60');
     }
@@ -645,7 +698,7 @@
   function getShadeContainer(uuid: string, size: 'desktop' | 'tablet' | 'mobile'): HTMLElement {
     const data = structureData[uuid];
     const level = data.parents.length as 0 | 1 | 2;
-    if (level === 0) {
+    if (level === 0 || isHybridRootRegion(uuid)) {
       return getIframe(size);
     }
     const lastParent = data.parents[data.parents.length - 1];
@@ -678,7 +731,10 @@
     else {
       title = [{ label: 'Root', uuid: null }, ...title];
       title.forEach((part, index) => {
-        const span = document.createElement(part.uuid === uuid ? 'div' : 'a');
+        // The current layer, and inherited (locked) ancestors in hybrid mode,
+        // are shown for context but are not clickable.
+        const inert = hybrid && isInheritedComponent(part.uuid);
+        const span = document.createElement((part.uuid === uuid || inert) ? 'div' : 'a');
         span.classList.add('flex', 'items-center', 'gap-2', 'whitespace-nowrap');
         if (span instanceof HTMLAnchorElement) {
           span.href = '#';
@@ -781,6 +837,13 @@
     if (!uuid && !layerUuid) {
       return;
     }
+    // Inherited components are inert in hybrid mode. Reachable here only via a
+    // breadcrumb parent link; treat it as a deselect rather than focusing the
+    // locked component.
+    if (hybrid && isInheritedComponent(uuid)) {
+      layerShow(null, force, instant);
+      return;
+    }
 
     let level : -1 | 0 | 1 | 2 = -1;
     let parents: string[] = [];
@@ -819,6 +882,10 @@
       parents = data.parents;
       level = parents.length as 0 | 1 | 2;
       parents.forEach(parentUuid => {
+        // Inert inherited owners never render as an active layer.
+        if (hybrid && isInheritedComponent(parentUuid)) {
+          return;
+        }
         overlayShow(parentUuid, 'active', force);
       });
       overlayShow(uuid, 'focus', force);
@@ -853,12 +920,56 @@
       regionUuid = null;
     }
     layerUuid = uuid;
+    actionsToggle();
+  }
+
+  /**
+   * The customizable region the toolbar actions apply to for the focused layer.
+   *
+   * Either the focused region itself, or the custom-region ancestor of a
+   * focused component inside it (region-in-region is disallowed, so a focused
+   * component has exactly one custom-region ancestor). Null when the focus is
+   * outside any customizable region.
+   */
+  function focusedCustomRegion(uuid: string | null): string | null {
+    if (!uuid) return null;
+    if (isCustomRegion(uuid)) return uuid;
+    const data = structureData[uuid];
+    if (!data) return null;
+    return data.parents.find(p => isCustomRegion(p)) || null;
+  }
+
+  /**
+   * Toggle the bottom toolbar Add/Sort in hybrid mode.
+   *
+   * Root add/sort is locked in hybrid mode, so these only make sense scoped to
+   * a customizable region — but, as in non-hybrid, the bar stays up while any
+   * layer *inside* that region is focused (a focused component's add/sort still
+   * targets its region). Show Add whenever the focus is inside a region, and
+   * Sort only when that region has something to reorder. Non-hybrid layouts
+   * keep the buttons always visible (untouched).
+   */
+  function actionsToggle(): void {
+    if (!hybrid || !actionButtons) return;
+    const region = focusedCustomRegion(layerUuid);
+    const childCount = region ? (structureData[region]?.children?.length || 0) : 0;
+    actionButtons.forEach(button => {
+      const action = button.dataset.action;
+      const visible = action === 'sort' ? (!!region && childCount >= 2) : !!region;
+      button.style.display = visible ? '' : 'none';
+    });
   }
 
   function layerBack(): void {
     if (!layerUuid) return;
     const data = structureData[layerUuid];
     const lastParent = data.parents[data.parents.length - 1] || null;
+    // In hybrid mode the inherited owner is inert, so backing out of a
+    // top-level customizable region deselects rather than focusing the owner.
+    if (hybrid && (!lastParent || isInheritedComponent(lastParent))) {
+      layerShow(null);
+      return;
+    }
     layerShow(lastParent);
   }
 
@@ -929,6 +1040,21 @@
     Object.entries(structureData).forEach(([elementUuid, data]) => {
       const dataLevel = data.parents.length as 0 | 1 | 2;
       sizes.forEach(size => {
+        // Hybrid, nothing focused: only customizable regions are directly
+        // interactive; inherited components (and everything else) are inert,
+        // so the creator can click straight into a region. The focused branch
+        // below already inerts non-child ancestors and hides siblings, which
+        // is correct for hybrid too (the inherited owner shows inert; other
+        // inherited components hide).
+        if (hybrid && !uuid) {
+          if (isCustomRegion(elementUuid)) {
+            showLayer(elementUuid, size);
+          }
+          else {
+            hideLayer(elementUuid, size);
+          }
+          return;
+        }
         // const element = structureElements[elementUuid][size];
         if (dataLevel <= level) {
           if (uuid) {

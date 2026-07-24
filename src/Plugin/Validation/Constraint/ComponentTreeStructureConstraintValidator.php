@@ -8,7 +8,10 @@ use Drupal\Core\Config\Entity\ConfigEntityStorageInterface;
 use Drupal\Core\DependencyInjection\ContainerInjectionInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Validation\BasicRecursiveValidatorFactory;
+use Drupal\neo_alchemist\ComponentFieldConfigInterface;
 use Drupal\neo_alchemist\Plugin\DataType\ComponentTreeStructure;
+use Drupal\neo_alchemist\Plugin\Field\FieldType\ComponentTreeItem;
+use Drupal\neo_alchemist\Plugin\Field\NeoComponentTreeList;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\Validator\Constraint;
 use Symfony\Component\Validator\Constraints\All;
@@ -77,7 +80,18 @@ final class ComponentTreeStructureConstraintValidator extends ConstraintValidato
     if ($tree === NULL) {
       throw new \UnexpectedValueException(sprintf('The value must be a valid JSON string, found %s.', $value));
     }
+    // Hybrid mode stores a machine-written subset on entities:
+    // custom-region sections whose owner instance lives in the field default
+    // layout (dangling by design), explicitly-empty flagged slots, and
+    // preserved orphan sections. Relax the strictness for that case only.
+    $hybrid = $this->isHybridEntityScope();
+    if ($hybrid) {
+      $tree = self::filterEmptySections($tree);
+    }
     $this->validateTree($tree);
+    if ($hybrid) {
+      return;
+    }
     foreach (array_keys($tree) as $uuid) {
       assert(is_string($uuid));
       if ($uuid === ComponentTreeStructure::ROOT_UUID) {
@@ -90,6 +104,57 @@ final class ComponentTreeStructureConstraintValidator extends ConstraintValidato
           ->addViolation();
       }
     }
+  }
+
+  /**
+   * Checks if the validated tree belongs to a hybrid field on an entity.
+   *
+   * @return bool
+   *   TRUE when the tree is entity-scope data of a hybrid field.
+   */
+  private function isHybridEntityScope(): bool {
+    $object = $this->context->getObject();
+    if (!$object instanceof ComponentTreeStructure) {
+      return FALSE;
+    }
+    $item = $object->getParent();
+    if (!$item instanceof ComponentTreeItem) {
+      return FALSE;
+    }
+    $list = $item->getParent();
+    if (!$list instanceof NeoComponentTreeList || $list->belongsToFieldConfig()) {
+      return FALSE;
+    }
+    $definition = $item->getFieldDefinition();
+    return $definition instanceof ComponentFieldConfigInterface && $definition->isHybrid();
+  }
+
+  /**
+   * Removes empty slots and sections from a tree copy prior to validation.
+   *
+   * Hybrid storage legitimately contains empty flagged slots ("explicitly
+   * empty" markers); they must not trigger the empty-subtree violations.
+   *
+   * @param array $tree
+   *   The decoded tree.
+   *
+   * @return array
+   *   The tree without empty non-root slots/sections.
+   */
+  private static function filterEmptySections(array $tree): array {
+    foreach ($tree as $key => $section) {
+      if ($key === ComponentTreeStructure::ROOT_UUID) {
+        continue;
+      }
+      $section = array_filter((array) $section);
+      if ($section) {
+        $tree[$key] = $section;
+      }
+      else {
+        unset($tree[$key]);
+      }
+    }
+    return $tree;
   }
 
   /**
@@ -123,7 +188,8 @@ final class ComponentTreeStructureConstraintValidator extends ConstraintValidato
         }
       }
       else {
-        // Non-root subtrees contain slots and "uuid,component" tuples in each slot.
+        // Non-root subtrees contain slots and "uuid,component" tuples in
+        // each slot.
         foreach ($component_subtree as $slots) {
           if (in_array($uuid, array_column($slots, 'uuid'), TRUE)) {
             return TRUE;
@@ -182,8 +248,8 @@ final class ComponentTreeStructureConstraintValidator extends ConstraintValidato
       ]
     );
     // Since the root UUID has a different expected structure than other UUIDs
-    // at the top of the data structure we validate it first to avoid complicated
-    // constraints.
+    // at the top of the data structure we validate it first to avoid overly
+    // complicated constraints.
     $root_constraints = new Collection(
       [
         ComponentTreeStructure::ROOT_UUID => new Required([

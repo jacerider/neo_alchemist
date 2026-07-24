@@ -58,7 +58,7 @@ class ComponentTasksDeriver extends DeriverBase implements ContainerDeriverInter
               'route_name' => "entity.$entityTypeId.alchemist",
               'title' => 'Layout',
               'base_route' => $base_route,
-              'weight' => 1,
+              'weight' => 0.5,
             ] + $base_plugin_definition;
             if (isset($neoFields[$entityTypeId])) {
               foreach ($neoFields[$entityTypeId] as $fieldName => $field) {
