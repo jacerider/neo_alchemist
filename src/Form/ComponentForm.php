@@ -203,6 +203,18 @@ final class ComponentForm extends EntityForm {
       $this->messenger()->addStatus($this->t('This component has been protected by default because it is in the "special" group. Only users with the "use protected components" permission can manage this component.'));
     }
 
+    // Components created in the "entity" (content-specific) group render fixed,
+    // content-driven layouts, so default every prop to non-editable. These are
+    // the same shape instances preSave() reads back when it stores the prop
+    // settings, so setting the flag here persists it; a site builder can still
+    // opt individual props back into being editable afterwards.
+    if ($this->entity->isNew() && $this->entity->getGroup() === 'entity') {
+      foreach ($this->entity->getPropShapes() as $shape) {
+        $shape->setEditable(FALSE);
+      }
+      $this->messenger()->addStatus($this->t('This component has been defaulted to non-editable because it is in the "entity" group. If you plan to allow content editors to edit the layout of this component, you can change the editable setting for individual props.'));
+    }
+
     $result = parent::save($form, $form_state);
     $message_args = ['%label' => $this->entity->label()];
     $this->messenger()->addStatus(
