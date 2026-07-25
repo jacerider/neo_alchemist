@@ -115,9 +115,32 @@ class RegionShape extends ArrayShape implements ComponentShapeRegionPluginInterf
 
   /**
    * {@inheritDoc}
+   *
+   * Falls back to a `sizes` key on the prop's own schema, so a component can
+   * declare what its region accepts in the *.component.yml:
+   *
+   * @code
+   * region:
+   *   type: region
+   *   title: Content
+   *   sizes: [xs, sm, md]
+   * @endcode
+   *
+   * The `region_size` value plugin is the only other way to set this, and it
+   * is configured from ComponentManageForm's props table — which is built from
+   * getPropShapes(), i.e. TOP-LEVEL props only. A region nested inside an
+   * array prop (one drop zone per repeated item — per section, per tab, per
+   * accordion panel) therefore has no row in that table and no way to be
+   * configured at all. Declaring the sizes in YAML covers that case, versions
+   * the constraint next to the region it constrains, and keeps it an
+   * author-time decision. Config still wins where it is set.
    */
   public function getSizes(): array {
-    return $this->sizes;
+    if ($this->sizes) {
+      return $this->sizes;
+    }
+    $schema = $this->getSchema();
+    return array_values(array_filter((array) ($schema['sizes'] ?? [])));
   }
 
   /**
