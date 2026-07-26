@@ -630,7 +630,14 @@
         action.style.opacity = '1';
       });
     }
-    overlay.style.pointerEvents = 'auto';
+    // An empty region renders only its "Add a component" placeholder, and this
+    // overlay covers it exactly — an interactive overlay swallows that click and
+    // the placeholder silently becomes a selection target. There is nothing in
+    // an empty region to select, so leave the overlay inert and let the pointer
+    // through to the placeholder, which already posts `regionAdd`.
+    if (data.type !== 'region' || data.children.length) {
+      overlay.style.pointerEvents = 'auto';
+    }
     setTimeout(() => {
       shadeShowLevel(uuid, size);
     });
