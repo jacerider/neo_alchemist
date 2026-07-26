@@ -402,6 +402,23 @@ abstract class ChildrenShapeBase extends ComponentShapePluginBase implements Com
    * other than the passive "default" fallback) resolves its own value and must
    * not have it overwritten by a value pushed down from its parent.
    *
+   * `formatted_text` is declared in the "providers" group but does not source a
+   * value — it renders one that already exists through a text format. Counting
+   * it here made every NESTED markup prop (`type: markup` inside an `array`)
+   * refuse its parent's stored value and fall back to the schema's `examples`,
+   * silently discarding authored content on render: a table cell, an FAQ answer
+   * or a section intro would show the component's example text where an example
+   * existed at that index, and nothing where it did not. Top-level markup was
+   * unaffected, because only children take a value pushed down from a parent.
+   *
+   * Excluding it by id rather than by group keeps the guard intact: a markup
+   * child that also carries a real provider still matches on that provider.
+   *
+   * Excluding every plugin from the shape's `default_plugins` would be the more
+   * general rule, but `media` is a default plugin too and it does source a
+   * value — that is the case this guard was added for — so the narrow exclusion
+   * is the one that cannot regress anything else.
+   *
    * @param \Drupal\neo_alchemist\ComponentShapePluginInterface $shape
    *   The child shape.
    *
@@ -410,7 +427,10 @@ abstract class ChildrenShapeBase extends ComponentShapePluginBase implements Com
    */
   protected function childHasOwnValueProvider(ComponentShapePluginInterface $shape): bool {
     foreach ($shape->getValueCollection()->getActiveInstances() as $instanceId => $instance) {
-      if ($instanceId !== 'default' && $instance->getGroup() === 'providers') {
+      if ($instanceId === 'default' || $instanceId === 'formatted_text') {
+        continue;
+      }
+      if ($instance->getGroup() === 'providers') {
         return TRUE;
       }
     }
