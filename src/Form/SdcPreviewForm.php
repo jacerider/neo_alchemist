@@ -328,12 +328,18 @@ final class SdcPreviewForm extends EntityForm {
       }
       $subform_state = SubformState::createForSubform($form['values'][$propName], $form, $form_state);
       $originalValue = $original_values['props'][$propName]['value'] ?? [];
+      // See InstanceComponentForm::validateForm() — a scalar prop value cannot
+      // pass through massageFormValues(), which is typed array both ways.
+      $originalArray = is_array($originalValue) ? $originalValue : [];
       $shape->validateForm($form['values'][$propName], $subform_state);
       $value = $subform_state->getValues();
       $values['props'][$propName]['ref'] = $shape->getRef();
-      $values['props'][$propName]['value'] = $shape->massageFormValues($value, $originalValue, $form['values'][$propName], $subform_state);
+      $values['props'][$propName]['value'] = $shape->massageFormValues($value, $originalArray, $form['values'][$propName], $subform_state);
       if (!$shape->isIterable() && !empty($values['props'][$propName]['value'])) {
-        $values['props'][$propName]['value'] += $originalValue;
+        $values['props'][$propName]['value'] += $originalArray;
+      }
+      if (!is_array($originalValue) && $shape->getOptionDefault()->isEnabled()) {
+        $values['props'][$propName]['value'] = $originalValue;
       }
       $values['props'][$propName]['options'] = $shape->getNestedOptions();
     }
