@@ -207,7 +207,7 @@ class ArrayShape extends ChildrenShapeBase implements ComponentShapeInterablePlu
         'type' => [$schema['items']['type']],
       ];
     }
-    else if (count($schema['items']['properties']) === 1) {
+    elseif (count($schema['items']['properties']) === 1) {
       // When we only have a single property, we make that property required
       // because it is the only way to have a value for the array item.
       $schema['items']['required'][] = key($schema['items']['properties']);
@@ -626,13 +626,21 @@ class ArrayShape extends ChildrenShapeBase implements ComponentShapeInterablePlu
    */
   public static function removeItemSubmit(array $form, FormStateInterface $form_state) {
     $button = $form_state->getTriggeringElement();
-    $parents = array_slice($button['#array_parents'], 0, -3);
+    // #widget_parents is a form *values* path: it addresses the submitted user
+    // input, not the form structure.
     $rowParents = $button['#widget_parents'];
     $parents = array_slice($rowParents, 0, -1);
     $delta = end($rowParents);
 
-    // Go one level up in the form, to the widgets container.
-    $element = NestedArray::getValue($form, $parents);
+    // Go one level up in the form, to the widgets container. This must be
+    // located by the button's position in the form structure, because for a
+    // nested shape the value path above does not match it (the structure
+    // carries an intermediate "values" key and no trailing shape name).
+    // Indexing $form with the value path found nothing, so the flags below
+    // were stored under a bogus key and form() never saw them — the removed
+    // item simply came back. removeItemAjax() already resolves the same
+    // container this way.
+    $element = NestedArray::getValue($form, array_slice($button['#array_parents'], 0, -2));
     $form_state->set($element['#id'] . '-remove', $delta);
 
     // Decrement the count.

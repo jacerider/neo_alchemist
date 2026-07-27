@@ -143,6 +143,8 @@ final class EntityQueryValue extends ComponentValuePluginBase implements Contain
       'filter_entity_include_children' => FALSE,
       'filter_entity_include_parents' => FALSE,
       'filter_parent' => '',
+      'filter_parent_term' => 0,
+      'filter_level' => 1,
       'start' => 0,
       'length' => 10,
       'length_filter' => '',
@@ -302,15 +304,61 @@ final class EntityQueryValue extends ComponentValuePluginBase implements Contain
       if ($entityTypeId === 'taxonomy_term') {
         $form['filter_parent'] = [
           '#type' => 'select',
-          '#title' => $this->t('Filter by parent term'),
-          '#description' => $this->t('Optionally filter the results by a specific parent term.'),
+          '#title' => $this->t('Term hierarchy'),
+          '#description' => $this->t('Optionally restrict the results to a level of the vocabulary hierarchy.'),
           '#options' => [
-            'root' => $this->t('Root'),
-            'current' => $this->t('Current Term else Root'),
+            'root' => $this->t('Top level only (terms with no parent)'),
+            'current' => $this->t('Children of the current term, else top level'),
+            'term' => $this->t('Children of a specific term'),
+            'level' => $this->t('All terms at a specific level'),
           ],
-          '#empty_option' => $this->t('- None -'),
+          '#empty_option' => $this->t('- Any depth -'),
           '#default_value' => $this->configuration['filter_parent'] ?? NULL,
+          '#id' => $wrapperId . '-filter-parent',
         ];
+
+        // Both of the options below resolve against a single vocabulary, so
+        // they are only offered once a bundle has been chosen.
+        if ($bundle) {
+          $termOptions = [];
+          $maxLevel = 0;
+          foreach ($this->loadTermTreeRows($bundle) as $row) {
+            $termOptions[(int) $row->tid] = str_repeat('- ', (int) $row->depth) . $row->name;
+            $maxLevel = max($maxLevel, (int) $row->depth + 1);
+          }
+
+          $parentTerm = (int) ($this->configuration['filter_parent_term'] ?? 0);
+          $form['filter_parent_term'] = [
+            '#type' => 'select',
+            '#title' => $this->t('Parent term'),
+            '#description' => $this->t('Return the direct children of this term.'),
+            '#options' => $termOptions,
+            '#empty_option' => $this->t('- Select -'),
+            '#default_value' => isset($termOptions[$parentTerm]) ? $parentTerm : '',
+            '#states' => [
+              'visible' => [
+                '#' . $wrapperId . '-filter-parent' => ['value' => 'term'],
+              ],
+            ],
+          ];
+
+          $levelOptions = [];
+          foreach (range(1, max($maxLevel, 1)) as $level) {
+            $levelOptions[$level] = $level;
+          }
+          $form['filter_level'] = [
+            '#type' => 'select',
+            '#title' => $this->t('Level'),
+            '#description' => $this->t('Return every term at this depth of the hierarchy, regardless of parent. Level 1 is the top level.'),
+            '#options' => $levelOptions,
+            '#default_value' => (int) ($this->configuration['filter_level'] ?? 1),
+            '#states' => [
+              'visible' => [
+                '#' . $wrapperId . '-filter-parent' => ['value' => 'level'],
+              ],
+            ],
+          ];
+        }
       }
 
       $form['start'] = [
@@ -323,12 +371,17 @@ final class EntityQueryValue extends ComponentValuePluginBase implements Contain
       ];
 
       if ($this->shape->isIterable()) {
+        // Paging needs a positive page size (pager(0) is not valid), so the
+        // "all results" option is only offered when paging is off.
+        $paging = !empty($this->configuration['paging']);
         $form['length'] = [
           '#type' => 'number',
           '#title' => $this->t('Length'),
-          '#description' => $this->t('The number of results to return.'),
+          '#description' => $paging
+            ? $this->t('The number of results per page.')
+            : $this->t('The number of results to return. Use <em>0</em> to return all results.'),
           '#default_value' => $this->configuration['length'],
-          '#min' => 1,
+          '#min' => $paging ? 1 : 0,
           '#step' => 1,
         ];
 
@@ -383,6 +436,30 @@ final class EntityQueryValue extends ComponentValuePluginBase implements Contain
   }
 
   /**
+   * Loads a vocabulary's term tree as lightweight rows.
+   *
+   * The rows carry ->tid, ->name and ->depth in hierarchical order, which is
+   * what the indented parent select and the level resolution both need.
+   * Passing TRUE for loadTree()'s $load_entities would drop ->depth.
+   *
+   * @param string $vid
+   *   The vocabulary ID. An empty value yields no rows.
+   * @param int $depth
+   *   The maximum depth to load, or 0 for the whole tree.
+   *
+   * @return object[]
+   *   The tree rows.
+   */
+  protected function loadTermTreeRows(string $vid, int $depth = 0): array {
+    if (!$vid) {
+      return [];
+    }
+    /** @var \Drupal\taxonomy\TermStorageInterface $storage */
+    $storage = $this->entityTypeManager->getStorage('taxonomy_term');
+    return $storage->loadTree($vid, 0, $depth ?: NULL, FALSE);
+  }
+
+  /**
    * Gets the entity query for the component value.
    *
    * @return \Drupal\Core\Entity\Query\QueryInterface|null
@@ -406,7 +483,7 @@ final class EntityQueryValue extends ComponentValuePluginBase implements Contain
           $sortDirection = $this->configuration['sort_direction_2'] ?? 'ASC';
           $query->sort($sortField, $sortDirection);
         }
-        $length = $this->shape->isIterable() ? $this->configuration['length'] : 1;
+        $length = $this->shape->isIterable() ? (int) $this->configuration['length'] : 1;
         if ($lengthFilter = $this->configuration['length_filter']) {
           $filter = $this->shape->getComponent()->getFilter($lengthFilter);
           if ($filter->getPluginId() === 'number') {
@@ -415,11 +492,19 @@ final class EntityQueryValue extends ComponentValuePluginBase implements Contain
             }
           }
         }
+        $start = (int) $this->configuration['start'];
         if ($this->shape->isIterable() && $this->configuration['paging']) {
-          $query->pager($length);
+          // A pager always needs a positive page size; "all results" is not a
+          // meaningful page size, so fall back to the configured default.
+          $query->pager($length > 0 ? $length : 10);
         }
-        else {
-          $query->range($this->configuration['start'], $length);
+        elseif ($length > 0) {
+          $query->range($start, $length);
+        }
+        elseif ($start) {
+          // Length 0 means "all results". There is no unbounded range, so an
+          // offset is expressed with the largest length the database accepts.
+          $query->range($start, PHP_INT_MAX);
         }
         $bundle = $this->configuration['bundle'];
         if ($bundle) {
@@ -478,10 +563,40 @@ final class EntityQueryValue extends ComponentValuePluginBase implements Contain
                 $query->condition('parent', 0, '=');
               }
               break;
+
+            case 'term':
+              // An unconfigured parent term falls back to 0, which is the top
+              // level — never the whole vocabulary.
+              $query->condition('parent', (int) ($this->configuration['filter_parent_term'] ?? 0), '=');
+              break;
+
+            case 'level':
+              // Depth is not a queryable field, so resolve the level to term
+              // IDs first. loadTree() depth is 0-based, so a 1-based level
+              // matches rows at depth level - 1.
+              $level = max(1, (int) ($this->configuration['filter_level'] ?? 1));
+              $tids = [];
+              foreach ($this->loadTermTreeRows($bundle, $level) as $row) {
+                if ((int) $row->depth === $level - 1) {
+                  $tids[] = (int) $row->tid;
+                }
+              }
+              // With no vocabulary selected, or no terms at that level, match
+              // nothing rather than falling through to every term.
+              $query->condition($entityType->getKey('id'), $tids ?: [0], 'IN');
+              break;
           }
         }
-        if ($this->configuration['shape_published'] && $entityType->hasKey('status')) {
-          $query->condition($entityType->getKey('status'), 1);
+        if ($this->configuration['shape_published']) {
+          // Publishable entity types expose this as the "published" key; only
+          // some (e.g. node) also alias it as "status". Taxonomy terms do not,
+          // so testing "status" alone silently skipped the condition for them
+          // and let unpublished terms consume slots in the range window before
+          // ComponentValueChildrenMatchTrait dropped them again.
+          $statusKey = $entityType->getKey('published') ?: $entityType->getKey('status');
+          if ($statusKey) {
+            $query->condition($statusKey, 1);
+          }
         }
         $event = new ComponentValueEntityQueryEvent($this->shape, $query);
         $this->eventDispatcher->dispatch($event, ComponentValueEntityQueryEvent::EVENT_NAME);

@@ -412,7 +412,7 @@ neo_alchemist.neo_component_value.page_label:
 
 neo_alchemist.neo_component_value.entity_query:
   type: mapping
-  label: 'Views value provider'
+  label: 'Entity query value provider'
   mapping:
     entity_type:
       type: string
@@ -425,7 +425,7 @@ neo_alchemist.neo_component_value.entity_query:
       label: The first record from the result set to return
     length:
       type: integer
-      label: The maximum number of results
+      label: The maximum number of results, or 0 for all results
     length_filter:
       type: string
       label: The filter that controls the maximum number of results
@@ -455,7 +455,13 @@ neo_alchemist.neo_component_value.entity_query:
       label: Include parent terms in the entity reference filter
     filter_parent:
       type: string
-      label: Filter by parent term
+      label: Term hierarchy restriction
+    filter_parent_term:
+      type: integer
+      label: The parent term whose children to return
+    filter_level:
+      type: integer
+      label: The hierarchy level to return terms from
     shape_fields:
       type: neo_alchemist.neo_component_shape_fields
     shape_published:
