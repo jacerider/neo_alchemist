@@ -343,12 +343,25 @@ final class InstanceComponentForm extends ContentEntityForm {
       if (isset($form['values'][$propName])) {
         $subform_state = SubformState::createForSubform($form['values'][$propName], $form, $form_state);
         $originalValue = $original_values['props'][$propName]['value'] ?? [];
+        // A prop stored as a scalar (markup, string, number) cannot travel
+        // through massageFormValues(), which both takes and returns an array —
+        // passing one fatals, and every validation of this form runs through
+        // here, so Save is broken too. Keep it out of that path rather than
+        // wrapping it: wrapping would survive the call but then merge a stray
+        // numeric key into the stored value via the union below.
+        $originalArray = is_array($originalValue) ? $originalValue : [];
         $shape->validateForm($form['values'][$propName], $subform_state);
         $value = $subform_state->getValues();
         $values['props'][$propName]['ref'] = $shape->getRef();
-        $values['props'][$propName]['value'] = $shape->massageFormValues($value, $originalValue, $form['values'][$propName], $subform_state);
+        $values['props'][$propName]['value'] = $shape->massageFormValues($value, $originalArray, $form['values'][$propName], $subform_state);
         if (!$shape->isIterable() && !empty($values['props'][$propName]['value'])) {
-          $values['props'][$propName]['value'] += $originalValue;
+          $values['props'][$propName]['value'] += $originalArray;
+        }
+        if (!is_array($originalValue) && $shape->getOptionDefault()->isEnabled()) {
+          // Restoring the previous value is the one thing the original is
+          // threaded through for, so hand the scalar back directly — the array
+          // return type above cannot carry it.
+          $values['props'][$propName]['value'] = $originalValue;
         }
         $values['props'][$propName]['options'] = $shape->getNestedOptions();
       }
