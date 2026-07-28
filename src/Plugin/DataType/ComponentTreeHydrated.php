@@ -139,13 +139,12 @@ class ComponentTreeHydrated extends TypedData implements RenderableInterface {
 
     $build = [];
     foreach ($hydrated as $component_subtree_uuid => $component_instances) {
-      // Get first and last UUIDs for caching purposes.
-      $uuids = array_keys($component_instances);
-      $first = reset($uuids);
-      $last = end($uuids);
+      // Resolve and access-filter before deciding anything about position. A
+      // component is first or last among the ones that actually render, not
+      // among the ones that were stored — taking the ends of the unfiltered
+      // list offered a dead Move Up whenever the leading sibling was hidden.
+      $renderable = [];
       foreach ($component_instances as $component_instance_uuid => $component_instance) {
-        $isFirst = $first === $component_instance_uuid;
-        $isLast = $last === $component_instance_uuid;
         $instance = $item->getComponent($component_instance_uuid);
         $cacheableMetadata->addCacheableDependency($instance);
         // Capture the access decision's cacheability (e.g. value-provider list
@@ -157,6 +156,13 @@ class ComponentTreeHydrated extends TypedData implements RenderableInterface {
           // Skip components that are not accessible.
           continue;
         }
+        $renderable[$component_instance_uuid] = $instance;
+      }
+      $uuids = array_keys($renderable);
+      $first = reset($uuids);
+      $last = end($uuids);
+      foreach ($renderable as $component_instance_uuid => $instance) {
+        $component_instance = $component_instances[$component_instance_uuid];
         if (!empty($component_instance['slots'])) {
           $shapes = $instance->getPropShapesAll(NULL, TRUE);
           foreach ($component_instance['slots'] as $slot => $children) {
@@ -168,6 +174,8 @@ class ComponentTreeHydrated extends TypedData implements RenderableInterface {
             }
           }
         }
+        $isFirst = $first === $component_instance_uuid;
+        $isLast = $last === $component_instance_uuid;
         $build[$component_subtree_uuid][$component_instance_uuid] = $instance->toRenderable($isFirst, $isLast);
       }
     }
