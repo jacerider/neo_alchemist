@@ -62,6 +62,7 @@ class InstanceComponentManage extends RenderElementBase {
     $element['#top_start'] = ComponentManageHelper::buildDynamicOperations($neoField);
     $element['#top_end'] = ComponentManageHelper::buildIframeOperations($neoField);
     $element['#bottom_start'] = ComponentManageHelper::buildOperations($neoField, $element['#neo_modal'] ?? []);
+    $element['#bottom_end'] = ComponentManageHelper::buildLayersToggle();
 
     return $element;
   }

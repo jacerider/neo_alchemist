@@ -55,6 +55,7 @@ class NeoBuildInlineEventSubscriber implements EventSubscriberInterface {
 
     // One rule per scheme: two adjacent background sections that carry the same
     // scheme class paint the same colour.
+    /** @var \Drupal\neo_color\SchemeInterface[] $schemes */
     $schemes = $this->entityTypeManager->getStorage('neo_scheme')->loadByProperties([
       'status' => 1,
     ]);

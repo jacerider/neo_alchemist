@@ -191,6 +191,12 @@ class RegionShape extends ArrayShape implements ComponentShapeRegionPluginInterf
     if ($component->isInstancePreview()) {
       $message = $this->t('Component Region');
     }
+    // Resolved children, keyed by their original delta. Collected in full
+    // before anything is rendered: a child only knows whether it is first or
+    // last once the ones that drop out are known, and toRenderable() bakes
+    // that answer into the data-component attribute, so it cannot be corrected
+    // afterwards.
+    $children = [];
     if ($component instanceof ComponentInstanceInterface) {
       foreach ($value as $delta => $uuid) {
         $childComponent = $component->getFieldItem()->getComponent($uuid);
@@ -203,7 +209,7 @@ class RegionShape extends ArrayShape implements ComponentShapeRegionPluginInterf
         $accessResult = $childComponent->access('view', NULL, TRUE);
         $this->addCacheableDependency($accessResult);
         if ($accessResult->isAllowed()) {
-          $newValues[$delta] = $childComponent->toRenderable();
+          $children[$delta] = $childComponent;
         }
       }
     }
@@ -214,9 +220,17 @@ class RegionShape extends ArrayShape implements ComponentShapeRegionPluginInterf
         /** @var \Drupal\neo_alchemist\ComponentInterface $childComponent */
         $childComponent = $this->entityTypeManager->getStorage('neo_component')->load($componentId);
         if ($childComponent) {
-          $newValues[$delta] = $childComponent->toRenderable();
+          $children[$delta] = $childComponent;
         }
       }
+    }
+    // Compared by key rather than by counting, because the deltas above stay
+    // as they were in the stored order and go sparse wherever a child was
+    // skipped.
+    $firstDelta = array_key_first($children);
+    $lastDelta = array_key_last($children);
+    foreach ($children as $delta => $childComponent) {
+      $newValues[$delta] = $childComponent->toRenderable($delta === $firstDelta, $delta === $lastDelta);
     }
     $value = $newValues;
     if ($component->isPreview()) {

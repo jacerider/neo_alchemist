@@ -1,8 +1,21 @@
 {%
   set shade_classes = 'absolute bg-base-0/60 backdrop-blur-sm'
 %}
+{#
+  The editor stamps data-node-type (what a thing is) and data-state (how it
+  relates to the selection) on every outline, and the variants below dress it
+  accordingly. Border width never varies: the label and the +/move clusters are
+  anchored to this box with bottom/top-full, and the box is border-box with an
+  inline width/height, so a wider border would resize the padding box and shift
+  all of them. Emphasis is an outline, which costs no layout.
+#}
 {%
-  set overlay_classes = 'absolute border border-dashed shadow-lg'
+  set overlay_classes = 'absolute border border-dashed shadow-lg border-base-200'
+    ~ ' data-[node-type=region]:border-base-400/80'
+    ~ ' data-[state=active]:border-base-400/50'
+    ~ ' data-[state=ghost]:border-base-400/50'
+    ~ ' data-[state=focus]:outline-2 data-[state=focus]:-outline-offset-1 data-[state=focus]:outline-primary-500'
+    ~ ' data-[node-type=region]:data-[state=focus]:border-base-400'
 %}
 {%
   set element_classes = 'absolute'
@@ -11,13 +24,13 @@
   set event_classes = 'absolute cursor-pointer'
 %}
 {%
-  set op_wrapper_classes = 'neo-alchemist--overlay-actions absolute flex items-center justify-center left-0 right-0 pointer-events-none transition gap-1'
+  set op_wrapper_classes = 'neo-alchemist--overlay-actions absolute flex items-center justify-center left-0 right-0 pointer-events-none transition'
 %}
 {%
-  set op_add_classes = 'bg-primary-500 text-primary-500-content px-2 py-1 text-xs transition pointer-events-auto hover:bg-base-600 hover:text-base-600-content'
+  set op_add_classes = 'bg-primary-500 text-primary-500-content px-2 py-0.5 text-2xs transition pointer-events-auto hover:bg-primary-600 hover:text-primary-600-content'
 %}
 {%
-  set op_move_classes = 'bg-base-500 text-base-500-content px-2 py-1 text-xs transition pointer-events-auto hover:bg-base-600 hover:text-base-600-content'
+  set op_move_classes = 'bg-primary-600 text-primary-600-content px-2 py-0.5 text-2xs transition pointer-events-auto hover:bg-primary-700 hover:text-primary-700-content'
 %}
 <div class="neo-alchemist--panel neo-alchemist--panel-top fixed" style="display: none;" data-alchemist-ignore data-alchemist-nodrag>
   <div class="flex gap-2 items-center bg-base-900 text-base-900-content shadow py-2 px-4">
@@ -31,28 +44,57 @@
 </div>
 <div class="neo-alchemist--panel neo-alchemist--panel-bottom fixed" style="display: none;" data-alchemist-ignore data-alchemist-nodrag>
   <div class="flex gap-2 items-center bg-base-900 text-base-900-content shadow py-2 px-4">
+    {# Acting on the component itself. #}
     <div class="flex gap-2">
       {% for op in ops %}
         {{ op }}
       {% endfor %}
     </div>
-    <div class="flex ml-auto">
+    {#
+      Placing it relative to its siblings. Separated because these answer a
+      different question, and duplicated from the outline because the outline's
+      copies sit off screen whenever the component is taller than the viewport.
+    #}
+    <div class="neo-alchemist--panel-position-ops flex gap-2 items-center pl-2 ml-auto">
+      {% for op in position_ops %}
+        {{ op }}
+      {% endfor %}
     </div>
   </div>
 </div>
 <div class="neo-alchemist--shade-base {{ shade_classes }}" data-alchemist-ignore></div>
 <div class="neo-alchemist--overlay-base {{ overlay_classes }}" data-alchemist-ignore>
-  <div class="neo-alchemist--overlay-label flex items-center gap-1 absolute bottom-full text-xs mb-1 transition">
+  {#
+    transition-opacity, not transition: the editor translates this chip to keep
+    it on screen while a tall component is scrolled through, and a transitioned
+    transform would animate — and visibly lag — on every scroll frame.
+  #}
+  <div class="neo-alchemist--overlay-label flex items-center gap-1 absolute bottom-full text-xs mb-1 transition-opacity pointer-events-none whitespace-nowrap">
     {# Label will go here. #}
   </div>
-  <div class="{{ op_wrapper_classes }} bottom-full">
-    {{ op_add_before|neo_class(['rounded-t', op_add_classes]) }}
-    {{ op_move_up|neo_class(['rounded-t', op_move_classes]) }}
+  {# The op clusters are the only interactive part of an outline, so they are
+     what must not start a pan. The outline itself is transparent chrome. #}
+  <div class="{{ op_wrapper_classes }} gap-0.5 bottom-full" data-alchemist-nodrag>
+    {{ op_add_before|neo_class(['rounded-t-lg', op_add_classes]) }}
+    {{ op_move_up|neo_class(['rounded-t-lg', op_move_classes]) }}
   </div>
-  <div class="{{ op_wrapper_classes }} top-full">
-    {{ op_add_after|neo_class(['rounded-b', op_add_classes]) }}
-    {{ op_move_down|neo_class(['rounded-b', op_move_classes]) }}
+  <div class="{{ op_wrapper_classes }} gap-0.5 top-full" data-alchemist-nodrag>
+    {{ op_add_after|neo_class(['rounded-b-lg', op_add_classes]) }}
+    {{ op_move_down|neo_class(['rounded-b-lg', op_move_classes]) }}
   </div>
 </div>
 <div class="neo-alchemist--element-base {{ element_classes }}" data-alchemist-ignore></div>
 <div class="neo-alchemist--event-base {{ event_classes }}" data-alchemist-ignore></div>
+{#
+  Insertion point. One is drawn at every boundary of a focused region, so the
+  order of a region and the exact places a component can land are visible
+  rather than inferred. The toolbar Add marks the tail seam with .is-target on
+  hover, which is what makes "where will this go?" answerable before clicking.
+
+  The label only earns its space on the seam being acted on; otherwise a stack
+  of seams becomes a stack of words.
+#}
+<div class="neo-alchemist--seam-base group absolute flex items-center justify-center pointer-events-none" data-alchemist-ignore data-alchemist-nodrag>
+  <div class="absolute inset-x-0 top-1/2 h-0.5 -translate-y-1/2 transition bg-primary-400 group-hover:bg-primary-500 group-[.is-target]:bg-primary-500"></div>
+  <button type="button" class="relative inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-2xs leading-snug cursor-pointer pointer-events-auto transition bg-primary-500 text-primary-500-content group-hover:scale-105 group-[.is-target]:opacity-100 group-[.is-target]:scale-105 group-[.is-target]:animate-pulse motion-reduce:group-[.is-target]:animate-none">{{ icon('plus') }}<span class="hidden group-hover:inline group-[.is-target]:inline">{{ 'Add here'|t }}</span></button>
+</div>

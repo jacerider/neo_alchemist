@@ -1323,7 +1323,7 @@ class Component extends ConfigEntityBase implements ComponentInterface {
   /**
    * {@inheritdoc}
    */
-  public function toRenderable($isFirst = FALSE, $isLast = FALSE): array {
+  public function toRenderable($isFirst = NULL, $isLast = NULL): array {
     if ($this->isPreview()) {
       // When rendering as preview, we need to set the target entity so that
       // shapes and slots that utilize route parameters will have something
@@ -1449,15 +1449,17 @@ class Component extends ConfigEntityBase implements ComponentInterface {
    *
    * @param array $build
    *   The render array build.
-   * @param bool $isFirst
-   *   Whether this is the first component in a list.
-   * @param bool $isLast
-   *   Whether this is the last component in a list.
+   * @param bool|null $isFirst
+   *   Whether this is the first component in a list, or NULL if the caller
+   *   does not know its position.
+   * @param bool|null $isLast
+   *   Whether this is the last component in a list, or NULL if the caller does
+   *   not know its position.
    *
    * @return array
    *   The modified render array build.
    */
-  private function prepareRenderableForPreview(array $build, $isFirst = FALSE, $isLast = FALSE): array {
+  private function prepareRenderableForPreview(array $build, $isFirst = NULL, $isLast = NULL): array {
     $alerts = [];
     $warnings = [];
     if (!$this->isPublished()) {
@@ -1481,8 +1483,12 @@ class Component extends ConfigEntityBase implements ComponentInterface {
         'clone' => $this->access('clone'),
         'add-before' => $this->access('create'),
         'add-after' => $this->access('create'),
-        'move-up' => $this->access('sort') && !$isFirst,
-        'move-down' => $this->access('sort') && !$isLast,
+        // Strict comparison so an unknown position (NULL) withholds the move
+        // rather than offering it. A caller that forgets to say where the
+        // component sits should fail closed: an offered Move Up on the first
+        // component is a button that silently does nothing.
+        'move-up' => $this->access('sort') && $isFirst === FALSE,
+        'move-down' => $this->access('sort') && $isLast === FALSE,
       ],
     ];
 

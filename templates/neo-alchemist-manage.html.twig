@@ -12,6 +12,23 @@
 
   <div class="flex flex-col flex-auto relative overflow-hidden">
 
+    {#
+      Layers panel. Built entirely from the structure data the preview iframes
+      already report, so the whole tree — including regions that are empty or
+      scrolled out of view — is addressable without hunting on the canvas.
+
+      Floats over the canvas rather than taking a column, so a flat page loses
+      no width to it. The editor pins it between the breadcrumb and the bottom
+      bar; see layersPosition() in components-parent.ts.
+    #}
+    <div class="neo-alchemist--layers fixed flex flex-col w-60 rounded-lg shadow-lg border overflow-hidden bg-base-0 text-base-0-content" style="display: none;" data-alchemist-ignore data-alchemist-nodrag>
+      <div class="flex flex-none items-center justify-between gap-2 px-3 py-2 bg-base-900 text-base-900-content text-xs font-bold uppercase tracking-wide">
+        <span>{{ 'Layers'|t }}</span>
+        <button type="button" class="neo-alchemist--layers-close cursor-pointer opacity-60 hover:opacity-100 transition" title="{{ 'Hide layers'|t }}">{{ icon('times') }}</button>
+      </div>
+      <div class="neo-alchemist--layers-tree flex-auto overflow-y-auto py-1 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary-500" role="tree" aria-label="{{ 'Component layers'|t }}" tabindex="0"></div>
+    </div>
+
     <div class="neo-alchemist-manage--wrapper relative flex-auto flex bg-base-100 overflow-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]" style="visibility: hidden">
       <div class="neo-alchemist-manage--drag flex items-start justify-center cursor-grab">
         {{ iframe_start }}

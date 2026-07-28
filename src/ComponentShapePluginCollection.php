@@ -183,6 +183,12 @@ class ComponentShapePluginCollection extends DefaultLazyPluginCollection {
   /**
    * Get the active instances.
    *
+   * @param string|null $groupId
+   *   (optional) Restrict to a single value group. A group states the role a
+   *   plugin plays in producing the prop's value, so this is how callers ask a
+   *   behavioral question of a shape — e.g. `getActiveInstances('providers')`
+   *   answers "does this shape source its own value?" without naming plugins.
+   *
    * @return \Drupal\neo_alchemist\ComponentValuePluginInterface[]
    *   The active instances.
    */
@@ -191,7 +197,11 @@ class ComponentShapePluginCollection extends DefaultLazyPluginCollection {
     foreach ($this->instanceIds as $instanceId) {
       $configuration = $this->configurations[$instanceId] ?? [];
       if (!empty($configuration['status'])) {
-        $activeInstances[$instanceId] = $this->get($instanceId);
+        $instance = $this->get($instanceId);
+        if ($groupId !== NULL && $instance->getGroup() !== $groupId) {
+          continue;
+        }
+        $activeInstances[$instanceId] = $instance;
       }
     }
     return $activeInstances;

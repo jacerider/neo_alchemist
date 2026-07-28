@@ -206,7 +206,7 @@ function template_preprocess_neo_alchemist_overlay(&$variables) {
     '#url' => Url::fromRoute('<current>'),
     '#tooltip' => t('Close'),
     '#attributes' => [
-      'class' => ['neo-alchemist--close', 'btn', 'btn-xs'],
+      'class' => ['neo-alchemist--close', 'btn', 'btn-alert', 'btn-xs'],
     ],
   ];
 
@@ -226,18 +226,22 @@ function template_preprocess_neo_alchemist_overlay(&$variables) {
         'placement' => 'top',
       ],
       '#attributes' => [
-        'class' => ['neo-alchemist--op', 'btn', 'btn-xs'],
+        'class' => ['neo-alchemist--op', 'btn', 'btn-primary', 'btn-xs'],
         'data-op' => $op,
       ],
     ];
   }
 
+  // Ordered for the bottom bar, which renders them in a row and reads best
+  // grouped by verb. The outline clusters pull each one out by name, so this
+  // order does not affect them.
   $positionOps = [
-    'add-before' => ['label' => t('Add Component Before'), 'icon' => 'plus', 'placement' => 'top'],
-    'move-up' => ['label' => t('Move Component Up'), 'icon' => 'sort-size-up-alt', 'placement' => 'top'],
-    'add-after' => ['label' => t('Add Component After'), 'icon' => 'plus', 'placement' => 'bottom'],
-    'move-down' => ['label' => t('Move Component Down'), 'icon' => 'sort-size-down-alt', 'placement' => 'bottom'],
+    'add-before' => ['label' => t('Add Component Before'), 'short' => t('Before'), 'icon' => 'plus', 'placement' => 'top'],
+    'add-after' => ['label' => t('Add Component After'), 'short' => t('After'), 'icon' => 'plus', 'placement' => 'bottom'],
+    'move-up' => ['label' => t('Move Component Up'), 'short' => NULL, 'icon' => 'arrow-up', 'placement' => 'top'],
+    'move-down' => ['label' => t('Move Component Down'), 'short' => NULL, 'icon' => 'arrow-down', 'placement' => 'bottom'],
   ];
+  $variables['position_ops'] = [];
   foreach ($positionOps as $op => $config) {
     $varKey = 'op_' . str_replace('-', '_', $op);
     $variables[$varKey] = [
@@ -250,6 +254,30 @@ function template_preprocess_neo_alchemist_overlay(&$variables) {
       ],
       '#attributes' => [
         'class' => ['neo-alchemist--op'],
+        'data-op' => $op,
+      ],
+    ];
+
+    // The same ops again for the bottom bar. The outline copies sit on the
+    // component's top and bottom edges, which are off screen whenever the
+    // component is taller than the canvas viewport — so the only always-visible
+    // route to them is the fixed bar. Both copies are driven by one access
+    // decision; opsSet() shows every copy of an enabled op.
+    //
+    // Labelled, unlike everywhere else in the bar. Add-before and add-after
+    // share the plus icon, which the outline disambiguates by putting each on
+    // the edge it acts on. The bar has no such context — that is the whole
+    // reason it is needed here — so it has to say which is which.
+    $variables['position_ops'][$op] = [
+      '#type' => 'link',
+      '#title' => neo_icon_admin($config['short'], $config['icon']),
+      '#url' => Url::fromRoute('<current>'),
+      '#tooltip' => $config['label'],
+      '#tooltip_options' => [
+        'placement' => 'top',
+      ],
+      '#attributes' => [
+        'class' => ['neo-alchemist--op', 'btn', 'btn-secondary', 'btn-xs'],
         'data-op' => $op,
       ],
     ];

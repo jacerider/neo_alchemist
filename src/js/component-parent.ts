@@ -881,19 +881,63 @@
         });
       });
 
+      /**
+       * Whether a pan may start here.
+       *
+       * data-alchemist-nodrag is the only authority. data-alchemist-ignore
+       * deliberately is not: it also sits on the transparent hit targets that
+       * blanket every component, and treating it as a pan blocker made most of
+       * the canvas surface undraggable — the components are the canvas.
+       */
       function allowDrag(el: HTMLElement): boolean {
-        // Check if target has data-alchemist-ignore
-        if (el.dataset.alchemistIgnore !== undefined || el.closest('[data-alchemist-nodrag]')) {
-          return false;
-        }
-        return true;
+        return !el.closest('[data-alchemist-nodrag]');
       }
 
-      el.addEventListener('mousedown', handleDragStart);
+      // Bound on the wrapper, not the drag element: the hit targets are
+      // siblings of the drag element, so a mousedown over a component never
+      // reached a listener bound further in.
+      (wrapper || el).addEventListener('mousedown', handleDragStart);
+
+      // Space held, or the middle button, pans from anywhere — the convention
+      // in design tools, and unambiguous where a plain drag is not.
+      let spacePan = false;
+      document.addEventListener('keydown', (e) => {
+        if (e.key !== ' ' || e.repeat || isTyping(e.target)) {
+          return;
+        }
+        spacePan = true;
+        el.style.cursor = 'grab';
+        // Otherwise space scrolls the page out from under the canvas.
+        e.preventDefault();
+      });
+      document.addEventListener('keyup', (e) => {
+        if (e.key === ' ') {
+          spacePan = false;
+        }
+      });
+
+      function isTyping(target: EventTarget | null): boolean {
+        if (!(target instanceof HTMLElement)) {
+          return false;
+        }
+        return target.isContentEditable
+          || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName);
+      }
+
       let moved: boolean;
       function handleDragStart(e: MouseEvent): void {
+        const forced = e.button === 1 || spacePan;
+        if (!forced && e.button !== 0) {
+          return;
+        }
+        // Even a deliberate pan gesture leaves the real UI alone — the panels
+        // scroll themselves, and their buttons still need their clicks.
         if (!allowDrag(e.target as HTMLElement)) {
           return;
+        }
+        if (forced) {
+          // Middle-click otherwise starts the browser's autoscroll.
+          e.preventDefault();
         }
         if (wrapper) {
           moved = false;

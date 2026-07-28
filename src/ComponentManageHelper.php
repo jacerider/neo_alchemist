@@ -125,10 +125,14 @@ class ComponentManageHelper {
       'displaceTop' => '0px',
       'displaceBottom' => '0px',
     ];
+    // These two act on whatever container the current selection resolves to,
+    // which is not something a fixed label can express. The editor rewrites
+    // the label text as the selection changes, so it always names its target —
+    // hence the class hook on the label span.
     if ($instance->access('create')) {
       $build['add'] = [
         '#type' => 'link',
-        '#title' => neo_icon_admin(t('Add')),
+        '#title' => neo_icon_admin(t('Add'))->addLabelClass('neo-alchemist--action-label'),
         '#url' => $instance->toUrl('library'),
         '#attributes' => [
           'class' => ['neo-alchemist--action', 'btn', 'btn-primary', 'btn-xs'],
@@ -140,7 +144,7 @@ class ComponentManageHelper {
     if ($instance->access('sort')) {
       $build['sort'] = [
         '#type' => 'link',
-        '#title' => neo_icon_admin(t('Sort')),
+        '#title' => neo_icon_admin(t('Sort'))->addLabelClass('neo-alchemist--action-label'),
         '#url' => $instance->toUrl('sort'),
         '#attributes' => [
           'class' => ['neo-alchemist--action', 'btn', 'btn-outline', 'btn-xs'],
@@ -150,6 +154,33 @@ class ComponentManageHelper {
       ];
     }
     return $build;
+  }
+
+  /**
+   * Builds the toggle for the layers panel.
+   *
+   * Lives at the right of the bottom bar, opposite the Add/Sort actions, and
+   * stays put whether the panel is open or not — it is the one fixed way to
+   * reach the tree. Whether the panel starts open is decided per layout by
+   * layersHasRegions() in components-parent.ts.
+   *
+   * @return array
+   *   The toggle.
+   */
+  public static function buildLayersToggle() {
+    return [
+      'layers' => [
+        '#type' => 'html_tag',
+        '#tag' => 'button',
+        '#value' => neo_icon_admin(t('Layers'), 'sitemap')->render(),
+        '#attributes' => [
+          'type' => 'button',
+          'class' => ['neo-alchemist--layers-toggle', 'btn', 'btn-outline', 'btn-xs', 'is-active:btn-primary'],
+          'title' => t('Toggle the component tree'),
+          'aria-expanded' => 'false',
+        ],
+      ],
+    ];
   }
 
   /**

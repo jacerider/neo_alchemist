@@ -9,6 +9,7 @@ use Drupal\Component\Plugin\PluginBase;
 use Drupal\Component\Render\MarkupInterface;
 use Drupal\Component\Utility\Html;
 use Drupal\Component\Utility\NestedArray;
+use Drupal\Component\Utility\Unicode;
 use Drupal\Core\Access\AccessResult;
 use Drupal\Core\Access\AccessResultInterface;
 use Drupal\Core\Cache\CacheableMetadata;
@@ -757,7 +758,10 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
   public function onUpdate(): void {
     if ($this->allowConfigurablePlugins()) {
       $this->initPlugins();
-      foreach ($this->getValueCollection()->getActiveInstances('update') as $instance) {
+      // Every active plugin is notified, regardless of group. (This used to
+      // pass 'update' as the group id, which was silently ignored back when
+      // getActiveInstances() did not implement its group filter.)
+      foreach ($this->getValueCollection()->getActiveInstances() as $instance) {
         $instance->onUpdate();
       }
     }
@@ -1020,12 +1024,62 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
    * {@inheritDoc}
    */
   public function getNestedTitle($includeRoot = TRUE): string {
-    $titles = array_map(fn($parent) => $parent->getTitle(), $this->parents);
-    $titles[] = $this->getTitle();
+    $titles = array_map(fn($parent) => (string) $parent->getTitle(), $this->parents);
+    $delta = $this->getDelta();
+    if ($delta !== NULL && $titles) {
+      // The delta is stored on this shape but identifies a row of the iterable
+      // that owns it, so the index belongs on the parent's segment. Without it
+      // every region in an array prop renders the same label ("Items: Region")
+      // in the layout editor's breadcrumb and overlay, leaving sibling regions
+      // indistinguishable.
+      $index = array_key_last($titles);
+      $titles[$index] .= ' ' . ($delta + 1);
+      if ($label = $this->getDeltaLabel($delta)) {
+        $titles[$index] .= ' "' . $label . '"';
+      }
+    }
+    $titles[] = (string) $this->getTitle();
     if (!$includeRoot) {
       array_shift($titles);
     }
     return implode(': ', $titles);
+  }
+
+  /**
+   * A human-readable name for one row of this shape's parent iterable.
+   *
+   * Falls back to NULL so callers keep the bare index. Picks the first
+   * non-empty string sibling — typically a title/heading prop — which makes a
+   * repeated region identifiable by its row's content rather than by number
+   * alone.
+   *
+   * @param int $delta
+   *   The row to label.
+   *
+   * @return string|null
+   *   The label, or NULL when the row has no usable string value.
+   */
+  protected function getDeltaLabel(int $delta): ?string {
+    if (!$this->parents) {
+      return NULL;
+    }
+    $parent = $this->parents[array_key_last($this->parents)];
+    $row = $parent->getFieldItemValue()[$delta] ?? NULL;
+    if (!is_array($row)) {
+      return NULL;
+    }
+    $ownName = $this->getName();
+    foreach ($row as $name => $value) {
+      if ($name === $ownName || !is_string($value)) {
+        continue;
+      }
+      $value = trim(strip_tags($value));
+      if ($value === '') {
+        continue;
+      }
+      return Unicode::truncate($value, 40, TRUE, TRUE);
+    }
+    return NULL;
   }
 
   /**

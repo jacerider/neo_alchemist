@@ -2,6 +2,9 @@
 
   // const id = new URLSearchParams(window.location.search).get('id');
   const size = new URLSearchParams(window.location.search).get('size');
+  // Components and regions are the two node kinds the editor tracks; ancestor
+  // and child lookups have to consider both at once to stay in document order.
+  const nodeSelector = '[data-component],[data-region]';
   const components = document.querySelectorAll<HTMLElement>('[data-component]');
   const regions = document.querySelectorAll<HTMLElement>('[data-region]');
   const events: Record<string, HTMLElement> = {};
@@ -200,37 +203,51 @@
     return data;
   }
 
+  /**
+   * The structure uuid of a component or region element.
+   */
+  function getNodeUuid(el: HTMLElement): string | null {
+    return el.dataset.componentUuid || el.dataset.regionUuid || null;
+  }
+
+  /**
+   * The full ancestor chain of a node, outermost first.
+   *
+   * The parent editor treats `parents.length` as the node's depth and renders
+   * the chain as the breadcrumb, so this has to be every enclosing component
+   * and region in document order. Recording only the nearest of each kind
+   * capped depth at 2 and silently truncated the breadcrumb.
+   */
   function getParentUuids(el: HTMLElement): string[] {
     const parents: string[] = [];
-    const parentComponent = el.parentElement?.closest('[data-component]') as HTMLElement | null;
-    if (parentComponent) {
-      const parentComponentUuid = parentComponent.dataset.componentUuid;
-      if (parentComponentUuid) {
-        parents.push(parentComponentUuid);
+    let ancestor = el.parentElement?.closest<HTMLElement>(nodeSelector) || null;
+    while (ancestor) {
+      const uuid = getNodeUuid(ancestor);
+      if (uuid) {
+        parents.unshift(uuid);
       }
-    }
-    const parentRegion = el.parentElement?.closest('[data-region]') as HTMLElement | null;
-    if (parentRegion) {
-      const parentRegionUuid = parentRegion.dataset.regionUuid;
-      if (parentRegionUuid) {
-        parents.push(parentRegionUuid);
-      }
+      ancestor = ancestor.parentElement?.closest<HTMLElement>(nodeSelector) || null;
     }
     return parents;
   }
 
+  /**
+   * The direct children of a node, in document order.
+   *
+   * Anything deeper belongs to those children, not to this node. The parent
+   * editor counts this list (Sort visibility, child-count badges) and walks it
+   * to order insertion points, both of which are wrong if grandchildren are
+   * folded in.
+   */
   function getChildrenUuids(el: HTMLElement): string[] {
     const children: string[] = [];
-    el.querySelectorAll<HTMLElement>('[data-component]').forEach(childComponent => {
-      const childComponentUuid = childComponent.dataset.componentUuid;
-      if (childComponentUuid) {
-        children.push(childComponentUuid);
+    el.querySelectorAll<HTMLElement>(nodeSelector).forEach(child => {
+      if (child.parentElement?.closest<HTMLElement>(nodeSelector) !== el) {
+        return;
       }
-    });
-    el.querySelectorAll<HTMLElement>('[data-region]').forEach(childRegion => {
-      const childRegionUuid = childRegion.dataset.regionUuid;
-      if (childRegionUuid) {
-        children.push(childRegionUuid);
+      const uuid = getNodeUuid(child);
+      if (uuid) {
+        children.push(uuid);
       }
     });
     return children;
