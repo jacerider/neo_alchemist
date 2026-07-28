@@ -109,7 +109,14 @@ abstract class ChildrenShapeBase extends ComponentShapePluginBase implements Com
     }
     else {
       foreach ($this->childShapes[$key] as $shape) {
-        if (empty($value[$shape->getName()])) {
+        // Absent, not merely falsy. A stored FALSE, 0 or '' is a value the
+        // editor chose, and empty() cannot tell it from a key that was never
+        // written — so an unchecked boolean would skip setFieldItemValue() and
+        // leave the child holding the SDC example for its delta. Where an
+        // example happens to set that property TRUE, the control reads back
+        // switched on however many times it is switched off.
+        // @see self::resolveChildValues(), which already asks it this way.
+        if (!is_array($value) || !array_key_exists($shape->getName(), $value)) {
           continue;
         }
         // Do not overwrite a child that resolves its own value from a value
