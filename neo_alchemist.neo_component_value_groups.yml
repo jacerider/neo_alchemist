@@ -1,8 +1,20 @@
+# A group states the role a value plugin plays in producing a prop's value.
+# Membership is the declaration: `providers` means "I source a value", and
+# ChildrenShapeBase consumes that to decide whether a parent may push its value
+# down into a child. Pick the group by role, not by where the form reads best.
 providers:
   label: 'Value Providers'
-  description: 'Providers change the value of the component prop.'
+  description: 'Providers source the value of the component prop.'
   weight: -5
+fallback:
+  label: 'Default Value'
+  description: 'Fallbacks fill the value of the component prop when no provider sourced one.'
+  weight: -3
 modifiers:
   label: 'Value Modifiers'
   description: 'Modifiers alter the value of the component prop.'
   weight: 0
+settings:
+  label: 'Prop Settings'
+  description: 'Settings configure how the component prop is edited and rendered. They do not change its value.'
+  weight: 5

@@ -23,7 +23,9 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
   id: 'formatted_text',
   label: new TranslatableMarkup('Formatted Text'),
   description: new TranslatableMarkup('Provide formatted text support to markup props.'),
-  group: 'providers',
+  // A modifier: it sources no value, it renders one that already exists
+  // through a text format (alterValue() + modifyValue()).
+  group: 'modifiers',
   ref_types: ['markup'],
   weight: 10,
 )]

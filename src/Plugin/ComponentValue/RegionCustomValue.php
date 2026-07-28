@@ -26,7 +26,8 @@ use Drupal\neo_alchemist\Plugin\ComponentShape\RegionShape;
   id: 'region_custom',
   label: new TranslatableMarkup('Entity Customizable'),
   description: new TranslatableMarkup('Allow content creators to manage the components in this region on each entity, even when the layout itself is not customizable.'),
-  group: 'providers',
+  // Configures the region only (onShapeInit); it sources no value.
+  group: 'settings',
   ref_types: [
     'region',
   ],

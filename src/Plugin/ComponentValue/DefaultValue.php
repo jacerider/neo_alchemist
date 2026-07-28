@@ -22,7 +22,9 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
   id: 'default',
   label: new TranslatableMarkup('Default'),
   description: new TranslatableMarkup('Provide default values for the component.'),
-  group: 'providers',
+  // Not a provider: this is the terminal fallback (weight 1000). It never
+  // sources a value, it only fills one in when nothing else did.
+  group: 'fallback',
   weight: 1000,
 )]
 final class DefaultValue extends ComponentValuePluginBase implements ContainerFactoryPluginInterface {

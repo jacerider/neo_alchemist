@@ -1,5 +1,50 @@
 # Changelog
 
+## Value groups state a plugin's role
+
+A ComponentValue plugin's `group` used to be a loose label for the prop form's tabs, with
+`providers` doubling as a catch-all. It now states what role the plugin plays in producing the
+prop's value, and that declaration is what the render pipeline queries.
+
+| Group | Role | Members |
+| --- | --- | --- |
+| `providers` | source a value | unchanged, minus the five below |
+| `fallback` *(new)* | fill it when nothing sourced one | `default` |
+| `modifiers` | transform it | unchanged, plus `formatted_text` |
+| `settings` *(new)* | don't touch the value — configure the prop | `widget`, `region_size`, `region_custom` |
+
+### For site builders
+
+- The prop form now has **four** sections instead of two. **Default Value** is its own section
+  rather than a row inside the Value Providers table; **Prop Settings** collects Widget, Region
+  Size and Entity Customizable; Formatted Text moved to **Value Modifiers**.
+- The component props table shows one column per group, so Widget and Formatted Text are no
+  longer listed under "Value Providers".
+- **Bug fix:** a nested prop whose only plugins were `widget`, `region_size` or `region_custom`
+  (e.g. a `scheme` child inside an object or array prop, which gets `widget` by default) refused
+  the value pushed down from its parent and rendered the component's `examples` placeholder
+  instead of the authored value. Those plugins source no value and no longer block the pushdown.
+- **No migration.** Group is never persisted — stored settings are keyed by plugin id
+  (`plugins.<shapeId>.<pluginId>`) — so existing components are unaffected and no update hook
+  runs. Pipeline order is unchanged: group is not a sort key, and ordering stays weight-then-label
+  across all groups (`default` at weight 1000 still runs last).
+
+### For plugin authors
+
+- **Pick `group:` by role.** Putting a non-sourcing plugin in `providers` makes
+  `ChildrenShapeBase::childHasOwnValueProvider()` block a parent's pushdown, which silently
+  replaces authored content with the schema's `examples` in every *nested* prop of that type.
+- `ComponentShapePluginCollection::getActiveInstances($groupId)` now implements its long-declared
+  group filter, so a shape can be asked a behavioral question without naming plugin ids —
+  `getActiveInstances('providers')` means "does this shape source its own value?".
+  `ChildrenShapeBase::childHasOwnValueProvider()` is now exactly that one call, replacing a
+  hardcoded `default`/`formatted_text` id blacklist that had already fallen out of date.
+- `ComponentShapePluginBase::onUpdate()` previously called `getActiveInstances('update')`;
+  `'update'` was never a group id and was silently ignored while the filter was unimplemented.
+  It now correctly passes no argument.
+- Plugins with no `group` still default to `providers`, so third-party value plugins keep their
+  current behavior with no changes.
+
 ## Configurable value-provider processing model
 
 Value providers now expose a standard, site-builder-configurable **Processing**

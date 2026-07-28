@@ -150,6 +150,29 @@ A prop's value is built by running its enabled ComponentValue plugins in ascendi
 (`alterValue`, default + override passes) → **modify** at render (`modifyValue`), driven
 by `ComponentShapePluginBase::getDefaultValue()` / `buildRenderValue()`.
 
+**Groups declare a plugin's role**, and are the source of truth other code queries — they are
+not just prop-form tabs. Defined in
+[neo_alchemist.neo_component_value_groups.yml](neo_alchemist.neo_component_value_groups.yml):
+
+| Group | Role | Members |
+| --- | --- | --- |
+| `providers` | **source** a value | `entity*`, `media`, `menu`, `views`, `heading`, `breadcrumb`, `page_title`, `event`, the vetoes, `site_settings_*`, `taxonomy_*` |
+| `fallback` | **fill** it when nothing sourced one | `default` |
+| `modifiers` | **transform** it | `prefix`, `suffix`, `token`, `number`, `link_*`, `media_image_size`, `formatted_text` |
+| `settings` | **don't touch it** — configure the prop | `widget`, `region_size`, `region_custom` |
+
+Ask a shape a behavioral question with `getValueCollection()->getActiveInstances($groupId)`
+rather than by naming plugin ids — `getActiveInstances('providers')` answers "does this shape
+source its own value?", which is exactly how `ChildrenShapeBase::childHasOwnValueProvider()`
+decides whether a parent may push its value down into a child. **A new plugin picks its group by
+role**; putting a non-sourcing plugin in `providers` silently makes nested props of that type
+discard authored content in favour of the schema's `examples`.
+
+Group is *not* a sort key — the pipeline order is weight-then-label across all groups, so groups
+interleave (`default` at weight 1000 still runs last) and re-grouping a plugin does not move it
+in the pipeline. Group is also **never persisted**: stored settings are keyed by plugin id
+(`plugins.<shapeId>.<pluginId>`), so changing a plugin's group needs no update hook.
+
 The site builder picks each producer's behavior via a standard **"Processing"** select:
 
 - **Stop when found** (`MODE_STOP_WHEN_FOUND`, default) — a non-empty value is
@@ -169,7 +192,7 @@ Modifiers always run afterward regardless. Mechanics:
   `ComponentShapePluginInterface::isProvidedValueEmpty()` (shared "found vs empty" test
   that ignores the `size` sentinel seeded by `media_image_size`). Producers no longer
   hard-code the claim.
-- **`default`** (weight 1000) is a **fallback** — it only fills when the value is still
+- **`default`** (weight 1000, group `fallback`) only fills when the value is still
   empty, so a non-claiming producer's value survives to render.
 - **Veto** producers (`user_has_role`, `entity_has_value`) opt out of the mode; they
   `claimValue()` explicitly and return `FALSE`.

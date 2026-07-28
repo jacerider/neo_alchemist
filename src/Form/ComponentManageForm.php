@@ -6,6 +6,7 @@ namespace Drupal\neo_alchemist\Form;
 
 use Drupal\Component\Serialization\Json;
 use Drupal\Component\Utility\Html;
+use Drupal\Component\Utility\SortArray;
 use Drupal\Core\Entity\EntityForm;
 use Drupal\Core\Entity\EntityInterface;
 use Drupal\Core\Entity\EntityTypeBundleInfoInterface;
@@ -14,6 +15,7 @@ use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Render\Element;
 use Drupal\neo_alchemist\ComponentShapeStylePluginInterface;
 use Drupal\neo_alchemist\ComponentSizePluginManager;
+use Drupal\neo_alchemist\ComponentValueGroupPluginManager;
 use Drupal\neo_icon\IconTrait;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
@@ -46,13 +48,21 @@ final class ComponentManageForm extends EntityForm {
   protected $componentValueSizeManager;
 
   /**
+   * The component value group plugin manager.
+   *
+   * @var \Drupal\neo_alchemist\ComponentValueGroupPluginManager
+   */
+  protected $componentValueGroupManager;
+
+  /**
    * {@inheritdoc}
    */
   public static function create(ContainerInterface $container) {
     return new static(
       $container->get('entity_type.bundle.info'),
       $container->get('entity_type.manager'),
-      $container->get('plugin.manager.neo_component_size')
+      $container->get('plugin.manager.neo_component_size'),
+      $container->get('plugin.manager.neo_component_value_group')
     );
   }
 
@@ -65,11 +75,29 @@ final class ComponentManageForm extends EntityForm {
    *   The entity manager service.
    * @param \Drupal\neo_alchemist\ComponentSizePluginManager $component_value_size_manager
    *   The component value size plugin manager.
+   * @param \Drupal\neo_alchemist\ComponentValueGroupPluginManager $component_value_group_manager
+   *   The component value group plugin manager.
    */
-  public function __construct(EntityTypeBundleInfoInterface $entity_type_bundle_info, EntityTypeManagerInterface $entity_type_manager, ComponentSizePluginManager $component_value_size_manager) {
+  public function __construct(EntityTypeBundleInfoInterface $entity_type_bundle_info, EntityTypeManagerInterface $entity_type_manager, ComponentSizePluginManager $component_value_size_manager, ComponentValueGroupPluginManager $component_value_group_manager) {
     $this->entityTypeBundleInfo = $entity_type_bundle_info;
     $this->entityTypeManager = $entity_type_manager;
     $this->componentValueSizeManager = $component_value_size_manager;
+    $this->componentValueGroupManager = $component_value_group_manager;
+  }
+
+  /**
+   * Get the value group definitions, ordered by weight.
+   *
+   * One column of the props table is built per group, so a new group shows up
+   * in the summary without touching this form.
+   *
+   * @return array[]
+   *   The group definitions, keyed by group id.
+   */
+  protected function getValueGroups(): array {
+    $groups = $this->componentValueGroupManager->getDefinitions();
+    uasort($groups, [SortArray::class, 'sortByWeightElement']);
+    return $groups;
   }
 
   /**
@@ -180,6 +208,7 @@ final class ComponentManageForm extends EntityForm {
     /** @var \Drupal\neo_alchemist\ComponentInterface $entity */
     $entity = $this->entity;
     $shapes = array_filter($entity->getPropShapes(), fn ($shape) => $shape->access('manage_value'));
+    $valueGroups = $this->getValueGroups();
     if ($shapes) {
       $form['props'] = [
         '#type' => 'table',
@@ -213,8 +242,7 @@ final class ComponentManageForm extends EntityForm {
         '#header' => [
           'property' => $this->t('Property'),
           'type' => $this->t('Type'),
-          'value_providers' => $this->t('Value Providers'),
-          'value_modifiers' => $this->t('Value Modifiers'),
+        ] + array_map(fn ($group) => $group['label'], $valueGroups) + [
           'active' => $this->t('Active'),
           'editable' => $this->t('Editable'),
           'required' => $this->t('Required'),
@@ -223,9 +251,7 @@ final class ComponentManageForm extends EntityForm {
         '#neo_style' => [
           'property' => 'heading',
           'type' => 'xs',
-          'value_providers' => 'xs',
-          'value_modifiers' => 'xs',
-        ],
+        ] + array_fill_keys(array_keys($valueGroups), 'xs'),
         '#neo_size' => [
           'active' => 'min',
           'editable' => 'min',
@@ -245,13 +271,13 @@ final class ComponentManageForm extends EntityForm {
         $row = [];
         $row['property']['#markup'] = $shape->getTitle() . ' <small>(' . $shape->getName() . ')</small>';
         $row['type']['#markup'] = $shape->getType() . ' (' . $shape->getRef() . ')';
-        $plugins = $shape->getValueCollection()->getActiveInstances();
-        $row['value_providers']['#markup'] = implode(', ', array_map(function ($provider) {
-          return $provider->label();
-        }, array_filter($plugins, fn ($plugin) => $plugin->getGroup() === 'providers')));
-        $row['value_modifiers']['#markup'] = implode(', ', array_map(function ($provider) {
-          return $provider->label();
-        }, array_filter($plugins, fn ($plugin) => $plugin->getGroup() === 'modifiers')));
+        $collection = $shape->getValueCollection();
+        foreach (array_keys($valueGroups) as $groupId) {
+          $row[$groupId]['#markup'] = implode(', ', array_map(
+            fn ($plugin) => $plugin->label(),
+            $collection->getActiveInstances($groupId)
+          ));
+        }
 
         $isActive = $shape->isActive();
         $row['active']['#markup'] = $this->statusIcon($isActive, 'Yes', 'No')->iconOnly();

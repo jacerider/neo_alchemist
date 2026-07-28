@@ -398,43 +398,38 @@ abstract class ChildrenShapeBase extends ComponentShapePluginBase implements Com
   /**
    * Determines whether a child shape supplies its own value from a provider.
    *
-   * A child with an active value provider (anything in the "providers" group
-   * other than the passive "default" fallback) resolves its own value and must
-   * not have it overwritten by a value pushed down from its parent.
+   * A child with an active value provider resolves its own value and must not
+   * have it overwritten by a value pushed down from its parent. Without this,
+   * a non-editable parent — whose own value falls back to the SDC example —
+   * pushes that example down and clobbers the child provider's value. The case
+   * it was added for is a `media` child inside an expanded object prop.
    *
-   * `formatted_text` is declared in the "providers" group but does not source a
-   * value — it renders one that already exists through a text format. Counting
-   * it here made every NESTED markup prop (`type: markup` inside an `array`)
-   * refuse its parent's stored value and fall back to the schema's `examples`,
-   * silently discarding authored content on render: a table cell, an FAQ answer
-   * or a section intro would show the component's example text where an example
-   * existed at that index, and nothing where it did not. Top-level markup was
-   * unaffected, because only children take a value pushed down from a parent.
+   * Membership in the "providers" group IS the declaration that a plugin
+   * sources a value, so this is a plain group check with no plugin ids in it.
+   * Plugins that touch a prop without sourcing anything live in the groups that
+   * describe what they actually do — `fallback` (`default`, which only fills an
+   * empty value), `modifiers` (`formatted_text`, which renders an existing
+   * value through a text format) and `settings` (`widget`, `region_size`,
+   * `region_custom`, which configure the prop and never touch its value).
    *
-   * Excluding it by id rather than by group keeps the guard intact: a markup
-   * child that also carries a real provider still matches on that provider.
-   *
-   * Excluding every plugin from the shape's `default_plugins` would be the more
-   * general rule, but `media` is a default plugin too and it does source a
-   * value — that is the case this guard was added for — so the narrow exclusion
-   * is the one that cannot regress anything else.
+   * Getting that taxonomy wrong is silent and destructive: counting a
+   * non-sourcing plugin here makes the child refuse its parent's stored value
+   * and fall back to the schema's `examples`, so authored content — a table
+   * cell, an FAQ answer, a section intro — renders as the component's example
+   * text where an example exists at that index, and as nothing where it does
+   * not. Only children take a value pushed down from a parent, so a top-level
+   * prop never shows the symptom.
    *
    * @param \Drupal\neo_alchemist\ComponentShapePluginInterface $shape
    *   The child shape.
    *
    * @return bool
    *   TRUE if the child has its own active value provider.
+   *
+   * @see \Drupal\neo_alchemist\ComponentShapePluginCollection::getActiveInstances()
    */
   protected function childHasOwnValueProvider(ComponentShapePluginInterface $shape): bool {
-    foreach ($shape->getValueCollection()->getActiveInstances() as $instanceId => $instance) {
-      if ($instanceId === 'default' || $instanceId === 'formatted_text') {
-        continue;
-      }
-      if ($instance->getGroup() === 'providers') {
-        return TRUE;
-      }
-    }
-    return FALSE;
+    return (bool) $shape->getValueCollection()->getActiveInstances('providers');
   }
 
 }

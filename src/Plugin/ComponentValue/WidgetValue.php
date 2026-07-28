@@ -18,7 +18,8 @@ use Drupal\neo_alchemist\ComponentValuePluginBase;
   id: 'widget',
   label: new TranslatableMarkup('Widget'),
   description: new TranslatableMarkup('Provide widget form alterations.'),
-  group: 'providers',
+  // Configures the edit widget only (onShapeInit); it sources no value.
+  group: 'settings',
   allow_on_default: TRUE,
   weight: 900
 )]

@@ -10,7 +10,6 @@ use Drupal\Core\Plugin\ContainerFactoryPluginInterface;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\neo_alchemist\Attribute\ComponentValue;
 use Drupal\neo_alchemist\ComponentShapePluginInterface;
-use Drupal\neo_alchemist\ComponentShapeRegionPluginInterface;
 use Drupal\neo_alchemist\ComponentSizePluginManager;
 use Drupal\neo_alchemist\ComponentSizesInterface;
 use Drupal\neo_alchemist\ComponentValuePluginBase;
@@ -23,7 +22,8 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
   id: 'region_size',
   label: new TranslatableMarkup('Region Size'),
   description: new TranslatableMarkup('Select the sizes that are supported by this region.'),
-  group: 'providers',
+  // Configures the region only (onShapeInit); it sources no value.
+  group: 'settings',
   ref_types: [
     'region',
   ],
