@@ -95,15 +95,45 @@ final class InstanceComponentSortForm extends ContentEntityForm {
       if ($uuid === $focusUuid) {
         $row['#attributes']['class'][] = 'tr--focus';
       }
+      // Seed the row with the component type's own thumbnail. component-sort.js
+      // swaps in a live capture of this particular instance once the preview
+      // frame answers, but the frame only exists when the dialog was opened
+      // over the layout editor — these sort routes are also reachable directly,
+      // where nothing would ever fill an empty placeholder. It also means the
+      // row reserves its box from first paint instead of reflowing the whole
+      // table when the captures land.
+      //
+      // Fixed box with object-cover/object-top, matching the component picker
+      // in neo-alchemist-library.html.twig: components are arbitrarily tall,
+      // and letting the image size itself produced rows from 55px to 209px.
+      $instance = $this->fieldItem->getComponent($uuid);
       $row['label'] = [
-        '#markup' => '<div class="flex items-center gap-4"><span class="thumbnail"></span>' . $label . ' <small>(' . $uuid . ')</small></div>',
+        '#type' => 'inline_template',
+        '#template' => '<div class="flex items-center gap-4">
+          <span class="thumbnail block shrink-0 w-50 h-30 overflow-hidden rounded border border-base-300 shadow-sm bg-base-100">
+            {% if thumbnail %}<img src="{{ thumbnail }}" alt="" class="object-cover object-left-top w-full h-30 hover:object-left-bottom transition-all duration-700" />{% endif %}
+          </span>
+          <span>{{ label }} <small>({{ uuid }})</small></span>
+        </div>',
+        '#context' => [
+          // Escaped, unlike the raw concatenation this replaces: a label is
+          // entity-authored, so it is not ours to trust as markup.
+          'thumbnail' => $instance ? $instance->getThumbnail() : NULL,
+          'label' => $label,
+          'uuid' => $uuid,
+        ],
       ];
       $row['weight'] = [
         '#type' => 'weight',
         '#title' => t('Weight'),
         '#title_display' => 'invisible',
         '#default_value' => $weight,
-        '#delta' => count($options) / 2,
+        // Integer, and rounded up. Weight::processWeight() walks -delta to
+        // +delta with $n++ and uses each step as an array key, so an odd row
+        // count and a plain division put a half-step float in that loop and
+        // every key is an implicit lossy cast. Rounding up rather than down
+        // also keeps the range wide enough to seat every row.
+        '#delta' => (int) ceil(count($options) / 2),
         '#attributes' => [
           'class' => [
             'draggable-weight',

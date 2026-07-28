@@ -213,24 +213,64 @@
     }
   };
 
-  const captureComponents = async (reqId: string): Promise<void> => {
-    const components = document.querySelectorAll('[data-component-uuid]') as NodeListOf<HTMLElement>;
+  /**
+   * Rasterize placed components for the reorder dialog.
+   *
+   * Strictly one at a time. snapdom reparents the node it is capturing, and
+   * these are nested — a region's children sit inside the component that owns
+   * the region — so overlapping captures running together tear each other's
+   * subtree out mid-rasterize. The visible symptom was a component losing its
+   * background while keeping its text, which for a dark colour scheme means
+   * near-white text on white: an apparently blank thumbnail.
+   *
+   * `uuids` narrows the batch to the rows the dialog is actually showing, which
+   * is both less work and, since a dialog only ever lists the children of one
+   * container, enough on its own to keep parent and descendant out of the same
+   * batch. Falls back to the whole tree so an older caller still works.
+   */
+  const captureComponents = async (reqId: string, uuids?: string[], boxWidth?: number, boxHeight?: number): Promise<void> => {
     const images: Record<string, string> = {};
-    await Promise.allSettled(Array.from(components).map(async (component) => {
-      const componentUuid = component.dataset.componentUuid;
-      if (!componentUuid || typeof snapdom === 'undefined') {
-        return;
+    if (typeof snapdom === 'undefined') {
+      post({ type: 'screenshotComponents', images: images }, reqId);
+      return;
+    }
+    const wanted = Array.isArray(uuids) && uuids.length ? uuids : null;
+    const components = Array.from(
+      document.querySelectorAll('[data-component-uuid]') as NodeListOf<HTMLElement>
+    ).filter(component => {
+      const uuid = component.dataset.componentUuid;
+      return !!uuid && (!wanted || wanted.includes(uuid));
+    });
+    const boxW = Math.max(1, boxWidth || 400);
+    const boxH = Math.max(1, boxHeight || 240);
+    for (const component of components) {
+      const componentUuid = component.dataset.componentUuid as string;
+      try {
+        // Enough pixels to cover the box, not merely to match its width. The
+        // dialog draws these with object-cover, so a component wider than the
+        // box's aspect gets scaled up until its *height* fills — capturing at
+        // the box width alone left a wide hero upscaled ~2.3x and smeared.
+        // Capped at native, and at a ceiling so a full-bleed component does not
+        // rasterize enormous.
+        const aspect = component.offsetWidth / Math.max(1, component.offsetHeight);
+        const needed = Math.min(2400, Math.max(boxW, boxH * aspect));
+        const canvas = await snapdom.toCanvas(component, {
+          scale: Math.min(1, needed / Math.max(1, component.offsetWidth)),
+          dpr: 1,
+          // As the persisted-thumbnail capture does: without it the text falls
+          // back to whatever the rasterizer has, which is never the real face.
+          embedFonts: true,
+          compress: true,
+          fast: true,
+          backgroundColor: '#ffffff',
+        });
+        images[componentUuid] = canvas.toDataURL('image/png');
       }
-      const scale = Math.min(1, 400 / Math.max(1, component.offsetWidth));
-      const canvas = await snapdom.toCanvas(component, {
-        scale: scale,
-        dpr: 1,
-        compress: true,
-        fast: true,
-        backgroundColor: '#ffffff',
-      });
-      images[componentUuid] = canvas.toDataURL('image/png');
-    }));
+      catch (err) {
+        // One unrasterizable component must not cost the dialog every other
+        // thumbnail; the row keeps its server-rendered fallback.
+      }
+    }
     post({ type: 'screenshotComponents', images: images }, reqId);
   };
 
@@ -245,7 +285,12 @@
     const reqId = typeof data.requestId === 'string' ? data.requestId : '';
     switch (data.type) {
       case 'screenshotComponents':
-        captureComponents(reqId);
+        captureComponents(
+          reqId,
+          Array.isArray(data.uuids) ? data.uuids : undefined,
+          typeof data.width === 'number' ? data.width : undefined,
+          typeof data.height === 'number' ? data.height : undefined
+        );
         break;
       case 'thumbnailCaptureStart':
         if (!active) {
