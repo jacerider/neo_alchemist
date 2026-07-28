@@ -59,15 +59,23 @@ class SchemeShape extends StyleShapeBase {
 
     if ($this->isInitialized()) {
       $config = $this->getWidgetSettings();
-      $schemes = Scheme::getSchemes($config['allow_dark'] ?? TRUE, $config['allow_color'] ?? TRUE, $config['include'] ?? [], $config['exclude'] ?? []);
+      // The allow_* widget settings come from checkboxes, so they are stored
+      // as integers. This file is strict_types and Scheme::getSchemes() types
+      // them as bool — cast, as the neo_scheme element itself does.
+      $schemes = Scheme::getSchemes(
+        (bool) ($config['allow_dark'] ?? TRUE),
+        (bool) ($config['allow_color'] ?? TRUE),
+        (array) ($config['include'] ?? []),
+        (array) ($config['exclude'] ?? [])
+      );
       foreach ($schemes as $scheme) {
         $options[$scheme->id()] = $scheme->label();
       }
     }
 
     // Honor the site-wide include/exclude configuration, consistent with
-    // StyleShape. This layers on top of the per-component widget include/exclude
-    // applied above.
+    // StyleShape. This layers on top of the per-component widget
+    // include/exclude applied above.
     return $this->filterStyleSettings($options);
   }
 
