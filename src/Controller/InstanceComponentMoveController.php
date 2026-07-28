@@ -60,7 +60,7 @@ final class InstanceComponentMoveController extends ControllerBase {
       $neo_field->sortComponents($uuids, $parentUuid, $shapeId);
       $neo_field->saveComponents();
       $this->messenger()->addStatus($this->t('@op component %name successfully on %label: %field_label.', [
-        '@op' => 'Cloned',
+        '@op' => 'Moved',
         '%name' => $neo_component->label(),
         '%label' => $neo_field->belongsToFieldConfig() ? $this->entityTypeManager()->getDefinition($fieldDefinition->getTargetEntityTypeId())->getLabel() : $neo_field->getEntity()->label(),
         '%field_label' => $fieldDefinition->getLabel(),
