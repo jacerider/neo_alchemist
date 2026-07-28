@@ -211,5 +211,29 @@ function hook_neo_alchemist_preview_entity_alter(?ContentEntityInterface &$entit
 }
 
 /**
+ * Alters the background utilities that participate in seam collapsing.
+ *
+ * Two vertically-adjacent `component-bg` sections drop the doubled spacing
+ * between them only when they paint the same surface — the same `scheme-*`
+ * class *and* the same background utility. This hook declares which background
+ * utilities count as a section surface; generated CSS then emits a collapse
+ * rule for every scheme/surface combination.
+ *
+ * A section painting a background that is not in this list never collapses,
+ * which fails safe: a doubled gap rather than two mismatched colours
+ * overlapping. Add a utility here when a theme paints its sections with
+ * something outside the default vocabulary.
+ *
+ * @param string[] $surfaces
+ *   Background utility class names, without a leading dot, by reference.
+ *
+ * @see \Drupal\neo_alchemist\EventSubscriber\NeoBuildInlineEventSubscriber
+ */
+function hook_neo_alchemist_component_bg_surfaces_alter(array &$surfaces): void {
+  // Example: this theme paints some sections with a fixed brand shade.
+  $surfaces[] = 'bg-secondary-600';
+}
+
+/**
  * @} End of "addtogroup hooks".
  */

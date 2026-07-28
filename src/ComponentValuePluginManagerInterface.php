@@ -22,6 +22,18 @@ interface ComponentValuePluginManagerInterface extends PluginManagerInterface, C
   public function label();
 
   /**
+   * Get every value group id, ordered by the group's weight.
+   *
+   * A group states the role a plugin plays in producing a prop's value, so this
+   * order is what makes a `providers` plugin run before the terminal `fallback`
+   * regardless of the order the site builder happened to enable them in.
+   *
+   * @return string[]
+   *   The group ids, ordered by group weight.
+   */
+  public function getGroupOrder(): array;
+
+  /**
    * Filters and sorts component definitions based on the provided shape.
    *
    * This method retrieves all component definitions and filters them based on

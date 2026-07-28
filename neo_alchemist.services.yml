@@ -137,6 +137,6 @@ services:
 
   neo_alchemist.neo_build_inline_event_subscriber:
     class: '\Drupal\neo_alchemist\EventSubscriber\NeoBuildInlineEventSubscriber'
-    arguments: ['@entity_type.manager']
+    arguments: ['@entity_type.manager', '@module_handler']
     tags:
       - { name: 'event_subscriber' }

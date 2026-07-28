@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Drupal\neo_alchemist;
 
 use Drupal\Component\Plugin\Factory\DefaultFactory;
+use Drupal\Component\Utility\SortArray;
 use Drupal\Core\Cache\CacheBackendInterface;
 use Drupal\Core\Extension\ModuleHandlerInterface;
 use Drupal\Core\Plugin\DefaultPluginManager;
@@ -69,6 +70,15 @@ final class ComponentValuePluginManager extends DefaultPluginManager implements 
     }
 
     return new $plugin_class($plugin_id, $plugin_definition, $configuration['shape'], $configuration['settings'] ?? []);
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  public function getGroupOrder(): array {
+    $groups = $this->groupManager->getDefinitions();
+    uasort($groups, [SortArray::class, 'sortByWeightElement']);
+    return array_keys($groups);
   }
 
   /**

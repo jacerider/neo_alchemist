@@ -9,9 +9,11 @@
  * the gap.
  *
  * Background sections: add the `component-bg` marker class to the section root
- * (alongside `bg-default`). When two adjacent `component-bg` sections resolve to
- * the same colour scheme, generated CSS pulls the second up by one spacing unit
- * so the doubled padding collapses back to a single, continuous-background gap.
+ * (alongside `bg-default`). When two adjacent `component-bg` sections paint the
+ * same surface — same `scheme-*` class *and* same `bg-*` utility — generated CSS
+ * drops the first one's bottom padding, so the doubled padding collapses back to
+ * a single, continuous-background gap. Add `component-bg-flush-none` to a
+ * section that should never merge with a neighbour.
  * @see \Drupal\neo_alchemist\EventSubscriber\NeoBuildInlineEventSubscriber
  */
 @utility component-spacing-base {

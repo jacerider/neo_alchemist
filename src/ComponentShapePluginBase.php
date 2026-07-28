@@ -1212,17 +1212,37 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
       $plugins = $this->getPlugins();
       $stored = $plugins[$this->id()] ?? [];
       $definitions = $this->valueManager->getFilteredDefinitionsFromShape($this);
-      // Honor the saved (drag-and-drop) order: configured plugins first, in the
-      // order they were saved (per group, since each group renders its own
-      // table), followed by the remaining available plugins in their natural
-      // definition order. Processing filters by group, so grouping the
-      // configured plugins ahead of the rest keeps each group's saved order
-      // intact without disturbing the others.
-      $orderedIds = array_keys(array_intersect_key($stored, $definitions));
-      foreach (array_keys($definitions) as $pluginId) {
-        if (!in_array($pluginId, $orderedIds, TRUE)) {
-          $orderedIds[] = $pluginId;
+      // Order the plugins by group first, then within each group. The group
+      // states the role a plugin plays, and the processing loops walk this one
+      // list across every group, so the group's weight is what makes a
+      // `providers` plugin run before the terminal `fallback` — never the saved
+      // order. Ordering flat by saved order instead lets `default` (fallback)
+      // run first whenever the site builder enabled it before the provider; the
+      // provider then overwrites the default it had just supplied with its own
+      // empty result and the configured default silently disappears.
+      //
+      // Inside a group the saved (drag-and-drop) order wins — that is the only
+      // order the prop form can express, since each group renders its own table
+      // — followed by the remaining available plugins in their natural
+      // definition order (weight, then label).
+      $byGroup = [];
+      foreach ($definitions as $pluginId => $definition) {
+        $byGroup[$definition['group']][$pluginId] = $pluginId;
+      }
+      $orderedIds = [];
+      foreach ($this->valueManager->getGroupOrder() as $groupId) {
+        if (empty($byGroup[$groupId])) {
+          continue;
         }
+        $groupIds = $byGroup[$groupId];
+        unset($byGroup[$groupId]);
+        $savedIds = array_keys(array_intersect_key($stored, $groupIds));
+        $orderedIds = array_merge($orderedIds, $savedIds, array_values(array_diff($groupIds, $savedIds)));
+      }
+      // Any group the group manager does not know about keeps its definition
+      // order and trails the known groups.
+      foreach ($byGroup as $groupIds) {
+        $orderedIds = array_merge($orderedIds, array_values($groupIds));
       }
       foreach ($orderedIds as $pluginId) {
         $configurations[$pluginId] = [
@@ -1681,12 +1701,17 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
    * {@inheritdoc}
    */
   public function isProvidedValueEmpty(mixed $value): bool {
-    // Wrap scalars so the sentinel strip and empty() check are uniform. The
-    // `size` key is seeded by the media image size modifier and is not content,
-    // so a value carrying only `size` still counts as empty.
-    $check = is_array($value) ? $value : ['_' => $value];
-    unset($check['size']);
-    return empty($check);
+    if (!is_array($value)) {
+      // A scalar carries nothing only when it is NULL or the empty string.
+      // This deliberately avoids empty(): `0`, `'0'` and FALSE are values a
+      // number or boolean prop can legitimately be provided, and treating them
+      // as empty would make a provider fall through to the fallback.
+      return $value === NULL || $value === '';
+    }
+    // The `size` key is seeded by the media image size modifier and is not
+    // content, so a value carrying only `size` still counts as empty.
+    unset($value['size']);
+    return empty($value);
   }
 
   /**

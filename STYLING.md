@@ -237,14 +237,36 @@ background section (alongside `bg-default`):
 {% set classes = ['bg-default', 'component-bg'] %}
 ```
 
-Generated CSS then detects when a `component-bg` section is immediately preceded by
-another `component-bg` of the **same scheme** and pulls it up by one spacing unit —
-the two same-color backgrounds merge seamlessly and the gap collapses from `2×` back
-to `1×`. Different-colored neighbors keep their full separation. No per-page work
-required; it adapts as editors reorder components.
+Generated CSS then detects when a `component-bg` section is immediately followed by
+another `component-bg` painting the **same surface** and drops the first one's
+bottom padding — the two same-color backgrounds merge seamlessly and the gap
+collapses from `2×` back to `1×`. Different-colored neighbors keep their full
+separation. No per-page work required; it adapts as editors reorder components.
 
-> Adjacent same-color sections should use the **same** spacing size for an exact
-> collapse (the natural choice anyway).
+**"Same surface" means both halves match:**
+
+- the same `scheme-*` class (or neither carrying one — then both inherit the same
+  ancestor color), **and**
+- the same background utility. A scheme only re-points the color tokens; it never
+  picks *which* one a section paints, so `bg-default` next to `bg-base-100` is two
+  different colors even under one scheme.
+
+The recognized surfaces are `bg-default`, `bg-base-50`, `bg-base-100`,
+`bg-base-200`, `bg-base-300`, `bg-primary`, `bg-secondary`, `bg-accent`. A section
+painting anything else never collapses — that fails safe (a doubled gap, never two
+mismatched colors overlapping). A theme can extend the list with
+`hook_neo_alchemist_component_bg_surfaces_alter()`.
+
+> The seam left behind is the **following** section's top spacing, so neighbors
+> with different `spacing` sizes still collapse cleanly — nothing is pulled with a
+> negative margin, so sections can never overlap each other's content.
+>
+> Add `component-bg-flush-none` to a section that should never merge with a
+> neighbor.
+>
+> The collapse zeroes the padding on the section root's **direct child** carrying
+> `py-component` (the standard full-bleed structure below). A section that nests
+> its padded wrapper deeper simply keeps its full spacing.
 >
 > Implementation: `src/EventSubscriber/NeoBuildInlineEventSubscriber.php`.
 

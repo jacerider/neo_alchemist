@@ -145,10 +145,10 @@ Supporting managers: `plugin.manager.neo_component_group`, `…_value_group`, `�
 
 ### ComponentValue processing model
 
-A prop's value is built by running its enabled ComponentValue plugins in ascending
-`weight` order across phases: **provide** (`provideDefaultValue`) → **alter**
-(`alterValue`, default + override passes) → **modify** at render (`modifyValue`), driven
-by `ComponentShapePluginBase::getDefaultValue()` / `buildRenderValue()`.
+A prop's value is built by running its enabled ComponentValue plugins across phases:
+**provide** (`provideDefaultValue`) → **alter** (`alterValue`, default + override passes)
+→ **modify** at render (`modifyValue`), driven by
+`ComponentShapePluginBase::getDefaultValue()` / `buildRenderValue()`.
 
 **Groups declare a plugin's role**, and are the source of truth other code queries — they are
 not just prop-form tabs. Defined in
@@ -168,10 +168,18 @@ decides whether a parent may push its value down into a child. **A new plugin pi
 role**; putting a non-sourcing plugin in `providers` silently makes nested props of that type
 discard authored content in favour of the schema's `examples`.
 
-Group is *not* a sort key — the pipeline order is weight-then-label across all groups, so groups
-interleave (`default` at weight 1000 still runs last) and re-grouping a plugin does not move it
-in the pipeline. Group is also **never persisted**: stored settings are keyed by plugin id
-(`plugins.<shapeId>.<pluginId>`), so changing a plugin's group needs no update hook.
+**Group is the primary sort key of the pipeline.** `ComponentShapePluginBase::getValueCollection()`
+orders plugins by the group's own `weight` (`providers` -5 → `fallback` -3 → `modifiers` 0 →
+`settings` 5) and only then within each group: the site builder's saved drag-and-drop order first
+(that is the only order the prop form can express, since each group renders its own table),
+followed by the remaining available plugins in definition order (plugin `weight`, then label). So
+re-grouping a plugin *does* move it in the pipeline, and `default` — group `fallback`, weight
+1000 — is guaranteed to run after every provider no matter which one the site builder enabled
+first. Ordering the saved plugins flat instead is what let a `fallback` run ahead of a
+`providers` plugin, whereupon the provider overwrote the default it had just supplied with its
+own empty result and the configured default silently vanished. Group is still **never
+persisted**: stored settings are keyed by plugin id (`plugins.<shapeId>.<pluginId>`) and the
+order is recomputed on load, so changing a plugin's group needs no update hook.
 
 The site builder picks each producer's behavior via a standard **"Processing"** select:
 
@@ -189,9 +197,10 @@ Modifiers always run afterward regardless. Mechanics:
 - The claim decision is centralized: a producer `implements
   ComponentValueProcessingModeInterface` + `use ComponentValueProcessingModeTrait`, and
   the pipeline calls `applyProcessingMode($value)`, claiming per the chosen mode +
-  `ComponentShapePluginInterface::isProvidedValueEmpty()` (shared "found vs empty" test
-  that ignores the `size` sentinel seeded by `media_image_size`). Producers no longer
-  hard-code the claim.
+  `ComponentShapePluginInterface::isProvidedValueEmpty()` (shared "found vs empty" test:
+  an array is empty once the `size` sentinel seeded by `media_image_size` is discounted;
+  a scalar is empty only when `NULL` or `''`, so a legitimate `0`/`'0'`/`FALSE` still
+  counts as found). Producers no longer hard-code the claim.
 - **`default`** (weight 1000, group `fallback`) only fills when the value is still
   empty, so a non-claiming producer's value survives to render.
 - **Veto** producers (`user_has_role`, `entity_has_value`) opt out of the mode; they
