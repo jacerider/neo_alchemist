@@ -224,6 +224,21 @@ abstract class ChildrenShapeBase extends ComponentShapePluginBase implements Com
       $value = $this->isEditable() && !$this->getOptionDefault()->isEnabled()
         ? $this->getOverrideValue()
         : NULL;
+      // An iterable parent's override value is keyed by delta, not by child
+      // prop name, so narrow it to this delta before it is distributed below —
+      // exactly what getChildShapeList() passes in on the value-carrying call.
+      // Without this the lookup is $value['<child>'] against a delta-keyed
+      // array, which always misses, so every child of every delta is primed
+      // with NULL. That only surfaces when the shapes are built before the
+      // value-carrying call — getAllShapes(includeDeltas: TRUE), which
+      // ComponentTreeHydrated::getValue() runs on every live render — because
+      // getChildShapes() then takes its cached branch, where a child owning a
+      // value provider (e.g. an image's media plugin) refuses the pushed-down
+      // value. The child is left with no value at all and renders the schema
+      // example, or nothing where the author turned "default" off.
+      if ($delta !== NULL && is_array($value) && $this->isIterable()) {
+        $value = $value[$delta] ?? NULL;
+      }
     }
     array_walk($shapes, fn ($shape) => $this->initChildShape($shape, $count, $delta, $value[$shape->getName()] ?? NULL));
     return $shapes;
