@@ -203,6 +203,7 @@ class NeoComponentTreeList extends FieldItemList {
       }
     }
     [$storedTree, $storedProps] = static::decodeHybridItemValue(is_array($itemValue) ? $itemValue : []);
+    $rootTuples = $storedTree[ComponentTreeStructure::ROOT_UUID] ?? NULL;
     unset($storedTree[ComponentTreeStructure::ROOT_UUID]);
     if (empty($storedTree)) {
       // Nothing beyond the root: reset to the pure field default.
@@ -213,6 +214,18 @@ class NeoComponentTreeList extends FieldItemList {
       $this->hybridOrphans = ['tree' => [], 'props' => []];
       $this->isDefault = TRUE;
       return;
+    }
+    if (empty($rootTuples)) {
+      // An empty root section marks an authoritative storage subset
+      // (::extractHybridStorageValue() always writes one): it replaces
+      // everything derived from the previous stored value, including stashed
+      // orphans — letting those accumulate across loads would re-emit stale
+      // entries on the next save and resurrect deleted content. A populated
+      // root marks an in-session merged tree, which cannot express orphans
+      // at all, so the ones stashed at load time are deliberately KEPT —
+      // resetting here would drop them on every editor commit. The draft
+      // path (::composeHybridItemValue()) keeps them for the same reason.
+      $this->hybridOrphans = ['tree' => [], 'props' => []];
     }
     $this->isDefault = FALSE;
     parent::setValue([0 => $this->composeHybridValue($storedTree, $storedProps)], $notify);
@@ -281,17 +294,38 @@ class NeoComponentTreeList extends FieldItemList {
       }
     }
 
-    // Stash orphaned sections: stored top-level keys that are neither an
-    // anchor, nor entity-owned, nor part of the default layout. They are kept
-    // out of the merged runtime value but re-emitted on save.
+    // Stash orphaned content, slot by slot: stored slots that the current
+    // anchors no longer own and that the default layout does not carry
+    // identically. This covers both a vanished anchor (the key is no longer
+    // in the default tree) and an un-flagged one (the key is still present
+    // but region_custom was removed) — in both cases the entity's authored
+    // region content must survive the next save so a config revert or
+    // re-flag restores it. Orphans are kept out of the merged runtime value
+    // but re-emitted on save.
+    //
+    // The default-layout comparison is what distinguishes "a full merged
+    // tree passed through" (non-anchor default sections arrive verbatim and
+    // must NOT be stashed) from genuinely entity-authored content: hybrid
+    // locks inherited instances, so a non-anchor section can only diverge
+    // from the default when it was authored inside a formerly-flagged
+    // region. Loose == tolerates key-order differences while catching any
+    // content divergence.
     $defaultFlip = array_flip(static::getTreeUuids($defaultTree));
     foreach ($storedTree as $key => $section) {
-      if (isset($anchors[$key]) || isset($ownedFlip[$key]) || isset($defaultFlip[$key])) {
+      if (isset($ownedFlip[$key])) {
         continue;
       }
-      $this->hybridOrphans['tree'][$key] = $section;
-      foreach ((array) $section as $slotTuples) {
-        foreach ((array) $slotTuples as $tuple) {
+      foreach ((array) $section as $slotId => $tuples) {
+        if (isset($anchors[$key]) && in_array($slotId, $anchors[$key]['slots'], TRUE)) {
+          // Currently flagged: the anchors merge loop above owns this slot.
+          continue;
+        }
+        if (isset($defaultFlip[$key]) && ($defaultTree[$key][$slotId] ?? []) == $tuples) {
+          // Identical to the default layout — nothing entity-authored here.
+          continue;
+        }
+        $this->hybridOrphans['tree'][$key][$slotId] = $tuples;
+        foreach ((array) $tuples as $tuple) {
           $uuid = $tuple['uuid'] ?? NULL;
           if ($uuid && array_key_exists($uuid, $storedProps)) {
             $this->hybridOrphans['props'][$uuid] = $storedProps[$uuid];
@@ -375,10 +409,15 @@ class NeoComponentTreeList extends FieldItemList {
         $storageProps[$uuid] = $props[$uuid];
       }
     }
-    // Re-emit preserved orphans.
+    // Re-emit preserved orphans, slot by slot. A partially-anchored owner
+    // (one region still flagged, another un-flagged) already has a storage
+    // section for its live slots, so a whole-section guard would never fire
+    // and the orphaned slot would be lost on save.
     foreach ($this->hybridOrphans['tree'] as $key => $section) {
-      if (!isset($storageTree[$key])) {
-        $storageTree[$key] = $section;
+      foreach ((array) $section as $slotId => $tuples) {
+        if (!isset($storageTree[$key][$slotId])) {
+          $storageTree[$key][$slotId] = $tuples;
+        }
       }
     }
     foreach ($this->hybridOrphans['props'] as $uuid => $value) {
@@ -386,10 +425,14 @@ class NeoComponentTreeList extends FieldItemList {
         $storageProps[$uuid] = $value;
       }
     }
-    // Guarantee tree/props parity: every tree instance needs a props entry.
+    // Guarantee tree/props parity: every tree INSTANCE needs a props entry.
+    // Instances are tuple uuids — a container inside a custom region has its
+    // own section AND is a tuple, and it is exactly the case that must be
+    // backfilled. Anchor owners appear only as section keys (the subset root
+    // is empty) and are not instances, so they get no entry.
     // @see \Drupal\neo_alchemist\Plugin\Field\FieldType\ComponentTreeItem::preSave()
-    foreach (static::getTreeUuids($storageTree) as $uuid) {
-      if (!isset($storageTree[$uuid]) && !array_key_exists($uuid, $storageProps)) {
+    foreach (static::getTreeTupleUuids($storageTree) as $uuid) {
+      if (!array_key_exists($uuid, $storageProps)) {
         $storageProps[$uuid] = [];
       }
     }
@@ -541,6 +584,34 @@ class NeoComponentTreeList extends FieldItemList {
       if ($key !== ComponentTreeStructure::ROOT_UUID) {
         $uuids[$key] = TRUE;
       }
+      $lists = $key === ComponentTreeStructure::ROOT_UUID ? [$section] : array_values((array) $section);
+      foreach ($lists as $tuples) {
+        foreach ((array) $tuples as $tuple) {
+          if (!empty($tuple['uuid'])) {
+            $uuids[$tuple['uuid']] = TRUE;
+          }
+        }
+      }
+    }
+    return array_keys($uuids);
+  }
+
+  /**
+   * Gets every tuple UUID referenced by a decoded component tree.
+   *
+   * Unlike ::getTreeUuids(), section-only keys are excluded: in a hybrid
+   * storage subset an anchor owner is a section key without being a
+   * component instance of the subset itself.
+   *
+   * @param array $tree
+   *   A decoded component tree.
+   *
+   * @return string[]
+   *   The tuple UUIDs.
+   */
+  protected static function getTreeTupleUuids(array $tree): array {
+    $uuids = [];
+    foreach ($tree as $key => $section) {
       $lists = $key === ComponentTreeStructure::ROOT_UUID ? [$section] : array_values((array) $section);
       foreach ($lists as $tuples) {
         foreach ((array) $tuples as $tuple) {
