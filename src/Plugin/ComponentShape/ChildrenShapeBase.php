@@ -109,7 +109,14 @@ abstract class ChildrenShapeBase extends ComponentShapePluginBase implements Com
     }
     else {
       foreach ($this->childShapes[$key] as $shape) {
-        if (empty($value[$shape->getName()])) {
+        // Skip only genuinely valueless slices. In the usual field-item
+        // format a falsy scalar arrives wrapped (['value' => '0']) and was
+        // never at risk here, but flat slices (schema examples, resolved
+        // values) do reach this branch — and the skip predicate must match
+        // the cold path's null-check, or warming the shapes changes what
+        // resolves. 0, '0' and FALSE are values.
+        $childValue = is_array($value) ? ($value[$shape->getName()] ?? NULL) : NULL;
+        if ($childValue === NULL || $shape->isProvidedValueEmpty($childValue)) {
           continue;
         }
         // Do not overwrite a child that resolves its own value from a value
@@ -143,7 +150,7 @@ abstract class ChildrenShapeBase extends ComponentShapePluginBase implements Com
           );
           continue;
         }
-        $shape->setFieldItemValue($value[$shape->getName()]);
+        $shape->setFieldItemValue($childValue);
       }
     }
     return $this->childShapes[$key];
