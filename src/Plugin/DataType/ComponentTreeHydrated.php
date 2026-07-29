@@ -84,8 +84,10 @@ class ComponentTreeHydrated extends TypedData implements RenderableInterface {
       }
       assert(array_key_exists('slots', $hydrated[$parent_uuid]));
 
-      // Remove default slot value: this slot is populated.
-      if (isset($hydrated[$parent_uuid]['slots']) && is_string($hydrated[$parent_uuid]['slots'][$slot])) {
+      // Remove default slot value: this slot is populated. The $slot key is
+      // guarded — a stored tree can reference a slot the component no longer
+      // declares, and that must not warn its way into a failure.
+      if (is_string($hydrated[$parent_uuid]['slots'][$slot] ?? NULL)) {
         unset($hydrated[$parent_uuid]['slots'][$slot]);
       }
       $hydrated[$parent_uuid]['slots'][$slot][$uuid] = $hydrated[$uuid] ?? [];
