@@ -118,6 +118,29 @@ abstract class ChildrenShapeBase extends ComponentShapePluginBase implements Com
         // down and clobbers the child provider's value. Children with no
         // provider of their own still receive the parent value as before.
         if ($this->childHasOwnValueProvider($shape)) {
+          // Refusing the push is only safe while the child can still produce a
+          // value some other way: either it already holds one, or its "default"
+          // option is on and it will fall back to the schema example. A child
+          // that is empty *and* cannot fall back has just had the parent's
+          // authored value dropped on the floor, and the prop renders as
+          // nothing — silently, with no error anywhere.
+          //
+          // That is the failure this shape tree hit when the per-delta priming
+          // in loadChildShapes() ran before the value was available: the shapes
+          // were already cached by the time the value arrived here, and every
+          // media prop inside an array silently lost its authored content. Trip
+          // loudly in development instead — assertions are compiled out in
+          // production, so this costs nothing there.
+          //
+          // @see ::loadChildShapes()
+          assert(
+            !$shape->isEmpty() || $shape->getOptionDefault()->isEnabled(),
+            sprintf(
+              'Child shape "%s" of "%s" was refused the value its parent offered while holding no value of its own and no default to fall back to, so authored content is being dropped.',
+              $shape->id(TRUE),
+              $this->id(TRUE),
+            ),
+          );
           continue;
         }
         $shape->setFieldItemValue($value[$shape->getName()]);
