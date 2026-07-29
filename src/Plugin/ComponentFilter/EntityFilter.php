@@ -375,11 +375,19 @@ final class EntityFilter extends ComponentFilterPluginBase implements ContainerF
     }
     $value = $value['value'];
     $allowMultiple = !empty($this->configuration['multiple']);
-    if (is_array($value) && !$allowMultiple) {
-      $value = [reset($value)];
-    }
     if (!$allowMultiple) {
-      return $value;
+      if (is_array($value)) {
+        // A widget left in multi/tags mode can submit an array for a
+        // single-value filter; reduce to the first entry. (The old wrap in
+        // [reset($value)] returned an array from this ?string method — a
+        // guaranteed TypeError.)
+        $value = reset($value);
+        if (is_array($value)) {
+          // Autocomplete rows carry ['target_id' => ...].
+          $value = $value['target_id'] ?? reset($value);
+        }
+      }
+      return $value === NULL || $value === FALSE || $value === '' ? NULL : (string) $value;
     }
     switch ($this->configuration['field_type']) {
       case 'autocomplete':
