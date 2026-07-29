@@ -40,8 +40,10 @@ class StringShape extends ComponentShapePluginBase {
     if (is_string($value) && $value !== strip_tags($value)) {
       $value = Markup::create($value);
     }
-    if (empty($value)) {
-      // Always return a string if empty.
+    if ($this->isProvidedValueEmpty($value)) {
+      // Always return a string if empty. Deliberately not empty(): '0' and 0
+      // are values a string prop can legitimately hold, and flattening them
+      // to '' silently dropped authored content.
       $value = '';
     }
     return $value;
