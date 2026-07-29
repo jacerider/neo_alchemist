@@ -84,7 +84,11 @@ abstract class StructuredObjectShapeBase extends ComponentShapePluginBase implem
     if (!$value) {
       return $value;
     }
-    $value = array_filter($value);
+    // Drop only genuinely empty children before backfilling from the schema
+    // examples. A bare array_filter() here dropped authored 0/'0'/FALSE and
+    // the merge below then silently replaced them with the component
+    // author's placeholder content.
+    $value = array_filter($value, fn ($childValue) => !$this->isProvidedValueEmpty($childValue));
     $value += $this->getDefaultSchemaValue();
     // Ensure we return cleaned values.
     foreach ($this->getChildShapes(NULL, $value) as $shapeName => $shape) {
@@ -134,10 +138,14 @@ abstract class StructuredObjectShapeBase extends ComponentShapePluginBase implem
       $this->structuredChildShapes[$key] = $instances;
     }
     else {
-      // Shapes are already loaded — push any new value through to them.
+      // Shapes are already loaded — push any new value through to them. The
+      // skip predicate must match the cold path's null-check semantics:
+      // falsy-but-real values (0, '0', FALSE) are pushed, so warming the
+      // shapes cannot change what resolves.
       foreach ($this->structuredChildShapes[$key] as $shape) {
-        if (!empty($value[$shape->getName()])) {
-          $shape->setFieldItemValue($value[$shape->getName()]);
+        $childValue = is_array($value) ? ($value[$shape->getName()] ?? NULL) : NULL;
+        if ($childValue !== NULL && !$shape->isProvidedValueEmpty($childValue)) {
+          $shape->setFieldItemValue($childValue);
         }
       }
     }
