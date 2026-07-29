@@ -280,16 +280,32 @@ class ArrayShape extends ChildrenShapeBase implements ComponentShapeInterablePlu
           unset($values[$delta][$shapeName]);
           continue;
         }
+        // "Empty" throughout this loop follows isProvidedValueEmpty(), the
+        // module's value-emptiness contract: 0, '0' and FALSE are values a
+        // number or boolean child can legitimately hold. Using PHP's empty()
+        // here silently dropped whole items whose required child held a
+        // falsy-but-real value.
         if ($forceChildDefaultValue || $shape->getOptionDefault()->isEnabled()) {
-          $values[$delta][$shapeName] = $shape->buildDefaultValue();
-          if (!empty($values[$delta][$shapeName])) {
+          // Compute the default first and only adopt it when it carries a
+          // value — an unusable default must not clobber the raw slice, which
+          // the branches below still need.
+          $default = $shape->buildDefaultValue();
+          if (!$shape->isProvidedValueEmpty($default)) {
+            $values[$delta][$shapeName] = $default;
             continue;
           }
+          // The child is set to use its default and that default resolves to
+          // nothing: treat it as explicitly empty.
+          if ($shape->isRequired()) {
+            unset($values[$delta]);
+            continue 2;
+          }
+          unset($values[$delta][$shapeName]);
+          continue;
         }
         if (
           isset($values[$delta][$shapeName]) &&
-          empty($values[$delta][$shapeName]) &&
-          is_array($values[$delta][$shapeName]) &&
+          $values[$delta][$shapeName] === [] &&
           $allowUnsetEmpty
         ) {
           // The provided value is an empty array. This means we don't want this
@@ -298,7 +314,7 @@ class ArrayShape extends ChildrenShapeBase implements ComponentShapeInterablePlu
           continue;
         }
         $values[$delta][$shapeName] = $shape->getValue();
-        if (empty($values[$delta][$shapeName])) {
+        if ($shape->isProvidedValueEmpty($values[$delta][$shapeName])) {
           if ($shape->isRequired()) {
             // Required value cannot be empty. If allowed to continue, the
             // component will not be valid. We remove the entire item until
@@ -306,7 +322,7 @@ class ArrayShape extends ChildrenShapeBase implements ComponentShapeInterablePlu
             unset($values[$delta]);
             continue 2;
           }
-          elseif (is_array($values[$delta][$shapeName]) && $allowUnsetEmpty) {
+          if (is_array($values[$delta][$shapeName]) && $allowUnsetEmpty) {
             // The shape resolved to an empty array (no value). Omit it rather
             // than passing an empty array to the component, which would fail
             // validation for scalar props (e.g. an unset icon on a menu item).
@@ -314,7 +330,10 @@ class ArrayShape extends ChildrenShapeBase implements ComponentShapeInterablePlu
             continue;
           }
         }
-        elseif ($this->isSingleProp()) {
+        if ($this->isSingleProp()) {
+          // Collapse the synthesized wrapper whenever the child value
+          // survived — including falsy-but-real values, which previously
+          // skipped this and produced a heterogeneous list.
           $values[$delta] = $values[$delta][$shapeName];
         }
       }
