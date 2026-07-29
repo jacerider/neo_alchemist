@@ -669,7 +669,7 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
    */
   protected function buildFieldItem(string $fieldType, $fieldStorageSettings = [], $fieldInstanceSettings = []): FieldItemInterface {
     $fieldDataType = 'field_item:' . $fieldType;
-    $fieldItemDefinition = FieldStorageDefinition::create($fieldType)->getItemDefinition();
+    $fieldItemDefinition = static::createFieldStorageDefinition($fieldType)->getItemDefinition();
     assert($fieldItemDefinition instanceof DataDefinition);
     if ($fieldStorageSettings) {
       $fieldItemClass = $fieldItemDefinition->getClass();
@@ -695,6 +695,37 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
       ->setRequired($this->isRequired());
 
     return $fieldItem;
+  }
+
+  /**
+   * Builds a pristine field storage definition for a field type.
+   *
+   * Every shape needs its own storage definition — buildFieldItem() stamps the
+   * prop's name, label, description and required flag onto it, and
+   * getFieldItemList() later stamps the host entity type — so they cannot be
+   * shared. Building one from scratch is what costs: FieldStorageDefinition
+   * ::create() asks the field type plugin manager for the type's default
+   * storage *and* field settings on every call, and a single component render
+   * builds thousands of shapes (~70 per component tree here).
+   *
+   * The default settings for a field type are fixed for the life of the
+   * request, so the expensive part is done once per type and each caller gets
+   * a clone. BaseFieldDefinition::__clone() deep-clones the item definition and
+   * repairs its back-reference to the cloned parent, so the prototype is never
+   * reachable from — or mutated by — anything handed out here.
+   *
+   * @param string $fieldType
+   *   The field type ID.
+   *
+   * @return \Drupal\neo_alchemist\PropSource\FieldStorageDefinition
+   *   An unshared storage definition carrying the type's default settings.
+   */
+  protected static function createFieldStorageDefinition(string $fieldType): FieldStorageDefinition {
+    static $prototypes = [];
+    if (!isset($prototypes[$fieldType])) {
+      $prototypes[$fieldType] = FieldStorageDefinition::create($fieldType);
+    }
+    return clone $prototypes[$fieldType];
   }
 
   /**
