@@ -10,6 +10,7 @@ use Drupal\Component\Utility\NestedArray;
 use Drupal\Core\Access\AccessResult;
 use Drupal\Core\Access\AccessResultInterface;
 use Drupal\Core\Cache\CacheableMetadata;
+use Drupal\Core\Cache\RefinableCacheableDependencyInterface;
 use Drupal\Core\Config\Entity\ConfigEntityBase;
 use Drupal\Core\Entity\ContentEntityInterface;
 use Drupal\Core\Entity\EntityStorageInterface;
@@ -928,8 +929,12 @@ class Component extends ConfigEntityBase implements ComponentInterface {
   /**
    * Determines whether a prop value is empty and should not be passed to SDC.
    *
-   * FALSE is a meaningful value for a boolean prop, so booleans are never
-   * considered empty.
+   * FALSE is a meaningful value for a boolean prop, and 0/0.0/'0' are
+   * meaningful values for number and string props, so none of them are
+   * considered empty — aligning this render-boundary check with the shape
+   * layer's isProvidedValueEmpty() contract. (An empty string and an empty
+   * array remain empty: a scalar prop resolving to '' has nothing to say and
+   * dropping it lets twig |default() filters apply.)
    *
    * @param mixed $value
    *   The prop value.
@@ -938,7 +943,11 @@ class Component extends ConfigEntityBase implements ComponentInterface {
    *   TRUE if the value is empty.
    */
   protected function isPropValueEmpty(mixed $value): bool {
-    return !is_bool($value) && empty($value);
+    return !is_bool($value)
+      && $value !== 0
+      && $value !== 0.0
+      && $value !== '0'
+      && empty($value);
   }
 
   /**
@@ -1129,15 +1138,28 @@ class Component extends ConfigEntityBase implements ComponentInterface {
     if (!in_array($operation, array_keys(ComponentAccessInterface::OPS))) {
       return AccessResult::neutral();
     }
+    // Fold every consulted plugin's cacheability into whatever is returned.
+    // The render call sites capture the result's metadata; dropping a
+    // plugin's contribution (e.g. PropValueAccess's resolved-value
+    // dependencies on the neutral path) leaves a component cached as
+    // visible/hidden forever once the condition that decided it changes.
+    // Deliberately a manual fold rather than orIf(): core's neutral∧neutral
+    // combination drops the second operand's cacheability.
+    $cacheability = new CacheableMetadata();
     foreach ($this->getAccessInstances() as $accessInstance) {
       $access = $accessInstance->access($operation, $account ?? \Drupal::currentUser());
       // If any access plugin denies access, we deny access to the component
-      // instance.
+      // instance — carrying the cacheability of every plugin consulted
+      // before it.
       if ($access->isForbidden()) {
+        if ($access instanceof RefinableCacheableDependencyInterface) {
+          $access->addCacheableDependency($cacheability);
+        }
         return $access;
       }
+      $cacheability->addCacheableDependency($access);
     }
-    return AccessResult::neutral();
+    return AccessResult::neutral()->addCacheableDependency($cacheability);
   }
 
   /**
