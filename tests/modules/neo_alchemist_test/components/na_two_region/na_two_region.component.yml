@@ -1,0 +1,19 @@
+$schema: 'https://git.drupalcode.org/project/drupal/-/raw/10.1.x/core/modules/sdc/src/metadata.schema.json'
+name: 'NA two region fixture'
+description: >
+  A component with two region props. Exists for cases where slot names must
+  differ from the slot the component itself sits in — e.g. cloning a
+  component that lives in a parent's `body` slot while its own children live
+  in `top`/`bottom` — and for partial hybrid flagging (one region flagged,
+  the other not).
+status: stable
+neo: true
+props:
+  type: object
+  properties:
+    top:
+      type: region
+      title: Top
+    bottom:
+      type: region
+      title: Bottom

@@ -1,0 +1,10 @@
+{#
+  Minimal on purpose. The suite asserts against Component::getPropValues(),
+  not markup.
+#}
+<div{{ attributes }}>
+  <span class="na-box">{{ box.text }}</span>
+  {% if link %}
+    <a href="{{ link.uri }}">{{ link.title }}</a>
+  {% endif %}
+</div>

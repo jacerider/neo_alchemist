@@ -1,5 +1,79 @@
 # Changelog
 
+## Falsy values are values — and other silent-data-loss fixes
+
+A test-coverage expansion over the value pipeline, the tree-field modes and the
+entity/render surfaces (the suite grew from 79 to 169 tests) surfaced and fixed a
+family of silent-data-loss bugs. Every fix carries a regression test proven red
+against the pre-fix code.
+
+### The falsy family: 0, '0' and FALSE are values
+
+PHP's `empty()` was used in several places where the module's own value-emptiness
+contract (`isProvidedValueEmpty()`) applies. Authored content equal to `0`, `'0'`
+or `FALSE` was silently dropped or replaced by the component's schema examples:
+
+- **`ArrayShape::buildValue()`** — the required-child guard dropped the ENTIRE
+  array item (a menu item titled "0" vanished from the rendered menu); an unusable
+  default clobbered the raw authored slice; single-prop items skipped the wrapper
+  collapse and produced heterogeneous lists.
+- **`ObjectShape::buildValue()`** — falsy children were unset from the object.
+- **`StructuredObjectShapeBase`** (links) — falsy children were filtered out and
+  refilled with the schema examples; the warm child-shape path skipped pushing
+  falsy slices.
+- **`StringShape::preRenderValue()`** — flattened an authored `'0'` to `''`.
+- **`Component::isPropValueEmpty()`** — a top-level prop resolving to `0` was
+  dropped from `#props`. *Render-visible*: templates now receive the 0 (twig's
+  `|default()` still substitutes for falsy, so most templates are unaffected), and
+  a `prop_value` access gate now counts 0 as "has a value".
+
+### getDefaultValue() memoises NULL and stops clobbering authored values
+
+A computed-NULL default (any provider chain ending in NULL) never memoised, so
+every post-init re-entry re-ran the pipeline — including the field-item side
+effect, which overwrote authored values with the recomputed NULL.
+
+### Hybrid: un-flagging a region no longer destroys entity content
+
+Un-ticking "Entity Customizable" on a region whose component stayed in the
+default layout dropped every entity's authored region content on the next save —
+neither merged nor preserved. Orphan stashing is now slot-granular: un-flagged
+region content rides along in storage (render-inert) and re-flagging restores it.
+**Caveat:** un-flagging the LAST flagged region flips the whole field to locked
+mode, where the (characterized, unfixed) default-snapshot behavior applies — see
+TESTING.md's residual list. Orphans are also now replaced (not accumulated) when
+a fresh storage subset arrives, so stale entries can no longer resurrect deleted
+content, while in-session editor commits keep them.
+
+### Hybrid: tree/props parity guard fixed
+
+The storage-subset parity backfill excluded exactly the container uuids it was
+meant to protect; a props-less container inside a custom region threw a
+`LogicException` on save instead of being backfilled.
+
+### Cloning copies the whole subtree
+
+`cloneComponent()` read the source's children using the slot the source itself
+sat in — throwing whenever its own slot names differed, and never recursing, so
+grandchildren were silently dropped from every clone. Clones are now deep, slot
+assignments intact, with fresh uuids and copied props throughout.
+
+### Access results keep their cacheability
+
+`Component::checkAccess()` returned bare results that discarded the consulted
+plugins' cache metadata (e.g. `prop_value`'s resolved-value dependencies), so a
+component hidden/shown by a condition could stay cached that way after the
+condition changed. Both the neutral and first-forbidden paths now fold every
+consulted plugin's cacheability.
+
+### Smaller fixes
+
+- `ComponentTreeHydrated::getValue()` no longer emits an undefined-array-key
+  warning when a stored tree references a slot the component no longer declares
+  (in dev, the loud shape-must-exist assert still fires first).
+- `EntityFilter::massageFormValue()` no longer TypeErrors when a widget left in
+  multi/tags mode submits an array for a single-value filter.
+
 ## Value groups state a plugin's role
 
 A ComponentValue plugin's `group` used to be a loose label for the prop form's tabs, with

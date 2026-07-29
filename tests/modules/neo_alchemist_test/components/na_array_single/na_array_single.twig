@@ -1,0 +1,9 @@
+{#
+  Minimal on purpose. The suite asserts against Component::getPropValues(),
+  not markup.
+#}
+<div{{ attributes }}>
+  {% for item in items %}
+    <span class="na-item">{{ item }}</span>
+  {% endfor %}
+</div>

@@ -17,8 +17,11 @@ use PHPUnit\Framework\Attributes\Group;
  * and which belong to the default — get that wrong and content is either
  * dropped on save or leaks between the two.
  *
- * No config anywhere on this site uses `region_custom`, so this path has never
- * run against real data. These tests establish what it currently does.
+ * Hybrid mode is live in production — node.project's field_full via
+ * project_full, and taxonomy_term.market's level fields via hero_s2, all
+ * carry region_custom flags — so these pins protect shipped data. The
+ * instance-level compose/extract pair is covered separately in
+ * HybridStorageExtractionTest and the Kernel Hybrid* suites.
  */
 #[Group('neo_alchemist')]
 class HybridTreeAlgebraTest extends UnitTestCase {

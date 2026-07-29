@@ -1,0 +1,41 @@
+$schema: 'https://git.drupalcode.org/project/drupal/-/raw/10.1.x/core/modules/sdc/src/metadata.schema.json'
+name: 'NA falsy object fixture'
+description: >
+  An object prop with string/boolean/number children plus a `link` prop (a
+  StructuredObjectShapeBase shape). Exists to pin that falsy-but-real child
+  values (0, '0', FALSE) survive ObjectShape::buildValue() and are not
+  silently replaced by schema examples in
+  StructuredObjectShapeBase::buildValue().
+status: stable
+neo: true
+props:
+  type: object
+  properties:
+    box:
+      type: object
+      title: Box
+      examples:
+        text: 'EXAMPLE TEXT'
+        note: 'EXAMPLE NOTE'
+      properties:
+        text:
+          type: string
+          title: Text
+        flag:
+          type: boolean
+          title: Flag
+        note:
+          type: string
+          title: Note
+        count:
+          type: number
+          title: Count
+    link:
+      type: link
+      title: Link
+      examples:
+        uri: 'https://example.com'
+        title: 'EXAMPLE LINK TITLE'
+    count:
+      type: number
+      title: Count

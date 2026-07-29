@@ -1,0 +1,14 @@
+$schema: 'https://git.drupalcode.org/project/drupal/-/raw/10.1.x/core/modules/sdc/src/metadata.schema.json'
+name: 'NA leaf fixture'
+description: >
+  The universal child component: one string prop, no children, no plugins.
+  Placed inside regions and slots by the tree-field and clone tests.
+status: stable
+neo: true
+props:
+  type: object
+  properties:
+    text:
+      type: string
+      title: Text
+      examples: 'EXAMPLE LEAF TEXT'

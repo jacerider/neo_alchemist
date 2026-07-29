@@ -1,0 +1,16 @@
+$schema: 'https://git.drupalcode.org/project/drupal/-/raw/10.1.x/core/modules/sdc/src/metadata.schema.json'
+name: 'NA recorder fixture'
+description: >
+  A single `test_recorded` prop with no examples, so the shape's computed
+  default is genuinely empty. Tests attach the recording/cache-tag value
+  plugins to it via raw config (root props do not auto-activate
+  default_plugins) to observe pipeline ordering, memoisation and cacheability
+  without any real providers in the way.
+status: stable
+neo: true
+props:
+  type: object
+  properties:
+    note:
+      type: test_recorded
+      title: Note

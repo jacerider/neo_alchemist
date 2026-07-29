@@ -64,8 +64,25 @@ a non-zero exit means a patch failed to reapply — investigate rather than retr
 ### 2. Provide the test database
 
 `KernelTestBase::getDatabaseConnectionInfo()` throws without `SIMPLETEST_DB`.
-DDEV merges any `.ddev/config.*.yaml` into its config, so add
-`.ddev/config.testing.yaml`:
+
+**Check whether it is already set before adding anything:**
+
+```bash
+ddev exec 'env | grep -E "SIMPLETEST|BROWSERTEST"'
+```
+
+DDEV does *not* set these itself, but several add-ons do. The
+[ddev-selenium-standalone-chrome][selenium-addon] add-on writes
+`.ddev/config.selenium-standalone-chrome.yaml`, which already supplies
+`SIMPLETEST_DB`, `SIMPLETEST_BASE_URL` and `BROWSERTEST_OUTPUT_DIRECTORY` — a
+site carrying it for functional-JS testing needs no further work here. That was
+the case on the site this suite was developed against, so treat step 2 as a
+verification rather than a task.
+
+[selenium-addon]: https://github.com/ddev/ddev-selenium-standalone-chrome
+
+If the grep comes back empty, DDEV merges any `.ddev/config.*.yaml` into its
+config, so add `.ddev/config.testing.yaml`:
 
 ```yaml
 web_environment:
@@ -83,7 +100,9 @@ drop them on teardown. A crashed run leaves them behind:
 ddev mysql -e "SHOW TABLES LIKE 'test%'"
 ```
 
-No Selenium service is needed — there are no browser tests.
+No Selenium service is needed to *run* this suite — there are no browser tests.
+The add-on above is only a convenient source of the environment variables; a
+site without it just writes them itself.
 
 ### 3. PHPUnit configuration
 
@@ -132,6 +151,26 @@ actually go wrong — a missing `vendor/bin/phpunit` and a missing
 `SIMPLETEST_DB` — then `exec vendor/bin/phpunit -c /var/www/html/phpunit.xml "$@"`.
 `ddev restart` registers it.
 
+**Committing it usually needs a `.gitignore` change.** Drupal/Pantheon projects
+commonly ignore `/.ddev/commands` wholesale, because the commands there are
+scaffolded by a Composer package rather than authored by the site. A plain
+negation does not work — Git cannot re-include a file whose parent directory is
+excluded — so the ignore has to be re-expressed one level at a time:
+
+```gitignore
+/.ddev/commands/*
+!/.ddev/commands/web/
+/.ddev/commands/web/*
+!/.ddev/commands/web/phpunit
+```
+
+Verify with `git add -An --dry-run .ddev` and confirm the wrapper is listed and
+no scaffolded command is. Also ignore `/.phpunit.cache`.
+
+Leaving the wrapper untracked is a defensible alternative — but then `ddev
+phpunit` silently does not exist for anyone who clones the repo, and the failure
+looks like a broken test setup rather than a missing file.
+
 ### 5. Prove the harness before trusting it
 
 Run core's own tests first. If these fail, the problem is the setup, not this
@@ -151,13 +190,26 @@ tests/
 ├── modules/neo_alchemist_test/        # fixture module (SDCs + plugins)
 │   ├── components/
 │   │   ├── na_array_provider/         # array-of-objects with a provider-owning child
+│   │   ├── na_array_required/         # required string+number children (branch table, falsy pins)
+│   │   ├── na_array_single/           # bare-string items (single-prop collapse)
+│   │   ├── na_falsy_object/           # object + link + top-level number (falsy pins)
+│   │   ├── na_region_host/            # one region prop (the hybrid anchor host)
+│   │   ├── na_two_region/             # two region props (partial un-flag, clone geometry)
+│   │   ├── na_leaf/                   # the universal child: one string prop
+│   │   ├── na_recorder/               # example-less prop for pipeline observation
 │   │   └── na_not_neo/                # valid SDC WITHOUT `neo: true`
-│   ├── src/Plugin/ComponentShape/TestProvidedShape.php
-│   ├── src/Plugin/ComponentValue/TestProviderValue.php
+│   ├── config/schema/                 # schema for fixture plugin settings (strict checker)
+│   ├── src/TestValueCallLog.php       # static call recorder
+│   ├── src/Plugin/ComponentShape/     # TestProvidedShape, TestRecordedShape
+│   ├── src/Plugin/ComponentValue/     # TestProviderValue + recording/cache-tag plugins
+│   ├── src/Plugin/ComponentAccess/    # TestCacheTagAccess
 │   └── neo_alchemist_test.neo_component_prop_defs.yml
 └── src/
     ├── Unit/                          # no container, no database
     └── Kernel/                        # real container, real config entities
+    # Named helpers live beside the tests: TestNeoComponentTreeList,
+    # TestHybridComposerList/TestHybridItemStub (Unit) and
+    # HybridFieldKernelTestBase/CheckAccessExposedComponent (Kernel).
 ```
 
 Namespaces follow Drupal convention: `Drupal\Tests\neo_alchemist\{Unit,Kernel}`.
@@ -319,30 +371,94 @@ resolutions must load two separate instances (`$storage->resetCache()` then
 
 ## What the tests cover
 
+The suite is 30 classes / 169 tests (705 assertions). The July 2026 expansion
+added the "falsy values are values" family, the tree-field mode contracts
+(hybrid is **live in production** — `node.project` via `project_full`,
+`taxonomy_term.market` via `hero_s2` — so those are regression pins over
+shipped data), and the entity/render invariants. Every bug fixed in that pass
+carries a regression test proven red against the pre-fix code (or by mutation
+where noted in the class docblock).
+
 | Class | Retires |
 |---|---|
 | `Unit/ComponentShapeOptionTest` | Option precedence (locked > set > default) and first-write-wins locking, so a parent's constraint cannot be escaped by a nested child |
-| `Unit/ComponentTreeStructureTest` | Tree algebra; depth-first traversal yielding children before parents, which `renderify()` depends on |
+| `Unit/ComponentTreeStructureTest` | Tree algebra; depth-first traversal yielding children before parents, which the hydrated render pass depends on |
 | `Unit/HybridTreeAlgebraTest` | Hybrid closure math — anchors, nested descendants, cycle termination, malformed JSON |
+| `Unit/ExpandTupleClosureTest` | The descendant walker behind hybrid ownership: cycles, junk seeds, missing sections |
+| `Unit/HybridStorageExtractionTest` | The compose/extract pair at the algebra level: un-flagged regions stash as orphans (not silently destroyed), tree/props parity backfill, `'{}'` encoding |
 | `Unit/ComponentValueProcessingModeTest` | All three claim modes × empty/non-empty; existing claims never released |
+| `Unit/IsProvidedValueEmptyTest` | The value-emptiness contract: 0, '0' and FALSE are values; the seeded `size` key is not content |
+| `Unit/EntityFilterMassageValueTest` | The entity filter's form-value round-trip — the single-value array path was a guaranteed TypeError |
 | `Kernel/ChildrenShapeDeltaDistributionTest` | **The delta-distribution regression** |
+| `Kernel/ChildrenShapeFalsyValueDistributionTest` | Warm/cold parity for falsy child values (invariant pin; see its honest scope note) |
+| `Kernel/ArrayShapeBuildValueBranchTest` | The full `ArrayShape::buildValue()` branch table — the `continue 2` no longer drops items whose required child holds 0/'0'/FALSE; single-prop collapse stays homogeneous |
+| `Kernel/ObjectShapeFalsyValueTest` | Object/structured-object children keep authored falsy values instead of being unset or refilled with schema examples; a top-level 0 prop reaches `#props` |
+| `Kernel/GetDefaultValueOrderTest` | `getDefaultValue()` computes once (NULL memoises), never clobbers an authored field item on re-entry; providers → fallback → modifiers regardless of saved order |
+| `Kernel/ShapeCacheabilityMergeOrderTest` | Provider-added cache tags merge AFTER value computation and survive into `#cache` |
+| `Kernel/ValueGroupTaxonomyTest` | Golden list of every value plugin's group — groups are behavioral contracts (`childHasOwnValueProvider()`, pipeline order) |
 | `Kernel/ShapeInitOrderTest` | Six shape-lifecycle invariants, each proven to fire when violated |
 | `Kernel/FieldStorageDefinitionPrototypeTest` | The prototype-clone optimisation in `buildFieldItem()` — no state leaks between shapes or into the cached prototype |
 | `Kernel/ComponentPreviewBuilderTest` | The `neo: true` gate and the preview flag |
+| `Kernel/ComponentSaveIdempotenceTest` | A resave is byte-identical; `region_custom` flags survive editor saves |
+| `Kernel/ComponentAccessCacheabilityTest` | `checkAccess()` folds every consulted plugin's cacheability into neutral AND forbidden results |
+| `Kernel/ComponentTreeHydratedTest` | Unpublished parents drop their subtree without orphans; malformed trees fail loudly in dev; forbidden components are skipped with their access cacheability captured |
+| `Kernel/CloneComponentSubtreeTest` | Cloning copies the whole subtree, slots intact, grandchildren included |
+| `Kernel/HybridSaveRoundTripTest` | The core hybrid contract: seed copy-on-write, explicitly-empty slots, nested round-trips, in-memory restore after save |
+| `Kernel/HybridDraftPublishTest` | **The July 2026 publish bug**: detached per-conversion copies, commit value sync, draft cleared |
+| `Kernel/HybridUnflaggedRegionTest` | Un-flagging one region preserves its authored content as orphans and re-flagging restores it |
+| `Kernel/HybridOrphanPreservationTest` | Orphans survive saves and in-session merged-tree sets, stay render-inert, and are replaced (not resurrected) by a fresh storage subset |
+| `Kernel/HybridAccessLockingTest` | Inherited instances refuse every mutating op; creation only inside customizable regions; the root is never a target |
+| `Kernel/LockedAndCustomModeTest` | Locked ignores stored values; custom is all-or-nothing; PLUS a characterization of the locked-snapshot behavior (see below) |
+| `Kernel/WidgetDoesNotWipeTreeTest` | The widget's one-line no-op guard against total field wipe on entity form saves |
 | `Kernel/BootSpikeTest` | The module boots under Kernel with a minimal module set |
+
+Shared Kernel infrastructure: `HybridFieldKernelTestBase` stands up a real
+`neo_component_tree` field on `entity_test` with a hybrid-ready default
+layout. It encodes two traps so tests don't rediscover them:
+
+- **`region_custom` is enabled by raw config AFTER the component's first
+  save** — `Component::preSave()` regenerates `settings.props` from the live
+  shapes on save, wiping hand-set plugin configuration:
+
+  ```php
+  \Drupal::configFactory()->getEditable('neo_alchemist.neo_component.na_region_host')
+    ->set('settings.props.body.plugins.body.region_custom', ['id' => 'region_custom', 'settings' => []])
+    ->save();
+  ```
+
+  followed by `resetCache()` on the `neo_component` storage AND
+  `entity_field.manager` `clearCachedFieldDefinitions()` — the custom-region
+  lookup memoises per `ComponentFieldConfig` object.
+- **Always reach the field through the entity** (`$entity->get(...)`). A
+  directly loaded `FieldConfig` is not a `ComponentFieldConfig` (the wrap
+  happens in `neo_alchemist_entity_bundle_field_info_alter()`), and the list's
+  `setValue()` silently bails on the unwrapped definition.
+
+Entity props use the canonical wrapper — `status` + `props`, each prop
+carrying `ref`/`value`/`options` — raw values silently render the schema
+examples instead.
 
 ### Not yet covered
 
-- **`getDefaultValue()` call ordering and entity/field scope resolution.** The
-  lifecycle invariants are pinned, but there is no entity-scope snapshot proving
-  a deferred-default refactor changes no output. Needs `entity_test` plus a real
-  `neo_component_tree` field.
-- **Field modes.** Locked and custom are moderate work; hybrid is the long tail
-  and has *no* exercising config anywhere, so treat a first pass as
-  characterization — record what it does, get it green, then argue about
-  correctness.
-- **`ArrayShape::buildValue()` branch table**, including the `continue 2` that
-  drops an entire array item when a required child resolves empty.
+- **Functional/browser coverage.** The suite is Unit + Kernel only; the
+  editor routes, forms and JS are untested.
+- **Slot-plugin access.** `EntitySlot`, `EntityDisplay` and `EntityFieldSlot`
+  render entities/fields with no view-access check and no cacheability
+  (compare `BlockPluginSlot`, which does it right). A security-adjacent
+  follow-up: fixing it changes visible behavior, so it needs a deliberate
+  decision, not a drive-by.
+- **`ComponentInstanceBase::access()` early returns** (preview-allowed,
+  hybrid-forbidden, the create checks) still return without folding prior
+  cacheability; only `Component::checkAccess()` folds today.
+- **Characterized, deliberately not fixed** (each needs a design decision):
+  locked fields persist a frozen default snapshot into entity rows
+  (`LockedAndCustomModeTest` documents it — it becomes live content the
+  moment the field's mode changes, including when the LAST flagged region is
+  un-flagged, which flips the field to locked); a root-only stored value is
+  discarded when a field flips custom → hybrid; `ComponentInstanceBase::
+  setValues()` writes draft values onto the statically-cached entity;
+  `getDraftKey()` omits entity type/langcode/revision, so drafts can collide
+  across entity types and translations share one draft.
 
 ---
 

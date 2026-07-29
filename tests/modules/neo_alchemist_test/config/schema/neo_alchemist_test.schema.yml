@@ -1,0 +1,17 @@
+# Config schema for the fixture plugins.
+#
+# Kernel tests run with the strict ConfigSchemaChecker, so any fixture plugin
+# whose settings are written into a neo_component config entity needs schema
+# coverage here — the parent module's catch-all
+# `neo_alchemist.neo_component_access.*` is a bare mapping that rejects
+# unknown keys.
+neo_alchemist.neo_component_access.na_cache_tag_access:
+  type: mapping
+  label: 'Test cache tag access settings'
+  mapping:
+    forbid:
+      type: boolean
+      label: Forbid
+    tag:
+      type: string
+      label: 'Cache tag'

@@ -6,3 +6,13 @@
 test_provided:
   title: 'Test provided string'
   type: string
+
+# Prop definition backing TestRecordedShape.
+#
+# Same rationale as `test_provided`: `type: string` keeps validation and value
+# coercion identical to a plain string prop; the ComponentShape plugin keyed
+# on `test_recorded` is what the pipeline-observation tests attach their
+# recording value plugins to.
+test_recorded:
+  title: 'Test recorded string'
+  type: string

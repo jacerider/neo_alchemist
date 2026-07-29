@@ -222,9 +222,11 @@ skipping unpublished iterated entities. Handlers resolve child shapes via
 `getDefaultValue()` and recurses when called mid-pipeline.
 
 **Field integration** — components can be embedded in content entities via a field:
-[src/Plugin/Field/FieldType/NeoComponentTreeList.php](src/Plugin/Field/FieldType/) (storage) +
-`ComponentTreeWidget` (edit) + `ComponentTreeFormatter` (render), backed by the
-`ComponentTreeStructure` data type. This is how a node/paragraph holds a tree of
+[src/Plugin/Field/FieldType/ComponentTreeItem.php](src/Plugin/Field/FieldType/) (the field
+type/storage) with its list class
+[src/Plugin/Field/NeoComponentTreeList.php](src/Plugin/Field/) (mode resolution + hybrid
+merge/strip) + `ComponentTreeWidget` (edit) + `ComponentTreeFormatter` (render), backed by
+the `ComponentTreeStructure` data type. This is how a node/paragraph holds a tree of
 components.
 
 ### Field modes: locked, custom, hybrid

@@ -33,7 +33,7 @@ components and **transient previews** built from the SDC's `examples` via
 | Prop shapes | `src/Plugin/ComponentShape/` + base `src/ComponentShapePluginBase.php` + `#[ComponentShape]` (`src/Attribute/`) → `plugin.manager.neo_component_shape` |
 | Prop-defs (declarative) | `neo_alchemist.neo_component_prop_defs.yml` → `plugin.manager.neo_component_prop_def` |
 | Slots / Filters / Access / Value | `src/Plugin/Component{Slot,Filter,Access,Value}/` → matching `plugin.manager.neo_component_*` |
-| Field embedding | `src/Plugin/Field/{FieldType/NeoComponentTreeList,FieldWidget/ComponentTreeWidget,FieldFormatter/ComponentTreeFormatter}` |
+| Field embedding | `src/Plugin/Field/FieldType/ComponentTreeItem` (field type) + `src/Plugin/Field/NeoComponentTreeList` (list class: mode resolution, hybrid merge/strip) + `src/Plugin/Field/{FieldWidget/ComponentTreeWidget,FieldFormatter/ComponentTreeFormatter}` |
 | Render | `src/Render/ComponentPageRenderer.php` (`neo_component_page_renderer`) |
 | Preview | `src/ComponentPreviewBuilder.php`, `src/Controller/SdcPreviewController.php` |
 | Drush | `src/Drush/Commands/NeoAlchemistCommands.php`, `src/Drush/Generators/` |

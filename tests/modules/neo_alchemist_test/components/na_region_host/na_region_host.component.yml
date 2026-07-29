@@ -1,0 +1,20 @@
+$schema: 'https://git.drupalcode.org/project/drupal/-/raw/10.1.x/core/modules/sdc/src/metadata.schema.json'
+name: 'NA region host fixture'
+description: >
+  A component with a single region prop, mirroring how production components
+  (hero_s2, project_full) declare their entity-customizable regions. The
+  hybrid Kernel tests place this in a field default layout and flag `body`
+  with the region_custom value plugin — via raw config after the first save,
+  because Component::preSave() regenerates settings.props on save.
+status: stable
+neo: true
+props:
+  type: object
+  properties:
+    heading:
+      type: string
+      title: Heading
+      examples: 'EXAMPLE HEADING'
+    body:
+      type: region
+      title: Body

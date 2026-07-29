@@ -1,0 +1,22 @@
+$schema: 'https://git.drupalcode.org/project/drupal/-/raw/10.1.x/core/modules/sdc/src/metadata.schema.json'
+name: 'NA array single fixture'
+description: >
+  An array whose items are bare strings — no declared properties, so
+  ArrayShape synthesizes a single `value` child per item and collapses the
+  wrapper away when building the final value. Exists to pin that collapse for
+  falsy-but-real values ('0'), which previously skipped it and produced a
+  heterogeneous list.
+status: stable
+neo: true
+props:
+  type: object
+  properties:
+    items:
+      type: array
+      title: Items
+      examples:
+        - 'EXAMPLE ITEM 0'
+        - 'EXAMPLE ITEM 1'
+      items:
+        type: string
+        title: Item

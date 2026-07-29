@@ -1,0 +1,48 @@
+$schema: 'https://git.drupalcode.org/project/drupal/-/raw/10.1.x/core/modules/sdc/src/metadata.schema.json'
+name: 'NA array required fixture'
+description: >
+  An array of objects with two required children (a string and a number) plus
+  two optional ones (a string and a boolean). Exists to pin the branch table
+  of ArrayShape::buildValue(), in particular the `continue 2` that drops an
+  entire item when a required child resolves empty — which must never fire
+  for falsy-but-real values such as 0, '0' or FALSE.
+
+  No child owns a providers-group value plugin, deliberately: that makes this
+  fixture safe to push falsy values through the warm getChildShapes() path
+  without tripping the provider-refusal assert().
+status: stable
+neo: true
+props:
+  type: object
+  properties:
+    items:
+      type: array
+      title: Items
+      examples:
+        -
+          title: 'EXAMPLE TITLE 0'
+          count: 10
+        -
+          title: 'EXAMPLE TITLE 1'
+          count: 11
+      items:
+        type: object
+        title: Item
+        required:
+          - title
+          - count
+        properties:
+          title:
+            type: string
+            title: Title
+            examples: 'EXAMPLE TITLE'
+          count:
+            type: number
+            title: Count
+            examples: 5
+          flag:
+            type: boolean
+            title: Flag
+          note:
+            type: string
+            title: Note
