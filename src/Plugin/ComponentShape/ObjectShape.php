@@ -102,8 +102,10 @@ class ObjectShape extends ChildrenShapeBase implements ComponentShapeExpandedPlu
       else {
         $value[$shapeName] = $shape->getValue();
       }
-      if (empty($value[$shapeName])) {
-        // Do not include empty values or values that are set to empty.
+      if ($shape->isProvidedValueEmpty($value[$shapeName])) {
+        // Do not include empty values or values that are set to empty. Empty
+        // follows the value-emptiness contract, not empty(): 0, '0' and FALSE
+        // are values an authored child can legitimately hold.
         unset($value[$shapeName]);
       }
     }
