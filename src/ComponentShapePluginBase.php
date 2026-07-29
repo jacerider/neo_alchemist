@@ -2747,8 +2747,17 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
         }
         if ($properties) {
           $needs = array_values(array_unique(array_map(fn ($v) => $v->getDataType(), $entityFieldProperties)));
-          $has = array_values(array_unique(array_map(fn ($v) => reset($v)->getDataType(), $properties)));
-          return !empty(array_intersect($needs, $has));
+          // A child that is itself an object or array is backed by a 'map'
+          // field, which exposes no properties at all. Such a child can never
+          // be fed by a single field property, so it contributes nothing here.
+          $has = [];
+          foreach ($properties as $childProperties) {
+            $childProperty = reset($childProperties);
+            if ($childProperty instanceof DataDefinitionInterface) {
+              $has[] = $childProperty->getDataType();
+            }
+          }
+          return !empty(array_intersect($needs, array_unique($has)));
         }
       }
     }
