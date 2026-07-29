@@ -1,0 +1,28 @@
+name: 'Neo Alchemist test fixtures'
+type: module
+description: 'Purpose-built SDCs and value plugins for the neo_alchemist test suite.'
+package: Testing
+
+# `package: Testing` is load-bearing, not decoration. InfoParserDynamic exempts
+# it from requiring `core_version_requirement` (see the comment on the exemption
+# in core: "Modules in the testing package are exempt as well. This makes it
+# easier for contrib to use test modules."), defaulting it to the running core
+# version instead.
+#
+# That exemption is deliberately relied on here. Pinning a range would mean this
+# fixture could silently fall out of core compatibility when the parent module
+# gains support for a new major — the tests would stop being discovered rather
+# than fail, which is the worst way to lose coverage.
+#
+# neo_alchemist is the only dependency, and it is sufficient: the fixture's
+# plugins extend Alchemist base classes (StringShape, ComponentValuePluginBase)
+# and its components need Alchemist's SDC handling, but nothing here touches a
+# module the parent does not already pull in. In particular `drupal:field` is
+# NOT required — the field-item machinery the shapes rely on comes from
+# `plugin.manager.field.*`, which core.services.yml provides.
+#
+# Nothing here depends on core's own test modules either (hence the local
+# `na_not_neo` fixture rather than borrowing `sdc_test:my-banner`), so core
+# changing its test fixtures cannot break this suite.
+dependencies:
+  - neo_alchemist:neo_alchemist

@@ -87,10 +87,59 @@ Prefer these over grepping the shape/definition code:
 `neo:alchemist:render <id> [--live] [--scheme=<id>] [--html]`. (Icons/schemes live in
 their owning modules: `drush neo:icon:list`, `drush neo:color:schemes`.)
 
+## Tests
+
+> **Full guide:** [web/modules/contrib/neo_alchemist/TESTING.md](web/modules/contrib/neo_alchemist/TESTING.md)
+> — host-site setup, the fixture module, and how to write a Kernel test. Read it
+> before adding tests. This is the fast map.
+
+`ddev phpunit` runs everything; `tests/src/Unit` needs no database and runs in
+milliseconds; `--filter=<Class>` for one class.
+
+- **Kernel `$modules` is short.** `enableModules()` does *not* resolve declared
+  dependencies, so despite `neo_alchemist.info.yml`, this is the working baseline:
+  `['system','user','neo_settings','neo_alchemist']`. **`neo_settings` is
+  mandatory** — `neo_alchemist.settings` has `parent: neo_settings.repository`, and
+  `neo` ships no services file. The hard floor is just `neo_settings` +
+  `neo_alchemist`; `system`/`user` are conventional baseline.
+- **`field` is NOT needed**, despite every prop building a field item —
+  `plugin.manager.field.*` are declared in `core.services.yml`, not by the `field`
+  module. Add it only for real `FieldStorageConfig`/`FieldConfig` entities. Never add
+  `neo_build`/`neo_color` speculatively.
+- **Fixtures live in `tests/modules/neo_alchemist_test/`**, discovered because core's
+  SDC manager scans every enabled module's `components/` dir. It ships a
+  **dependency-free provider twin** (`TestProvidedShape` + `TestProviderValue`,
+  `group: 'providers'`) that reproduces the `childHasOwnValueProvider()` condition
+  without pulling in `media`/`file`/`image`.
+- **The fixture's only dependency is `neo_alchemist`, and it omits
+  `core_version_requirement` on purpose** — `package: Testing` is exempt, so it tracks
+  the running core rather than going silently core-incompatible (and undiscovered)
+  when the parent gains a new major. It depends on no core test modules either.
+- **Create `neo_component` entities in `setUp()`, not `config/install`** —
+  `Component::save()` regenerates `expression`/`schema` from the live SDC, so
+  checked-in config drifts. `description` is a non-nullable string and will not
+  default from the SDC definition.
+- **Authored values without a host entity:** a config-scope `Component` with
+  `setPreview(TRUE)` + `setPreviewValues(['props' => [<prop> => ['ref','value','options']]])`.
+  Child option keys are `<prop>~<child>~<delta>`; set `default => 0` so a missing
+  value resolves to nothing rather than silently falling back to the schema example.
+- **Shape state is memoised per object** — a test comparing two resolutions must
+  `resetCache()` and re-`load()`, not reuse one instance.
+- **Prove a regression test can fail.** Break the fix by hand, confirm red *with a
+  failure message about lost content*, restore, confirm green. For the delta suite,
+  `testWarmingDoesNotChangeResolvedValues` must also go red — if it stays green the
+  fixture never reached the cache-hit branch and the test is worthless.
+- Use PHPUnit **attributes** (`#[Group]`, `#[DataProvider]`), not `@group`.
+- **Never run `phpcbf` over files with anonymous classes** — it inserts malformed
+  docblocks. Extract to named helper classes instead.
+
 ## Dev workflow gotchas
 
 - Edit the **running site contrib copy** (`web/modules/contrib/neo_alchemist/…`); the
   source in `/Projects` is synced separately.
+- **Composer re-extracts the module.** Any `composer require`/`install`/`update`
+  deletes uncommitted work under `web/modules/contrib/neo_alchemist/` — sync to
+  `/Projects` first, and run composer *before* starting new work there.
 - Run **`drush cr`** after any plugin/attribute/service/prop-def change — discovery is cached.
 - Run **`drush neo:build <scope>`** (front and/or back) if you changed Tailwind-scanned output.
 - `neoIsPreview` is a prop set in `toRenderable()`; it's TRUE in the editor preview and in

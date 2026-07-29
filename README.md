@@ -8,6 +8,9 @@ For a developer's map of the module internals — the `neo_component` entity, th
 ComponentShape/prop-def plugin system, the render pipeline, services, and extension
 points — see [ARCHITECTURE.md](ARCHITECTURE.md).
 
+For the automated tests, how to set a host site up to run them, and the fixture
+module they rely on, see [TESTING.md](TESTING.md).
+
 
 REQUIREMENTS
 ------------

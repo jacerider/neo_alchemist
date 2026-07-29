@@ -1,0 +1,8 @@
+# Prop definition backing TestProvidedShape.
+#
+# `type: string` keeps validation and value coercion identical to a plain
+# string prop; the ComponentShape plugin keyed on `test_provided` is what
+# attaches the providers-group value plugin.
+test_provided:
+  title: 'Test provided string'
+  type: string

@@ -1,0 +1,10 @@
+{#
+  Minimal on purpose. The suite asserts against Component::getPropValues(),
+  not markup — this template only exists so the component can be rendered end
+  to end when a test wants to prove the value survives into Twig.
+#}
+<div{{ attributes }}>
+  {% for item in items %}
+    <span class="na-item" data-title="{{ item.title }}">{{ item.provided }}</span>
+  {% endfor %}
+</div>

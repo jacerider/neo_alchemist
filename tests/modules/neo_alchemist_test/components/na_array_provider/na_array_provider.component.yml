@@ -1,0 +1,40 @@
+$schema: 'https://git.drupalcode.org/project/drupal/-/raw/10.1.x/core/modules/sdc/src/metadata.schema.json'
+name: 'NA array provider fixture'
+description: >
+  An array of objects whose child owns a providers-group value plugin — the
+  exact shape that lost authored content when the per-delta child shapes were
+  primed before the value was available.
+
+  The `provided` example is a distinctive sentinel so a test can tell
+  "resolved the authored value" from "fell back to the schema example"
+  without ambiguity.
+status: stable
+neo: true
+props:
+  type: object
+  properties:
+    items:
+      type: array
+      title: Items
+      examples:
+        -
+          title: 'EXAMPLE TITLE 0'
+          provided: 'SCHEMA EXAMPLE'
+        -
+          title: 'EXAMPLE TITLE 1'
+          provided: 'SCHEMA EXAMPLE'
+        -
+          title: 'EXAMPLE TITLE 2'
+          provided: 'SCHEMA EXAMPLE'
+      items:
+        type: object
+        title: Item
+        properties:
+          title:
+            type: string
+            title: Title
+            examples: 'EXAMPLE TITLE'
+          provided:
+            type: test_provided
+            title: Provided
+            examples: 'SCHEMA EXAMPLE'

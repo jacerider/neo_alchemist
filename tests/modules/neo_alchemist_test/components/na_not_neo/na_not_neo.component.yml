@@ -1,0 +1,17 @@
+$schema: 'https://git.drupalcode.org/project/drupal/-/raw/10.1.x/core/modules/sdc/src/metadata.schema.json'
+name: 'NA plain SDC fixture'
+description: >
+  A perfectly valid SDC that deliberately does NOT declare `neo: true`.
+
+  Alchemist must decline to manage it — ComponentPreviewBuilder::build()
+  returns NULL for any component without that flag, which is what keeps the
+  module from taking over every SDC in a site.
+status: stable
+props:
+  type: object
+  properties:
+    title:
+      type: string
+      title: Title
+      examples:
+        - 'Plain title'
