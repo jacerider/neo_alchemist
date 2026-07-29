@@ -459,23 +459,48 @@ class ComponentTreeItem extends FieldItemBase implements RenderableInterface, Co
   public function cloneComponent(ComponentInstanceInterface $component): ComponentInstanceInterface {
     $tree = $this->get('tree');
     assert($tree instanceof ComponentTreeStructure);
-    $props = $this->get('props');
-    assert($props instanceof ComponentPropsValues);
     $parentUuid = $component->getParentUuid();
     $slot = $component->getParentSlot();
     $cloned = $this->createComponent($component, $parentUuid, $slot);
     $this->addComponent($cloned->uuid(), $cloned->id(), $component->getValues(), $parentUuid, $slot);
     $this->moveComponent($cloned->uuid(), $component->uuid(), 'after', $parentUuid, $slot);
 
-    // Clone all children.
-    $componentUuids = $tree->getComponentsBySection($component->uuid(), $slot);
-    foreach ($componentUuids as $data) {
-      $child = $this->getComponent($data['uuid']);
-      $clonedChild = $this->createComponent($child, $cloned->uuid(), $child->getParentSlot());
-      $this->addComponent($clonedChild->uuid(), $clonedChild->id(), $child->getValues(), $cloned->uuid(), $clonedChild->getParentSlot());
-    }
+    // Clone the full subtree from a one-time snapshot of the tree. The
+    // snapshot is safe because every clone gets a fresh uuid, so the adds
+    // below never touch the source sections being iterated. Reading the
+    // source's own sections (rather than getComponentsBySection() with the
+    // slot the source happens to SIT IN) is what keeps each child in its own
+    // slot — the old lookup threw whenever the two slot names differed and
+    // only ever cloned one level, silently dropping grandchildren.
+    $treeData = Json::decode($tree->getValue() ?? '') ?: [];
+    $this->cloneComponentChildren($treeData, $component->uuid(), $cloned->uuid());
 
     return $cloned;
+  }
+
+  /**
+   * Recursively clones a component's children under a cloned parent.
+   *
+   * @param array $treeData
+   *   A decoded snapshot of the tree, taken before any clones were added.
+   * @param string $sourceUuid
+   *   The uuid of the component whose children are being cloned.
+   * @param string $targetUuid
+   *   The uuid of the freshly cloned parent receiving the copies.
+   */
+  protected function cloneComponentChildren(array $treeData, string $sourceUuid, string $targetUuid): void {
+    foreach ((array) ($treeData[$sourceUuid] ?? []) as $slotName => $tuples) {
+      foreach ((array) $tuples as $tuple) {
+        $childUuid = $tuple['uuid'] ?? NULL;
+        $child = $childUuid ? $this->getComponent($childUuid) : NULL;
+        if (!$child) {
+          continue;
+        }
+        $clonedChild = $this->createComponent($child, $targetUuid, (string) $slotName);
+        $this->addComponent($clonedChild->uuid(), $clonedChild->id(), $child->getValues(), $targetUuid, (string) $slotName);
+        $this->cloneComponentChildren($treeData, $childUuid, $clonedChild->uuid());
+      }
+    }
   }
 
   /**
