@@ -696,6 +696,18 @@ function neo_alchemist_config_schema_info_alter(&$definitions) {
       'type' => 'string',
       'label' => 'Entity substitution',
     ];
+    // NeoLinkWidget::massageFormValues() folds the whole 'attributes' form
+    // value into the root of 'options', so the widget's own attribute keys can
+    // land alongside the Linkit ones above. They are read back out of
+    // options['attributes'], but they have to be describable where they land.
+    $definitions['field.value.link']['mapping']['options']['mapping']['target'] = [
+      'type' => 'string',
+      'label' => 'Target',
+    ];
+    $definitions['field.value.link']['mapping']['options']['mapping']['data-icon-position'] = [
+      'type' => 'string',
+      'label' => 'Icon position',
+    ];
   }
 }
 
