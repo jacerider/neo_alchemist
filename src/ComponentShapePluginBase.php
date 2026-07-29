@@ -226,6 +226,17 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
   protected mixed $defaultValue = NULL;
 
   /**
+   * Whether the default value has been resolved.
+   *
+   * A separate flag rather than isset($this->defaultValue): NULL is a
+   * legitimate computed default (a provider chain can end in NULL), and it
+   * must memoise like any other value.
+   *
+   * @var bool
+   */
+  protected bool $defaultValueResolved = FALSE;
+
+  /**
    * The override value.
    *
    * This is the value that will sit on top of the default value and any value
@@ -1866,7 +1877,16 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
    * {@inheritDoc}
    */
   public function getDefaultValue(): mixed {
-    if (!isset($this->defaultValue)) {
+    if (!$this->defaultValueResolved) {
+      // Mark resolved up-front (the ArrayShape::$itemValueResolverShapeLoaded
+      // pattern): an isset() guard could not memoise a computed-NULL default,
+      // so every post-init re-entry — buildDefaultValue() runs during
+      // child-schema loading — re-ran this pipeline, and the field-item side
+      // effect below overwrote authored values with the recomputed NULL.
+      // Setting the flag first also turns any accidental first-run
+      // re-entrancy into "return the not-yet-computed NULL" instead of
+      // recursion.
+      $this->defaultValueResolved = TRUE;
       $value = $originalValue = $this->resolveValue($this->getDefaultSchemaValue());
       foreach ($this->getValueCollection()->getAllowedInstances('default') as $instance) {
         $value = $instance->provideDefaultValue($value);
