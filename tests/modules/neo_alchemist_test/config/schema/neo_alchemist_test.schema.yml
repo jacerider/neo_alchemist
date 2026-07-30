@@ -23,6 +23,9 @@ neo_alchemist.neo_component_value.na_mode_first:
     produce:
       type: string
       label: 'Value to produce'
+    produce_empty:
+      type: boolean
+      label: 'Produce an empty value'
     processing_mode:
       type: string
       label: 'Processing mode'

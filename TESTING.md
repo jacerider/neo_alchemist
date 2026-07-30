@@ -376,7 +376,7 @@ resolutions must load two separate instances (`$storage->resetCache()` then
 
 ## What the tests cover
 
-The suite is 43 classes / 277 tests (1,144 assertions). The July 2026 expansion
+The suite is 45 classes / 283 tests (1,151 assertions). The July 2026 expansion
 added the "falsy values are values" family, the tree-field mode contracts
 (hybrid is **live in production** — `node.project` via `project_full`,
 `taxonomy_term.market` via `hero_s2` — so those are regression pins over
@@ -393,6 +393,8 @@ where noted in the class docblock).
 | `Unit/HybridStorageExtractionTest` | The compose/extract pair at the algebra level: un-flagged regions stash as orphans (not silently destroyed), tree/props parity backfill, `'{}'` encoding |
 | `Unit/ComponentValueProcessingModeTest` | All three claim modes × empty/non-empty; existing claims never released; the test double's claim bookkeeping still matches the real base class |
 | `Kernel/ComponentValueProcessingModeIntegrationTest` | What a site builder's "Processing" choice does to a resolved value, through the real plugin base and pipeline — including "Always stop (block if empty)" meaning the fallback never runs; plus a golden pin of the shipped non-default modes |
+| `Kernel/ComponentValueProcessingModeScopeTest` | The boundary of that mode: modifiers keep running after a provider claims (mutation-proven — consulting the mode in the modifier loop drops the prefix), an authored value outranks a blocking provider, and no shipped plugin implements the override pass |
+| `Kernel/GetDefaultValueRequiredFallbackTest` | The required-prop example fallback in `getDefaultValue()`: a resolved `'0'` survives it, a genuinely empty resolution still gets the example, and a *declining* provider never reaches it |
 | `Unit/IsProvidedValueEmptyTest` | The value-emptiness contract: 0, '0' and FALSE are values; the seeded `size` key is not content |
 | `Unit/EntityFilterMassageValueTest` | The entity filter's form-value round-trip — the single-value array path was a guaranteed TypeError |
 | `Unit/TokenValueTest` | The `token` modifier's `[value]` substitution: scalars woven in verbatim, non-scalars contributing nothing (an array used to render the literal "Array"; an object threw), tokens resolved after substitution, no-token templates short-circuiting |
@@ -557,12 +559,20 @@ examples instead.
     the real alter hook and the real cacheability merge without needing
     routes, an active trail or access results. The media *hydration* paths
     (real media entities, `neo_config_file`) remain untested.
-  - **The "Processing" mode governs the default pass only.** The mode is
-    applied in `getDefaultValue()` and nowhere else, so a provider set to
-    "Always stop" does not halt the override pass in `init()` or the modifier
-    pass. Pinned and explained on `ComponentValueProcessingModeTrait`.
-    Widening the scope would change resolved values on every site using block
-    or continue, so it needs a decision rather than a fix.
+  - **"Always stop (block if empty)" does not blank a *required* prop.** The
+    mode halts the provider search, but `getDefaultValue()` then hands a
+    required prop the component's schema example rather than resolving to
+    nothing, so SDC is never given a missing required prop. The form
+    description says so; `GetDefaultValueRequiredFallbackTest` pins both
+    halves.
+  - **`provideOverrideValue()` is an extension point with no shipped
+    implementations.** Documented on `ComponentValuePluginInterface` and pinned,
+    because the processing mode's scope argument rests on it.
+  - **The chain passes still break on a claim.** `modifyValue()` and both
+    `alterValue()` loops stop at the first plugin that claims, so a contrib
+    plugin claiming there silently disables everything after it. Nothing in the
+    module does, and removing the `break` would change a live extension point —
+    characterized, not fixed.
   - A root-only stored value is discarded when a field flips custom → hybrid.
   - `ComponentInstanceBase::setValues()` writes draft values onto the
     statically-cached entity.

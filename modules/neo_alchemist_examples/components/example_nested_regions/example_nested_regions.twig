@@ -1,0 +1,27 @@
+{%
+  set classes = []
+%}
+<div {{ attributes.addClass(classes) }}>
+  {# Items: Start #}
+  {% if items %}
+  <div>
+  {% for item in items %}
+    <div>
+    {# Title: Start #}
+    {% if item.title %}
+      <div>{{item.title}}</div>
+    {% endif %}
+    {# Title: End #}
+    {# Region: Start #}
+    {% if item.region %}
+    <div>
+      {{ item.region }}
+    </div>
+    {% endif %}
+    {# Region: End #}
+    </div>
+  {% endfor %}
+  </div>
+  {% endif %}
+  {# Items: End #}
+</div>

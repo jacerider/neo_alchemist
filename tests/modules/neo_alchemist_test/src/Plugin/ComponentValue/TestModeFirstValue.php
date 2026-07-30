@@ -42,7 +42,7 @@ final class TestModeFirstValue extends ComponentValuePluginBase implements Compo
    * {@inheritdoc}
    */
   public function defaultConfiguration() {
-    return ['produce' => ''] + $this->processingModeDefaultConfiguration();
+    return ['produce' => '', 'produce_empty' => FALSE] + $this->processingModeDefaultConfiguration();
   }
 
   /**
@@ -60,8 +60,21 @@ final class TestModeFirstValue extends ComponentValuePluginBase implements Compo
    * getDefaultValue() and nowhere else, so a fixture that also implements
    * provideOverrideValue() would let the override pass overwrite the result
    * and mask the very behavior under test.
+   *
+   * Two different kinds of "empty" are configurable, and the difference is the
+   * whole point of `produce_empty`:
+   * - `produce: ''` means DECLINED — hand back whatever arrived. Since the
+   *   pipeline seeds the value from the schema's examples, a component that
+   *   has examples still carries them out of this method.
+   * - `produce_empty: TRUE` means PRODUCED NOTHING — actively return an empty
+   *   value, overwriting any seeded example. That is the only way to observe
+   *   what the pipeline does with a genuinely empty resolved value on a
+   *   component whose schema declares examples.
    */
   public function provideDefaultValue(mixed $value): mixed {
+    if (!empty($this->configuration['produce_empty'])) {
+      return '';
+    }
     $produce = $this->configuration['produce'] ?? '';
     return $produce === '' ? $value : $produce;
   }

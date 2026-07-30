@@ -1,0 +1,28 @@
+'$schema': 'https://git.drupalcode.org/project/drupal/-/raw/10.1.x/core/modules/sdc/src/metadata.schema.json'
+name: TEST | Nested Regions
+status: stable
+neo: true
+props:
+  type: object
+  properties:
+    items:
+      type: array
+      title: Items
+      examples:
+        -
+          region: []
+          title: Example string
+        -
+          region: []
+          title: Example string
+      items:
+        type: object
+        title: Item
+        properties:
+          region:
+            type: region
+            title: Region
+          title:
+            type: string
+            title: Title
+

@@ -1,5 +1,44 @@
 # Changelog
 
+## A required prop keeps a resolved zero
+
+After the value providers on a prop have been searched, a **required** prop
+falls back to the component's schema example rather than resolving to nothing,
+so SDC is never handed a missing required prop. That guard used PHP truthiness,
+so a provider that legitimately resolved `0`, `'0'`, `FALSE` or `[]` had its
+answer thrown away and the component's placeholder rendered in its place — the
+same silent substitution fixed across the rest of the value pipeline, surviving
+in the one spot the earlier sweep did not reach. It now uses the pipeline's own
+emptiness contract.
+
+### For site builders
+
+- A required prop whose value resolves to zero now renders **zero** instead of
+  the component's example text. Render-visible, and the reason this is its own
+  entry.
+- Unchanged: a required prop that resolves to genuinely nothing still falls back
+  to the example.
+
+### The "Processing" mode's scope is now stated, not left open
+
+No behavior change — the trait's docblock previously flagged its own scope as an
+open question, and the question is now answered in the negative. The mode
+governs the **provider search** and nothing else, because that is the only pass
+where "which plugin wins" is a decision at all. Two things are now documented
+and pinned by tests rather than left to inference:
+
+- Widening it to the modifier pass would be destructive, not an improvement.
+  Every pass walks one instance list sorted providers → fallback → modifiers, and
+  a provider takes part in the modifier loop too, so a provider in the **default**
+  mode that found a value would break the loop before `prefix`, `suffix`, `token`
+  or `formatted_text` ever ran.
+- The override pass carries the value a person authored, so a provider's mode has
+  no business claiming there. "Always stop" cannot suppress authored content.
+
+The **Processing** description on the prop form was rewritten to match: it used
+to promise that "Always stop" meant nothing renders, which was never true for a
+required prop.
+
 ## Single-prop arrays can be matched by property type
 
 A shape can redirect its support checks at a different field definition —
