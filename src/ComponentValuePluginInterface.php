@@ -99,6 +99,18 @@ interface ComponentValuePluginInterface extends ConfigurableInterface, PluginFor
   /**
    * Provide an override value for the component.
    *
+   * An extension point with no implementations in this module — every shipped
+   * plugin inherits the base class's pass-through. Two things follow for anyone
+   * who does implement it:
+   *
+   * - This pass carries the value a person AUTHORED, not a provider's answer.
+   *   The site-builder-configurable processing mode deliberately does not apply
+   *   here, so a plugin that needs to halt the chain must call claimValue()
+   *   itself — and should be sure that suppressing authored content is what it
+   *   means to do.
+   * - Adding an implementation is a conscious decision, pinned by a test that
+   *   fails when one appears.
+   *
    * @param mixed $value
    *   The value to provide an override for. May be NULL if no override value
    *   has yet been set.
@@ -107,6 +119,9 @@ interface ComponentValuePluginInterface extends ConfigurableInterface, PluginFor
    *
    * @return mixed
    *   The override value.
+   *
+   * @see \Drupal\neo_alchemist\Plugin\ComponentValue\ComponentValueProcessingModeTrait
+   * @see \Drupal\Tests\neo_alchemist\Kernel\ComponentValueProcessingModeScopeTest::testNoShippedPluginImplementsProvideOverrideValue()
    */
   public function provideOverrideValue(mixed $value, mixed $defaultValue): mixed;
 
