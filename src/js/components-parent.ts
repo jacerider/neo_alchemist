@@ -165,34 +165,77 @@
   }> = {};
 
   // Iframe load handling
-  let iframeProcessing = 0;
-  Object.entries(iframes).forEach(([size, iframe]) => {
-    iframe.addEventListener('load', () => {
-      iframeProcessing++;
-      if (!iframe.contentWindow) {
-        return;
-      }
+  //
+  // What is needed is one report per frame, which is not the same thing as
+  // counting load events. Two of them are not a frame finishing:
+  //
+  //  - A frame that carries data-src has no src at all until
+  //    staggerIframeLoads() starts it, so it sits on about:blank — and the
+  //    browser fires load for that empty document, within a few ms of the
+  //    frame being parsed. A blind counter reaches three off two about:blank
+  //    loads plus the desktop frame, asks all three for position data while
+  //    two are still empty, and only ever hears back from one. ready() is
+  //    then never reached: no outlines, no hit targets, nothing to click, and
+  //    the real loads that follow cannot recover it because the count was
+  //    already spent. Whether it happens comes down to a few milliseconds
+  //    between the frames being parsed and this script running, which is why
+  //    it follows the machine rather than the page.
+  //  - The desktop frame carries its src in the markup, so it can equally
+  //    finish before this script runs, and that load is simply never heard.
+  //
+  // Keying on the frame and seeding from whatever has already finished makes
+  // the handshake independent of when this script runs relative to the loads.
+  // iframeReady() mirrors iframeHasLoaded() in component-parent.ts, which
+  // draws the same distinction for the same reason.
+  const iframesLoaded = new Set<string>();
 
-      if (size === 'desktop') {
-        // Request structure data from desktop iframe.
+  function iframeReady(iframe: HTMLIFrameElement): boolean {
+    if (iframe.dataset.src) {
+      // Deferred, and not started yet.
+      return false;
+    }
+    try {
+      return iframe.contentDocument?.readyState === 'complete'
+        && !!iframe.contentWindow
+        && iframe.contentWindow.location.href !== 'about:blank';
+    }
+    catch (e) {
+      return false;
+    }
+  }
+
+  function iframeLoaded(size: string, iframe: HTMLIFrameElement): void {
+    if (!iframe.contentWindow || !iframeReady(iframe) || iframesLoaded.has(size)) {
+      return;
+    }
+    iframesLoaded.add(size);
+
+    if (size === 'desktop') {
+      // Request structure data from desktop iframe.
+      iframe.contentWindow.postMessage({
+        type: 'getStructureData',
+      }, "*");
+    }
+
+    if (iframesLoaded.size === Object.keys(iframes).length) {
+      iframesLoaded.clear();
+      // All frames loaded.
+      Object.values(iframes).forEach(iframe => {
+        if (!iframe.contentWindow) {
+          return;
+        }
         iframe.contentWindow.postMessage({
-          type: 'getStructureData',
+          type: 'getPositionData',
         }, "*");
-      }
+      });
+    }
+  }
 
-      if (iframeProcessing === 3) {
-        iframeProcessing = 0;
-        // All frames loaded.
-        Object.values(iframes).forEach(iframe => {
-          if (!iframe.contentWindow) {
-            return;
-          }
-          iframe.contentWindow.postMessage({
-            type: 'getPositionData',
-          }, "*");
-        });
-      }
-    });
+  Object.entries(iframes).forEach(([size, iframe]) => {
+    iframe.addEventListener('load', () => iframeLoaded(size, iframe));
+    // Catch up on a frame that finished before this script ran. Its load event
+    // is gone and is not coming back.
+    iframeLoaded(size, iframe);
   });
 
   // Watch for scale changes
@@ -218,7 +261,11 @@
   });
 
   // Events called from child iframes.
-  let iframeFinished = 0;
+  //
+  // Keyed by frame rather than counted, for the same reason as the loads
+  // above: three replies is only three frames if they are three different
+  // frames, and ready() reads every size's rects.
+  const iframesFinished = new Set<string>();
   const onChild:any = {
     structureData: function (data: any) {
       structureData = data.data;
@@ -231,11 +278,11 @@
       }
     },
     positionData: function (data: any) {
-      iframeFinished++;
       const size = data.size as 'desktop' | 'tablet' | 'mobile';
       positionData[size] = data.data;
-      if (iframeFinished === 3) {
-        iframeFinished = 0;
+      iframesFinished.add(size);
+      if (iframesFinished.size === Object.keys(iframes).length) {
+        iframesFinished.clear();
         ready();
       }
     },
