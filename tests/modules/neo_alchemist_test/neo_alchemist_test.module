@@ -1,0 +1,22 @@
+<?php
+
+/**
+ * @file
+ * Hook implementations for the neo_alchemist test fixtures.
+ */
+
+declare(strict_types=1);
+
+use Drupal\neo_alchemist\ComponentShapePluginInterface;
+use Drupal\neo_alchemist_test\TestMenuItemAlter;
+
+/**
+ * Implements hook_neo_alchemist_menu_value_item_alter().
+ *
+ * Delegates to TestMenuItemAlter, which is inert unless a test switches a
+ * mode on — so simply enabling the fixture module cannot perturb any other
+ * test's menu values.
+ */
+function neo_alchemist_test_neo_alchemist_menu_value_item_alter(?array &$entry, array $item, ComponentShapePluginInterface $shape): void {
+  TestMenuItemAlter::apply($entry, $item, $shape);
+}

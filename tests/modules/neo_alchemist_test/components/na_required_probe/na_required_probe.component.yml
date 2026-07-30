@@ -1,0 +1,18 @@
+$schema: 'https://git.drupalcode.org/project/drupal/-/raw/10.1.x/core/modules/sdc/src/metadata.schema.json'
+name: 'NA required probe fixture'
+description: >
+  A component with a REQUIRED top-level string prop. Exists so the init()
+  lifecycle's override handling can be exercised for a required prop whose
+  authored value is falsy-but-real ('0') — the one place the value pipeline
+  still guards with raw empty().
+status: stable
+neo: true
+props:
+  type: object
+  required:
+    - label
+  properties:
+    label:
+      type: string
+      title: Label
+      examples: 'EXAMPLE LABEL'

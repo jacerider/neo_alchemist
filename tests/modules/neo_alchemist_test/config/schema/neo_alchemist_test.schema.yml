@@ -15,3 +15,14 @@ neo_alchemist.neo_component_access.na_cache_tag_access:
     tag:
       type: string
       label: 'Cache tag'
+
+neo_alchemist.neo_component_value.na_mode_first:
+  type: mapping
+  label: 'Test mode provider (first) settings'
+  mapping:
+    produce:
+      type: string
+      label: 'Value to produce'
+    processing_mode:
+      type: string
+      label: 'Processing mode'

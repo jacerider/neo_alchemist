@@ -1,0 +1,8 @@
+{#
+  Minimal on purpose. The suite asserts against the resolved prop values.
+#}
+<nav{{ attributes }}>
+  {% for link in links %}
+    <a href="{{ link.url.uri }}">{{ link.title }}</a>
+  {% endfor %}
+</nav>

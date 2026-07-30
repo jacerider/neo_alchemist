@@ -6,6 +6,7 @@ namespace Drupal\Tests\neo_alchemist\Unit;
 
 use Drupal\neo_alchemist\ComponentShapePluginInterface;
 use Drupal\neo_alchemist\ComponentValueProcessingModeInterface;
+use Drupal\neo_alchemist\Plugin\ComponentValue\PrefixValue;
 use Drupal\Tests\UnitTestCase;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Group;
@@ -24,10 +25,11 @@ class ComponentValueProcessingModeTest extends UnitTestCase {
   /**
    * Builds a provider double in the state the pipeline hands it over in.
    *
-   * The pipeline calls allowFurtherProcessing() on every instance
-   * before the pipeline runs, so "not yet claimed" is the real starting state.
-   * A freshly constructed plugin reports hasClaimedValue() === TRUE, which is
-   * why the reset exists at all.
+   * The collection calls allowFurtherProcessing() on every instance it hands
+   * out, so "not yet claimed" is the real starting state for each pass.
+   * The reset matters because instances are memoised on the collection and
+   * reused across the default, value and modify passes: without it, a claim
+   * raised in one pass would silently truncate the next.
    *
    * @param string|null $mode
    *   The configured processing mode, or NULL to take the plugin default.
@@ -157,6 +159,47 @@ class ComponentValueProcessingModeTest extends UnitTestCase {
       ComponentValueProcessingModeInterface::MODE_BLOCK,
       $provider->getProcessingMode(),
     );
+  }
+
+  /**
+   * The test double's claim bookkeeping matches the real base class.
+   *
+   * TestProcessingModeProvider reimplements the four claim methods instead of
+   * extending ComponentValuePluginBase, which keeps this suite container-free
+   * — but means every assertion above is only as trustworthy as that copy. If
+   * the base class's bookkeeping ever changes, these tests would keep passing
+   * against a fiction. This compares the two directly, so the double cannot
+   * drift silently.
+   *
+   * The end-to-end behavior is separately covered through the real base class
+   * in ComponentValueProcessingModeIntegrationTest.
+   */
+  public function testDoubleMatchesRealBaseClassBookkeeping(): void {
+    $real = (new \ReflectionClass(PrefixValue::class))->newInstanceWithoutConstructor();
+    $double = new TestProcessingModeProvider();
+
+    // A fresh plugin has claimed nothing. (This assertion caught the double
+    // shipping the inverse default while documenting it as a match — the
+    // divergence was invisible because every test resets the flag first.)
+    $this->assertFalse($real->hasClaimedValue(), 'Premise: a fresh plugin has not claimed.');
+    $this->assertSame($real->hasClaimedValue(), $double->hasClaimedValue(), 'Fresh state matches.');
+    $this->assertSame($real->shouldContinueProcessing(), $double->shouldContinueProcessing(), 'Fresh continue-flag matches.');
+
+    $real->allowFurtherProcessing();
+    $double->allowFurtherProcessing();
+    $this->assertFalse($real->hasClaimedValue(), 'Premise: the reset leaves the claim clear.');
+    $this->assertSame($real->hasClaimedValue(), $double->hasClaimedValue(), 'Post-reset state matches.');
+    $this->assertSame($real->shouldContinueProcessing(), $double->shouldContinueProcessing(), 'Post-reset continue-flag matches.');
+
+    $real->claimValue();
+    $double->claimValue();
+    $this->assertTrue($real->hasClaimedValue(), 'Premise: claiming sets the claim.');
+    $this->assertSame($real->hasClaimedValue(), $double->hasClaimedValue(), 'Post-claim state matches.');
+    $this->assertSame($real->shouldContinueProcessing(), $double->shouldContinueProcessing(), 'Post-claim continue-flag matches.');
+
+    $real->allowFurtherProcessing()->stopFurtherProcessing();
+    $double->allowFurtherProcessing()->stopFurtherProcessing();
+    $this->assertSame($real->hasClaimedValue(), $double->hasClaimedValue(), 'stopFurtherProcessing() matches claimValue().');
   }
 
 }

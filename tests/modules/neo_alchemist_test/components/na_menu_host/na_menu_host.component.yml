@@ -1,0 +1,14 @@
+$schema: 'https://git.drupalcode.org/project/drupal/-/raw/10.1.x/core/modules/sdc/src/metadata.schema.json'
+name: 'NA menu host fixture'
+description: >
+  A component with a single `menu`-typed prop, so the MenuValue provider can
+  be exercised end to end: the built tree is mapped into this prop's shape,
+  which is the array-of-objects the mega menu templates consume.
+status: stable
+neo: true
+props:
+  type: object
+  properties:
+    links:
+      type: menu
+      title: Links

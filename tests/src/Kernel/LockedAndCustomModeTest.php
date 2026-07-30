@@ -117,6 +117,83 @@ class LockedAndCustomModeTest extends HybridFieldKernelTestBase {
   }
 
   /**
+   * Un-flagging the ONLY region does not destroy existing authored content.
+   *
+   * This is the hybrid → locked transition: with one flagged region,
+   * un-ticking it empties the anchor set, so isHybrid() goes FALSE and the
+   * field becomes plain locked. The hybrid merge/strip path — including the
+   * orphan preservation that covers a PARTIAL un-flag — is never entered, so
+   * something else has to keep the content alive.
+   *
+   * That something is core: SqlContentEntityStorage::saveToDedicatedTables()
+   * skips a field entirely (no delete, no insert) when its value is unchanged
+   * versus $entity->original. A locked list deterministically holds the
+   * seeded default on both the entity and its original, so the field can
+   * never look changed and the stored row is never rewritten.
+   *
+   * That makes the preservation real but INDIRECT — it rests on a core
+   * optimization nothing in this module declares. This test is the guard: a
+   * refactor that makes locked mode write anything on update (for instance
+   * "tidying" preSave() to strip like the hybrid branch does) would rewrite
+   * the row with a default snapshot and destroy every entity's authored
+   * region content, silently. If that is ever done deliberately, the content
+   * must be preserved some other way first.
+   *
+   * @see \Drupal\Tests\neo_alchemist\Kernel\HybridUnflaggedRegionTest
+   */
+  public function testUnflaggingTheOnlyRegionPreservesAuthoredContent(): void {
+    // Start from the base fixture: hybrid, exactly one flagged region — the
+    // same shape as node.project's field_full via project_full.
+    $entity = $this->createTestEntity();
+    $this->assertFieldIsHybrid($entity);
+    $this->authorRegionContent($entity, [
+      ['uuid' => 'authored-leaf', 'component' => 'na_leaf'],
+    ], [
+      'authored-leaf' => $this->leafProps('AUTHORED'),
+    ]);
+
+    $this->unflagRegion();
+
+    $entity = $this->reloadEntity($entity);
+    $definition = $entity->get(static::FIELD_NAME)->getFieldDefinition();
+    $this->assertFalse($definition->isHybrid(), 'Premise: un-flagging the only region drops the field out of hybrid mode.');
+    $this->assertFalse($definition->allowCustom(), 'Premise: the field is now plain locked.');
+
+    // Ordinary saves unrelated to Alchemist: title edits, moderation, cron,
+    // a migration. Each one is a chance to clobber the row.
+    foreach ([1, 2, 3] as $cycle) {
+      $entity = $this->reloadEntity($entity);
+      $entity->set('name', 'Edited while locked ' . $cycle);
+      $entity->save();
+
+      $stored = $this->rawStoredValue($this->reloadEntity($entity));
+      $this->assertSame(
+        [['uuid' => 'authored-leaf', 'component' => 'na_leaf']],
+        $stored['tree'][static::HOST_UUID]['body'] ?? NULL,
+        sprintf('The authored region content survived locked save cycle %d.', $cycle),
+      );
+      $this->assertSame($this->leafProps('AUTHORED'), $stored['props']['authored-leaf'] ?? NULL, sprintf('The authored props survived locked save cycle %d.', $cycle));
+    }
+
+    // While locked the content is inert: the default renders.
+    $merged = Json::decode($this->reloadEntity($entity)->get(static::FIELD_NAME)->first()->getValue()['tree']);
+    $this->assertSame(
+      [['uuid' => static::SEED_UUID, 'component' => 'na_leaf']],
+      $merged[static::HOST_UUID]['body'] ?? NULL,
+      'While locked the default seed renders, not the stored content.',
+    );
+
+    // Re-flagging makes it live again — the round trip that matters.
+    $this->flagRegion();
+    $merged = Json::decode($this->reloadEntity($entity)->get(static::FIELD_NAME)->first()->getValue()['tree']);
+    $this->assertSame(
+      [['uuid' => 'authored-leaf', 'component' => 'na_leaf']],
+      $merged[static::HOST_UUID]['body'] ?? NULL,
+      'Re-flagging the region brought the authored content back.',
+    );
+  }
+
+  /**
    * Custom mode: an empty entity renders the default layout.
    */
   public function testCustomEmptyEntityRendersDefault(): void {

@@ -15,10 +15,14 @@ use Drupal\neo_alchemist\Plugin\ComponentValue\ComponentValueProcessingModeTrait
  * reimplements the claim bookkeeping exactly as the base class does it and
  * leaves everything else out.
  *
- * The claim flag starts FALSE — matching the base class — which means a fresh
- * instance reports hasClaimedValue() === TRUE. That is why the pipeline calls
- * allowFurtherProcessing() on every instance in getAllowedInstances() before
- * running, and why the test helper does the same.
+ * The flag starts TRUE, matching ComponentValuePluginBase: a fresh instance has
+ * NOT claimed anything. The pipeline still resets it on every instance in
+ * getAllowedInstances() because value plugin instances are memoised on the
+ * collection and reused across the default, value and modify passes — the
+ * reset clears a claim raised in an earlier pass, not an initial-state quirk.
+ *
+ * ComponentValueProcessingModeTest asserts this class stays in step with the
+ * base class, so the double cannot drift into testing a fiction.
  */
 final class TestProcessingModeProvider {
 
@@ -43,7 +47,7 @@ final class TestProcessingModeProvider {
    *
    * @var bool
    */
-  private bool $continueProcessing = FALSE;
+  private bool $continueProcessing = TRUE;
 
   /**
    * Resets the claim, as the pipeline does before each run.

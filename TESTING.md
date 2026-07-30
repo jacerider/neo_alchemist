@@ -198,8 +198,13 @@ tests/
 │   │   ├── na_leaf/                   # the universal child: one string prop
 │   │   ├── na_recorder/               # example-less prop for pipeline observation
 │   │   └── na_not_neo/                # valid SDC WITHOUT `neo: true`
+│   │   ├── na_menu_host/              # one `menu` prop (MenuValue end to end)
+│   │   ├── na_required_probe/         # a REQUIRED top-level string prop
 │   ├── config/schema/                 # schema for fixture plugin settings (strict checker)
+│   ├── neo_alchemist_test.module      # the menu item-alter hook (inert by default)
 │   ├── src/TestValueCallLog.php       # static call recorder
+│   ├── src/TestMenuLinkTree.php       # canned menu tree (swap in for menu.link_tree)
+│   ├── src/TestMenuItemAlter.php      # controllable item-alter behaviour
 │   ├── src/Plugin/ComponentShape/     # TestProvidedShape, TestRecordedShape
 │   ├── src/Plugin/ComponentValue/     # TestProviderValue + recording/cache-tag plugins
 │   ├── src/Plugin/ComponentAccess/    # TestCacheTagAccess
@@ -371,7 +376,7 @@ resolutions must load two separate instances (`$storage->resetCache()` then
 
 ## What the tests cover
 
-The suite is 30 classes / 169 tests (705 assertions). The July 2026 expansion
+The suite is 43 classes / 277 tests (1,144 assertions). The July 2026 expansion
 added the "falsy values are values" family, the tree-field mode contracts
 (hybrid is **live in production** — `node.project` via `project_full`,
 `taxonomy_term.market` via `hero_s2` — so those are regression pins over
@@ -386,14 +391,27 @@ where noted in the class docblock).
 | `Unit/HybridTreeAlgebraTest` | Hybrid closure math — anchors, nested descendants, cycle termination, malformed JSON |
 | `Unit/ExpandTupleClosureTest` | The descendant walker behind hybrid ownership: cycles, junk seeds, missing sections |
 | `Unit/HybridStorageExtractionTest` | The compose/extract pair at the algebra level: un-flagged regions stash as orphans (not silently destroyed), tree/props parity backfill, `'{}'` encoding |
-| `Unit/ComponentValueProcessingModeTest` | All three claim modes × empty/non-empty; existing claims never released |
+| `Unit/ComponentValueProcessingModeTest` | All three claim modes × empty/non-empty; existing claims never released; the test double's claim bookkeeping still matches the real base class |
+| `Kernel/ComponentValueProcessingModeIntegrationTest` | What a site builder's "Processing" choice does to a resolved value, through the real plugin base and pipeline — including "Always stop (block if empty)" meaning the fallback never runs; plus a golden pin of the shipped non-default modes |
 | `Unit/IsProvidedValueEmptyTest` | The value-emptiness contract: 0, '0' and FALSE are values; the seeded `size` key is not content |
 | `Unit/EntityFilterMassageValueTest` | The entity filter's form-value round-trip — the single-value array path was a guaranteed TypeError |
+| `Unit/TokenValueTest` | The `token` modifier's `[value]` substitution: scalars woven in verbatim, non-scalars contributing nothing (an array used to render the literal "Array"; an object threw), tokens resolved after substitution, no-token templates short-circuiting |
+| `Unit/MediaImageSizeValueTest` | The `media_image_size` modifier on both an image prop and an image_size style shape, plus the `size` sentinel it seeds being empty per the value contract |
+| `Unit/UserHasRoleValueTest` | The role veto's truth table (`any`/`all`), that a denial claims the value so no fallback can reveal the component, and that an empty role list fails closed for `any` but open for `all` |
+| `Unit/MediaValueTest` | The empty-value contract that makes a dropped image render as *nothing* (default option off ⇒ `[]`), and `onShapeInit()` rewiring the shape onto an entity_reference media field |
+| `Unit/EntityProviderAccessGateTest` | The "entity is not new" gate shared by `entity` and `entity_has_value` — including that field scope gates only the `default` op — and that both implementations agree |
+| `Unit/EntityProviderPassThroughTest` | Every way `entity_load` / `entity_filter` / `entity_reference` can fail to act returns the threaded value rather than wiping it to NULL, plus `entity_reference`'s deliberate reset-to-`[]` once a key is configured |
+| `Kernel/EntityHasValueTest` | The content-presence veto against a real entity and matcher: content passes through, empty/absent/unknown fields all fail closed and claim |
+| `Kernel/MatcherFieldOfferTest` | Which entity fields are offered as prop sources — password fields never, through references too and in the options list; legitimate content fields unaffected; an already-configured excluded field still resolves |
+| `Kernel/MatcherFieldPredicateTest` | The four shape predicates that decide a match: `allowFieldDefinition` (enum values, max length, numeric bounds), `supportsFieldDefinition`, `supportsFieldProperties`, `supportsFieldProperty` |
+| `Kernel/MenuValueTest` | The `menu` provider end to end: item mapping incl. nested `below`, the documented item-alter hook (extra keys survive, `$entry = NULL` drops one item, hook cacheability bubbles), menu + built-tree cacheability, and the level/depth arithmetic |
+| `Kernel/EntityQueryValueTest` | The query provider's list cache tags — attached even for an empty result set, so the first matching entity invalidates the listing — plus its block-mode default and the query exposed as a prop-shape context |
 | `Kernel/ChildrenShapeDeltaDistributionTest` | **The delta-distribution regression** |
 | `Kernel/ChildrenShapeFalsyValueDistributionTest` | Warm/cold parity for falsy child values (invariant pin; see its honest scope note) |
 | `Kernel/ArrayShapeBuildValueBranchTest` | The full `ArrayShape::buildValue()` branch table — the `continue 2` no longer drops items whose required child holds 0/'0'/FALSE; single-prop collapse stays homogeneous |
 | `Kernel/ObjectShapeFalsyValueTest` | Object/structured-object children keep authored falsy values instead of being unset or refilled with schema examples; a top-level 0 prop reaches `#props` |
 | `Kernel/GetDefaultValueOrderTest` | `getDefaultValue()` computes once (NULL memoises), never clobbers an authored field item on re-entry; providers → fallback → modifiers regardless of saved order |
+| `Kernel/RequiredPropFalsyOverrideTest` | A required prop authored `'0'` keeps it (invariant pin on `init()`'s override checks); an empty one is omitted, not example-filled |
 | `Kernel/ShapeCacheabilityMergeOrderTest` | Provider-added cache tags merge AFTER value computation and survive into `#cache` |
 | `Kernel/ValueGroupTaxonomyTest` | Golden list of every value plugin's group — groups are behavioral contracts (`childHasOwnValueProvider()`, pipeline order) |
 | `Kernel/ShapeInitOrderTest` | Six shape-lifecycle invariants, each proven to fire when violated |
@@ -451,14 +469,105 @@ examples instead.
   hybrid-forbidden, the create checks) still return without folding prior
   cacheability; only `Component::checkAccess()` folds today.
 - **Characterized, deliberately not fixed** (each needs a design decision):
-  locked fields persist a frozen default snapshot into entity rows
-  (`LockedAndCustomModeTest` documents it — it becomes live content the
-  moment the field's mode changes, including when the LAST flagged region is
-  un-flagged, which flips the field to locked); a root-only stored value is
-  discarded when a field flips custom → hybrid; `ComponentInstanceBase::
-  setValues()` writes draft values onto the statically-cached entity;
-  `getDraftKey()` omits entity type/langcode/revision, so drafts can collide
-  across entity types and translations share one draft.
+  - **Locked fields write a default snapshot when an entity is first
+    created.** `LockedAndCustomModeTest` documents it. Scope, measured: only
+    on INSERT. On update, core skips a field whose value is unchanged versus
+    `$entity->original`
+    (`SqlContentEntityStorage::saveToDedicatedTables()`), and a locked list
+    deterministically holds the seeded default on both, so existing rows are
+    never rewritten. The consequence is therefore latent rather than
+    destructive: entities created while a field is locked carry a frozen
+    default-layout row that would be treated as authored content if the field
+    later becomes hybrid or custom. Fixing it means making locked mode
+    persist nothing on insert — safe in itself, but it must not be
+    generalised to update (see the next point).
+  - **The hybrid → locked transition depends on that core skip.**
+    Un-flagging the LAST flagged region drops the field out of hybrid mode
+    entirely, so the orphan preservation that covers a partial un-flag never
+    runs. Existing entities keep their authored content anyway — purely
+    because the field is never rewritten — and re-flagging restores it.
+    `LockedAndCustomModeTest::testUnflaggingTheOnlyRegionPreservesAuthoredContent`
+    pins this, because nothing in the module declares the dependency: any
+    change that makes a locked field write on update destroys every entity's
+    authored region content silently.
+  - **Two emptiness predicates, one concept.** `isProvidedValueEmpty()` (the
+    shape/pipeline contract) and `Component::isPropValueEmpty()` (the render
+    boundary) now agree on every case except one: a value carrying only the
+    `size` key. The contract discounts `size` as a seeded placeholder; the
+    render boundary sees a non-empty array and hands it to SDC.
+    `MediaImageSizeValueTest` produces that exact value from real plugin code
+    (`provideDefaultValue([])` → `['size' => NULL]`), so the divergence is
+    reachable in principle — but whether it survives to the render boundary on
+    a real image prop is unproven and needs the media Kernel coverage.
+    Collapsing the two predicates is the cleaner end state and would drop
+    size-only values instead of passing them; that is a render-visible change,
+    hence a decision rather than a fix.
+  - **Value plugin coverage is deliberately partial.** Of the 26 shipped
+    ComponentValue plugins, eleven have behavioral tests — `token`,
+    `media_image_size`, `user_has_role`, `media`, `menu`, `entity_query`, and
+    the entity-resolution family (`entity`, `entity_has_value`, `entity_load`,
+    `entity_reference`, `entity_filter`) — chosen because a bug in each is
+    silent, access-adjacent, or both. The rest are covered only for their
+    `group` metadata (`ValueGroupTaxonomyTest`). The framework they plug into
+    — ordering, claim modes, cacheability merge, the emptiness contract — is
+    tested through purpose-built fixture plugins, which is where the
+    silent-data-loss bugs actually were.
+
+    The entity family is covered for its *contracts* (the new-entity gate, the
+    pass-through guards, the presence veto). The matcher subsystem it delegates
+    to is now partly covered too — `MatcherFieldPredicateTest` pins the four
+    shape predicates that decide a match, and `MatcherFieldOfferTest` pins
+    which fields may be offered at all. What remains untested there is the
+    RESOLUTION half: `getChildrenMatchValues()`, and the `MatcherField` /
+    `MatcherReference` walk that turns a dotted key
+    (`field_ref.user_id.name`, `_entity:label`, `_field:...`) back into a
+    value.
+
+    **The match list is broad by design, and that is worth knowing when
+    reading it.** Matching keys off data types, so a single string prop is
+    offered ~70 bindings on a modest entity — including identifiers and
+    system fields. Only sensitive field types are excluded (see
+    `MatcherField::EXCLUDED_FIELD_TYPES`); widening that is a policy decision,
+    and `MatcherFieldOfferTest::testIdentifierAndSystemFieldsAreStillOffered`
+    is the characterization to update if it ever changes.
+
+    Still uncovered, roughly in descending order of consequence: the matcher
+    subsystem just described, `HeadingValue` (338 lines of structured-heading
+    building), `FormattedTextValue` (runs text through filters), `ViewsValue`
+    (486 lines, needs the views module), `BreadcrumbValue`, `PageTitleValue`,
+    `EventValue`, and `DefaultValue`'s strict `===` comparison against a
+    recomputed schema example. The one-line transforms (`PrefixValue`,
+    `SuffixValue`, `LinkTitleValue`, `LinkUriValue`, `NumberValue`,
+    `RegionCustomValue`, `RegionSizeValue`, `WidgetValue`) are left uncovered
+    on purpose — a bug in them is loud and immediate.
+
+    **Mocking note.** `MatcherField` and `MatcherReference` are `final`, so
+    they cannot be mocked; build real ones over four mocked services, or take
+    them from the container in a Kernel test. And
+    `ComponentShapeChildrenMatchPluginInterface` already extends
+    `ComponentShapePluginInterface`, so mock it directly — intersecting the
+    two fails with "Interfaces must not declare the same method". The media
+    and style interfaces are standalone markers and *do* need an intersection
+    mock.
+
+    Two coverage shapes worth reusing: `MediaValueTest` mocks the media shape
+    rather than standing up media/file/image, which keeps the empty-value
+    contract cheap to pin; `MenuValueTest` swaps `menu.link_tree` for
+    `TestMenuLinkTree` so a canned `#items` structure feeds the real mapping,
+    the real alter hook and the real cacheability merge without needing
+    routes, an active trail or access results. The media *hydration* paths
+    (real media entities, `neo_config_file`) remain untested.
+  - **The "Processing" mode governs the default pass only.** The mode is
+    applied in `getDefaultValue()` and nowhere else, so a provider set to
+    "Always stop" does not halt the override pass in `init()` or the modifier
+    pass. Pinned and explained on `ComponentValueProcessingModeTrait`.
+    Widening the scope would change resolved values on every site using block
+    or continue, so it needs a decision rather than a fix.
+  - A root-only stored value is discarded when a field flips custom → hybrid.
+  - `ComponentInstanceBase::setValues()` writes draft values onto the
+    statically-cached entity.
+  - `getDraftKey()` omits entity type/langcode/revision, so drafts can
+    collide across entity types and translations share one draft.
 
 ---
 

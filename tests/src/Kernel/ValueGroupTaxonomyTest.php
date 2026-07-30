@@ -62,6 +62,8 @@ class ValueGroupTaxonomyTest extends KernelTestBase {
       'menu' => 'providers',
       // Fixture plugins from neo_alchemist_test.
       'na_cache_tag_value' => 'modifiers',
+      'na_mode_first' => 'providers',
+      'na_mode_second' => 'providers',
       'na_record_fallback' => 'fallback',
       'na_record_modifier' => 'modifiers',
       'na_record_provider' => 'providers',

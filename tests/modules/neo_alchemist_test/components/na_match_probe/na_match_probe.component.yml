@@ -1,0 +1,23 @@
+$schema: 'https://git.drupalcode.org/project/drupal/-/raw/10.1.x/core/modules/sdc/src/metadata.schema.json'
+name: 'NA match probe fixture'
+description: >
+  One prop per scalar shape family, so MatcherField::getMatches() can be
+  exercised for each against a single entity type. Used to pin which entity
+  fields and field properties a shape will and will not accept.
+status: stable
+neo: true
+props:
+  type: object
+  properties:
+    text:
+      type: string
+      title: Text
+    count:
+      type: integer
+      title: Count
+    flag:
+      type: boolean
+      title: Flag
+    link:
+      type: link
+      title: Link

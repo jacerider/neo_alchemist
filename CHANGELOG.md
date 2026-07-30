@@ -1,5 +1,59 @@
 # Changelog
 
+## Single-prop arrays can be matched by property type
+
+A shape can redirect its support checks at a different field definition —
+`ArrayShape` does exactly that, deferring to its single child so an array of
+strings is matched as a *string* rather than as the `map` field the array
+stores into.
+
+That redirect only reached half the decision. The four support predicates
+followed it, but the accepted-type lists behind them
+(`getSupportedFieldPropertyTypes()` / `getSupportedFieldTypes()`) read the raw
+field item instead — describing the `map` storage, which exposes no properties
+at all. The accepted list came back empty, so every property-type check
+returned FALSE.
+
+Both now read the same definition the predicates use.
+
+### For site builders
+
+- A field whose FIELD type differs from the array child's, but whose single
+  PROPERTY type matches, can now be bound to a single-prop array. `uuid` is
+  the clearest case: field type `uuid`, property type `string` — previously
+  unreachable for an array of strings, while an ordinary string prop could
+  use it.
+- **Nothing was removed**, and non-array shapes are entirely unaffected: for
+  them the two definitions were already the same object.
+- Unchanged: an array still claims a *multi-property* field whole (so the
+  field's deltas feed the items) rather than offering per-property matches.
+  That is a separate, deliberate strategy.
+
+## Password fields are no longer offered as component prop sources
+
+MatcherField matches entity fields to component props by **data type**, and
+data types are deliberately coarse — a password field's `value` property is a
+plain `string`, indistinguishable from a title. Nothing filtered sensitive
+fields, so every string-accepting prop was offered the user's password hash as
+a content source.
+
+This was not limited to user-targeted components: entity types routinely carry
+a base reference to a user (`entity_test.user_id`, `node.uid`), and the matcher
+recurses one level into references — so `user_id.pass:value` appeared in the
+match list for ordinary components. A plain text prop on this fixture was
+offered 70 matches, four of which reached a password.
+
+### For site builders
+
+- Password fields no longer appear in the "match" picker for any prop.
+- **Nothing else was removed.** Identifiers (`id`, `uuid`, `target_id`) and
+  system fields (`langcode`, `timezone`, `roles`) are still offered — they are
+  noisy rather than dangerous, and excluding them could remove matches real
+  components rely on.
+- **No migration, no breakage.** Only the offer list is filtered; resolution is
+  untouched, so a component already configured against an excluded field keeps
+  working exactly as before. It simply cannot be re-selected from the picker.
+
 ## Falsy values are values — and other silent-data-loss fixes
 
 A test-coverage expansion over the value pipeline, the tree-field modes and the
@@ -73,6 +127,13 @@ consulted plugin's cacheability.
   (in dev, the loud shape-must-exist assert still fires first).
 - `EntityFilter::massageFormValue()` no longer TypeErrors when a widget left in
   multi/tags mode submits an array for a single-value filter.
+- **The `token` modifier no longer renders the literal "Array".** Its `[value]`
+  placeholder cast the incoming value to a string unconditionally. Because that
+  value comes from whatever ran earlier in the pipeline, an array (a provider
+  handing structured data to a string prop) produced an "Array to string
+  conversion" warning and put `Array` on the page, and an object without
+  `__toString()` threw outright. Non-scalars now contribute nothing to the
+  template.
 
 ## Value groups state a plugin's role
 
