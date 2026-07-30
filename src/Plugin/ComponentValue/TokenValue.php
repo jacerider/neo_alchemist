@@ -63,8 +63,15 @@ final class TokenValue extends ComponentValuePluginBase {
    */
   public function modifyValue(mixed $value): mixed {
     $template = (string) $this->configuration['value'];
-    // Let the template weave in the value it is modifying.
-    $template = str_replace('[value]', (string) $value, $template);
+    // Let the template weave in the value it is modifying. Only a scalar can
+    // be woven in: the incoming value comes from whatever ran earlier in the
+    // pipeline, so an array (a provider handing structured data to a string
+    // prop) or an object is reachable here. Casting those emitted an "Array to
+    // string conversion" warning and rendered the literal "Array" — or, for an
+    // object without __toString(), threw outright. A non-scalar contributes
+    // nothing instead.
+    $inline = is_scalar($value) ? (string) $value : '';
+    $template = str_replace('[value]', $inline, $template);
     return $this->replaceEntityTokens($template);
   }
 
