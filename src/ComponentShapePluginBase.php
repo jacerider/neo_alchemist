@@ -545,10 +545,16 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
       }
     }
 
+    // "No override value" below follows isProvidedValueEmpty(), the value
+    // pipeline's emptiness contract, rather than PHP truthiness: an override
+    // of 0, '0' or FALSE is a value and must not be mistaken for an absent
+    // one. Overrides normally arrive in wrapped field-item form
+    // (['value' => '0']), which is a non-empty array and so was never at risk
+    // — this states the intent rather than relying on the storage format.
     $instances = $this->getValueCollection()->getAllowedInstances('value');
     foreach ($instances as $instance) {
       $overrideValue = $instance->provideOverrideValue($overrideValue, $defaultValue);
-      if ($overrideValue) {
+      if (!$this->isProvidedValueEmpty($overrideValue)) {
         $this->setFieldItemValue($overrideValue, FALSE);
       }
       if (!$instance->shouldContinueProcessing()) {
@@ -558,13 +564,13 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
 
     // If we have no override value and the shape is required, we set it to
     // NULL so that the default value is used.
-    if (empty($overrideValue) && $this->isRequired()) {
+    if ($this->isProvidedValueEmpty($overrideValue) && $this->isRequired()) {
       $overrideValue = NULL;
     }
 
     // If we have no override value and the shape is set to use default, we
     // set it to NULL so that the default value is used.
-    if (empty($overrideValue) && $this->getOptionDefault()->isEnabled()) {
+    if ($this->isProvidedValueEmpty($overrideValue) && $this->getOptionDefault()->isEnabled()) {
       $overrideValue = NULL;
     }
 
@@ -751,7 +757,11 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
    */
   protected function getSupportedFieldTypes(): array {
     $props = $this->pluginDefinition['supports_field_types'] ?? [];
-    $shapeFieldProperties = $this->getFieldItemList()->getFieldDefinition()->getFieldStorageDefinition()->getPropertyDefinitions();
+    // Read the same definition the support predicates use, not the raw field
+    // item: a shape may redirect support checks elsewhere (ArrayShape defers
+    // to its single child), and the accepted-type list has to follow, or the
+    // predicates and the list they consult describe different shapes.
+    $shapeFieldProperties = $this->getFieldDefinitionForSupportCheck()->getFieldStorageDefinition()->getPropertyDefinitions();
     if (count($shapeFieldProperties) === 1) {
       // If shape has only one property, we can use the field property type.
       $props[] = reset($shapeFieldProperties)->getDataType();
@@ -771,7 +781,11 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
    */
   protected function getSupportedFieldPropertyTypes(): array {
     $props = $this->pluginDefinition['supports_field_props'] ?? [];
-    $shapeFieldProperties = $this->getFieldItemList()->getFieldDefinition()->getFieldStorageDefinition()->getPropertyDefinitions();
+    // Same definition as the support predicates — see getSupportedFieldTypes().
+    // Reading the raw field item here left a single-prop array asking about
+    // its own `map` storage, which exposes no properties at all, so the list
+    // came back empty and no property could ever match.
+    $shapeFieldProperties = $this->getFieldDefinitionForSupportCheck()->getFieldStorageDefinition()->getPropertyDefinitions();
     if (count($shapeFieldProperties) === 1) {
       // If shape has only one property, we can use the field property type.
       $props[] = reset($shapeFieldProperties)->getDataType();
