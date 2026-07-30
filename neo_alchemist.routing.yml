@@ -132,6 +132,14 @@ entity.neo_component.edit_access_form:
   requirements:
     _permission: 'administer neo_alchemist'
 
+entity.neo_component.clone_form:
+  path: '/admin/config/neo/alchemist/{neo_component}/clone'
+  defaults:
+    _controller: '\Drupal\neo_alchemist\Controller\ComponentCloneController'
+    _title: 'Clone a component'
+  requirements:
+    _permission: 'administer neo_alchemist'
+
 entity.neo_component.delete_form:
   path: '/admin/config/neo/alchemist/{neo_component}/delete'
   defaults:

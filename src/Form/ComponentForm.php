@@ -16,7 +16,7 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
 /**
  * Component form.
  */
-final class ComponentForm extends EntityForm {
+class ComponentForm extends EntityForm {
 
   /**
    * The entity.

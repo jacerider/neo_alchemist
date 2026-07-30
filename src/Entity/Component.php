@@ -46,6 +46,7 @@ use Drupal\neo_icon\IconTrait;
  *     "form" = {
  *       "add" = "Drupal\neo_alchemist\Form\ComponentForm",
  *       "edit" = "Drupal\neo_alchemist\Form\ComponentForm",
+ *       "clone" = "Drupal\neo_alchemist\Form\ComponentCloneForm",
  *       "aggregate" = "Drupal\neo_alchemist\Form\ComponentAggregateForm",
  *       "prop" = "Drupal\neo_alchemist\Form\ComponentPropForm",
  *       "slot" = "Drupal\neo_alchemist\Form\ComponentSlotForm",
@@ -71,6 +72,7 @@ use Drupal\neo_icon\IconTrait;
  *     "edit-filter-form" = "/admin/config/neo/alchemist/{neo_component}/filter/{uuid}",
  *     "add-access-form" = "/admin/config/neo/alchemist/{neo_component}/access/add",
  *     "edit-access-form" = "/admin/config/neo/alchemist/{neo_component}/access/{uuid}",
+ *     "clone-form" = "/admin/config/neo/alchemist/{neo_component}/clone",
  *     "delete-form" = "/admin/config/neo/alchemist/{neo_component}/delete",
  *     "canonical" = "/admin/config/neo/alchemist/{neo_component}",
  *     "preview" = "/admin/config/neo/alchemist/{neo_component}/preview",

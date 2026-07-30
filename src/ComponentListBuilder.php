@@ -165,6 +165,11 @@ final class ComponentListBuilder extends ConfigEntityListBuilder {
         'weight' => -10,
         'url' => $entity->toUrl(),
       ],
+      'clone' => [
+        'title' => $this->t('Clone'),
+        'weight' => 20,
+        'url' => $entity->toUrl('clone-form'),
+      ],
     ] + $operations;
   }
 
