@@ -350,6 +350,9 @@ neo_alchemist.neo_component_value.entity_filter:
     filter:
       type: string
       label: The filter
+    entity:
+      type: string
+      label: Target entity type
     shape_fields:
       type: neo_alchemist.neo_component_shape_fields
     shape_published:
