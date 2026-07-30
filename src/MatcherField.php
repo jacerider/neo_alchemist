@@ -38,6 +38,28 @@ final class MatcherField extends MatcherBase {
   protected $maxLevels = 2;
 
   /**
+   * Field types never offered as a component prop source.
+   *
+   * Matching works on DATA TYPES, which are deliberately coarse: a password
+   * field's `value` property is a plain `string`, indistinguishable from a
+   * title. Without this list every string-accepting prop is offered the
+   * user's password hash as content — and entity types routinely reference a
+   * user, so it shows up on ordinary components, not just user-targeted ones.
+   *
+   * Kept to genuinely sensitive types on purpose. Identifiers (id, uuid,
+   * target_id) and system fields (langcode, timezone, roles) are still
+   * offered: they are noisy rather than dangerous, and excluding them could
+   * remove matches components legitimately rely on.
+   *
+   * This filters the OFFER list only. Resolution (::getEntityValue(),
+   * ::getEntityField()) is untouched, so a component already configured
+   * against an excluded field keeps working and nothing silently blanks.
+   */
+  protected const EXCLUDED_FIELD_TYPES = [
+    'password',
+  ];
+
+  /**
    * Retrieves the field definition for a given key from the component shape.
    *
    * @param \Drupal\neo_alchemist\ComponentShapePluginInterface $shape
@@ -138,7 +160,10 @@ final class MatcherField extends MatcherBase {
             foreach ($properties as $name => $prop) {
               $v[$delta][$name] = $val[$prop] ?? NULL;
               // Special handling for uri fields to support options.
-              if ($prop === 'uri' && !empty($val['options']) && in_array($field->getFieldDefinition()->getType(), ['uri', 'link'])) {
+              if ($prop === 'uri' && !empty($val['options']) && in_array($field->getFieldDefinition()->getType(), [
+                'uri',
+                'link',
+              ])) {
                 $v[$delta][$name] = [
                   'uri' => $v[$delta][$name],
                   'options' => $val['options'] ?? [],
@@ -477,6 +502,12 @@ final class MatcherField extends MatcherBase {
     foreach ($fieldDefinitions as $fieldDefinition) {
       assert($fieldDefinition instanceof FieldDefinitionInterface);
       if ($fieldDefinition instanceof ComponentFieldConfigInterface) {
+        continue;
+      }
+      // Never offer a sensitive field as a content source, whatever the
+      // shape accepts. This runs on every recursion level, so it covers
+      // referenced entities too (e.g. an entity's author's password).
+      if (in_array($fieldDefinition->getType(), static::EXCLUDED_FIELD_TYPES, TRUE)) {
         continue;
       }
       // Skip non-required fields when the shape requires a value.
