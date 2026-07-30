@@ -14,7 +14,36 @@ use Drupal\neo_alchemist\ComponentValueProcessingModeInterface;
  * extends ComponentValuePluginBase. The provider just produces its value; this
  * trait exposes the mode select and lets the pipeline decide whether to claim.
  *
+ * **Scope: the mode governs the provider search, and nothing else.**
+ * applyProcessingMode() is called from exactly one place,
+ * ComponentShapePluginBase::getDefaultValue(). That is not a narrow reach that
+ * someone forgot to widen — it is the only pass where the mode's question even
+ * applies. The shape iterates its value plugins in nine places, and only that
+ * one is a SEARCH, where "which plugin wins" is a decision the site builder
+ * should get to make. The rest are broadcasts (onShapeInit, isEditable, the
+ * form hooks) or chains (modifyValue, both alterValue loops), where every
+ * plugin is meant to get a turn. A claim never leaks between them:
+ * ComponentShapePluginCollection::getAllowedInstances() resets the flag on
+ * every call.
+ *
+ * Two passes look like candidates for widening. Neither is:
+ *
+ * - **The modifier pass** would be actively destructive. Every pass walks one
+ *   shared instance list sorted providers → fallback → modifiers → settings,
+ *   and a provider takes part in the modifier loop too (its modifyValue() is
+ *   the base class's identity). Consulting the mode there would let a provider
+ *   in stop_when_found — the DEFAULT — break the loop at its own position, so
+ *   prefix, suffix, token and formatted_text would silently stop running on
+ *   every prop where a provider found a value.
+ * - **The override pass** (provideOverrideValue() in init()) carries the value
+ *   a person authored, not a provider's answer. Letting a provider's mode claim
+ *   there would mean "Always stop" suppressing typed content. No shipped plugin
+ *   implements that method today; one that does must raise its own claim and
+ *   own that decision explicitly.
+ *
  * @see \Drupal\neo_alchemist\ComponentValueProcessingModeInterface
+ * @see \Drupal\Tests\neo_alchemist\Kernel\ComponentValueProcessingModeIntegrationTest
+ * @see \Drupal\Tests\neo_alchemist\Kernel\ComponentValueProcessingModeScopeTest
  */
 trait ComponentValueProcessingModeTrait {
 
@@ -78,7 +107,7 @@ trait ComponentValueProcessingModeTrait {
     $form['processing_mode'] = [
       '#type' => 'select',
       '#title' => $this->t('Processing'),
-      '#description' => $this->t('What happens after this provider runs. "Stop when a value is found" lets later providers fill in when this one is empty. "Provide, allow later changes" always lets later providers change the value. "Always stop" halts even when empty, so nothing renders.'),
+      '#description' => $this->t('What happens after this provider runs, while the providers on this prop are searched for a value. "Stop when a value is found" lets later providers fill in when this one is empty. "Provide, allow later changes" always lets later providers change the value. "Always stop" halts the search even when empty. Either way, modifiers such as prefix and format still run afterwards, an authored value still wins, and a required prop still falls back to the component\'s example when the search ends with nothing.'),
       '#options' => $this->processingModeOptions(),
       '#default_value' => $this->getProcessingMode(),
     ];
