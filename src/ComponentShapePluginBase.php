@@ -1926,7 +1926,13 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
           break;
         }
       }
-      if (!$value && $this->isRequired()) {
+      // A required prop falls back to the schema example rather than resolving
+      // to nothing, so SDC is never handed a missing required prop. The test
+      // is isProvidedValueEmpty(), the pipeline's own emptiness contract, not
+      // PHP truthiness: under `!$value` a provider that legitimately resolved
+      // 0, '0', FALSE or [] had its answer discarded and the component's
+      // placeholder rendered in place of real content.
+      if ($this->isProvidedValueEmpty($value) && $this->isRequired()) {
         $value = $originalValue;
       }
       $this->defaultValue = $value;
