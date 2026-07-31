@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Drupal\Tests\neo_alchemist\Kernel;
 
 use Drupal\KernelTests\KernelTestBase;
+use Drupal\neo_alchemist\ComponentValueProcessingModeInterface;
 use Drupal\neo_alchemist\Entity\Component;
 use PHPUnit\Framework\Attributes\Group;
 
@@ -22,8 +23,10 @@ use PHPUnit\Framework\Attributes\Group;
  * The fixture's two flavours of empty matter here. `produce: ''` means the
  * provider DECLINED and the seeded example rides through untouched, which
  * never reaches the guard. `produce_empty: TRUE` means the provider actively
- * resolved nothing, which is the only configuration that exercises the
- * fallback on a component whose schema declares examples.
+ * resolved nothing — and since the pipeline now keeps the threaded value past
+ * a producer that came up empty without claiming, only pairing that with the
+ * block mode still ends the search holding nothing, which is the one
+ * configuration that exercises the fallback on a component with examples.
  *
  * @see \Drupal\neo_alchemist\ComponentShapePluginBase::getDefaultValue()
  * @see \Drupal\neo_alchemist\ComponentShapePluginBase::isProvidedValueEmpty()
@@ -106,9 +109,20 @@ class GetDefaultValueRequiredFallbackTest extends KernelTestBase {
    * The invariant half: narrowing the guard to isProvidedValueEmpty() must not
    * cost a required prop its placeholder, or components would start handing
    * SDC a missing required prop.
+   *
+   * The mode is block on purpose. Once getDefaultValue() stopped letting an
+   * empty non-claiming producer wipe the value threaded into it, a
+   * stop_when_found producer never reaches this guard — the seeded example is
+   * still in hand when the search ends and the guard is a no-op, so the test
+   * would go green without the line it exists to protect. Blocking claims the
+   * empty, which is the only way a required prop still arrives here with
+   * nothing.
    */
   public function testRequiredPropStillFallsBackToExampleWhenGenuinelyEmpty(): void {
-    $component = $this->buildComponent(['produce_empty' => TRUE]);
+    $component = $this->buildComponent([
+      'produce_empty' => TRUE,
+      'processing_mode' => ComponentValueProcessingModeInterface::MODE_BLOCK,
+    ]);
 
     $values = $component->getPropValues();
 

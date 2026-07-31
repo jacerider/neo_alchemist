@@ -1,0 +1,18 @@
+$schema: 'https://git.drupalcode.org/project/drupal/-/raw/10.1.x/core/modules/sdc/src/metadata.schema.json'
+name: 'NA example probe fixture'
+description: >
+  A component with an OPTIONAL top-level string prop that declares an example.
+  The pipeline seeds every prop's value from its examples, and na_required_probe
+  can only observe what happens to that seed on a REQUIRED prop, where the last
+  line of getDefaultValue() restores it anyway. This fixture isolates the
+  optional case: whatever this prop resolves to is what the producer search
+  alone left behind.
+status: stable
+neo: true
+props:
+  type: object
+  properties:
+    label:
+      type: string
+      title: Label
+      examples: 'EXAMPLE LABEL'

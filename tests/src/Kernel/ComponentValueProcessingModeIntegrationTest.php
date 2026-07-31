@@ -167,11 +167,25 @@ class ComponentValueProcessingModeIntegrationTest extends KernelTestBase {
     }
     ksort($nonDefault);
 
-    // ViewsValue also defaults to block but declares provider: 'views', so it
-    // is not discovered under this suite's minimal module set.
+    // ViewsValue also defaults to block but declares provider: 'views', and
+    // taxonomy_menu / taxonomy_children live in neo_alchemist_taxonomy, so
+    // none of the three are discovered under this suite's minimal module set.
+    //
+    // What unites this set is the SHAPE of the prop each one fills: a list, a
+    // menu, a trail — props whose schema examples are editor scaffolding
+    // (invented links, placeholder cards) rather than a usable default. Since
+    // getDefaultValue() stopped letting an empty non-claiming producer wipe
+    // the seeded example, a claim is the only way such a producer can say
+    // "nothing IS the answer", and block is the mode that claims. Producers
+    // that fill an authored scalar — entity on a string, heading, page_title —
+    // deliberately stay on stop_when_found so the component author's example
+    // survives an empty source field.
     $this->assertSame([
+      'breadcrumb' => ComponentValueProcessingModeInterface::MODE_BLOCK,
       'entity_filter' => ComponentValueProcessingModeInterface::MODE_BLOCK,
       'entity_query' => ComponentValueProcessingModeInterface::MODE_BLOCK,
+      'entity_reference' => ComponentValueProcessingModeInterface::MODE_BLOCK,
+      'menu' => ComponentValueProcessingModeInterface::MODE_BLOCK,
     ], $nonDefault, 'The set of providers defaulting to a non-standard processing mode changed.');
   }
 
