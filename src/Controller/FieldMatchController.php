@@ -15,9 +15,12 @@ use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 /**
  * Serves entity field matches to the neo_field_select element.
  *
- * The response feeds Tom Select's remote `load()`, so the payload shape is
- * fixed by neo/tom-select: a flat list of objects with `value` and `label`.
- * `path` is extra and rendered as the dimmed second line of each option.
+ * Two shapes, one per mode of the picker's modal. ::__invoke() answers the
+ * search box with a flat ranked list of {value, label, path}; ::browse()
+ * answers one Miller column with the fields at a point in the entity tree and
+ * the references leading out of it.
+ *
+ * @see \Drupal\neo_alchemist\FieldMatchLocator
  */
 final class FieldMatchController extends ControllerBase {
 
