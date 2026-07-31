@@ -227,9 +227,18 @@ neo_alchemist.neo_component_value.heading:
     supertitle_entity:
       type: boolean
       label: Title entity label
+    supertitle_field:
+      type: string
+      label: Supertitle entity field
+    supertitle_field_mode:
+      type: string
+      label: Supertitle entity field empty behavior
     supertitle_value:
       type: string
       label: Supertitle default value
+    title_empty:
+      type: boolean
+      label: Title empty
     title_edit:
       type: boolean
       label: Title edit
@@ -242,6 +251,12 @@ neo_alchemist.neo_component_value.heading:
     title_entity:
       type: boolean
       label: Title entity label
+    title_field:
+      type: string
+      label: Title entity field
+    title_field_mode:
+      type: string
+      label: Title entity field empty behavior
     title_value:
       type: string
       label: Title default value
@@ -260,6 +275,12 @@ neo_alchemist.neo_component_value.heading:
     subtitle_entity:
       type: boolean
       label: Title entity label
+    subtitle_field:
+      type: string
+      label: Subtitle entity field
+    subtitle_field_mode:
+      type: string
+      label: Subtitle entity field empty behavior
     subtitle_value:
       type: string
       label: Subtitle default value

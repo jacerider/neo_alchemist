@@ -54,3 +54,105 @@ function neo_alchemist_update_11002() {
     $config->setData($data)->save();
   }
 }
+
+/**
+* Block on empty where a prop's examples are editor scaffolding.
+*
+* getDefaultValue() no longer lets a producer that came up empty destroy the
+* value threaded into it: the search moves on carrying the schema example the
+* pipeline seeded, so attaching an Entity Field provider to a prop no longer
+* silently blanks it on entities whose source field happens to be empty.
+*
+* That is right for a prop whose example is the component author's default —
+* a label, a heading, a subtitle. It is wrong for a prop whose examples are
+* editor scaffolding: placeholder cards, placehold.co images, invented menu
+* links and breadcrumb trails that exist to make the preview legible and must
+* never reach a visitor. Those props say "nothing IS the answer" with the
+* "Always stop (block if empty)" mode, which is now also the default for the
+* producers that fill them (menu, taxonomy_menu, taxonomy_children,
+* entity_reference and breadcrumb, joining entity_query, entity_filter and
+* views). Existing components store their mode explicitly, so this migrates
+* them and keeps rendering exactly as it was.
+*
+* Deliberately conservative — a prop is only rewritten when all of:
+* - Its `ref` is one whose examples are scaffolding rather than a default.
+* - The plugins sit on the prop's own top-level shape. Nested shapes
+*   (`heading~subtitle`, a provider's per-child `shape_fields`) are usually
+*   scalars, where keeping the example is the point of the change.
+* - No `fallback` plugin (the configured Default Value) is enabled on it —
+*   blocking claims the value and would skip the default, replacing one silent
+*   blanking with another.
+* - Only the LAST producer in the pipeline is touched, so a deliberate chain
+*   (entity_reference falling through to entity_query) keeps working.
+* - Every plugin id on the prop resolves. An unknown one means a disabled
+*   module and an unknowable order, so the prop is left alone.
+*/
+function neo_alchemist_update_11003() {
+  $definitions = \Drupal::service('plugin.manager.neo_component_value')->getDefinitions();
+  // Refs whose schema examples are scaffolding, not a usable default.
+  $scaffolding = ['array', 'menu', 'breadcrumb', 'image', 'video', 'media', 'markup'];
+  $changed = [];
+
+  foreach (\Drupal::configFactory()->listAll('neo_alchemist.neo_component.') as $name) {
+    $config = \Drupal::configFactory()->getEditable($name);
+    $data = $config->getRawData();
+    $dirty = FALSE;
+
+    foreach ($data['settings']['props'] ?? [] as $propId => $prop) {
+      if (!in_array($prop['ref'] ?? '', $scaffolding, TRUE)) {
+        continue;
+      }
+      $plugins = $prop['plugins'][$propId] ?? NULL;
+      if (!is_array($plugins) || !$plugins) {
+        continue;
+      }
+
+      $groups = [];
+      foreach (array_keys($plugins) as $pluginId) {
+        if (!isset($definitions[$pluginId]['group'])) {
+          // Unresolvable plugin: the pipeline order cannot be trusted.
+          continue 2;
+        }
+        $groups[$pluginId] = $definitions[$pluginId]['group'];
+      }
+      if (in_array('fallback', $groups, TRUE)) {
+        continue;
+      }
+      $producers = array_keys(array_filter($groups, function ($group) {
+        return $group === 'providers';
+      }));
+      if (!$producers) {
+        continue;
+      }
+
+      $last = end($producers);
+      $mode = $plugins[$last]['settings']['processing_mode'] ?? 'stop_when_found';
+      if ($mode !== 'stop_when_found') {
+        continue;
+      }
+      $data['settings']['props'][$propId]['plugins'][$propId][$last]['settings']['processing_mode'] = 'block';
+      $changed[] = $data['id'] . ' :: ' . $propId . ' (' . $last . ')';
+      $dirty = TRUE;
+    }
+
+    if ($dirty) {
+      $config->setData($data)->save();
+    }
+  }
+
+  // Scalar props are deliberately not migrated: for a label or a heading the
+  // example IS the component author's default and showing it is the point of
+  // the change, but for a prop carrying entity data ("Industry", "Client") the
+  // example is invented content that would now render as fact. Only a person
+  // can tell those apart, so say so rather than guess.
+  $review = (string) t('Review any string, heading or markup prop bound to an entity field: it now falls back to the component\'s example when that field is empty. Where the example is invented data rather than a default label, set its provider to "Always stop (block if empty)".');
+
+  if (!$changed) {
+    return (string) t('No component props needed migrating. @review', ['@review' => $review]);
+  }
+  return (string) t('Set "Always stop (block if empty)" on @count component prop(s), so their placeholder examples cannot reach a visitor: @list. @review', [
+    '@count' => count($changed),
+    '@list' => implode(', ', $changed),
+    '@review' => $review,
+  ]);
+}
