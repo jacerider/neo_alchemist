@@ -345,6 +345,10 @@ neo_alchemist.neo_component_value.entity:
     field:
       type: string
       label: 'The field to get the value from'
+    field_fallback:
+      type: string
+      label: 'The field to get the value from when the first field is empty'
+      nullable: true
     field_assign:
       type: boolean
       label: Manually assign properties

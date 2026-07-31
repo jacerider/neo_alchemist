@@ -35,6 +35,7 @@ trait ComponentValueMatchTrait {
   public function defaultMatchConfiguration() {
     return [
       'field' => '',
+      'field_fallback' => '',
       'field_properties' => [],
       'render_field' => '',
       'render_field_format' => [],
@@ -76,6 +77,40 @@ trait ComponentValueMatchTrait {
   }
 
   /**
+   * Resolve the configured field, falling back to a second field when empty.
+   *
+   * @param \Drupal\neo_alchemist\ComponentShapePluginInterface $shape
+   *   The shape plugin.
+   * @param array|null $properties
+   *   Properties to pass to the matcher for the primary field. The fallback
+   *   field always derives its own — a manual property map describes the
+   *   primary field's properties and would misread a different field.
+   * @param bool $published
+   *   (optional) Whether to only return values from published entities.
+   *
+   * @return mixed
+   *   The primary field's value, or the fallback field's value when the
+   *   primary resolved to nothing. When both are empty the primary's value is
+   *   returned, so the caller sees the same emptiness it would have without a
+   *   fallback configured.
+   */
+  protected function getMatchValueWithFallback(ComponentShapePluginInterface $shape, ?array $properties = NULL, ?bool $published = TRUE): mixed {
+    $field = $this->configuration['field'] ?? '';
+    $value = $this->getMatchValue($shape, $field, $properties, $published);
+
+    $fallback = $this->configuration['field_fallback'] ?? '';
+    // isProvidedValueEmpty() rather than empty(): a `0`, `'0'` or FALSE is a
+    // value a number or boolean prop can legitimately carry, and falling
+    // through to the fallback on those would drop authored content.
+    if (!$fallback || $fallback === $field || !$shape->isProvidedValueEmpty($value)) {
+      return $value;
+    }
+
+    $fallbackValue = $this->getMatchValue($shape, $fallback, $this->getDefaultMatchProperties($fallback), $published);
+    return $shape->isProvidedValueEmpty($fallbackValue) ? $value : $fallbackValue;
+  }
+
+  /**
    * Derive the default child-shape to field-property mapping.
    *
    * When "Manually assign properties" is off, AUTOMATIC mode still needs a
@@ -85,12 +120,16 @@ trait ComponentValueMatchTrait {
    * resolves to nothing. This reconstructs, with no user interaction, the same
    * mapping the manual UI would produce.
    *
+   * @param string|null $field
+   *   (optional) The matcher key to derive the mapping for. Defaults to the
+   *   configured primary field.
+   *
    * @return array
    *   A child-shape-name => field-property-name map, or an empty array when the
    *   shape is not a children shape or no bindable field is configured.
    */
-  protected function getDefaultMatchProperties(): array {
-    $field = $this->configuration['field'] ?? '';
+  protected function getDefaultMatchProperties(?string $field = NULL): array {
+    $field = $field ?? $this->configuration['field'] ?? '';
     if (!$field || $field === '_render' || !$this->shape instanceof ComponentShapeChildrenPluginInterface) {
       return [];
     }
@@ -177,6 +216,26 @@ trait ComponentValueMatchTrait {
 
     if ($field === '_render') {
       $this->buildRenderFieldForm($form, $form_state, $shape, $entityTypeId, $bundle, $wrapperId);
+    }
+
+    // A second field consulted only when the first resolves to nothing. Offered
+    // once a primary field is picked — on its own it has nothing to fall back
+    // from. `_render` is deliberately not among its choices: it is a rendering
+    // mode carrying its own formatter configuration, not a field, and a second
+    // one would need a second set of that configuration to store.
+    if ($field) {
+      $form['field_fallback'] = [
+        '#type' => 'neo_field_select',
+        '#title' => $this->t('Fallback field'),
+        '#description' => $this->t('Optional. Used when the field above is empty. Its properties are mapped automatically from its own definition.'),
+        '#component' => $shape->getComponent()->id(),
+        '#prop' => $shape->getRootShape()->getName(),
+        '#shape' => $shape->id(),
+        '#entity_type' => $entityTypeId,
+        '#bundle' => $bundle,
+        '#empty_option' => $this->t('- None -'),
+        '#default_value' => $this->configuration['field_fallback'] ?? '',
+      ];
     }
 
     return $form;
