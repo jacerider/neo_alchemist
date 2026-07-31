@@ -1,0 +1,18 @@
+$schema: 'https://git.drupalcode.org/project/drupal/-/raw/10.1.x/core/modules/sdc/src/metadata.schema.json'
+name: 'NA heading fixture'
+description: >
+  A single heading prop, so the Heading value provider's sub-prop rules
+  (edit / default / hide / page / entity label / entity field) can be pinned
+  without dragging a theme component into the suite.
+status: stable
+neo: true
+props:
+  type: object
+  properties:
+    heading:
+      type: heading
+      title: Heading
+      examples:
+        supertitle: 'EXAMPLE SUPERTITLE'
+        title: 'EXAMPLE TITLE'
+        subtitle: 'EXAMPLE SUBTITLE'
