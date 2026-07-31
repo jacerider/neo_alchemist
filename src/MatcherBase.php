@@ -190,7 +190,7 @@ abstract class MatcherBase {
    *
    * @param Drupal\Core\Entity\TypedData\EntityDataDefinitionInterface[] $definitions
    *   The definitions.
-   * @param string|null $propertyLabel
+   * @param string|\Stringable|null $propertyLabel
    *   The property label.
    *
    * @return string
