@@ -149,6 +149,43 @@ class FieldMatchLocatorTest extends FieldMatchKernelTestBase {
   }
 
   /**
+   * A pane's fields are grouped, and say which group they are in.
+   *
+   * Within a pane the order is content, then system plumbing, then link
+   * templates, alphabetical inside each. Run together that is three A-Z
+   * sequences in a row — you scroll past "Vocabulary" onto "Language", then
+   * past "Weight" onto "(Link) Alchemist" — which reads as no order at all.
+   * The column draws a boundary wherever the tier changes, so the tier has to
+   * survive into the response rather than being stripped as a sort key.
+   */
+  public function testBrowseLeavesCarryTheirTierAndAreGroupedByIt(): void {
+    $leaves = $this->locator()->browse($this->titleShape())['leaves'];
+
+    $this->assertNotEmpty($leaves);
+    foreach ($leaves as $leaf) {
+      $this->assertArrayHasKey('tier', $leaf, 'The column needs this to draw its group boundaries.');
+    }
+
+    $tiers = array_column($leaves, 'tier');
+    $sorted = $tiers;
+    sort($sorted);
+    $this->assertSame($sorted, $tiers, 'Tiers appear in blocks, never interleaved.');
+
+    // And the ranking is real: this fixture has content and link templates.
+    $this->assertContains(0, $tiers);
+    $this->assertContains(2, $tiers);
+    $byTier = [];
+    foreach ($leaves as $leaf) {
+      $byTier[$leaf['tier']][] = $leaf['label'];
+    }
+    foreach ($byTier as $tier => $labels) {
+      $alphabetical = $labels;
+      sort($alphabetical);
+      $this->assertSame($alphabetical, $labels, "Tier {$tier} is alphabetical within itself.");
+    }
+  }
+
+  /**
    * Descending names the hop taken, not the entity landed on.
    *
    * Labelling every crumb by its entity reads as "User › User" the moment a

@@ -224,6 +224,19 @@ Modifiers always run afterward regardless. Mechanics:
 - **Veto** producers (`user_has_role`, `entity_has_value`) opt out of the mode; they
   `claimValue()` explicitly and return `FALSE`.
 
+**Entity-field matching** — the `entity` producer sources a prop straight from an entity
+field via `ComponentValueMatchTrait`. Its `field` select takes a matcher key (a dotted
+reference path, plus the `_render` pseudo-field for markup props), and an optional
+`field_fallback` names a second field consulted **only when the first resolves to
+nothing**. Emptiness is `ComponentShapePluginBase::isProvidedValueEmpty()`, not
+`empty()`, so a legitimate `0`/`'0'`/`FALSE` does not fall through. The fallback derives
+its own child-property mapping from its own field definition — a manual
+`field_properties` map describes the primary field's properties and would misread a
+different one — and `_render` is deliberately not offered for it, since it is a
+rendering mode carrying its own formatter config rather than a field. When both fields
+are empty the primary's value is returned, so the pipeline sees exactly the emptiness it
+would have without a fallback configured.
+
 **Children-match pseudo-fields** — producers that map entity fields onto child shapes
 (`entity_reference`, `entity_query`, `entity_load`, `entity_filter`, `views`, …) share
 `ComponentValueChildrenMatchTrait`. Its per-child "Field" select offers, besides real
