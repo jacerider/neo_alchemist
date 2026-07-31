@@ -13,6 +13,7 @@ use Drupal\Core\Entity\EntityRepositoryInterface;
 use Drupal\Core\Entity\EntityTypeBundleInfoInterface;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Form\SubformState;
+use Drupal\Core\Render\Element;
 use Drupal\Core\TempStore\PrivateTempStoreFactory;
 use Drupal\neo_alchemist\Ajax\InstanceComponentManageIframeCommand;
 use Drupal\neo_alchemist\Ajax\ComponentAjaxFormHelperTrait;
@@ -186,6 +187,16 @@ final class InstanceComponentForm extends ContentEntityForm {
     $form['actions']['#attributes']['class'][] = 'mt-0';
     $form['footer']['actions'] = $form['actions'];
     unset($form['actions']);
+
+    // This is a content entity form, so field_group attaches the entity's form
+    // display groups to it, even though the form display is never rendered
+    // here. Without opting out, field_group pulls any element whose key
+    // matches a grouped field name into that group - 'description' being the
+    // common collision - and renders a stray tab around it.
+    foreach (Element::children($form) as $key) {
+      $form[$key]['#field_group_ignore'] = TRUE;
+    }
+
     return $form;
   }
 
