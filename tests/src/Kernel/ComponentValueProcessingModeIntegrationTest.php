@@ -180,11 +180,18 @@ class ComponentValueProcessingModeIntegrationTest extends KernelTestBase {
     // that fill an authored scalar — entity on a string, heading, page_title —
     // deliberately stay on stop_when_found so the component author's example
     // survives an empty source field.
+    //
+    // `event` is the one continue, and it is a compatibility pin rather than a
+    // shape judgement: the plugin predates the mode and never claimed on its
+    // own, deferring entirely to a subscriber's stopFurtherProcessing() call.
+    // continue reproduces that exactly, so adopting the trait changed nothing
+    // for components already configured with it.
     $this->assertSame([
       'breadcrumb' => ComponentValueProcessingModeInterface::MODE_BLOCK,
       'entity_filter' => ComponentValueProcessingModeInterface::MODE_BLOCK,
       'entity_query' => ComponentValueProcessingModeInterface::MODE_BLOCK,
       'entity_reference' => ComponentValueProcessingModeInterface::MODE_BLOCK,
+      'event' => ComponentValueProcessingModeInterface::MODE_CONTINUE,
       'menu' => ComponentValueProcessingModeInterface::MODE_BLOCK,
     ], $nonDefault, 'The set of providers defaulting to a non-standard processing mode changed.');
   }

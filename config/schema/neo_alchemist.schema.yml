@@ -418,6 +418,14 @@ neo_alchemist.neo_component_value.entity_load:
       type: string
       label: 'Processing mode'
 
+neo_alchemist.neo_component_value.event:
+  type: mapping
+  label: 'Event value provider'
+  mapping:
+    processing_mode:
+      type: string
+      label: 'Processing mode'
+
 neo_alchemist.neo_component_value.formatted_text:
   type: mapping
   label: 'Formatted text value provider'

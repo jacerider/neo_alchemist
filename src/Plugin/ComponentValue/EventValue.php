@@ -11,6 +11,7 @@ use Drupal\Core\Plugin\ContainerFactoryPluginInterface;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\neo_alchemist\Attribute\ComponentValue;
 use Drupal\neo_alchemist\ComponentShapePluginInterface;
+use Drupal\neo_alchemist\ComponentValueProcessingModeInterface;
 use Drupal\neo_alchemist\ComponentValuePluginBase;
 use Drupal\neo_alchemist\Event\ComponentValueEvent;
 use Symfony\Component\DependencyInjection\ContainerInterface;
@@ -26,9 +27,32 @@ use Symfony\Component\EventDispatcher\EventDispatcherInterface;
   group: 'providers',
   weight: -5,
 )]
-final class EventValue extends ComponentValuePluginBase implements ContainerFactoryPluginInterface {
+final class EventValue extends ComponentValuePluginBase implements ContainerFactoryPluginInterface, ComponentValueProcessingModeInterface {
 
   use DependencySerializationTrait;
+  use ComponentValueProcessingModeTrait;
+
+  /**
+   * {@inheritdoc}
+   */
+  public function defaultConfiguration() {
+    return $this->processingModeDefaultConfiguration();
+  }
+
+  /**
+   * {@inheritdoc}
+   *
+   * Before this plugin gained a mode, it never claimed on its own: it returned
+   * whatever the subscriber set and let the search continue unless the
+   * subscriber called $event->stopFurtherProcessing(). That is exactly
+   * MODE_CONTINUE, so it stays the default — every already-configured
+   * component keeps rendering what it renders today, and the subscriber
+   * remains the only thing that halts the search until a site builder
+   * deliberately picks otherwise.
+   */
+  protected function processingModeDefault(): string {
+    return ComponentValueProcessingModeInterface::MODE_CONTINUE;
+  }
 
   /**
    * The event dispatcher.
@@ -91,6 +115,8 @@ final class EventValue extends ComponentValuePluginBase implements ContainerFact
         ],
       ];
     }
+
+    $form = $this->buildProcessingModeForm($form, $form_state);
 
     return $form;
   }
@@ -244,7 +270,15 @@ final class EventValue extends ComponentValuePluginBase implements ContainerFact
     $this->eventDispatcher->dispatch($event, ComponentValueEvent::EVENT_NAME);
     $value = $event->getValue();
     $this->shape->addCacheableDependency($event);
-    if (!$event->continueProcessing) {
+    // A subscriber calling $event->stopFurtherProcessing() is the documented
+    // veto case: code that has already inspected the value is stating that
+    // nothing further should run, which outranks whatever the site builder
+    // picked in the form. Raising the claim here rather than in the mode is
+    // deliberate — applyProcessingMode() returns early on hasClaimedValue(),
+    // so the veto survives even under "Provide, allow later changes", and an
+    // empty vetoed value is kept as the answer instead of falling back to the
+    // schema example. When the subscriber stays silent the mode decides.
+    if (!$event->shouldContinueProcessing()) {
       $this->stopFurtherProcessing();
     }
     return $value;
