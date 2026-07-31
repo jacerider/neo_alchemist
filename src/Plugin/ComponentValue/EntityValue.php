@@ -165,7 +165,7 @@ final class EntityValue extends ComponentValuePluginBase implements ContainerFac
     $properties = $this->configuration['field_assign']
       ? $this->configuration['field_properties']
       : $this->getDefaultMatchProperties();
-    $entityValue = $this->getMatchValue($this->shape, $this->configuration['field'], $properties, FALSE);
+    $entityValue = $this->getMatchValueWithFallback($this->shape, $properties, FALSE);
     $hasValue = !empty($entityValue);
     $this->hasEntityValue = $hasValue;
 
