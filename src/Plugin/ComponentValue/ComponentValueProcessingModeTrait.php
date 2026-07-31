@@ -14,6 +14,13 @@ use Drupal\neo_alchemist\ComponentValueProcessingModeInterface;
  * extends ComponentValuePluginBase. The provider just produces its value; this
  * trait exposes the mode select and lets the pipeline decide whether to claim.
  *
+ * The mode also decides what an EMPTY result means, because getDefaultValue()
+ * keeps the value threaded into a producer that came up empty without claiming.
+ * stop_when_found and continue therefore say "I found nothing, carry on with
+ * what you had" — for an untouched prop, the component's schema example.
+ * Only a claim (block, or a veto) says "nothing IS the answer", so block is the
+ * mode for a prop whose examples are editor scaffolding rather than a default.
+ *
  * **Scope: the mode governs the provider search, and nothing else.**
  * applyProcessingMode() is called from exactly one place,
  * ComponentShapePluginBase::getDefaultValue(). That is not a narrow reach that
@@ -107,7 +114,7 @@ trait ComponentValueProcessingModeTrait {
     $form['processing_mode'] = [
       '#type' => 'select',
       '#title' => $this->t('Processing'),
-      '#description' => $this->t('What happens after this provider runs, while the providers on this prop are searched for a value. "Stop when a value is found" lets later providers fill in when this one is empty. "Provide, allow later changes" always lets later providers change the value. "Always stop" halts the search even when empty. Either way, modifiers such as prefix and format still run afterwards, an authored value still wins, and a required prop still falls back to the component\'s example when the search ends with nothing.'),
+      '#description' => $this->t('What happens after this provider runs, while the providers on this prop are searched for a value. "Stop when a value is found" lets later providers fill in when this one is empty. "Provide, allow later changes" always lets later providers change the value. "Always stop" halts the search even when empty — pick it when an empty source must render nothing, such as a list, menu or image whose example is only a placeholder for the editor. With either of the other two, a provider that finds nothing leaves the value alone, so a prop whose source field is empty falls back to the component\'s own example. Modifiers such as prefix and format still run afterwards in every case, and an authored value still wins.'),
       '#options' => $this->processingModeOptions(),
       '#default_value' => $this->getProcessingMode(),
     ];

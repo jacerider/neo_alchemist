@@ -190,6 +190,20 @@ The site builder picks each producer's behavior via a standard **"Processing"** 
 - **Block if empty** (`MODE_BLOCK`) — claim always, so an empty result renders nothing
   and no later producer runs.
 
+**A producer that comes up empty without claiming does not destroy the value threaded
+into it.** The pipeline seeds each prop from its schema `examples` and threads that seed
+through the producer search, so "falls through to the next" means the seed (or an earlier
+producer's answer) is still in hand when the search ends: attaching a provider to a prop
+cannot leave it worse off than never having attached one. That is why `default`
+(`fallback`) tests for *the untouched example* rather than only for emptiness — it is
+routinely handed the seed. The counterweight is the claim: **block** and the vetoes exist
+to say "nothing IS the answer". Choose block for any prop whose examples are editor
+scaffolding — placeholder cards, placehold.co images, invented menu links — rather than a
+usable default; it is already the shipped default for the producers that fill those props
+(`entity_query`, `entity_filter`, `views`, `menu`, `taxonomy_menu`, `taxonomy_children`,
+`entity_reference`, `breadcrumb`), and `neo_alchemist_update_11003()` migrated existing
+components onto it.
+
 Modifiers always run afterward regardless. Mechanics:
 
 - **Claim** = halt the producer search. `ComponentValuePluginInterface::claimValue()`
@@ -202,7 +216,11 @@ Modifiers always run afterward regardless. Mechanics:
   a scalar is empty only when `NULL` or `''`, so a legitimate `0`/`'0'`/`FALSE` still
   counts as found). Producers no longer hard-code the claim.
 - **`default`** (weight 1000, group `fallback`) only fills when the value is still
-  empty, so a non-claiming producer's value survives to render.
+  empty *or is still the untouched schema example*, so a non-claiming producer's value
+  survives to render while a site builder's configured default still supersedes the
+  component author's placeholder. Note that blocking claims before it runs: a prop with a
+  configured Default Value must not put its producer on block, or the default never gets
+  a turn.
 - **Veto** producers (`user_has_role`, `entity_has_value`) opt out of the mode; they
   `claimValue()` explicitly and return `FALSE`.
 
