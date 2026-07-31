@@ -610,6 +610,14 @@ final class MatcherField extends MatcherBase {
       if ($fieldDefinition instanceof ComponentFieldConfigInterface) {
         continue;
       }
+      // Same exclusion as ::matchScalar(). This arm is the "offer every field"
+      // mode used for sort keys and for "render with a field formatter", and
+      // without the check it offered the password hash as something to render
+      // — which is exactly what EXCLUDED_FIELD_TYPES exists to prevent, and
+      // its contract says "whatever the shape accepts".
+      if (in_array($fieldDefinition->getType(), static::EXCLUDED_FIELD_TYPES, TRUE)) {
+        continue;
+      }
       $parentFieldDefinitions = [...$parentDefinitions, $fieldDefinition];
       $matches[$this->key($parentFieldDefinitions)] = $this->buildMatchEntry($parentFieldDefinitions, $fieldDefinition, $level);
 

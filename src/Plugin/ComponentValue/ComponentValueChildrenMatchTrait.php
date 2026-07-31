@@ -232,10 +232,16 @@ trait ComponentValueChildrenMatchTrait {
           case '_render':
             $renderFieldId = $configuration['render_field'] ?? NULL;
             $form['render_field'] = [
-              '#type' => 'select',
+              '#type' => 'neo_field_select',
               '#title' => $this->t('Field to render'),
               '#required' => TRUE,
-              '#options' => $this->matcherField->getMatchesAsOptions($shape, $entityTypeId, $bundle, NULL, TRUE),
+              '#component' => $shape->getComponent()->id(),
+              '#prop' => $shape->getRootShape()->getName(),
+              '#shape' => $shape->id(),
+              '#all' => TRUE,
+              '#entity_type' => $entityTypeId,
+              '#bundle' => $bundle,
+              '#empty_option' => $this->t('- Select -'),
               '#default_value' => $renderFieldId,
               '#ajax' => [
                 'callback' => [static::class, 'refreshChildrenMatchAjax'],

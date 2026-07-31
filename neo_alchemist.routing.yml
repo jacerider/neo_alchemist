@@ -155,3 +155,23 @@ neo_alchemist.component_style_settings:
     _form: 'Drupal\neo_alchemist\Form\ComponentStyleSettingsForm'
   requirements:
     _permission: 'administer neo_alchemist'
+
+neo_alchemist.field_match_search:
+  path: '/admin/config/neo/alchemist/field-match/{component}/{prop}/{shape}'
+  defaults:
+    _controller: '\Drupal\neo_alchemist\Controller\FieldMatchController'
+    _title: 'Field matches'
+  requirements:
+    _permission: 'administer neo_alchemist'
+  options:
+    _admin_route: TRUE
+
+neo_alchemist.field_match_browse:
+  path: '/admin/config/neo/alchemist/field-match/{component}/{prop}/{shape}/browse'
+  defaults:
+    _controller: '\Drupal\neo_alchemist\Controller\FieldMatchController::browse'
+    _title: 'Browse fields'
+  requirements:
+    _permission: 'administer neo_alchemist'
+  options:
+    _admin_route: TRUE

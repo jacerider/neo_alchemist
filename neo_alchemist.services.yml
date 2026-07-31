@@ -140,3 +140,7 @@ services:
     arguments: ['@entity_type.manager', '@module_handler']
     tags:
       - { name: 'event_subscriber' }
+
+  neo_alchemist.field_match_locator:
+    class: '\Drupal\neo_alchemist\FieldMatchLocator'
+    arguments: ['@entity_type.manager', '@neo_alchemist.matcher_field', '@cache.data']

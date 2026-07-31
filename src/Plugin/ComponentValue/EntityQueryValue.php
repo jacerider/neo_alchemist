@@ -220,9 +220,16 @@ final class EntityQueryValue extends ComponentValuePluginBase implements Contain
       $form += $this->buildChildrenMatchConfigurationForm($this->shape, $form, $form_state, $entityTypeId, $bundle, $this->configuration);
 
       $form['sort_field'] = [
-        '#type' => 'select',
+        '#type' => 'neo_field_select',
         '#title' => $this->t('Sort by field'),
-        '#options' => $this->matcherField->getMatchesAsOptions($this->shape, $entityTypeId, $bundle, NULL, TRUE),
+        '#component' => $this->shape->getComponent()->id(),
+        '#prop' => $this->shape->getRootShape()->getName(),
+        '#shape' => $this->shape->id(),
+        '#all' => TRUE,
+        // The sort fields belong to the entity type being QUERIED, which is
+        // not the type the component is attached to.
+        '#entity_type' => $entityTypeId,
+        '#bundle' => $bundle,
         '#empty_option' => $this->t('- Default -'),
         '#default_value' => $this->configuration['sort_field'] ?? NULL,
         '#id' => $wrapperId . '-sort-field',
@@ -244,9 +251,16 @@ final class EntityQueryValue extends ComponentValuePluginBase implements Contain
       ];
 
       $form['sort_field_2'] = [
-        '#type' => 'select',
+        '#type' => 'neo_field_select',
         '#title' => $this->t('Sort by field (secondary)'),
-        '#options' => $this->matcherField->getMatchesAsOptions($this->shape, $entityTypeId, $bundle, NULL, TRUE),
+        '#component' => $this->shape->getComponent()->id(),
+        '#prop' => $this->shape->getRootShape()->getName(),
+        '#shape' => $this->shape->id(),
+        '#all' => TRUE,
+        // The sort fields belong to the entity type being QUERIED, which is
+        // not the type the component is attached to.
+        '#entity_type' => $entityTypeId,
+        '#bundle' => $bundle,
         '#empty_option' => $this->t('- Default -'),
         '#default_value' => $this->configuration['sort_field_2'] ?? NULL,
         '#id' => $wrapperId . '-sort-field-2',

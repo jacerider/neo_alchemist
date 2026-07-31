@@ -117,3 +117,13 @@ library.snapdom:
     gpl-compatible: true
   js:
     lib/js/snapdom.js: { minified: true, attributes: { defer: true } }
+
+field-browser:
+  version: VERSION
+  neo: { scope: back }
+  js:
+    src/js/field-browser.ts: {}
+  dependencies:
+    - core/drupal
+    - core/once
+    - neo_modal/modal

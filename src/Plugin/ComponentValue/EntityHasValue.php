@@ -80,10 +80,13 @@ final class EntityHasValue extends ComponentValuePluginBase implements Container
    */
   protected function configurationForm(array $form, FormStateInterface $form_state, array &$complete_form): array {
     $form['field'] = [
-      '#type' => 'select',
+      '#type' => 'neo_field_select',
       '#title' => $this->t('Field'),
       '#description' => $this->t('Select the field to use as the value.'),
-      '#options' => $this->matcherField->getMatchesAsOptions($this->shape, NULL, NULL, NULL, TRUE),
+      '#component' => $this->shape->getComponent()->id(),
+      '#prop' => $this->shape->getRootShape()->getName(),
+      '#shape' => $this->shape->id(),
+      '#all' => TRUE,
       '#empty_option' => $this->t('- Select -'),
       '#default_value' => $this->configuration['field'],
       '#required' => TRUE,

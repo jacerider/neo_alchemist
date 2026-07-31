@@ -43,13 +43,6 @@ trait ComponentValueMatchTrait {
 
   /**
    * Get the values for the shape matcher.
-   */
-  protected function getMatchOptions(): array {
-    return $this->matcherField->getMatchesAsOptions($this->shape);
-  }
-
-  /**
-   * Get the values for the shape matcher.
    *
    * @param \Drupal\neo_alchemist\ComponentShapePluginInterface $shape
    *   The shape plugin.
@@ -154,31 +147,27 @@ trait ComponentValueMatchTrait {
     $field = $this->configuration['field'];
     $shape = $this->shape;
 
-    $options = $this->getMatchOptions();
+    // One searchable, browsable control in place of the group-then-field pair
+    // of selects. The group step existed only to keep the option count down —
+    // a shape's match list runs past a thousand entries once referenced
+    // entities are walked — and cost the ability to find a field by name
+    // without already knowing which reference path reaches it.
+    $extra = [];
     if ($shape->getRef() === 'markup') {
-      $options['- Shape -']['_render'] = $this->t('Render with field formatter');
+      $extra['_render'] = $this->t('Render with field formatter');
     }
-    $groupNames = array_keys($options);
-    $groups = array_combine($groupNames, $groupNames);
-    asort($groups);
-
-    $group = $form_state->get('group--' . $form['#id']);
-    if (!$group && $field) {
-      foreach ($options as $optionGroup => $ops) {
-        if (isset($ops[$field])) {
-          $group = $optionGroup;
-          break;
-        }
-      }
-    }
-    $form['#element_validate'][] = [static::class, 'validateMatchConfigurationForm'];
-    $form['group'] = [
-      '#type' => 'select',
-      '#title' => $this->t('Group'),
-      '#description' => $this->t('Select the group to use as the value.'),
-      '#options' => $groups,
-      '#empty_option' => $this->t('- None -'),
-      '#default_value' => $group,
+    $form['field'] = [
+      '#type' => 'neo_field_select',
+      '#title' => $this->t('Field'),
+      '#description' => $this->t('Select the field to use as the value.'),
+      '#component' => $shape->getComponent()->id(),
+      '#prop' => $shape->getRootShape()->getName(),
+      '#shape' => $shape->id(),
+      '#entity_type' => $entityTypeId,
+      '#bundle' => $bundle,
+      '#extra' => $extra,
+      '#empty_option' => $this->t('- Select -'),
+      '#default_value' => $field,
       '#required' => TRUE,
       '#ajax' => [
         'callback' => [static::class, 'refreshMatchAjax'],
@@ -186,25 +175,8 @@ trait ComponentValueMatchTrait {
       ],
     ];
 
-    if ($group && isset($options[$group])) {
-      $field = isset($options[$group][$field]) ? $field : NULL;
-      $form['field'] = [
-        '#type' => 'select',
-        '#title' => $this->t('Field'),
-        '#description' => $this->t('Select the field to use as the value.'),
-        '#options' => $options[$group],
-        '#empty_option' => $this->t('- Select -'),
-        '#default_value' => $field,
-        '#required' => TRUE,
-        '#ajax' => [
-          'callback' => [static::class, 'refreshMatchAjax'],
-          'wrapper' => $wrapperId,
-        ],
-      ];
-
-      if ($field === '_render') {
-        $this->buildRenderFieldForm($form, $form_state, $shape, $entityTypeId, $bundle, $wrapperId);
-      }
+    if ($field === '_render') {
+      $this->buildRenderFieldForm($form, $form_state, $shape, $entityTypeId, $bundle, $wrapperId);
     }
 
     return $form;
@@ -216,10 +188,16 @@ trait ComponentValueMatchTrait {
   private function buildRenderFieldForm(array &$form, FormStateInterface $form_state, ComponentShapePluginInterface $shape, ?string $entityTypeId, ?string $bundle, string $wrapperId): void {
     $renderFieldId = $this->configuration['render_field'] ?? NULL;
     $form['render_field'] = [
-      '#type' => 'select',
+      '#type' => 'neo_field_select',
       '#title' => $this->t('Field to render'),
       '#required' => TRUE,
-      '#options' => $this->matcherField->getMatchesAsOptions($shape, $entityTypeId, $bundle, NULL, TRUE),
+      '#component' => $shape->getComponent()->id(),
+      '#prop' => $shape->getRootShape()->getName(),
+      '#shape' => $shape->id(),
+      '#all' => TRUE,
+      '#entity_type' => $entityTypeId,
+      '#bundle' => $bundle,
+      '#empty_option' => $this->t('- Select -'),
       '#default_value' => $renderFieldId,
       '#ajax' => [
         'callback' => [static::class, 'refreshMatchAjax'],
@@ -246,20 +224,6 @@ trait ComponentValueMatchTrait {
         'wrapper' => $wrapperId,
       ]
     );
-  }
-
-  /**
-   * Validate the match configuration form.
-   */
-  public static function validateMatchConfigurationForm(array &$element, FormStateInterface $form_state, array &$complete_form) {
-    // Unset group so it is not saved. It is only used in the UI.
-    $values = $form_state->getValue($element['#parents']);
-    $form_state->set('group--' . $element['#id'], $values['group']);
-    unset($values['group']);
-    if (empty($values['field'])) {
-      $values['field'] = NULL;
-    }
-    $form_state->setValue($element['#parents'], $values);
   }
 
   /**

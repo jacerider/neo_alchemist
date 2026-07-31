@@ -245,7 +245,7 @@ final class HeadingValue extends ComponentValuePluginBase implements ContainerFa
         ];
       }
       if (isset($this->configuration["{$key}_field"]) && isset($childShapes[$key])) {
-        $form["{$key}"] = $this->buildFieldSourceForm($form["{$key}"], $form_state, $key, $childShapes[$key], $wrapperId);
+        $form["{$key}"] = $this->buildFieldSourceForm($form["{$key}"], $key, $childShapes[$key], $wrapperId);
       }
       if (isset($this->configuration["{$key}_value"]) || is_null($this->configuration["{$key}_value"])) {
         if ($key === 'size') {
@@ -277,15 +277,16 @@ final class HeadingValue extends ComponentValuePluginBase implements ContainerFa
   /**
    * Build the entity field binding for a single sub-prop.
    *
-   * The matcher walks referenced entities several levels deep, so a single
-   * sub-prop can be offered well over a thousand fields. They are picked in
-   * two steps — group, then field — the same way the generic "Entity Field"
-   * provider does it, rather than as one unusable flat list.
+   * One searchable control rather than the group-then-field pair of selects
+   * this used to render. The matcher walks referenced entities two levels
+   * deep, so a sub-prop is offered well over a thousand fields — too many to
+   * put in a `<select>`, and splitting them by reference path meant you had to
+   * know which path reached a field before you could search for it by name.
+   * The neo_field_select element renders no options and searches the whole set
+   * server-side instead.
    *
    * @param array $form
    *   The sub-prop fieldset.
-   * @param \Drupal\Core\Form\FormStateInterface $form_state
-   *   The form state.
    * @param string $key
    *   The sub-prop name.
    * @param \Drupal\neo_alchemist\ComponentShapePluginInterface $childShape
@@ -296,11 +297,11 @@ final class HeadingValue extends ComponentValuePluginBase implements ContainerFa
    *   The ajax wrapper id of the plugin's settings form.
    *
    * @return array
-   *   The fieldset with the group/field/mode elements added.
+   *   The fieldset with the field/mode elements added.
    */
-  protected function buildFieldSourceForm(array $form, FormStateInterface $form_state, string $key, ComponentShapePluginInterface $childShape, string $wrapperId): array {
-    $options = $this->getMatcher()->getMatchesAsOptions($childShape);
-    if (!$options) {
+  protected function buildFieldSourceForm(array $form, string $key, ComponentShapePluginInterface $childShape, string $wrapperId): array {
+    $component = $this->getShape()->getComponent();
+    if (!$component->id() || !$childShape->getTargetEntityType()) {
       return $form;
     }
     // The page title and the entity label are alternative sources, so the
@@ -308,27 +309,15 @@ final class HeadingValue extends ComponentValuePluginBase implements ContainerFa
     $access = empty($this->configuration["{$key}_page"]) && empty($this->configuration["{$key}_entity"]);
     $field = $this->configuration["{$key}_field"];
 
-    // Reopen on the group holding the saved field, unless the site builder has
-    // since picked a different one.
-    $group = $form_state->get($this->groupStateKey($wrapperId, $key));
-    if (!$group && $field) {
-      foreach ($options as $optionGroup => $groupOptions) {
-        if (isset($groupOptions[$field])) {
-          $group = $optionGroup;
-          break;
-        }
-      }
-    }
-
-    $groups = array_combine(array_keys($options), array_keys($options));
-    asort($groups);
-    $form['group'] = [
-      '#type' => 'select',
+    $form['field'] = [
+      '#type' => 'neo_field_select',
       '#title' => $this->t('Use %title as value', ['%title' => $this->t('entity field')]),
       '#neo_size' => 'xs',
-      '#options' => $groups,
+      '#component' => $component->id(),
+      '#prop' => $this->getShape()->getName(),
+      '#shape' => $childShape->id(),
       '#empty_option' => $this->t('- None -'),
-      '#default_value' => $group,
+      '#default_value' => $field,
       '#access' => $access,
       '#ajax' => [
         'callback' => [static::class, 'refreshAjax'],
@@ -336,27 +325,7 @@ final class HeadingValue extends ComponentValuePluginBase implements ContainerFa
       ],
     ];
 
-    // No group means no binding: leaving the field element out of the form is
-    // what resets "{$key}_field" back to its empty default on save.
-    if (!$group || !isset($options[$group])) {
-      return $form;
-    }
-
-    $form['field'] = [
-      '#type' => 'select',
-      '#title' => $this->t('Field'),
-      '#neo_size' => 'xs',
-      '#options' => $options[$group],
-      '#empty_option' => $this->t('- Select -'),
-      '#default_value' => isset($options[$group][$field]) ? $field : NULL,
-      '#access' => $access,
-      '#ajax' => [
-        'callback' => [static::class, 'refreshAjax'],
-        'wrapper' => $wrapperId,
-      ],
-    ];
-
-    if (isset($options[$group][$field])) {
+    if ($field) {
       $form['field_mode'] = [
         '#type' => 'select',
         '#title' => $this->t('When the field is empty'),
@@ -372,21 +341,6 @@ final class HeadingValue extends ComponentValuePluginBase implements ContainerFa
     }
 
     return $form;
-  }
-
-  /**
-   * The form state key holding a sub-prop's picked field group.
-   *
-   * @param string $wrapperId
-   *   The ajax wrapper id of the plugin's settings form.
-   * @param string $key
-   *   The sub-prop name.
-   *
-   * @return string
-   *   The key.
-   */
-  protected function groupStateKey(string $wrapperId, string $key): string {
-    return 'neo_heading_field_group--' . $wrapperId . '--' . $key;
   }
 
   /**
@@ -415,7 +369,6 @@ final class HeadingValue extends ComponentValuePluginBase implements ContainerFa
    */
   protected function configurationValidate(array $form, FormStateInterface $form_state): void {
     $values = $form_state->getValues();
-    $wrapperId = $form['#id'] ?? '';
     $finalValues = [];
     foreach ($values as $key => $v) {
       if (!is_array($v)) {
@@ -423,13 +376,6 @@ final class HeadingValue extends ComponentValuePluginBase implements ContainerFa
         continue;
       }
       foreach ($v as $ii => $vv) {
-        if ($ii === 'group') {
-          // The group only narrows the field list. Remember the pick so the
-          // rebuilt form reopens on it, but never let it reach configuration —
-          // it is a UI affordance, not a setting, and has no config schema.
-          $form_state->set($this->groupStateKey($wrapperId, $key), $vv);
-          continue;
-        }
         $finalValues["{$key}_{$ii}"] = $vv;
       }
     }
