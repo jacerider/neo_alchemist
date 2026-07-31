@@ -109,6 +109,17 @@ final class TaxonomyChildrenValue extends ComponentValuePluginBase implements Co
   }
 
   /**
+   * {@inheritdoc}
+   *
+   * Matches its children-match siblings: a term with no children fills no list,
+   * and a list's examples are sample rows meant for the editor preview, never
+   * for a visitor.
+   */
+  protected function processingModeDefault(): string {
+    return ComponentValueProcessingModeInterface::MODE_BLOCK;
+  }
+
+  /**
    * Configuration form for the value provider plugin.
    */
   protected function configurationForm(array $form, FormStateInterface $form_state, array &$complete_form): array {

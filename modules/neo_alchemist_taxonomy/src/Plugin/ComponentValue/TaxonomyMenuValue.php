@@ -154,6 +154,17 @@ final class TaxonomyMenuValue extends ComponentValuePluginBase implements Contai
 
   /**
    * {@inheritdoc}
+   *
+   * Matches MenuValue: the invented example links are editor scaffolding, so a
+   * vocabulary (or subtree) that yields no terms renders nothing rather than
+   * letting the seeded example ride through the now non-destructive search.
+   */
+  protected function processingModeDefault(): string {
+    return ComponentValueProcessingModeInterface::MODE_BLOCK;
+  }
+
+  /**
+   * {@inheritdoc}
    */
   public function isEditable(): bool {
     return FALSE;

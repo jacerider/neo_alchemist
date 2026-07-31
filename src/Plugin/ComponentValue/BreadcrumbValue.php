@@ -98,6 +98,19 @@ final class BreadcrumbValue extends ComponentValuePluginBase implements Containe
   }
 
   /**
+   * {@inheritdoc}
+   *
+   * The example crumbs are scaffolding for the editor preview. A page whose
+   * breadcrumb genuinely has no links (the front page, a route the manager
+   * builds nothing for) must render none, not the invented trail — and after
+   * getDefaultValue() stopped letting an empty non-claiming producer wipe the
+   * seeded example, claiming is the only way to say so.
+   */
+  protected function processingModeDefault(): string {
+    return ComponentValueProcessingModeInterface::MODE_BLOCK;
+  }
+
+  /**
    * Configuration form for the value provider plugin.
    */
   protected function configurationForm(array $form, FormStateInterface $form_state, array &$complete_form): array {

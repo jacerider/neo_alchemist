@@ -110,6 +110,21 @@ final class MenuValue extends ComponentValuePluginBase implements ContainerFacto
   }
 
   /**
+   * {@inheritdoc}
+   *
+   * A menu's schema examples are editor scaffolding — invented links that must
+   * never reach a visitor. This provider always acts, so "resolved no links"
+   * is an answer, not a decline: a start level deeper than the active trail,
+   * or a tree whose every item failed access, means the prop renders nothing.
+   * Since getDefaultValue() now keeps the value threaded past a non-claiming
+   * producer that came up empty, only a claim expresses that, and this is the
+   * mode that claims.
+   */
+  protected function processingModeDefault(): string {
+    return ComponentValueProcessingModeInterface::MODE_BLOCK;
+  }
+
+  /**
    * Get a list of menus.
    *
    * @return \Drupal\system\MenuInterface[]

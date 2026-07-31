@@ -116,6 +116,21 @@ final class EntityReferenceValue extends ComponentValuePluginBase implements Con
   }
 
   /**
+   * {@inheritdoc}
+   *
+   * Blocks on empty like its children-match siblings entity_query,
+   * entity_filter and views. The prop this fills is a list, and its examples
+   * are sample rows — placeholder cards and placehold.co images that make
+   * the editor preview legible. An unpopulated reference field means the list
+   * has nothing in it, so it must render as nothing; getDefaultValue() keeps
+   * the seeded example past a non-claiming producer, and only a claim says
+   * "empty is the answer".
+   */
+  protected function processingModeDefault(): string {
+    return ComponentValueProcessingModeInterface::MODE_BLOCK;
+  }
+
+  /**
    * Configuration form for the value provider plugin.
    */
   protected function configurationForm(array $form, FormStateInterface $form_state, array &$complete_form): array {
