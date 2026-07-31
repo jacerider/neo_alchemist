@@ -289,7 +289,10 @@ final class FieldMatchLocator {
         $leaves[] = [
           'value' => $key,
           'label' => $match['title'],
-          '_tier' => $this->tier($key),
+          // Kept, not stripped: three alphabetical runs concatenated read as
+          // no order at all, so the column draws a boundary where this
+          // changes.
+          'tier' => $this->tier($key),
         ];
         continue;
       }
@@ -315,11 +318,7 @@ final class FieldMatchLocator {
     }
     unset($ref);
 
-    usort($leaves, static fn (array $a, array $b) => [$a['_tier'], $a['label']] <=> [$b['_tier'], $b['label']]);
-    foreach ($leaves as &$leaf) {
-      unset($leaf['_tier']);
-    }
-    unset($leaf);
+    usort($leaves, static fn (array $a, array $b) => [$a['tier'], $a['label']] <=> [$b['tier'], $b['label']]);
     usort($refs, static fn (array $a, array $b) => $a['label'] <=> $b['label']);
 
     return [

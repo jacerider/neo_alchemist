@@ -14,7 +14,7 @@
  */
 (function (Drupal, once) {
 
-  interface Leaf { value: string; label: string; }
+  interface Leaf { value: string; label: string; tier?: number; }
   interface Ref { path: string; segment: string; label: string; target: string; count: number; }
   interface Crumb { path: string; label: string; entity: string; }
   interface Pane { path: string; entity: string; crumbs: Crumb[]; leaves: Leaf[]; refs: Ref[]; }
@@ -76,6 +76,7 @@
         trigger: this.trigger,
         content: () => this.root,
         width: '64rem',
+        headerInContent: true,
         contentScroll: false,
       });
       this.loadPane('');
@@ -238,15 +239,26 @@
       // others — under a scroll nobody knows to perform.
       const leaves = document.createElement('div');
       leaves.className = 'neo-field-browser--leaves grow overflow-y-auto min-h-0';
-      pane.leaves.forEach(leaf => leaves.append(this.leafRow(leaf, pane)));
+      // Fields are ranked content → system plumbing → link templates, and
+      // alphabetical within each. Run together that is three A-Z sequences in
+      // a row, which reads as no order at all. Mark where each begins; the
+      // first needs no heading, the column header already names the entity.
+      let tier: number | undefined;
+      pane.leaves.forEach(leaf => {
+        const leafTier = leaf.tier ?? 0;
+        if (tier !== undefined && leafTier !== tier) {
+          leaves.append(sectionHeading(TIER_LABELS[leafTier] ?? ''));
+        }
+        tier = leafTier;
+        leaves.append(this.leafRow(leaf, pane));
+      });
       col.append(leaves);
 
       if (pane.refs.length) {
         const refs = document.createElement('div');
         refs.className = 'neo-field-browser--refs shrink-0 border-t overflow-y-auto max-h-44';
-        const sep = document.createElement('div');
-        sep.className = 'sticky top-0 bg-form-item-base px-3 py-2 text-xs uppercase tracking-wide opacity-60';
-        sep.textContent = t('Follow a reference');
+        const sep = sectionHeading(t('Follow a reference'));
+        sep.classList.add('sticky', 'top-0', 'bg-form-item-base');
         refs.append(sep);
         pane.refs.forEach(ref => refs.append(this.refRow(ref, col)));
         col.append(refs);
@@ -365,6 +377,21 @@
     }
   }
 
+  const TIER_LABELS: Record<number, string> = {
+    1: t('System'),
+    2: t('Link templates'),
+  };
+
+  /**
+   * A divider naming the group of rows that follows it.
+   */
+  function sectionHeading(label: string): HTMLElement {
+    const el = document.createElement('div');
+    el.className = 'neo-field-browser--heading px-3 py-2 mt-1 border-t text-xs uppercase tracking-wide opacity-60';
+    el.textContent = label;
+    return el;
+  }
+
   function escapeHtml(value: string): string {
     const div = document.createElement('div');
     div.textContent = value ?? '';
@@ -408,7 +435,7 @@
 
         const clear = document.createElement('button');
         clear.type = 'button';
-        clear.className = 'neo-field-select--clear form-item-bg form-item-border form-item-border-radius px-3 shrink-0';
+        clear.className = 'neo-field-select--clear btn btn-secondary px-3 shrink-0';
         clear.title = Drupal.t('Clear');
         clear.textContent = '⨯';
         clear.addEventListener('click', () => {
