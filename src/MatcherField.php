@@ -567,13 +567,15 @@ final class MatcherField extends MatcherBase {
    *   The field definition.
    * @param int $weight
    *   The weight for sorting.
-   * @param string|null $propertyLabel
-   *   (optional) A property label suffix.
+   * @param string|\Stringable|null $propertyLabel
+   *   (optional) A property label suffix. Shape plugins are documented to
+   *   return translatable labels from ::getMatches(), so this accepts any
+   *   stringable — ::label() casts it when building the title.
    *
    * @return array
    *   The match entry.
    */
-  private function buildMatchEntry(array $parentDefinitions, FieldDefinitionInterface $fieldDefinition, int $weight, ?string $propertyLabel = NULL): array {
+  private function buildMatchEntry(array $parentDefinitions, FieldDefinitionInterface $fieldDefinition, int $weight, string|\Stringable|null $propertyLabel = NULL): array {
     return [
       'title' => $this->label($parentDefinitions, $propertyLabel),
       'group' => $this->group($parentDefinitions),
