@@ -245,6 +245,45 @@ Default to the tokens above — they recolor per scheme, so you rarely need a li
 
 Remember the resolved value is scheme-specific: if you hardcode a hex from one scheme into a component meant to be recolored, it breaks under the others. Read a value to *inform* a token-based or `--vars`-driven choice, not to replace the token.
 
+### Which primary token: the brand colour, or one that follows the scheme?
+
+You will want the brand colour for two different reasons, and they need different tokens:
+
+| You want | Use | Behaviour |
+|---|---|---|
+| **The brand colour itself** — a brand mark, a rule, a slash, artwork it must match | `--color-primary-500` (any numbered step) | Never changes, in any scheme |
+| **The brand colour, but it should follow the scheme** — a section background, a header band, a control's ink | `--color-primary` | Re-resolved per scheme |
+
+Both are the brand colour on the default scheme. They only diverge once a scheme is
+in play — the numbered step holds, the role moves:
+
+```
+scheme default   --color-primary  same as -500     --color-primary-500  brand value
+scheme dark      --color-primary  lighter tint     --color-primary-500  brand value
+```
+
+**Every colour token has a `-content` partner: the foreground that stays legible on
+it.** Paint with one, write with the other. That pairing is the reason to reach for
+the role rather than the ramp on a surface — when the scheme moves `--color-primary`,
+it moves `--color-primary-content` with it, so the text on that surface stays readable
+without you working out a second colour per scheme:
+
+```css
+/* both sides adapt together */
+background: rgb(var(--color-primary));
+color: rgb(var(--color-primary-content));
+```
+
+Paint a surface from the fixed ramp instead and there is no matching ink to inherit —
+which is how a hand-picked foreground ends up correct on one scheme and unreadable on
+the next.
+
+**The tell:** an element that is invisible in one scheme and perfect in another is almost always a *surface* reading a numbered ramp step. A band painted in the brand colour, on a scheme whose field is that same colour, paints itself into the background — and no scheme work fixes it, because the ramp is doing exactly what it promises.
+
+A project alias over the fixed value (`--brand: rgb(var(--color-primary-500))`) is a perfectly good name for "the brand colour that never moves". Just don't paint an adaptive surface with it. Literal neutrals are the same mistake without the alias: `#f7f7f7` *overrides* a `--color-base-100` that would have inverted for free.
+
+⚠ **`--my-token: inherit` does not mean "the surrounding text color".** On a custom property, `inherit` takes *that property's* value from the parent — so `--link-color: inherit` re-inherits whatever an ancestor already set and never consults the text color. Use **`currentColor`**: `color: var(--link-color)` then resolves to `color: currentColor`. It fails invisibly wherever the inherited value happens to look right.
+
 ### Rendering props
 
 | Shape | Twig pattern |
