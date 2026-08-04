@@ -8,6 +8,7 @@ use Drupal\Core\Controller\ControllerBase;
 use Drupal\Core\Render\Markup;
 use Drupal\Core\Theme\ComponentPluginManager;
 use Drupal\Core\Url;
+use Drupal\neo_alchemist\ComponentManageHelper;
 use Drupal\neo_icon\IconTrait;
 use Drupal\neo_tooltip\TooltipTrait;
 use Symfony\Component\DependencyInjection\ContainerInterface;
@@ -27,6 +28,9 @@ final class SdcPreviewListController extends ControllerBase {
     private readonly ComponentPluginManager $pluginManagerSdc,
   ) {}
 
+  /**
+   * {@inheritdoc}
+   */
   public static function create(ContainerInterface $container): self {
     return new self(
       $container->get('plugin.manager.sdc'),
@@ -49,19 +53,7 @@ final class SdcPreviewListController extends ControllerBase {
       $component = $this->pluginManagerSdc->createInstance($definition['id']);
 
       $row = [];
-      $thumbnail = $component->metadata->getThumbnailPath()
-        ?: \Drupal::moduleHandler()->getModule('neo_alchemist')->getPath() . '/images/thumbnail.jpg';
-      $row['thumbnail'] = ['style' => 'width: 100px;'];
-      $row['thumbnail']['data'] = [
-        '#theme' => 'image',
-        '#uri' => $thumbnail,
-        '#alt' => $definition['name'],
-        '#attributes' => [
-          'style' => 'display: block; max-width: 80px; max-height: 80px',
-        ],
-        '#prefix' => '<div class="flex items-center justify-center">',
-        '#suffix' => '</div>',
-      ];
+      $row['thumbnail'] = ComponentManageHelper::buildThumbnailCell($component, $definition['name']);
 
       $info = $this->tooltipAsLink($this->adminIcon('Info', 'info-circle')->iconOnly(), [
         '#markup' => Markup::create('<pre style="white-space:pre-line;">' . $component->metadata->documentation . '</pre>'),
@@ -104,6 +96,10 @@ final class SdcPreviewListController extends ControllerBase {
       ],
       '#rows' => $rows,
       '#empty' => $this->t('No Alchemist-enabled SDCs were found.'),
+      // Thumbnails are read straight off disk and carry a modified-time token,
+      // so a cached render of this table would pin a stale token in place with
+      // nothing to invalidate it. There is nothing here worth caching anyway.
+      '#cache' => ['max-age' => 0],
     ];
   }
 

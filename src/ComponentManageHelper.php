@@ -3,6 +3,7 @@
 namespace Drupal\neo_alchemist;
 
 use Drupal\Component\Utility\Html;
+use Drupal\Core\Plugin\Component as ComponentPlugin;
 use Drupal\neo_alchemist\Plugin\Field\FieldType\ComponentTreeItem;
 
 /**
@@ -36,6 +37,90 @@ class ComponentManageHelper {
       return $id . '-' . Html::getId($entity->isNew() ? $instance->getFieldDefinition()->getName() : $entity->id());
     }
     return $id;
+  }
+
+  /**
+   * Returns the cache-busted URI of an SDC's own thumbnail.png, if it has one.
+   *
+   * Core reads component thumbnails straight off disk with a fixed filename,
+   * so a re-captured thumbnail lands at the URL its predecessor already
+   * occupies in the browser cache. The modified time is the only thing that
+   * distinguishes them, hence the token.
+   *
+   * @param \Drupal\Core\Plugin\Component|null $component
+   *   The SDC plugin instance.
+   *
+   * @return string|null
+   *   A root-relative URI, or NULL when the component ships no thumbnail.
+   *
+   * @see \Drupal\Core\Theme\Component\ComponentMetadata::getThumbnailPath()
+   */
+  public static function sdcThumbnailUri(?ComponentPlugin $component): ?string {
+    $path = $component?->metadata->getThumbnailPath();
+    if (!$path) {
+      return NULL;
+    }
+    // getThumbnailPath() is relative to the Drupal root, which is how it can
+    // be handed to #theme image directly, but filemtime() needs the real one.
+    $modified = @filemtime(\Drupal::root() . '/' . $path);
+    return $modified ? $path . '?v=' . $modified : $path;
+  }
+
+  /**
+   * Returns the URI of the shared placeholder thumbnail.
+   *
+   * @return string
+   *   A root-relative URI.
+   */
+  public static function placeholderThumbnailUri(): string {
+    return \Drupal::service('extension.list.module')->getPath('neo_alchemist') . '/images/thumbnail.jpg';
+  }
+
+  /**
+   * Returns the thumbnail URI for a raw SDC or a saved component.
+   *
+   * @param \Drupal\Core\Plugin\Component|\Drupal\neo_alchemist\ComponentInterface|null $source
+   *   The SDC plugin instance, or the component entity wrapping one.
+   *
+   * @return string
+   *   A URI suitable for #theme image, never empty.
+   */
+  public static function thumbnailUri(ComponentPlugin|ComponentInterface|null $source): string {
+    if ($source instanceof ComponentInterface) {
+      // The entity resolves its own three-tier fallback (captured config file,
+      // then the SDC's own thumbnail, then the placeholder).
+      return $source->getThumbnail() ?: static::placeholderThumbnailUri();
+    }
+    return static::sdcThumbnailUri($source) ?: static::placeholderThumbnailUri();
+  }
+
+  /**
+   * Builds the thumbnail cell shared by the component listings.
+   *
+   * @param \Drupal\Core\Plugin\Component|\Drupal\neo_alchemist\ComponentInterface|null $source
+   *   The SDC plugin instance, or the component entity wrapping one.
+   * @param string $alt
+   *   The image alt text.
+   * @param array $attributes
+   *   Image attributes to merge over the defaults.
+   *
+   * @return array
+   *   A table cell definition.
+   */
+  public static function buildThumbnailCell(ComponentPlugin|ComponentInterface|null $source, string $alt = '', array $attributes = []): array {
+    return [
+      'style' => 'width: 100px;',
+      'data' => [
+        '#theme' => 'image',
+        '#uri' => static::thumbnailUri($source),
+        '#alt' => $alt,
+        '#attributes' => $attributes + [
+          'style' => 'display: block; max-width: 80px; max-height: 80px',
+        ],
+        '#prefix' => '<div class="flex items-center justify-center">',
+        '#suffix' => '</div>',
+      ],
+    ];
   }
 
   /**
