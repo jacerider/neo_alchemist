@@ -44,6 +44,16 @@
   // i.e. the component is being stretched to fill the frame.
   const isStretched = (): boolean => naturalHeight < floorHeight();
 
+  // The alignment declarations applyValign() may set. Cleared before measuring
+  // so a natural height is always read against the component's own layout.
+  const ALIGN_PROPS = ['display', 'flex-direction', 'justify-content', 'align-items', 'align-content'];
+
+  const clearAlignment = (): void => {
+    if (componentEl) {
+      ALIGN_PROPS.forEach((prop) => componentEl!.style.removeProperty(prop));
+    }
+  };
+
   // Measure how tall the component is on its own — including its own min-height
   // (e.g. a hero's min-h-208) — with our stretch override removed.
   const measureNaturalHeight = (): void => {
@@ -51,6 +61,7 @@
       naturalHeight = 0;
       return;
     }
+    clearAlignment();
     componentEl.style.removeProperty('min-height');
     naturalHeight = componentEl.offsetHeight;
   };
@@ -72,15 +83,39 @@
   };
 
   // Vertical alignment only has meaning while the component is stretched — there
-  // is no empty space to distribute otherwise — so the flex class is applied
-  // only then, leaving natural-height components on their own block layout.
+  // is no empty space to distribute otherwise — so nothing is applied
+  // otherwise, leaving natural-height components entirely untouched.
+  //
+  // The component's own formatting context has to survive this. Imposing
+  // `display: flex; flex-direction: column` centers a block-flow section
+  // correctly but destroys any component whose root is already a flex row — a
+  // header's logo and utility nav stack on top of each other instead of
+  // sitting side by side. So the alignment is expressed in whatever terms the
+  // root already uses, and its display is only set when it has none of its own.
   const applyValign = (): void => {
-    if (!wrapper) {
+    if (!componentEl) {
       return;
     }
-    const stretched = isStretched();
-    wrapper.classList.toggle('is-valign-center', stretched && valign === 'center');
-    wrapper.classList.toggle('is-valign-bottom', stretched && valign === 'bottom');
+    clearAlignment();
+    if (!isStretched()) {
+      return;
+    }
+    const style = window.getComputedStyle(componentEl);
+    const display = style.display;
+    if (display === 'flex' || display === 'inline-flex') {
+      // A row lays its children out along the inline axis, so the free space
+      // is distributed by align-items; a column uses justify-content.
+      const prop = style.flexDirection.startsWith('row') ? 'alignItems' : 'justifyContent';
+      componentEl.style[prop] = valign === 'top' ? 'flex-start' : valign === 'bottom' ? 'flex-end' : 'center';
+    }
+    else if (display === 'grid' || display === 'inline-grid') {
+      componentEl.style.alignContent = valign === 'top' ? 'start' : valign === 'bottom' ? 'end' : 'center';
+    }
+    else {
+      componentEl.style.display = 'flex';
+      componentEl.style.flexDirection = 'column';
+      componentEl.style.justifyContent = valign === 'top' ? 'flex-start' : valign === 'bottom' ? 'flex-end' : 'center';
+    }
   };
 
   const setValign = (value: string): void => {
@@ -151,7 +186,7 @@
       }
     }
     if (wrapper) {
-      wrapper.classList.remove('neo-alchemist-capture-mode', 'is-valign-center', 'is-valign-bottom');
+      wrapper.classList.remove('neo-alchemist-capture-mode');
       if (savedWrapperStyle === null) {
         wrapper.removeAttribute('style');
       }
@@ -177,6 +212,39 @@
     post({ type: 'thumbnailCaptureCancel' }, reqId);
   };
 
+  /**
+   * Resample a canvas to a target width, preserving its aspect ratio.
+   *
+   * Kept separate from rasterizing so the component is always laid out at its
+   * real width — resizing pixels cannot change where anything wrapped.
+   * Halving in steps when shrinking a long way keeps thin text from breaking
+   * up, which a single large downscale does.
+   */
+  const resizeCanvas = (source: HTMLCanvasElement, targetWidth: number): HTMLCanvasElement => {
+    if (!source.width || !source.height || source.width === targetWidth) {
+      return source;
+    }
+    let current = source;
+    while (current.width > targetWidth * 2) {
+      current = drawTo(current, Math.round(current.width / 2));
+    }
+    return drawTo(current, targetWidth);
+  };
+
+  const drawTo = (source: HTMLCanvasElement, width: number): HTMLCanvasElement => {
+    const out = document.createElement('canvas');
+    out.width = width;
+    out.height = Math.max(1, Math.round(source.height * (width / source.width)));
+    const context = out.getContext('2d');
+    if (!context) {
+      return source;
+    }
+    context.imageSmoothingEnabled = true;
+    context.imageSmoothingQuality = 'high';
+    context.drawImage(source, 0, 0, out.width, out.height);
+    return out;
+  };
+
   const doCapture = async (): Promise<void> => {
     if (!active) {
       return;
@@ -189,23 +257,31 @@
       return;
     }
     try {
-      // Rasterize the whole component (stretched to the floor when short) and
-      // scale so the stored image is OUTPUT_WIDTH wide.
-      const scale = Math.min(2, OUTPUT_WIDTH / Math.max(1, target.offsetWidth));
+      // Rasterize the whole component (stretched to the floor when short) at
+      // its native layout, then resize the bitmap to OUTPUT_WIDTH.
+      //
+      // snapdom's `scale` lays the clone out at the scaled size rather than
+      // just rasterizing it smaller, so any value below 1 changes where the
+      // component wraps — a three-column footer nav captured at 1440px came
+      // back as two columns because the clone was laid out at 800px. `dpr`
+      // multiplies the raster resolution without touching layout, so it is
+      // what carries detail for components narrower than the output.
+      const width = Math.max(1, target.offsetWidth);
       const canvas = await snapdom.toCanvas(target, {
-        scale: scale,
-        dpr: 1,
+        scale: 1,
+        dpr: Math.min(2, Math.max(1, OUTPUT_WIDTH / width)),
         embedFonts: true,
         compress: true,
         fast: true,
         backgroundColor: '#ffffff',
       });
-      const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'));
+      const output = resizeCanvas(canvas, OUTPUT_WIDTH);
+      const blob = await new Promise<Blob | null>((resolve) => output.toBlob(resolve, 'image/png'));
       if (!blob) {
         throw new Error('The capture produced no image data.');
       }
       exitCaptureMode();
-      post({ type: 'thumbnailCaptureResult', blob: blob, width: canvas.width, height: canvas.height }, reqId);
+      post({ type: 'thumbnailCaptureResult', blob: blob, width: output.width, height: output.height }, reqId);
     }
     catch (error) {
       exitCaptureMode();
@@ -254,8 +330,11 @@
         // rasterize enormous.
         const aspect = component.offsetWidth / Math.max(1, component.offsetHeight);
         const needed = Math.min(2400, Math.max(boxW, boxH * aspect));
+        // Rasterize at the component's real width and resample down, never via
+        // snapdom's `scale` — that lays the clone out at the reduced size, so a
+        // component would wrap differently here than it does on the canvas.
         const canvas = await snapdom.toCanvas(component, {
-          scale: Math.min(1, needed / Math.max(1, component.offsetWidth)),
+          scale: 1,
           dpr: 1,
           // As the persisted-thumbnail capture does: without it the text falls
           // back to whatever the rasterizer has, which is never the real face.
@@ -264,7 +343,8 @@
           fast: true,
           backgroundColor: '#ffffff',
         });
-        images[componentUuid] = canvas.toDataURL('image/png');
+        const target = Math.max(1, Math.round(Math.min(needed, component.offsetWidth)));
+        images[componentUuid] = resizeCanvas(canvas, target).toDataURL('image/png');
       }
       catch (err) {
         // One unrasterizable component must not cost the dialog every other

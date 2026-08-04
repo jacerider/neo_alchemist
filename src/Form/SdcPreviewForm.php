@@ -9,12 +9,15 @@ use Drupal\Core\Entity\EntityForm;
 use Drupal\Core\Entity\EntityInterface;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Form\SubformState;
+use Drupal\Core\Render\BubbleableMetadata;
 use Drupal\Core\Render\Element;
 use Drupal\Core\Url;
 use Drupal\neo_alchemist\Ajax\InstanceComponentManageIframeCommand;
 use Drupal\neo_alchemist\ComponentManageHelper;
 use Drupal\neo_alchemist\ComponentShapeStylePluginInterface;
+use Drupal\neo_alchemist\SdcThumbnailWriter;
 use Drupal\neo_icon\IconTrait;
+use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
  * Editable value form for the standalone SDC preview workspace.
@@ -36,6 +39,32 @@ final class SdcPreviewForm extends EntityForm {
    * @var \Drupal\neo_alchemist\ComponentInterface
    */
   protected $entity;
+
+  /**
+   * The SDC thumbnail writer.
+   *
+   * Must be protected and non-promoted: form objects are serialized into the
+   * form cache, and DependencySerializationTrait swaps services for their IDs
+   * from FormBase's scope — where a private property declared here would be
+   * invisible. The writer would then be serialized whole, dragging the SDC
+   * plugin manager's object graph into every cached form.
+   *
+   * @var \Drupal\neo_alchemist\SdcThumbnailWriter
+   */
+  protected $thumbnailWriter;
+
+  public function __construct(SdcThumbnailWriter $thumbnail_writer) {
+    $this->thumbnailWriter = $thumbnail_writer;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public static function create(ContainerInterface $container): self {
+    return new self(
+      $container->get('neo_alchemist.sdc_thumbnail_writer'),
+    );
+  }
 
   /**
    * {@inheritdoc}
@@ -121,6 +150,15 @@ final class SdcPreviewForm extends EntityForm {
   }
 
   /**
+   * Returns the action form element for the current entity form.
+   */
+  protected function actionsElement(array $form, FormStateInterface $form_state) {
+    $actions = parent::actionsElement($form, $form_state);
+    $actions['#attributes']['class'][] = 'bg-base-0 border-t py-4 sticky bottom-0 z-10';
+    return $actions;
+  }
+
+  /**
    * {@inheritdoc}
    */
   protected function actions(array $form, FormStateInterface $form_state) {
@@ -135,6 +173,94 @@ final class SdcPreviewForm extends EntityForm {
         'class' => ['btn', 'btn-xs'],
       ],
     ];
+    $actions += $this->buildThumbnailCapture();
+    return $actions;
+  }
+
+  /**
+   * Builds the thumbnail capture button, if capturing is available.
+   *
+   * The rest of the capture pipeline already runs on this page: the preview
+   * iframe loads the rasterizer, and component-parent.ts finds this button by
+   * its id and drives the framing toolbar. All that is added here is the
+   * button and the destination it posts to.
+   *
+   * Hidden outright when the feature is off, because that is the state of
+   * every environment that is not somebody's checkout and a permanently dead
+   * button there is pure noise. Rendered but disabled when the feature is on
+   * and something environmental is in the way, because at that point the
+   * developer has declared intent and a missing button reads as a bug — the
+   * tooltip names the directory so the fix is a chmod.
+   *
+   * @return array
+   *   The action elements, empty when capturing is unavailable.
+   */
+  private function buildThumbnailCapture(): array {
+    if (!$this->thumbnailWriter->isEnabled()) {
+      return [];
+    }
+    // The entity is transient and carries a synthetic id; the SDC id is the
+    // only thing that identifies the component on disk.
+    $componentId = $this->entity->getComponentId();
+    $reason = $this->thumbnailWriter->getUnavailableReason($componentId);
+    $actions = [];
+
+    // Show what is currently on disk so a capture can be judged without
+    // leaving the page. The class is how the capture JS swaps in the new
+    // image, which it must do by URL because every capture writes the same
+    // filename and the browser would otherwise keep serving the old bytes.
+    if ($uri = ComponentManageHelper::sdcThumbnailUri($this->entity->getComponent())) {
+      $actions['thumbnail_preview'] = [
+        '#theme' => 'image',
+        '#uri' => $uri,
+        '#alt' => $this->t('Current thumbnail'),
+        '#weight' => 9,
+        '#attributes' => [
+          'class' => ['neo-alchemist--thumbnail-preview', 'border', 'rounded'],
+          'style' => 'display: block; max-width: 80px; max-height: 40px',
+        ],
+      ];
+    }
+
+    $element = [
+      '#type' => 'button',
+      '#value' => $this->thumbnailWriter->getExistingPath($componentId)
+        ? $this->t('Re-capture thumbnail')
+        : $this->t('Capture thumbnail'),
+      // component-parent.ts looks this up with getElementById(), so it must
+      // stay exactly this and stay unique across both forms on the page.
+      '#id' => 'neo-alchemist-thumbnail-capture-button',
+      '#disabled' => (bool) $reason,
+      '#tooltip' => $reason ?: $this->t('Writes thumbnail.png into the component directory.'),
+      '#weight' => 10,
+      '#attributes' => [
+        'class' => ['btn', 'btn-xs'],
+        // Tippy does not reliably receive pointer events on a disabled
+        // element, so the reason gets a native tooltip as well.
+        'title' => (string) ($reason ?: ''),
+      ],
+    ];
+
+    if (!$reason) {
+      // The CSRF token is not in this URL yet — RouteProcessorCsrf leaves a
+      // placeholder and registers a #lazy_builder in the URL's bubbleable
+      // metadata. That metadata only bubbles inside an active render context,
+      // and this form is built before ComponentPageRenderer::renderBarePage()
+      // opens the root context that would replace the placeholder, so it has
+      // to be attached to this element by hand or the token stays a dead hash
+      // and every capture 403s.
+      $generated = Url::fromRoute('neo_alchemist.sdc_thumbnail_capture', [
+        'component' => $componentId,
+      ])->toString(TRUE);
+      $element['#attributes']['data-capture-url'] = $generated->getGeneratedUrl();
+      // Merge rather than apply the GeneratedUrl directly: applyTo() replaces
+      // #attached wholesale.
+      BubbleableMetadata::createFromRenderArray($element)
+        ->merge($generated)
+        ->applyTo($element);
+    }
+
+    $actions['thumbnail_capture'] = $element;
     return $actions;
   }
 

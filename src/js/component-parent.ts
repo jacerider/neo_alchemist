@@ -565,6 +565,52 @@
       }
     }
 
+    /**
+     * POST a captured PNG into the component's own directory.
+     *
+     * Used by the raw-SDC preview workspace, where the image belongs beside
+     * the .component.yml — so it travels with the component in git — rather
+     * than in a config file. Unlike attachThumbnail() this needs no save step:
+     * the server writes the file and core picks it up on the next request.
+     *
+     * The button only carries a URL when the server has already decided the
+     * write is possible, so an error here is genuinely exceptional.
+     */
+    async function uploadThumbnail(url: string, blob: Blob): Promise<void> {
+      if (captureButton) {
+        setButtonLabel(captureButton, Drupal.t('Saving thumbnail…'));
+      }
+      try {
+        const response = await fetch(url, {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { 'Content-Type': 'image/png' },
+          body: blob,
+        });
+        const result = await response.json().catch(() => ({} as any));
+        if (!response.ok) {
+          throw new Error(result.message || response.statusText);
+        }
+        captureButtonLabel = Drupal.t('Re-capture thumbnail');
+        resetCaptureButton();
+        showCaptureMessage(Drupal.t('Thumbnail written to @path', {
+          '@path': result.path || 'thumbnail.png',
+        }), 'status');
+        // Every capture writes the same filename, so the preview only updates
+        // if it takes the cache-busted URL the server just handed back.
+        const preview = document.querySelector('.neo-alchemist--thumbnail-preview') as HTMLImageElement | null;
+        if (preview && result.url) {
+          preview.src = result.url;
+        }
+      }
+      catch (error) {
+        resetCaptureButton();
+        showCaptureMessage(Drupal.t('The thumbnail could not be saved: @message', {
+          '@message': (error as Error).message || Drupal.t('unknown error'),
+        }), 'error');
+      }
+    }
+
     if (messages) {
       setTimeout(() => {
         messages.classList.add('opacity-100');
@@ -728,6 +774,14 @@
         }
         removeCaptureToolbar();
         restorePriorView();
+        // The raw-SDC preview workspace has no managed-file element and no
+        // config entity to hang the image on — it posts the PNG straight into
+        // the component's own directory instead.
+        const captureUrl = captureButton.dataset.captureUrl;
+        if (captureUrl) {
+          uploadThumbnail(captureUrl, data.blob);
+          return;
+        }
         const filename = (captureButton.dataset.filename || 'thumbnail') + '.png';
         attachThumbnail(new File([data.blob], filename, { type: 'image/png' }));
       },

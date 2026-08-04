@@ -23,18 +23,12 @@
     --spacing-component: 30px;
   }
 
-  /* Vertical alignment of a stretched component's content. Off (top) leaves the
-   * component's own block flow untouched; center/bottom flex the section so its
-   * in-flow content sits in the middle or at the bottom of the stretched box. */
-  &.is-valign-center [data-component-id] {
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-  }
-
-  &.is-valign-bottom [data-component-id] {
-    display: flex;
-    flex-direction: column;
-    justify-content: flex-end;
-  }
+  /* Vertical alignment of a stretched component's content is applied from JS,
+   * as inline styles on the component itself. It cannot be expressed as a
+   * fixed rule here: the declarations that centre a block-flow section
+   * (display/flex-direction/justify-content) would override the layout of a
+   * component whose root is already a flex row or a grid, so the axis has to
+   * be chosen from the root's own computed display.
+   *
+   * @see applyValign() in src/js/component-screenshot.ts */
 }
