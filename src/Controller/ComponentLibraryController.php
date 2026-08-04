@@ -8,6 +8,7 @@ use Drupal\Core\Controller\ControllerBase;
 use Drupal\Core\Render\Markup;
 use Drupal\Core\Theme\ComponentPluginManager;
 use Drupal\Core\Url;
+use Drupal\neo_alchemist\ComponentManageHelper;
 use Drupal\neo_icon\IconTrait;
 use Drupal\neo_tooltip\TooltipTrait;
 use Symfony\Component\DependencyInjection\ContainerInterface;
@@ -50,24 +51,7 @@ final class ComponentLibraryController extends ControllerBase {
       $component = $this->pluginManagerSdc->createInstance($definition['id']);
 
       $row = [];
-      $row['thumbnail'] = [];
-      $thumbnail = $component->metadata->getThumbnailPath();
-      if (!$thumbnail) {
-        $thumbnail = \Drupal::moduleHandler()->getModule('neo_alchemist')->getPath() . '/images/thumbnail.jpg';
-      }
-      if ($thumbnail) {
-        $row['thumbnail'] = ['style' => 'width: 100px;'];
-        $row['thumbnail']['data'] = [
-          '#theme' => 'image',
-          '#uri' => $thumbnail,
-          '#alt' => $definition['name'],
-          '#attributes' => [
-            'style' => 'display: block; max-width: 80px; max-height: 80px',
-          ],
-          '#prefix' => '<div class="flex items-center justify-center">',
-          '#suffix' => '</div>',
-        ];
-      }
+      $row['thumbnail'] = ComponentManageHelper::buildThumbnailCell($component, $definition['name']);
 
       $info = $this->tooltipAsLink($this->adminIcon('Info', 'info-circle')->iconOnly(), [
         '#markup' => Markup::create('<pre style="white-space:pre-line;">' . $component->metadata->documentation . '</pre>'),
