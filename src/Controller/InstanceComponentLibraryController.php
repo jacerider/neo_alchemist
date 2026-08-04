@@ -8,6 +8,7 @@ use Drupal\Component\Serialization\Json;
 use Drupal\Core\Controller\ControllerBase;
 use Drupal\Core\Template\Attribute;
 use Drupal\neo_alchemist\ComponentGroupPluginManager;
+use Drupal\neo_alchemist\ComponentSubgroupResolver;
 use Drupal\neo_alchemist\Plugin\Field\FieldType\ComponentTreeItem;
 use Drupal\neo_icon\IconTrait;
 use Symfony\Component\DependencyInjection\ContainerInterface;
@@ -28,12 +29,21 @@ final class InstanceComponentLibraryController extends ControllerBase {
   protected $componentGroupManager;
 
   /**
+   * The component sub-group resolver.
+   *
+   * @var \Drupal\neo_alchemist\ComponentSubgroupResolver
+   */
+  protected ComponentSubgroupResolver $subgroupResolver;
+
+  /**
    * The controller constructor.
    */
   public function __construct(
     ComponentGroupPluginManager $componentGroupManager,
+    ComponentSubgroupResolver $subgroupResolver,
   ) {
     $this->componentGroupManager = $componentGroupManager;
+    $this->subgroupResolver = $subgroupResolver;
   }
 
   /**
@@ -42,6 +52,7 @@ final class InstanceComponentLibraryController extends ControllerBase {
   public static function create(ContainerInterface $container): self {
     return new self(
       $container->get('plugin.manager.neo_component_group'),
+      $container->get('neo_alchemist.component_subgroup'),
     );
   }
 
@@ -83,6 +94,7 @@ final class InstanceComponentLibraryController extends ControllerBase {
     }
 
     $components = [];
+    $subgroups = [];
     foreach (array_map(function ($component) use ($neo_field, $createParentUuid, $createShapeId) {
       return $neo_field->createComponent($component, $createParentUuid, $createShapeId);
     }, $storage->loadByEntity($neo_field->getEntity())) as $component) {
@@ -90,6 +102,16 @@ final class InstanceComponentLibraryController extends ControllerBase {
         continue;
       }
       $group = $component->getGroup();
+      if ($subgroup = $this->subgroupResolver->resolve($component)) {
+        $subgroups[$group][$subgroup['id']] ??= [
+          'label' => $subgroup['label'],
+          'sort' => $subgroup['sort'],
+          'components' => [],
+        ];
+        // Keyed by component id so the sorted group list can be filtered down
+        // with array_intersect_key(), preserving the label sort.
+        $subgroups[$group][$subgroup['id']]['components'][$component->id()] = TRUE;
+      }
       $access = NULL;
       if ($instances = $component->getAccessInstances()) {
         $labels = [];
@@ -120,18 +142,38 @@ final class InstanceComponentLibraryController extends ControllerBase {
       ];
     }
 
+    $sortByLabel = function ($a, $b) {
+      return strnatcasecmp($a['label'], $b['label']);
+    };
+
     $groups = [];
     foreach ($this->componentGroupManager->getDefinitions() as $group_id => $definition) {
-      if (isset($components[$group_id])) {
-        $groups[$group_id] = [
-          'label' => $definition['label'],
-          'description' => $definition['description'],
-          'components' => $components[$group_id],
-        ];
-        uasort($groups[$group_id]['components'], function ($a, $b) {
-          return strnatcasecmp($a['label'], $b['label']);
-        });
+      // PHP casts a numeric-looking array key to int, so normalise before it
+      // reaches a string type hint.
+      $group_id = (string) $group_id;
+      if (!isset($components[$group_id])) {
+        continue;
       }
+      $groups[$group_id] = [
+        'label' => $definition['label'],
+        'description' => $definition['description'],
+        'components' => $components[$group_id],
+      ];
+      uasort($groups[$group_id]['components'], $sortByLabel);
+
+      // Split a sub-grouped group by target entity — but only when more than
+      // one sub-group survives. The library is already filtered to the host
+      // entity, so on a real content page a single "Content › Project"
+      // heading would just add noise; on a field's default layout, where
+      // several bundles can qualify, the headings earn their place.
+      if (!$this->subgroupResolver->hasSubgroups($group_id) || count($subgroups[$group_id] ?? []) < 2) {
+        continue;
+      }
+      $subgrouped = $this->subgroupResolver->sortSubgroups($subgroups[$group_id]);
+      foreach ($subgrouped as $subgroup_id => $subgroup) {
+        $subgrouped[$subgroup_id]['components'] = array_intersect_key($groups[$group_id]['components'], $subgroup['components']);
+      }
+      $groups[$group_id]['subgroups'] = $subgrouped;
     }
 
     if (!$groups && !$neo_field->belongsToFieldConfig() && $neo_field->getFieldDefinition()->isHybrid()) {

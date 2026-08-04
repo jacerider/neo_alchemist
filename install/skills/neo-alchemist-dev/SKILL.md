@@ -36,6 +36,7 @@ components and **transient previews** built from the SDC's `examples` via
 | Field embedding | `src/Plugin/Field/FieldType/ComponentTreeItem` (field type) + `src/Plugin/Field/NeoComponentTreeList` (list class: mode resolution, hybrid merge/strip) + `src/Plugin/Field/{FieldWidget/ComponentTreeWidget,FieldFormatter/ComponentTreeFormatter}` |
 | Render | `src/Render/ComponentPageRenderer.php` (`neo_component_page_renderer`) |
 | Preview | `src/ComponentPreviewBuilder.php`, `src/Controller/SdcPreviewController.php` |
+| SDC thumbnails | `src/SdcThumbnailWriter.php` (`neo_alchemist.sdc_thumbnail_writer`) + `src/Controller/SdcThumbnailCaptureController.php` — writes `thumbnail.png` into the component dir; gated on (`NeoBuild::isDevMode()` **or** the `config_split.config_split.dev` status override) + `is_writable()`. Both signals are soft: `@?neo_build` is an **optional** service reference (neo_alchemist does not declare neo_build, so a hard `@neo_build` breaks container compilation in every Kernel test), and the split is read through the config factory so an absent config_split simply reads as FALSE. |
 | Drush | `src/Drush/Commands/NeoAlchemistCommands.php`, `src/Drush/Generators/` |
 | Services | `neo_alchemist.services.yml` |
 | Submodules | `modules/` — `neo_alchemist_block` (config-entity trees as blocks), `neo_alchemist_menu` (mega menu component-region items — see the **neo-alchemist-menu** skill), `neo_alchemist_taxonomy` (per-hierarchy-level term layouts via a `level` third-party setting on tree fields), `neo_alchemist_examples`, `neo_alchemist_library` |
@@ -137,6 +138,14 @@ milliseconds; `--filter=<Class>` for one class.
 
 - Edit the **running site contrib copy** (`web/modules/contrib/neo_alchemist/…`); the
   source in `/Projects` is synced separately.
+- **Inject services into forms as `protected` non-promoted properties**, never
+  `private readonly`. Form objects are serialized into the form cache, and
+  `DependencySerializationTrait::__sleep()` swaps services for their IDs using
+  `get_object_vars($this)` from `FormBase`'s scope — which cannot see a private
+  property declared in your subclass. The service is then serialized whole,
+  dragging its object graph (a plugin manager pulls in its cache backend and
+  discovery) into every cached form. Controllers are not serialized, so
+  `private readonly` is fine there.
 - **Composer re-extracts the module.** Any `composer require`/`install`/`update`
   deletes uncommitted work under `web/modules/contrib/neo_alchemist/` — sync to
   `/Projects` first, and run composer *before* starting new work there.

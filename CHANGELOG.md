@@ -1,5 +1,52 @@
 # Changelog
 
+## Raw SDCs can capture their own thumbnail.png
+
+The component listings show a thumbnail per component, but a raw SDC had no way
+to produce one — only saved components could capture a preview, and they stored
+it as a `neo_config_file`. So in practice almost nothing shipped a thumbnail and
+the listings were a wall of the same placeholder, which is precisely where being
+able to tell components apart matters most.
+
+The SDC preview workspace now offers a **Capture thumbnail** button that writes
+the rasterized preview to `thumbnail.png` **inside the component's own
+directory**, beside the `.component.yml`. That is the file core already looks
+for, so it needs no configuration, travels with the component in git, and works
+on any site the component is copied to.
+
+Writing into the codebase is only defensible on a working checkout, so the
+button is gated on the environment looking like one: the Neo dev server running,
+or the dev config split being enabled. It does not render at all otherwise, and
+renders disabled — naming the directory — when the environment qualifies but the
+folder is not writable. The endpoint enforces the same gate rather than trusting
+the button.
+
+Most of the machinery already existed. The preview iframe was already loading
+the rasterizer, and the framing toolbar already worked here; what was missing
+was a button and somewhere to put the result.
+
+### For site builders
+
+- The button appears on a local environment either way, but the config split is
+  the steadier signal — `$config['config_split.config_split.dev']['status'] = TRUE;`
+  in `settings.local.php` holds for the whole environment, where the dev-server
+  signal comes and goes with `npm start`.
+- A captured `thumbnail.png` also becomes the fallback for **every saved
+  component wrapping that SDC** that has not had its own thumbnail uploaded, via
+  the existing `getDefaultThumbnail()` tier.
+- Thumbnails in all three listings are now cache-busted by the file's modified
+  time. Re-capturing overwrites the same filename, so without this the browser
+  kept serving the previous image and a capture looked like it had failed.
+
+### For developers
+
+- New `neo_alchemist.sdc_thumbnail_writer` service owns the gate, the path
+  resolution and the write; the form and the endpoint both defer to it so they
+  cannot disagree about what is possible.
+- The three near-identical thumbnail cells in `SdcPreviewListController`,
+  `ComponentLibraryController` and `ComponentListBuilder` are now one
+  `ComponentManageHelper::buildThumbnailCell()`.
+
 ## A required prop keeps a resolved zero
 
 After the value providers on a prop have been searched, a **required** prop

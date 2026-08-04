@@ -22,6 +22,7 @@ use Drupal\field_ui\Form\FieldConfigEditForm;
 use Drupal\media_library\MediaLibraryState;
 use Drupal\neo_alchemist\ComponentFieldConfigInterface;
 use Drupal\neo_alchemist\Entity\ComponentFieldConfig;
+use Drupal\neo_alchemist\Entity\NeoFieldConfig;
 use Drupal\neo_alchemist\Form\InstanceComponentDeleteForm;
 use Drupal\neo_alchemist\Form\InstanceComponentForm;
 use Drupal\neo_alchemist\Form\InstanceComponentPublishForm;
@@ -407,6 +408,16 @@ function neo_alchemist_field_widget_single_element_media_library_widget_form_alt
  */
 function neo_alchemist_entity_type_alter(array &$entity_types) {
   /** @var \Drupal\Core\Entity\EntityTypeInterface[] $entity_types */
+  // A field's default layout can bake in a component tree, so the field config
+  // depends on those components. The config dependency system loads dependents
+  // straight from storage and calls onDependencyRemoval() on whatever class it
+  // gets back, so the behaviour has to live on the class field_config itself
+  // uses — it is a no-op for every other field type.
+  // @see \Drupal\neo_alchemist\Entity\NeoFieldConfig
+  if (isset($entity_types['field_config'])) {
+    $entity_types['field_config']->setClass(NeoFieldConfig::class);
+  }
+
   $configFactory = \Drupal::configFactory();
   foreach ($entity_types as $entityType) {
     if ($entityType instanceof ContentEntityTypeInterface) {

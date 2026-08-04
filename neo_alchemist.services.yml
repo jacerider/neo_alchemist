@@ -13,6 +13,14 @@ services:
     class: Drupal\neo_alchemist\ComponentPreviewBuilder
     arguments: ['@entity_type.manager', '@plugin.manager.sdc']
 
+  # neo_build is a runtime dependency of neo (and so always present on a real
+  # site) but is not declared by neo_alchemist, and Kernel tests enable a
+  # minimal module list. Reference it optionally so the container still
+  # compiles without it — the feature simply reports itself unavailable.
+  neo_alchemist.sdc_thumbnail_writer:
+    class: Drupal\neo_alchemist\SdcThumbnailWriter
+    arguments: ['@plugin.manager.sdc', '@?neo_build', '@config.factory', '%app.root%']
+
   plugin.manager.neo_component_prop_def:
     class: Drupal\neo_alchemist\ComponentPropDefPluginManager
     arguments: ['@module_handler', '@cache.discovery']
@@ -28,6 +36,14 @@ services:
   plugin.manager.neo_component_group:
     class: Drupal\neo_alchemist\ComponentGroupPluginManager
     arguments: ['@module_handler', '@cache.discovery']
+
+  neo_alchemist.component_subgroup:
+    class: Drupal\neo_alchemist\ComponentSubgroupResolver
+    arguments: ['@plugin.manager.neo_component_group', '@entity_type.manager', '@entity_type.bundle.info']
+
+  neo_alchemist.component_usage:
+    class: Drupal\neo_alchemist\ComponentUsage
+    arguments: ['@entity_type.manager', '@entity_field.manager', '@database', '@cache.default', '@module_handler', '@neo_alchemist.component_subgroup']
 
   plugin.manager.neo_component_value_group:
     class: Drupal\neo_alchemist\ComponentValueGroupPluginManager

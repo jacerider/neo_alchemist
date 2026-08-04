@@ -205,6 +205,60 @@ neo_alchemist.neo_component_value.menu:
       type: string
       label: 'Processing mode'
 
+neo_alchemist.neo_component_value.read_time:
+  type: mapping
+  label: 'Read time value provider'
+  mapping:
+    words_per_minute:
+      type: integer
+      label: 'Words per minute'
+    selector:
+      type: string
+      label: 'Content selector'
+    format:
+      type: string
+      label: Label
+    minimum:
+      type: integer
+      label: 'Minimum minutes'
+
+neo_alchemist.neo_component_value.date:
+  type: mapping
+  label: 'Date value modifier'
+  mapping:
+    format:
+      type: string
+      label: 'Date format'
+    custom_format:
+      type: string
+      label: 'Custom format'
+    timezone:
+      type: string
+      label: 'Time zone'
+
+neo_alchemist.neo_component_value.share:
+  type: mapping
+  label: 'Share links value provider'
+  mapping:
+    networks:
+      type: sequence
+      label: Networks
+      sequence:
+        type: string
+        label: Network
+    icons:
+      type: sequence
+      label: 'Icon overrides'
+      sequence:
+        type: string
+        label: Icon
+    new_window:
+      type: boolean
+      label: 'Open in a new window'
+    processing_mode:
+      type: string
+      label: 'Processing mode'
+
 neo_alchemist.neo_component_value.heading:
   type: mapping
   label: 'Heading provider'

@@ -99,6 +99,37 @@ drush neo:alchemist:render front:cards_test --scheme=dark
 drush neo:alchemist:render front:header --live --html
 ```
 
+## Capture a component thumbnail
+
+The component listings show a thumbnail per component, and core reads it from a
+`thumbnail.png` sitting in the component's own directory. You can produce one
+from the browser instead of exporting it by hand:
+
+1. Be on a local development environment — see the gate below.
+2. Open the component's preview workspace at
+   `/admin/config/neo/alchemist/preview/<id>`.
+3. Click **Capture thumbnail**, frame it with the Align and Width controls, then
+   click **Capture**.
+
+The PNG is written straight to `<component-dir>/thumbnail.png`, so it lands next
+to the `.component.yml`, shows up in `git status`, and travels with the
+component. No cache rebuild is needed — core picks it up on the next request.
+It also becomes the fallback thumbnail for any saved component wrapping that SDC
+which has no thumbnail of its own.
+
+Because this writes into the codebase, it is offered only on a local
+development environment. Either signal is enough:
+
+- the Neo dev server is running (`npm start`), or
+- the dev config split is enabled — `$config['config_split.config_split.dev']['status'] = TRUE;`
+  in the gitignored `settings.local.php`.
+
+The split is the steadier of the two: it holds for the whole environment,
+whereas the dev-server signal comes and goes with `npm start`.
+
+Where neither holds the button is absent and the endpoint refuses the write.
+Where one holds but the component directory is not writable by the web server,
+the button renders disabled and names the directory — `chmod` it.
 
 TWIG EVENTS
 ----

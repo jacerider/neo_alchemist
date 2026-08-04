@@ -6,6 +6,7 @@ namespace Drupal\neo_alchemist_block\Entity;
 
 use Drupal\Core\Config\Entity\ConfigEntityBundleBase;
 use Drupal\Core\Entity\EntityStorageInterface;
+use Drupal\neo_alchemist\ComponentUsage;
 use Drupal\neo_alchemist_block\AlchemistBlockInterface;
 
 /**
@@ -132,27 +133,35 @@ class AlchemistBlock extends ConfigEntityBundleBase implements AlchemistBlockInt
   }
 
   /**
+   * {@inheritdoc}
+   *
+   * Strips the removed components out of the tree and reports the block as
+   * fixed. Without this the config dependency system would delete the whole
+   * block — and every placement of it — because one component it contained
+   * went away.
+   */
+  public function onDependencyRemoval(array $dependencies) {
+    $changed = parent::onDependencyRemoval($dependencies);
+    $componentIds = ComponentUsage::componentIdsFromDependencies($dependencies);
+    if (!$componentIds) {
+      return $changed;
+    }
+    $updated = ComponentUsage::detachComponents($this->components, $componentIds);
+    if ($updated !== $this->components) {
+      $this->components = $updated;
+      $changed = TRUE;
+    }
+    return $changed;
+  }
+
+  /**
    * Collects the neo_component config entity IDs used in the tree.
    *
    * @return string[]
    *   The component config entity IDs.
    */
   protected function getTreeComponentIds(): array {
-    $componentIds = [];
-    $collect = function (array $items) use (&$collect, &$componentIds): void {
-      foreach ($items as $item) {
-        if (is_array($item)) {
-          if (isset($item['component']) && is_string($item['component'])) {
-            $componentIds[$item['component']] = $item['component'];
-          }
-          else {
-            $collect($item);
-          }
-        }
-      }
-    };
-    $collect($this->components['tree'] ?? []);
-    return array_values($componentIds);
+    return ComponentUsage::extractComponentIds($this->components['tree'] ?? []);
   }
 
   /**

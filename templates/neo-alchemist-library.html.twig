@@ -1,27 +1,42 @@
+{% macro component_grid(components) %}
+  <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 my-2">
+    {% for component in components %}
+      <a{{ component.attributes.addClass('neo-alchemist-library-component border relative overflow-hidden rounded focus hover:border-primary-500 transition')|neo_tooltip_trigger({placement: 'bottom', delay: '[300, 0]'}) }} data-component-label="{{ component.label|lower }}">
+        <div class="w-full h-30 overflow-hidden">
+          <img src="{{ component.thumbnail }}" alt="{{ component.label }}" class="object-cover object-top w-full h-30 hover:object-bottom transition-all duration-700" />
+        </div>
+        <div class="flex gap-2 justify-center w-full bg-base-900/90 text-base-900-content text-xs px-2 py-1">
+          <div class="truncate">{{ component.label }}</div>
+        </div>
+        {% if component.description %}
+          {{ component.description|neo_tooltip_content }}
+        {% endif %}
+        {% if component.access %}
+          <div class="absolute top-2 right-2">{{ component.access }}</div>
+        {% endif %}
+      </a>
+    {% endfor %}
+  </div>
+{% endmacro %}
+
+{% import _self as library %}
+
 <div class="neo-alchemist-library flex flex-col gap-6">
   {% if groups|length %}
     {% for group in groups %}
       <div class="neo-alchemist-library-group card p-3">
         <div class="text-lg font-bold text-base-950">{{ group.label }}</div>
         <div class="text-xs text-base-700">{{ group.description }}</div>
-        <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 my-2">
-          {% for component in group.components %}
-            <a{{ component.attributes.addClass('neo-alchemist-library-component border relative overflow-hidden rounded focus hover:border-primary-500 transition')|neo_tooltip_trigger({placement: 'bottom', delay: '[300, 0]'}) }} data-component-label="{{ component.label|lower }}">
-              <div class="w-full h-30 overflow-hidden">
-                <img src="{{ component.thumbnail }}" alt="{{ component.label }}" class="object-cover object-top w-full h-30 hover:object-bottom transition-all duration-700" />
-              </div>
-              <div class="flex gap-2 justify-center w-full bg-base-900/90 text-base-900-content text-xs px-2 py-1">
-                <div class="truncate">{{ component.label }}</div>
-              </div>
-              {% if component.description %}
-                {{ component.description|neo_tooltip_content }}
-              {% endif %}
-              {% if component.access %}
-                <div class="absolute top-2 right-2">{{ component.access }}</div>
-              {% endif %}
-            </a>
+        {% if group.subgroups %}
+          {% for subgroup in group.subgroups %}
+            <div class="neo-alchemist-library-subgroup mt-3">
+              <div class="text-sm font-bold text-base-800 border-b border-base-300 pb-1">{{ subgroup.label }}</div>
+              {{ library.component_grid(subgroup.components) }}
+            </div>
           {% endfor %}
-        </div>
+        {% else %}
+          {{ library.component_grid(group.components) }}
+        {% endif %}
       </div>
     {% endfor %}
   {% else %}

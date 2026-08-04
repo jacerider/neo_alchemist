@@ -8,7 +8,6 @@ use Drupal\Core\Entity\ContentEntityInterface;
 use Drupal\Core\Entity\EntityMalformedException;
 use Drupal\Core\Session\AccountInterface;
 use Drupal\Core\Url;
-use Drupal\field\Entity\FieldConfig;
 use Drupal\field\Entity\FieldStorageConfig;
 use Drupal\neo_alchemist\ComponentFieldConfigInterface;
 use Drupal\neo_alchemist\ComponentInterface;
@@ -18,7 +17,7 @@ use Drupal\neo_alchemist\Plugin\Field\FieldType\ComponentTreeItem;
 /**
  * Defines the component Field entity.
  */
-class ComponentFieldConfig extends FieldConfig implements ComponentFieldConfigInterface {
+class ComponentFieldConfig extends NeoFieldConfig implements ComponentFieldConfigInterface {
 
   /**
    * Memoized entity-customizable region anchors of the default layout.

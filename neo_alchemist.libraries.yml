@@ -99,6 +99,15 @@ component.library:
     - core/once
     - core/drupal
 
+component.list:
+  version: VERSION
+  neo: true
+  js:
+    src/js/component-list.ts: {}
+  dependencies:
+    - core/once
+    - core/drupal
+
 utilities:
   version: VERSION
   neo:
@@ -127,3 +136,26 @@ field-browser:
     - core/drupal
     - core/once
     - neo_modal/modal
+
+# Browser-side word count for the `read_time` value provider. Front scope for
+# the same reason as `share` below.
+read-time:
+  version: VERSION
+  neo: { scope: front }
+  js:
+    src/js/read-time.ts: {}
+  dependencies:
+    - core/drupal
+    - core/once
+
+# Native share for the `share` value provider's Web Share API item. Front scope
+# only — the module's info.yml declares a bare `neo: true`, which would
+# otherwise build this into the admin bundle as well.
+share:
+  version: VERSION
+  neo: { scope: front }
+  js:
+    src/js/share.ts: {}
+  dependencies:
+    - core/drupal
+    - core/once

@@ -22,6 +22,7 @@ use Drupal\neo_alchemist\ComponentAccessInterface;
 use Drupal\neo_alchemist\ComponentFilterInterface;
 use Drupal\neo_alchemist\ComponentInstanceInterface;
 use Drupal\neo_alchemist\ComponentInterface;
+use Drupal\neo_alchemist\ComponentManageHelper;
 use Drupal\neo_alchemist\ComponentShapePluginInterface;
 use Drupal\neo_alchemist\ComponentSlotInterface;
 use Drupal\neo_icon\IconTrait;
@@ -76,6 +77,7 @@ use Drupal\neo_icon\IconTrait;
  *     "delete-form" = "/admin/config/neo/alchemist/{neo_component}/delete",
  *     "canonical" = "/admin/config/neo/alchemist/{neo_component}",
  *     "preview" = "/admin/config/neo/alchemist/{neo_component}/preview",
+ *     "usage" = "/admin/config/neo/alchemist/{neo_component}/usage",
  *   },
  *   entity_keys = {
  *     "id" = "id",
@@ -432,10 +434,11 @@ class Component extends ConfigEntityBase implements ComponentInterface {
         return $url . (str_contains($url, '?') ? '&' : '?') . 'v=' . $file->getChangedTime();
       }
     }
-    if ($defaultThumbnail = $this->getDefaultThumbnail()) {
-      return '/' . $defaultThumbnail;
-    }
-    return '/' . \Drupal::service('extension.list.module')->getPath('neo_alchemist') . '/images/thumbnail.jpg';
+    // Fall back to the SDC's own thumbnail.png — which a developer can capture
+    // straight into the component directory — and then to the placeholder.
+    $uri = ComponentManageHelper::sdcThumbnailUri($this->getComponent())
+      ?: ComponentManageHelper::placeholderThumbnailUri();
+    return \Drupal::service('file_url_generator')->generateString($uri);
   }
 
   /**

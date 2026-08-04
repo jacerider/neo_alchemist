@@ -33,6 +33,20 @@ neo_alchemist.sdc_preview_frame:
     _neo_alchemist_preview: TRUE
     _admin_route: FALSE
 
+# Writes a captured thumbnail into the SDC's own directory. Local development
+# only — the writer refuses unless the Neo dev server is running.
+neo_alchemist.sdc_thumbnail_capture:
+  path: '/admin/config/neo/alchemist/preview/{component}/thumbnail'
+  defaults:
+    _controller: '\Drupal\neo_alchemist\Controller\SdcThumbnailCaptureController'
+  methods: [POST]
+  requirements:
+    _permission: 'administer neo_alchemist'
+    _csrf_token: 'TRUE'
+  options:
+    _admin_route: TRUE
+    no_cache: TRUE
+
 entity.neo_component.library:
   path: '/admin/config/neo/alchemist/add'
   defaults:
@@ -67,6 +81,14 @@ entity.neo_component.preview:
   options:
     _neo_alchemist_preview: TRUE
     _admin_route: FALSE
+
+entity.neo_component.usage:
+  path: '/admin/config/neo/alchemist/{neo_component}/usage'
+  defaults:
+    _controller: '\Drupal\neo_alchemist\Controller\ComponentUsageController'
+    _title_callback: '\Drupal\neo_alchemist\Controller\ComponentUsageController::getTitle'
+  requirements:
+    _permission: 'administer neo_alchemist'
 
 entity.neo_component.edit_form:
   path: '/admin/config/neo/alchemist/{neo_component}/edit'

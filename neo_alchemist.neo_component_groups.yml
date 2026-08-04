@@ -22,3 +22,4 @@ entity:
   label: 'Content Specific'
   description: 'Components that can be used only on specific types of content.'
   weight: 15
+  subgroup: target_entity
