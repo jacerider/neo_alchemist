@@ -22,7 +22,13 @@ use Drupal\neo_alchemist\Drush\Generators\NeoComponentTwig;
   default_field_widget: 'string_textfield',
   default_field_widget_with_options: 'options_select',
   supports_field_types: ['datetime'],
-  supports_field_props: ['string', 'integer', 'float', 'decimal', 'email'],
+  // `timestamp` covers created/changed/timestamp fields, which all expose a
+  // single `value` property of that data type. It has to be listed explicitly:
+  // the Timestamp data type extends IntegerData in PHP, but these lists are
+  // compared by plugin id, so `integer` above does not cover it.
+  // `datetime_iso8601` picks up daterange, whose four properties keep it out of
+  // the whole-field branch; datetime itself already matches by field type.
+  supports_field_props: ['string', 'integer', 'float', 'decimal', 'email', 'timestamp', 'datetime_iso8601'],
   formats: [
     'textarea' => [
       'default_field_type' => 'string_long',
