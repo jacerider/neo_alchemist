@@ -40,7 +40,7 @@ function neo_alchemist_update_11002() {
         && array_key_exists('continue', $value['settings'])
       ) {
         if (!empty($value['settings']['continue'])) {
-          $value['settings']['processing_mode'] = 'stop_when_found';
+          $value['settings']['processing_mode'] = 'block';
         }
         unset($value['settings']['continue']);
       }
@@ -155,4 +155,297 @@ function neo_alchemist_update_11003() {
     '@list' => implode(', ', $changed),
     '@review' => $review,
   ]);
+}
+
+/**
+* Finish the block-on-empty backfill for components in the entity group.
+*
+* neo_alchemist_update_11003() only ever reached props whose `ref` was one of a
+* fixed scaffolding list, and only the plugins sitting on the prop's OWN
+* top-level shape. It deliberately left scalar refs alone, on the grounds that
+* a string or heading example is usually the component author's default rather
+* than invented content.
+*
+* That reasoning does not hold for a component in the **entity** group. Those
+* components exist to render one entity's fields, so their examples are always
+* invented — "Example string", "Example link", a placeholder video id — and a
+* provider that came up empty must render nothing rather than fall back to
+* them. This finishes the job for that group, and reaches the two places 11003
+* structurally could not:
+* - nested shape ids (`heading~title`), which is where a sub-prop bound to an
+*   entity field actually stores its provider;
+* - a provider's per-child `shape_fields` plugin lists, which
+*   enableChildShapePlugin() hands to the child shape at render time.
+*
+* The guardrails from 11003 are kept, because each of them exists to stop this
+* migration replacing one silent blanking with another:
+* - Only the LAST producer on a shape is touched, so a deliberate chain keeps
+*   working. `entity` falling through to `media` is the live case: blocking
+*   `entity` would claim the value and `media` would never run.
+* - A shape carrying a `fallback` plugin (the configured Default Value) is left
+*   alone — blocking claims the value and the fallback loop never runs.
+* - An explicit `continue`, and a producer whose class defaults to `continue`
+*   (`event`, which contributes a value later providers may still change), are
+*   both left alone.
+* - An unresolvable plugin id means a disabled module and an unknowable
+*   pipeline order, so the whole shape is skipped.
+*
+* The mode is written explicitly even where it matches the plugin's PHP
+* default. An unset key is a live reference to processingModeDefault(), so a
+* future change to that constant would move these sites a second time with
+* nothing in config to show for it; and an explicit key is what makes the
+* change visible in `git diff config/`.
+*
+* NOTE for config-managed sites: a `drush cim` after this runs will revert it.
+* Run `drush updb` against a copy of the production database, `drush cex`, and
+* review and commit the diff — then deploy normally.
+*/
+function neo_alchemist_update_11004() {
+  $definitions = \Drupal::service('plugin.manager.neo_component_value')->getDefinitions();
+  $changed = [];
+  $skipped = [];
+
+  foreach (\Drupal::configFactory()->listAll('neo_alchemist.neo_component.') as $name) {
+    $config = \Drupal::configFactory()->getEditable($name);
+    $data = $config->getRawData();
+    // Component::$group defaults to 'general' when the key was never written.
+    if (($data['group'] ?? 'general') !== 'entity') {
+      continue;
+    }
+    $componentId = $data['id'] ?? $name;
+    $writes = [];
+
+    foreach ($data['settings']['props'] ?? [] as $propId => $prop) {
+      // $shapeId is the prop's own id OR a nested child shape ('heading~title').
+      foreach ($prop['plugins'] ?? [] as $shapeId => $instances) {
+        if (!is_array($instances) || !$instances) {
+          continue;
+        }
+        _neo_alchemist_processing_mode_visit(
+          $instances,
+          ['settings', 'props', $propId, 'plugins', $shapeId],
+          $definitions,
+          $componentId . ' :: ' . $shapeId,
+          $writes,
+          $skipped
+        );
+      }
+    }
+
+    // Collected as explicit paths and applied here rather than mutated in
+    // place: a recursive walk by reference is exactly where silent
+    // reference-carryover bugs live, and this is production data.
+    foreach ($writes as $write) {
+      \Drupal\Component\Utility\NestedArray::setValue($data, $write['path'], $write['value'], TRUE);
+      $changed[] = $write['label'];
+    }
+    if ($writes) {
+      $config->setData($data)->save();
+    }
+  }
+
+  if (!$changed) {
+    return (string) t('No entity-group component props needed migrating.');
+  }
+  $message = (string) t('Set "Always stop (block if empty)" on @count entity-group component prop(s): @list.', [
+    '@count' => count($changed),
+    '@list' => implode(', ', $changed),
+  ]);
+  if ($skipped) {
+    // Named rather than counted: every skip is a prop a person may still need
+    // to look at, and the reason is what tells them whether to.
+    $message .= ' ' . (string) t('Left alone on purpose: @list.', [
+      '@list' => implode('; ', $skipped),
+    ]);
+  }
+  return $message;
+}
+
+/**
+* Queue the processing-mode rewrites for one shape's plugin list.
+*
+* Handles all three nesting axes: the shape's own plugins, the heading
+* plugin's per-sub-prop modes, and a provider's `shape_fields` recursion.
+*
+* @param array $instances
+*   The plugin instances, keyed by plugin id.
+* @param array $base
+*   The config key path of $instances.
+* @param array $definitions
+*   The neo_component_value plugin definitions.
+* @param string $label
+*   Human-readable location, for the update's summary.
+* @param array $writes
+*   Collected rewrites, each ['path' => [], 'value' => mixed, 'label' => ''].
+* @param array $skipped
+*   Collected skip messages.
+*/
+function _neo_alchemist_processing_mode_visit(array $instances, array $base, array $definitions, string $label, array &$writes, array &$skipped): void {
+  // `shape_fields` instances carry a status flag, and a disabled one is never
+  // handed to the child shape — so it is not in the pipeline and cannot be the
+  // last producer. Top-level instances have no such key and are always live.
+  $enabled = [];
+  foreach ($instances as $pluginId => $instance) {
+    if (!is_array($instance) || (array_key_exists('status', $instance) && empty($instance['status']))) {
+      continue;
+    }
+    $enabled[$pluginId] = $instance;
+  }
+
+  _neo_alchemist_processing_mode_claim($enabled, $base, $definitions, $label, $writes, $skipped);
+
+  foreach ($enabled as $pluginId => $instance) {
+    $settings = $instance['settings'] ?? [];
+    if (!is_array($settings)) {
+      continue;
+    }
+    $settingsPath = array_merge($base, [$pluginId, 'settings']);
+    $instanceLabel = $label . ' (' . $pluginId . ')';
+    if ($pluginId === 'heading') {
+      _neo_alchemist_processing_mode_heading($settings, $settingsPath, $instanceLabel, $writes);
+    }
+    _neo_alchemist_processing_mode_children($settings, $settingsPath, $definitions, $instanceLabel, $writes, $skipped);
+  }
+}
+
+/**
+* Walk a provider's per-child `shape_fields` configuration.
+*
+* @see \Drupal\neo_alchemist\Plugin\ComponentValue\ComponentValueChildrenMatchTrait
+*/
+function _neo_alchemist_processing_mode_children(array $settings, array $base, array $definitions, string $label, array &$writes, array &$skipped): void {
+  foreach ($settings['shape_fields'] ?? [] as $childName => $child) {
+    if (!is_array($child)) {
+      continue;
+    }
+    $childPath = array_merge($base, ['shape_fields', $childName]);
+    $childLabel = $label . ' → ' . $childName;
+    if (!empty($child['plugins']) && is_array($child['plugins'])) {
+      _neo_alchemist_processing_mode_visit($child['plugins'], array_merge($childPath, ['plugins']), $definitions, $childLabel, $writes, $skipped);
+    }
+    // `shape_fields` nests directly under the child, as well as under each of
+    // the child's own plugins (handled by the visit above).
+    _neo_alchemist_processing_mode_children($child, $childPath, $definitions, $childLabel, $writes, $skipped);
+  }
+}
+
+/**
+* Queue "block" on the one plugin whose emptiness decides the prop.
+*/
+function _neo_alchemist_processing_mode_claim(array $instances, array $base, array $definitions, string $label, array &$writes, array &$skipped): void {
+  if (!$instances) {
+    return;
+  }
+  $groups = [];
+  foreach (array_keys($instances) as $pluginId) {
+    if (!isset($definitions[$pluginId]['group'])) {
+      $skipped[] = $label . ' (unknown plugin "' . $pluginId . '")';
+      return;
+    }
+    $groups[$pluginId] = $definitions[$pluginId]['group'];
+  }
+  if (in_array('fallback', $groups, TRUE)) {
+    $skipped[] = $label . ' (a Default Value plugin is enabled)';
+    return;
+  }
+  // Within a group the pipeline runs plugins in saved config key order, so the
+  // last `providers` entry is the one still holding the value when the search
+  // ends — and the only one whose mode decides whether the example survives.
+  // @see \Drupal\neo_alchemist\ComponentShapePluginBase::getValueCollection()
+  $producers = array_keys($groups, 'providers', TRUE);
+  if (!$producers) {
+    return;
+  }
+  $last = end($producers);
+  if (!_neo_alchemist_processing_mode_capable($definitions, $last)) {
+    return;
+  }
+  // The STORED value, never the effective one: that is what makes this hook
+  // idempotent and what stops it overruling a choice someone made by hand.
+  $stored = $instances[$last]['settings']['processing_mode'] ?? NULL;
+  if ($stored === 'block') {
+    return;
+  }
+  if ($stored === 'continue') {
+    $skipped[] = $label . ' ("' . $last . '" is explicitly set to continue)';
+    return;
+  }
+  if ($stored === NULL && _neo_alchemist_processing_mode_default($definitions, $last) === 'continue') {
+    $skipped[] = $label . ' ("' . $last . '" defaults to continue)';
+    return;
+  }
+  $writes[] = [
+    'path' => array_merge($base, [$last, 'settings', 'processing_mode']),
+    'value' => 'block',
+    'label' => $label . ' (' . $last . ')',
+  ];
+}
+
+/**
+* Queue "render nothing" on heading sub-props bound to an entity field.
+*
+* Mirrors HeadingValue::isBlockedEmptyField() exactly. The mode is only ever
+* read for a sub-prop with a field binding and no higher-precedence source
+* above it, so writing it anywhere else would be config that lies about what
+* runs. This is independent of the claim rules above: the heading's per-sub-prop
+* mode acts through the child shape's empty option, not by claiming the value.
+*/
+function _neo_alchemist_processing_mode_heading(array $settings, array $base, string $label, array &$writes): void {
+  foreach (['supertitle', 'title', 'subtitle'] as $key) {
+    if (empty($settings["{$key}_field"])) {
+      continue;
+    }
+    if (!empty($settings["{$key}_page"]) || !empty($settings["{$key}_entity"])) {
+      continue;
+    }
+    if (($settings["{$key}_field_mode"] ?? 'stop_when_found') === 'block') {
+      continue;
+    }
+    $writes[] = [
+      'path' => array_merge($base, ["{$key}_field_mode"]),
+      'value' => 'block',
+      'label' => $label . ' → ' . $key,
+    ];
+  }
+}
+
+/**
+* Whether a plugin exposes a processing mode at all.
+*
+* Tested against the interface rather than a list of plugin ids, so a plugin
+* that adopts it later — in this module or a contrib one — is covered without
+* anyone remembering to update a constant here.
+*/
+function _neo_alchemist_processing_mode_capable(array $definitions, string $pluginId): bool {
+  $class = $definitions[$pluginId]['class'] ?? NULL;
+  return is_string($class)
+    && class_exists($class)
+    && is_subclass_of($class, 'Drupal\neo_alchemist\ComponentValueProcessingModeInterface');
+}
+
+/**
+* The mode a plugin falls back to when the key is unset.
+*
+* processingModeDefault() is protected, and every implementation is a bare
+* `return self::MODE_X;` that touches no state — so an uninitialised instance
+* answers it correctly. Reflecting is what lets the `continue` rule be written
+* against behaviour instead of hard-coding "event".
+*/
+function _neo_alchemist_processing_mode_default(array $definitions, string $pluginId): string {
+  static $cache = [];
+  $class = $definitions[$pluginId]['class'] ?? '';
+  if (!array_key_exists($class, $cache)) {
+    $cache[$class] = 'stop_when_found';
+    try {
+      $reflection = new \ReflectionClass($class);
+      $method = $reflection->getMethod('processingModeDefault');
+      $method->setAccessible(TRUE);
+      $cache[$class] = (string) $method->invoke($reflection->newInstanceWithoutConstructor());
+    }
+    catch (\Throwable) {
+      // An unreflectable class keeps the trait's own default, which is the
+      // conservative answer: it does not exempt the plugin from the migration.
+    }
+  }
+  return $cache[$class];
 }

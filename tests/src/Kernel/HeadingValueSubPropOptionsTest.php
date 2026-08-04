@@ -14,14 +14,24 @@ use PHPUnit\Framework\Attributes\Group;
  * What each Heading sub-prop setting does to that sub-prop's nested options.
  *
  * HeadingValue::onShapeInit() decides, per sub-prop, whether the child starts
- * hidden ("empty") and whether it starts on its default value. Those decisions
- * used to be written as `??` chains — `$config["{$f}_page"] ??
+ * hidden ("empty") and whether it starts on its default value. The rule is that
+ * a source — the page title, the entity label or a bound entity field — starts
+ * the sub-prop on its default, because that default is what the source
+ * produced, and that only the site builder's own Hide checkbox starts it
+ * hidden. Getting those two backwards is not a cosmetic difference: the empty
+ * option short-circuits ComponentShapePluginBase::getValue() before the default
+ * one is ever read, so a sourced-and-hidden sub-prop resolves its value and
+ * then throws it away.
+ *
+ * These decisions used to be written as `??` chains — `$config["{$f}_page"] ??
  * $config["{$f}_entity"] ?? FALSE` — which cannot express "any of these":
  * every key is seeded by defaultConfiguration(), so `??` always stopped at the
  * first one and the entity-label source never reached either branch. The
  * chains also read
  * differently for `title` than for its siblings, purely because `title_empty`
- * was the one key missing from the defaults.
+ * was the one key missing from the defaults — which is how `title` alone ended
+ * up hidden whenever it was sourced, and how that accident came to be read as
+ * the intended rule.
  *
  * None of that was visible from the outside, for a reason this suite also pins
  * (::testEditFalseShadowsTheHiddenDefault): when a sub-prop is not editable,
@@ -126,37 +136,42 @@ class HeadingValueSubPropOptionsTest extends KernelTestBase {
   /**
    * Every way a sub-prop can be told where its value comes from.
    *
-   * Each case names one sub-prop setting and the hidden state it must produce.
-   * All three sub-props keep `_edit` TRUE, because a non-editable sub-prop
-   * takes the nestedOptions path instead and cannot show this branch at all.
+   * Each case names one sub-prop setting and the hidden/default state it must
+   * produce. All three sub-props keep `_edit` TRUE, because a non-editable
+   * sub-prop takes the nestedOptions path instead and cannot show this branch
+   * at all.
    *
    * @return array
-   *   Cases of [sub-prop, setting key, hidden?, why].
+   *   Cases of [sub-prop, setting key, hidden?, on default?, why].
    */
   public static function sourceCases(): array {
     $cases = [];
     foreach (self::TEXT_KEYS as $key) {
-      $cases["{$key}: no source => visible"] = [
+      $cases["{$key}: no source => visible, not defaulted"] = [
         $key,
         NULL,
         FALSE,
-        'Nothing was configured, so the sub-prop must not be hidden.',
+        FALSE,
+        'Nothing was configured, so the sub-prop is left alone.',
       ];
-      $cases["{$key}: page title source => hidden"] = [
+      $cases["{$key}: page title source => visible, defaulted"] = [
         $key,
         'page',
+        FALSE,
         TRUE,
-        'A sourced sub-prop starts hidden so the editor opts in to showing it.',
+        'The page title IS the default value; hiding it would make the setting inert.',
       ];
-      $cases["{$key}: entity label source => hidden"] = [
+      $cases["{$key}: entity label source => visible, defaulted"] = [
         $key,
         'entity',
+        FALSE,
         TRUE,
-        'The entity label is a source like any other; the ?? chain never reached it.',
+        'The entity label is a source like any other and renders the same way.',
       ];
-      $cases["{$key}: entity field source => hidden"] = [
+      $cases["{$key}: entity field source => visible, defaulted"] = [
         $key,
         'field',
+        FALSE,
         TRUE,
         'An entity-field binding is a source too and must follow the same rule.',
       ];
@@ -164,17 +179,25 @@ class HeadingValueSubPropOptionsTest extends KernelTestBase {
         $key,
         'empty',
         TRUE,
-        'The explicit Hide checkbox is the original reason this branch exists.',
+        FALSE,
+        'The explicit Hide checkbox is the only thing that starts a sub-prop hidden.',
       ];
     }
     return $cases;
   }
 
   /**
-   * A configured source hides its sub-prop by default, whichever source it is.
+   * A configured source starts its sub-prop on the value that source produced.
+   *
+   * The rule this pins is the inverse of what the code used to do: a source
+   * used to ALSO start the sub-prop hidden, and the empty option beats the
+   * default one in ComponentShapePluginBase::getValue(), so ticking "Use page
+   * title as value" resolved the page title and then discarded it — an empty
+   * heading in the component preview and on every instance created afterwards.
+   * Hiding is the site builder's own switch (`{$key}_empty`) and nothing else.
    */
   #[DataProvider('sourceCases')]
-  public function testSourceHidesSubProp(string $key, ?string $setting, bool $hidden, string $why): void {
+  public function testSourceDefaultsSubProp(string $key, ?string $setting, bool $hidden, bool $default, string $why): void {
     $settings = [];
     foreach (self::TEXT_KEYS as $textKey) {
       $settings["{$textKey}_edit"] = TRUE;
@@ -188,10 +211,11 @@ class HeadingValueSubPropOptionsTest extends KernelTestBase {
     $states = $this->optionStates($settings);
 
     $this->assertSame($hidden, $states[$key]['empty'], $why);
+    $this->assertSame($default, $states[$key]['default'], $why);
   }
 
   /**
-   * A source never hides a sibling sub-prop.
+   * A source never touches a sibling sub-prop.
    *
    * The settings are a flat `{sub-prop}_{setting}` namespace, so a mistake in
    * the key interpolation would leak one sub-prop's source onto another. This
@@ -205,17 +229,21 @@ class HeadingValueSubPropOptionsTest extends KernelTestBase {
       'title_entity' => TRUE,
     ]);
 
-    $this->assertTrue($states['title']['empty'], 'The sourced sub-prop is hidden.');
-    $this->assertFalse($states['supertitle']['empty'], 'Supertitle has no source of its own.');
-    $this->assertFalse($states['subtitle']['empty'], 'Subtitle has no source of its own.');
+    $this->assertTrue($states['title']['default'], 'The sourced sub-prop starts on its default.');
+    $this->assertFalse($states['supertitle']['default'], 'Supertitle has no source of its own.');
+    $this->assertFalse($states['subtitle']['default'], 'Subtitle has no source of its own.');
+    foreach (self::TEXT_KEYS as $key) {
+      $this->assertFalse($states[$key]['empty'], "The {$key} sub-prop was hidden by a source.");
+    }
   }
 
   /**
-   * An explicit Default beats hidden: the two are either/or, and default wins.
+   * An explicit Default and a source agree rather than compete.
    *
-   * The provider form disables each of the two checkboxes while the other is
-   * ticked, and onShapeInit() encodes the same exclusivity as an if/elseif. A
-   * source must not smuggle the hidden flag past an explicit Default.
+   * The provider form disables each of the Default/Hide checkboxes while the
+   * other is ticked, so they are either/or in the UI. Ticking Default on a
+   * sub-prop that already has a source is a no-op: both roads lead to the
+   * sub-prop starting on the value the source produced.
    */
   public function testExplicitDefaultBeatsSource(): void {
     $states = $this->optionStates([
@@ -226,8 +254,35 @@ class HeadingValueSubPropOptionsTest extends KernelTestBase {
       'title_default' => TRUE,
     ]);
 
-    $this->assertFalse($states['title']['empty'], 'Default was ticked, so the elseif never runs.');
+    $this->assertFalse($states['title']['empty'], 'Neither Default nor a source hides a sub-prop.');
     $this->assertTrue($states['title']['default'], 'Default was ticked, so the sub-prop starts on its default.');
+  }
+
+  /**
+   * The sourced value survives all the way to the resolved prop value.
+   *
+   * The option assertions above describe the mechanism; this one describes the
+   * symptom that sent anyone looking at it. A heading whose title is sourced
+   * from the page title must resolve to that title — under the old
+   * source-implies-hidden rule the sub-prop was silently dropped from the
+   * object here, and the component rendered an empty heading.
+   */
+  public function testSourcedTitleReachesTheResolvedValue(): void {
+    $component = $this->buildComponent([
+      'supertitle_edit' => TRUE,
+      'title_edit' => TRUE,
+      'subtitle_edit' => TRUE,
+      'title_page' => TRUE,
+    ]);
+    $component->setPreview(TRUE);
+
+    $value = $component->getPropShapes()['heading']->getValue();
+
+    $this->assertArrayHasKey('title', $value, 'The sourced title was dropped from the heading value.');
+    // Preview mode has no page to take a title from, so the provider stands in
+    // a placeholder — the exact string is HeadingValue's business, but that
+    // SOMETHING arrived is this test's.
+    $this->assertNotSame('', (string) $value['title']);
   }
 
   /**
