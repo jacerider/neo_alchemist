@@ -193,6 +193,10 @@ class ComponentValueProcessingModeIntegrationTest extends KernelTestBase {
       'entity_reference' => ComponentValueProcessingModeInterface::MODE_BLOCK,
       'event' => ComponentValueProcessingModeInterface::MODE_CONTINUE,
       'menu' => ComponentValueProcessingModeInterface::MODE_BLOCK,
+      // Share links fill a menu prop, so the same reasoning as `menu` applies:
+      // its schema examples are invented links, and "this entity has no
+      // shareable URL" has to render nothing rather than fall through to them.
+      'share' => ComponentValueProcessingModeInterface::MODE_BLOCK,
     ], $nonDefault, 'The set of providers defaulting to a non-standard processing mode changed.');
   }
 

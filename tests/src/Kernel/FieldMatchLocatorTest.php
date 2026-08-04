@@ -45,8 +45,32 @@ class FieldMatchLocatorTest extends FieldMatchKernelTestBase {
     // fields a string prop could never consume.
     $unfiltered = array_keys($this->locator()->getMatches($shape, TRUE));
     $matched = array_keys($this->locator()->getMatches($shape, FALSE));
-    $this->assertContains('changed', $unfiltered, 'A timestamp is offered when every field is on the table.');
-    $this->assertNotContains('changed', $matched, 'But not to a prop that cannot hold it.');
+    $this->assertContains('status', $unfiltered, 'A boolean is offered when every field is on the table.');
+    $this->assertNotContains('status', $matched, 'But not to a prop that cannot hold it.');
+  }
+
+  /**
+   * A timestamp field is offered to a string prop.
+   *
+   * The created/changed/timestamp field types all expose a single `value`
+   * property of data type `timestamp`, and these lists are compared by plugin
+   * id — so despite Timestamp extending IntegerData in PHP, `integer` in
+   * StringShape's supports_field_props did not cover them and "Authored on"
+   * could not be bound to a heading supertitle. The value arrives as a raw
+   * epoch int (StringShape is the one scalar shape that does not coerce),
+   * which is what the `date` value modifier is for.
+   *
+   * @see \Drupal\neo_alchemist\Plugin\ComponentShape\StringShape
+   * @see \Drupal\neo_alchemist\Plugin\ComponentValue\DateValue
+   */
+  public function testTimestampFieldsAreOfferedToStringProps(): void {
+    $matched = array_keys($this->locator()->getMatches($this->titleShape(), FALSE));
+
+    $this->assertContains('created', $matched, 'Authored on is bindable to a string prop.');
+    $this->assertContains('changed', $matched, 'And so is any other timestamp field.');
+    // Matched as a whole field, not as a `:value` property suffix — both the
+    // shape and the field have exactly one property, so they pair directly.
+    $this->assertNotContains('created:value', $matched);
   }
 
   /**

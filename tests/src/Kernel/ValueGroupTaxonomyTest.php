@@ -45,6 +45,7 @@ class ValueGroupTaxonomyTest extends KernelTestBase {
 
     $this->assertSame([
       'breadcrumb' => 'providers',
+      'date' => 'modifiers',
       'default' => 'fallback',
       'entity' => 'providers',
       'entity_filter' => 'providers',
@@ -71,8 +72,10 @@ class ValueGroupTaxonomyTest extends KernelTestBase {
       'number' => 'modifiers',
       'page_title' => 'providers',
       'prefix' => 'modifiers',
+      'read_time' => 'providers',
       'region_custom' => 'settings',
       'region_size' => 'settings',
+      'share' => 'providers',
       'suffix' => 'modifiers',
       'token' => 'modifiers',
       'user_has_role' => 'providers',
