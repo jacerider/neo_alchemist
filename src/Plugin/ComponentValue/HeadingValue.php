@@ -416,8 +416,21 @@ final class HeadingValue extends ComponentValuePluginBase implements ContainerFa
     $dynamicAnchor = FALSE;
     foreach (static::TEXT_KEYS as $field) {
       // A sub-prop that draws its value from somewhere — the page title, the
-      // entity label, or a bound entity field — starts on its default value
-      // and starts hidden, so showing it is something the editor opts into.
+      // entity label, or a bound entity field — starts on its default value,
+      // because that default is exactly what the source produced. Overriding
+      // it with typed text is what the editor opts into.
+      //
+      // Sourcing must NOT also start the sub-prop hidden. "Hide" is the site
+      // builder's own switch ({$field}_empty), and conflating the two made
+      // every source pointless the moment it was chosen: the empty option wins
+      // over the default one in ComponentShapePluginBase::getValue(), so
+      // ticking "Use page title as value" on the title resolved the page title
+      // and then threw it away, rendering an empty <h2> in the preview and on
+      // every instance created afterwards.
+      //
+      // Nor can "starts on its default" be gated on the parent heading's own
+      // default option: that option is off for an ordinary authored heading,
+      // which is precisely the case a sourced sub-prop has to work in.
       //
       // Both conditions used to be written as `??` chains. That cannot express
       // "any of these": every key is seeded by defaultConfiguration(), so `??`
@@ -428,17 +441,19 @@ final class HeadingValue extends ComponentValuePluginBase implements ContainerFa
       // sub-props and "hide when sourced from the page title" for the third.
       // The missing title_empty key is now seeded alongside its siblings.
       $hasSource = $this->hasSource($field);
-      if ($hasSource && $this->shape->getOptionDefault()->isEnabled()) {
+      if ($hasSource || $this->configuration["{$field}_default"]) {
         $shape->setDefaultNestedOptionDefault($field);
       }
-      if ($this->configuration["{$field}_default"]) {
-        $shape->setDefaultNestedOptionDefault($field);
-      }
-      elseif (!empty($this->configuration["{$field}_empty"]) || $hasSource) {
+      if (!empty($this->configuration["{$field}_empty"])) {
         $shape->setDefaultNestedOptionEmpty($field);
       }
-      if (!($this->configuration["{$field}_edit"] ?? TRUE)) {
-        if ($this->configuration["{$field}_empty"] ?? FALSE) {
+      // No `??` fallbacks here: setConfiguration() merges every saved value
+      // over defaultConfiguration(), which seeds `_edit` and `_empty` for all
+      // three text sub-props, so a coalesce operand would be dead code. It read
+      // as a guard against a missing key, which is exactly how `title_empty`
+      // being absent from the defaults went unnoticed for as long as it did.
+      if (!$this->configuration["{$field}_edit"]) {
+        if (!empty($this->configuration["{$field}_empty"])) {
           $shape->setNestedOptionEmpty($field);
         }
         $shape->setNestedOptionDefault($field);
