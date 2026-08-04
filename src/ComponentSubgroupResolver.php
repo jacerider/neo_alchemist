@@ -97,13 +97,14 @@ final class ComponentSubgroupResolver {
       // nothing is the exception, not a peer of the real targets.
       return [
         'id' => self::ANY_ID,
-        'label' => (string) $this->t('(any entity)'),
+        'label' => (string) $this->t('(All)'),
         'sort' => [1, '', ''],
       ];
     }
 
     $definition = $this->entityTypeManager->getDefinition($entityTypeId, FALSE);
     $entityTypeLabel = $definition ? (string) $definition->getLabel() : $entityTypeId;
+    $entityTypeLabel = neo_icon_entity_type($definition);
 
     if (!$bundle) {
       return [
@@ -115,6 +116,7 @@ final class ComponentSubgroupResolver {
     }
 
     $bundleLabel = $this->getBundleLabel($entityTypeId, $bundle);
+    $bundleLabel = neo_icon($bundleLabel, NULL, NULL, ['entity.' . $entityTypeId]);
     return [
       'id' => $entityTypeId . ':' . $bundle,
       'label' => $entityTypeLabel . ' › ' . $bundleLabel,
@@ -161,7 +163,7 @@ final class ComponentSubgroupResolver {
         $this->entityTypeBundleInfo->getBundleInfo($entityTypeId)
       );
     }
-    return $this->bundleLabels[$entityTypeId][$bundle] ?: $bundle;
+    return $this->bundleLabels[$entityTypeId][$bundle] ?? $bundle;
   }
 
   /**
@@ -183,6 +185,7 @@ final class ComponentSubgroupResolver {
     }
     $definition = $this->entityTypeManager->getDefinition($entityTypeId, FALSE);
     $label = $definition ? (string) $definition->getLabel() : $entityTypeId;
+    $label = neo_icon($label, 'entity-' . $entityTypeId) . ' ' . $label;
     if ($bundle = $component->getTargetEntityBundle()) {
       $label .= ' › ' . $this->getBundleLabel($entityTypeId, $bundle);
     }

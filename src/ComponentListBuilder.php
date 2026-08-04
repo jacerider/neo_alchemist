@@ -180,7 +180,6 @@ final class ComponentListBuilder extends ConfigEntityListBuilder {
           'child' => TRUE,
         ];
         $table = $build['table'];
-        $label = $this->buildCaption($subgroup['label']);
         $table['#rows'] = $subgroup['rows'];
         $table['#attributes']['class'][] = 'neo-alchemist-list-subgroup';
         $tables[$id]['subgroups'][$subgroupId]['#type'] = 'fieldset';
@@ -234,7 +233,7 @@ final class ComponentListBuilder extends ConfigEntityListBuilder {
       $build['nav'][$delta] = [
         '#type' => 'html_tag',
         '#tag' => 'a',
-        '#value' => Markup::create(Html::escape((string) $item['label']) . ' <span class="neo-alchemist-list-nav-count opacity-80">' . (int) $item['count'] . '</span>'),
+        '#value' => Markup::create((string) $item['label'] . ' <span class="neo-alchemist-list-nav-count opacity-80">' . (int) $item['count'] . '</span>'),
         '#attributes' => [
           'href' => '#' . $item['anchor'],
           'data-nav-target' => $item['anchor'],
