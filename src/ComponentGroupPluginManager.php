@@ -22,10 +22,14 @@ use Drupal\Core\Plugin\Factory\ContainerFactory;
  *     label: STRING
  *     description: STRING
  *     weight: INTEGER
+ *     subgroup: STRING
  * @endcode
  *
- * @see \Drupal\neo_alchemist\ComponentGroupDefault
- * @see \Drupal\neo_alchemist\ComponentGroupInterface
+ * The optional "subgroup" key opts a group into a second level of grouping.
+ * The only supported strategy is "target_entity", which splits the group by
+ * each component's target entity type and bundle.
+ *
+ * @see \Drupal\neo_alchemist\ComponentSubgroupResolver
  */
 final class ComponentGroupPluginManager extends DefaultPluginManager {
 
@@ -44,6 +48,7 @@ final class ComponentGroupPluginManager extends DefaultPluginManager {
     'label' => '',
     'description' => '',
     'weight' => 0,
+    'subgroup' => '',
   ];
 
   /**
