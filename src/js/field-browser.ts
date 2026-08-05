@@ -276,7 +276,7 @@
     private leafRow(leaf: Leaf, pane: Pane): HTMLElement {
       const row = document.createElement('button');
       row.type = 'button';
-      row.className = 'neo-field-browser--leaf block w-full text-left px-3 py-2 text-sm hover:bg-primary-500 hover:text-primary-500-content';
+      row.className = 'neo-field-browser--leaf block w-full text-left px-3 py-2 text-sm hover:bg-primary-500 hover:text-primary-500-content cursor-pointer';
       row.textContent = leaf.label;
       row.dataset.value = leaf.value;
       if (leaf.value === this.input.value) {

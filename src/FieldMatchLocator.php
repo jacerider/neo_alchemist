@@ -108,10 +108,16 @@ final class FieldMatchLocator {
    *   returns them, minus the field definition objects (which do not cache).
    */
   public function getMatches(ComponentShapePluginInterface $shape, bool $all = FALSE, ?string $entityTypeId = NULL, ?string $bundle = NULL): array {
+    // The cid has to mirror MatcherField::getMatches()'s own resolution, which
+    // treats the pair as one decision: an entity type override takes its bundle
+    // from the override too, a NULL there meaning "every bundle". Letting the
+    // bundle fall back to the shape's own target independently makes
+    // (node, every bundle) and (node, the shape's bundle) share one entry, and
+    // whichever picker warms the cache first decides what the other one offers.
     $cid = implode(':', [
       'neo_alchemist.field_match',
       $entityTypeId ?? $shape->getTargetEntityType() ?? '',
-      $bundle ?? $shape->getTargetEntityBundle() ?? '',
+      $entityTypeId !== NULL ? ($bundle ?? '') : ($bundle ?? $shape->getTargetEntityBundle() ?? ''),
       $shape->getRef(),
       $shape->getFormat(),
       $shape->isRequired() ? '1' : '0',

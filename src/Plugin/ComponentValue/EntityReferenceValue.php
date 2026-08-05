@@ -141,7 +141,7 @@ final class EntityReferenceValue extends ComponentValuePluginBase implements Con
     $entityKey = $this->configuration['entity'];
     $form['entity'] = [
       '#type' => 'select',
-      '#title' => $this->t('Target entity type'),
+      '#title' => $this->t('Target entity reference field'),
       '#options' => $options,
       '#default_value' => $entityKey,
       '#empty_option' => $this->t('- Select -'),

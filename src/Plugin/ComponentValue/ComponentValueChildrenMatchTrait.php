@@ -129,6 +129,9 @@ trait ComponentValueChildrenMatchTrait {
       '#description_display' => 'before',
     ];
     $form['#element_validate'][] = [static::class, 'validateChildMatchConfigurationForm'];
+    // Only the choices the entity's own field tree cannot express. Real field
+    // matches are deliberately absent: for a scalar child shape they come from
+    // the searchable browser below, which is the whole point of using it.
     $options = [
       '- Shape -' => [
         '_default' => $this->t('Use Default'),
@@ -136,17 +139,19 @@ trait ComponentValueChildrenMatchTrait {
       ],
     ];
 
-    if ($shape->isIterable()) {
-      // Arrays are not currently supported for field binding.
+    // An array child shape is filled by *iterating* a reference field rather
+    // than by reading one, so its choices are reference fields and it keeps a
+    // plain select. The browser answers "what can supply this value", which for
+    // an array shape is every scalar field on the entity — a thousand matches,
+    // none of which can fill a list.
+    $iterable = $shape->isIterable();
+    if ($iterable) {
       $refOptions = $this->getMatcherReference()->getReferencesAsOptions($entityTypeId, $bundle);
       foreach ($refOptions as $group => $refs) {
         foreach ($refs as $refKey => $refLabel) {
-          $options['- Entity Reference -'][$group]['_reference~' . $refKey] = $refLabel;
+          $options[$group]['_reference~' . $refKey] = $refLabel;
         }
       }
-    }
-    else {
-      $options += $this->matcherField->getMatchesAsOptions($shape, $entityTypeId, $bundle);
     }
     if (in_array($shape->getRef(), ['markup', 'string'])) {
       $options['- Shape -']['_render'] = $this->t('Render with field formatter');
@@ -172,157 +177,151 @@ trait ComponentValueChildrenMatchTrait {
     $this->alterChildMatchOptions($options, $shape, $form_state);
 
     $field = $configuration['field'] ?? NULL;
-    $groups = array_keys($options);
-    $groups = array_combine($groups, $groups);
-    asort($groups);
-    $group = $form_state->get('group--' . $form['#id']);
-    if (!$group) {
-      foreach ($options as $optionGroup => $ops) {
-        foreach ($ops as $key => $data) {
-          if (is_array($data)) {
-            foreach ($data as $subKey => $subLabel) {
-              if ($subKey === $field) {
-                $group = $optionGroup;
-                break 3;
-              }
-            }
-          }
-          else {
-            if ($key === $field) {
-              $group = $optionGroup;
-              break 2;
-            }
-          }
-        }
-      }
-    }
-    $form['group'] = [
-      '#type' => 'select',
-      '#title' => $this->t('Group'),
-      '#description' => $this->t('Select the group to use as the value.'),
-      '#options' => $groups,
-      '#empty_option' => $this->t('- None -'),
-      '#default_value' => $group,
-      '#ajax' => [
-        'callback' => [static::class, 'refreshChildrenMatchAjax'],
-        'wrapper' => $wrapperId,
-      ],
+    $flatOptions = $this->flattenArray($options);
+    // Requiredness is deliberately not enforced on this control. An unbound
+    // child shape is a legal and common state — it simply hides the child — and
+    // the group-then-field pair this replaces only ever raised the error once a
+    // group had been picked. Enforcing it now would make every already-saved
+    // component with an unbound required child unsavable.
+    $emptyOption = $shape->isRequired() ? $this->t('- Select -') : $this->t('- None -');
+    $ajax = [
+      'callback' => [static::class, 'refreshChildrenMatchAjax'],
+      'wrapper' => $wrapperId,
     ];
 
-    if ($group && isset($options[$group])) {
-      $field = isset($this->flattenArray($options[$group])[$field]) ? $field : NULL;
-      $suboptions = $options[$group];
+    if ($iterable) {
+      // A key that is no longer offered — the reference field was deleted, or
+      // the iteration source changed under it — must not be handed back to the
+      // select, which would render it as an illegal choice. The browsable
+      // control below needs no such guard: it renders a stale key flagged as
+      // missing rather than silently blanking it.
+      $field = isset($flatOptions[$field]) ? $field : NULL;
       $form['field'] = [
         '#type' => 'select',
         '#title' => $this->t('Field'),
         '#description' => $shape->getDescription(),
-        '#required' => $shape->isRequired(),
-        '#options' => $suboptions,
-        '#empty_option' => $shape->isRequired() ? $this->t('- Select -') : $this->t('- None -'),
+        '#options' => $options,
+        '#empty_option' => $emptyOption,
         '#default_value' => $field,
-        '#ajax' => [
-          'callback' => [static::class, 'refreshChildrenMatchAjax'],
-          'wrapper' => $wrapperId,
-        ],
+        '#ajax' => $ajax,
       ];
+    }
+    else {
+      // One searchable, browsable control in place of the group-then-field pair
+      // of selects, the same one the single-value providers use. The group step
+      // existed only to keep the option count down — the match list for a child
+      // shape runs to hundreds of entries once the iterated entity's references
+      // are walked — and cost the ability to find a field by name without
+      // already knowing which reference path reaches it. Everything above rides
+      // along as a pinned extra, since none of it is a field on the tree.
+      $form['field'] = [
+        '#type' => 'neo_field_select',
+        '#title' => $this->t('Field'),
+        '#description' => $shape->getDescription(),
+        '#component' => $shape->getComponent()->id(),
+        '#prop' => $shape->getRootShape()->getName(),
+        '#shape' => $shape->id(),
+        // The fields belong to the entity being iterated, not to the one the
+        // component is attached to.
+        '#entity_type' => $entityTypeId,
+        '#bundle' => $bundle,
+        '#extra' => $flatOptions,
+        '#empty_option' => $emptyOption,
+        '#default_value' => $field,
+        '#ajax' => $ajax,
+      ];
+    }
 
-      if ($field) {
-        $find = explode('~', $field)[0];
-        switch ($find) {
-          case '_render':
-            $renderFieldId = $configuration['render_field'] ?? NULL;
-            $form['render_field'] = [
-              '#type' => 'neo_field_select',
-              '#title' => $this->t('Field to render'),
-              '#required' => TRUE,
-              '#component' => $shape->getComponent()->id(),
-              '#prop' => $shape->getRootShape()->getName(),
-              '#shape' => $shape->id(),
-              '#all' => TRUE,
-              '#entity_type' => $entityTypeId,
-              '#bundle' => $bundle,
-              '#empty_option' => $this->t('- Select -'),
-              '#default_value' => $renderFieldId,
-              '#ajax' => [
-                'callback' => [static::class, 'refreshChildrenMatchAjax'],
-                'wrapper' => $wrapperId,
-              ],
-            ];
-            if ($renderFieldId) {
-              $renderField = $this->matcherField->getFieldDefinition($shape, $renderFieldId, $entityTypeId, $bundle, NULL, TRUE);
-              if ($renderField) {
-                $form['render_field_format'] = [
-                  '#type' => 'fieldset',
-                  '#title' => $this->t('Formatter'),
-                ];
-                $renderFieldFormatConfiguration = $configuration['render_field_format'] ?? [];
-                $form['render_field_format'] = $this->formatterConfigurationForm($form['render_field_format'], $form_state, $renderField, $renderFieldFormatConfiguration, [
-                  'callback' => [static::class, 'refreshChildrenMatchAjax'],
-                  'wrapper' => $wrapperId,
-                ]);
-              }
-            }
-            break;
-
-          case '_event':
-            $form['info'] = [
-              '#type' => 'html_tag',
-              '#tag' => 'div',
-              '#attributes' => ['class' => ['messages', 'messages--warning']],
-              '#value' => $this->t('Will call the <em>\Drupal\neo_alchemist\Event\ComponentValueEvent</em> to get the value.'),
-            ];
-            break;
-
-          case '_expand':
-            if ($shape instanceof ComponentShapeChildrenMatchPluginInterface) {
-              foreach ($shape->getChildShapes() as $childShapeName => $childShape) {
-                $form['shape_fields'][$childShapeName] = [
-                  '#id' => $wrapperId . '-' . $childShapeName,
-                  '#parents' => array_merge($form['#parents'], [
-                    'shape_fields',
-                    $childShapeName,
-                  ]),
-                ];
-                $form['shape_fields'][$childShapeName] = $this->buildChildMatchConfigurationForm($childShape, $form['shape_fields'][$childShapeName], $form_state, $entityTypeId, $bundle, $configuration['shape_fields'][$childShapeName] ?? []);
-              }
-            }
-            break;
-
-          case '_reference':
-            // Not currently supported.
-            $parts = explode('~', $field);
-            $entityKey = $parts[1];
-            $referenceEntity = $this->matcherReference->getReferenceEntityByEntityType($entityTypeId, $entityKey, TRUE);
-            if ($referenceEntity) {
-              $form = $this->buildChildrenMatchConfigurationForm($shape, $form, $form_state, $referenceEntity->getEntityTypeId(), $referenceEntity->bundle(), $configuration);
-            }
-            $form['#type'] = 'details';
-            break;
-
-          case '_raw:string':
-            if ($options = $shape->getFieldOptions()) {
-              $form['string'] = [
-                '#type' => 'select',
-                '#title' => $this->t('Value'),
-                '#options' => $options,
-                '#default_value' => $configuration['string'] ?? '',
+    if ($field) {
+      $find = explode('~', $field)[0];
+      switch ($find) {
+        case '_render':
+          $renderFieldId = $configuration['render_field'] ?? NULL;
+          $form['render_field'] = [
+            '#type' => 'neo_field_select',
+            '#title' => $this->t('Field to render'),
+            '#required' => TRUE,
+            '#component' => $shape->getComponent()->id(),
+            '#prop' => $shape->getRootShape()->getName(),
+            '#shape' => $shape->id(),
+            '#all' => TRUE,
+            '#entity_type' => $entityTypeId,
+            '#bundle' => $bundle,
+            '#empty_option' => $this->t('- Select -'),
+            '#default_value' => $renderFieldId,
+            '#ajax' => $ajax,
+          ];
+          if ($renderFieldId) {
+            $renderField = $this->matcherField->getFieldDefinition($shape, $renderFieldId, $entityTypeId, $bundle, NULL, TRUE);
+            if ($renderField) {
+              $form['render_field_format'] = [
+                '#type' => 'fieldset',
+                '#title' => $this->t('Formatter'),
               ];
-              break;
+              $renderFieldFormatConfiguration = $configuration['render_field_format'] ?? [];
+              $form['render_field_format'] = $this->formatterConfigurationForm($form['render_field_format'], $form_state, $renderField, $renderFieldFormatConfiguration, $ajax);
             }
-            else {
-              $form['string'] = [
-                '#type' => 'textfield',
-                '#title' => $this->t('Value'),
-                '#default_value' => $configuration['string'] ?? '',
-              ];
-            }
-            break;
+          }
+          break;
 
-          default:
-            $pluginDefaults = $configuration['plugins'] ?? [];
-            $form = $this->buildPluginConfigurationForm($shape, $pluginDefaults, $form, $form_state);
+        case '_event':
+          $form['info'] = [
+            '#type' => 'html_tag',
+            '#tag' => 'div',
+            '#attributes' => ['class' => ['messages', 'messages--warning']],
+            '#value' => $this->t('Will call the <em>\Drupal\neo_alchemist\Event\ComponentValueEvent</em> to get the value.'),
+          ];
+          break;
+
+        case '_expand':
+          if ($shape instanceof ComponentShapeChildrenMatchPluginInterface) {
+            foreach ($shape->getChildShapes() as $childShapeName => $childShape) {
+              $form['shape_fields'][$childShapeName] = [
+                '#id' => $wrapperId . '-' . $childShapeName,
+                '#parents' => array_merge($form['#parents'], [
+                  'shape_fields',
+                  $childShapeName,
+                ]),
+              ];
+              $form['shape_fields'][$childShapeName] = $this->buildChildMatchConfigurationForm($childShape, $form['shape_fields'][$childShapeName], $form_state, $entityTypeId, $bundle, $configuration['shape_fields'][$childShapeName] ?? []);
+            }
+          }
+          break;
+
+        case '_reference':
+          // Not currently supported.
+          $parts = explode('~', $field);
+          $entityKey = $parts[1];
+          $referenceEntity = $this->matcherReference->getReferenceEntityByEntityType($entityTypeId, $entityKey, TRUE);
+          if ($referenceEntity) {
+            $form = $this->buildChildrenMatchConfigurationForm($shape, $form, $form_state, $referenceEntity->getEntityTypeId(), $referenceEntity->bundle(), $configuration);
+          }
+          $form['#type'] = 'details';
+          break;
+
+        case '_raw:string':
+          if ($stringOptions = $shape->getFieldOptions()) {
+            $form['string'] = [
+              '#type' => 'select',
+              '#title' => $this->t('Value'),
+              '#options' => $stringOptions,
+              '#default_value' => $configuration['string'] ?? '',
+            ];
             break;
-        }
+          }
+          else {
+            $form['string'] = [
+              '#type' => 'textfield',
+              '#title' => $this->t('Value'),
+              '#default_value' => $configuration['string'] ?? '',
+            ];
+          }
+          break;
+
+        default:
+          $pluginDefaults = $configuration['plugins'] ?? [];
+          $form = $this->buildPluginConfigurationForm($shape, $pluginDefaults, $form, $form_state);
+          break;
       }
     }
     $this->alterChildMatchConfigurationForm($shape, $form, $form_state, $entityTypeId, $bundle, $configuration);
@@ -334,12 +333,6 @@ trait ComponentValueChildrenMatchTrait {
    */
   public static function validateChildMatchConfigurationForm(array &$element, FormStateInterface $form_state, array &$complete_form) {
     $values = $form_state->getValue($element['#parents']);
-    // Unset group so it is not saved. It is only used in the UI.
-    $form_state->set('group--' . $element['#id'], $values['group']);
-    if (empty($values['group'])) {
-      $values['field'] = NULL;
-    }
-    unset($values['group']);
     // Store plugin IDs for use in schema.
     $values['plugins'] = $values['plugins'] ?? [];
     foreach ($values['plugins'] as $pluginId => &$plugin) {
