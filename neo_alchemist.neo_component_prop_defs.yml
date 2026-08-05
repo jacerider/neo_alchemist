@@ -665,6 +665,28 @@ text_align:
       label: Right
       value: text-right
 
+text_size:
+  title: Text Size
+  description: The size of the text.
+  type: style
+  examples: md
+  styles:
+    sm:
+      label: Small
+      value: prose prose-sm
+    md:
+      label: Medium
+      value: prose prose-base
+    lg:
+      label: Large
+      value: prose prose-lg
+    xl:
+      label: Extral Large
+      value: prose prose-xl
+    2xl:
+      label: 2x Large
+      value: prose prose-2xl
+
 heading_size:
   title: Heading Size
   description: The size of the heading.
