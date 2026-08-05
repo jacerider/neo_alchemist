@@ -79,7 +79,7 @@
 
 @utility neo-region-flush-x {
   .neo-region {
-    > .px-container {
+    .px-container {
       --spacing-container: 0;
     }
   }
