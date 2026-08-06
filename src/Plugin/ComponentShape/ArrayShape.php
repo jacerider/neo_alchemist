@@ -88,6 +88,15 @@ class ArrayShape extends ChildrenShapeBase implements ComponentShapeInterablePlu
         foreach ($this->schema['items']['properties'] as $propName => $prop) {
           if ($prop['examples'] ?? FALSE) {
             foreach ($examples as $delta => $example) {
+              // Only an item that is itself a property map can be topped up
+              // with a missing property. A scalar item belongs to a
+              // single-prop array (isSingleProp(), where the item IS the
+              // value) and has no room for one — and writing into it was a
+              // hard TypeError, taking down every screen that loads this
+              // component's shapes rather than degrading the one prop.
+              if (!is_array($example)) {
+                continue;
+              }
               if (!isset($example[$propName])) {
                 $examples[$delta][$propName] = $prop['examples'];
               }

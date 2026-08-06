@@ -67,6 +67,48 @@ $entity = \Drupal::service('neo_alchemist.preview_builder')->build('front:cards_
 behavior; `FALSE` renders the runtime path. Both the preview controller and
 `neo:alchemist:render --live` route through this one method.
 
+### Aggregate mode
+
+A component can set `aggregate: TRUE` (the "Enable Aggregation" action on the manage
+form, [ComponentAggregateForm](src/Form/ComponentAggregateForm.php), route
+`/admin/config/neo/alchemist/{neo_component}/aggregate`). It exists for the case where
+every prop should be filled from **one** source — a listing component whose heading,
+image, link and body all come from the same iterated node — instead of attaching the same
+`entity_query`/`views` provider to eight props and keeping eight copies of its
+configuration in sync.
+
+The whole props schema is wrapped in one synthetic object prop named `_aggregate`
+(`getAggregateSchema()`), so:
+
+| | Normal | Aggregate |
+|---|---|---|
+| `getPropShapes()` | one shape per schema prop | exactly one: `_aggregate` (an `ObjectShape`) |
+| `settings.props` keys | `heading`, `image`, … | `_aggregate` only |
+| Prop config route | `/prop/heading` | `/prop/_aggregate` |
+| What the SDC receives | unchanged | unchanged — `getPropValues()` unwraps `$values['_aggregate']` |
+
+The real props become **children** of that object, which is why they are configured
+through the children-match "Shape Fields" UI (`_expand`, `_reference~…`, `_raw:*`, …)
+rather than each having its own prop form. It is also the only way an `array` prop is
+reached as a *child* rather than as a root — the case the iterability contract above is
+about.
+
+Three places special-case the name:
+
+- `Component::getPropValues()` unwraps `_aggregate` so SDC still gets the flat prop set.
+- `Component::setPropShapeSettings()` refuses to persist any shape other than `_aggregate`
+  while aggregating, so a stray save cannot reintroduce per-prop settings.
+- [ComponentPropAccessCheck](src/Access/ComponentPropAccessCheck.php) resolves `_aggregate`
+  directly, because it is not a member of `getComponentSchema()['properties']` and the
+  normal lookup would 404 the prop form.
+
+> ⚠ **Toggling aggregation discards prop value settings, in both directions.** Flipping the
+> flag changes the prop set, so the generated expression changes, so `preSave()` takes its
+> `setSetting('props', [])` rebuild branch. Enabling drops every per-prop provider
+> configuration; disabling drops the whole `_aggregate` configuration and rebuilds the
+> per-prop keys from schema defaults. There is no merge and no undo — the confirm form
+> warns, and `AggregateModeTest` pins the behavior so a future change to it is deliberate.
+
 ---
 
 ## Prop-def + ComponentShape system
@@ -251,6 +293,15 @@ bundle support is checked strictly at fetch time and the value comes from the sh
 skipping unpublished iterated entities. Handlers resolve child shapes via
 `getValueResolverShape()` — never `getChildShapes()`, which routes through
 `getDefaultValue()` and recurses when called mid-pipeline.
+
+Each level of that recursion builds either a **delta-keyed list** (an `array` shape) or a
+**flat property map** (anything else), and picks between them from the shape it is
+filling — not from the `$shape` argument, which stays the ROOT children-match shape all
+the way down because the child-state calls are keyed by a chained shape id the root owns.
+`fetchChildrenMatchValues()` therefore takes an explicit `$iterable`, and `_expand` /
+`_reference` pass the *child's* iterability (`isChildMatchShapeIterable()`). Getting this
+from the root collapses an array child to the property map of its first item — which
+`ArrayShape` cannot read at all, since it keeps integer deltas only.
 
 **Field integration** — components can be embedded in content entities via a field:
 [src/Plugin/Field/FieldType/ComponentTreeItem.php](src/Plugin/Field/FieldType/) (the field

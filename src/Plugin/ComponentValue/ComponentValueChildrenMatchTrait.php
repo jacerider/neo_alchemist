@@ -380,11 +380,39 @@ trait ComponentValueChildrenMatchTrait {
 
   /**
    * Recursively fetch the values for the shape matcher.
+   *
+   * @param array $shapeNames
+   *   The child shape names to fill.
+   * @param \Drupal\neo_alchemist\ComponentShapeChildrenMatchPluginInterface $shape
+   *   The ROOT children-match shape. It stays the root through every recursion
+   *   because the child-state calls below (hide/default/enable-plugin) are all
+   *   keyed by a chained shape id the root owns.
+   * @param array $entities
+   *   The entities to read the values from.
+   * @param array $configuration
+   *   The configuration for this level.
+   * @param string|null $parentId
+   *   The chained shape id of the level being filled.
+   * @param bool|null $iterable
+   *   Whether the shape being filled takes a delta-keyed LIST. Defaults to the
+   *   root's own iterability, which is only correct for the outermost call:
+   *   a nested level fills a CHILD shape, and that child decides the shape of
+   *   the value, not the root. Getting this from the root collapsed an array
+   *   child (`links`) to the bare property map of its first item, so the
+   *   authored list came back as `['link' => …, 'button_style' => …]` instead
+   *   of `[0 => ['link' => …, 'button_style' => …]]` — a value ArrayShape
+   *   cannot read (it keeps integer deltas only), and one that made
+   *   ArrayShape::getDefaultSchemaValue() fatal as soon as a scalar child
+   *   landed at a string key.
+   *
+   * @return mixed
+   *   The values.
    */
-  protected function fetchChildrenMatchValues(array $shapeNames, ComponentShapeChildrenMatchPluginInterface $shape, array $entities, array $configuration = [], ?string $parentId = NULL): mixed {
+  protected function fetchChildrenMatchValues(array $shapeNames, ComponentShapeChildrenMatchPluginInterface $shape, array $entities, array $configuration = [], ?string $parentId = NULL, ?bool $iterable = NULL): mixed {
     /** @var \Drupal\Core\Entity\ContentEntityInterface[] $entities */
     $values = [];
     $delta = 0;
+    $iterable = $iterable ?? $shape->isIterable();
     if ($entities) {
       $parentId = $parentId ?? $shape->id();
       foreach (array_filter($entities) as $entity) {
@@ -447,7 +475,7 @@ trait ComponentValueChildrenMatchTrait {
         $delta++;
       }
     }
-    elseif (!$shape->isIterable()) {
+    elseif (!$iterable) {
       // When we have no entities, we return empty values for each shape so that
       // the shape will not be shown.
       foreach ($shapeNames as $shapeName) {
@@ -455,7 +483,7 @@ trait ComponentValueChildrenMatchTrait {
         $shape->hideChildShape($shapeName);
       }
     }
-    if (!$shape->isIterable()) {
+    if (!$iterable) {
       $values = reset($values) ?: [];
     }
     return $values;
@@ -486,7 +514,7 @@ trait ComponentValueChildrenMatchTrait {
   protected function fetchChildrenMatchValuesExpand(string $shapeId, string $shapeName, int $delta, ComponentShapeChildrenMatchPluginInterface $shape, ContentEntityInterface $entity, array $configuration): mixed {
     if ($configuration['shape_fields']) {
       $childShapeNames = array_keys($configuration['shape_fields']);
-      return $this->fetchChildrenMatchValues($childShapeNames, $shape, [$entity], $configuration, $shapeId);
+      return $this->fetchChildrenMatchValues($childShapeNames, $shape, [$entity], $configuration, $shapeId, $this->isChildMatchShapeIterable($shape, $shapeId));
     }
     return NULL;
   }
@@ -500,7 +528,7 @@ trait ComponentValueChildrenMatchTrait {
       $field = $this->matcherReference->getReferenceField($entity, $entityKey, $shape->getCacheableMetadata());
       if ($field) {
         $childShapeNames = array_keys($configuration['shape_fields']);
-        return $this->fetchChildrenMatchValues($childShapeNames, $shape, $field->referencedEntities(), $configuration, $shapeId);
+        return $this->fetchChildrenMatchValues($childShapeNames, $shape, $field->referencedEntities(), $configuration, $shapeId, $this->isChildMatchShapeIterable($shape, $shapeId));
       }
     }
     return NULL;
@@ -559,6 +587,25 @@ trait ComponentValueChildrenMatchTrait {
       }
     }
     return $current;
+  }
+
+  /**
+   * Whether the child shape at a chained shape id takes a delta-keyed list.
+   *
+   * Falls back to FALSE when the path does not resolve — an unresolvable child
+   * cannot be an array shape, and the flat form is what every non-array child
+   * (the common case) wants.
+   *
+   * @param \Drupal\neo_alchemist\ComponentShapeChildrenMatchPluginInterface $shape
+   *   The root children-match shape.
+   * @param string $shapeId
+   *   The chained shape id of the child being filled.
+   *
+   * @return bool
+   *   TRUE if the child shape is iterable.
+   */
+  private function isChildMatchShapeIterable(ComponentShapeChildrenMatchPluginInterface $shape, string $shapeId): bool {
+    return (bool) $this->getChildMatchShapeById($shape, $shapeId)?->isIterable();
   }
 
   /**

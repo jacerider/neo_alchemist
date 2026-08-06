@@ -50,6 +50,32 @@ render transform). The `#[ComponentShape(prop: 'string', default_field_type: …
 attribute keys the plugin by `prop`. Canonical example: `StringShape`. See ARCHITECTURE.md
 §"Prop-def + ComponentShape system" for the full field reference.
 
+## Aggregate mode (`aggregate: TRUE`)
+
+A `neo_component` can wrap its **whole** props schema in one synthetic object prop named
+**`_aggregate`** (`Component::getAggregateSchema()`; toggled by `ComponentAggregateForm`
+at `/admin/config/neo/alchemist/{id}/aggregate`). It exists so a listing component whose
+every prop comes from the same iterated entity can be bound by **one** children-match
+provider instead of the same provider configured on eight props.
+
+Consequences you will trip over while debugging:
+
+- `getPropShapes()` returns exactly one shape (`_aggregate`, an `ObjectShape`); the real
+  props are its **children**, configured through the children-match "Shape Fields" UI.
+- `settings.props` has a single `_aggregate` key. Per-prop keys are not written —
+  `setPropShapeSettings()` refuses any other shape while aggregating.
+- The prop route is `/prop/_aggregate`. `_aggregate` is **not** in
+  `getComponentSchema()['properties']`, which is why `ComponentPropAccessCheck`
+  special-cases the name.
+- SDC is unaffected: `getPropValues()` unwraps `$values['_aggregate']`, so the component
+  still receives the flat prop set it declared.
+- It is the **only** way an `array` prop is reached as a *child* rather than a root — so
+  aggregate components are where children-match list-vs-map bugs surface first.
+
+> ⚠ Toggling the flag **discards prop value settings in both directions** (the prop set
+> changes → the expression changes → `preSave()` takes its `setSetting('props', [])`
+> rebuild branch). No merge, no undo. Pinned by `AggregateModeTest`.
+
 ## Tree fields: locked / custom / hybrid
 
 A `neo_component_tree` field resolves what renders in
@@ -120,6 +146,14 @@ milliseconds; `--filter=<Class>` for one class.
   `Component::save()` regenerates `expression`/`schema` from the live SDC, so
   checked-in config drifts. `description` is a non-nullable string and will not
   default from the SDC definition.
+- **`Component::save()` re-derives a NEW entity's id** from its SDC id
+  (`getUniqueId()`), so the `'id' => …` you passed to `create()` is *not* the id it
+  lands on when something already owns that name — a second component on the same SDC
+  becomes `<sdc>_2`. Read `$component->id()` back before addressing its config. Writing
+  `getEditable('neo_alchemist.neo_component.<assumed id>')` instead mints a config
+  object with no `id` key, and the next `$storage->load()` dies with
+  `EntityMalformedException: The entity does not have an ID.` — which reads as storage
+  corruption, not as a wrong name.
 - **Authored values without a host entity:** a config-scope `Component` with
   `setPreview(TRUE)` + `setPreviewValues(['props' => [<prop> => ['ref','value','options']]])`.
   Child option keys are `<prop>~<child>~<delta>`; set `default => 0` so a missing
