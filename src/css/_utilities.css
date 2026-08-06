@@ -1,19 +1,23 @@
 /**
  * Component spacing.
  *
- * `component-spacing-*` sets `--spacing-component`, which the `*-component`
- * spacing utilities (e.g. `my-component`, `py-component`, `p-component-sm`)
- * consume. Use margin (`my-component`) on plain components so the gap between
- * stacked components collapses to a single spacing; use padding
- * (`py-component`) on components that paint a background so the background fills
- * the gap.
+ * `component-spacing-*` sets `--spacing-component`, which every `*-component`
+ * spacing utility (`p-component-sm`, `gap-component`, `mt-component-lg`, …)
+ * consumes. That is the *size*; the `gap` style prop decides how it is
+ * *applied*, putting `neo-section-y` on the component root so a painted
+ * background fills the spacing.
  *
- * Background sections: add the `component-bg` marker class to the section root
- * (alongside `bg-default`). When two adjacent `component-bg` sections paint the
- * same surface — same `scheme-*` class *and* same `bg-*` utility — generated CSS
- * drops the first one's bottom padding, so the doubled padding collapses back to
- * a single, continuous-background gap. Add `component-bg-flush-none` to a
- * section that should never merge with a neighbour.
+ * `neo-section-y` resolves each side through the inherited override channels
+ * `--spacing-component-t` / `--spacing-component-b`. Generated CSS collapses
+ * the seam between two adjacent sections rendering the same background colour
+ * by setting `--spacing-component-b: 0` on the first section's root, which the
+ * carrier picks up at any depth. `component-flush-t` / `component-flush-b`
+ * force a side flush; `component-bg-flush-none` opts a section out of
+ * collapsing with either neighbour; `component-spacing-reset` restores natural
+ * spacing for a subtree.
+ *
+ * Legacy components that hand-write `py-component` / `my-component` as their
+ * carrier keep working through the deprecated shim at the bottom of this file.
  * @see \Drupal\neo_alchemist\EventSubscriber\NeoBuildInlineEventSubscriber
  */
 @utility component-spacing-base {
@@ -88,9 +92,11 @@
 @utility neo-region-flush-y {
   .neo-region {
     > div:first-child {
+      --spacing-component-t: 0;
       margin-top: 0 !important;
     }
     > div:last-child {
+      --spacing-component-b: 0;
       margin-bottom: 0 !important;
     }
   }
@@ -99,6 +105,7 @@
 @utility neo-region-flush-t {
   .neo-region {
     > div:first-child {
+      --spacing-component-t: 0;
       margin-top: 0 !important;
     }
   }
@@ -107,7 +114,86 @@
 @utility neo-region-flush-b {
   .neo-region {
     > div:last-child {
+      --spacing-component-b: 0;
       margin-bottom: 0 !important;
     }
   }
+}
+
+/**
+ * The section vertical-rhythm carrier.
+ *
+ * Applied to a component root by the `gap` style prop — component twig should
+ * never write it by hand. It resolves each side through the inherited
+ * `--spacing-component-t` / `--spacing-component-b` channels, so the generated
+ * seam-collapse CSS can zero one side by setting the channel on the section
+ * root, whatever depth this class sits at. Unset channels fall back to the
+ * `--spacing-component` size chosen by the `spacing` prop.
+ *
+ * Only 0 is a supported channel value; the channels are zero-overrides, not a
+ * second size scale.
+ */
+@utility neo-section-y {
+  padding-top: var(--spacing-component-t, var(--spacing-component, var(--spacing)));
+  padding-bottom: var(--spacing-component-b, var(--spacing-component, var(--spacing)));
+}
+
+/* Force a side flush regardless of neighbours (applied by the `gap` style
+ * prop, or by hand). */
+@utility component-flush-t {
+  --spacing-component-t: 0;
+}
+@utility component-flush-b {
+  --spacing-component-b: 0;
+}
+
+/* Escape hatch + slot containment: `initial` on an unregistered custom
+ * property is guaranteed-invalid, so var() falls back to the natural size.
+ * `.neo-region` gets it automatically so an outer section's collapse never
+ * bleeds into nested/slotted component trees. */
+.component-spacing-reset,
+.neo-region {
+  --spacing-component-t: initial;
+  --spacing-component-b: initial;
+}
+
+/* ---------------------------------------------------------------------------
+ * DEPRECATED — compatibility shim for pre-`gap`-prop components.
+ *
+ * Components authored before the `gap` prop hand-write `py-component` /
+ * `my-component` (and friends) as their section carrier. These rules make
+ * those legacy carriers channel-aware so such components keep collapsing
+ * their seams with no markup change. New components must use the `gap` prop
+ * (`neo-section-y`) instead.
+ *
+ * Deliberately plain (unlayered) rules, NOT @utility: they have to
+ * deterministically override the scale-generated `@layer utilities` versions
+ * (`padding-block` / `margin-block`) of the same class names, and ordering
+ * within a layer is decided by Tailwind's internal sort rather than by us.
+ * That priority is also their cost — on these six classes an unlayered rule
+ * outranks numeric overrides (`pb-0`) and variant forms (`md:py-component`).
+ *
+ * Scoped to the base size on purpose. The relative variants (`-xs`, `-sm`,
+ * `-lg`, `-xl`) are for spacing *inside* a component, never a section carrier,
+ * so leaving them alone keeps a collapsed section from silently zeroing a
+ * component's internal spacing.
+ *
+ * Remove this whole block once every consuming site has adopted the `gap`
+ * prop; nothing else here depends on it.
+ * ------------------------------------------------------------------------- */
+.py-component,
+.pt-component {
+  padding-top: var(--spacing-component-t, var(--spacing-component, var(--spacing)));
+}
+.py-component,
+.pb-component {
+  padding-bottom: var(--spacing-component-b, var(--spacing-component, var(--spacing)));
+}
+.my-component,
+.mt-component {
+  margin-top: var(--spacing-component-t, var(--spacing-component, var(--spacing)));
+}
+.my-component,
+.mb-component {
+  margin-bottom: var(--spacing-component-b, var(--spacing-component, var(--spacing)));
 }

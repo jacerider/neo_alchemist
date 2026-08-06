@@ -118,7 +118,8 @@ Alchemist extends SDC with custom "shapes" — reusable prop definitions from [n
 > **Authoritative styling guide:** [web/modules/contrib/neo_alchemist/STYLING.md](web/modules/contrib/neo_alchemist/STYLING.md) covers schemes, colors, spacing, and containers in full. The essentials are summarized here and in the Twig patterns below.
 
 - `scheme` — color-scheme selector. With `apply: true` it adds a `scheme-*` class to the root, which **re-scopes every color utility** (`bg-default`, `bg-primary`, …) to the chosen scheme — and a scheme region adapts its default **text color, border color, link colors, and `.btn*` button colors automatically** (see "What the scheme system handles for you"). Let the scheme recolor the component; don't hardcode one scheme's colors.
-- `spacing` — vertical component spacing (`xs|sm|md|lg|xl|2xl|3xl`). Has `apply: true` built in: it adds a `component-spacing-*` class to the root, which sets the `--spacing-component` CSS variable. You **consume** that variable with `my-component`/`py-component` etc. — the prop itself does NOT add `my-component` (see Twig patterns).
+- `spacing` — vertical component spacing **size** (`xs|sm|md|lg|xl|2xl|3xl`). Has `apply: true` built in: it adds a `component-spacing-*` class to the root, which sets the `--spacing-component` CSS variable that every `*-component` utility reads.
+- `gap` — vertical spacing **application** (`auto|keep|flush_top|flush_bottom|flush_both`). Has `apply: true` built in: it adds `neo-section neo-section-y` to the root — the component's actual top/bottom padding — plus the editor's merge behavior (`component-bg-flush-none` for `keep`, `component-flush-t/b` for the flush options). Declare it in every stacking component alongside `spacing`; **never hand-write a section carrier in twig** (see Twig patterns for the `apply: false` deep-carrier escape).
 - `containment` — horizontal width (`xs|sm|md|lg|full`). `apply: true` to auto-add. (Or use the `container-content` / `container-center` utilities directly — see Twig patterns.)
 - `text_align` — `left|center|right` → `text-left|center|right`.
 - `heading_size` — `xs|sm|md|lg|xl|2xl|3xl` → `title-*` classes (xl and up also add the
@@ -139,7 +140,7 @@ Alchemist extends SDC with custom "shapes" — reusable prop definitions from [n
 - `button_style` — solid/outline/text variants in base/primary/secondary/accent (`btn`, `btn-outline-primary`, `btn-text-accent`, …).
 - `button_size` — `xs|sm|md|lg|xl|2xl|3xl` → `btn-*`.
 
-> `component-bg` is **not** a prop — it's a marker class you add (with `bg-default`) to a background-section root so adjacent same-surface sections collapse their doubled spacing. See the "Root element & structure" Twig patterns below.
+> `component-bg` is **not** a prop — it's a marker class you add (with `bg-default`) to a background-section root so adjacent sections rendering the **same color** collapse their doubled spacing. See the "Root element & structure" Twig patterns below.
 
 ### Structural shapes
 - `region` — a nested drop zone where editors can place more components (used for tabs, accordions, containers with children). On the saved component's prop config (not in the yml), site builders can enable two value plugins per region: **Region Size** (restrict which component sizes may be dropped in — e.g. only narrow components in a non-full-width column) and **Entity Customizable** (`region_custom`) — the latter turns a locked tree field (`allow_custom` off) into **hybrid mode**: content creators manage just this region's components per entity while the field default layout keeps control of everything around it (the header/body/footer pattern). Hybrid internals → the **neo-alchemist-dev** skill.
@@ -190,31 +191,39 @@ And render in Twig with `{% block content %}{% endblock %}`. See [web/modules/co
 
 ### Root element & structure
 
-Always put `{{ attributes.addClass(classes) }}` on a **single root element** — Alchemist injects the classes from `apply: true` style props (scheme, spacing, …) there. Pick one of two layout patterns depending on whether the component paints a background.
+Always put `{{ attributes.addClass(classes) }}` on a **single root element** — Alchemist injects the classes from `apply: true` style props (scheme, spacing, gap, …) there, **including the component's vertical padding** (`neo-section-y` from the `gap` prop). Pick one of two layout patterns depending on whether the component paints a background.
 
-**Plain component (no background)** — spacing as margin so it collapses with neighbors:
+**Plain component (no background)** — the root paints nothing; the `gap` prop still pads it and collapses it against same-color neighbors:
 
 ```twig
-<div {{ attributes.addClass(['container-content', 'my-component']) }}>
+<div {{ attributes.addClass(['container-content']) }}>
   ...
 </div>
 ```
 
-**Background / full-bleed section** — background spans the viewport, content is constrained, spacing as padding so the background fills it:
+**Background / full-bleed section** — background spans the viewport, content is constrained; the `gap` prop's padding sits on the root so the background fills it:
 
 ```twig
 {% set classes = ['bg-default', 'component-bg'] %}   {# scheme-aware bg + collapse marker #}
-<div {{ attributes.addClass(classes) }}>              {# full-width background #}
-  <div class="container-content py-component">         {# centered content + vertical spacing #}
+<div {{ attributes.addClass(classes) }}>              {# full-width background + neo-section-y via gap #}
+  <div class="container-content">                      {# centered content #}
     ...
   </div>
 </div>
 ```
 
+**Deep-carrier layout** (a full-bleed band above the padded area, so root padding would break it): declare `gap: { type: gap, apply: false }` and merge the prop onto the inner wrapper yourself — the editor's merge picker keeps working, and seam collapsing still reaches it (the zeroing variable is set on the root and inherits):
+
+```twig
+<div{{ gap.removeClass('neo-section').addClass('container-content') }}>
+  ...
+</div>
+```
+
 Rules of thumb:
 - **`container-content`** = centered, responsive max-width, **with** side gutters (the standard content wrapper). **`container-center`** = same but **no** gutters. Both are provided globally by the neo base theme.
-- **`my-component`** (margin — collapses between stacked components) vs **`py-component`** (padding — for background sections, since margin sits outside the background). Both read `--spacing-component` set by the `spacing` prop; size variants exist (`p-component-sm`, `m-component-lg`, …).
-- **`component-bg`** marker: add it (alongside `bg-default`) to a background-section root so two adjacent sections painting the **same surface** collapse their doubled spacing into a single, continuous-background gap. "Same surface" = same `scheme-*` class **and** same `bg-*` utility — a scheme only re-points the color tokens, it never picks which one a section paints, so `bg-default` next to `bg-base-100` stays two colors and keeps its full separation. Recognized surfaces: `bg-default`, `bg-base-50/100/200/300`, `bg-primary`, `bg-secondary`, `bg-accent`; anything else never collapses (fails safe). The collapse zeroes the bottom padding of the root's **direct child** carrying `py-component`, so keep that wrapper a direct child. Add `component-bg-flush-none` to opt a section out entirely.
+- **Never hand-write a section carrier** — the `gap` prop applies `neo-section-y`. The `*-component` utilities stay available for spacing **inside** the component (`p-component-sm`, `mt-component-lg`, `gap-component`, …); they all read `--spacing-component` set by the `spacing` prop. Prefer the relative size variants (`-xs`, `-sm`, `-lg`, `-xl`) for internal spacing: the base-size vertical ones (`py/pt/pb/my/mt/mb-component`) are still channel-aware for backward compatibility with pre-`gap` components, so a collapsed section zeroes them — use a variant, a numeric utility, or wrap in `component-spacing-reset`.
+- **`component-bg`** marker: add it (alongside `bg-default`) to a background-section root so two adjacent sections rendering the **same color** collapse their doubled spacing into a single, continuous-background gap. "Same color" is **computed at build time** from the actual neo_color token values — `scheme-default` next to a no-scheme section collapses (identical pixels), and transparent components (no `component-bg`) collapse against neighbors matching the **page background**. `bg-default` next to `bg-base-100` under one scheme stays two colors and keeps its full separation. Recognized surfaces: `bg-default`, `bg-base-50/100/200/300`; anything else never collapses (fails safe; extend via `hook_neo_alchemist_component_bg_surfaces_alter()`). The editor opts a section out with the `gap` prop's `keep` option (or hand-add `component-bg-flush-none`).
 - **Colors:** apply `bg-default` (scheme-reactive) where you want a surface fill — text and borders inside a scheme then adapt **automatically with no class** (see next section). Use the `base|primary|secondary|accent` palettes (shades `-0…-950`, with `-content` foreground pairings, e.g. `bg-primary text-primary-content`) for emphasis. Full details in [web/modules/contrib/neo_alchemist/STYLING.md](web/modules/contrib/neo_alchemist/STYLING.md).
 - **Prefer `base`; gray is a fallback.** Use `base` / `bg-default` for neutrals in components you author — that's the house style — and convert `gray-*` to `base-*` when adapting pasted markup. As a safety net, Tailwind's neutral scales (`gray`, `slate`, `zinc`, `neutral`, `stone`) auto-fall back to `base` when those pallets aren't enabled, so copied markup using `bg-gray-100`, `text-slate-700`, etc. still renders correctly and stays scheme-reactive. (Non-neutral colors like `blue`/`red` are **not** aliased.)
 
@@ -312,14 +321,14 @@ animate_stagger: { type: animate_stagger }
 
 and the component root reveals on scroll (editor-selectable, `apply: true`, no twig change). For a staggered cascade, also put `neo-animate-item` on the repeating element in the twig. No `libraryOverrides` needed — the driver is attached globally. Never write `neo-animate--animated` or raw catalog classes (`neo-animate--fadeInUp`) statically; authors write markers only.
 
-> **Background components (`bg-default component-bg`): don't reveal the root.** `apply: true` puts the reveal on the root, so the whole **colored block** animates in. Instead override `apply: false` on `animate`/`animate_speed`/`animate_delay` in the yml and apply them to an inner content wrapper — and if the component staggers, move `animate_stagger` there too (the enter class and `neo-animate-stagger` must share one element, or the cascade silently no-ops). The reveal props are Attribute objects, so **merge** them onto the wrapper (`getValue()` returns the raw key, not the classes): `<div{{ animate.merge(animate_speed).merge(animate_delay).merge(animate_stagger).addClass(['container-content','py-component']) }}>`. Full details + the non-stagger case in the **neo-animate** skill's *Background components* section.
+> **Background components (`bg-default component-bg`): don't reveal the root.** `apply: true` puts the reveal on the root, so the whole **colored block** animates in. Instead override `apply: false` on `animate`/`animate_speed`/`animate_delay` in the yml and apply them to an inner content wrapper — and if the component staggers, move `animate_stagger` there too (the enter class and `neo-animate-stagger` must share one element, or the cascade silently no-ops). The reveal props are Attribute objects, so **merge** them onto the wrapper (`getValue()` returns the raw key, not the classes): `<div{{ animate.merge(animate_speed).merge(animate_delay).merge(animate_stagger).addClass(['container-content']) }}>`. Full details + the non-stagger case in the **neo-animate** skill's *Background components* section.
 
 ## Workflow for a new component
 
 1. **Pick a machine name** — snake_case, typically `<purpose>_s<n>` (e.g. `testimonial_s1`). Confirm it's not already taken with `drush neo:alchemist:components` (lists every Neo component with its provider, prop, and slot counts).
 2. **Find the closest existing component** and read its yml + twig. Copy that pattern — don't invent from scratch.
 3. **Create the folder** at `web/themes/front/components/<name>/`.
-4. **Write `<name>.component.yml`** — always include `$schema`, `name`, `status: stable`, `neo: true`, and a `spacing` prop. Use existing shapes (`heading`, `markup`, `image`, etc.) rather than raw JSON Schema types.
+4. **Write `<name>.component.yml`** — always include `$schema`, `name`, `status: stable`, `neo: true`, and both a `spacing` and a `gap` prop. Use existing shapes (`heading`, `markup`, `image`, etc.) rather than raw JSON Schema types.
 5. **Provide `examples:`** for every prop — these populate the Alchemist editor's default values and the preview. Arrays with `region` or booleans can use `- TRUE` as placeholder rows.
 6. **Write `<name>.twig`** — root div with `{{ attributes.addClass(classes) }}`, wrap optional sections in `{% if ... %}`, use `neo_uri()` for all URLs, `icon()` for icons, `neo_image_style()` for images.
 7. **Test interactive elements** with `{% if neoIsPreview %}data-event...{% endif %}` so the editor preview remains clickable.
@@ -392,9 +401,9 @@ resolved colors — see "Finding this site's real colors"). All tabular commands
 - **Using `heading.title` for the `<h2>`** but dropping `heading.size` — the editor's Size selector silently no-ops. And `heading.size` alone isn't enough: `title-*` only sets variables, so the same element (or a child) needs `component-title` to consume them. `<h2{{ heading.size.addClass(['component-title']) }}>` is the minimal correct form for a hand-rolled main title.
 - **New style prop with `apply: true` but missing `examples`** — class won't be present on first render.
 - **Re-mapping a `style` prop's key back to hand-written classes** — `{% set h = size.getValue() == 'short' ? 'h-72' : 'h-96' %}` duplicates the yml `styles.*.value` strings. `.getValue()` is the **key**, not the classes; the prop is already an `Attribute` carrying the option's `value`, so render it (`<div{{ size.addClass(['relative']) }}>`) and keep the yml the single source of truth. The hand map silently drifts from the yml (which then never renders) — reserve `.getValue()` for `{% if %}` branching.
-- **Using `my-component` on a background section** — margin sits *outside* the background, leaving an unfilled gap. Background sections use `py-component` on the inner `container-content` wrapper, with `bg-default` + `component-bg` on the root.
+- **Hand-writing `py-component`/`my-component` as a section carrier** — that's the deprecated pre-`gap` pattern, kept working only for legacy components. The `gap` prop applies `neo-section-y` to the root; a hand-written carrier doubles it. Declare `gap: { type: gap }` instead (or `apply: false` + merge for deep-carrier layouts).
 - **Background section without the `component-bg` marker** — two adjacent same-color sections stack double padding. Add `component-bg` (next to `bg-default`) so the seam collapses.
-- **Background section painting an off-vocabulary color** — e.g. `bg-base-600` or an arbitrary value. It keeps `component-bg` but never collapses against a neighbor. Either use one of the recognized surfaces or register yours with `hook_neo_alchemist_component_bg_surfaces_alter()`.
+- **Background section painting an off-vocabulary color** — e.g. `bg-base-600` or an arbitrary value. It keeps `component-bg` but never collapses against a neighbor. Either use one of the recognized surfaces or register yours (utility class ⇒ neo_color token) with `hook_neo_alchemist_component_bg_surfaces_alter()`.
 - **Dynamic Tailwind class names never compile.** The build only emits classes that appear **literally** in scanned source — `bg-{{ color }}-500`, `'text-' ~ tone`, or classes assembled in JS produce nothing in the CSS. Enumerate full class names (in the yml `styles:` values, a Twig mapping, or a comment), or use inline CSS variables for genuinely data-driven color: `style="background-color: rgb(var(--color-{{ pallet }}-500))"` works because the *variables* always exist.
 - **Hardcoding one scheme's colors** (e.g. `bg-base-0`) on a component meant to be recolored — use `bg-default` for the surface and let text/borders adapt automatically so the `scheme` prop can recolor it.
 - **Coloring links or buttons by hand** — `text-primary-600` on an `<a>`, or a "button" built from `bg-primary text-white` utilities, will be unreadable on some schemes (the bare brand tokens can match the surface on colorized schemes). Bare `<a>` elements and the `.btn*` classes are contrast-managed per scheme, hover states included.

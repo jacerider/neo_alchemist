@@ -124,6 +124,17 @@ final class NeoComponentGenerator extends BaseGenerator implements ContainerInje
       }
     }
 
+    $hasGap = !empty(array_filter($vars['component_props'], fn ($prop) => $prop['type'] === 'gap'));
+    if (!$hasGap) {
+      $addGap = $ir->confirm('The gap property is recommended for all components. Add it?', TRUE);
+      if ($addGap) {
+        $vars['component_props'][] = [
+          'name' => 'gap',
+          'type' => 'gap',
+        ];
+      }
+    }
+
     if ($ir->confirm('Need slots?')) {
       $vars['component_slots'] = [];
       do {

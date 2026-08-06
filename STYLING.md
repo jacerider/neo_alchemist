@@ -25,8 +25,8 @@ A component has two halves:
 ```twig
 {# accordion_test.twig #}
 {% set classes = ['bg-default', 'component-bg'] %}
-<div {{ attributes.addClass(classes) }}>   {# root: gets scheme-*, component-spacing-* via apply #}
-  <div class="container-content py-component">
+<div {{ attributes.addClass(classes) }}>   {# root: gets scheme-*, component-spacing-*, neo-section-y via apply #}
+  <div class="container-content">
     …
   </div>
 </div>
@@ -42,7 +42,9 @@ props:
       title: Color Scheme
       apply: true         # adds the scheme-* class to the root
     spacing:
-      type: spacing       # spacing picker (defaults to "md")
+      type: spacing       # spacing size picker (defaults to "md")
+    gap:
+      type: gap           # applies the vertical padding + merge behavior
     text_align:
       type: text_align    # alignment picker
       apply: true
@@ -206,69 +208,116 @@ Use these anywhere inside the component; they all derive from `--spacing-compone
 > - `p-component-sm`, `m-component-lg`, … (the **utilities**) scale *relative to that
 >   base* for an individual element.
 
-### Margin vs padding (the important part)
+### The `gap` prop (vertical rhythm between sections)
 
-Spacing between stacked components is usually done on the component **root**:
+A component's own vertical padding is applied by the **`gap`** prop — never write
+the carrier class in a component's twig yourself:
 
-- **Plain components → use margin (`my-component`).** Vertical margins **collapse**,
-  so two stacked components share a single gap. ✅
-- **Components with a background color → use padding (`py-component`).** Margin sits
-  *outside* the background, so it wouldn't be filled; padding keeps the background
-  spanning the spacing.
+```yaml
+spacing:
+  type: spacing   # apply is built in; defaults to "md" — the SIZE
+gap:
+  type: gap       # apply is built in; defaults to "auto" — the APPLICATION
+```
+
+`gap` puts `neo-section neo-section-y` on the root, so every declaring component
+gets top + bottom padding sized by `spacing`. Its editor-facing options control
+how that padding merges with neighboring sections:
+
+| Value | Effect |
+| --- | --- |
+| `auto` *(default)* | padding on both sides; seams to same-color neighbors collapse automatically |
+| `keep` | never merge with a neighbor (adds `component-bg-flush-none`) |
+| `flush_top` | zero the top side (adds `component-flush-t`) |
+| `flush_bottom` | zero the bottom side (adds `component-flush-b`) |
+| `flush_both` | zero both sides |
+
+Use padding for section rhythm everywhere — including transparent components.
+Hand-written carriers (`py-component`, `my-component`) are **deprecated** for
+stacking rhythm: seam collapsing (below) is what turns doubled padding into a
+single gap, and it handles transparent components too.
+
+**Special layouts** (a full-bleed band above the padded area, padding on a deep
+child): opt out of root application and place the prop's classes manually — the
+editor picker keeps working:
+
+```yaml
+gap:
+  type: gap
+  apply: false
+```
 
 ```twig
-{# plain component #}
-<div {{ attributes }}><div class="container-content my-component">…</div></div>
-
-{# background component #}
-{% set classes = ['bg-default', 'component-bg'] %}
-<div {{ attributes.addClass(classes) }}><div class="container-content py-component">…</div></div>
+<div{{ gap.removeClass('neo-section').addClass('container-content') }}>…</div>
 ```
+
+### How seams collapse (the `-t`/`-b` channels)
+
+`neo-section-y` resolves its two sides through the **inherited** override
+channels `--spacing-component-t` / `--spacing-component-b`. Unset, each side is
+its natural size; set to `0` on a section root, the carrier loses that side
+*wherever it sits inside* — root, direct child, or deeper. That's what makes
+collapsing carrier-position-proof.
+
+- `component-flush-t` / `component-flush-b` — force a side to zero (what the
+  `gap` prop's flush options apply).
+- `component-spacing-reset` — restore natural spacing for a subtree (an inner
+  element whose `pb-component` is layout, not rhythm). `.neo-region` gets this
+  automatically, so an outer collapse never bleeds into nested component trees.
+
+> **Legacy carriers.** Components written before the `gap` prop hand-write
+> `py-component` / `my-component` on their section root or inner wrapper. A
+> deprecated shim in the module's `_utilities.css` makes those **base-size**
+> vertical utilities (`py/pt/pb/my/mt/mb-component`) channel-aware too, so those
+> components keep collapsing with no markup change. The relative size variants
+> (`-xs`, `-sm`, `-lg`, `-xl`) are deliberately left alone — they're meant for
+> spacing *inside* a component, so a collapsed section can't silently zero
+> internal spacing. Prefer the variants (or numeric utilities) for internal
+> rhythm; migrate section carriers to the `gap` prop.
 
 ### Background sections: the `component-bg` marker
 
-Padding doesn't collapse. So two **adjacent** background components of the **same
-color** would stack `2×` padding and look like one band with too much empty space.
-
-To fix this, add the **`component-bg`** marker class to the root of any full-bleed
-background section (alongside `bg-default`):
+Add the **`component-bg`** marker class to the root of any full-bleed background
+section (alongside `bg-default`):
 
 ```twig
 {% set classes = ['bg-default', 'component-bg'] %}
 ```
 
-Generated CSS then detects when a `component-bg` section is immediately followed by
-another `component-bg` painting the **same surface** and drops the first one's
-bottom padding — the two same-color backgrounds merge seamlessly and the gap
-collapses from `2×` back to `1×`. Different-colored neighbors keep their full
-separation. No per-page work required; it adapts as editors reorder components.
+Padding doesn't collapse on its own, so two adjacent sections showing the same
+color would stack `2×` spacing. Generated CSS fixes this: at build time every
+`(scheme × surface)` combination is resolved to the **actual color it renders**
+(the same neo_color token values the schemes emit) and grouped by color. When a
+section is immediately followed by another section in the same color group, the
+first one's bottom channel is zeroed — the gap collapses from `2×` back to `1×`.
+Different-colored neighbors keep their full separation. No per-page work; it
+adapts as editors reorder components.
 
-**"Same surface" means both halves match:**
+**"Same color" is computed, not class-matched.** `scheme-default` next to a
+no-scheme section, or two different schemes that happen to share a background,
+collapse whenever the rendered pixels match. `bg-default` next to `bg-base-100`
+under one scheme is two colors and keeps its separation.
 
-- the same `scheme-*` class (or neither carrying one — then both inherit the same
-  ancestor color), **and**
-- the same background utility. A scheme only re-points the color tokens; it never
-  picks *which* one a section paints, so `bg-default` next to `bg-base-100` is two
-  different colors even under one scheme.
+**Transparent components participate.** A section root carrying `neo-section`
+(from the `gap` prop) with **no** `component-bg` paints nothing — the page shows
+through — so it belongs to the page background's color group and collapses
+against neighbors of that color. The page background defaults to the base
+surface (`--color-base-0`); a theme painting its canvas differently alters it
+via `hook_neo_alchemist_page_background_alter()`.
 
 The recognized surfaces are `bg-default`, `bg-base-50`, `bg-base-100`,
-`bg-base-200`, `bg-base-300`, `bg-primary`, `bg-secondary`, `bg-accent`. A section
-painting anything else never collapses — that fails safe (a doubled gap, never two
-mismatched colors overlapping). A theme can extend the list with
-`hook_neo_alchemist_component_bg_surfaces_alter()`.
+`bg-base-200`, `bg-base-300`. A section painting anything else never collapses —
+that fails safe (a doubled gap, never two mismatched colors overlapping). A
+theme can extend the vocabulary with
+`hook_neo_alchemist_component_bg_surfaces_alter()` (utility class ⇒ neo_color
+token).
 
 > The seam left behind is the **following** section's top spacing, so neighbors
-> with different `spacing` sizes still collapse cleanly — nothing is pulled with a
-> negative margin, so sections can never overlap each other's content.
+> with different `spacing` sizes still collapse cleanly — nothing is pulled with
+> a negative margin, so sections can never overlap each other's content.
 >
-> Add `component-bg-flush-none` to a section that should never merge with a
-> neighbor.
->
-> The collapse zeroes the padding on the section root's **direct child** carrying
-> `py-component` (the standard full-bleed structure below). A section that nests
-> its padded wrapper deeper simply keeps its full spacing.
->
-> Implementation: `src/EventSubscriber/NeoBuildInlineEventSubscriber.php`.
+> Implementation: `src/EventSubscriber/NeoBuildInlineEventSubscriber.php` (the
+> generated rules) and `src/css/_utilities.css` (the channel contract).
 
 ---
 
@@ -296,13 +345,13 @@ breakpoint (`40rem → 48rem → 64rem → 80rem → 96rem`).
 ### The full-bleed pattern
 
 Put the **background on the root** (full width) and the **`container-content` on an
-inner wrapper** (constrained). Vertical spacing (`py-component`) goes on the inner
-wrapper too, so the background fills it:
+inner wrapper** (constrained). Vertical spacing comes from the `gap` prop on the
+root, so the background fills it:
 
 ```twig
 {% set classes = ['bg-default', 'component-bg'] %}
-<div {{ attributes.addClass(classes) }}>     {# full-width background #}
-  <div class="container-content py-component"> {# centered, gutters, vertical spacing #}
+<div {{ attributes.addClass(classes) }}>     {# full-width bg + neo-section-y via the gap prop #}
+  <div class="container-content">            {# centered, gutters #}
     …
   </div>
 </div>
@@ -320,7 +369,8 @@ Style props let an editor pick a value that becomes a CSS class. The built-in on
 | Prop `type:` | Picks | Emits class(es) |
 | --- | --- | --- |
 | `scheme` | Color scheme | `scheme-*` |
-| `spacing` | Component spacing | `component-spacing-*` |
+| `spacing` | Component spacing size | `component-spacing-*` |
+| `gap` | Vertical padding + neighbor merging | `neo-section neo-section-y` (+ `component-flush-*`) |
 | `text_align` | Text alignment | `text-left` / `text-center` / `text-right` |
 | `heading_size` | Heading size | `title-md`, `title-page title-xl`, … |
 | `button_style` | Button look | `btn`, `btn-outline-primary`, `btn-text-accent`, … |
@@ -381,8 +431,8 @@ automatically editable and live-previewable in the component manage/preview UI.
 {%
   set classes = ['bg-default', 'component-bg']   {# scheme-aware bg + collapse marker #}
 %}
-<div {{ attributes.addClass(classes) }}>          {# root gets scheme-* + component-spacing-* #}
-  <div class="container-content py-component">     {# padding so bg fills the spacing #}
+<div {{ attributes.addClass(classes) }}>          {# root gets scheme-*, component-spacing-*, neo-section-y #}
+  <div class="container-content">                  {# centered, gutters #}
     <div class="max-w-prose mx-auto text-center">
       <h2 class="title-lg text-default">{{ title }}</h2>
       <p class="mt-component-sm text-default/80">{{ summary }}</p>
@@ -402,12 +452,14 @@ props:
     link:    { type: link,   title: Link }
     scheme:  { type: scheme,  title: Color Scheme, apply: true }
     spacing: { type: spacing, title: Spacing }
+    gap:     { type: gap,     title: Gap }
 ```
 
 This component:
 - recolors entirely from the `scheme` prop (via `bg-default` / `text-default`),
-- spaces itself from the `spacing` prop (`py-component`, `mt-component*`),
-- merges cleanly against an adjacent same-scheme section (`component-bg`).
+- sizes its rhythm from the `spacing` prop and paints it via the `gap` prop
+  (`neo-section-y` on the root, `mt-component*` inside),
+- merges cleanly against an adjacent same-color section (`component-bg`).
 
 ---
 
@@ -437,10 +489,11 @@ automatically.
 - Scheme variants: `scheme:`, `dark:`, `color:`, `{scheme-id}:`.
 
 **Spacing**
-- Prop: `spacing` → `component-spacing-{xs,sm,md,lg,xl,2xl,3xl}`.
+- Props: `spacing` (size) → `component-spacing-{xs,sm,md,lg,xl,2xl,3xl}`;
+  `gap` (application) → `neo-section neo-section-y` + auto/keep/flush options.
 - Utilities: `m/p/gap/space-…-component` + `-xs ÷3 · -sm ÷1.5 · -lg ×1.5 · -xl ×3`.
-- Plain component → `my-component`. Background component → `py-component` +
-  `component-bg` marker on the root.
+- Background component → add the `component-bg` marker + `bg-*` on the root;
+  transparent components need nothing extra. Never hand-write a section carrier.
 
 **Layout**
 - `container-content` — centered, responsive max-width, **with** side gutters (default

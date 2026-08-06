@@ -248,6 +248,7 @@ final class InstanceComponentForm extends ContentEntityForm {
       '#access' => FALSE,
     ];
 
+    $styleElements = [];
     foreach ($this->instance->getPropShapes() as $propName => $shape) {
       if (!$shape->access('update')) {
         continue;
@@ -258,15 +259,26 @@ final class InstanceComponentForm extends ContentEntityForm {
         '#parents' => ['values'],
       ];
       $subform_state = SubformState::createForSubform($subform, $form, $form_state);
-      $form['values'][$propName] = $shape->getForm($subform, $subform_state);
+      $elementForm = $shape->getForm($subform, $subform_state);
       if ($shape instanceof ComponentShapeStylePluginInterface) {
         $form['styles']['#access'] = TRUE;
-        $form['values'][$propName]['#type'] = 'details';
-        $form['values'][$propName]['#title'] = $shape->getTitle();
-        $form['values'][$propName]['#group'] = 'styles';
-        $form['values'][$propName]['widget']['widget']['#title'] = '';
+        $styleElements[$propName] = $elementForm;
+        $styleElements[$propName]['#type'] = 'details';
+        $styleElements[$propName]['#title'] = $shape->getTitle();
+        $styleElements[$propName]['#description'] = $shape->getDescription();
+        $styleElements[$propName]['#group'] = 'styles';
+        $styleElements[$propName]['widget']['widget']['#title'] = '';
+      }
+      else {
+        $form['values'][$propName] = $elementForm;
       }
     }
+
+    // I want to sort $form['styles'] by the $title.
+    uasort($styleElements, function ($a, $b) {
+      return strcmp((string) $a['#title'], (string) $b['#title']);
+    });
+    $form['values'] += $styleElements;
 
     foreach ($this->instance->getFilters() as $uuid => $filter) {
       if (!$filter->isEditable()) {

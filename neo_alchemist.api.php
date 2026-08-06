@@ -213,25 +213,49 @@ function hook_neo_alchemist_preview_entity_alter(?ContentEntityInterface &$entit
 /**
  * Alters the background utilities that participate in seam collapsing.
  *
- * Two vertically-adjacent `component-bg` sections drop the doubled spacing
- * between them only when they paint the same surface — the same `scheme-*`
- * class *and* the same background utility. This hook declares which background
- * utilities count as a section surface; generated CSS then emits a collapse
- * rule for every scheme/surface combination.
+ * Two vertically-adjacent sections drop the doubled spacing between them when
+ * they render the same background colour. At build time every
+ * (scheme × surface) context is resolved to the neo_color token value it
+ * would paint with and contexts are grouped by colour; each group gets one
+ * collapse rule. This hook declares which background utilities count as a
+ * section surface and which colour token each one renders with.
  *
- * A section painting a background that is not in this list never collapses,
+ * A section painting a background that is not in this map never collapses,
  * which fails safe: a doubled gap rather than two mismatched colours
  * overlapping. Add a utility here when a theme paints its sections with
  * something outside the default vocabulary.
  *
- * @param string[] $surfaces
- *   Background utility class names, without a leading dot, by reference.
+ * @param array<string, string> $surfaces
+ *   Neo_color token names keyed by background utility class (no leading dot),
+ *   by reference.
  *
  * @see \Drupal\neo_alchemist\EventSubscriber\NeoBuildInlineEventSubscriber
  */
 function hook_neo_alchemist_component_bg_surfaces_alter(array &$surfaces): void {
   // Example: this theme paints some sections with a fixed brand shade.
-  $surfaces[] = 'bg-secondary-600';
+  $surfaces['bg-secondary-600'] = '--color-secondary-600';
+}
+
+/**
+ * Alters the page background colour used for transparent sections.
+ *
+ * A section root that paints no background of its own (`neo-section` without
+ * `component-bg`) shows the page background through it, so seam collapsing
+ * treats it as a member of the page background's colour group. The value
+ * defaults to the base surface token (`--color-base-0`, an "R G B" triplet
+ * string as emitted by neo_color). A theme painting its page canvas with a
+ * different colour should alter this to match — or set it to an empty string
+ * to exclude transparent sections from collapsing entirely.
+ *
+ * @param string $pageBg
+ *   The page background colour value, by reference. Compared verbatim against
+ *   neo_color token values, so it must use the same "R G B" format.
+ *
+ * @see \Drupal\neo_alchemist\EventSubscriber\NeoBuildInlineEventSubscriber
+ */
+function hook_neo_alchemist_page_background_alter(string &$pageBg): void {
+  // Example: this theme paints the page canvas with base-100.
+  $pageBg = '245 245 245';
 }
 
 /**

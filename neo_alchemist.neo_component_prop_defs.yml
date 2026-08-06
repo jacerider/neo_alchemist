@@ -649,6 +649,29 @@ spacing:
       label: 3XL
       value: component-spacing-3xl
 
+gap:
+  title: Gap
+  description: The gap between this component and others above or below it.
+  type: style
+  examples: auto
+  apply: true
+  styles:
+    auto:
+      label: Auto
+      value: 'neo-section neo-section-y'
+    keep:
+      label: Keep spacing
+      value: 'neo-section neo-section-y component-bg-flush-none'
+    flush_top:
+      label: Flush top
+      value: 'neo-section neo-section-y component-flush-t'
+    flush_bottom:
+      label: Flush bottom
+      value: 'neo-section neo-section-y component-flush-b'
+    flush_both:
+      label: Flush top & bottom
+      value: 'neo-section neo-section-y component-flush-t component-flush-b'
+
 text_align:
   title: Text Alignment
   description: The alignment of the text.

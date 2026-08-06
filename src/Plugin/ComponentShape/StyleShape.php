@@ -48,7 +48,10 @@ class StyleShape extends StyleShapeBase {
     $value = parent::preRenderValue($value, $attributes);
     $finalValue = new ComponentShapeStyleAttribute([], $value ?: NULL);
     if ($value && isset($this->schema['styles'][$value]['value'])) {
-      $finalValue->addClass($this->schema['styles'][$value]['value']);
+      // Split multi-class values into individual class tokens so consumers can
+      // manipulate them (e.g. `gap.removeClass('neo-section')` in twig) and
+      // merging dedupes per class instead of per value string.
+      $finalValue->addClass(preg_split('/\s+/', trim((string) $this->schema['styles'][$value]['value'])) ?: []);
     }
     if (array_key_exists('apply', $this->schema) && !empty($this->schema['apply'])) {
       $attributes->merge($finalValue);
