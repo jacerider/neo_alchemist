@@ -452,6 +452,25 @@ trait ComponentValueChildrenMatchTrait {
                 if (!is_null($value)) {
                   $values[$delta][$shapeName] = $value;
                 }
+                elseif ($parts[0] === '_default') {
+                  // "Use Default" means this provider contributes NOTHING to
+                  // the child, so its key is removed rather than left as the []
+                  // it was seeded with above.
+                  //
+                  // An empty array IS a value to the `??` chain in
+                  // Object/ArrayShape::loadChildSchema(), which distributes
+                  // this value onto the child schemas. Leaving [] therefore
+                  // overwrote the child's own `examples`, and the child then
+                  // dutifully "used the default" — of nothing. Absent, the
+                  // chain falls through to the SDC example, which is precisely
+                  // what the setting names.
+                  //
+                  // Deliberately NOT applied to every NULL-returning handler: a
+                  // child bound to a real field that resolved empty must keep
+                  // its [] so the prop renders nothing, rather than falling
+                  // back to the component's placeholder content.
+                  unset($values[$delta][$shapeName]);
+                }
                 continue;
               }
             }
