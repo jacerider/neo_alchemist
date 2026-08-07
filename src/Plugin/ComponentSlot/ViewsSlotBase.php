@@ -105,6 +105,11 @@ abstract class ViewsSlotBase extends ComponentSlotPluginBase {
 
   /**
    * Add the view's cache metadata as a cacheable dependency.
+   *
+   * Not cheap to call repeatedly on a Search API view: neither
+   * CachePluginBase::getCacheTags() nor getCacheMaxAge() is memoized, and
+   * SearchApiQuery overrides both to walk $view->result and merge tags per
+   * row. Call this once per render, not once per rendered item.
    */
   protected function addViewAsCacheableDependency(ViewExecutable $view): void {
     $this->addCacheableDependency($view->display_handler->getCacheMetadata());
@@ -112,7 +117,12 @@ abstract class ViewsSlotBase extends ComponentSlotPluginBase {
     /** @var \Drupal\views\Plugin\views\cache\CachePluginBase $cache_plugin */
     $cache_plugin = $view->display_handler->getPlugin('cache');
     $cacheableMetadata = $this->getCacheableMetadata();
-    $cacheableMetadata->setCacheMaxAge($cache_plugin->getCacheMaxAge());
+    // Merge, never set: getCacheableMetadata() hands back the COMPONENT's one
+    // shared object, which every slot and value provider on the component
+    // writes to. setCacheMaxAge() overwrites, so a permissive view could raise
+    // a max-age an earlier contributor had lowered to 0 and quietly overcache
+    // the whole component.
+    $cacheableMetadata->mergeCacheMaxAge($cache_plugin->getCacheMaxAge());
     $cacheableMetadata->addCacheTags($cache_plugin->getCacheTags());
   }
 

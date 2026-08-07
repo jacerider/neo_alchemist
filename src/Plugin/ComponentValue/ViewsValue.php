@@ -8,6 +8,8 @@ use Drupal\Component\Utility\Html;
 use Drupal\Component\Utility\NestedArray;
 use Drupal\Core\DependencyInjection\DependencySerializationTrait;
 use Drupal\Core\Entity\ContentEntityInterface;
+use Drupal\Core\Entity\EntityInterface;
+use Drupal\Core\Entity\EntityTypeBundleInfoInterface;
 use Drupal\Core\Entity\EntityTypeInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Form\FormStateInterface;
@@ -41,7 +43,9 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
 )]
 final class ViewsValue extends ComponentValuePluginBase implements ContainerFactoryPluginInterface, ComponentValueProcessingModeInterface {
 
-  use DependencySerializationTrait;
+  use DependencySerializationTrait {
+    __sleep as traitSleep;
+  }
   use ComponentValueChildrenMatchTrait;
   use ComponentValueProcessingModeTrait;
 
@@ -51,6 +55,13 @@ final class ViewsValue extends ComponentValuePluginBase implements ContainerFact
    * @var \Drupal\Core\Entity\EntityTypeManagerInterface
    */
   protected EntityTypeManagerInterface $entityTypeManager;
+
+  /**
+   * The entity type bundle info service.
+   *
+   * @var \Drupal\Core\Entity\EntityTypeBundleInfoInterface
+   */
+  protected EntityTypeBundleInfoInterface $entityTypeBundleInfo;
 
   /**
    * The field matcher.
@@ -67,6 +78,31 @@ final class ViewsValue extends ComponentValuePluginBase implements ContainerFact
   protected ?ViewExecutable $view = NULL;
 
   /**
+   * Whether the view lookup has run, regardless of whether it found one.
+   *
+   * @var bool
+   */
+  protected bool $viewResolved = FALSE;
+
+  /**
+   * Search API indexes keyed by view base table. FALSE when there is none.
+   *
+   * @var array<string, \Drupal\Core\Entity\EntityInterface|false>
+   */
+  protected array $searchIndex = [];
+
+  /**
+   * Map of spl_object_id($entity) to the view result row index it came from.
+   *
+   * Rebuilt on every provideDefaultValue() pass. Keyed by object id because
+   * the delta the children-match trait hands to a fetch handler counts the
+   * entities that SURVIVED filtering, not the rows.
+   *
+   * @var array<int, int>
+   */
+  protected array $viewRowIndex = [];
+
+  /**
    * {@inheritdoc}
    */
   public function __construct(
@@ -75,10 +111,12 @@ final class ViewsValue extends ComponentValuePluginBase implements ContainerFact
     ComponentShapePluginInterface $shape,
     array $configuration,
     EntityTypeManagerInterface $entity_type_manager,
+    EntityTypeBundleInfoInterface $entity_type_bundle_info,
     MatcherField $matcher_field,
   ) {
     parent::__construct($plugin_id, $plugin_definition, $shape, $configuration);
     $this->entityTypeManager = $entity_type_manager;
+    $this->entityTypeBundleInfo = $entity_type_bundle_info;
     $this->matcherField = $matcher_field;
   }
 
@@ -92,6 +130,7 @@ final class ViewsValue extends ComponentValuePluginBase implements ContainerFact
       $configuration['shape'],
       $configuration['settings'],
       $container->get('entity_type.manager'),
+      $container->get('entity_type.bundle.info'),
       $container->get('neo_alchemist.matcher_field')
     );
   }
@@ -103,6 +142,10 @@ final class ViewsValue extends ComponentValuePluginBase implements ContainerFact
     return [
       'view_id' => '',
       'view_display_id' => '',
+      // Overrides for the entity type and bundle the view's rows resolve to.
+      // Empty means "use whatever getViewEntityTypes() detects".
+      'view_entity_type_id' => '',
+      'view_entity_bundle' => '',
       'view_items_per_page' => $this->shape->getType() === ComponentShapePluginInterface::OBJECT ? 1 : NULL,
       'view_items_offset' => 0,
       'view_arguments' => [],
@@ -151,11 +194,11 @@ final class ViewsValue extends ComponentValuePluginBase implements ContainerFact
       if (!$view) {
         return $form;
       }
-      $viewEntityType = $this->getViewEntityType($view);
-      if (!$viewEntityType) {
+      $viewEntityTypes = $this->getViewEntityTypes($view);
+      if (!$viewEntityTypes) {
         $form['markup'] = [
           '#type' => 'markup',
-          '#markup' => $this->t('The view does not have a corresponding entity type.'),
+          '#markup' => $this->t('This view does not resolve to an entity type, so its results cannot be mapped to shape fields.'),
         ];
         return $form;
       }
@@ -181,11 +224,57 @@ final class ViewsValue extends ComponentValuePluginBase implements ContainerFact
       if ($viewDisplayId) {
         $view->setDisplay($viewDisplayId);
         $display = $view->getDisplay();
-        $viewFilters = $display->getHandlers('filter');
-        $viewEntityBundle = NULL;
-        if (isset($viewFilters['type']) && isset($viewFilters['type']->options['value']) && count($viewFilters['type']->options['value']) === 1) {
-          $viewEntityBundle = reset($viewFilters['type']->options['value']);
+
+        // The entity type can only be inferred for a Search API view, and an
+        // index may carry several datasources, so expose the resolution rather
+        // than guessing at it. Both selects are pre-filled and are disabled
+        // when there is nothing to choose.
+        $entityTypeOptions = array_map(fn($entityType) => $entityType->getLabel(), $viewEntityTypes);
+        $viewEntityTypeId = $this->configuration['view_entity_type_id'] ?? '';
+        if (!isset($entityTypeOptions[$viewEntityTypeId])) {
+          $viewEntityTypeId = $this->getDefaultViewEntityTypeId($view, $viewEntityTypes);
         }
+        $form['view_entity_type_id'] = [
+          '#type' => 'select',
+          '#title' => $this->t('Result entity type'),
+          '#description' => $this->t('The entity type the view rows resolve to. Results that are not of this type are skipped.'),
+          '#options' => $entityTypeOptions,
+          '#default_value' => $viewEntityTypeId,
+          '#required' => TRUE,
+          '#disabled' => count($entityTypeOptions) === 1,
+          '#ajax' => [
+            'callback' => [static::class, 'refreshAjax'],
+            'wrapper' => $wrapperId,
+          ],
+        ];
+
+        $viewEntityType = $viewEntityTypes[$viewEntityTypeId];
+        $bundleInfo = $this->entityTypeBundleInfo->getBundleInfo($viewEntityTypeId);
+        $bundleOptions = [];
+        foreach ($this->getViewEntityBundles($view, $viewEntityType) as $bundle) {
+          $bundleOptions[$bundle] = $bundleInfo[$bundle]['label'] ?? $bundle;
+        }
+        $viewEntityBundle = $this->configuration['view_entity_bundle'] ?? '';
+        if (!isset($bundleOptions[$viewEntityBundle])) {
+          // Fall back to the sole candidate, preserving the behaviour of the
+          // single-value bundle filter this replaces.
+          $viewEntityBundle = count($bundleOptions) === 1 ? (string) array_key_first($bundleOptions) : '';
+        }
+        $form['view_entity_bundle'] = [
+          '#type' => 'select',
+          '#title' => $this->t('Result bundle'),
+          '#description' => $this->t('Restricts the fields offered below. Leave empty to offer base fields only.'),
+          '#options' => $bundleOptions,
+          '#empty_option' => $this->t('- Any -'),
+          '#default_value' => $viewEntityBundle,
+          '#access' => (bool) $bundleOptions,
+          '#disabled' => count($bundleOptions) === 1,
+          '#ajax' => [
+            'callback' => [static::class, 'refreshAjax'],
+            'wrapper' => $wrapperId,
+          ],
+        ];
+
         if ($this->shape->getType() !== ComponentShapePluginInterface::OBJECT && $view->getDisplay()->usesPager()) {
           $form['view_items_per_page'] = [
             '#type' => 'number',
@@ -254,7 +343,7 @@ final class ViewsValue extends ComponentValuePluginBase implements ContainerFact
 
         $form_state->set('view', $view);
         // Add shape fields.
-        $form += $this->buildChildrenMatchConfigurationForm($this->shape, $form, $form_state, $viewEntityType->id(), $viewEntityBundle, $this->configuration);
+        $form += $this->buildChildrenMatchConfigurationForm($this->shape, $form, $form_state, $viewEntityTypeId, $viewEntityBundle ?: NULL, $this->configuration);
 
       }
     }
@@ -291,6 +380,8 @@ final class ViewsValue extends ComponentValuePluginBase implements ContainerFact
     }
     $offset = $form_state->getValue('view_items_offset');
     $form_state->setValue('view_items_offset', $offset ? (int) $offset : NULL);
+    $form_state->setValue('view_entity_type_id', (string) $form_state->getValue('view_entity_type_id'));
+    $form_state->setValue('view_entity_bundle', (string) $form_state->getValue('view_entity_bundle'));
     $form_state->setValue('view_arguments', array_filter($form_state->getValue('view_arguments', [])));
     $form_state->setValue('view_arguments_sort', !empty($form_state->getValue('view_arguments_sort')));
   }
@@ -314,7 +405,11 @@ final class ViewsValue extends ComponentValuePluginBase implements ContainerFact
    * Gets the view executable.
    */
   protected function getView(): ?ViewExecutable {
-    if (!isset($this->view)) {
+    if (!$this->viewResolved) {
+      // Set before the lookup, not after: $view stays NULL when the configured
+      // view cannot be loaded, and a NULL-keyed guard would re-run
+      // Views::getView() on every call for the rest of the request.
+      $this->viewResolved = TRUE;
       $this->view = NULL;
       if ($this->configuration['view_id'] && $this->configuration['view_display_id']) {
         $view = Views::getView($this->configuration['view_id']);
@@ -325,7 +420,10 @@ final class ViewsValue extends ComponentValuePluginBase implements ContainerFact
           /** @var \Drupal\views\Plugin\views\cache\CachePluginBase $cache_plugin */
           $cache_plugin = $view->display_handler->getPlugin('cache');
           $cacheableMetadata = $this->shape->getCacheableMetadata();
-          $cacheableMetadata->setCacheMaxAge($cache_plugin->getCacheMaxAge());
+          // Merge, never set: the shape's metadata is shared with every other
+          // provider on it, and setCacheMaxAge() overwrites, so a permissive
+          // view could raise a max-age another provider had lowered to 0.
+          $cacheableMetadata->mergeCacheMaxAge($cache_plugin->getCacheMaxAge());
           $cacheableMetadata->addCacheTags($cache_plugin->getCacheTags());
 
           if ($this->configuration['view_items_per_page'] ?? NULL) {
@@ -392,9 +490,21 @@ final class ViewsValue extends ComponentValuePluginBase implements ContainerFact
       return $value;
     }
     if ($view = $this->getView()) {
-      // Get entities.
+      // Collect the entities behind the rows, remembering which row each came
+      // from. A row can legitimately carry no entity: a Search API index
+      // returns a row per indexed item and only attaches "_entity" when the
+      // item's original object is a loadable EntityAdapter.
+      // @see \Drupal\search_api\Plugin\views\query\SearchApiQuery::addResults()
       $entities = [];
-      foreach (array_map(fn($row) => $row->_entity, $view->result) as $entity) {
+      $this->viewRowIndex = [];
+      foreach ($view->result as $key => $row) {
+        $entity = $row->_entity ?? NULL;
+        if (!$entity instanceof ContentEntityInterface) {
+          continue;
+        }
+        // StylePluginBase::renderFields() keys its output by the position of
+        // the row within $view->result; ResultRow::$index mirrors that.
+        $this->viewRowIndex[spl_object_id($entity)] = $row->index ?? $key;
         $entities[] = $entity;
       }
 
@@ -412,8 +522,11 @@ final class ViewsValue extends ComponentValuePluginBase implements ContainerFact
               $orderedEntities[$id] = $groupedEntities[$id];
             }
           }
-          $groupedEntities = $orderedEntities;
-          foreach ($groupedEntities as $entityGroup) {
+          // Reset before re-appending: the ordered groups hold the SAME
+          // objects already collected above, so appending them to the
+          // untouched list emitted every entity twice.
+          $entities = [];
+          foreach ($orderedEntities as $entityGroup) {
             foreach ($entityGroup as $entity) {
               $entities[] = $entity;
             }
@@ -439,38 +552,255 @@ final class ViewsValue extends ComponentValuePluginBase implements ContainerFact
    * Fetches the matching values for child components from a Views result.
    */
   protected function fetchChildrenMatchValuesView(string $shapeId, string $shapeName, int $delta, ComponentShapeChildrenMatchPluginInterface $shape, ContentEntityInterface $entity, array $configuration): mixed {
-    $fieldName = substr($configuration['field'], 6);
     $view = $this->getView();
-    if (isset($view->result[$delta])) {
-      return $view->style_plugin->getField($view->result[$delta]->index, $fieldName);
+    if (!$view || !isset($view->style_plugin)) {
+      return NULL;
     }
-    return NULL;
+    // $delta counts the entities that SURVIVED filtering, not the rows: rows
+    // carrying no entity are dropped in provideDefaultValue() and unpublished
+    // entities are skipped inside
+    // ComponentValueChildrenMatchTrait::fetchChildrenMatchValues(), either of
+    // which shifts it off the row it is meant to name. Resolve the row from
+    // the entity instance instead, which is the exact object taken off
+    // $view->result. The positional lookup remains as a fallback for callers
+    // outside provideDefaultValue().
+    $index = $this->viewRowIndex[spl_object_id($entity)] ?? ($view->result[$delta]->index ?? NULL);
+    if ($index === NULL) {
+      return NULL;
+    }
+    return $view->style_plugin->getField($index, substr($configuration['field'], 6));
   }
 
   /**
    * Retrieves the entity type associated with the given view.
    *
-   * This method determines the entity type by comparing the base table of the
-   * view with the base and data tables of all defined entity types.
-   *
    * @param \Drupal\views\ViewExecutable $view
    *   The view entity for which to retrieve the entity type.
    *
    * @return \Drupal\Core\Entity\EntityTypeInterface|null
-   *   The entity type associated with the view, or NULL if no matching entity
-   *   type is found.
+   *   The first entity type the view can return, or NULL if it returns none.
    */
   protected function getViewEntityType(ViewExecutable $view): ?EntityTypeInterface {
+    $entityTypes = $this->getViewEntityTypes($view);
+    return $entityTypes ? reset($entityTypes) : NULL;
+  }
+
+  /**
+   * Retrieves the entity types the given view can return.
+   *
+   * Resolved in order of decreasing certainty:
+   * 1. The view's base table IS an entity base or data table.
+   * 2. The Views data for the base table declares an "entity type".
+   * 3. The base table is a Search API index. An index declares no entity type
+   *    of its own, only its datasources do, so resolve through those.
+   *
+   * @param \Drupal\views\ViewExecutable $view
+   *   The view entity for which to retrieve the entity types.
+   *
+   * @return \Drupal\Core\Entity\EntityTypeInterface[]
+   *   Entity types keyed by entity type ID. Empty when the view is not backed
+   *   by entities at all.
+   */
+  protected function getViewEntityTypes(ViewExecutable $view): array {
     $baseTable = $view->storage->get('base_table');
+
     foreach ($this->entityTypeManager->getDefinitions() as $entityType) {
       if (in_array($baseTable, [
         $entityType->getBaseTable(),
         $entityType->getDataTable(),
-      ])) {
-        return $entityType;
+      ], TRUE)) {
+        return [$entityType->id() => $entityType];
       }
     }
-    return NULL;
+
+    // Read the Views data directly rather than through
+    // ViewExecutable::getBaseEntityType(), which returns FALSE on a miss and
+    // throws PluginNotFoundException when the Views data names a stale entity
+    // type.
+    $entityTypeId = Views::viewsData()->get($baseTable)['table']['entity type'] ?? NULL;
+    if ($entityTypeId && $this->entityTypeManager->hasDefinition($entityTypeId)) {
+      return [$entityTypeId => $this->entityTypeManager->getDefinition($entityTypeId)];
+    }
+
+    // Search API index datasources. Non-entity datasources report NULL and are
+    // simply not candidates: the rows they produce carry no "_entity" and are
+    // skipped at runtime by provideDefaultValue().
+    $entityTypes = [];
+    if ($index = $this->getViewSearchIndex($view)) {
+      /** @var \Drupal\search_api\IndexInterface $index */
+      foreach ($index->getDatasources() as $datasource) {
+        $id = $datasource->getEntityTypeId();
+        if ($id && $this->entityTypeManager->hasDefinition($id)) {
+          $entityTypes[$id] = $this->entityTypeManager->getDefinition($id);
+        }
+      }
+    }
+    return $entityTypes;
+  }
+
+  /**
+   * Picks the entity type to preselect when none is stored yet.
+   *
+   * @param \Drupal\views\ViewExecutable $view
+   *   The view, with its display already set.
+   * @param \Drupal\Core\Entity\EntityTypeInterface[] $entityTypes
+   *   The candidate entity types, keyed by entity type ID.
+   *
+   * @return string
+   *   The entity type ID to preselect.
+   */
+  protected function getDefaultViewEntityTypeId(ViewExecutable $view, array $entityTypes): string {
+    // A display pinned to a single Search API datasource says which of a mixed
+    // index's entity types it actually returns.
+    if (count($entityTypes) > 1 && $this->getViewSearchIndex($view)) {
+      /** @var \Drupal\views\Plugin\views\filter\FilterPluginBase $filter */
+      foreach ($view->getDisplay()->getHandlers('filter') as $id => $filter) {
+        if (($filter->options['field'] ?? $id) !== 'search_api_datasource') {
+          continue;
+        }
+        $values = array_filter((array) ($filter->options['value'] ?? []));
+        if (count($values) === 1) {
+          $entityTypeId = substr((string) reset($values), strlen('entity:'));
+          if (isset($entityTypes[$entityTypeId])) {
+            return $entityTypeId;
+          }
+        }
+      }
+    }
+    return (string) array_key_first($entityTypes);
+  }
+
+  /**
+   * Retrieves the Search API index a view's base table belongs to, if any.
+   *
+   * Deliberately routed through the Views data rather than through Search
+   * API's own classes: this plugin declares "views" as its only provider, so
+   * search_api may not be installed. hook_views_data() records the index ID on
+   * the base table definition, and the entity type manager answers "is
+   * search_api installed" without a module handler dependency or a
+   * class_exists() call whose result depends on classloader optimisation.
+   *
+   * @param \Drupal\views\ViewExecutable $view
+   *   The view to inspect.
+   *
+   * @return \Drupal\Core\Entity\EntityInterface|null
+   *   The \Drupal\search_api\IndexInterface, or NULL when this is not a Search
+   *   API view or search_api is not installed.
+   *
+   * @see \Drupal\search_api\Hook\SearchApiViewsHooks::viewsData()
+   * @see \Drupal\search_api\Plugin\views\query\SearchApiQuery::getIndexFromTable()
+   */
+  protected function getViewSearchIndex(ViewExecutable $view): ?EntityInterface {
+    $baseTable = $view->storage->get('base_table');
+    if (!array_key_exists($baseTable, $this->searchIndex)) {
+      $this->searchIndex[$baseTable] = FALSE;
+      if ($this->entityTypeManager->hasDefinition('search_api_index')) {
+        $indexId = Views::viewsData()->get($baseTable)['table']['base']['index'] ?? NULL;
+        if ($indexId) {
+          $this->searchIndex[$baseTable] = $this->entityTypeManager
+            ->getStorage('search_api_index')
+            ->load($indexId) ?: FALSE;
+        }
+      }
+    }
+    return $this->searchIndex[$baseTable] ?: NULL;
+  }
+
+  /**
+   * Retrieves the bundles the given view's results can belong to.
+   *
+   * @param \Drupal\views\ViewExecutable $view
+   *   The view, with its display already set.
+   * @param \Drupal\Core\Entity\EntityTypeInterface $entityType
+   *   The entity type the results resolve to.
+   *
+   * @return string[]
+   *   Bundle IDs, narrowed by the Search API datasource's own restriction and
+   *   by a bundle filter on the display. Empty when the entity type has no
+   *   bundle key.
+   */
+  protected function getViewEntityBundles(ViewExecutable $view, EntityTypeInterface $entityType): array {
+    if (!$entityType->getKey('bundle')) {
+      return [];
+    }
+    $entityTypeId = $entityType->id();
+    $bundles = array_keys($this->entityTypeBundleInfo->getBundleInfo($entityTypeId));
+
+    if ($index = $this->getViewSearchIndex($view)) {
+      /** @var \Drupal\search_api\IndexInterface $index */
+      // getDatasourceIfAvailable() rather than getDatasource(), which throws.
+      $datasource = $index->getDatasourceIfAvailable('entity:' . $entityTypeId);
+      if ($datasource) {
+        $datasourceBundles = array_keys($datasource->getBundles());
+        // ContentEntity::getBundles() falls back to a pseudo bundle named
+        // after the entity type when the datasource restricts nothing. That is
+        // not a real restriction, so ignore it.
+        if ($datasourceBundles !== [$entityTypeId]) {
+          $bundles = array_intersect($bundles, $datasourceBundles);
+        }
+      }
+    }
+
+    if ($filtered = $this->getViewBundleFilterValues($view, $entityType)) {
+      $bundles = array_intersect($bundles, $filtered);
+    }
+
+    return array_values($bundles);
+  }
+
+  /**
+   * Retrieves the bundles a display's bundle filter restricts results to.
+   *
+   * On a Search API view the filter names an arbitrary index field ID
+   * ("node_type" for node's "type"), so it has to be resolved through the
+   * index rather than compared to the bundle key directly.
+   *
+   * @param \Drupal\views\ViewExecutable $view
+   *   The view, with its display already set.
+   * @param \Drupal\Core\Entity\EntityTypeInterface $entityType
+   *   The entity type the results resolve to.
+   *
+   * @return string[]
+   *   The allowed bundle IDs, or an empty array when the display does not
+   *   usefully restrict them.
+   */
+  protected function getViewBundleFilterValues(ViewExecutable $view, EntityTypeInterface $entityType): array {
+    $bundleKey = $entityType->getKey('bundle');
+    if (!$bundleKey) {
+      return [];
+    }
+    $datasourceId = 'entity:' . $entityType->id();
+    $index = $this->getViewSearchIndex($view);
+
+    /** @var \Drupal\views\Plugin\views\filter\FilterPluginBase $filter */
+    foreach ($view->getDisplay()->getHandlers('filter') as $id => $filter) {
+      $field = $filter->options['field'] ?? $id;
+      if ($index) {
+        /** @var \Drupal\search_api\IndexInterface $index */
+        $indexField = $index->getField($field);
+        // Filters placed on a datasource sub table use the raw property name,
+        // so accept that when no index field matches.
+        $isBundleFilter = $indexField
+          ? ($indexField->getDatasourceId() === $datasourceId && $indexField->getPropertyPath() === $bundleKey)
+          : ($field === $bundleKey);
+      }
+      else {
+        $isBundleFilter = $field === $bundleKey;
+      }
+      if (!$isBundleFilter) {
+        continue;
+      }
+      // A negated filter says what the bundle is NOT, which is unusable here.
+      // "in" is InOperator's default (core bundle filters) and "or" is
+      // ManyToOne's (search_api_options).
+      if (!in_array(strtolower((string) ($filter->operator ?? '=')), ['in', 'or', '='], TRUE)) {
+        continue;
+      }
+      if ($values = array_filter((array) ($filter->options['value'] ?? []))) {
+        return array_values($values);
+      }
+    }
+    return [];
   }
 
   /**
@@ -481,6 +811,20 @@ final class ViewsValue extends ComponentValuePluginBase implements ContainerFact
       return TRUE;
     }
     return $shape->isExpandable();
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function __sleep(): array {
+    // All three are per-request caches rebuilt on demand. The executed view in
+    // particular is expensive and pointless to carry across a serialize.
+    return array_diff($this->traitSleep(), [
+      'view',
+      'viewResolved',
+      'searchIndex',
+      'viewRowIndex',
+    ]);
   }
 
 }

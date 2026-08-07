@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Drupal\neo_alchemist\Plugin\ComponentSlot;
 
-use Drupal\Core\Cache\CacheableMetadata;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\neo_alchemist\Attribute\ComponentSlot;
@@ -60,14 +59,6 @@ final class ViewsHeaderSlot extends ViewsSlotBase {
         // Get the header area.
         $header = $view->display_handler->getOption('header');
         if (!empty($header)) {
-          $options = [];
-          foreach ($header as $id => $options_data) {
-            $handler = $view->display_handler->getHandler('header', $id);
-            if ($handler) {
-              $options[$id] = $handler->admin_label ?: $handler->definition['title'];
-            }
-          }
-
           $handlers = $this->configuration['handlers'] ?? [];
           $form['handlers'] = [
             '#type' => 'table',
@@ -86,7 +77,7 @@ final class ViewsHeaderSlot extends ViewsSlotBase {
             ],
           ];
           $count = 0;
-          foreach ($header as $id => $options_data) {
+          foreach (array_keys($header) as $id) {
             $handler = $view->display_handler->getHandler('header', $id);
             if (!$handler) {
               continue;
@@ -103,7 +94,7 @@ final class ViewsHeaderSlot extends ViewsSlotBase {
             ];
             $form['handlers'][$id]['weight'] = [
               '#type' => 'number',
-              '#title' => t('Weight for @title', ['@title' => $label]),
+              '#title' => $this->t('Weight for @title', ['@title' => $label]),
               '#title_display' => 'invisible',
               '#default_value' => 0,
               '#attributes' => ['class' => ['handler-weight']],
@@ -143,7 +134,7 @@ final class ViewsHeaderSlot extends ViewsSlotBase {
     $header = $view->display_handler->getOption('header');
     $handlers = $this->configuration['handlers'] ?? [];
     if (!empty($header)) {
-      foreach ($header as $id => $options) {
+      foreach (array_keys($header) as $id) {
         if (!empty($handlers) && !in_array($id, $handlers)) {
           continue;
         }
@@ -152,10 +143,15 @@ final class ViewsHeaderSlot extends ViewsSlotBase {
           $render = $handler->render();
           if (!empty($render)) {
             $build[$id] = $render;
-            $this->addViewAsCacheableDependency($view);
           }
         }
       }
+    }
+    // Once, not once per rendered handler: the view's cacheability is the same
+    // whichever handlers produced output, and recomputing it is O(rows) on a
+    // Search API view.
+    if ($build) {
+      $this->addViewAsCacheableDependency($view);
     }
     return $build;
   }

@@ -1,5 +1,86 @@
 # Changelog
 
+## A view's cache max-age no longer overwrites the component's
+
+`ViewsSlotBase::addViewAsCacheableDependency()` and `ViewsValue::getView()` both
+called `setCacheMaxAge()` on cacheable metadata they do not own — a slot's
+`getCacheableMetadata()` hands back the *component's* single shared object, and
+`setCacheMaxAge()` overwrites rather than merges. Three Views slots and the
+value provider all write to it, so whichever ran last won: a permissive view
+could raise a max-age an earlier contributor had lowered to 0 and quietly
+overcache the whole component. Both now `mergeCacheMaxAge()`, which keeps the
+stricter value.
+
+This was invisible while every Views-backed component happened to use a
+zero-max-age cache plugin, and became reachable the moment one didn't.
+
+### Views slots do less work
+
+- **Exposed filters** reuse `$view->exposed_widgets`. `ViewExecutable::build()`
+  already builds the exposed form during `execute()` and memoizes it there, and
+  core reads that memo back rather than re-calling. The slot was calling
+  `renderExposedForm()` a second time — a full `FormBuilder` run, so every
+  `hook_form_alter` and every exposed handler's build/validate/submit fired
+  twice. The old call remains as a fallback, since the memo is legitimately
+  empty when the display renders its exposed form as a block.
+- **Header** adds the view's cacheability once instead of once per rendered
+  header handler. On a Search API view that is not a cheap thing to repeat:
+  `CachePluginBase::getCacheTags()`/`getCacheMaxAge()` are unmemoized, and
+  `SearchApiQuery` overrides both to walk the result rows and merge tags per
+  row — so the old shape was O(handlers × rows).
+- **Pager** now matches core's own call: it honours the display-level
+  `renderPager()` boolean, and passes `$view->getExposedInput()` instead of an
+  empty array. For filters carried in the URL this changes nothing — Drupal's
+  pager re-merges the current request query into every link — but the exposed
+  input is the only carrier when it is not in the query string: filters
+  remembered in the session, input set via `setExposedInput()`, a Views AJAX
+  request, or two views on one page with different exposed state.
+- `ViewsValue::getView()` memoizes a *failed* view lookup. The guard tested a
+  property whose default is `NULL`, so a configured-but-unloadable view re-ran
+  `Views::getView()` on every call for the rest of the request.
+
+## The Views value provider works with Search API views
+
+Pointing the **Views** provider at a Search API view used to dead-end on "the
+view does not have a corresponding entity type" — no display select, no field
+mapping, nothing. The provider resolved the entity type by comparing the view's
+base table against each entity type's base and data table, which only ever
+matches a core entity view. A Search API view's base table is
+`search_api_index_<id>`, and Search API declares the entity type on its
+per-datasource sub-tables rather than on the index base table, so
+`ViewExecutable::getBaseEntityType()` did not rescue it either.
+
+Resolution is now a fallback chain: base/data table, then the Views data's
+`entity type`, then the index's datasources. Because an index can carry several
+datasources, the form no longer guesses — it shows **Result entity type** and
+**Result bundle** selects, pre-filled from what was detected and disabled when
+there is nothing to choose. Bundle detection was generalised along the way: it
+used to key on a filter literally named `type`, and now resolves an index field
+(`node_type`) through the index to the entity's bundle key, honours the
+datasource's own bundle restriction, and ignores negated filters, which say what
+the bundle is *not*.
+
+Getting the bundle right is the part that matters in practice: without it the
+field matcher offers base fields only, so every `field_*` quietly disappears
+from the mapping UI.
+
+The provider keeps its `views` plugin ID, so the Views pager, exposed filters
+and header slots keep working on a search view — which is the point, since an
+exposed fulltext filter and a pager are most of why you'd use one.
+
+### Fixes that came with it
+
+- Rows whose entity could not be loaded are skipped instead of producing null
+  entries. A Search API index returns a row per indexed item and only attaches
+  an entity when the item's original object is loadable.
+- Values bound to a **rendered Views field** (`_view:`) read the correct row.
+  The delta handed to the fetch handler counts the entities that survived
+  filtering, not the rows, so it drifted whenever anything was dropped — an
+  unpublished entity with "published only" on was enough. The row is now
+  resolved from the entity itself.
+- **Sort results by argument values** no longer emits every entity twice. The
+  reordered groups were appended to the untouched list instead of replacing it.
+
 ## Raw SDCs can capture their own thumbnail.png
 
 The component listings show a thumbnail per component, but a raw SDC had no way

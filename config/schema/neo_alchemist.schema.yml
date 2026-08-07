@@ -571,6 +571,12 @@ neo_alchemist.neo_component_value.views:
     view_display_id:
       type: string
       label: 'The view display id'
+    view_entity_type_id:
+      type: string
+      label: 'The entity type the view results resolve to'
+    view_entity_bundle:
+      type: string
+      label: 'The entity bundle the view results resolve to'
     view_items_per_page:
       type: integer
       label: 'The view items per page'
