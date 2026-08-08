@@ -249,6 +249,31 @@ Working example for all of it: `front:list_insight` — `type_filter` links drop
 `markets_filter` 3-level checkbox panel, `search_filter` mini-form, `active_filters` chips,
 no native exposed form on the page.
 
+**AJAX result swapping (opt-in).** Two attributes and a library line upgrade every filter
+interaction to an in-place update with history support — no PHP, no contract change, and
+JS-off (or any fetch failure) falls back to the normal navigation:
+
+```yaml
+libraryOverrides:
+  dependencies:
+    - neo_alchemist/swap
+```
+
+```twig
+<section {{ attributes }} data-neo-uuid="{{ neoUuid }}" data-neo-swap>
+  …
+  <span data-neo-swap-announce>{{ items|length }} {{ 'results'|t }}</span>
+```
+
+The behavior intercepts same-path links (filter options, chips, reset — and the footer
+`views_pager`'s links, so paging is AJAX for free) and same-path GET mini-forms inside the
+boundary, fetches the destination page, and swaps the component's subtree by its `neoUuid`.
+Drupal behaviors re-attach (component JS re-inits) and Alpine picks the new tree up itself;
+focus returns to the same-named control (a visitor typing in search keeps their caret);
+Back/Forward walk the filter states. `data-neo-swap-announce` marks the element whose text is
+announced to screen readers after each swap. Opt any single control out with `data-no-swap`.
+Card links point at other paths and are never intercepted.
+
 ### Inline custom `style` shapes
 Define a per-component style selector inline:
 

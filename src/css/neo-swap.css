@@ -1,0 +1,12 @@
+/*
+ * Neo Swap loading state.
+ *
+ * Applied to a swap boundary while its replacement is in flight: dim the
+ * whole component and ignore pointer input so double-submits can't stack.
+ * The transition makes the dim read as activity rather than a glitch.
+ */
+[data-neo-swap].neo-swap-loading {
+  pointer-events: none;
+  opacity: 0.6;
+  transition: opacity 0.15s ease-out;
+}

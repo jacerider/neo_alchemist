@@ -1,5 +1,28 @@
 # Changelog
 
+## AJAX result swapping for designed filter UIs
+
+Filtering now updates results in place. Because every views_filter interaction
+is a real URL (option links, chips, GET mini-forms — and the views_pager
+slot's links), the `neo_alchemist/swap` library can intercept same-path
+navigation inside a component boundary, fetch the destination page, and swap
+the same component's subtree by its neoUuid — with pushState/popstate history,
+focus restoration (a visitor typing in search keeps their caret), an aria-live
+announcement fed by a data-neo-swap-announce marker, and behavior re-attach so
+component JS re-initializes (Alpine picks the new tree up via its own
+observer). Core views AJAX can't apply here — value-mapped items render
+through the component's twig, not a views container — which is exactly why the
+URLs-first design was chosen: this enhancement is zero PHP and zero contract
+change.
+
+Opt-in per component: `data-neo-swap` next to the `data-neo-uuid` root
+attribute plus a `libraryOverrides` dependency on `neo_alchemist/swap`;
+`data-no-swap` opts individual controls out. Card links point at other paths
+and are never intercepted. Any pipeline failure — non-OK response, boundary
+missing from the reply — falls back to the navigation that would have happened
+anyway; post-swap decoration (focus, announce, scroll) is isolated so a
+cosmetic error can never trigger that fallback. Paging is AJAX for free.
+
 ## Filter twig helpers, text filters, and the views_active_filters prop
 
 Three additions on top of the views_filter prop, aimed at making a fully

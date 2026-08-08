@@ -159,3 +159,23 @@ share:
   dependencies:
     - core/drupal
     - core/once
+
+# Fetch-and-swap result updates for components with designed views_filter /
+# views_active_filters UIs. A component opts in by adding data-neo-swap next to
+# its data-neo-uuid root attribute and depending on this library via
+# libraryOverrides. Same-path links (filter options, chips, pager) and GET
+# mini-forms are intercepted; the destination page is fetched and the same
+# component's subtree swapped in place. JS-off or any failure degrades to the
+# navigation that would have happened anyway.
+swap:
+  version: VERSION
+  neo: { scope: front }
+  js:
+    src/js/neo-swap.ts: {}
+  css:
+    component:
+      src/css/neo-swap.css: {}
+  dependencies:
+    - core/drupal
+    - core/once
+    - core/drupalSettings
