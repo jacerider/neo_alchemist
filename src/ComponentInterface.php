@@ -617,11 +617,17 @@ interface ComponentInterface extends ConfigEntityInterface, RenderableInterface,
    *
    * @param string $type
    *   The context type.
+   * @param bool $build
+   *   Whether to build the prop shapes first so contexts are applied. Pass
+   *   FALSE from code that can run during shape construction itself — a value
+   *   plugin resolving at shape init — where forcing a rebuild would recurse
+   *   endlessly. Such callers see only contexts already registered by
+   *   earlier-declared shapes, which is their documented ordering contract.
    *
    * @return array
    *   An array of contexts for the specified context type.
    */
-  public function getPropShapeContexts(string $type): array;
+  public function getPropShapeContexts(string $type, bool $build = TRUE): array;
 
   /**
    * Retrieves the slots for the component.

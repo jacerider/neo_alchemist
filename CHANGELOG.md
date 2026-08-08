@@ -1,5 +1,55 @@
 # Changelog
 
+## Exposed views filters as data: the views_filter prop
+
+Styling an exposed filter meant styling Drupal's form markup — the opposite of
+how every other designed surface here works (the menu prop: pure data, mocked
+via examples, markup owned by the theme). The new `views_filter` prop def and
+`views_exposed_filter` value provider extend that pattern to filters, resting
+on one fact: an exposed filter is a GET parameter, so a designed link — or a
+hand-written GET form of native checkboxes — is a fully valid submission
+surface. No Form API, no JS required.
+
+The provider reads the same `views` prop-shape context the Views slot plugins
+use, plucks one exposed filter, and emits: `label`, `param`, `multiple`,
+`active`/`active_count`/`active_labels`, `value` (always an
+array), `reset_url`, `action` + `carry[]` (hidden-input pairs so a mini-form
+preserves every other query arg), and `options[]` — a `{label, value, url,
+active, below[]}` tree. Taxonomy-backed filters get real hierarchy from term
+storage, and the `(object) ['option' => [id => label]]` wrappers hierarchical
+selects put in `#options` are unwrapped; every option URL applies or toggles
+its value and resets paging.
+
+Resolution happens at the **modify stage** of the value pipeline, not at
+default time: defaults resolve during shape init inside `loadPropShapes()`,
+where the views provider has not executed its view yet — and where forcing a
+shape build recurses fatally, which is why
+`ComponentInterface::getPropShapeContexts()` grew a `$build = TRUE` parameter
+that in-pipeline callers pass FALSE. When the filter cannot be resolved the
+prop renders empty on a live page and keeps its example scaffolding in the
+editor preview.
+
+Interaction style is deliberately NOT config. A template picks ONE markup per
+filter — links for single-select, a GET form for multi — and hardcodes
+auto-submit if the design wants it. (A `behavior` plugin setting existed
+briefly and was removed: a config switch that only works when the template
+opted in reads as a toggle that silently does nothing.)
+
+Constraints, by design: views_filter props must be declared after the
+views-bound prop (props build in schema order; `neo:alchemist:validate` now
+lints this), the filter must stay exposed on the view, and the exposed-form
+override template should hide — not omit — the native widget so a search
+submit keeps the designed filters' query args. Text filters stay in the real
+exposed form. AJAX result swapping is a planned enhancement (fetch-and-swap on
+the component boundary; components can mark it with `data-neo-uuid` now);
+core's views AJAX cannot apply, since value-mapped items render through the
+component's own twig, not a views container.
+
+Hardening that fell out of it: `ArrayShape::buildValue()` no longer fatals on
+a scalar-items array (`items: {type: string}` — `active_labels` was the first
+real one; the child-shape loop now skips scalar deltas instead of unsetting a
+string offset).
+
 ## Slot contents are now themeable from the component directory
 
 A component's Twig had no say in what a site builder dropped into a slot. Slot

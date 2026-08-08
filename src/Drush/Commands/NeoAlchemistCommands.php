@@ -187,6 +187,25 @@ final class NeoAlchemistCommands extends DrushCommands {
       $oks[] = sprintf('%d prop(s) declared with known types.', count($declared));
     }
 
+    // views_filter ordering. The views_exposed_filter provider reads the
+    // `views` context, which the views value provider registers while its own
+    // prop resolves — and props resolve in schema order. A views_filter prop
+    // declared before every prop that could carry the views binding silently
+    // renders empty, so catch the layout statically.
+    $rawProps = is_array($rawYml) ? ($rawYml['props']['properties'] ?? []) : [];
+    $seenBindable = FALSE;
+    foreach ($rawProps as $propName => $prop) {
+      $type = $prop['type'] ?? NULL;
+      if ($type === 'views_filter') {
+        if (!$seenBindable) {
+          $warnings[] = sprintf('Prop `%s` (views_filter) is declared before any array/object prop that could hold the views binding. Move it after the views-bound prop, or its provider will find no view.', $propName);
+        }
+      }
+      elseif (in_array($type, ['array', 'object'], TRUE)) {
+        $seenBindable = TRUE;
+      }
+    }
+
     // Slot templates. A slots/*.twig whose name matches no declared slot is
     // never loaded and never errors — it just silently does nothing, which is
     // the single easiest way to lose an afternoon here.

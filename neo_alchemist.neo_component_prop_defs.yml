@@ -516,6 +516,133 @@ menu:
       - '{% endfor %}'
     suffix: '{% endif %}'
 
+# One exposed views filter as pure data, for fully designed filter UIs. Filled
+# by the views_exposed_filter value provider from the same executed view the
+# `views` provider binds (so the prop must be declared AFTER the views-bound
+# prop). Because an exposed filter is just a GET parameter, options render as
+# plain links (single-select) or as a hand-written GET form of checkboxes
+# (multi-select) — `action` and `carry` exist so such a form preserves every
+# other query arg. `value` is always an array, single-select included, so the
+# schema stays one type.
+views_filter:
+  title: 'Views filter'
+  type: object
+  properties:
+    label:
+      title: Label
+      type: string
+    param:
+      title: 'Query parameter'
+      type: string
+    multiple:
+      title: Multiple
+      type: boolean
+    active:
+      title: Active
+      type: boolean
+    active_count:
+      title: 'Active count'
+      type: integer
+    active_labels:
+      title: 'Active labels'
+      type: array
+      items:
+        title: Label
+        type: string
+    value:
+      title: 'Current values'
+      type: array
+      items:
+        title: Value
+        type: string
+    reset_url:
+      title: 'Reset URL'
+      type: string
+    action:
+      title: 'Form action'
+      type: string
+    carry:
+      title: 'Carried query args'
+      type: array
+      items:
+        title: 'Hidden input'
+        type: object
+        properties:
+          name:
+            title: Name
+            type: string
+          value:
+            title: Value
+            type: string
+    options:
+      title: Options
+      type: array
+      items:
+        title: Option
+        type: object
+        properties:
+          label:
+            title: Label
+            type: string
+          value:
+            title: Value
+            type: string
+          url:
+            title: URL
+            type: string
+          active:
+            title: Active
+            type: boolean
+          below:
+            title: Children
+            type: array
+            items:
+              title: Option
+              type: object
+              properties:
+                label:
+                  title: Label
+                  type: string
+                value:
+                  title: Value
+                  type: string
+                url:
+                  title: URL
+                  type: string
+                active:
+                  title: Active
+                  type: boolean
+                below:
+                  title: Children
+                  type: array
+  examples:
+    label: Filter
+    param: filter
+    multiple: false
+    active: false
+    active_count: 0
+    active_labels: []
+    value: []
+    reset_url: '#'
+    action: '#'
+    carry: []
+    options:
+      - label: 'Option one'
+        value: '1'
+        url: '#'
+        active: true
+        below: []
+      - label: 'Option two'
+        value: '2'
+        url: '#'
+        active: false
+        below:
+          - label: 'Child option'
+            value: '3'
+            url: '#'
+            active: false
+            below: []
+
 breadcrumb:
   title: Breadcrumb
   type: array

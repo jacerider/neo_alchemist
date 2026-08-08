@@ -281,6 +281,13 @@ class ArrayShape extends ChildrenShapeBase implements ComponentShapeInterablePlu
     $values = $this->buildRawValue();
     $forceChildDefaultValue = $this->forceChildDefaultValues();
     foreach ($this->getChildShapeList($values) as $delta => $shapes) {
+      // A scalar-items array (`items: {type: string}` — a list of labels, of
+      // ids…) has no named children to process: the delta value IS the item.
+      // Without this guard the loop below treats the string as a child map and
+      // `unset($values[$delta][$shapeName])` fatals on a string offset.
+      if (isset($values[$delta]) && !is_array($values[$delta])) {
+        continue;
+      }
       /** @var \Drupal\neo_alchemist\ComponentShapePluginInterface[] $shapes */
       foreach ($shapes as $shapeName => $shape) {
         $allowUnsetEmpty = $shape->allowUnsetEmpty();

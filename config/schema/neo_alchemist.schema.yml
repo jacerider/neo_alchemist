@@ -602,6 +602,17 @@ neo_alchemist.neo_component_value.views:
       type: string
       label: 'Processing mode'
 
+neo_alchemist.neo_component_value.views_exposed_filter:
+  type: mapping
+  label: 'Views exposed filter value provider'
+  mapping:
+    context:
+      type: string
+      label: 'Views context'
+    filter:
+      type: string
+      label: 'Exposed filter identifier'
+
 
 neo_alchemist.neo_component_value.media:
   type: mapping

@@ -1035,9 +1035,18 @@ class Component extends ConfigEntityBase implements ComponentInterface {
   /**
    * {@inheritdoc}
    */
-  public function getPropShapeContexts(string $type): array {
-    // Always load prop shapes so that contexts are applied.
-    $this->getPropShapes();
+  public function getPropShapeContexts(string $type, bool $build = TRUE): array {
+    // Load prop shapes so that contexts are applied. Callers that may
+    // themselves be running DURING shape construction — a value plugin's init
+    // resolves inside loadPropShapes(), before the memo is set — must pass
+    // FALSE: re-entering getPropShapes() there rebuilds every shape from
+    // scratch, which re-runs that plugin's init, which re-enters here, and so
+    // on until memory runs out. They read whatever contexts earlier-declared
+    // shapes have registered so far, which is exactly the ordering contract
+    // those plugins already document.
+    if ($build) {
+      $this->getPropShapes();
+    }
     return $this->propShapeContexts[$type] ?? [];
   }
 

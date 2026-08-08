@@ -148,6 +148,62 @@ Alchemist extends SDC with custom "shapes" — reusable prop definitions from [n
 
 > **Reach for a semantic composite shape before hand-rolling an `array` of objects.** Several shapes already model common repeating structures — `menu` (nav links), `breadcrumb`, `address`, `file`, `remote_video`, `media` — and single composites like `link`/`url` and `heading`. They're one line instead of a nested `array → object → …`, get a purpose-built editor UI, and carry the right sub-fields (e.g. a `menu` item's `url` is the full `url` shape). Only hand-roll an `array` when no existing shape fits. Run `drush neo:alchemist:shapes` to scan them first.
 
+### `views_filter` — a designed exposed filter
+
+When a component's `items` are bound to a view, a `views_filter` prop hands you **one exposed
+filter as pure data** — so you design the filter UI (Alpine dropdown, checkbox panel, pills)
+instead of styling Drupal's form markup. The enabling fact: an exposed filter is just a GET
+parameter, so a link with the right URL — or a hand-written `<form method="get">` of native
+checkboxes — is a fully valid submission surface. Site builders bind it with the
+**Views | Exposed Filter** value plugin (context + filter identifier).
+
+```yaml
+type_filter:            # declare AFTER the views-bound prop — props resolve in yml order,
+  type: views_filter    # and this provider reads the context the items binding registers
+  title: 'Type filter'
+  examples: { label: 'Type', param: 'type', options: [ { label: 'News', value: '1', url: '#', active: false, below: [] } ], … }
+```
+
+The value: `label`, `param`, `multiple`, `active`/`active_count`/`active_labels`, `value`
+(always an array), `reset_url`, `action` + `carry[]` (for hand-written GET forms), and
+`options[]` — a `{label, value, url, active, below[]}` **tree** (`below` nests like the `menu`
+shape; taxonomy filters get real hierarchy). Every option `url` applies/toggles that value and
+resets paging.
+
+**Interaction style is the template's design decision — pick ONE markup per filter.** Links for
+single-select, a GET form of checkboxes for multi-select. Want submit-on-change instead of an
+Apply button? Add `x-data @change="$el.requestSubmit()"` to the form — your call, hardcoded:
+
+```twig
+{# Single-select: instant links. #}
+<a href="{{ filter.reset_url }}">{{ 'All'|t }}</a>
+{% for option in filter.options %}
+  <a href="{{ option.url }}" class="{{ option.active ? 'font-bold text-primary' }}">{{ option.label }}</a>
+{% endfor %}
+
+{# Multi-select: plain GET form, batch-then-Apply. #}
+<form method="get" action="{{ filter.action }}">
+  {% for pair in filter.carry %}<input type="hidden" name="{{ pair.name }}" value="{{ pair.value }}">{% endfor %}
+  {% for option in filter.options %}
+    <label><input type="checkbox" name="{{ filter.param }}[]" value="{{ option.value }}" {{ option.active ? 'checked' }}> {{ option.label }}</label>
+    {# nest option.below for hierarchy #}
+  {% endfor %}
+  <button type="submit">{{ 'Apply'|t }}</button>
+</form>
+```
+
+Two rules that keep the filters composable with the view's remaining exposed form:
+
+1. **The filter must stay exposed on the view** — `?param=` only applies to exposed filters.
+2. In the slot's exposed-form override template, **hide the native widget instead of omitting
+   it**: `<div class="hidden">{{ form.type }}</div>`. Views repopulates it from the URL, so
+   submitting the search box preserves the designed filters; each mini-form's `carry` inputs
+   preserve the search in the other direction.
+
+Text filters (a search box) stay in the real exposed form — a text input must live inside the
+`<form>` tag. Working example: `front:list_insight` (`type_filter` single links dropdown +
+`markets_filter` 3-level multi-select checkbox panel).
+
 ### Inline custom `style` shapes
 Define a per-component style selector inline:
 
