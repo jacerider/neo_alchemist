@@ -747,6 +747,20 @@ neo_alchemist.neo_component_settings.slots:
                 PluginExists:
                   manager: plugin.manager.neo_component_slot
                   interface: '\Drupal\neo_alchemist\ComponentSlotPluginInterface'
+            # The name a slot template addresses this item by. Absent means
+            # "derive it from the plugin id". Deliberately not type
+            # machine_name: that permits a leading digit, and `{{ 2col }}` is a
+            # Twig SyntaxError at render time rather than anything catchable.
+            key:
+              type: string
+              label: 'Twig key'
+              nullable: true
+              constraints:
+                Regex:
+                  pattern: '/^[a-z][a-z0-9_]*$/'
+                  message: "The Twig key %value must start with a lowercase letter and contain only lowercase letters, numbers and underscores."
+                Length:
+                  max: 64
             settings:
               type: neo_alchemist.neo_component_slot.[%parent.plugin]
               nullable: true

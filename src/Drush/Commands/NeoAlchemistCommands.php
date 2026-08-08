@@ -12,6 +12,7 @@ use Drupal\Core\Theme\ComponentPluginManager;
 use Drupal\neo_alchemist\ComponentPreviewBuilder;
 use Drupal\neo_alchemist\ComponentPropDefPluginManager;
 use Drupal\neo_alchemist\ComponentShapePluginManager;
+use Drupal\neo_alchemist\ComponentSlotTemplateLocator;
 use Drush\Attributes as CLI;
 use Drush\Commands\AutowireTrait;
 use Drush\Commands\DrushCommands;
@@ -53,6 +54,8 @@ final class NeoAlchemistCommands extends DrushCommands {
     private readonly EntityTypeManagerInterface $entityTypeManager,
     #[Autowire(service: 'renderer')]
     private readonly RendererInterface $renderer,
+    #[Autowire(service: 'neo_alchemist.slot_template_locator')]
+    private readonly ComponentSlotTemplateLocator $slotTemplateLocator,
   ) {
     parent::__construct();
   }
@@ -184,6 +187,28 @@ final class NeoAlchemistCommands extends DrushCommands {
       $oks[] = sprintf('%d prop(s) declared with known types.', count($declared));
     }
 
+    // Slot templates. A slots/*.twig whose name matches no declared slot is
+    // never loaded and never errors — it just silently does nothing, which is
+    // the single easiest way to lose an afternoon here.
+    $slotDir = $dir ? $dir . '/' . ComponentSlotTemplateLocator::DIRECTORY : NULL;
+    if ($slotDir && is_dir($slotDir)) {
+      $declaredSlots = array_keys($def['slots'] ?? []);
+      foreach ((array) glob($slotDir . '/*.twig') as $file) {
+        $name = basename($file, '.twig');
+        // Skip .html.twig overrides: those are theme-registry suggestion
+        // templates for an item's internals, not slot layout templates.
+        if (str_ends_with($name, '.html')) {
+          continue;
+        }
+        if (!in_array($name, $declaredSlots, TRUE)) {
+          $warnings[] = sprintf('`%s/%s.twig` matches no declared slot (declared: %s). It will never be loaded.', ComponentSlotTemplateLocator::DIRECTORY, $name, $declaredSlots ? implode(', ', $declaredSlots) : 'none');
+        }
+        else {
+          $oks[] = sprintf('Slot template `%s/%s.twig` matches a declared slot.', ComponentSlotTemplateLocator::DIRECTORY, $name);
+        }
+      }
+    }
+
     // Twig checks (best effort, advisory).
     if ($twig !== NULL) {
       foreach ($this->undeclaredTwigVars($twig, $declared) as $var) {
@@ -215,6 +240,100 @@ final class NeoAlchemistCommands extends DrushCommands {
   }
 
   /**
+   * Show what a component's slots contain and how to theme them.
+   */
+  #[CLI\Command(name: 'neo:alchemist:slot', aliases: ['neoa-slot'])]
+  #[CLI\Argument(name: 'component', description: 'The neo_component entity id, e.g. list_insight.')]
+  #[CLI\Argument(name: 'slot', description: 'Optional slot machine name to limit output to.')]
+  #[CLI\Usage(name: 'drush neo:alchemist:slot list_insight', description: 'List every slot, its items and the templates that would theme them.')]
+  #[CLI\Usage(name: 'drush neo:alchemist:slot list_insight header', description: 'Limit output to the header slot.')]
+  public function slot(string $component, ?string $slot = NULL): int {
+    $storage = $this->entityTypeManager->getStorage('neo_component');
+    /** @var \Drupal\neo_alchemist\ComponentInterface|null $entity */
+    $entity = $storage->load($component);
+    if (!$entity) {
+      $this->io()->error(sprintf('Unknown component "%s". Run `drush neo:alchemist:components` for SDC ids, or list saved components with `drush config:status`.', $component));
+      return self::EXIT_FAILURE;
+    }
+
+    $slots = $entity->getSlots();
+    if ($slot !== NULL) {
+      $slots = array_intersect_key($slots, [$slot => TRUE]);
+      if (!$slots) {
+        $this->io()->error(sprintf('"%s" declares no slot named "%s".', $component, $slot));
+        return self::EXIT_FAILURE;
+      }
+    }
+    if (!$slots) {
+      $this->io()->warning(sprintf('"%s" declares no slots.', $component));
+      return self::EXIT_SUCCESS;
+    }
+
+    $componentId = $entity->getComponentId();
+    $directory = $this->slotTemplateLocator->getDirectory($componentId);
+
+    $this->io()->newLine();
+    $this->io()->writeln(sprintf('<info>%s</info> (%s)', $component, $componentId));
+    if ($directory) {
+      $this->io()->writeln(sprintf('  <comment>%s</comment>', $directory));
+    }
+
+    // Building a slot item runs its plugin, which for the Views slots executes
+    // the view. Do that inside a render context so any bubbled cacheability has
+    // somewhere to go instead of tripping the leaked-metadata assertion.
+    $this->renderer->executeInRenderContext(new RenderContext(), function () use ($slots, $componentId) {
+      foreach ($slots as $slotName => $componentSlot) {
+        $this->io()->newLine();
+        $template = $this->slotTemplateLocator->getTemplate($componentId, $slotName);
+        $this->io()->writeln(sprintf('<info>SLOT %s</info> — %s', $slotName, $componentSlot->getTitle()));
+        $this->io()->writeln(sprintf('  layout template: %s/%s.twig %s',
+          ComponentSlotTemplateLocator::DIRECTORY,
+          $slotName,
+          $template ? '<info>[found]</info>' : '<comment>[not found]</comment>'
+        ));
+
+        $plugins = $componentSlot->getPlugins();
+        if (!$plugins) {
+          $this->io()->writeln('  <comment>(empty)</comment>');
+          continue;
+        }
+        foreach (array_keys($plugins) as $uuid) {
+          $info = $componentSlot->getItemInfo($uuid);
+          if (!$info) {
+            $this->io()->writeln(sprintf('  <comment>%s renders nothing — check its settings.</comment>', $componentSlot->getKeys()[$uuid] ?? $uuid));
+            continue;
+          }
+          $this->io()->newLine();
+          $this->io()->writeln(sprintf('  <info>%s</info>  (%s)', $info['key'], $info['plugin_id']));
+          $this->io()->writeln(sprintf('    address in %s/%s.twig as: {{ %s }}', ComponentSlotTemplateLocator::DIRECTORY, $slotName, $info['key']));
+          if (!$info['hook']) {
+            $this->io()->writeln('    <comment>no #theme hook — its internals cannot be overridden</comment>');
+            continue;
+          }
+          $this->io()->writeln(sprintf('    theme hook: %s', $info['hook']));
+          $this->io()->writeln(sprintf('    override with: %s', $info['template']));
+          if ($info['render_element']) {
+            $this->io()->writeln(sprintf('    variables: {{ %s }} (render element)', $info['render_element']));
+          }
+          elseif ($info['variables']) {
+            $this->io()->writeln(sprintf('    variables: %s', implode(', ', array_map(
+              fn($v) => '{{ ' . $v . ' }}',
+              $info['variables']
+            ))));
+          }
+          if ($info['children']) {
+            $this->io()->writeln(sprintf('    sub-elements: %s', implode(', ', $info['children'])));
+          }
+        }
+      }
+    });
+
+    $this->io()->newLine();
+    $this->io()->success('Create any template above inside the component directory, then run `drush cr`.');
+    return self::EXIT_SUCCESS;
+  }
+
+  /**
    * List the prop-def shapes, or dump one shape's schema + snippets.
    */
   #[CLI\Command(name: 'neo:alchemist:shapes', aliases: ['neoa-shapes'])]
@@ -241,8 +360,9 @@ final class NeoAlchemistCommands extends DrushCommands {
       return NULL;
     }
 
-    // Also fold in bare style/structural shapes that only exist as ComponentShape
-    // plugins (e.g. scheme, spacing, text_align) so the list is complete.
+    // Also fold in bare style/structural shapes that only exist as
+    // ComponentShape plugins (e.g. scheme, spacing, text_align) so the list is
+    // complete.
     $rows = [];
     foreach ($defs as $id => $def) {
       $type = $def['type'] ?? '';

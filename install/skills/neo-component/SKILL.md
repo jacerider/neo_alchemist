@@ -187,6 +187,54 @@ And render in Twig with `{% block content %}{% endblock %}`. See [web/modules/co
 
 > **Slot vs region prop:** Use `slots` for top-level composable content areas. Use a `region` prop inside an `array` when you have multiple repeating drop zones (e.g. each tab or accordion panel gets its own region).
 
+### Taking control of what a site builder puts in a slot
+
+Keep the component's own `.twig` generic — `{% block content %}{% endblock %}` and nothing more. Two optional files inside the component directory let you shape the contents without a preprocess function or a theme override:
+
+```
+components/list_insight/
+├── list_insight.component.yml
+├── list_insight.twig                  ← stays generic
+└── slots/
+    ├── header.twig                                              ← layout of the slot
+    └── views-exposed-form--list-insight--header--filters.html.twig  ← one item's internals
+```
+
+**Start here** — either works, and both name the same files:
+
+- **In the UI:** the slot's **Customize** form has a *Theming this slot* panel — the layout template and every variable in it, then per item its override filename and the variables that file receives. The component's slot table also shows each layout template and whether it exists.
+- **On the CLI:** `drush neo:alchemist:slot <component> [<slot>]` prints the same thing.
+
+Neither template announces itself in the markup — a layout template is `{% include %}`d rather than themed, so it never appears in Twig's `FILE NAME SUGGESTIONS`, and an item override only shows up there once it exists. In a development environment each slot and item is wrapped in an HTML comment naming its file, so view-source works too.
+
+**`slots/<slot>.twig` — arrange the items.** Each item is a variable named by its Twig key (the slot plugin id, unless a key is set in the **Twig key** column of the slot's Customize form). Also available: `items` (all of them), `slot` (`name`/`title`), `neoIsPreview`.
+
+```twig
+<div class="flex items-end justify-between gap-8">
+  {% if filters %}<div>{{ filters }}</div>{% endif %}
+  {{ items|without('filters') }}   {# anything this template doesn't know about #}
+</div>
+```
+
+Print each item **exactly once** — printing twice renders it twice. Keep the `|without` remainder: an item you never print is silently dropped, and its cache metadata with it.
+
+**`slots/<hook>--<component>--<slot>--<key>.html.twig` — control one item's internals.** An ordinary theme suggestion; Alchemist adds the suggestion automatically, so the filename is the whole wiring (note `.html.twig`, and `-` where the hook has `_`). It inherits the base hook's variables and preprocessing, and — crucially — `#theme_wrappers` is still applied *around* your output, so a form keeps its `<form>` tag and `#action`:
+
+```twig
+{# views-exposed-form--list-insight--header--filters.html.twig — gets {{ form }} #}
+<div class="flex items-end gap-3">
+  <div class="grow">{{ form.iq }}</div>
+  <div>{{ form.actions }}</div>
+  {{ form|without('iq', 'actions') }}
+</div>
+```
+
+> **Only drill into a form from an item template, never from the slot template.** `{{ filters.iq }}` in `slots/header.twig` renders that widget *outside* any `<form>`, because the `<form>` comes from the wrapper around the whole item. In the item template you are the `#theme` implementation, so `|without` is correct there.
+
+Both files need `drush cr` to be picked up (unless `npm start` is running). `drush neo:alchemist:validate` warns about a `slots/*.twig` matching no declared slot — otherwise it would fail silently.
+
+**Debugging:** `{{ neo_inspect() }}` lists every variable in scope in the current template; `{{ neo_inspect(form) }}` walks one value's addressable children instead. Works in any Twig file, needs `twig.config.debug` on, and outputs nothing otherwise.
+
 ## The `.twig` file
 
 ### Root element & structure

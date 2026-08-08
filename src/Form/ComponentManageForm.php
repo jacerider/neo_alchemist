@@ -369,9 +369,24 @@ final class ComponentManageForm extends EntityForm {
         $row = [];
         $row['property']['#markup'] = ((string) $slot->getTitle()) . ' <small>(' . $slot->getName() . ')</small>';
 
-        $row['plugins']['#markup'] = implode(', ', array_map(function ($plugin) {
-          return $plugin->label();
-        }, $slot->getPlugins()));
+        // Show the Twig key beside each plugin: it is what a slot template
+        // addresses the item by, so it belongs on the overview rather than only
+        // inside the slot's own modal.
+        $slotKeys = $slot->getKeys();
+        $summary = implode(', ', array_map(
+          fn($uuid, $plugin) => $plugin->label() . ' <code>' . Html::escape($slotKeys[$uuid] ?? '') . '</code>',
+          array_keys($slot->getPlugins()),
+          $slot->getPlugins()
+        ));
+        // Name the layout template whether or not it exists. Nothing else
+        // surfaces it — it is included rather than themed, so it never appears
+        // in Twig's FILE NAME SUGGESTIONS.
+        $templateInfo = $slot->getTemplateInfo();
+        $summary .= '<br /><small>' . $this->t('Layout: <code>@path</code> @status', [
+          '@path' => $templateInfo['path'],
+          '@status' => $templateInfo['exists'] ? $this->t('(in use)') : $this->t('(not created)'),
+        ]) . '</small>';
+        $row['plugins']['#markup'] = $summary;
 
         $links = [];
         $links['edit'] = [

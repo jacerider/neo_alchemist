@@ -21,6 +21,21 @@ services:
     class: Drupal\neo_alchemist\SdcThumbnailWriter
     arguments: ['@plugin.manager.sdc', '@?neo_build', '@config.factory', '%app.root%']
 
+  # Cached in cache.discovery, the same bin the SDC definitions live in, so a
+  # single `drush cr` invalidates both together and they can never disagree
+  # about which components exist. neo_build is optional for the same reason as
+  # above; without it only the dev-mode cache bypass is lost.
+  neo_alchemist.slot_template_locator:
+    class: Drupal\neo_alchemist\ComponentSlotTemplateLocator
+    arguments:
+      - '@plugin.manager.sdc'
+      - '@extension.path.resolver'
+      - '@module_handler'
+      - '@cache.discovery'
+      - '@config.factory'
+      - '%app.root%'
+      - '@?neo_build'
+
   plugin.manager.neo_component_prop_def:
     class: Drupal\neo_alchemist\ComponentPropDefPluginManager
     arguments: ['@module_handler', '@cache.discovery']
@@ -71,7 +86,11 @@ services:
 
   neo_component.slot.factory:
     class: Drupal\neo_alchemist\ComponentSlotFactory
-    arguments: ['@plugin.manager.neo_component_slot']
+    arguments:
+      - '@plugin.manager.neo_component_slot'
+      - '@neo_alchemist.slot_template_locator'
+      - '@plugin.manager.element_info'
+      - '@theme.registry'
 
   neo_component.filter.factory:
     class: Drupal\neo_alchemist\ComponentFilterFactory

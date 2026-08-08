@@ -42,7 +42,9 @@ use Drupal\neo_alchemist\Entity\Component;
  *
  * @param array $build
  *   The component render array: a '#type' => 'component' element with '#props'
- *   and (optionally) '#slots'.
+ *   and (optionally) '#slots'. A slot's value is keyed by each item's resolved
+ *   Twig key, not by its config UUID — and is a single 'inline_template'
+ *   element instead when the component ships a slots/<slot>.twig.
  * @param \Drupal\Core\Cache\CacheableMetadata $cacheability
  *   The component's cacheable metadata. Add cache tags/contexts or tighten
  *   max-age here; it is applied to $build and bubbles up to the page.

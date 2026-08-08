@@ -79,6 +79,45 @@ interface ComponentSlotInterface extends RenderableInterface {
   public function getPlugin(string $uuid): ?ComponentSlotPluginInterface;
 
   /**
+   * Gets the resolved Twig key of every slot plugin.
+   *
+   * These are the keys a slot template addresses its items by, and the keys the
+   * render array built by ::toRenderable() uses. A plugin with no explicitly
+   * configured key falls back to its plugin id, suffixed `_2`, `_3`, … when
+   * that would collide with a sibling or with a reserved context variable.
+   *
+   * @return string[]
+   *   Resolved Twig keys, keyed by plugin UUID.
+   */
+  public function getKeys(): array;
+
+  /**
+   * Gets the explicitly configured Twig key of a slot plugin.
+   *
+   * Use ::getKeys() for the key actually rendered — this returns only what a
+   * site builder typed, so it is NULL for a plugin using its derived key.
+   *
+   * @param string $uuid
+   *   The UUID of the slot plugin.
+   *
+   * @return string|null
+   *   The configured key, or NULL when none is set.
+   */
+  public function getKey(string $uuid): ?string;
+
+  /**
+   * Sets the explicitly configured Twig key of a slot plugin.
+   *
+   * @param string $uuid
+   *   The UUID of the slot plugin.
+   * @param string|null $key
+   *   The key, or NULL/'' to clear it and fall back to the derived key.
+   *
+   * @return $this
+   */
+  public function setKey(string $uuid, ?string $key): self;
+
+  /**
    * Adds a slot plugin.
    *
    * @param string $plugin_id

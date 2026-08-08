@@ -396,6 +396,21 @@ entity returns to the field default instead of copy-on-writing the seeds.
   `neo:alchemist:render` (default), FALSE under `--live`.
 - Core's SDC renderer resolves `#type: component` to the component's Twig template by
   provider, injecting `#props`/`#slots` into the Twig context.
+- **A slot's renderable has two shapes.** `ComponentSlot::toRenderable()` keys its
+  children by their resolved Twig key (`getKeys()`: the configured `key`, else the
+  plugin id, `_2`/`_3` on collision) rather than by UUID. If the component ships a
+  `slots/<slot>.twig` — found by `neo_alchemist.slot_template_locator`, cached in
+  `cache.discovery` — the whole thing is wrapped in an `inline_template` that includes
+  it, with each child, `items`, `slot` and `neoIsPreview` in its context. Otherwise the
+  flat keyed array is returned as-is.
+- **An empty slot must return `[]`**, which is why `toRenderable()` bails before
+  wrapping. `Component::toRenderable()` filters empty slots out of `#slots` so core
+  generates no `{% block %}` override for them — that is exactly what lets a component
+  keep its own fallback content inside `{% block name %}…{% endblock %}`. An
+  `inline_template` array is always truthy and would suppress every fallback.
+- Each child also gets `<base hook>__<component>__<slot>__<key>` theme suggestions
+  prepended to its `#theme` (`prepareChild()`), so a component can override one item's
+  internals with an ordinary suggestion template while `#theme_wrappers` still wraps it.
 - In preview mode `toRenderable()` also wraps the build with admin chrome
   (`prepareRenderableForPreview()` — disabled/limited-access badges, drag handles).
 - **Full-page rendering** goes through [src/Render/ComponentPageRenderer.php](src/Render/ComponentPageRenderer.php)

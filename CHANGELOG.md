@@ -1,5 +1,44 @@
 # Changelog
 
+## Slot contents are now themeable from the component directory
+
+A component's Twig had no say in what a site builder dropped into a slot. Slot
+children were keyed by their config UUID, so `{{ header.filters }}` was
+impossible; there was nowhere to put slot markup, because core's generated
+`{% embed %}` overrides `{% block header %}`; and reaching an item's internals
+meant a preprocess function or a hand-wired template override.
+
+Three additions, each opt-in by dropping a file into the component directory —
+components that ship neither file behave exactly as before:
+
+- **Stable Twig keys.** `ComponentSlot::toRenderable()` keys children by the
+  resolved key from `getKeys()` — an optional per-item `key` in config, else the
+  plugin id, suffixed `_2`/`_3` on collision and seeded against the reserved
+  context names. A **Twig key** column on the slot's Customize form sets it, and
+  `toArray()` persists it only when it differs from the plugin id, so existing
+  exported config is untouched until somebody sets one.
+- **`slots/<slot>.twig`** — arranges the items. When present, the slot renders
+  through an `inline_template` including that file, with each item available by
+  its key plus `items`, `slot` and `neoIsPreview`.
+- **`slots/<hook>--<component>--<slot>--<key>.html.twig`** — controls one item's
+  internals. Ordinary theme suggestions, added automatically to each child's
+  `#theme`, so the filename is the whole wiring. Because `#theme_wrappers` is
+  applied *around* `#theme` output, a form keeps its `<form>` tag and `#action`
+  while the template places the individual widgets.
+
+Discoverability, since a mis-named template fails silently:
+`drush neo:alchemist:slot <component> [<slot>]` prints each item's key, theme
+hook, the exact filename to create and that file's variables;
+`neo:alchemist:validate` warns about a `slots/*.twig` matching no declared slot;
+development environments wrap each item in an HTML comment carrying the same
+facts; and `{{ neo_inspect() }}` (neo_twig, gated on `twig.config.debug`) lists every
+variable in scope, or walks one value's children when passed an argument.
+
+**Upgrading:** slot render-array keys changed from UUIDs to names. Nothing can
+have depended on the UUID form portably — they are minted per site — but a
+`hook_neo_component_build_alter()` implementation indexing
+`$build['#slots'][$slot][$uuid]` needs updating to the item's Twig key.
+
 ## A view's cache max-age no longer overwrites the component's
 
 `ViewsSlotBase::addViewAsCacheableDependency()` and `ViewsValue::getView()` both
