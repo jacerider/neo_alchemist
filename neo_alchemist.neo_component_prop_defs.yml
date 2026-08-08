@@ -526,6 +526,9 @@ menu:
 # schema stays one type.
 views_filter:
   title: 'Views filter'
+  # At render the value is a ViewsFilterTwig helper object; it implements
+  # JsonSerializable, so SDC prop validation sees the wrapped data and the
+  # object validates exactly like the plain example arrays do.
   type: object
   properties:
     label:
@@ -533,6 +536,9 @@ views_filter:
       type: string
     param:
       title: 'Query parameter'
+      type: string
+    placeholder:
+      title: Placeholder
       type: string
     multiple:
       title: Multiple
@@ -623,6 +629,7 @@ views_filter:
     active_count: 0
     active_labels: []
     value: []
+    placeholder: ''
     reset_url: '#'
     action: '#'
     carry: []
@@ -642,6 +649,55 @@ views_filter:
             url: '#'
             active: false
             below: []
+
+# The applied exposed filters of a bound view, as removable-chip data. Filled
+# by the views_active_filters value provider (same views context and ordering
+# rule as views_filter). Each item is a plain link: its remove_url toggles just
+# that value out; clear_url drops every exposed filter. The value is a
+# ViewsActiveFiltersTwig helper at render (link()/clearLink() add the
+# accessibility attributes); examples stay plain objects.
+views_active_filters:
+  title: 'Views active filters'
+  type: object
+  properties:
+    active:
+      title: Active
+      type: boolean
+    count:
+      title: Count
+      type: integer
+    clear_url:
+      title: 'Clear-all URL'
+      type: string
+    items:
+      title: Items
+      type: array
+      items:
+        title: 'Active filter'
+        type: object
+        properties:
+          param:
+            title: 'Query parameter'
+            type: string
+          filter_label:
+            title: 'Filter label'
+            type: string
+          value:
+            title: Value
+            type: string
+          label:
+            title: 'Value label'
+            type: string
+          remove_url:
+            title: 'Remove URL'
+            type: string
+  examples:
+    active: true
+    count: 2
+    clear_url: '#'
+    items:
+      - { param: type, filter_label: Type, value: '2', label: 'Case Study', remove_url: '#' }
+      - { param: markets, filter_label: Markets, value: '4', label: 'Residential', remove_url: '#' }
 
 breadcrumb:
   title: Breadcrumb

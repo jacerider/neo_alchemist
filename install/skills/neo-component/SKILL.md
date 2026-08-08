@@ -164,45 +164,90 @@ type_filter:            # declare AFTER the views-bound prop — props resolve i
   examples: { label: 'Type', param: 'type', options: [ { label: 'News', value: '1', url: '#', active: false, below: [] } ], … }
 ```
 
-The value: `label`, `param`, `multiple`, `active`/`active_count`/`active_labels`, `value`
-(always an array), `reset_url`, `action` + `carry[]` (for hand-written GET forms), and
-`options[]` — a `{label, value, url, active, below[]}` **tree** (`below` nests like the `menu`
-shape; taxonomy filters get real hierarchy). Every option `url` applies/toggles that value and
-resets paging.
+The value is a **`ViewsFilterTwig` helper object** — plain data access plus wiring methods, the
+`SwiperTwig` pattern. Data (via dot access, unchanged): `label`, `param`, `multiple`,
+`active`/`active_count`/`active_labels`, `value` (always an array), `placeholder`, `reset_url`,
+`action`, `carry[]`, and `options[]` — a `{label, value, url, active, below[]}` **tree**
+(`below` nests like the `menu` shape; taxonomy filters get real hierarchy). Every option `url`
+applies/toggles that value and resets paging. Text filters (fulltext search) resolve too, with
+empty `options` and a `placeholder`.
+
+The methods hand over the wiring a hand-written GET form can silently get wrong — all return
+chainable `Attribute`s (sandbox rule: object methods callable from twig must start with
+get/has/is, same as `SwiperTwig`):
+
+| Method | Emits |
+|---|---|
+| `getForm()` | `method="get" action` for the `<form>` tag |
+| `getHidden()` | every `carry` pair as hidden inputs — **forgetting these is the silent killer**: submitting one filter clears the others |
+| `getCheckbox(option)` / `getRadio(option)` | `type`/`name`(`[]`)/`value`/`checked`, agreeing by construction |
+| `getTextfield('search')` | `type`/`name`/`value`/`placeholder` for a text filter's input |
+| `getLink(option)` | `href` + `aria-current` when active |
 
 **Interaction style is the template's design decision — pick ONE markup per filter.** Links for
-single-select, a GET form of checkboxes for multi-select. Want submit-on-change instead of an
-Apply button? Add `x-data @change="$el.requestSubmit()"` to the form — your call, hardcoded:
+single-select, a GET form of checkboxes for multi-select, a mini-form input for search. Want
+submit-on-change instead of an Apply button? Add `x-data @change="$el.requestSubmit()"` to the
+form — your call, hardcoded:
 
 ```twig
 {# Single-select: instant links. #}
 <a href="{{ filter.reset_url }}">{{ 'All'|t }}</a>
 {% for option in filter.options %}
-  <a href="{{ option.url }}" class="{{ option.active ? 'font-bold text-primary' }}">{{ option.label }}</a>
+  <a{{ filter.getLink(option).addClass(option.active ? 'font-bold text-primary') }}>{{ option.label }}</a>
 {% endfor %}
 
 {# Multi-select: plain GET form, batch-then-Apply. #}
-<form method="get" action="{{ filter.action }}">
-  {% for pair in filter.carry %}<input type="hidden" name="{{ pair.name }}" value="{{ pair.value }}">{% endfor %}
+<form{{ filter.getForm() }}>
+  {{ filter.getHidden() }}
   {% for option in filter.options %}
-    <label><input type="checkbox" name="{{ filter.param }}[]" value="{{ option.value }}" {{ option.active ? 'checked' }}> {{ option.label }}</label>
+    <label><input{{ filter.getCheckbox(option) }}> {{ option.label }}</label>
     {# nest option.below for hierarchy #}
   {% endfor %}
   <button type="submit">{{ 'Apply'|t }}</button>
 </form>
+
+{# Text filter (search): its own mini-form. #}
+<form{{ filter.getForm() }}>
+  {{ filter.getHidden() }}
+  <input{{ filter.getTextfield('search') }}>
+  <button type="submit">{{ icon('search') }}</button>
+</form>
 ```
 
-Two rules that keep the filters composable with the view's remaining exposed form:
+Composability rules:
 
 1. **The filter must stay exposed on the view** — `?param=` only applies to exposed filters.
-2. In the slot's exposed-form override template, **hide the native widget instead of omitting
-   it**: `<div class="hidden">{{ form.type }}</div>`. Views repopulates it from the URL, so
-   submitting the search box preserves the designed filters; each mini-form's `carry` inputs
-   preserve the search in the other direction.
+2. When **every** filter on the page is designed (each mini-form printing `getHidden()`), no
+   native exposed form is needed at all — remove the `views_exposed_filters` slot item. Only
+   in **mixed mode** (a native exposed form remains, e.g. for a filter you haven't designed)
+   must that form's override template *hide* the designed filters' native widgets instead of
+   omitting them: `<div class="hidden">{{ form.type }}</div>`, so its submits preserve them.
 
-Text filters (a search box) stay in the real exposed form — a text input must live inside the
-`<form>` tag. Working example: `front:list_insight` (`type_filter` single links dropdown +
-`markets_filter` 3-level multi-select checkbox panel).
+### `views_active_filters` — applied filters as removable chips
+
+The designed replacement for the active_filters module's views area. Bind with the
+**Views | Active Filters** value plugin (context only; covers every exposed filter with
+input). Same declare-after-the-views-prop rule. The value (a `ViewsActiveFiltersTwig`):
+`active`, `count`, `clear_url`, and `items[]` of `{param, filter_label, value, label,
+remove_url}` — labels are resolved option labels (clean term names on hierarchical filters;
+the entered text on search). `getLink(item)` / `getClearLink()` add `href` + descriptive
+`aria-label` + `rel="nofollow"`:
+
+```twig
+{% if active_filters.count %}
+  <div class="flex flex-wrap gap-2">
+    {% for item in active_filters.items %}
+      <a{{ active_filters.getLink(item).addClass('bg-base-200 px-3 py-1 text-sm') }}>
+        {{ item.filter_label }}: {{ item.label }} ✕</a>
+    {% endfor %}
+    <a{{ active_filters.getClearLink() }}>{{ 'Clear all'|t }}</a>
+  </div>
+{% endif %}
+```
+
+Working example for all of it: `front:list_insight` — `type_filter` links dropdown,
+`markets_filter` 3-level checkbox panel, `search_filter` mini-form, `active_filters` chips,
+no native exposed form on the page.
 
 ### Inline custom `style` shapes
 Define a per-component style selector inline:
@@ -248,12 +293,12 @@ And render in Twig with `{% block content %}{% endblock %}`. See [web/modules/co
 Keep the component's own `.twig` generic — `{% block content %}{% endblock %}` and nothing more. Two optional files inside the component directory let you shape the contents without a preprocess function or a theme override:
 
 ```
-components/list_insight/
-├── list_insight.component.yml
-├── list_insight.twig                  ← stays generic
+components/my_list/
+├── my_list.component.yml
+├── my_list.twig                       ← stays generic
 └── slots/
-    ├── header.twig                                              ← layout of the slot
-    └── views-exposed-form--list-insight--header--filters.html.twig  ← one item's internals
+    ├── header.twig                                        ← layout of the slot
+    └── views-exposed-form--my-list--header--filters.html.twig  ← one item's internals
 ```
 
 **Start here** — either works, and both name the same files:
@@ -277,7 +322,7 @@ Print each item **exactly once** — printing twice renders it twice. Keep the `
 **`slots/<hook>--<component>--<slot>--<key>.html.twig` — control one item's internals.** An ordinary theme suggestion; Alchemist adds the suggestion automatically, so the filename is the whole wiring (note `.html.twig`, and `-` where the hook has `_`). It inherits the base hook's variables and preprocessing, and — crucially — `#theme_wrappers` is still applied *around* your output, so a form keeps its `<form>` tag and `#action`:
 
 ```twig
-{# views-exposed-form--list-insight--header--filters.html.twig — gets {{ form }} #}
+{# views-exposed-form--my-list--header--filters.html.twig — gets {{ form }} #}
 <div class="flex items-end gap-3">
   <div class="grow">{{ form.iq }}</div>
   <div>{{ form.actions }}</div>

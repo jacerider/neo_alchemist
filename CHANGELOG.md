@@ -1,5 +1,39 @@
 # Changelog
 
+## Filter twig helpers, text filters, and the views_active_filters prop
+
+Three additions on top of the views_filter prop, aimed at making a fully
+designed filter UI the path of least resistance:
+
+- **Helper objects** (the neo_swiper SwiperTwig pattern). A views_filter prop
+  value is now a `ViewsFilterTwig`: ArrayAccess keeps every existing template
+  working, and `get*()` methods hand over the wiring a hand-written GET form
+  can silently get wrong — `getForm()` (method/action), `getHidden()` (the
+  carry inputs; forgetting them clears sibling filters on submit),
+  `getCheckbox()`/`getRadio()`/`getTextfield()`/`getLink()` (attribute
+  clusters, chainable Attributes). Method names use the get prefix because
+  Drupal's Twig sandbox only allows get/has/is-prefixed method calls on
+  objects. The objects are JsonSerializable so SDC prop validation sees the
+  wrapped data; core's class-typed-prop support turned out unusable for mixed
+  `[object, FQCN]` types (it nullifies the value but keeps `object` required).
+  Wrapping happens both in the new ViewsFilterShape (preRenderValue — covers
+  example/preview data) and in the provider's modifyValue (resolved data).
+- **Text filters.** A filter whose widget has no options (fulltext search)
+  now resolves too — empty `options`, plus a `placeholder` key — so a search
+  box becomes a designed mini-form like everything else. With every filter
+  designed and each mini-form printing getHidden(), no native exposed form is
+  needed on the page at all; the hide-the-native-widget rule now applies only
+  to mixed-mode pages.
+- **views_active_filters prop + Views | Active Filters provider.** The
+  designed replacement for the active_filters module's views area: every
+  applied exposed-filter value becomes a chip item with a resolved label
+  (clean term names on hierarchical filters, the entered text on search) and
+  a remove_url toggling just that value; clear_url drops everything. The
+  value is a ViewsActiveFiltersTwig with getLink()/getClearLink() adding
+  aria-labels and rel="nofollow". Both providers share
+  ViewsExposedFilterValueBase; the validate() ordering lint covers both prop
+  types.
+
 ## Exposed views filters as data: the views_filter prop
 
 Styling an exposed filter meant styling Drupal's form markup — the opposite of

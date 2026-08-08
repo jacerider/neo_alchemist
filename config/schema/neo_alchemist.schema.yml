@@ -613,6 +613,14 @@ neo_alchemist.neo_component_value.views_exposed_filter:
       type: string
       label: 'Exposed filter identifier'
 
+neo_alchemist.neo_component_value.views_active_filters:
+  type: mapping
+  label: 'Views active filters value provider'
+  mapping:
+    context:
+      type: string
+      label: 'Views context'
+
 
 neo_alchemist.neo_component_value.media:
   type: mapping
