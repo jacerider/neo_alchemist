@@ -629,6 +629,14 @@ neo_alchemist.neo_component_value.views_active_filters:
       type: string
       label: 'Views context'
 
+neo_alchemist.neo_component_value.views_summary:
+  type: mapping
+  label: 'Views result summary value provider'
+  mapping:
+    context:
+      type: string
+      label: 'Views context'
+
 
 neo_alchemist.neo_component_value.media:
   type: mapping

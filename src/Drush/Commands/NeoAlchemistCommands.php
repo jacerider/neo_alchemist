@@ -187,17 +187,17 @@ final class NeoAlchemistCommands extends DrushCommands {
       $oks[] = sprintf('%d prop(s) declared with known types.', count($declared));
     }
 
-    // Views-context prop ordering. The views_exposed_filter and
-    // views_active_filters providers read the `views` context, which the views
-    // value provider registers while its own prop resolves — and props resolve
-    // in schema order. Such a prop declared before every prop that could carry
-    // the views binding silently renders empty, so catch the layout
-    // statically.
+    // Views-context prop ordering. The views_exposed_filter,
+    // views_active_filters and views_summary providers read the `views`
+    // context, which the views value provider registers while its own prop
+    // resolves — and props resolve in schema order. Such a prop declared
+    // before every prop that could carry the views binding silently renders
+    // empty, so catch the layout statically.
     $rawProps = is_array($rawYml) ? ($rawYml['props']['properties'] ?? []) : [];
     $seenBindable = FALSE;
     foreach ($rawProps as $propName => $prop) {
       $type = $prop['type'] ?? NULL;
-      if (in_array($type, ['views_filter', 'views_active_filters'], TRUE)) {
+      if (in_array($type, ['views_filter', 'views_active_filters', 'views_summary'], TRUE)) {
         if (!$seenBindable) {
           $warnings[] = sprintf('Prop `%s` (%s) is declared before any array/object prop that could hold the views binding. Move it after the views-bound prop, or its provider will find no view.', $propName, $type);
         }

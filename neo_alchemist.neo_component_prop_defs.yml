@@ -699,6 +699,69 @@ views_active_filters:
       - { param: type, filter_label: Type, value: '2', label: 'Case Study', remove_url: '#' }
       - { param: markets, filter_label: Markets, value: '4', label: 'Residential', remove_url: '#' }
 
+# A bound view's result counts, for listings that state how many results there
+# ARE rather than how many are on this page. Filled by the views_summary value
+# provider (same views context and ordering rule as views_filter). The field
+# set mirrors core's views `result` area handler tokens — @start, @end, @total,
+# @per_page, @current_page, @page_count — as data rather than a format string,
+# so wording, pluralization and translation stay the template's decision:
+# `{{ summary.total }} results` and
+# `Showing {{ summary.start }}–{{ summary.end }} of {{ summary.total }}` come
+# off the same prop. Deliberately plain scalars with no Twig helper: unlike
+# views_filter there is no wiring a template can silently get wrong here, and a
+# helper method would have to bake in English word order.
+#
+# `exact` is the one field with no core equivalent, and it is load-bearing.
+# Core's area handler forces a count query (`$view->get_total_rows = TRUE` in
+# query()); this provider runs long after the view executed, so it cannot. When
+# the view ran no count query — a mini/some/none pager, or a Search API search
+# with "skip result count" — `total` is a LOWER BOUND (rows seen so far), and
+# `exact` is FALSE so a template can say "142+" or hide the number entirely.
+# With a full pager, or with paging off (where the tally IS the total), it is
+# TRUE. Note also that `count` counts view ROWS; on a Search API index a row
+# whose item no longer loads is skipped by the views provider, so `count` can
+# exceed the number of rendered items. `total` is unaffected.
+views_summary:
+  title: 'Views result summary'
+  type: object
+  properties:
+    total:
+      title: 'Total results'
+      type: integer
+    count:
+      title: 'Results on this page'
+      type: integer
+    start:
+      title: 'First result number'
+      type: integer
+    end:
+      title: 'Last result number'
+      type: integer
+    page:
+      title: 'Current page'
+      type: integer
+    pages:
+      title: 'Total pages'
+      type: integer
+    per_page:
+      title: 'Results per page'
+      type: integer
+    exact:
+      title: 'Total is exact'
+      type: boolean
+  # A multi-page example on purpose: these are the numbers that show a template
+  # author what start/end/pages mean. `page` is 1-based, matching core's
+  # @current_page (ViewExecutable::getCurrentPage() is 0-based).
+  examples:
+    total: 142
+    count: 30
+    start: 1
+    end: 30
+    page: 1
+    pages: 5
+    per_page: 30
+    exact: true
+
 breadcrumb:
   title: Breadcrumb
   type: array

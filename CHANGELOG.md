@@ -1,5 +1,51 @@
 # Changelog
 
+## Result counts from the view: the views_summary prop
+
+A listing that renders `{{ items|length }}` next to its filters is showing the
+size of one page, not the number of matches — and with filters live that is the
+number a visitor uses to judge what they just did. The new `views_summary` prop
+reads the counts off the same executed view the `views` provider binds: `total`,
+`count` (this page), the `start`/`end` window, `page`, `pages`, `per_page`.
+
+Deliberately plain numbers with no twig helper object. Unlike `views_filter`,
+where the helper carries wiring a template can silently get wrong, there is no
+hazard here — so the wording stays the template's decision, and
+`{% trans %}…{% plural %}…{% endtrans %}` gives real per-language pluralization
+that a prebuilt string could not. `{{ summary.total }} results` and
+`Showing {{ summary.start }}–{{ summary.end }} of {{ summary.total }}` come off
+the identical prop and the identical provider config. The field set mirrors
+core's views `result` area handler tokens, as data rather than a format string.
+
+The one field with no core equivalent is `exact`, and it is load-bearing.
+Core's area handler forces a count query (`$view->get_total_rows = TRUE` in
+`query()`); this provider runs long after the view executed, so it cannot — and
+forcing it inside `ViewsValue` would add a count query to every views-bound prop
+on the site, a second search execution on Search API. Instead the provider asks
+whether a count query *ran*. That distinction is the whole risk of the feature:
+core's `Sql::execute()` assigns `$view->total_rows` **unconditionally**, outside
+the guard that decides whether to count, so on a SQL view the property is never
+NULL — it is `0` under a `none`/`some` pager and a plausible-looking lower bound
+under `mini`. Only Search API leaves it NULL. A `total_rows !== NULL` check would
+therefore report "0 results" on an unlimited view displaying five rows. When no
+count ran, `total` is the rows-seen-so-far lower bound and `exact` is FALSE so a
+template can render "142+" or hide the number; with a full pager, or with paging
+off (where the tally *is* the total), it is TRUE.
+
+Alongside it, all three views providers now document themselves. Their config
+forms carry an "Available in twig" reference listing every variable and helper
+method against the prop's real name, with copy-pasteable snippets — because what
+a template can reach is not visible from the prop schema, and for `views_filter`
+in particular the difference between `getHidden()` present and absent is a
+filter UI that composes with its siblings versus one that silently clears them.
+
+Internally, the views-context plumbing (the context select, `getContextView()`,
+the query cache context) moved from `ViewsExposedFilterValueBase` up to a new
+service-free `ViewsContextValueBase`, so a views-backed provider needing no
+services of its own carries no container wiring. The static ordering lint in
+`drush neo:alchemist:validate` now covers `views_summary` too — a prop declared
+before the views-bound prop is still the single most likely way to get nothing.
+
 ## AJAX result swapping for designed filter UIs
 
 Filtering now updates results in place. Because every views_filter interaction

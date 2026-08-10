@@ -71,12 +71,13 @@ enumerable — read the enumeration, don't recall it.
 **Prop types — 44 total, and no prose list in the repo is complete.** 38 come
 from three YAML files, 6 more are plugin-only primitives with no YAML entry:
 
-- `neo_alchemist/neo_alchemist.neo_component_prop_defs.yml` (33) — `heading`,
+- `neo_alchemist/neo_alchemist.neo_component_prop_defs.yml` (34) — `heading`,
   `markup`, `media`, `image`, `image-uri`, `file`, `file-uri`, `remote_video`,
   `video`, `video-uri`, `email`, `telephone`, `uri`, `link`, `url`, `address`,
-  `menu`, `views_filter`, `views_active_filters`, `breadcrumb`, `slug`,
-  `region`, `scheme`, `image_size`, `style`, `containment`, `spacing`, `gap`,
-  `text_align`, `text_size`, `heading_size`, `button_style`, `button_size`
+  `menu`, `views_filter`, `views_active_filters`, `views_summary`,
+  `breadcrumb`, `slug`, `region`, `scheme`, `image_size`, `style`,
+  `containment`, `spacing`, `gap`, `text_align`, `text_size`, `heading_size`,
+  `button_style`, `button_size`
 - `neo_animate/neo_animate.neo_component_prop_defs.yml` (4) — `animate`,
   `animate_speed`, `animate_delay`, `animate_stagger`
 - `neo_icon/neo_icon.neo_component_prop_defs.yml` (1) — `icon`
@@ -168,9 +169,19 @@ name (`icon('chevron-down')`); `drush neo:icon:list` prints its suggested usage
 `|icon_library('regular')`.
 
 **A designed `views_filter` GET form that omits `getHidden()` clears every other
-active filter.** And a `views_filter` / `views_active_filters` prop declared
-*before* the array prop carrying the views binding resolves empty — props resolve
-in schema order. Reference: `list_insight`.
+active filter.** And a `views_filter` / `views_active_filters` / `views_summary`
+prop declared *before* the array prop carrying the views binding resolves empty —
+props resolve in schema order. Reference: `list_insight`, `list_project`.
+
+**A result count taken from the bound array is a page count.** `{{ items|length }}`
+is the rows on this page; the number a filter toolbar wants is
+`views_summary`'s `total`, which comes off the executed view. Its siblings
+(`count`, `start`, `end`, `page`, `pages`, `per_page`) are there so a template
+can write a range, and `exact` is FALSE when the view ran no count query — a
+mini/some/none pager, or a Search API search that skipped it — meaning `total`
+is only a lower bound. Unresolvable (no binding, or a preview) drops the prop
+entirely, so the template needs `summary.total ?? items|length`, not
+`|default()`. Reference: `list_project`.
 
 **An SVG routed through the image pipeline collapses.** The file is emitted
 unchanged, the size op only sets HTML attributes, and the base reset
