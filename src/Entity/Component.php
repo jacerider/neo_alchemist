@@ -94,6 +94,7 @@ use Drupal\neo_icon\IconTrait;
  *     "schema",
  *     "component",
  *     "aggregate",
+ *     "prop_editability",
  *     "size",
  *     "thumbnail",
  *     "settings",
@@ -154,6 +155,18 @@ class Component extends ConfigEntityBase implements ComponentInterface {
    * @var bool
    */
   protected bool $aggregate = FALSE;
+
+  /**
+   * The prop editability mode.
+   *
+   * One of the ComponentInterface::PROP_EDITABILITY_* constants. The inline
+   * default is load-bearing: shapes are also built against components created
+   * with no values at all, such as in ComponentStyleSettingsForm and
+   * ComponentPreviewBuilder.
+   *
+   * @var string
+   */
+  protected string $prop_editability = ComponentInterface::PROP_EDITABILITY_OPEN;
 
   /**
    * The size.
@@ -357,6 +370,39 @@ class Component extends ConfigEntityBase implements ComponentInterface {
    */
   public function isAggregate(): bool {
     return $this->aggregate;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function getPropEditability(): string {
+    return $this->prop_editability;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function setPropEditability(string $mode): self {
+    // Mirrors setSetting(): shapes resolve their editable default and memoize
+    // their locked state at construction, so a mode change within a single
+    // request must drop the memo.
+    unset($this->propShapes);
+    $this->prop_editability = $mode;
+    return $this;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function getPropEditableDefault(): bool {
+    return $this->getPropEditability() === self::PROP_EDITABILITY_OPEN;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function arePropsLocked(): bool {
+    return $this->getPropEditability() === self::PROP_EDITABILITY_LOCKED;
   }
 
   /**

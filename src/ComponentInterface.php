@@ -18,6 +18,21 @@ use Drupal\Core\Render\RenderableInterface;
 interface ComponentInterface extends ConfigEntityInterface, RenderableInterface, CacheableResponseInterface {
 
   /**
+   * Props with no stored setting are editable.
+   */
+  const PROP_EDITABILITY_OPEN = 'open';
+
+  /**
+   * Props with no stored setting are not editable.
+   */
+  const PROP_EDITABILITY_GUARDED = 'guarded';
+
+  /**
+   * No prop is editable, regardless of its stored setting.
+   */
+  const PROP_EDITABILITY_LOCKED = 'locked';
+
+  /**
    * Get the component description.
    *
    * @return string
@@ -84,6 +99,47 @@ interface ComponentInterface extends ConfigEntityInterface, RenderableInterface,
    *   TRUE if the component is an aggregate, FALSE otherwise.
    */
   public function isAggregate(): bool;
+
+  /**
+   * Get the prop editability mode.
+   *
+   * @return string
+   *   One of the self::PROP_EDITABILITY_* constants.
+   */
+  public function getPropEditability(): string;
+
+  /**
+   * Set the prop editability mode.
+   *
+   * @param string $mode
+   *   One of the self::PROP_EDITABILITY_* constants.
+   *
+   * @return $this
+   */
+  public function setPropEditability(string $mode): self;
+
+  /**
+   * Checks how a prop with no stored 'editable' setting should default.
+   *
+   * A prop has no stored setting when the component's template has just grown
+   * it, or when its shape changed. Which way it defaults is this component's
+   * policy rather than a hardcoded answer.
+   *
+   * @return bool
+   *   TRUE if such a prop should default to editable, FALSE otherwise.
+   */
+  public function getPropEditableDefault(): bool;
+
+  /**
+   * Checks if every prop is locked regardless of its stored setting.
+   *
+   * The per-prop 'editable' settings are left intact while locked and take
+   * effect again as soon as the component leaves this mode.
+   *
+   * @return bool
+   *   TRUE if all props are locked, FALSE otherwise.
+   */
+  public function arePropsLocked(): bool;
 
   /**
    * Gets the component plugin machine name.

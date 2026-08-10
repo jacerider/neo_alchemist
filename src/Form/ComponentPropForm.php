@@ -13,6 +13,7 @@ use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Form\SubformState;
 use Drupal\neo_alchemist\Ajax\ComponentAjaxFormHelperTrait;
+use Drupal\neo_alchemist\ComponentInterface;
 use Drupal\neo_alchemist\ComponentManageHelper;
 use Drupal\neo_alchemist\ComponentShapePluginInterface;
 use Drupal\neo_alchemist\ComponentValueGroupPluginManager;
@@ -196,7 +197,14 @@ final class ComponentPropForm extends EntityForm {
       $form['editable'] = [
         '#type' => 'checkbox',
         '#title' => $this->t('Allow Edit'),
-        '#description' => $this->t('Allow the default value of this property to be changed per component instance.'),
+        // The checkbox disables itself whenever the shape is locked. Say why
+        // when the cause is the component-wide mode, since that is the one
+        // cause the site builder can act on from here.
+        '#description' => match ($entity->getPropEditability()) {
+          ComponentInterface::PROP_EDITABILITY_LOCKED => $this->t('This component is set to <em>Locked</em>, so no property is editable. This setting is kept and takes effect again when the component leaves that mode.'),
+          ComponentInterface::PROP_EDITABILITY_GUARDED => $this->t('Allow the default value of this property to be changed per component instance. This component is <em>Guarded</em>, so properties added to its template later default to non-editable.'),
+          default => $this->t('Allow the default value of this property to be changed per component instance.'),
+        },
         '#default_value' => $this->shape->getEditable(),
         '#disabled' => $this->shape->isLocked(),
       ];

@@ -13,6 +13,7 @@ use Drupal\Core\Entity\EntityTypeBundleInfoInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Render\Element;
+use Drupal\neo_alchemist\ComponentInterface;
 use Drupal\neo_alchemist\ComponentShapeStylePluginInterface;
 use Drupal\neo_alchemist\ComponentSizePluginManager;
 use Drupal\neo_alchemist\ComponentValueGroupPluginManager;
@@ -114,6 +115,19 @@ final class ComponentManageForm extends EntityForm {
     $form += $this->buildSlotsForm($form, $form_state);
     $form += $this->buildFiltersForm($form, $form_state);
     $form += $this->buildAccessForm($form, $form_state);
+
+    $form['prop_editability'] = [
+      '#type' => 'select',
+      '#title' => $this->t('Prop editability'),
+      '#description' => $this->t("Controls what happens when a prop is added to this component's template. <em>Guarded</em> defaults new props to non-editable while leaving the per-prop settings below under your control. <em>Locked</em> overrides every per-prop setting; those settings are kept and take effect again if you leave that mode."),
+      '#options' => [
+        ComponentInterface::PROP_EDITABILITY_OPEN => $this->t('Open — new props are editable'),
+        ComponentInterface::PROP_EDITABILITY_GUARDED => $this->t('Guarded — new props are not editable'),
+        ComponentInterface::PROP_EDITABILITY_LOCKED => $this->t('Locked — no prop is editable'),
+      ],
+      '#default_value' => $entity->getPropEditability(),
+      '#neo_size' => 'sm',
+    ];
 
     $form['size'] = [
       '#type' => 'select',
@@ -217,7 +231,9 @@ final class ComponentManageForm extends EntityForm {
           '#tag' => 'div',
           '#attributes' => ['class' => ['flex', 'items-center']],
           'title' => [
-            '#markup' => $this->t('Value Props') . ($entity->isAggregate() ? ' (' . $this->t('aggregated') . ')' : ''),
+            '#markup' => $this->t('Value Props')
+            . ($entity->isAggregate() ? ' (' . $this->t('aggregated') . ')' : '')
+            . ($entity->arePropsLocked() ? ' (' . $this->t('locked') . ')' : ''),
           ],
           'add' => [
             '#type' => 'link',

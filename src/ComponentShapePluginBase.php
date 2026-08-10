@@ -404,7 +404,12 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
       // Initialize settings.
       $this->setActive($settings['active'] ?? TRUE);
       $this->setExpanded($settings['expanded'] ?? []);
-      $this->setEditable($settings['editable'] ?? TRUE);
+      // A prop with no stored setting is one the component's template has just
+      // grown, so which way it defaults is the component's policy rather than
+      // a hardcoded answer. The same applies above when the ref no longer
+      // matches: a prop whose shape changed re-derives from that policy
+      // instead of silently reopening.
+      $this->setEditable($settings['editable'] ?? $component->getPropEditableDefault());
       $this->setRequired($settings['required'] ?? FALSE);
       $this->setPlugins($settings['plugins'] ?? []);
     }
@@ -1473,6 +1478,15 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
   public function isLocked(): bool {
     if ($this->enforceLocked) {
       // If we are already locked, no reason to continue.
+      return TRUE;
+    }
+    // The component-level lock overrides every stored per-prop setting,
+    // including props the template grew after this component was last
+    // configured. Kept outside the $this->locked memo on purpose: the memo can
+    // outlive a mode change within a single request, and this is one property
+    // read. Kept above the memo block so it never enters the expensive and
+    // re-entrant value collection path below.
+    if ($this->getComponent()->arePropsLocked()) {
       return TRUE;
     }
     if (!isset($this->locked)) {

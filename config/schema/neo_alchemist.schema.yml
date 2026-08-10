@@ -35,6 +35,14 @@ neo_alchemist.neo_component.*:
     aggregate:
       type: boolean
       label: 'Aggregate'
+    prop_editability:
+      type: string
+      label: 'Prop editability'
+      constraints:
+        Choice:
+          - open
+          - guarded
+          - locked
     size:
       type: string
       label: 'Size'

@@ -11,6 +11,7 @@ use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\neo_alchemist\ComponentAccessFactory;
 use Drupal\neo_alchemist\ComponentGroupPluginManager;
+use Drupal\neo_alchemist\ComponentInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
@@ -204,15 +205,15 @@ class ComponentForm extends EntityForm {
     }
 
     // Components created in the "entity" (content-specific) group render fixed,
-    // content-driven layouts, so default every prop to non-editable. These are
-    // the same shape instances preSave() reads back when it stores the prop
-    // settings, so setting the flag here persists it; a site builder can still
-    // opt individual props back into being editable afterwards.
+    // content-driven layouts, so they start out locked. The mode alone is the
+    // whole rule — it covers props the template grows later, and it does not
+    // need the per-prop flags stamped to say so. Leaving those flags alone is
+    // the point: they stay a separate layer the site builder owns, so choosing
+    // a looser mode later reveals their configuration rather than a set of
+    // answers this form wrote on their behalf.
     if ($this->entity->isNew() && $this->entity->getGroup() === 'entity') {
-      foreach ($this->entity->getPropShapes() as $shape) {
-        $shape->setEditable(FALSE);
-      }
-      $this->messenger()->addStatus($this->t('This component has been defaulted to non-editable because it is in the "entity" group. If you plan to allow content editors to edit the layout of this component, you can change the editable setting for individual props.'));
+      $this->entity->setPropEditability(ComponentInterface::PROP_EDITABILITY_LOCKED);
+      $this->messenger()->addStatus($this->t('Every prop on this component is locked because it is in the "entity" group. To let content editors change props, choose a different "Prop editability" mode.'));
     }
 
     $result = parent::save($form, $form_state);
