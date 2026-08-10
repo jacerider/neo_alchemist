@@ -273,7 +273,14 @@ class ComponentTreeItem extends FieldItemBase implements RenderableInterface, Co
         $operation === 'create' => AccessResult::allowedIf($this->getSetting('allow_custom') || $this->getFieldDefinition()->isHybrid())->andIf($this->getEntity()->access('update', $account, TRUE)),
         $operation === 'revert' => AccessResult::allowedIf($this->hasDraft())->andIf($this->getEntity()->access('update', $account, TRUE)),
         $operation === 'reset' => AccessResult::allowedIf(!$this->belongsToFieldConfig() && !$this->getParent()->isDefault())->andIf($this->getEntity()->access('update', $account, TRUE)),
-        $operation === 'sort' => $this->getEntity()->access('update', $account, TRUE),
+        // Restructuring the tree — reordering, removing or duplicating an
+        // instance — is an edit of the host entity, never a delete of it and
+        // never an operation the host defines itself. Left to the default arm,
+        // 'delete' would demand node-delete permission just to drop one
+        // component, and 'clone' is not an entity operation at all, so the host
+        // returns neutral and only accounts that bypass access entirely ever
+        // see the button.
+        in_array($operation, ['sort', 'delete', 'clone'], TRUE) => $this->getEntity()->access('update', $account, TRUE),
         default => $this->getEntity()->access($operation, $account, TRUE),
       };
     }

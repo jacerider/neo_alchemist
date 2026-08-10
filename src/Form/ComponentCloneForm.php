@@ -70,8 +70,9 @@ final class ComponentCloneForm extends ComponentForm {
   public function save(array $form, FormStateInterface $form_state): int {
     // ComponentForm::save() applies the "special" and "entity" group defaults
     // to every new component. Those would overwrite configuration the source
-    // deliberately carries (protected access, per-prop editability), so a
-    // clone saves the copied configuration as-is.
+    // deliberately carries (protected access, per-prop editability, the
+    // component-level prop editability mode), so a clone saves the copied
+    // configuration as-is.
     $result = $this->entity->save();
     $this->messenger()->addStatus($this->t('Cloned %source into new component %label.', [
       '%source' => $this->getSourceComponent()->label(),
