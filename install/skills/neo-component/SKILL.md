@@ -1,593 +1,320 @@
 ---
 name: neo-component
-description: Create and modify Drupal Single Directory Components (SDC) for the neo_alchemist module. Use when the user asks to build, add, edit, or scaffold a page-building component in web/themes/front/components — or when referencing terms like "Neo component", "Alchemist component", "SDC", or file patterns like *.component.yml and *.twig under the theme's components directory.
-allowed-tools: Read, Write, Edit, Glob, Grep, Bash
+description: Create and modify Drupal Single Directory Components (SDC) for the neo_alchemist page builder. Use when the user asks to build, add, edit, scaffold, review or fix a page-building component in web/themes/front/components — or when referencing "Neo component", "Alchemist component", "SDC", or *.component.yml / *.twig under the theme's components directory.
 ---
 
-# Creating Neo Alchemist Components
-
-The site uses the `neo_alchemist` module (Drupal contrib) to provide page-building via Drupal Single Directory Components (SDC). Components live in [web/themes/front/components/](web/themes/front/components/) and can be composed into pages by editors.
-
-> **Modifying the neo_alchemist module itself** (its PHP — shapes, plugins, services, the render pipeline)? That's a different job — use the `neo-alchemist-dev` skill and [web/modules/contrib/neo_alchemist/ARCHITECTURE.md](web/modules/contrib/neo_alchemist/ARCHITECTURE.md). This skill is for authoring components in a theme.
-
-## Directory layout
-
-Every component is a folder. Required files:
-
-```
-web/themes/front/components/<machine_name>/
-├── <machine_name>.component.yml   # Schema/prop definitions (REQUIRED)
-├── <machine_name>.twig            # Render template (REQUIRED)
-├── README.md                      # Editor/developer notes (optional)
-├── <machine_name>.js              # Component-local JS (optional, auto-loaded)
-├── <machine_name>.css             # Component-local CSS (optional, auto-loaded)
-└── thumbnail.png                  # Preview image (optional)
-```
-
-The `machine_name` MUST match the folder and file names. Use snake_case (e.g. `cards_s1`, `media_text_s1`). The `_s1`/`_s2` suffix is the site convention for "style 1/2" variants.
-
-> **Favor Tailwind utilities in the `.twig`; treat `<machine_name>.css` as a last resort.**
-> Layout, spacing, sizing, color (scheme utilities like `text-accent-500`, `bg-primary`,
-> `border-primary-600`), typography — including arbitrary values like `text-[0.62rem]`,
-> `tracking-[0.34em]`, `aspect-[5/4]`, `basis-[calc((100%_-_5rem)/5)]` (use `_` for the
-> spaces a value needs) — and **interaction states** (`hover:`, `group` + `group-hover:`,
-> `focus-visible:`, `disabled:`, `motion-reduce:`) all have utilities. Write them as
-> classes; drive per-element hover choreography with `group`/`group-hover:` on the card,
-> not a `.css` `:hover` rule. Reach for a component `.css` file **only** for what
-> genuinely has no utility: `@keyframes`, gradient overlays, exact-value `box-shadow`s,
-> scrollbar hiding, `::before`/`::after` decorative content, and styling nested
-> elements inside markup you don't hand-write. (The `<img>` from `neo_image_style()` is
-> **not** such a case — you can't `.addClass()` its render array, but you *can* pass it a
-> `class` via the function's 5th `attributes` argument:
-> `neo_image_style(src, {…}, alt, '', {class: ['h-7', 'w-auto']})`.) If
-> you catch yourself writing `display: flex`, `padding`, `color`, or `:hover` in a
-> component `.css`, convert it to utilities. See [hero_video](web/themes/front/components/hero_video/hero_video.css) —
-> its `.css` is just keyframes/gradients/exact shadows; all layout is utilities in the twig.
-
-> **Tailwind version: v4** (the neo build runs Tailwind CSS 4). This matters for
-> sizing: v4's spacing scale is **dynamic** — `--spacing` is `0.25rem` and any
-> integer generates a utility on demand, `w-<n>` → `calc(var(--spacing) * n)`.
-> So a size that lands on the 4px grid should **always** use the numeric class and
-> **never** an arbitrary value — small sizes too: `w-6` (24px) not `w-[24px]`,
-> `size-8` (32px) not `size-[32px]`, `h-135` (540px) not `h-[540px]`, `w-130`
-> (520px) not `w-[520px]`, `w-105` (420px), `w-65` (260px). To convert, divide the
-> px by 4 (`24 / 4 = 6`, `540 / 4 = 135`). Numeric classes are rem-based (scale with
-> root font-size) and stay on the design grid; prefer them for
-> widths/heights/padding/margins/gaps. An arbitrary `w-[…]` / `h-[…]` / `p-[…]` /
-> `gap-[…]` is a **last resort** — treat one as a smell that a scale step was
-> missed, and convert it (`w-[16px]`→`w-4`, `mt-[12px]`→`mt-3`) unless the value is
-> genuinely off-grid.
-> **Reserve arbitrary `[...]` values for genuinely off-grid values** that have no
-> scale step: sub-step font sizes (`text-[0.62rem]`), em letter-spacing
-> (`tracking-[0.34em]`), unitless line-heights (`leading-[1.15]`), custom
-> transition timings (`duration-[1.2s]`), aspect ratios (`aspect-[4/3]`), and
-> `calc()` (`basis-[calc((100%_-_5rem)/5)]`). (This is Tailwind v4, so the color
-> theme is JS-registered, not `@theme` — see the neo-build skill.)
-
-## The `.component.yml` file
-
-Every component yml starts with this boilerplate:
-
-```yaml
-$schema: 'https://git.drupalcode.org/project/drupal/-/raw/10.1.x/core/modules/sdc/src/metadata.schema.json'
-name: 'Human Readable Name'
-status: stable
-description: 'One sentence for editors.'
-neo: true   # REQUIRED — tells Alchemist this is a managed component
-props:
-  type: object
-  properties:
-    # props defined here
-  required:
-    # optional list of required prop keys
-slots:
-  # optional named slots
-```
-
-Key fields:
-- **`neo: true`** — required flag. Without it the component is not picked up by Alchemist.
-- **`status`** — `stable`, `beta`, `experimental`, or `deprecated`.
-- **`libraryOverrides.dependencies`** — attach Drupal libraries (e.g. `neo/library.alpine` for Alpine.js).
-
-## Prop types (Alchemist shapes)
-
-Alchemist extends SDC with custom "shapes" — reusable prop definitions from [neo_alchemist.neo_component_prop_defs.yml](web/modules/contrib/neo_alchemist/neo_alchemist.neo_component_prop_defs.yml). Use these by name rather than raw JSON Schema.
-
-> **Get shapes from the CLI (authoritative):** `drush neo:alchemist:shapes` lists every available shape; `drush neo:alchemist:shapes <name>` (e.g. `heading`) dumps that shape's resolved schema, a paste-ready `.component.yml` prop snippet, and its Twig render pattern. Prefer this over guessing from the summary below.
-
-### Content shapes
-- `heading` — object with `supertitle`, `title`, `subtitle`, `size`, `anchor`. Provide `examples` with the text fields you use. When the heading is the component's **main title**, render `size` (see the `heading_size` style shape below and the render table) so editors control the title grade. `title` is **optional** — a heading may be `supertitle`/`subtitle`-only (handy when reusing this shape for a two-tone item caption/label whose emphasized word is the only text, e.g. a single accent word). When you hand-render the heading, guard each part with `{% if %}` so a missing `title` doesn't emit an empty `<h2>`.
-- `markup` — rich text / array. Use for prose descriptions.
-- `string` — plain text.
-- `image` — object `{src, alt, width, height}`. Render with `neo_image_style()` or `neo_image()`. The `src` accepts a URL/path **or** one of two local-asset schemes, resolved to a real URL by the image shape: **`component://<path>`** points at a file bundled *inside the component folder* (e.g. store `web/themes/front/components/callout_s1/images/monogram.png` and set `src: 'component://images/monogram.png'`), and **`theme://<path>`** points at the default theme's directory. Prefer `component://` for a component's own default/decorative art (a monogram, emblem, texture) — it ships and versions with the component and needs no editor upload or external `placehold.co` URL. Real content images still come from the editor (a `media`/uploaded image).
-- `image-uri` — just an image URL.
-- `file` — object `{src, title, name}` for downloadable files.
-- `remote_video` — YouTube/Vimeo embed `{src, thumbnail, title}`.
-- `icon` — icon machine name (rendered via `icon(name)` Twig function). Find valid names with `drush neo:icon:list <search>` (e.g. `drush neo:icon:list arrow`) — don't guess, invalid names render nothing. **Strip the library prefix that `neo:icon:list` prints.** The command lists names like `regular-chevron-left`, but `icon()` wants the bare name: `icon('chevron-left')` renders — `icon('regular-chevron-left')` renders **nothing** (silently, no error). So from a listed name drop the leading `regular-`/`solid-`/`light-`/etc. segment. To force a specific library, use the `|icon_library('name')` filter, not a name prefix.
-- `link` — button-style link `{uri, title, options, icon, target, access}`. Usually paired with a `button_style`.
-- `url` — similar to link but for anchor-style links.
-- `email`, `telephone`, `uri` — single-value types.
-- `address` — postal address object.
-- `menu` — editable list of nav items `{title, description, icon, url}` (each item's `url` is a full `url` shape, so it keeps `target`/`access`; use `item.title` for the label). Prefer this for navigation over a hand-rolled `array` of links. When fed by the `menu` value provider, items also carry runtime keys the schema doesn't list: `in_active_trail`/`is_expanded`/`is_collapsed`, nested `below` children, and — with `neo_alchemist_menu` enabled — `region: true` + `content` (a render array) on **component region** items: render with `{% if item.region %}{{ item.content }}{% endif %}` instead of a link. Mega menu reference: [web/themes/front/components/header_s1/header_s1.twig](web/themes/front/components/header_s1/header_s1.twig) and the **neo-alchemist-menu** skill.
-- `breadcrumb` — array of `{title, url}`.
-- `slug` — anchor/slug string.
-- `media` — Drupal media entity reference.
-
-### Style shapes (applied as CSS classes via attributes)
-
-> **Authoritative styling guide:** [web/modules/contrib/neo_alchemist/STYLING.md](web/modules/contrib/neo_alchemist/STYLING.md) covers schemes, colors, spacing, and containers in full. The essentials are summarized here and in the Twig patterns below.
-
-- `scheme` — color-scheme selector. With `apply: true` it adds a `scheme-*` class to the root, which **re-scopes every color utility** (`bg-default`, `bg-primary`, …) to the chosen scheme — and a scheme region adapts its default **text color, border color, link colors, and `.btn*` button colors automatically** (see "What the scheme system handles for you"). Let the scheme recolor the component; don't hardcode one scheme's colors.
-- `spacing` — vertical component spacing **size** (`xs|sm|md|lg|xl|2xl|3xl`). Has `apply: true` built in: it adds a `component-spacing-*` class to the root, which sets the `--spacing-component` CSS variable that every `*-component` utility reads.
-- `gap` — vertical spacing **application** (`auto|keep|flush_top|flush_bottom|flush_both`). Has `apply: true` built in: it adds `neo-section neo-section-y` to the root — the component's actual top/bottom padding — plus the editor's merge behavior (`component-bg-flush-none` for `keep`, `component-flush-t/b` for the flush options). Declare it in every stacking component alongside `spacing`; **never hand-write a section carrier in twig** (see Twig patterns for the `apply: false` deep-carrier escape).
-- `containment` — horizontal width (`xs|sm|md|lg|full`). `apply: true` to auto-add. (Or use the `container-content` / `container-center` utilities directly — see Twig patterns.)
-- `text_align` — `left|center|right` → `text-left|center|right`.
-- `heading_size` — `xs|sm|md|lg|xl|2xl|3xl` → `title-*` classes (xl and up also add the
-  `title-page` marker). Built into every `heading` prop as its `size` sub-prop —
-  **use it whenever the heading prop is the component's main title**, so editors
-  control the title grade. Two-part mechanism (neo_base utilities): the `title-*`
-  class only sets CSS **variables** (`--title-size`, `--supertitle-size`,
-  `--subtitle-size`); the consumer classes `component-title` /
-  `component-supertitle` / `component-subtitle` read them and add the heading
-  font, weight, and the responsive `title-scale` factor (×0.75 mobile, ×0.875 md,
-  ×1 lg). A size class with no consumer class changes nothing. Per-size values are
-  site-tunable in [web/themes/front/src/css/_utilities.css](web/themes/front/src/css/_utilities.css)
-  (`@theme` → `--title-size-{size}`; this site runs md=4xl, lg=5xl, xl=6xl at
-  desktop). The editor default is `md` ("recommended for component title") and the
-  editor **stores it explicitly on save** — when a component is designed around a
-  different grade (a hero's page title → `xl`), set `size:` in the heading's
-  `examples` so previews and new placements start right.
-- `button_style` — solid/outline/text variants in base/primary/secondary/accent (`btn`, `btn-outline-primary`, `btn-text-accent`, …).
-- `button_size` — `xs|sm|md|lg|xl|2xl|3xl` → `btn-*`.
-
-> `component-bg` is **not** a prop — it's a marker class you add (with `bg-default`) to a background-section root so adjacent sections rendering the **same color** collapse their doubled spacing. See the "Root element & structure" Twig patterns below.
-
-### Structural shapes
-- `region` — a nested drop zone where editors can place more components (used for tabs, accordions, containers with children). On the saved component's prop config (not in the yml), site builders can enable two value plugins per region: **Region Size** (restrict which component sizes may be dropped in — e.g. only narrow components in a non-full-width column) and **Entity Customizable** (`region_custom`) — the latter turns a locked tree field (`allow_custom` off) into **hybrid mode**: content creators manage just this region's components per entity while the field default layout keeps control of everything around it (the header/body/footer pattern). Hybrid internals → the **neo-alchemist-dev** skill.
-- `array` — a repeater. Pair with `items:` to define the per-row schema, and provide `examples:` with sample rows (use `TRUE` as a placeholder entry if the items have no required text fields).
-
-> **Reach for a semantic composite shape before hand-rolling an `array` of objects.** Several shapes already model common repeating structures — `menu` (nav links), `breadcrumb`, `address`, `file`, `remote_video`, `media` — and single composites like `link`/`url` and `heading`. They're one line instead of a nested `array → object → …`, get a purpose-built editor UI, and carry the right sub-fields (e.g. a `menu` item's `url` is the full `url` shape). Only hand-roll an `array` when no existing shape fits. Run `drush neo:alchemist:shapes` to scan them first.
-
-### `views_filter` — a designed exposed filter
-
-When a component's `items` are bound to a view, a `views_filter` prop hands you **one exposed
-filter as pure data** — so you design the filter UI (Alpine dropdown, checkbox panel, pills)
-instead of styling Drupal's form markup. The enabling fact: an exposed filter is just a GET
-parameter, so a link with the right URL — or a hand-written `<form method="get">` of native
-checkboxes — is a fully valid submission surface. Site builders bind it with the
-**Views | Exposed Filter** value plugin (context + filter identifier).
-
-```yaml
-type_filter:            # declare AFTER the views-bound prop — props resolve in yml order,
-  type: views_filter    # and this provider reads the context the items binding registers
-  title: 'Type filter'
-  examples: { label: 'Type', param: 'type', options: [ { label: 'News', value: '1', url: '#', active: false, below: [] } ], … }
-```
-
-The value is a **`ViewsFilterTwig` helper object** — plain data access plus wiring methods, the
-`SwiperTwig` pattern. Data (via dot access, unchanged): `label`, `param`, `multiple`,
-`active`/`active_count`/`active_labels`, `value` (always an array), `placeholder`, `reset_url`,
-`action`, `carry[]`, and `options[]` — a `{label, value, url, active, below[]}` **tree**
-(`below` nests like the `menu` shape; taxonomy filters get real hierarchy). Every option `url`
-applies/toggles that value and resets paging. Text filters (fulltext search) resolve too, with
-empty `options` and a `placeholder`.
-
-The methods hand over the wiring a hand-written GET form can silently get wrong — all return
-chainable `Attribute`s (sandbox rule: object methods callable from twig must start with
-get/has/is, same as `SwiperTwig`):
-
-| Method | Emits |
-|---|---|
-| `getForm()` | `method="get" action` for the `<form>` tag |
-| `getHidden()` | every `carry` pair as hidden inputs — **forgetting these is the silent killer**: submitting one filter clears the others |
-| `getCheckbox(option)` / `getRadio(option)` | `type`/`name`(`[]`)/`value`/`checked`, agreeing by construction |
-| `getTextfield('search')` | `type`/`name`/`value`/`placeholder` for a text filter's input |
-| `getLink(option)` | `href` + `aria-current` when active |
-
-**Interaction style is the template's design decision — pick ONE markup per filter.** Links for
-single-select, a GET form of checkboxes for multi-select, a mini-form input for search. Want
-submit-on-change instead of an Apply button? Add `x-data @change="$el.requestSubmit()"` to the
-form — your call, hardcoded:
-
-```twig
-{# Single-select: instant links. #}
-<a href="{{ filter.reset_url }}">{{ 'All'|t }}</a>
-{% for option in filter.options %}
-  <a{{ filter.getLink(option).addClass(option.active ? 'font-bold text-primary') }}>{{ option.label }}</a>
-{% endfor %}
-
-{# Multi-select: plain GET form, batch-then-Apply. #}
-<form{{ filter.getForm() }}>
-  {{ filter.getHidden() }}
-  {% for option in filter.options %}
-    <label><input{{ filter.getCheckbox(option) }}> {{ option.label }}</label>
-    {# nest option.below for hierarchy #}
-  {% endfor %}
-  <button type="submit">{{ 'Apply'|t }}</button>
-</form>
-
-{# Text filter (search): its own mini-form. #}
-<form{{ filter.getForm() }}>
-  {{ filter.getHidden() }}
-  <input{{ filter.getTextfield('search') }}>
-  <button type="submit">{{ icon('search') }}</button>
-</form>
-```
-
-Composability rules:
-
-1. **The filter must stay exposed on the view** — `?param=` only applies to exposed filters.
-2. When **every** filter on the page is designed (each mini-form printing `getHidden()`), no
-   native exposed form is needed at all — remove the `views_exposed_filters` slot item. Only
-   in **mixed mode** (a native exposed form remains, e.g. for a filter you haven't designed)
-   must that form's override template *hide* the designed filters' native widgets instead of
-   omitting them: `<div class="hidden">{{ form.type }}</div>`, so its submits preserve them.
-
-### `views_active_filters` — applied filters as removable chips
-
-The designed replacement for the active_filters module's views area. Bind with the
-**Views | Active Filters** value plugin (context only; covers every exposed filter with
-input). Same declare-after-the-views-prop rule. The value (a `ViewsActiveFiltersTwig`):
-`active`, `count`, `clear_url`, and `items[]` of `{param, filter_label, value, label,
-remove_url}` — labels are resolved option labels (clean term names on hierarchical filters;
-the entered text on search). `getLink(item)` / `getClearLink()` add `href` + descriptive
-`aria-label` + `rel="nofollow"`:
-
-```twig
-{% if active_filters.count %}
-  <div class="flex flex-wrap gap-2">
-    {% for item in active_filters.items %}
-      <a{{ active_filters.getLink(item).addClass('bg-base-200 px-3 py-1 text-sm') }}>
-        {{ item.filter_label }}: {{ item.label }} ✕</a>
-    {% endfor %}
-    <a{{ active_filters.getClearLink() }}>{{ 'Clear all'|t }}</a>
-  </div>
-{% endif %}
-```
-
-Working example for all of it: `front:list_insight` — `type_filter` links dropdown,
-`markets_filter` 3-level checkbox panel, `search_filter` mini-form, `active_filters` chips,
-no native exposed form on the page.
-
-**AJAX result swapping (opt-in).** Two attributes and a library line upgrade every filter
-interaction to an in-place update with history support — no PHP, no contract change, and
-JS-off (or any fetch failure) falls back to the normal navigation:
-
-```yaml
-libraryOverrides:
-  dependencies:
-    - neo_alchemist/swap
-```
-
-```twig
-<section {{ attributes }} data-neo-uuid="{{ neoUuid }}" data-neo-swap>
-  …
-  <span data-neo-swap-announce>{{ items|length }} {{ 'results'|t }}</span>
-```
-
-The behavior intercepts same-path links (filter options, chips, reset — and the footer
-`views_pager`'s links, so paging is AJAX for free) and same-path GET mini-forms inside the
-boundary, fetches the destination page, and swaps the component's subtree by its `neoUuid`.
-Drupal behaviors re-attach (component JS re-inits) and Alpine picks the new tree up itself;
-focus returns to the same-named control (a visitor typing in search keeps their caret);
-Back/Forward walk the filter states. `data-neo-swap-announce` marks the element whose text is
-announced to screen readers after each swap. Opt any single control out with `data-no-swap`.
-Card links point at other paths and are never intercepted.
-
-### Inline custom `style` shapes
-Define a per-component style selector inline:
-
-```yaml
-border_top:
-  type: style
-  title: 'Border Top'
-  apply: false        # don't auto-inject onto the root; place it yourself in twig
-  examples: none
-  styles:
-    none:
-      label: None
-      value: border-t-0
-    top:
-      label: Top
-      value: border-t
-```
-
-The prop passed to Twig is an **`Attribute` that already carries the selected option's `value` classes** — so you emit those classes by **rendering the prop as an attribute**, never by re-typing them. `apply: true` auto-merges it onto the **root** `attributes`. `apply: false` skips that auto-merge; you render/merge it onto whatever element you choose — e.g. `<div{{ border_top.addClass(['relative']) }}>` outputs the selected `border-t*` class *plus* `relative` on that div.
-
-**`name.getValue()` returns the selected _key_ (`'top'`/`'none'`), NOT the classes** — use it **only** to branch logic (`{% if border_top.getValue() == 'top' %}…{% endif %}`), never to map the key back to hand-written classes. Re-typing the `value:` strings in the Twig (e.g. `{% set c = x.getValue() == 'short' ? 'h-72' : 'h-96' %}`) duplicates the yml, silently drifts out of sync (the yml `value:` becomes dead metadata that never renders), and is the wrong pattern. Let `styles.*.value` be the single source of truth and let the attribute carry it.
-
-### `maxItems`
-Set on an `array` prop to cap editor input (e.g. `maxItems: 1` for a single optional CTA).
-
-## Slots
-
-Slots are named regions in the Twig template that editors fill with other components (block-level composition, not prop data). Declare in yml:
-
-```yaml
-slots:
-  content:
-    title: Content
-```
-
-And render in Twig with `{% block content %}{% endblock %}`. See [web/modules/contrib/neo_alchemist/modules/neo_alchemist_examples/components/example_container/](web/modules/contrib/neo_alchemist/modules/neo_alchemist_examples/components/example_container/) for a working example.
-
-> **Slot vs region prop:** Use `slots` for top-level composable content areas. Use a `region` prop inside an `array` when you have multiple repeating drop zones (e.g. each tab or accordion panel gets its own region).
-
-### Taking control of what a site builder puts in a slot
-
-Keep the component's own `.twig` generic — `{% block content %}{% endblock %}` and nothing more. Two optional files inside the component directory let you shape the contents without a preprocess function or a theme override:
-
-```
-components/my_list/
-├── my_list.component.yml
-├── my_list.twig                       ← stays generic
-└── slots/
-    ├── header.twig                                        ← layout of the slot
-    └── views-exposed-form--my-list--header--filters.html.twig  ← one item's internals
-```
-
-**Start here** — either works, and both name the same files:
-
-- **In the UI:** the slot's **Customize** form has a *Theming this slot* panel — the layout template and every variable in it, then per item its override filename and the variables that file receives. The component's slot table also shows each layout template and whether it exists.
-- **On the CLI:** `drush neo:alchemist:slot <component> [<slot>]` prints the same thing.
-
-Neither template announces itself in the markup — a layout template is `{% include %}`d rather than themed, so it never appears in Twig's `FILE NAME SUGGESTIONS`, and an item override only shows up there once it exists. In a development environment each slot and item is wrapped in an HTML comment naming its file, so view-source works too.
-
-**`slots/<slot>.twig` — arrange the items.** Each item is a variable named by its Twig key (the slot plugin id, unless a key is set in the **Twig key** column of the slot's Customize form). Also available: `items` (all of them), `slot` (`name`/`title`), `neoIsPreview`.
-
-```twig
-<div class="flex items-end justify-between gap-8">
-  {% if filters %}<div>{{ filters }}</div>{% endif %}
-  {{ items|without('filters') }}   {# anything this template doesn't know about #}
-</div>
-```
-
-Print each item **exactly once** — printing twice renders it twice. Keep the `|without` remainder: an item you never print is silently dropped, and its cache metadata with it.
-
-**`slots/<hook>--<component>--<slot>--<key>.html.twig` — control one item's internals.** An ordinary theme suggestion; Alchemist adds the suggestion automatically, so the filename is the whole wiring (note `.html.twig`, and `-` where the hook has `_`). It inherits the base hook's variables and preprocessing, and — crucially — `#theme_wrappers` is still applied *around* your output, so a form keeps its `<form>` tag and `#action`:
-
-```twig
-{# views-exposed-form--my-list--header--filters.html.twig — gets {{ form }} #}
-<div class="flex items-end gap-3">
-  <div class="grow">{{ form.iq }}</div>
-  <div>{{ form.actions }}</div>
-  {{ form|without('iq', 'actions') }}
-</div>
-```
-
-> **Only drill into a form from an item template, never from the slot template.** `{{ filters.iq }}` in `slots/header.twig` renders that widget *outside* any `<form>`, because the `<form>` comes from the wrapper around the whole item. In the item template you are the `#theme` implementation, so `|without` is correct there.
-
-Both files need `drush cr` to be picked up (unless `npm start` is running). `drush neo:alchemist:validate` warns about a `slots/*.twig` matching no declared slot — otherwise it would fail silently.
-
-**Debugging:** `{{ neo_inspect() }}` lists every variable in scope in the current template; `{{ neo_inspect(form) }}` walks one value's addressable children instead. Works in any Twig file, needs `twig.config.debug` on, and outputs nothing otherwise.
-
-## The `.twig` file
-
-### Root element & structure
-
-Always put `{{ attributes.addClass(classes) }}` on a **single root element** — Alchemist injects the classes from `apply: true` style props (scheme, spacing, gap, …) there, **including the component's vertical padding** (`neo-section-y` from the `gap` prop). Pick one of two layout patterns depending on whether the component paints a background.
-
-**Plain component (no background)** — the root paints nothing; the `gap` prop still pads it and collapses it against same-color neighbors:
-
-```twig
-<div {{ attributes.addClass(['container-content']) }}>
-  ...
-</div>
-```
-
-**Background / full-bleed section** — background spans the viewport, content is constrained; the `gap` prop's padding sits on the root so the background fills it:
-
-```twig
-{% set classes = ['bg-default', 'component-bg'] %}   {# scheme-aware bg + collapse marker #}
-<div {{ attributes.addClass(classes) }}>              {# full-width background + neo-section-y via gap #}
-  <div class="container-content">                      {# centered content #}
-    ...
-  </div>
-</div>
-```
-
-**Deep-carrier layout** (a full-bleed band above the padded area, so root padding would break it): declare `gap: { type: gap, apply: false }` and merge the prop onto the inner wrapper yourself — the editor's merge picker keeps working, and seam collapsing still reaches it (the zeroing variable is set on the root and inherits):
-
-```twig
-<div{{ gap.removeClass('neo-section').addClass('container-content') }}>
-  ...
-</div>
-```
-
-Rules of thumb:
-- **`container-content`** = centered, responsive max-width, **with** side gutters (the standard content wrapper). **`container-center`** = same but **no** gutters. Both are provided globally by the neo base theme.
-- **Never hand-write a section carrier** — the `gap` prop applies `neo-section-y`. The `*-component` utilities stay available for spacing **inside** the component (`p-component-sm`, `mt-component-lg`, `gap-component`, …); they all read `--spacing-component` set by the `spacing` prop. Prefer the relative size variants (`-xs`, `-sm`, `-lg`, `-xl`) for internal spacing: the base-size vertical ones (`py/pt/pb/my/mt/mb-component`) are still channel-aware for backward compatibility with pre-`gap` components, so a collapsed section zeroes them — use a variant, a numeric utility, or wrap in `component-spacing-reset`.
-- **`component-bg`** marker: add it (alongside `bg-default`) to a background-section root so two adjacent sections rendering the **same color** collapse their doubled spacing into a single, continuous-background gap. "Same color" is **computed at build time** from the actual neo_color token values — `scheme-default` next to a no-scheme section collapses (identical pixels), and transparent components (no `component-bg`) collapse against neighbors matching the **page background**. `bg-default` next to `bg-base-100` under one scheme stays two colors and keeps its full separation. Recognized surfaces: `bg-default`, `bg-base-50/100/200/300`; anything else never collapses (fails safe; extend via `hook_neo_alchemist_component_bg_surfaces_alter()`). The editor opts a section out with the `gap` prop's `keep` option (or hand-add `component-bg-flush-none`).
-- **Colors:** apply `bg-default` (scheme-reactive) where you want a surface fill — text and borders inside a scheme then adapt **automatically with no class** (see next section). Use the `base|primary|secondary|accent` palettes (shades `-0…-950`, with `-content` foreground pairings, e.g. `bg-primary text-primary-content`) for emphasis. Full details in [web/modules/contrib/neo_alchemist/STYLING.md](web/modules/contrib/neo_alchemist/STYLING.md).
-- **Prefer `base`; gray is a fallback.** Use `base` / `bg-default` for neutrals in components you author — that's the house style — and convert `gray-*` to `base-*` when adapting pasted markup. As a safety net, Tailwind's neutral scales (`gray`, `slate`, `zinc`, `neutral`, `stone`) auto-fall back to `base` when those pallets aren't enabled, so copied markup using `bg-gray-100`, `text-slate-700`, etc. still renders correctly and stays scheme-reactive. (Non-neutral colors like `blue`/`red` are **not** aliased.)
-
-### What the scheme system handles for you
-
-Inside any `scheme-*` region (including the un-schemed page root), these adapt with **no classes at all** — every scheme picks contrast-checked values, including dark and colorized schemes. Writing extra color classes for these is at best redundant and at worst fights the scheme:
-
-| Concern | What to write | What NOT to write |
-|---|---|---|
-| Body text | nothing — inherits the scheme's readable foreground | `text-default` (only needed to *re-assert* after an override), `text-base-900` |
-| Borders | just a border width (`border`, `border-t-4`) | `border-default`, per-scheme border colors |
-| Text links | a bare `<a>` — gets scheme-aware link + hover colors | `text-primary-600 hover:text-primary-800` |
-| Buttons | the `.btn*` classes (`btn`, `btn-primary`, `btn-outline-accent`, `btn-text-secondary`, …) | hand-built buttons from `bg-*`/`text-*` utilities — they won't retune per scheme and lose the managed hover states |
-| Prose links | `prose` — links inside it follow the scheme link color | per-link color classes |
-
-**Button classes (compose directly in Twig).** A `.btn*` is built from two independent axes: a **style/color** class — `btn` (solid), `btn-outline-{primary|secondary|accent|base}`, `btn-text-{…}` — plus an optional **size** class: `btn-xs`, `btn-sm`, `btn` (default, `md`), `btn-lg`, `btn-xl`, `btn-2xl`, `btn-3xl`. E.g. `class="btn btn-outline-primary btn-lg"`. Prefer a size class over hand-tuning `px-*`/`py-*`/`text-[…]` on a button — it keeps it on the managed, scheme-aware scale (contrast-checked colors + hover states per scheme). The `button_style` / `button_size` style props emit these for `link` props; use the raw classes when you hand-write the `<a>`/`<button>`.
-
-Semantic CSS variables, for component-local CSS or inline styles (all scheme-scoped):
-`--text-color-default`, `--background-color-default`, `--color-border-default`, `--link-color` / `--link-color-hover`, `--color-{base|primary|secondary|accent}-{0…950}` (+ `-content`), and `--color-shadow-{0…950}` — a brand-tinted shadow ramp **guaranteed darker than the surface** in every scheme (use it for `box-shadow` colors that won't glow on dark/colorized schemes, e.g. `box-shadow: 0 8px 20px -6px rgb(var(--color-shadow-500) / 0.45)`).
-
-### Finding this site's real colors
-
-Default to the tokens above — they recolor per scheme, so you rarely need a literal hex. But when a decision genuinely needs the resolved value (a gradient stop, an overlay/tint opacity, matching bundled artwork, an SVG fill), don't dig through config or compiled CSS. Three Neo Color commands report it, all `--format=json`-friendly:
-
-- **`drush neo:color:pallets`** — the enabled pallets with their brand anchor hex (the raw 500), content pairing, and which scheme role slots use each. Answers "what color *is* `primary` on this site" in one line.
-- **`drush neo:color:schemes`** — every enabled scheme with its role→pallet mapping (base/primary/secondary/accent) plus resolved surface + text hex. Schemes remap the role slots (e.g. the `accent` scheme swaps primary↔accent), so this table is how you pick the scheme that actually gives the look you want rather than one that merely exists.
-- **`drush neo:color:scheme <id>`** — one scheme resolved in full: surface/text/border, link + hover, the contrast-picked button fill/content per role, the bare role tokens, and each role's auto-contrast flag — all normalized to hex. Add `--vars` for the complete raw CSS-variable set (every ramp step, under a `vars` object) when you need a specific shade like `--color-primary-300`.
-
-Remember the resolved value is scheme-specific: if you hardcode a hex from one scheme into a component meant to be recolored, it breaks under the others. Read a value to *inform* a token-based or `--vars`-driven choice, not to replace the token.
-
-### Rendering props
-
-| Shape | Twig pattern |
-|---|---|
-| `heading` | Canonical: `<div{{ heading.size }}>` wrapper with `component-title`/`component-supertitle`/`component-subtitle` children, then access `.supertitle`, `.title`, `.subtitle`, `.anchor`. Hand-rolled main title: put size + consumer on the h-tag itself — `<h2{{ heading.size.addClass(['component-title', 'text-balance']) }}>{{ heading.title }}</h2>` (see [list_s2](web/themes/front/components/list_s2/list_s2.twig)) |
-| `markup` | `{{ description }}` wrapped in `<div class="prose max-w-none">` |
-| `image` | `{{ neo_image_style(img.src, {focal: {width: 1200, height: 575}}, img.alt) }}` or `neo_image()` for responsive |
-| `image` (**SVG**, e.g. a logo) | Image styles can't rasterize an SVG, so the original file is emitted and the size op only sets HTML `width`/`height` attributes — which the theme's base reset (`img{height:auto}` in `@layer base`) then overrides. A viewBox-only SVG has no intrinsic size, so it collapses to 0×0. **Size it with a CSS class** (utilities win over the base layer): `{{ neo_image_style(logo.src, {scale: {height: 30}}, logo.alt, '', {class: ['h-7', 'w-auto']}) }}` |
-| `icon` | `{{ icon(name) }}` — add modifiers: `|icon_class('text-3xl')`, `|icon_only`, `|icon_library('regular')` |
-| `link` | `<a{{ item.button_style }} href="{{ neo_uri(item.link.uri, item.link.options) }}">{{ item.link.title }}</a>` |
-| `url` | Same as link — check `item.link.access` for permission-gated links |
-| `remote_video` | `{{ neo_oembed(video.src) }}` inline, or `{{ neo_modal(thumb, {video: src}, 'media') }}` |
-| `region` | `{{ accordion.region }}` — auto-renders nested components |
-| `style` (apply:false) | Render as an attribute — `<div{{ border_top.addClass(['…']) }}>` emits the selected option's `value` classes. `.getValue()` returns the **key** — for `{% if %}` branching only, never to re-type the classes |
-| `array` | `{% for item in items %} ... {% endfor %}` |
-
-### Preview-mode hooks
-
-When the component has interactive state (tabs, accordions), expose event hooks to the Alchemist editor preview. These are no-ops at runtime:
-
-```twig
-<button
-  {% if neoIsPreview %}
-    data-event='{"group": "tabs"}'   {# grouped: only one visible at a time #}
-    data-event='{"action": "toggle"}' {# toggle: independent show/hide #}
-    data-event                        {# basic: just allow clicks in preview #}
-  {% endif %}
->
-```
-
-### Fixed / floating roots and the preview iframe
-
-A component whose root is `position: fixed` (or `absolute`) has **no flow height**, so the Alchemist preview iframe — which sizes to document height — collapses and the component looks blank even though it renders. Render it **in-flow for preview**: switch the positioning behind `{% if neoIsPreview %}`, and give it a solid background if it's normally transparent (e.g. a header that overlays a hero). `drush neo:alchemist:render` renders the preview branch by default; add `--live` to render the runtime (`neoIsPreview` false) path.
-
-```twig
-{% set classes = ['transition-all'] %}
-{% if neoIsPreview %}
-  {% set classes = classes|merge(['relative', 'bg-default']) %}   {# in-flow + visible in the iframe #}
-{% else %}
-  {% set classes = classes|merge(['fixed', 'top-displace-t', 'inset-x-0', 'z-50']) %}
-{% endif %}
-<header {{ attributes.addClass(classes) }}> … </header>
-```
-
-**Pin to `top-displace-t`, not `top-0`.** A `fixed`/`sticky` root pinned to `top-0` renders *behind* the Drupal admin toolbar for logged-in users. `top-displace-t` sets `top: var(--spacing-displace-t)`, which resolves to the toolbar height (`--drupal-displace-offset-top`, `0px` when there's no toolbar) — so the element sits just below the toolbar for admins and flush with the top for anonymous visitors. This mirrors the theme's own `.region--header` ([web/themes/front/templates/region/region--header.html.twig](web/themes/front/templates/region/region--header.html.twig)). Related utilities from the same displace tokens: `mt-displace-t` (margin), `h-displace`/`min-h-displace`/`max-h-displace` (viewport height minus toolbars).
-
-### Alpine.js
-
-Add `- neo/library.alpine` to `libraryOverrides.dependencies` in the yml. For the Collapse plugin, also `{{ attach_library('neo/library.alpine.collapse') }}` at the top of the twig. Use `x-data`, `x-show`, `x-collapse`, `x-cloak` as normal.
-
-### Swiper (carousels)
-
-Image carousels use the built-in `swiper()` Twig function — see [web/modules/contrib/neo_alchemist/modules/neo_alchemist_examples/components/image/image.twig](web/modules/contrib/neo_alchemist/modules/neo_alchemist_examples/components/image/image.twig) for the canonical pattern (`swiper.getWrapperAttributes()`, `getSlideAttributes()`, `getNavigationPrevAttributes()`, etc.).
-
-### Animating a component (neo_animate)
-
-Scroll-reveal animations come from the `neo_animate` module — see the **neo-animate** skill for the full system. The short version: add the props
-
-```yaml
-animate: { type: animate }
-animate_speed: { type: animate_speed }
-animate_delay: { type: animate_delay }
-animate_stagger: { type: animate_stagger }
-```
-
-and the component root reveals on scroll (editor-selectable, `apply: true`, no twig change). For a staggered cascade, also put `neo-animate-item` on the repeating element in the twig. No `libraryOverrides` needed — the driver is attached globally. Never write `neo-animate--animated` or raw catalog classes (`neo-animate--fadeInUp`) statically; authors write markers only.
-
-> **Background components (`bg-default component-bg`): don't reveal the root.** `apply: true` puts the reveal on the root, so the whole **colored block** animates in. Instead override `apply: false` on `animate`/`animate_speed`/`animate_delay` in the yml and apply them to an inner content wrapper — and if the component staggers, move `animate_stagger` there too (the enter class and `neo-animate-stagger` must share one element, or the cascade silently no-ops). The reveal props are Attribute objects, so **merge** them onto the wrapper (`getValue()` returns the raw key, not the classes): `<div{{ animate.merge(animate_speed).merge(animate_delay).merge(animate_stagger).addClass(['container-content']) }}>`. Full details + the non-stagger case in the **neo-animate** skill's *Background components* section.
-
-## Workflow for a new component
-
-1. **Pick a machine name** — snake_case, typically `<purpose>_s<n>` (e.g. `testimonial_s1`). Confirm it's not already taken with `drush neo:alchemist:components` (lists every Neo component with its provider, prop, and slot counts).
-2. **Find the closest existing component** and read its yml + twig. Copy that pattern — don't invent from scratch.
-3. **Create the folder** at `web/themes/front/components/<name>/`.
-4. **Write `<name>.component.yml`** — always include `$schema`, `name`, `status: stable`, `neo: true`, and both a `spacing` and a `gap` prop. Use existing shapes (`heading`, `markup`, `image`, etc.) rather than raw JSON Schema types.
-5. **Provide `examples:`** for every prop — these populate the Alchemist editor's default values and the preview. Arrays with `region` or booleans can use `- TRUE` as placeholder rows.
-6. **Write `<name>.twig`** — root div with `{{ attributes.addClass(classes) }}`, wrap optional sections in `{% if ... %}`, use `neo_uri()` for all URLs, `icon()` for icons, `neo_image_style()` for images.
-7. **Test interactive elements** with `{% if neoIsPreview %}data-event...{% endif %}` so the editor preview remains clickable.
-8. **Clear the cache** (`drush cr`) after adding a new component — SDC registration is cached.
-9. **Verify from the CLI before finishing** — run `drush neo:alchemist:validate <provider>:<name>` then `drush neo:alchemist:render <provider>:<name>`. Don't hand off a component you haven't rendered. See "Verify from the CLI" below.
-
-## Preview & iterate
-
-Each Alchemist SDC has a live preview workspace:
-
-```
-/admin/config/neo/alchemist/preview/{provider}:{machine_name}
-```
-
-e.g. `/admin/config/neo/alchemist/preview/front:accordion_test`. There you can:
-- Edit every editable prop/style (scheme, spacing, alignment, text, …) and see the
-  preview refresh instantly — great for sanity-checking `examples` and prop wiring.
-- Use the **Above** / **Below** selectors to render neighbor components around the one
-  you're previewing — the right way to test spacing between stacked components and the
-  `component-bg` same-color collapse.
-- View at desktop/tablet/mobile widths.
-
-With the neo build watcher running, edits to the `.twig`/`.css`/`.yml` reload the
-preview automatically. For how the asset build works — running the watcher, when a
-new Tailwind class needs a rebuild, front vs back scopes, dev-server vs `dist/` — see
-the **neo-build** skill.
-
-**Always sanity-check a component under more than one scheme** (the Color Scheme
-style prop in the preview): at minimum the default, one dark, and one colorized
-scheme. Get the list of enabled schemes with `drush neo:color:schemes` (id,
-label, dark/colorized, role→pallet mapping, and resolved surface/text), then render
-under one with `drush neo:alchemist:render <id> --scheme=<scheme>`. To see exactly what
-a scheme resolves colors to, `drush neo:color:scheme <id>` (see "Finding this site's real
-colors"). `/admin/config/neo/scheme-preview`
-shows every enabled scheme's surfaces, button matrix, link colors, and palette
-ramps — the reference for what your component's colors will resolve to per scheme.
-
-## Verify from the CLI
-
-You don't need a browser to confirm a component works. Two commands close the loop:
-
-- **`drush neo:alchemist:validate <provider>:<name>`** — static lint. Flags missing
-  `neo: true`, props with no `examples`, unknown prop types, `{% if/for %}` references
-  to props that aren't declared, and dynamically-assembled Tailwind classes that won't
-  compile. Exits non-zero on hard errors.
-- **`drush neo:alchemist:render <provider>:<name>`** — renders the component headlessly
-  from its `examples` and reports PASS/FAIL, surfacing Twig/render errors as a message
-  instead of a white screen. Add `--html` to print the markup, `--scheme=<id>` to render
-  under a scheme, and `--live` to render the runtime path (`neoIsPreview` false) instead
-  of the editor preview.
-
-Supporting introspection: `drush neo:alchemist:components` (list all), `drush neo:alchemist:info <id>`
-(one component's resolved props/slots/libraries), `drush neo:alchemist:shapes [name]`,
-`drush neo:icon:list <search>` (icon names, from Neo Icon), and the Neo Color trio
-`drush neo:color:pallets` / `neo:color:schemes` / `neo:color:scheme <id>` (this site's
-resolved colors — see "Finding this site's real colors"). All tabular commands accept
-`--format=json` for machine parsing.
-
-## Common pitfalls
-
-> Most of the pitfalls below are now caught automatically — run `drush neo:alchemist:validate <id>`
-> and `drush neo:alchemist:render <id>` and they'll flag missing `neo: true`, missing
-> `examples`, unknown prop types, and dynamic Tailwind classes before you ship.
-
-
-- **Forgetting `neo: true`** — component won't appear in Alchemist's picker.
-- **Raw `{{ url }}` instead of `{{ neo_uri(link.uri, link.options) }}`** — breaks internal `internal:/` URIs.
-- **Missing `examples`** — editor shows empty previews and broken defaults.
-- **Not wrapping in `{% if prop %}`** — component renders empty scaffolding when editor leaves fields blank.
-- **Using `heading.title` for the `<h2>`** but dropping `heading.size` — the editor's Size selector silently no-ops. And `heading.size` alone isn't enough: `title-*` only sets variables, so the same element (or a child) needs `component-title` to consume them. `<h2{{ heading.size.addClass(['component-title']) }}>` is the minimal correct form for a hand-rolled main title.
-- **New style prop with `apply: true` but missing `examples`** — class won't be present on first render.
-- **Re-mapping a `style` prop's key back to hand-written classes** — `{% set h = size.getValue() == 'short' ? 'h-72' : 'h-96' %}` duplicates the yml `styles.*.value` strings. `.getValue()` is the **key**, not the classes; the prop is already an `Attribute` carrying the option's `value`, so render it (`<div{{ size.addClass(['relative']) }}>`) and keep the yml the single source of truth. The hand map silently drifts from the yml (which then never renders) — reserve `.getValue()` for `{% if %}` branching.
-- **Hand-writing `py-component`/`my-component` as a section carrier** — that's the deprecated pre-`gap` pattern, kept working only for legacy components. The `gap` prop applies `neo-section-y` to the root; a hand-written carrier doubles it. Declare `gap: { type: gap }` instead (or `apply: false` + merge for deep-carrier layouts).
-- **Background section without the `component-bg` marker** — two adjacent same-color sections stack double padding. Add `component-bg` (next to `bg-default`) so the seam collapses.
-- **Background section painting an off-vocabulary color** — e.g. `bg-base-600` or an arbitrary value. It keeps `component-bg` but never collapses against a neighbor. Either use one of the recognized surfaces or register yours (utility class ⇒ neo_color token) with `hook_neo_alchemist_component_bg_surfaces_alter()`.
-- **Dynamic Tailwind class names never compile.** The build only emits classes that appear **literally** in scanned source — `bg-{{ color }}-500`, `'text-' ~ tone`, or classes assembled in JS produce nothing in the CSS. Enumerate full class names (in the yml `styles:` values, a Twig mapping, or a comment), or use inline CSS variables for genuinely data-driven color: `style="background-color: rgb(var(--color-{{ pallet }}-500))"` works because the *variables* always exist.
-- **Hardcoding one scheme's colors** (e.g. `bg-base-0`) on a component meant to be recolored — use `bg-default` for the surface and let text/borders adapt automatically so the `scheme` prop can recolor it.
-- **Coloring links or buttons by hand** — `text-primary-600` on an `<a>`, or a "button" built from `bg-primary text-white` utilities, will be unreadable on some schemes (the bare brand tokens can match the surface on colorized schemes). Bare `<a>` elements and the `.btn*` classes are contrast-managed per scheme, hover states included.
-- **Overloading the component `.css`.** Layout, spacing, color, sizing, and hover states all have Tailwind utilities — put them in the `.twig` (use arbitrary values like `text-[0.62rem]`/`basis-[calc((100%_-_5rem)/5)]` for off-scale numbers, and `group`/`group-hover:` for per-element hover). A `.css` full of `display:flex` / `padding` / `color` / `:hover` is a smell; the file is only for what has no utility (keyframes, gradient overlays, exact shadows, scrollbar-hide, `::after` content, styling a generated `<img>`).
-- **Placeholder image dimensions out of sync with the twig transform** — the `placehold.co/WxH.png` URL (and `width`/`height` fields) in the prop's `examples:` should match the dimensions produced by `neo_image_style()` / `neo_image()` in the twig. The right target depends on the size op (see [web/modules/contrib/neo_image/README.md](web/modules/contrib/neo_image/README.md)):
-  - Fixed-output ops — `scaleCrop`, `crop`, `focal`, `exact`, and `auto` with both width+height: placeholder must be exactly `{width}x{height}`. E.g. `{scaleCrop: {width: 300, height: 200}}` → `placehold.co/300x200.png`, `width: 300, height: 200`.
-  - Width-only ops — `scale`, `focalWidth`, and `auto` with only width (or only height): output keeps the source aspect, so pick a placeholder that matches the *intended display aspect* (e.g. a `scale: {width: 1200}` slot shown in a 4:3 container → `placehold.co/1200x900.png`).
-  - Responsive `neo_image()` with multiple breakpoints: use the largest breakpoint's dimensions for the placeholder.
-  - Items rendered via a shared include (e.g. `@front/includes/list_s1--items.html.twig` uses `scaleCrop: 75x75`): match the include's dimensions, not the wrapper component.
-- **SVG (e.g. a logo) rendered via `neo_image_style` collapses to 0×0 / a tiny square** — image styles are raster ops (GD), so an SVG can't be transformed: the original file is emitted and the size op only sets HTML `width`/`height` attributes. The theme's base reset (`img{height:auto}` in `@layer base`) overrides those attributes, and a viewBox-only SVG has no intrinsic size, so it renders at 0×0 (or a fabricated square if a single-axis op is used). Fix by sizing with a **CSS class** via the 5th `attributes` arg — utilities beat the base layer: `{{ neo_image_style(logo.src, {scale: {height: 30}}, logo.alt, '', {class: ['h-7', 'w-auto']}) }}`. (`w-auto` lets the browser derive width from the SVG's `viewBox` aspect ratio.)
-- **Fixed/floating component blank in the Alchemist preview** — a `position: fixed`/`absolute` root has no flow height, so the preview iframe collapses. Render it in-flow (`relative`) behind `{% if neoIsPreview %}`, with a solid background if it's normally transparent. See "Fixed / floating roots and the preview iframe".
-- **Fixed/sticky component hidden behind the admin toolbar** — pinning a `fixed`/`sticky` root to `top-0` puts it under the Drupal toolbar for logged-in users. Use `top-displace-t` instead (offsets by the toolbar height, `0px` when absent). See "Fixed / floating roots and the preview iframe".
-- **Clearing cache** — after editing `.component.yml`, run `drush cr` or the prop changes won't reflect.
+# Neo Alchemist components — what this installation does that you can't infer
+
+A component is a folder under `web/themes/front/components/<machine_name>/`
+holding `<machine_name>.component.yml` + `<machine_name>.twig`. There are 23, and
+they are the specification for everything this file omits — **read the closest
+sibling before writing**. What follows is only the residue.
+
+**Three mechanisms are non-local** — the symptom shows in a component, the value
+is derived elsewhere: vertical spacing, region gutters and seam (§3), and every
+colour (§4). Trace the derivation before prescribing and fix it at the layer that
+owns it; patching the component breaks the case that was already right.
+
+---
+
+## 1. Two surfaces: the folder you author, the config you only propose
+
+**Yours to edit:** the component's own folder — `<name>.component.yml`,
+`<name>.twig`, and where justified `<name>.css`, `<name>.js`, `images/`. Code,
+versioned with the theme. (`thumbnail.png` is generated by `SdcThumbnailWriter`,
+never drawn.)
+
+**Not yours: anything under `config/`.** Those 553 files are `drush cex` output —
+a snapshot of active configuration that actually lives in the site database.
+Editing one changes nothing on the running site; only `drush cim` does, and the
+next export writes the database's version back over the edit. A fix applied there
+is inert *and* invisible: the requester gets a dirty working tree they never
+asked for and no behaviour change. **State it; never apply it.**
+
+**`config/neo_alchemist.neo_component.<id>.yml` is not "the component"** — it is
+one *registration* of one, made by a site builder in the admin UI: the library
+lists SDC definitions carrying `neo: true` (`ComponentLibraryController`),
+"Select" opens the add form (`ComponentAddController`), and the prop / slot /
+access / filter screens under `/admin/config/neo/alchemist/<id>/…` set which props
+are active, editable and expanded, the access, and the entity type an instance
+targets. Two facts make a hand edit worse than useless: **one folder backs several
+registrations** — 34 config entities point at these 23 folders, `front:hero_s5`
+and `front:list_s4` three times each and seven others twice, so editing one file
+silently diverges its siblings; and **`expression` and `schema` are generated from
+the live SDC definition, not authored** — `Component::preSave()` rewrites them
+(`Entity/Component.php:1226-1227`, `:1298-1299`), so a hand edit there lasts until
+the entity is next saved.
+
+So when a change needs stored configuration, the deliverable is the instruction:
+entity id, screen or key, the value, and `drush cex` after. Same for every other
+config family (`neo_color.neo_scheme.*`, `neo_color.neo_pallet.*`,
+`field.field.*`, `core.entity_view_display.*`), for `config/files/`, and for
+module source under `modules/contrib/neo_*`. A **new** component needs exactly one
+such line: the folder alone renders and lints, but it reaches editors only once
+someone registers it — the placement library loads `neo_component` entities, not
+SDC definitions (`InstanceComponentLibraryController:64`).
+
+**One component per request.** The one you were asked about is the only one you
+touch; if a sibling carries the same defect, say so in a sentence and leave it.
+And when the ask is diagnostic ("tell me what was wrong", "what would you
+change"), the diagnosis *is* the deliverable — writing the fix anyway is not
+extra credit.
+
+---
+
+## 2. Never name a type, function or filter from memory
+
+An unregistered Twig callable is a compile-time error (the component does not
+render at all). An unrecognized prop `type` is a hard lint error. Both are
+enumerable — read the enumeration, don't recall it.
+
+**Prop types — 44 total, and no prose list in the repo is complete.** 38 come
+from three YAML files, 6 more are plugin-only primitives with no YAML entry:
+
+- `neo_alchemist/neo_alchemist.neo_component_prop_defs.yml` (33) — `heading`,
+  `markup`, `media`, `image`, `image-uri`, `file`, `file-uri`, `remote_video`,
+  `video`, `video-uri`, `email`, `telephone`, `uri`, `link`, `url`, `address`,
+  `menu`, `views_filter`, `views_active_filters`, `breadcrumb`, `slug`,
+  `region`, `scheme`, `image_size`, `style`, `containment`, `spacing`, `gap`,
+  `text_align`, `text_size`, `heading_size`, `button_style`, `button_size`
+- `neo_animate/neo_animate.neo_component_prop_defs.yml` (4) — `animate`,
+  `animate_speed`, `animate_delay`, `animate_stagger`
+- `neo_icon/neo_icon.neo_component_prop_defs.yml` (1) — `icon`
+- Primitives from `neo_alchemist/src/Plugin/ComponentShape/` (6) — `array`,
+  `boolean`, `integer`, `number`, `object`, `string`
+
+That file also carries each shape's real sub-keys and canonical Twig snippet.
+Reach for a semantic composite (`menu`, `breadcrumb`, `address`, `link`,
+`heading`, `file`) before hand-rolling `array` → `object`.
+
+**Twig functions registered by the installed `neo_*` modules — the whole list:**
+`icon`, `icon_entity`, `neo_image`, `neo_image_style`, `neo_image_style_url`,
+`neo_inspect`, `neo_loader`, `neo_modal`, `neo_oembed`, `neo_tooltip`,
+`neo_uri`. Filters: `icon_class`, `icon_library`, `icon_only`, `icon_prefix`,
+`label_class`, `neo_animate`, `neo_animate_children`, `neo_modal`,
+`neo_tooltip_trigger`, `neo_tooltip_content`, plus the `neo_*` field/attribute
+helpers in `neo_twig/src/TwigExtension.php`. **There is no carousel helper** —
+slider behaviour is hand-written JS colocated with the component (`hero_s1.js`,
+`hero_s3.js`, `list_s1.js`, `list_s2.js`).
+
+**Cite only files you have opened.** `themes/front/includes/` does not exist and
+`neo_alchemist_examples` is not enabled — neither is a reference here.
+
+---
+
+## 3. Silent failures — verified in this installation
+
+Each produces no error anywhere, and the static lint reaches none of them.
+
+**Internal vertical margin disappears when the seam collapses.** The six
+*base-size* vertical utilities (`py`/`pt`/`pb`/`my`/`mt`/`mb-component`) resolve
+through the inherited `--spacing-component-t/-b` channels, rewritten by a
+deprecated shim at `neo_alchemist/src/css/_utilities.css:160-199`. It beats the
+scale-generated versions because it is **plain unlayered rules rather than
+`@utility`** — an unlayered rule outranks anything in `@layer utilities`, which is
+not the same as coming later in the file. The channels inherit, so
+`component-flush-t` on the root, or an auto-collapsed same-coloured seam, zeroes
+internal spacing written with these six as well, class name unchanged. The
+relative variants (`-xs`/`-sm`/`-lg`/`-xl`) are deliberately un-channelized: fix
+it with a size variant, a numeric utility, or `.component-spacing-reset` (`:154`)
+— the variants are 1.5x / 0.67x, so only the reset leaves an already-correct gap
+unchanged. `.neo-region` shares that reset (`:155`), so nested components are
+immune.
+
+**A component dropped into another component's region keeps its gutters and its
+seam padding.** The region shape prints one `<div class="neo-region">` around the
+children with no per-child wrapper (`RegionShape.php:187`, `:273`), so each
+child's root *is* a direct child of `.neo-region`. The wrapper side is
+`neo-region-flush-x neo-region-flush-b` (`insight_body.twig:132`,
+`project_full.twig:95`), and each keys on something literal:
+
+- *Gutters:* `.neo-region-flush-x .neo-region .px-container{--spacing-container:0}`
+  (`_utilities.css:84`) matches the literal class `px-container` at any depth.
+  `container-content` is `@apply container-center px-container!`
+  (`neo_base.info.yml:23`) — an `@apply`, so that name never reaches the markup
+  and a `container-content` wrapper double-indents in a region. Losing the
+  max-width is not the price: carry the literal class *alongside*
+  (`container-content px-container`, or `container mx-auto px-container`) and the
+  flush still zeroes `--spacing-container`. Precedent `testimonial.twig:15`;
+  `accordion` and `markup_s1` take max-width from `containment` instead.
+- *Seam:* `.neo-region-flush-b .neo-region>div:last-child` (`:114`) — a **direct
+  child `div`**. A `<section>` root is not matched, so its section padding
+  survives at the seam. Hence the three droppable
+  components (`accordion`, `markup_s1`, `testimonial`) are the only stacking
+  components with `<div>` roots. Choose deliberately and name the trade.
+
+**`x-cloak` elements flash open.** There is **no global**
+`[x-cloak]{display:none}` — zero occurrences in `themes/front/dist/front.css`. The
+only rule is in `header_s1/header_s1.css`, which loads only where Header S1
+renders, and the preview has no header. Ship your own commented rule in the
+component's `.css`.
+
+**The editor's heading Size control does nothing on its own.** `title-*` classes
+assign CSS variables; the consumers `component-title` / `component-supertitle` /
+`component-subtitle` read them and apply font, weight and responsive scale
+(`neo_base/src/css/_utilities.css` — consumers :155/:165/:174, sizes :183-223).
+Emit both: `<div{{ heading.size }}>` with consumer-classed children, or
+`<h2{{ heading.size.addClass(['component-title']) }}>`.
+
+**A declared slot the template never renders swallows its contents.** The lint
+warns about a `slots/*.twig` matching no declared slot but not the reverse;
+`list_market` declares `list_footer` and never renders it. The shipped idiom is
+`{% block <name> %}{% endblock %}` (`list_project.twig:40,81`,
+`project_full.twig:99`). No component here has a `slots/` subdirectory.
+
+**An icon name with its library prefix renders nothing.** `icon()` takes the bare
+name (`icon('chevron-down')`); `drush neo:icon:list` prints its suggested usage
+*with* the prefix — the form that fails. Force a library with
+`|icon_library('regular')`.
+
+**A designed `views_filter` GET form that omits `getHidden()` clears every other
+active filter.** And a `views_filter` / `views_active_filters` prop declared
+*before* the array prop carrying the views binding resolves empty — props resolve
+in schema order. Reference: `list_insight`.
+
+**An SVG routed through the image pipeline collapses.** The file is emitted
+unchanged, the size op only sets HTML attributes, and the base reset
+(`img{max-width:100%;height:auto}`) overrides them. Size it with classes through
+the 5th argument —
+`neo_image_style(logo.src, {scale:{height:30}}, logo.alt, '', {class:['h-7','w-auto']})`
+(`header_s1.twig:25`) — on-scale height, `w-auto` so the aspect survives.
+
+**An interactive control is dead in the editor preview.** The preview iframe
+forwards events only to elements carrying `data-event`
+(`neo_alchemist/src/js/components-child.ts:17-48`). Gate it on `neoIsPreview`;
+bare `data-event` is the dominant idiom, `'{"group": "…-{{ uid }}"}'` keyed per
+instance where a page can hold two (`accordion.twig:39`).
+
+**A `fixed`/`absolute` root shows blank in the preview** (no flow height) — swap
+to in-flow behind `{% if neoIsPreview %}`. Pin a fixed/sticky root to
+`top-displace-t`, never `top-0`, or it sits under the admin toolbar.
+
+---
+
+## 4. Colour is derived per scheme; a component never names one
+
+The `scheme` prop merges `scheme-{id}` onto the root (`SchemeShape.php:111`; ids
+dash-cased, `secondary_solid` → `.scheme-secondary-solid`). Every colour resolves
+through custom properties in that class's block, and **that block is generated,
+not written**: `Scheme::buildButtonCssVars()`
+(`neo_color/src/Entity/Scheme.php:285`) walks the palette ramps for contrast
+against the scheme's own surface, emitting the `--btn-*` set, the bare
+`--color-{role}` tokens and `--link-color` / `--link-color-hover`;
+`NeoBuildInlineEventSubscriber.php:104` writes each scheme's block into
+`public://neo-build/{scope}.css`. Invisibly from a template:
+
+- **Rich-text link colour is `--tw-prose-links`**, set to
+  `var(--link-color, var(--text-color-default)) !important` under any `scheme-*`
+  class (`neo_color/src/EventSubscriber/NeoBuildEventSubscriber.php:134`, the same
+  rule re-pointing prose body/heading/border tokens at `--text-color-default`).
+  The component showing the symptom usually sets no link colour at all — the
+  `prose` classes arrive with the `markup` shape's snippet or a `text_size` option.
+- **`--link-color` is a 4.5:1 *text-grade* pick walked from the primary ramp**, not
+  the bare `--color-primary` (the 500 brand shade), and the walk goes toward *more*
+  contrast — so on a dark or colorized scheme a hover resolves **lighter**. A spec
+  quoting one hover hex describes the light scheme only.
+- **`text-white` is a trap.** `--color-white` is remapped to
+  `rgb(var(--color-base-0))` (`NeoBuildEventSubscriber.php:46`) — the scheme's own
+  surface, i.e. the background on a solid scheme. The scheme-reactive foreground
+  is `text-default` (`--text-color-default`).
+
+**Where a colour fix belongs.** If the treatment is *this component's*, it is a
+scheme-token utility in the twig — `insight_body.twig:30` re-asserts
+`text-default … hover:text-primary` over the link colour and stays reactive. If it
+is "on *this scheme*, everywhere", it is a rule scoped to `.scheme-{id}` in the
+front theme's own CSS (`themes/front/src/css/`), re-pointing the token at another
+token (`--link-color: var(--text-color-default)`) so every other scheme stays
+reactive. Never a literal hex; never `neo_color`'s source or its exported scheme
+config — §1 surfaces, so the scheme property goes in the hand-off. Both rules are
+single-class, so mark yours `!important` where the win must be order-independent.
+
+Only 9 of the 20 `config/neo_color.neo_scheme.*.yml` files are enabled: `default`,
+`dark`, `alert`, `success`, `warning`, `primary_solid`, `secondary_solid`,
+`secondary_solid_dark`, `accent_solid`. Generalise only to an enabled sibling.
+
+---
+
+## 5. This site's other design-system values
+
+**Buttons.** `themes/front/src/css/_utilities.css:1-4` overrides exactly three
+button tokens: `--btn-border-radius: 0`, `--btn-py: 0.75rem`, `--btn-px: 1.75rem`.
+Weight is **not** overridden, so it stays `var(--btn-font-weight, 500)` — medium,
+not bold (`neo_base/src/css/_utilities.css:230`). A comp specifying a bold button
+conflicts with the managed button: take the managed one, name the departure.
+
+**Enabled pallets are only `base`, `primary`, `secondary`, `accent`, `alert`,
+`info`, `success`, `warning`** — 8 of 32; every other
+`config/neo_color.neo_pallet.*.yml` is `status: false`, so `bg-blue-500` emits
+nothing. The five neutral scales (`gray`, `slate`, `zinc`, `neutral`, `stone`)
+alias to `base` (`NeoBuildEventSubscriber.php:65-69`); non-neutrals do not.
+Resolved colours come from **this site's** exported pallet config, never a
+module's `config/install` defaults; a design hex matching a palette step becomes
+that token, not a literal.
+
+**Seam collapsing recognizes exactly five surfaces** — `bg-default`, `bg-base-50`,
+`bg-base-100`, `bg-base-200`, `bg-base-300` — and only alongside the
+`component-bg` marker
+(`neo_alchemist/src/EventSubscriber/NeoBuildInlineEventSubscriber.php:54-60`); any
+other background never collapses. The generated rule zeroes
+`--spacing-component-b` on the *first* section of a matched pair.
+
+**Tailwind v4, dynamic numeric spacing scale.** Any on-grid size has a numeric
+utility, so `w-[24px]` is a defect and `w-6` correct; reserve brackets for
+genuinely off-grid values (`text-[0.62rem]`, `aspect-[4/3]`, `calc()`). **Absence
+of a class from `dist/front.css` means only that nothing uses it yet** — never
+downgrade a design over it. Class names must appear literally in source; nothing
+assembled from a variable or in JS compiles.
+
+---
+
+## 6. Conventions nothing enforces
+
+**Vertical rhythm.** 18 of 23 components declare **both** `spacing` and `gap`; the
+five that declare neither are exactly those that never stack in page flow
+(`footer_s1`, `header_s1`, `hero_s1`, `menu_feature_card`, `menu_insights`).
+`spacing` always carries `examples:` (`md`/`lg`/`xl`); `gap` carries none in 17 of
+18 — auto is the wanted default. Both self-inject onto the root, so never
+hand-write section padding. `apply: false` on `gap`, merged onto an inner wrapper
+yourself, is only for a deep-carrier layout (`hero_s2`, `project_full`).
+
+**Sample content.** The house placeholder is
+`https://placehold.co/{W}x{H}/{brand-hex}/ffffff.png` at exactly the dimensions
+the template's transform produces, tinted with this site's own palette hexes
+(`5e2a2b`, `472020`, `876e6e`, `be271d`, `391a1a`, `ee3124`) rather than default
+grey. A component's own artwork is bundled in its folder and referenced
+`component://images/foo.jpg` (`hero_s1`, `hero_s5`); `theme://` reaches the default
+theme (`header_s1`). A placeholder PNG never exercises the SVG path — for vector
+marks bundle real SVGs with declared `width`/`height`. Every declared prop needs a
+populated example: a prop bound to an entity field that turns out empty renders its
+stored example **on the live page**, so it must read as real copy.
+
+**Colocated stylesheets.** 11 of 23 have one, and each opens with a comment naming
+the reason no utility can express it (gradients, alpha masks, keyframes, JS-driven
+state toggles). Match that or don't ship one.
+
+---
+
+## 7. The hand-off
+
+- Where a design detail and the design system genuinely cannot coexist, take the
+  system's version **and name the departure**. Silently absorbing a conflict is a
+  more common failure than resolving it wrongly.
+- Keep what you *did* separate from what you *propose*, and make the propose list
+  actionable (§1): entity id, screen or key, value.
+- Commands that exist here: `drush neo:alchemist:validate <provider>:<name>` (hard
+  errors only for missing `neo: true`, missing `name`, unknown prop type — the rest
+  advisory) and `drush neo:alchemist:render <provider>:<name>` (`--html`,
+  `--scheme=<id>`, `--live`); plus `neo:alchemist:components` / `:info` /
+  `:shapes` / `:slot`, `neo:icon:list`, `neo:color:pallets` / `:schemes`. The first
+  two build a transient entity, so they work on an unregistered component.
+  Everything runs through DDEV; a new or edited `.component.yml` needs `drush cr`.
+- Never open with what you could not run, and never cite a route, command or file
+  you have not confirmed. One sentence at the end is enough.
+
+## Not this skill
+
+`neo_alchemist`'s PHP (**neo-alchemist-dev**); mega-menu plumbing
+(**neo-alchemist-menu**), though the panel component itself is in scope; the
+animation catalog (**neo-animate**); the asset pipeline (**neo-build**); the
+colour *engine* and scheme tuning (**neo-color-dev**), though the tokens and the
+`.scheme-{id}` rule of §4 are in scope; modals (**neo-modal**).
