@@ -34,6 +34,9 @@ use Drupal\neo_alchemist\ViewsActiveFiltersTwig;
   ref_types: [
     'views_active_filters',
   ],
+  // The base class takes and returns ViewExecutable in real signatures, so
+  // this plugin cannot function — or even be safely offered — without views.
+  provider: 'views',
 )]
 final class ViewsActiveFiltersValue extends ViewsExposedFilterValueBase {
 
