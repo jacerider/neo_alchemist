@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace Drupal\neo_alchemist;
 
+use Drupal\Component\Render\MarkupInterface;
 use Drupal\Core\Entity\EntityTypeBundleInfoInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
+use Drupal\Core\Render\Markup;
 use Drupal\Core\StringTranslation\StringTranslationTrait;
 
 /**
@@ -104,22 +106,27 @@ final class ComponentSubgroupResolver {
 
     $definition = $this->entityTypeManager->getDefinition($entityTypeId, FALSE);
     $entityTypeLabel = $definition ? (string) $definition->getLabel() : $entityTypeId;
-    $entityTypeLabel = neo_icon_entity_type($definition);
+    // The icon elements stringify to rendered markup, so they can only be
+    // concatenated into a value that stays flagged as safe — a plain string
+    // would be escaped on output, leaking the markup (and, with twig debug on,
+    // the THEME DEBUG comments) into the label. The undecorated labels are what
+    // the id and sort keys are built from.
+    $entityTypeIcon = $definition ? neo_icon_entity_type($definition) : neo_icon($entityTypeLabel);
 
     if (!$bundle) {
       return [
         'id' => $entityTypeId . ':',
-        'label' => $entityTypeLabel . ' › ' . $this->t('(any bundle)'),
+        'label' => Markup::create($entityTypeIcon . ' › ' . $this->t('(any bundle)')),
         // The empty bundle sorts first within its entity type.
         'sort' => [0, $entityTypeLabel, ''],
       ];
     }
 
     $bundleLabel = $this->getBundleLabel($entityTypeId, $bundle);
-    $bundleLabel = neo_icon($bundleLabel, NULL, NULL, ['entity.' . $entityTypeId]);
+    $bundleIcon = neo_icon($bundleLabel, NULL, NULL, ['entity.' . $entityTypeId]);
     return [
       'id' => $entityTypeId . ':' . $bundle,
-      'label' => $entityTypeLabel . ' › ' . $bundleLabel,
+      'label' => Markup::create($entityTypeIcon . ' › ' . $bundleIcon),
       'sort' => [0, $entityTypeLabel, $bundleLabel],
     ];
   }
@@ -175,17 +182,43 @@ final class ComponentSubgroupResolver {
    * @param \Drupal\neo_alchemist\ComponentInterface $component
    *   The component.
    *
-   * @return string
-   *   The target label.
+   * @return \Drupal\Component\Render\MarkupInterface|string
+   *   The target label, safe for output.
    */
-  public function getTargetLabel(ComponentInterface $component): string {
+  public function getTargetLabel(ComponentInterface $component): MarkupInterface|string {
+    $entityTypeId = $component->getTargetEntityTypeId();
+    if (!$entityTypeId) {
+      return $this->t('All');
+    }
+    $definition = $this->entityTypeManager->getDefinition($entityTypeId, FALSE);
+    // The icon element already renders the label next to its icon, so the
+    // plain label must not be appended a second time.
+    $label = (string) ($definition ? neo_icon_entity_type($definition) : neo_icon($entityTypeId));
+    if ($bundle = $component->getTargetEntityBundle()) {
+      $label .= ' › ' . neo_icon($this->getBundleLabel($entityTypeId, $bundle), NULL, NULL, ['entity.' . $entityTypeId]);
+    }
+    return Markup::create($label);
+  }
+
+  /**
+   * Builds the plain text equivalent of ::getTargetLabel().
+   *
+   * The listing indexes its rows for client side filtering, so the target has
+   * to be searchable without the icon markup being matched against.
+   *
+   * @param \Drupal\neo_alchemist\ComponentInterface $component
+   *   The component.
+   *
+   * @return string
+   *   The target label, without markup.
+   */
+  public function getTargetTextLabel(ComponentInterface $component): string {
     $entityTypeId = $component->getTargetEntityTypeId();
     if (!$entityTypeId) {
       return (string) $this->t('All');
     }
     $definition = $this->entityTypeManager->getDefinition($entityTypeId, FALSE);
     $label = $definition ? (string) $definition->getLabel() : $entityTypeId;
-    $label = neo_icon($label, 'entity-' . $entityTypeId) . ' ' . $label;
     if ($bundle = $component->getTargetEntityBundle()) {
       $label .= ' › ' . $this->getBundleLabel($entityTypeId, $bundle);
     }

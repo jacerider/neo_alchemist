@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Drupal\neo_alchemist;
 
-use Drupal\Component\Utility\Html;
 use Drupal\Core\Config\Entity\ConfigEntityListBuilder;
 use Drupal\Core\Entity\EntityInterface;
 use Drupal\Core\Entity\EntityTypeInterface;
@@ -330,7 +329,7 @@ final class ComponentListBuilder extends ConfigEntityListBuilder {
           $entity->label(),
           $entity->id(),
           $entity->getComponentId(),
-          $targetLabel,
+          $this->subgroupResolver->getTargetTextLabel($entity),
           $entity->getGroupLabel(),
         ]))),
       ],
