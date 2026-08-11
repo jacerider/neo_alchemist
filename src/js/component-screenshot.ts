@@ -10,7 +10,7 @@
   // exactly as much as the component actually has — no more, no less.
   const LANDSCAPE_FLOOR = 16 / 9;
   const OUTPUT_WIDTH = 800;
-  const DEFAULT_WIDTH = 1024;
+  const DEFAULT_WIDTH = 1440;
   const MIN_PREVIEW_WIDTH = 360;
   const MAX_PREVIEW_WIDTH = 1440;
 

@@ -375,7 +375,7 @@
 
       const hint = document.createElement('span');
       hint.className = 'neo-alchemist-capture-toolbar__hint';
-      hint.textContent = Drupal.t('Sized to fit the component');
+      hint.textContent = Drupal.t('Sized to fit');
       bar.appendChild(hint);
 
       // Vertical alignment of the content when a short component is stretched.
