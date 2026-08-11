@@ -18,8 +18,12 @@ special:
   label: 'Special'
   description: 'Components built for specific needs.'
   weight: 10
+collection:
+  label: 'Collection'
+  description: 'Components built for index pages.'
+  weight: 15
 entity:
   label: 'Content Specific'
   description: 'Components that can be used only on specific types of content.'
-  weight: 15
+  weight: 20
   subgroup: target_entity
