@@ -172,10 +172,11 @@ final class EntityFilterValue extends ComponentValuePluginBase implements Contai
           $entityKey = $this->configuration['entity'];
           $form['entity'] = [
             '#type' => 'select',
-            '#title' => $this->t('Target entity type'),
+            '#title' => $this->t('Follow reference'),
+            '#description' => $this->t('Optionally follow an entity reference field and use the referenced entities instead of the entities the filter returned. The fields below will then belong to the referenced entity. Leave empty to use the filtered entities directly.'),
             '#options' => $options,
             '#default_value' => $entityKey,
-            '#empty_option' => $this->t('- Select -'),
+            '#empty_option' => $this->t('- None -'),
             '#ajax' => [
               'callback' => [static::class, 'refreshAjax'],
               'wrapper' => $wrapperId,

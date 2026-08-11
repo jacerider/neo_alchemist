@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Drupal\neo_alchemist\Plugin\ComponentFilter;
 
 use Drupal\Core\DependencyInjection\DependencySerializationTrait;
-use Drupal\Core\Entity\EntityInterface;
 use Drupal\Core\Entity\EntityTypeBundleInfoInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Form\FormStateInterface;
@@ -81,6 +80,7 @@ final class EntityFilter extends ComponentFilterPluginBase implements ContainerF
       'field_type' => 'autocomplete',
       'multiple' => FALSE,
       'multiple_operator' => '+',
+      'multiple_limit' => 0,
       'entity_type' => '',
       'bundles' => [],
       'include' => [],
@@ -109,6 +109,9 @@ final class EntityFilter extends ComponentFilterPluginBase implements ContainerF
     $summary = parent::settingsSummary();
     $summary[] = $this->t('Field type: %type', ['%type' => ucfirst($this->configuration['field_type'])]);
     $summary[] = $this->t('Allow multiple values: %multiple', ['%multiple' => $this->configuration['multiple'] ? $this->t('Yes') : $this->t('No')]);
+    if ($limit = $this->getMultipleLimit()) {
+      $summary[] = $this->t('Maximum values: %limit', ['%limit' => $limit]);
+    }
     if ($entityTypeId = $this->configuration['entity_type']) {
       if ($entityType = $this->entityTypeManager->getDefinition($entityTypeId)) {
         $summary[] = $this->t('Entity type: %label', ['%label' => $entityType->getLabel()]);
@@ -180,6 +183,15 @@ final class EntityFilter extends ComponentFilterPluginBase implements ContainerF
         '#options' => $this->multipleOperators(),
         '#default_value' => $this->configuration['multiple_operator'],
       ];
+
+      $form['multiple_limit'] = [
+        '#type' => 'number',
+        '#title' => $this->t('Maximum number of values'),
+        '#description' => $this->t('The most values that may be selected for this filter. Leave at 0 for no limit.'),
+        '#min' => 0,
+        '#step' => 1,
+        '#default_value' => $this->getMultipleLimit(),
+      ];
     }
 
     $entityTypes = $this->entityTypeManager->getDefinitions();
@@ -215,6 +227,7 @@ final class EntityFilter extends ComponentFilterPluginBase implements ContainerF
           '#default_value' => $bundleIds,
           '#options' => $options,
           '#empty_option' => $this->t('- All -'),
+          '#ajax' => $form['#form_ajax'],
         ];
       }
       $allowIdSelection = $this->configuration['field_type'] !== 'autocomplete';
@@ -243,15 +256,26 @@ final class EntityFilter extends ComponentFilterPluginBase implements ContainerF
           '#tags' => TRUE,
           '#default_value' => $excludes,
         ];
+        if ($bundleIds) {
+          $form['include']['#selection_settings']['target_bundles'] = $bundleIds;
+          $form['exclude']['#selection_settings']['target_bundles'] = $bundleIds;
+        }
       }
 
-      $entityPreview = $this->getEntityPreview();
+      $allowMultiple = !empty($this->configuration['multiple']);
+      $entityPreviews = $this->getEntityPreviews();
       $form['entity_preview'] = [
         '#type' => 'entity_autocomplete',
         '#title' => $this->t('Entity preview'),
-        '#description' => $this->t('This entity will be used to preview the component in the admin interface.'),
+        '#description' => $allowMultiple
+          ? $this->t('These entities will be used to preview the component in the admin interface.')
+          : $this->t('This entity will be used to preview the component in the admin interface.'),
         '#target_type' => $entityTypeId,
-        '#default_value' => $entityPreview,
+        // A tagged autocomplete takes a list of entities, a single-value one
+        // takes a single entity. Toggling "Allow multiple values" off with
+        // several previews already saved keeps the first.
+        '#default_value' => $allowMultiple ? array_values($entityPreviews) : (reset($entityPreviews) ?: NULL),
+        '#tags' => $allowMultiple,
       ];
       if ($bundleIds) {
         $form['entity_preview']['#selection_settings']['target_bundles'] = $bundleIds;
@@ -267,6 +291,10 @@ final class EntityFilter extends ComponentFilterPluginBase implements ContainerF
   protected function configurationValidate(array $form, FormStateInterface $form_state): void {
     $form_state->setValue('bundles', array_values(array_filter($form_state->getValue('bundles') ?? [])));
 
+    // Kept an int for the schema's sake: the number element submits a string,
+    // and the element is absent entirely when multiple values are off.
+    $form_state->setValue('multiple_limit', max(0, (int) $form_state->getValue('multiple_limit')));
+
     foreach (['include', 'exclude'] as $key) {
       $values = [];
       if ($entities = array_filter($form_state->getValue($key) ?? [])) {
@@ -277,9 +305,15 @@ final class EntityFilter extends ComponentFilterPluginBase implements ContainerF
       $form_state->setValue($key, $values);
     }
 
-    $entityPreview = $form_state->getValue('entity_preview');
-    if ($entityPreview) {
-      \Drupal::state()->set($this->getEntityPreviewKey(), $entityPreview);
+    $entityPreviewIds = $this->normalizeIds($form_state->getValue('entity_preview'));
+    if ($entityPreviewIds) {
+      \Drupal::state()->set($this->getEntityPreviewKey(), $entityPreviewIds);
+    }
+    else {
+      // Emptying the field has to clear the stored preview. Skipping the write
+      // on an empty value left the previous entity in state, which made a
+      // preview impossible to remove once set.
+      \Drupal::state()->delete($this->getEntityPreviewKey());
     }
     $form_state->unsetValue('entity_preview');
   }
@@ -312,7 +346,7 @@ final class EntityFilter extends ComponentFilterPluginBase implements ContainerF
           '#default_value' => $default,
           '#tags' => $allowMultiple,
           '#target_type' => $this->configuration['entity_type'],
-          '#required' => $this->filter->isRequired(),
+          '#required' => $this->filter->isRequired() && !$this->filter->isEditable(),
         ];
         if ($bundles = array_values(array_filter($this->configuration['bundles']))) {
           $form['value']['#selection_settings']['target_bundles'] = $bundles;
@@ -363,7 +397,39 @@ final class EntityFilter extends ComponentFilterPluginBase implements ContainerF
         ];
         break;
     }
+    // None of these widgets can enforce a cardinality themselves — tagged
+    // autocompletes, multi-selects and checkboxes all accept unlimited values —
+    // so the limit is advertised here and enforced in validateForm().
+    if ($allowMultiple && isset($form['value']) && ($limit = $this->getMultipleLimit())) {
+      $hint = $this->formatPlural($limit, 'Select at most 1 value.', 'Select at most @count values.');
+      $description = (string) ($form['value']['#description'] ?? '');
+      $form['value']['#description'] = trim($description . ' ' . $hint);
+    }
     return $form;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function validateForm(array &$form, FormStateInterface $form_state): void {
+    $limit = $this->getMultipleLimit();
+    if (!$limit || empty($this->configuration['multiple']) || !isset($form['value'])) {
+      return;
+    }
+    $selected = count($this->normalizeIds($form_state->getValue('value')));
+    if ($selected > $limit) {
+      // @count is bound to $limit by formatPlural, so the selected total needs
+      // its own placeholder.
+      $form_state->setError($form['value'], $this->formatPlural(
+        $limit,
+        '%title: at most 1 value may be selected, but @selected were selected.',
+        '%title: at most @count values may be selected, but @selected were selected.',
+        [
+          '%title' => $this->filter->label(),
+          '@selected' => $selected,
+        ]
+      ));
+    }
   }
 
   /**
@@ -408,8 +474,7 @@ final class EntityFilter extends ComponentFilterPluginBase implements ContainerF
    */
   public function getEntities(): array {
     if ($this->filter->getComponent()->isComponentPreview()) {
-      $entityPreview = $this->getEntityPreview();
-      return $entityPreview ? [$entityPreview->id() => $entityPreview] : [];
+      return $this->getEntityPreviews();
     }
     $value = $this->filter->getValue();
     if (!$value) {
@@ -417,6 +482,13 @@ final class EntityFilter extends ComponentFilterPluginBase implements ContainerF
     }
     $values = explode($this->configuration['multiple_operator'], $value);
     if ($this->configuration['multiple']) {
+      // Also capped at read time. The limit lives in component config while the
+      // values live on each component instance, so lowering the limit has to
+      // constrain instances that were saved under the old one rather than wait
+      // for each to be re-saved.
+      if ($limit = $this->getMultipleLimit()) {
+        $values = array_slice($values, 0, $limit);
+      }
       return $this->entityTypeManager->getStorage($this->configuration['entity_type'])->loadMultiple($values);
     }
     $id = reset($values);
@@ -438,17 +510,67 @@ final class EntityFilter extends ComponentFilterPluginBase implements ContainerF
   }
 
   /**
-   * Get the entity set for preview.
+   * Get the entities set for preview.
    *
-   * @return \Drupal\Core\Entity\EntityInterface|null
-   *   The entity or null.
+   * @return \Drupal\Core\Entity\EntityInterface[]
+   *   The preview entities, keyed by entity ID. Empty if none are set, the
+   *   filter has no entity type yet, or the saved entities no longer exist.
    */
-  protected function getEntityPreview(): ?EntityInterface {
-    $entityId = \Drupal::state()->get($this->getEntityPreviewKey());
-    if ($entityId && $this->configuration['entity_type']) {
-      return $this->entityTypeManager->getStorage($this->configuration['entity_type'])->load($entityId);
+  protected function getEntityPreviews(): array {
+    if (!$this->configuration['entity_type']) {
+      return [];
     }
-    return NULL;
+    // Normalised on read as well as on write: state written before this was
+    // fixed holds the raw ['target_id' => id] rows a tagged autocomplete
+    // submits, and feeding those to loadMultiple() is a TypeError deep inside
+    // the entity storage cache. Repairing them here spares every existing
+    // component a re-save.
+    $entityIds = $this->normalizeIds(\Drupal::state()->get($this->getEntityPreviewKey()));
+    if (!$entityIds) {
+      return [];
+    }
+    // The preview stands in for a real filter value, so it obeys the same cap.
+    if ($this->configuration['multiple'] && ($limit = $this->getMultipleLimit())) {
+      $entityIds = array_slice($entityIds, 0, $limit);
+    }
+    return $this->entityTypeManager->getStorage($this->configuration['entity_type'])->loadMultiple($entityIds);
+  }
+
+  /**
+   * The maximum number of values this filter accepts.
+   *
+   * @return int
+   *   The limit, or 0 when unlimited. Always 0 when the filter is single-value,
+   *   where cardinality is already implicitly one.
+   */
+  protected function getMultipleLimit(): int {
+    return max(0, (int) ($this->configuration['multiple_limit'] ?? 0));
+  }
+
+  /**
+   * Normalise a submitted or stored value to a flat list of entity IDs.
+   *
+   * Accepts every shape these values take: a bare scalar ID (single-value
+   * autocomplete, and previews saved before the field accepted multiple
+   * values), a list of ['target_id' => id] rows (tagged autocomplete), or a
+   * plain list of IDs (multi-select, checkboxes).
+   *
+   * @param mixed $value
+   *   The raw submitted or stored value.
+   *
+   * @return array
+   *   A flat list of entity IDs, empty entries removed.
+   */
+  private function normalizeIds(mixed $value): array {
+    $ids = [];
+    foreach (is_array($value) ? $value : [$value] as $item) {
+      $id = is_array($item) ? ($item['target_id'] ?? NULL) : $item;
+      // Unchecked checkboxes submit 0 or ''; no entity ID is ever falsy.
+      if (!is_array($id) && !empty($id)) {
+        $ids[] = $id;
+      }
+    }
+    return $ids;
   }
 
   /**

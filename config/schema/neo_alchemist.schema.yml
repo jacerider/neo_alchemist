@@ -736,6 +736,9 @@ neo_alchemist.neo_component_filter.entity:
     multiple_operator:
       type: string
       label: Multiple Operator
+    multiple_limit:
+      type: integer
+      label: 'Maximum number of values'
     entity_type:
       type: string
       label: Entity Type
