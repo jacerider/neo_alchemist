@@ -33,6 +33,16 @@ abstract class ChildrenShapeBase extends ComponentShapePluginBase implements Com
   protected $childShapes;
 
   /**
+   * Whether a set of child shapes was built before any value was offered.
+   *
+   * Keyed exactly like ::$childShapes. Read only by the assertion in
+   * ::getChildShapes(), which is meaningful only for that case.
+   *
+   * @var bool[]
+   */
+  protected array $childShapesBuiltValueless = [];
+
+  /**
    * Uninitialized child shapes used only for value resolution.
    *
    * @var \Drupal\neo_alchemist\ComponentShapePluginInterface[]|null
@@ -105,6 +115,9 @@ abstract class ChildrenShapeBase extends ComponentShapePluginBase implements Com
   public function getChildShapes(int|null $delta = NULL, mixed $value = NULL): array {
     $key = $delta ?? 'all';
     if (!isset($this->childShapes[$key])) {
+      // Record whether the children are being built before any value was
+      // offered. That ordering is the whole subject of the assertion below.
+      $this->childShapesBuiltValueless[$key] = $value === NULL;
       $this->childShapes[$key] = $this->loadChildShapes($delta, $value);
     }
     else {
@@ -139,9 +152,23 @@ abstract class ChildrenShapeBase extends ComponentShapePluginBase implements Com
           // loudly in development instead — assertions are compiled out in
           // production, so this costs nothing there.
           //
+          // That ordering is the whole of the failure, so the assertion is
+          // scoped to it. Children built with a value in hand already had their
+          // chance at it, and a later refusal drops nothing. Scoping it any
+          // other way means judging whether the offer carries content, which
+          // cannot be done by inspection: the form passes route through here
+          // too (ArrayShape::validateForm() warms the cache,
+          // ::massageFormValues() then lands in this branch) carrying raw
+          // submitted input, where the child of a media prop reads
+          // ['image' => ['open_button' => 'Add media', …]] — button labels and
+          // option wrappers that are structure, not content, yet
+          // indistinguishable from it. Asserting there turned every "Add media"
+          // click on an as-yet-unchosen media child inside an array into a 500
+          // for the editor.
+          //
           // @see ::loadChildShapes()
           assert(
-            !$shape->isEmpty() || $shape->getOptionDefault()->isEnabled(),
+            !($this->childShapesBuiltValueless[$key] ?? FALSE) || !$shape->isEmpty() || $shape->getOptionDefault()->isEnabled(),
             sprintf(
               'Child shape "%s" of "%s" was refused the value its parent offered while holding no value of its own and no default to fall back to, so authored content is being dropped.',
               $shape->id(TRUE),
