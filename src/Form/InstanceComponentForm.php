@@ -152,7 +152,7 @@ final class InstanceComponentForm extends ContentEntityForm {
       ],
     ];
 
-    if ($form['values']['#access'] ?? FALSE) {
+    if ($form['values']['#access'] ?: $form['filters']['#access'] ?? FALSE) {
       $form['footer']['#attributes']['class'][] = 'mb-0 py-3 border-t';
     }
     elseif (!empty($form['description'])) {
