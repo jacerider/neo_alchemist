@@ -14,3 +14,7 @@ neo_alchemist.registry:
   word: registry
   icon: books
   prefix: admin
+neo_alchemist.blocks:
+  word: blocks
+  icon: th
+  prefix: admin
