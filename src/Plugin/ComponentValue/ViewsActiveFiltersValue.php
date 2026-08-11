@@ -55,7 +55,43 @@ final class ViewsActiveFiltersValue extends ViewsExposedFilterValueBase {
   protected function configurationForm(array $form, FormStateInterface $form_state, array &$complete_form): array {
     $form = parent::configurationForm($form, $form_state, $complete_form);
     $form['#id'] = Html::getId(implode('-', $form['#parents']) . '-' . $this->getPluginId());
-    return $this->buildContextFormElement($form);
+    $form = $this->buildContextFormElement($form);
+    $form['reference'] = $this->buildReferenceElement();
+    return $form;
+  }
+
+  /**
+   * Builds the twig reference shown under the context select.
+   *
+   * @return array
+   *   A details element.
+   */
+  protected function buildReferenceElement(): array {
+    $name = $this->shape->getName();
+
+    return $this->buildTwigReferenceElement(
+      [
+        'active' => $this->t('TRUE when any exposed filter is applied.'),
+        'count' => $this->t('How many values are applied in total. <code>{% if @name.count %}</code> is the usual guard around the chip row.', ['@name' => $name]),
+        'clear_url' => $this->t('The current URL with every exposed filter dropped.'),
+        'items' => $this->t('One entry per applied value, each with <code>param</code>, <code>filter_label</code> (the filter&#039;s name), <code>value</code>, <code>label</code> (the value&#039;s name) and <code>remove_url</code> — the URL that drops just that one value.'),
+      ],
+      [
+        'getLink(item)' => $this->t('href for one chip, plus a descriptive <code>aria-label</code> ("Remove Markets: Residential") and <code>rel="nofollow"</code> — filter permutations are not pages worth crawling.'),
+        'getClearLink()' => $this->t('The same for the clear-all link.'),
+      ],
+      [
+        '{% if ' . $name . '.count %}',
+        '  {% for item in ' . $name . '.items %}',
+        '    <a{{ ' . $name . '.getLink(item).addClass(\'…\') }}>',
+        '      <span>{{ item.filter_label }}:</span> {{ item.label }} ✕',
+        '    </a>',
+        '  {% endfor %}',
+        '  <a{{ ' . $name . '.getClearLink() }}>{{ \'Clear all\'|t }}</a>',
+        '{% endif %}',
+      ],
+      $this->unboundNote()
+    );
   }
 
   /**

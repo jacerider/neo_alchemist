@@ -7,7 +7,9 @@
 
 declare(strict_types=1);
 
+use Drupal\Core\Entity\ContentEntityInterface;
 use Drupal\neo_alchemist\ComponentShapePluginInterface;
+use Drupal\neo_alchemist_test\TestEntityComponentFieldsAlter;
 use Drupal\neo_alchemist_test\TestMenuItemAlter;
 
 /**
@@ -19,4 +21,15 @@ use Drupal\neo_alchemist_test\TestMenuItemAlter;
  */
 function neo_alchemist_test_neo_alchemist_menu_value_item_alter(?array &$entry, array $item, ComponentShapePluginInterface $shape): void {
   TestMenuItemAlter::apply($entry, $item, $shape);
+}
+
+/**
+ * Implements hook_neo_alchemist_entity_component_fields_alter().
+ *
+ * Delegates to TestEntityComponentFieldsAlter, which is inert unless a test
+ * names the fields to keep — so simply enabling the fixture module cannot
+ * narrow any other test's field set.
+ */
+function neo_alchemist_test_neo_alchemist_entity_component_fields_alter(array &$fieldDefinitions, ContentEntityInterface $entity): void {
+  TestEntityComponentFieldsAlter::apply($fieldDefinitions, $entity);
 }

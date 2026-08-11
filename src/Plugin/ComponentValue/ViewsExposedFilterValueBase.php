@@ -4,14 +4,10 @@ declare(strict_types=1);
 
 namespace Drupal\neo_alchemist\Plugin\ComponentValue;
 
-use Drupal\Component\Utility\NestedArray;
-use Drupal\Core\Cache\CacheableMetadata;
 use Drupal\Core\DependencyInjection\DependencySerializationTrait;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
-use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Plugin\ContainerFactoryPluginInterface;
 use Drupal\neo_alchemist\ComponentShapePluginInterface;
-use Drupal\neo_alchemist\ComponentValuePluginBase;
 use Drupal\views\ViewExecutable;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\HttpFoundation\RequestStack;
@@ -20,24 +16,29 @@ use Symfony\Component\HttpFoundation\RequestStack;
  * Shared machinery for value providers built on a view's exposed filters.
  *
  * Both concrete providers (one filter as designed-UI data; the applied
- * filters as removable chips) need the same four capabilities: reading the
- * `views` prop-shape context the views value provider registers, listing a
- * context view's exposed filters from CONFIG at form time (no execution),
- * building URLs from the raw request (route-free, so headless renders degrade
- * to NULL urls instead of throwing), and normalizing widget options —
- * including unwrapping the (object) ['option' => [id => label]] entries
- * hierarchical taxonomy selects use, with clean labels and depth from term
- * storage.
+ * filters as removable chips) need the same three capabilities on top of the
+ * views-context reading ViewsContextValueBase provides: listing a context
+ * view's exposed filters from CONFIG at form time (no execution), building
+ * URLs from the raw request (route-free, so headless renders degrade to NULL
+ * urls instead of throwing), and normalizing widget options — including
+ * unwrapping the (object) ['option' => [id => label]] entries hierarchical
+ * taxonomy selects use, with clean labels and depth from term storage.
+ *
+ * The context plumbing itself (the context select, getContextView(), the
+ * query cache context) lives on ViewsContextValueBase, which is service-free
+ * so a views-backed provider needing no services carries no container wiring.
+ * This class adds the two services the filter machinery above needs.
  *
  * Everything resolves at the MODIFY stage of the value pipeline, never at
  * default time: defaults run at shape init inside loadPropShapes(), where the
  * views provider has not executed its view yet and where forcing a shape
  * build recurses fatally. Hence every context read here passes $build FALSE.
  *
+ * @see \Drupal\neo_alchemist\Plugin\ComponentValue\ViewsContextValueBase
  * @see \Drupal\neo_alchemist\Plugin\ComponentValue\ViewsExposedFilterValue
  * @see \Drupal\neo_alchemist\Plugin\ComponentValue\ViewsActiveFiltersValue
  */
-abstract class ViewsExposedFilterValueBase extends ComponentValuePluginBase implements ContainerFactoryPluginInterface {
+abstract class ViewsExposedFilterValueBase extends ViewsContextValueBase implements ContainerFactoryPluginInterface {
 
   use DependencySerializationTrait;
 
@@ -83,88 +84,6 @@ abstract class ViewsExposedFilterValueBase extends ComponentValuePluginBase impl
       $container->get('entity_type.manager'),
       $container->get('request_stack'),
     );
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function isEditable(): bool {
-    return FALSE;
-  }
-
-  /**
-   * Ajax callback.
-   */
-  public static function refreshAjax(array $form, FormStateInterface $form_state) {
-    $trigger = $form_state->getTriggeringElement();
-    $parents = array_slice($trigger['#array_parents'], 0, -1);
-    return NestedArray::getValue($form, $parents);
-  }
-
-  /**
-   * Get the available options for the views context.
-   *
-   * At form time only the context KEYS exist — the executed view value is
-   * registered at render — which is all the select needs.
-   *
-   * @return array
-   *   Context shape titles keyed by context id.
-   */
-  protected function getContextOptions(): array {
-    $options = [];
-    if ($viewsContexts = $this->shape->getComponent()->getPropShapeContexts('views')) {
-      foreach ($viewsContexts as $context => $contextInfo) {
-        $options[$context] = $contextInfo['shape']->getTitle();
-      }
-    }
-    return $options;
-  }
-
-  /**
-   * Builds the views-context select for a configuration form.
-   *
-   * @param array $form
-   *   The form, with '#parents' set.
-   *
-   * @return array
-   *   The form with the context element (and AJAX rewrap wiring) added.
-   */
-  protected function buildContextFormElement(array $form): array {
-    if ($options = $this->getContextOptions()) {
-      $form['context'] = [
-        '#type' => 'select',
-        '#title' => $this->t('Views Context'),
-        '#description' => $this->t('The context key provided by a value plugin that contains the views object.'),
-        '#options' => $options,
-        '#empty_option' => $this->t('- Select -'),
-        '#default_value' => $this->configuration['context'],
-        '#required' => TRUE,
-        '#ajax' => [
-          'callback' => [static::class, 'refreshAjax'],
-          'wrapper' => $form['#id'],
-        ],
-      ];
-    }
-    return $form;
-  }
-
-  /**
-   * Returns the executed view registered under a context, if resolved.
-   *
-   * $build MUST stay FALSE: forcing a shape build from inside the value
-   * pipeline re-runs every shape's init — including the instance currently
-   * executing — and recurses until memory runs out.
-   *
-   * @param string $context
-   *   The views context key.
-   *
-   * @return \Drupal\views\ViewExecutable|null
-   *   The executed view, or NULL when the context is not (yet) resolved.
-   */
-  protected function getContextView(string $context): ?ViewExecutable {
-    $viewsContexts = $this->shape->getComponent()->getPropShapeContexts('views', FALSE);
-    $view = $viewsContexts[$context]['value'] ?? NULL;
-    return $view instanceof ViewExecutable ? $view : NULL;
   }
 
   /**
@@ -217,15 +136,6 @@ abstract class ViewsExposedFilterValueBase extends ComponentValuePluginBase impl
       $options[$identifier] = $label . ' (' . $identifier . ')';
     }
     return $options;
-  }
-
-  /**
-   * Registers that this value varies by the query string.
-   */
-  protected function addQueryCacheability(): void {
-    $cacheability = new CacheableMetadata();
-    $cacheability->addCacheContexts(['url.query_args']);
-    $this->shape->addCacheableDependency($cacheability);
   }
 
   /**

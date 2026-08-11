@@ -79,7 +79,63 @@ final class ViewsExposedFilterValue extends ViewsExposedFilterValueBase {
       ];
     }
 
+    $form['reference'] = $this->buildReferenceElement();
+
     return $form;
+  }
+
+  /**
+   * Builds the twig reference shown under the settings.
+   *
+   * The methods are the load-bearing half. An exposed filter is only a GET
+   * parameter, so a designed UI is free to submit it however it likes — but
+   * the attribute clusters that make that submission correct (the form's
+   * method/action pair, the inputs carrying every OTHER filter's state, the
+   * checked/aria-current flags) are not derivable from the data, and getting
+   * them wrong fails silently. Documenting them next to the setting is the
+   * difference between a filter UI that composes with its siblings and one
+   * that clears them.
+   *
+   * @return array
+   *   A details element.
+   */
+  protected function buildReferenceElement(): array {
+    $name = $this->shape->getName();
+
+    return $this->buildTwigReferenceElement(
+      [
+        'label' => $this->t('The filter&#039;s exposed label, for the trigger.'),
+        'param' => $this->t('The query parameter this filter reads and writes.'),
+        'multiple' => $this->t('TRUE when the filter accepts several values — checkboxes rather than links or radios.'),
+        'active' => $this->t('TRUE when the visitor has applied this filter.'),
+        'active_count' => $this->t('How many values are applied, for a "Markets (2)" trigger.'),
+        'active_labels' => $this->t('The applied values&#039; labels. <code>@name.active_labels|first|default(@name.label)</code> is the usual single-select trigger.', ['@name' => $name]),
+        'value' => $this->t('The applied values themselves, as strings.'),
+        'options' => $this->t('The option tree. Each entry has <code>label</code>, <code>value</code>, <code>url</code> (that option applied), <code>active</code>, and <code>below</code> for the next level — taxonomy hierarchies come through nested, up to three deep.'),
+        'reset_url' => $this->t('The current URL with this filter dropped — the "All" / "Clear" target.'),
+        'placeholder' => $this->t('A text filter&#039;s placeholder, when the exposed filter defines one.'),
+      ],
+      [
+        'getForm()' => $this->t('Attributes for the <code>&lt;form&gt;</code> tag: <code>method="get"</code> and the right action. Only needed when the UI submits a form; a filter rendered as links needs no form at all.'),
+        'getHidden()' => $this->t('Every OTHER query argument as hidden inputs. <strong>Omitting this inside the form clears every other active filter on submit</strong> — the one mistake here that produces no error.'),
+        'getCheckbox(option)' => $this->t('Name/value/checked for one option in a multi-select.'),
+        'getRadio(option)' => $this->t('Name/value/checked for one option in a single-select form.'),
+        'getTextfield(type)' => $this->t('Name/value/placeholder for a text filter&#039;s input. Pass <code>&#039;search&#039;</code> for search-box semantics.'),
+        'getLink(option)' => $this->t('href plus <code>aria-current</code> for one option rendered as a link — the no-form path, since applying a filter is just a different URL.'),
+      ],
+      [
+        '{# Single-select, as a dropdown of links — no form needed #}',
+        '<a{{ ' . $name . '.getLink(option).addClass(\'…\') }}>{{ option.label }}</a>',
+        '',
+        '{# Multi-select, as a checkbox panel #}',
+        '<form{{ ' . $name . '.getForm() }}>',
+        '  {{ ' . $name . '.getHidden() }}{# keeps the sibling filters #}',
+        '  <label><input{{ ' . $name . '.getCheckbox(option) }}> {{ option.label }}</label>',
+        '  <button type="submit">{{ \'Apply\'|t }}</button>',
+        '</form>',
+      ],
+      $this->unboundNote()
+    );
   }
 
   /**
