@@ -116,7 +116,12 @@ class InstanceComponentPublishForm extends EntityConfirmFormBase {
    * {@inheritdoc}
    */
   public function getDescription() {
-    return $this->t('Are you sure you want to save this layout and all of its components?');
+    $note = $this->entity->hasField('moderation_state')
+      ? $this->t('Use the workflow state below to control whether these changes go live now or wait for review. You can keep editing afterwards and save again at any time.')
+      : $this->t('You can keep editing afterwards and save again at any time.');
+    return $this->t('<p>Saving takes the changes you have been working on and makes them the saved version of this layout.</p><p class="text-xs">Everything you have done since the last save is included: components you added or removed, components you moved around, and any content or settings you edited inside them.</p><p class="text-xs">@note</p>', [
+      '@note' => $note,
+    ]);
   }
 
   /**

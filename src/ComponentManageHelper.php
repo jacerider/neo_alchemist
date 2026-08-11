@@ -280,6 +280,7 @@ class ComponentManageHelper {
   public static function buildDynamicOperations(ComponentTreeItem|ComponentInterface $instance) {
     $build = [];
     $modalSettings = [
+      'width' => '640px',
       'neo' => [
         'displaceTop' => '0px',
         'displaceBottom' => '0px',
