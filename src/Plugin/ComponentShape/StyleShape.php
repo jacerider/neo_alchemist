@@ -46,6 +46,13 @@ class StyleShape extends StyleShapeBase {
    */
   protected function preRenderValue(mixed $value, Attribute $attributes): mixed {
     $value = parent::preRenderValue($value, $attributes);
+    // The child/aggregate path can hand this an array rather than the style
+    // key string — a delta-keyed field value ([{value: x}]) or a
+    // block-claimed empty's []. Resolve to the key where one exists; an
+    // empty/unresolvable value renders an empty attribute.
+    if (is_array($value)) {
+      $value = $value['value'] ?? $value[0]['value'] ?? NULL;
+    }
     $finalValue = new ComponentShapeStyleAttribute([], $value ?: NULL);
     if ($value && isset($this->schema['styles'][$value]['value'])) {
       // Split multi-class values into individual class tokens so consumers can
