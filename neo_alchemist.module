@@ -492,6 +492,65 @@ function neo_alchemist_entity_delete(EntityInterface $entity) {
 }
 
 /**
+ * Implements hook_ENTITY_TYPE_insert() for field_config entities.
+ *
+ * Remembers fields created during this request so that
+ * neo_alchemist_entity_view_display_presave() can recognise Field UI's
+ * automatic display placement.
+ */
+function neo_alchemist_field_config_insert(FieldConfigInterface $field): void {
+  if ($field->isSyncing()) {
+    return;
+  }
+  $created = &drupal_static('neo_alchemist_field_config_created', []);
+  $created[$field->getTargetEntityTypeId()][$field->getTargetBundle()][$field->getName()] = TRUE;
+}
+
+/**
+ * Implements hook_ENTITY_TYPE_presave() for entity_view_display entities.
+ *
+ * Field UI places every newly created field into the default view display. On
+ * bundles rendered by Alchemist the fields are pulled into the component tree
+ * rather than printed by the display, so an auto-placed field just shows up as
+ * stray markup above the page. Strip the placement back out and leave the field
+ * disabled until someone enables it on Manage display.
+ *
+ * @see \Drupal\field_ui\Form\FieldStorageCreationTrait::configureEntityViewDisplay()
+ */
+function neo_alchemist_entity_view_display_presave(EntityViewDisplayInterface $display): void {
+  if ($display->isSyncing() || $display->isNew()) {
+    return;
+  }
+  $created = &drupal_static('neo_alchemist_field_config_created', []);
+  $fieldNames = $created[$display->getTargetEntityTypeId()][$display->getTargetBundle()] ?? [];
+  if (!$fieldNames) {
+    return;
+  }
+
+  $original = $display->getOriginal();
+  if (!$original) {
+    return;
+  }
+  // Only opt in displays that Alchemist already renders. When the component
+  // tree field itself is the one being added the original display has no
+  // Alchemist component yet, so that field stays visible as normal.
+  $isAlchemist = (bool) array_filter($original->getComponents(), function (array $component) {
+    return ($component['type'] ?? '') === 'neo_component_tree';
+  });
+  if (!$isAlchemist) {
+    return;
+  }
+
+  foreach (array_keys($fieldNames) as $fieldName) {
+    // Only undo placements this save is introducing, so re-saving the display
+    // later never fights the Manage display form.
+    if ($display->getComponent($fieldName) && !$original->getComponent($fieldName)) {
+      $display->removeComponent($fieldName);
+    }
+  }
+}
+
+/**
  * Implements hook_alchemist_entity_bundle_field_info_alter().
  */
 function neo_alchemist_entity_bundle_field_info_alter(&$fields, EntityTypeInterface $entity_type, $bundle) {
