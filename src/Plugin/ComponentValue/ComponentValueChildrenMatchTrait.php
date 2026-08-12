@@ -73,6 +73,46 @@ trait ComponentValueChildrenMatchTrait {
         '#title' => $this->t('Shape Fields'),
         '#element_validate' => [[static::class, 'validateChildrenMatchConfigurationForm']],
       ];
+      // Chained providers on one shape (a primary entity_reference above an
+      // entity_query fallback) almost always want the same mapping, and until
+      // now each had to be filled in by hand — every chained pair in this
+      // site's config carries the same shape_fields twice, verbatim. Offer a
+      // one-click copy from any sibling provider that has a mapping. Form
+      // convenience only: it prefills this form's input and rebuilds; nothing
+      // is stored until the whole form is saved.
+      if ($copySources = $this->copyMappingSources($shape)) {
+        $copyParents = array_merge($form['#parents'], ['shape_fields', '_copy']);
+        $form['shape_fields']['_copy'] = [
+          '#type' => 'container',
+          '#attributes' => [
+            'class' => ['form--inline', 'form--inline-min', 'items-end'],
+          ],
+        ];
+        $form['shape_fields']['_copy']['source'] = [
+          '#type' => 'select',
+          '#title' => $this->t('Copy field mapping from'),
+          '#options' => array_map(static fn (array $source) => $source['label'], $copySources),
+          '#empty_option' => $this->t('- Select provider -'),
+          '#parents' => array_merge($copyParents, ['source']),
+          '#neo_size' => 'xs',
+        ];
+        $form['shape_fields']['_copy']['apply'] = [
+          '#type' => 'submit',
+          '#value' => $this->t('Copy mapping'),
+          // Buttons are told apart by name; there can be one of these per
+          // provider on the page.
+          '#name' => $wrapperId . '-copy-mapping',
+          '#parents' => array_merge($copyParents, ['apply']),
+          '#copy_map' => array_map(static fn (array $source) => $source['shape_fields'], $copySources),
+          '#limit_validation_errors' => [],
+          '#submit' => [[static::class, 'copyMappingSubmit']],
+          '#ajax' => [
+            'callback' => [static::class, 'copyMappingAjax'],
+            'wrapper' => $wrapperId,
+          ],
+          '#neo_size' => 'xs',
+        ];
+      }
       foreach ($childShapes as $shapeName => $childShape) {
         $form['shape_fields'][$shapeName] = [
           '#id' => $wrapperId . '-' . $shapeName,
@@ -106,8 +146,102 @@ trait ComponentValueChildrenMatchTrait {
    */
   public static function validateChildrenMatchConfigurationForm(array &$element, FormStateInterface $form_state, array &$complete_form) {
     $values = $form_state->getValue($element['#parents']);
+    // The copy-mapping control lives inside this fieldset for layout but is
+    // pure form chrome — it must never reach the plugin's stored settings.
+    unset($values['_copy']);
     $values = array_filter($values);
     $form_state->setValue($element['#parents'], $values);
+  }
+
+  /**
+   * Sibling providers on the same shape whose mapping can be copied.
+   *
+   * @param \Drupal\neo_alchemist\ComponentShapeChildrenMatchPluginInterface $shape
+   *   The shape whose stored plugins to scan.
+   *
+   * @return array
+   *   Keyed by plugin id: ['label' => …, 'shape_fields' => …].
+   */
+  protected function copyMappingSources(ComponentShapeChildrenMatchPluginInterface $shape): array {
+    $sources = [];
+    $stored = $shape->getPlugins()[$shape->id()] ?? [];
+    foreach ($stored as $pluginId => $instance) {
+      if ($pluginId === $this->getPluginId() || empty($instance['settings']['shape_fields'])) {
+        continue;
+      }
+      $definition = \Drupal::service('plugin.manager.neo_component_value')->getDefinition($pluginId, FALSE);
+      $sources[$pluginId] = [
+        'label' => (string) ($definition['label'] ?? $pluginId),
+        'shape_fields' => $instance['settings']['shape_fields'],
+      ];
+    }
+    return $sources;
+  }
+
+  /**
+   * Submit handler: prefill this provider's mapping from a sibling's.
+   *
+   * Writes the chosen source's shape_fields into the raw user input under
+   * this provider's own shape_fields parents and rebuilds, so every child
+   * element re-renders with the copied selection. The values only persist
+   * when the form is saved normally.
+   */
+  public static function copyMappingSubmit(array &$form, FormStateInterface $form_state): void {
+    $trigger = $form_state->getTriggeringElement();
+    // The apply button sits at [..., 'shape_fields', '_copy', 'apply'].
+    $copyParents = array_slice($trigger['#parents'], 0, -1);
+    $targetParents = array_slice($trigger['#parents'], 0, -2);
+    $input = $form_state->getUserInput();
+    $sourceId = NestedArray::getValue($input, array_merge($copyParents, ['source']));
+    $mapping = $trigger['#copy_map'][$sourceId] ?? NULL;
+    if ($mapping !== NULL) {
+      // Keep the select's own input (so the user sees what was copied) while
+      // replacing every child mapping wholesale.
+      $copyInput = NestedArray::getValue($input, $copyParents);
+      NestedArray::setValue($input, $targetParents, static::mappingToInput($mapping) + ['_copy' => $copyInput]);
+      $form_state->setUserInput($input);
+    }
+    $form_state->setRebuild();
+  }
+
+  /**
+   * Converts a stored shape_fields subtree to raw form-input format.
+   *
+   * Stored leaves are scalars and booleans; input wants strings, and an
+   * unchecked checkbox is the absence of a key rather than FALSE.
+   *
+   * @param array $mapping
+   *   The stored shape_fields subtree.
+   *
+   * @return array
+   *   The same subtree as raw input.
+   */
+  protected static function mappingToInput(array $mapping): array {
+    $input = [];
+    foreach ($mapping as $key => $value) {
+      if (is_array($value)) {
+        $input[$key] = static::mappingToInput($value);
+      }
+      elseif (is_bool($value)) {
+        if ($value) {
+          $input[$key] = '1';
+        }
+      }
+      else {
+        $input[$key] = (string) $value;
+      }
+    }
+    return $input;
+  }
+
+  /**
+   * Ajax callback for the copy-mapping button: the whole provider subform.
+   */
+  public static function copyMappingAjax(array $form, FormStateInterface $form_state) {
+    $trigger = $form_state->getTriggeringElement();
+    // From apply → _copy → shape_fields up to the provider subform, whose
+    // #id is the ajax wrapper.
+    return NestedArray::getValue($form, array_slice($trigger['#array_parents'], 0, -3));
   }
 
   /**
