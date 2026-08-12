@@ -171,15 +171,20 @@ class ComponentValueProcessingModeIntegrationTest extends KernelTestBase {
     // taxonomy_menu / taxonomy_children live in neo_alchemist_taxonomy, so
     // none of the three are discovered under this suite's minimal module set.
     //
-    // What unites this set is the SHAPE of the prop each one fills: a list, a
-    // menu, a trail — props whose schema examples are editor scaffolding
-    // (invented links, placeholder cards) rather than a usable default. Since
+    // What unites this set is that each one names a real data source: a
+    // list, a menu, a trail — or, for `entity`, a specific field the site
+    // builder bound the prop to. Props whose schema examples are editor
+    // scaffolding (invented links, placeholder cards, sample copy) must not
+    // leak that scaffolding to visitors when the source is empty. Since
     // getDefaultValue() stopped letting an empty non-claiming producer wipe
     // the seeded example, a claim is the only way such a producer can say
-    // "nothing IS the answer", and block is the mode that claims. Producers
-    // that fill an authored scalar — entity on a string, heading, page_title —
-    // deliberately stay on stop_when_found so the component author's example
-    // survives an empty source field.
+    // "nothing IS the answer", and block is the mode that claims. `entity`
+    // joined the set because binding a prop to a field is a statement that
+    // the field is the source of truth — an empty field should render
+    // nothing, not the author's placeholder (site builders were selecting
+    // block by hand on virtually every entity binding). Producers whose
+    // value is derived rather than bound — heading, page_title — stay on
+    // stop_when_found so the component author's example survives.
     //
     // `event` is the one continue, and it is a compatibility pin rather than a
     // shape judgement: the plugin predates the mode and never claimed on its
@@ -188,6 +193,7 @@ class ComponentValueProcessingModeIntegrationTest extends KernelTestBase {
     // for components already configured with it.
     $this->assertSame([
       'breadcrumb' => ComponentValueProcessingModeInterface::MODE_BLOCK,
+      'entity' => ComponentValueProcessingModeInterface::MODE_BLOCK,
       'entity_filter' => ComponentValueProcessingModeInterface::MODE_BLOCK,
       'entity_query' => ComponentValueProcessingModeInterface::MODE_BLOCK,
       'entity_reference' => ComponentValueProcessingModeInterface::MODE_BLOCK,

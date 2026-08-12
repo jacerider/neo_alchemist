@@ -248,6 +248,75 @@ class PropEditabilityTest extends KernelTestBase {
   }
 
   /**
+   * Locked still lets a site builder author an object prop's default value.
+   *
+   * "Locked" is a statement about content editors. The prop form is the other
+   * side of that line — it is where the site builder configures the component
+   * the lock protects — and the mode does not otherwise blank it: a scalar
+   * prop on a locked component still renders its Default value widget. Only
+   * object props went empty, because ObjectShape::form() emitted just the
+   * children isEditable() approved of and the lock had already reached every
+   * one of them. Nothing about an object prop should make it the exception.
+   *
+   * The scalar prop is asserted alongside the object one deliberately: it is
+   * the evidence that "locked" was never meant to empty this form, and it is
+   * what makes the object prop's emptiness a bug rather than the policy.
+   *
+   * @see \Drupal\neo_alchemist\Plugin\ComponentShape\ObjectShape::form()
+   */
+  public function testLockedStillBuildsTheDefaultValueFormInConfigScope(): void {
+    $component = $this->createComponent(ComponentInterface::PROP_EDITABILITY_LOCKED);
+    $this->assertSame('config', $component->getScope(), 'Premise: the component entity itself is config scope.');
+
+    $scalar = $this->defaultValueForm($component, 'count');
+    $this->assertNotEmpty($scalar, 'A scalar prop renders its Default value widget despite the lock.');
+
+    $object = $this->defaultValueForm($component, 'box');
+    $this->assertSame(
+      ['text', 'flag', 'note', 'count'],
+      $object,
+      'An object prop renders one field per child, same as the scalar prop does.',
+    );
+  }
+
+  /**
+   * Locked still hides those same children from a content editor.
+   *
+   * The other half of the contract, and the reason the fix above is scoped to
+   * config rather than dropped from ObjectShape::form() outright. Without this
+   * the change above would be indistinguishable from simply unlocking the
+   * component for everyone.
+   */
+  public function testLockedStillFiltersObjectChildrenInContentScope(): void {
+    $component = $this->createComponent(ComponentInterface::PROP_EDITABILITY_LOCKED);
+
+    // A real instance is a ComponentField/ComponentEntity built off a
+    // configured field; the only thing that matters here is the scope it
+    // reports, so set that directly rather than standing up the field plumbing.
+    $scope = new \ReflectionProperty($component, 'scope');
+    $scope->setValue($component, 'entity');
+
+    $this->assertSame([], $this->defaultValueForm($component, 'box'), 'No child reaches a content-scope form.');
+  }
+
+  /**
+   * The child field names a prop's Default value plugin puts on the form.
+   *
+   * Goes through buildConfigurationForm() — the entry point ComponentPropForm
+   * uses — rather than the plugin's internals, so the assertions above pin
+   * what the site builder actually sees.
+   */
+  private function defaultValueForm(Component $component, string $prop): array {
+    $shape = $component->getPropShape($prop);
+    $plugin = $shape->getValueCollection()->get('default');
+    $this->assertNotNull($plugin, sprintf('Precondition: prop "%s" has a Default value plugin.', $prop));
+
+    $complete_form = [];
+    $form = $plugin->buildConfigurationForm(['#parents' => ['values']], new FormState(), $complete_form);
+    return array_values(Element::children($form));
+  }
+
+  /**
    * Guarded does not reach nested shapes.
    *
    * The counterpart to testLockedLocksNestedShapes(), and the distinction the

@@ -1,0 +1,32 @@
+$schema: 'https://git.drupalcode.org/project/drupal/-/raw/10.1.x/core/modules/sdc/src/metadata.schema.json'
+name: 'NA object reference probe fixture'
+description: >
+  An object prop whose children include integers, mirroring the shape of an
+  `image` prop (src/alt/width/height). An entity reference's `target_id` is
+  also an integer, so this is the shape that used to match a bare reference
+  wholesale on a coincidental data-type overlap — and, by matching, suppress
+  the recursion that offers the fields on the far side of it.
+status: stable
+neo: true
+props:
+  type: object
+  properties:
+    box:
+      type: object
+      title: Box
+      examples:
+        src: 'https://example.com/example.png'
+        alt: 'EXAMPLE ALT'
+      properties:
+        src:
+          type: string
+          title: Source
+        alt:
+          type: string
+          title: Alt
+        width:
+          type: integer
+          title: Width
+        height:
+          type: integer
+          title: Height

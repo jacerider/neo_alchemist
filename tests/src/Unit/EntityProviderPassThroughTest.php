@@ -195,16 +195,34 @@ class EntityProviderPassThroughTest extends UnitTestCase {
   }
 
   /**
-   * EntityReferenceValue is only offered where a target entity type exists.
+   * EntityReferenceValue needs a target entity type AND a distributable shape.
+   *
+   * Mirrors entity_query's gate: iterable lists and expandable objects (the
+   * `_aggregate` shape of an aggregated component) can receive a children
+   * distribution; non-expandable object shapes such as link and heading
+   * cannot, and must not be offered the plugin.
    */
   public function testReferenceValueApplicability(): void {
-    $withTarget = $this->createMock(ComponentShapePluginInterface::class);
-    $withTarget->method('getTargetEntityType')->willReturn('node');
+    $iterable = $this->createMock(ComponentShapePluginInterface::class);
+    $iterable->method('getTargetEntityType')->willReturn('node');
+    $iterable->method('isIterable')->willReturn(TRUE);
+
+    $expandable = $this->createMock(ComponentShapePluginInterface::class);
+    $expandable->method('getTargetEntityType')->willReturn('node');
+    $expandable->method('isIterable')->willReturn(FALSE);
+    $expandable->method('isExpandable')->willReturn(TRUE);
+
+    $flat = $this->createMock(ComponentShapePluginInterface::class);
+    $flat->method('getTargetEntityType')->willReturn('node');
+
     $withoutTarget = $this->createMock(ComponentShapePluginInterface::class);
     $withoutTarget->method('getTargetEntityType')->willReturn(NULL);
+    $withoutTarget->method('isIterable')->willReturn(TRUE);
 
-    $this->assertTrue(EntityReferenceValue::isApplicable($withTarget));
-    $this->assertFalse(EntityReferenceValue::isApplicable($withoutTarget));
+    $this->assertTrue(EntityReferenceValue::isApplicable($iterable), 'An iterable (array) shape is offered the plugin.');
+    $this->assertTrue(EntityReferenceValue::isApplicable($expandable), 'An expandable object (aggregate) shape is offered the plugin.');
+    $this->assertFalse(EntityReferenceValue::isApplicable($flat), 'A non-distributable shape is not.');
+    $this->assertFalse(EntityReferenceValue::isApplicable($withoutTarget), 'No target entity type, no offer.');
   }
 
   /**
