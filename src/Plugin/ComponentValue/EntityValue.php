@@ -89,6 +89,13 @@ final class EntityValue extends ComponentValuePluginBase implements ContainerFac
   }
 
   /**
+   * {@inheritdoc}
+   */
+  protected function processingModeDefault(): string {
+    return ComponentValueProcessingModeInterface::MODE_BLOCK;
+  }
+
+  /**
    * Configuration form for the value provider plugin.
    */
   protected function configurationForm(array $form, FormStateInterface $form_state, array &$complete_form): array {
