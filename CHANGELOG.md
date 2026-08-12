@@ -1,5 +1,31 @@
 # Changelog
 
+## Aggregate components: primary reference with a query fallback
+
+`entity_reference` now serves object/aggregate shapes as well as arrays (an
+object takes the first published referenced entity), so the chain every list
+prop already used — `entity_reference` on *stop when found* above
+`entity_query` on *block* — works on an aggregated component's `_aggregate`
+prop. A filled reference claims; an empty or dangling one falls through to the
+query; an empty query claims emptiness so schema examples never leak.
+
+Around it, three edges found on the way:
+
+- The Shape Fields form offers **"Copy field mapping from"** when a sibling
+  children-match provider on the same shape already carries a mapping — every
+  chained pair in real config had the same mapping duplicated verbatim, by
+  hand.
+- **`prop_value` access rules are aggregate-aware**: the rule form now offers
+  the aggregate's child props (the keys `access()` actually finds in the
+  unwrapped `getPropValues()`) instead of the synthetic `_aggregate` prop,
+  which never appears there and could only produce a rule that always
+  forbids. A stored `_aggregate` selection is read as "any prop has a value".
+- `EntityReferenceValue` guards against feeding zero entities to the children
+  matcher (which on a non-iterable shape produces a claimable map of
+  empties). Unreachable today — `MatcherReference::getReferenceField()`
+  returns NULL when the first target fails to load — but pinned so a matcher
+  change cannot silently starve a fallback.
+
 ## Result counts from the view: the views_summary prop
 
 A listing that renders `{{ items|length }}` next to its filters is showing the

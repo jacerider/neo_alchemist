@@ -129,8 +129,10 @@ Two layers:
    type/widget defaults, and render transforms. Base class
    [ComponentShapePluginBase](src/ComponentShapePluginBase.php); plugins live in
    [src/Plugin/ComponentShape/](src/Plugin/ComponentShape/) (30+: `StringShape`,
-   `HeadingShape`, `ImageShape`, `LinkShape`, `MenuShape`, `RegionShape`, `SchemeShape`,
-   `StyleShape`, …). Discovered by [ComponentShapePluginManager](src/ComponentShapePluginManager.php)
+   `HeadingShape`, `ImageShape`, `LinkShape`, `RegionShape`, `SchemeShape`,
+   `StyleShape`, …; note `menu` has no shape class — it is a prop-def filled by the
+   `MenuValue` value plugin, and `ImageSize.php` is the `image_size` shape despite
+   lacking the `*Shape` suffix). Discovered by [ComponentShapePluginManager](src/ComponentShapePluginManager.php)
    (`plugin.manager.neo_component_shape`); `getInstancesFromSchema()` builds the shape
    tree for a component.
 
@@ -243,8 +245,8 @@ to say "nothing IS the answer". Choose block for any prop whose examples are edi
 scaffolding — placeholder cards, placehold.co images, invented menu links — rather than a
 usable default; it is already the shipped default for the producers that fill those props
 (`entity_query`, `entity_filter`, `views`, `menu`, `taxonomy_menu`, `taxonomy_children`,
-`entity_reference`, `breadcrumb`), and `neo_alchemist_update_11003()` migrated existing
-components onto it.
+`taxonomy_siblings`, `entity_reference`, `breadcrumb`), and
+`neo_alchemist_update_11003()` migrated existing components onto it.
 
 Modifiers always run afterward regardless. Mechanics:
 
@@ -281,7 +283,15 @@ would have without a fallback configured.
 
 **Children-match pseudo-fields** — producers that map entity fields onto child shapes
 (`entity_reference`, `entity_query`, `entity_load`, `entity_filter`, `views`, …) share
-`ComponentValueChildrenMatchTrait`. Its per-child "Field" select offers, besides real
+`ComponentValueChildrenMatchTrait`. `entity_reference` serves array **and**
+object/aggregate shapes (an object takes the first published referenced entity); with
+that, the canonical **primary-source-with-fallback recipe** works on an aggregated
+component exactly as it long has on list props: `entity_reference` (mode
+`stop_when_found`) ordered above `entity_query` (mode `block`) — a filled reference
+claims, an empty one falls through to the query, and an empty query claims emptiness so
+schema examples never leak. The trait's Shape Fields form offers a "Copy field mapping
+from" control when a sibling provider on the same shape already carries a mapping, so
+the chained pair shares one mapping without hand-duplication. Its per-child "Field" select offers, besides real
 fields, `_`-prefixed pseudo-fields dispatched to `fetchChildrenMatchValues<Name>()`:
 `_default` (use the child's default), `_event` (ComponentValueEvent), `_expand`
 (configure grandchild shapes), `_reference~<key>` (follow a reference and recurse),

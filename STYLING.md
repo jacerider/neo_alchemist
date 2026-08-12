@@ -73,9 +73,22 @@ Each palette gives you:
 | `{prop}-{palette}-{shade}` | `bg-base-0`, `bg-primary-500`, `bg-base-950` | A specific shade, `0` (lightest) → `950` (darkest) |
 | `{prop}-{palette}-content` | `text-primary-content` | The readable foreground color to use **on** that color |
 | `{prop}-{palette}-{shade}-content` | `text-base-500-content` | Readable foreground on a specific shade |
+| `{prop}-{palette}-hover` | `hover:text-primary-hover` | The default color's **adaptive hover step** — contrast-picked per scheme. Pair as `text-primary hover:text-primary-hover`; never `hover:text-primary-600` (numbered shades don't adapt) |
+| `{prop}-{palette}-hover-content` | `text-primary-hover-content` | Readable foreground on the hover color (for hover fills) |
 
 `shadow-{shade}` is also available (from the base palette), plus `white`/`black`
 aliases (mapped to `base-0` / `base-950`).
+
+**`link` / `link-hover`** color any element like a scheme link — the same
+contrast-picked pair a bare `<a>` gets automatically: `text-link
+hover:text-link-hover`. Use them on non-anchor elements, or anchors that must
+carry other color classes; they stay legible in every scheme, including schemes
+that pin a role's contrast for brand fidelity.
+
+> **Adaptive vs raw — the one-line rule:** naming a shade number opts *out* of
+> scheme adaptation. `bg-default`, bare tokens (`text-primary`), `-hover` steps,
+> `link` tokens, `.btn*` and bare `<a>` all adapt; `text-primary-500` is always
+> the raw brand ramp — keep it only for deliberate raw-brand marks (decor).
 
 > **`-content` pairing.** Whenever you set a background, set its text with the
 > matching `-content` color so it stays readable in every scheme:
@@ -161,6 +174,8 @@ When you do need scheme-specific tweaks, use the generated variants:
 
 - Default surface + text: `bg-default text-default`.
 - Emphasis colors: palette utilities (`bg-primary text-primary-content`).
+- Hover states: the `-hover` step (`hover:text-primary-hover`, `hover:bg-primary-hover`)
+  or the link pair (`text-link hover:text-link-hover`) — never a numbered shade.
 - Let the `scheme` prop do the recoloring; avoid hardcoding one scheme's colors.
 
 ---
