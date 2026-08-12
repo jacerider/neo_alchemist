@@ -11,6 +11,7 @@ use Drupal\Core\Session\AccountInterface;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\neo_alchemist\Attribute\ComponentAccess;
 use Drupal\neo_alchemist\ComponentAccessPluginBase;
+use Drupal\neo_alchemist\ComponentShapeChildrenPluginInterface;
 
 /**
  * Plugin implementation of the neo_component_access.
@@ -41,7 +42,7 @@ final class PropValueAccess extends ComponentAccessPluginBase {
 
     $props = array_filter($this->configuration['props'] ?? []);
     if ($props) {
-      $shapes = $this->access->getComponent()->getPropShapes();
+      $shapes = $this->gateableShapes();
       $labels = array_map(
         fn ($prop) => (string) ($shapes[$prop]?->getTitle() ?? $prop),
         array_values($props),
@@ -55,12 +56,37 @@ final class PropValueAccess extends ComponentAccessPluginBase {
   }
 
   /**
+   * The prop shapes a rule may gate on, keyed by resolved-value key.
+   *
+   * On an aggregated component the schema's real props live one level down,
+   * as children of the synthetic `_aggregate` shape — while ::access() checks
+   * against getPropValues(), which is UNWRAPPED (the `_aggregate` key never
+   * appears in it; the real prop names do). Offering `_aggregate` here would
+   * therefore create a rule that can never pass. The children's names are
+   * exactly the unwrapped value keys, so they are what a rule must select.
+   *
+   * @return \Drupal\neo_alchemist\ComponentShapePluginInterface[]
+   *   The shapes, keyed by the name ::access() will find in getPropValues().
+   */
+  private function gateableShapes(): array {
+    $component = $this->access->getComponent();
+    $shapes = $component->getPropShapes();
+    if ($component->isAggregate() && isset($shapes['_aggregate'])) {
+      $aggregate = $shapes['_aggregate'];
+      if ($aggregate instanceof ComponentShapeChildrenPluginInterface) {
+        return $aggregate->getChildShapes();
+      }
+    }
+    return $shapes;
+  }
+
+  /**
    * Configuration form for the access plugin.
    */
   protected function configurationForm(array $form, FormStateInterface $form_state, array &$complete_form): array {
     $options = array_map(
       fn ($shape) => $shape->getTitle(),
-      $this->access->getComponent()->getPropShapes(),
+      $this->gateableShapes(),
     );
 
     $form['props'] = [
@@ -115,6 +141,16 @@ final class PropValueAccess extends ComponentAccessPluginBase {
     $values = $component->getPropValues();
     $result = AccessResult::neutral();
     foreach ($props as $propName) {
+      // A stored `_aggregate` selection predates the aggregate-aware option
+      // list; the unwrapped values never carry that key, so read it as "any
+      // prop has a value" rather than silently forbidding forever.
+      if ($propName === '_aggregate') {
+        if (!array_filter($values, fn ($v, $k) => $k !== 'attributes' && !empty($v), ARRAY_FILTER_USE_BOTH)) {
+          $result = AccessResult::forbidden('No prop has a value.');
+          break;
+        }
+        continue;
+      }
       if (!array_key_exists($propName, $values)) {
         $result = AccessResult::forbidden(sprintf('The "%s" prop has no value.', $propName));
         break;

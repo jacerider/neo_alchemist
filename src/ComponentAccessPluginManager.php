@@ -45,4 +45,28 @@ final class ComponentAccessPluginManager extends DefaultPluginManager {
     return new $plugin_class($plugin_id, $plugin_definition, $configuration['access'], $configuration['settings']);
   }
 
+  /**
+   * Gets the definitions applicable to the given component.
+   *
+   * Filters via each plugin class's static isApplicable() — e.g. the
+   * entity_field_value plugin is only offered on components registered
+   * against an entity type. Mirrors
+   * ComponentSlotPluginManager::getFilteredDefinitionsFromComponent().
+   *
+   * @param \Drupal\neo_alchemist\ComponentInterface $component
+   *   The component an access rule would be attached to.
+   *
+   * @return array
+   *   The applicable plugin definitions, sorted by label.
+   */
+  public function getFilteredDefinitionsFromComponent(ComponentInterface $component): array {
+    $filtered = array_filter($this->getDefinitions(), function ($definition) use ($component) {
+      return $definition['class']::isApplicable($component);
+    });
+    uasort($filtered, function ($a, $b) {
+      return $a['label'] <=> $b['label'];
+    });
+    return $filtered;
+  }
+
 }

@@ -84,7 +84,7 @@ final class ComponentAccessForm extends EntityForm {
     }
 
     $pluginId = $this->access->getPluginId();
-    $options = array_map(fn($definition) => $definition['label'], $this->accessManager->getDefinitions());
+    $options = array_map(fn($definition) => $definition['label'], $this->accessManager->getFilteredDefinitionsFromComponent($this->access->getComponent()));
     asort($options);
     $form['plugin_id'] = [
       '#type' => 'select',

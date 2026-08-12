@@ -59,4 +59,20 @@ interface ComponentAccessPluginInterface extends ConfigurableInterface, PluginFo
    */
   public function bypassAdminAccess(string $op): bool;
 
+  /**
+   * Determines if the plugin is applicable to the given component.
+   *
+   * Non-applicable plugins are not offered when adding an access rule to the
+   * component (mirroring ComponentSlotPluginInterface::isApplicable()). An
+   * already-saved rule whose plugin later becomes non-applicable still
+   * executes — plugins must degrade to neutral in that situation.
+   *
+   * @param \Drupal\neo_alchemist\ComponentInterface $component
+   *   The component the rule would be attached to.
+   *
+   * @return bool
+   *   TRUE when the plugin can act on this component.
+   */
+  public static function isApplicable(ComponentInterface $component): bool;
+
 }

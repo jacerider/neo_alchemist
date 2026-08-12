@@ -159,4 +159,12 @@ abstract class ComponentAccessPluginBase extends PluginBase implements Component
     return TRUE;
   }
 
+  /**
+   * {@inheritdoc}
+   */
+  public static function isApplicable(ComponentInterface $component): bool {
+    // By default, plugins are available for all components.
+    return TRUE;
+  }
+
 }
