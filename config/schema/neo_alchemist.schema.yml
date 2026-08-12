@@ -1021,6 +1021,17 @@ neo_alchemist.neo_component_access.prop_value:
         type: string
         label: 'Prop'
 
+neo_alchemist.neo_component_access.entity_field_value:
+  type: mapping
+  label: 'Entity field value'
+  mapping:
+    fields:
+      type: sequence
+      label: 'Required fields'
+      sequence:
+        type: string
+        label: 'Field'
+
 neo_alchemist.neo_component_shape_fields:
   type: sequence
   label: The shape fields
