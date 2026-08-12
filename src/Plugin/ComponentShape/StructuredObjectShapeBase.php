@@ -62,7 +62,7 @@ abstract class StructuredObjectShapeBase extends ComponentShapePluginBase implem
   public function getValueResolverShape(string $name): ?ComponentShapePluginInterface {
     if (!isset($this->valueResolverShapes)) {
       $properties = $this->getChildSchemaProperties();
-      $this->valueResolverShapes = $properties ? $this->shapeManager->getInstancesFromSchema([
+      $this->valueResolverShapes = $properties ? $this->shapeManager->getChildInstancesFromSchema([
         'type' => 'object',
         'properties' => $properties,
       ], $this->getComponent()) : [];
@@ -107,7 +107,7 @@ abstract class StructuredObjectShapeBase extends ComponentShapePluginBase implem
         'type' => 'object',
         'properties' => $this->getChildSchemaProperties(),
       ];
-      $instances = $this->shapeManager->getInstancesFromSchema($schema, $this->getComponent());
+      $instances = $this->shapeManager->getChildInstancesFromSchema($schema, $this->getComponent());
       foreach ($instances as $shape) {
         foreach ($this->getParentShapes() as $parentShape) {
           $shape->addParentShape($parentShape);

@@ -413,7 +413,7 @@ abstract class ChildrenShapeBase extends ComponentShapePluginBase implements Com
         $shape->setDelta((int) $delta);
       }
       return $shape;
-    }, $this->shapeManager->getInstancesFromSchema($schema, $this->getComponent()));
+    }, $this->shapeManager->getChildInstancesFromSchema($schema, $this->getComponent()));
     return $childShapes;
   }
 

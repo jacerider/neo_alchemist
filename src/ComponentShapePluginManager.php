@@ -26,6 +26,48 @@ final class ComponentShapePluginManager extends DefaultPluginManager {
   }
 
   /**
+   * Get child instances from schema.
+   *
+   * Use this instead of ::getInstancesFromSchema() for shapes nested inside
+   * another shape, so the component's prop editability policy — which governs
+   * top-level props only — is not applied to them.
+   *
+   * @param array $schema
+   *   The schema.
+   * @param \Drupal\neo_alchemist\ComponentInterface $component
+   *   The neo component.
+   *
+   * @return \Drupal\neo_alchemist\ComponentShapePluginInterface[]
+   *   The instances.
+   */
+  public function getChildInstancesFromSchema(array $schema, ComponentInterface $component): array {
+    $instances = $this->getInstancesFromSchema($schema, $component);
+    // A child shape is derived from its parent's schema, so it never carries a
+    // stored per-prop 'editable' setting and there is no UI that could give it
+    // one — only the props listed on the Manage form have that. Left to the
+    // usual fallback it would therefore adopt the component's prop editability
+    // policy, which is documented as answering a different question: how a
+    // *prop* with no stored setting should default when the template grows one.
+    // On a "guarded" or "locked" component that made every child of every
+    // object/array prop non-editable, so ObjectShape::form() — which only emits
+    // editable children — rendered no fields at all, both in the instance
+    // editor and in the config-scope forms a site builder uses to author a
+    // default value.
+    //
+    // Children start editable and let the lock chain decide instead: "locked"
+    // still wins through ComponentInterface::arePropsLocked(), a locked or
+    // access-disabled parent still propagates down through isLocked(), and a
+    // non-editable parent prop is filtered out before its form is ever built.
+    //
+    // @see \Drupal\neo_alchemist\ComponentInterface::getPropEditableDefault()
+    // @see \Drupal\neo_alchemist\ComponentShapePluginBase::isLocked()
+    foreach ($instances as $instance) {
+      $instance->setEditable(TRUE);
+    }
+    return $instances;
+  }
+
+  /**
    * Get instances from schema.
    *
    * @param array $schema
