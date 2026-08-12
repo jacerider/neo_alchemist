@@ -1274,10 +1274,19 @@ class Component extends ConfigEntityBase implements ComponentInterface {
       $rootShapes = $this->getPropShapes();
       foreach ($rootShapes as $shape) {
         $shape->onAdd();
-        foreach ($shape->getPlugins() as $id => $plugins) {
-          foreach ($plugins as $pluginType => $plugin) {
-            $shape->onPluginAdd($pluginType);
-          }
+      }
+      // A shape's plugin map covers its whole subtree, keyed by shape id, so
+      // the notification has to reach the shape that actually owns each plugin
+      // — its value collection is the only one holding that instance. Handing
+      // every plugin to the root shape instead asks the root for instances that
+      // live on a nested shape, which throws. A component built from the SDC
+      // rarely notices, because it starts with no nested plugin configuration;
+      // a clone arrives carrying the source's, and cannot save at all.
+      //
+      // @see self::preSave() update branch, which already resolves the owner.
+      foreach ($this->getPropShapesAll($rootShapes) as $id => $shape) {
+        foreach (array_keys($shape->getPlugins()[$id] ?? []) as $pluginType) {
+          $shape->onPluginAdd($pluginType);
         }
       }
       // Process all props and store the settings.
