@@ -65,7 +65,7 @@ class InstanceComponentResetForm extends EntityConfirmFormBase {
    * {@inheritdoc}
    */
   public function getDescription() {
-    return $this->t('<p>Resetting removes the layout built here and puts back the default layout.</p><p class="text-xs">Every component added here will be removed, along with the content and settings inside them — both the saved version and any unsaved changes. What remains is the default layout, exactly as it looked before anyone customized it.</p><p class="text-xs">This is saved right away and cannot be undone. To only discard unsaved changes and keep the saved layout, cancel and revert instead.</p>');
+    return $this->t('<p>Resetting removes the layout built here and puts back the default layout.</p><p class="text-xs">Every component added here will be removed, along with the content and settings inside them. This applies to both the saved version and any unsaved changes. What remains is the default layout, exactly as it looked before anyone customized it.</p><p class="text-xs">This is saved right away and cannot be undone. To only discard unsaved changes and keep the saved layout, cancel and revert instead.</p>');
   }
 
   /**

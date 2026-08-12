@@ -65,7 +65,7 @@ class InstanceComponentRevertForm extends EntityConfirmFormBase {
    * {@inheritdoc}
    */
   public function getDescription() {
-    return $this->t('<p>This layout has unsaved changes. Reverting will throw those changes away and bring back the last saved version — the one currently shown on the site.</p><p class="text-xs">Everything you have done since the last save will be lost: components you added or removed, components you moved around, and any content or settings you edited inside them.</p><p class="text-xs">This cannot be undone. If you would rather keep your work, cancel and save the layout instead.</p>');
+    return $this->t('<p>This layout has unsaved changes. Reverting will throw those changes away and bring back the last saved version. That is the version currently shown on the site.</p><p class="text-xs">Everything you have done since the last save will be lost: components you added or removed, components you moved around, and any content or settings you edited inside them.</p><p class="text-xs">This cannot be undone. If you would rather keep your work, cancel and save the layout instead.</p>');
   }
 
   /**
