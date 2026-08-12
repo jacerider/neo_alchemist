@@ -31,19 +31,27 @@ class HeadingShape extends ObjectShape {
    */
   protected function form(array $form, FormStateInterface $form_state): array {
     $form = parent::form($form, $form_state);
-    $form['anchor']['widget']['widget'][0]['value']['#neo_size'] = 'xs';
-    if (!empty($form['title']['widget'])) {
-      $form['anchor']['widget']['widget'][0]['value']['#slug']['source'] = array_merge($form['title']['widget']['widget'][0]['value']['#field_parents'], [
-        'widget',
-        'widget',
-        0,
-        'value',
-      ]);
+    // ObjectShape::form() emits only editable children, so it can hand back a
+    // form with no children at all. Writing into the keys below would then
+    // auto-vivify them as phantom elements that massageFormValues() goes on to
+    // persist as empty values.
+    if (isset($form['anchor'])) {
+      $form['anchor']['widget']['widget'][0]['value']['#neo_size'] = 'xs';
+      if (!empty($form['title']['widget'])) {
+        $form['anchor']['widget']['widget'][0]['value']['#slug']['source'] = array_merge($form['title']['widget']['widget'][0]['value']['#field_parents'], [
+          'widget',
+          'widget',
+          0,
+          'value',
+        ]);
+      }
+      if (!$this->allowAnchorOverride()) {
+        $form['anchor']['#access'] = FALSE;
+      }
     }
-    if (!$this->allowAnchorOverride()) {
-      $form['anchor']['#access'] = FALSE;
+    if (isset($form['size'])) {
+      $form['size']['#neo_size'] = 'xs';
     }
-    $form['size']['#neo_size'] = 'xs';
     return $form;
   }
 
