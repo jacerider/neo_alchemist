@@ -357,6 +357,19 @@ breakpoint (`40rem → 48rem → 64rem → 80rem → 96rem`).
   manage horizontal padding yourself (e.g. a child that should bleed to the gutter
   edge, or a nested grid that sets its own padding).
 
+**Flushing a component nested in a region.** `container-content` is
+`@apply container-center px-container!`, so its horizontal padding resolves through the
+`--spacing-container` variable rather than a fixed value. A parent component that renders
+a `region` zeroes that variable for everything inside it with `neo-region-flush-x`, so its
+children fill the parent's column instead of adding a second gutter. Because the utility
+sets the variable rather than overriding `padding`, it works at any nesting depth, it
+survives `container-content`'s `!important` (the important governs which `padding-inline`
+declaration wins, not what the variable resolves to), and it matches both spellings —
+`container-content` and the longhand `container-center px-container`. A child component
+needs no markup, class or prop of its own to participate: which gutters survive is the
+parent's decision, made once on the region. Companion utilities `neo-region-flush-y` /
+`-t` / `-b` do the same for the children's outer vertical spacing.
+
 ### The full-bleed pattern
 
 Put the **background on the root** (full width) and the **`container-content` on an

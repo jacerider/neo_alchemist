@@ -81,9 +81,23 @@
   --spacing-lg-mult: 52;
 }
 
+/**
+ * Strips the side gutters from every component nested in this region.
+ *
+ * Both selectors are needed. `container-content` is `@apply container-center
+ * px-container!`, and @apply INLINES those declarations rather than putting the
+ * class on the element — so matching only `.px-container` silently misses the
+ * majority of components, which spell their wrapper `container-content`.
+ *
+ * Zeroing the variable (rather than overriding `padding`) is what makes this
+ * work at any depth and survive `container-content`'s `!important`: the
+ * important governs which `padding-inline` declaration wins, not what
+ * `var(--spacing-container)` resolves to.
+ */
 @utility neo-region-flush-x {
   .neo-region {
-    .px-container {
+    .px-container,
+    .container-content {
       --spacing-container: 0;
     }
   }

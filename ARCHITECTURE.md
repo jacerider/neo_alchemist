@@ -215,8 +215,23 @@ discard authored content in favour of the schema's `examples`.
 **Group is the primary sort key of the pipeline.** `ComponentShapePluginBase::getValueCollection()`
 orders plugins by the group's own `weight` (`providers` -5 → `fallback` -3 → `modifiers` 0 →
 `settings` 5) and only then within each group: the site builder's saved drag-and-drop order first
-(that is the only order the prop form can express, since each group renders its own table),
-followed by the remaining available plugins in definition order (plugin `weight`, then label). So
+(that is the only order the prop form can express — each group lists its active plugins as one
+draggable list), followed by the remaining available plugins in definition order (plugin
+`weight`, then label).
+
+**The prop form** (`ComponentPropForm`) is a list↔edit state machine in the mold of
+`ComponentSlotForm`: one vertical tab per plugin-bearing shape (the prop, then each expanded
+child), the four value groups stacked inside as badged sections, and — for multi-plugin groups —
+only the ACTIVE plugins listed as summary rows (`settingsSummary()` + the processing-mode badge)
+with an *Add provider* select for the rest; one plugin's settings form is open at a time.
+Single-plugin groups (`fallback`'s `default`, `settings`' `widget`) stay inline. All mutations
+run through `validateForm()` and are staged on the form object's own (cached, unsaved) entity via
+`setPropShapeSettings()` — nothing persists until Save, and a status message says so once the
+staged settings diverge. One sharp edge lives in the limited-validation detection:
+`Button::getInfo()` defaults `#limit_validation_errors` to FALSE, so "is this a limited
+submission" must test for an *array* — a presence check classifies every button (Update and Save
+included) as limited and silently skips the commit path
+(`ComponentPropFormUxTest::testUpdateTriggerCommitsTheOpenPane` pins this). So
 re-grouping a plugin *does* move it in the pipeline, and `default` — group `fallback`, weight
 1000 — is guaranteed to run after every provider no matter which one the site builder enabled
 first. Ordering the saved plugins flat instead is what let a `fallback` run ahead of a
@@ -289,9 +304,11 @@ that, the canonical **primary-source-with-fallback recipe** works on an aggregat
 component exactly as it long has on list props: `entity_reference` (mode
 `stop_when_found`) ordered above `entity_query` (mode `block`) — a filled reference
 claims, an empty one falls through to the query, and an empty query claims emptiness so
-schema examples never leak. The trait's Shape Fields form offers a "Copy field mapping
-from" control when a sibling provider on the same shape already carries a mapping, so
-the chained pair shares one mapping without hand-duplication. Its per-child "Field" select offers, besides real
+schema examples never leak. The trait renders the mapping as a table — one Property →
+Source row per child, explicit `#parents` keeping the stored `shape_fields` tree exactly
+as before the layout — with the rarely-used controls (`shape_published`, the "Copy field
+mapping from" convenience that clones a sibling provider's mapping) behind a collapsed
+**Advanced** section, their `#parents` likewise unmoved. Its per-child source select offers, besides real
 fields, `_`-prefixed pseudo-fields dispatched to `fetchChildrenMatchValues<Name>()`:
 `_default` (use the child's default), `_event` (ComponentValueEvent), `_expand`
 (configure grandchild shapes), `_reference~<key>` (follow a reference and recurse),

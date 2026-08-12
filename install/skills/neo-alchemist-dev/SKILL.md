@@ -199,7 +199,8 @@ provider instead of the same provider configured on eight props.
 Consequences you will trip over while debugging:
 
 - `getPropShapes()` returns exactly one shape (`_aggregate`, an `ObjectShape`); the real
-  props are its **children**, configured through the children-match "Shape Fields" UI.
+  props are its **children**, configured through the children-match mapping (a
+  Property → Source table; the stored key is still `shape_fields`).
 - `settings.props` has a single `_aggregate` key. Per-prop keys are not written —
   `setPropShapeSettings()` refuses any other shape while aggregating.
 - The prop route is `/prop/_aggregate`. `_aggregate` is **not** in

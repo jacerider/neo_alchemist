@@ -158,6 +158,10 @@ Alchemist extends SDC with custom "shapes" — reusable prop definitions from [n
 
   Pairs with the **Media Image Size** value plugin when the size choice should live on the saved component instead. Working example: [example_image](web/modules/contrib/neo_alchemist/modules/neo_alchemist_examples/components/example_image/example_image.component.yml).
 
+  Derive these numbers from the column's widest rendered width rather than copying the `1200` above — see the sizing pitfall under "Common pitfalls". Crops sharing one column keep the **same width** and vary only the height.
+
+  > **`examples:` on an `image_size` prop must be the keyed array `{value: <key>}`, not a bare key.** Unlike `style` props (backed by `list_string`), this shape's field type is `map`, and `MapItem::setValue()` runs any non-array through `unserialize()` — so `examples: wide` throws `unserialize(): Error at offset 0 of 4 bytes` on the component's manage screen. Omitting `examples:` entirely also works: the shape falls back to the first key in `styles:`.
+
 > `component-bg` is **not** a prop — it's a marker class you add (with `bg-default`) to a background-section root so adjacent sections rendering the **same color** collapse their doubled spacing. See the "Root element & structure" Twig patterns below.
 
 ### Structural shapes
@@ -393,9 +397,10 @@ Both files need `drush cr` to be picked up (unless `npm start` is running). `dru
 
 ## Wiring the saved component: values, slots, filters, access
 
-The `.component.yml` is half the system. Registering the SDC creates a **`neo_component`
-config entity** (`config/neo_alchemist.neo_component.<id>.yml`, managed at
-`/admin/config/neo/alchemist/{id}`), and everything a *site builder* wires — where prop
+The `.component.yml` is half the system. A site builder then adds one or more
+**`neo_component` config entities** on top of it (`config/neo_alchemist.neo_component.<id>.yml`,
+managed at `/admin/config/neo/alchemist/{id}`) — this does **not** happen automatically when
+you write the SDC, see workflow step 10 — and everything a *site builder* wires — where prop
 values come from, what fills slots, per-placement parameters, who sees the component — is
 plugin config on that entity, not in the yml. Know this catalog even when only authoring:
 a prop's *type* is chosen partly for what can later bind to it. (Plugin internals and how
@@ -417,26 +422,33 @@ saved-component plugin config never runs there (see "Verify from the CLI").
 Each prop runs a pipeline seeded from its schema `examples`: **providers** (source a
 value) → **fallback** (the `default` plugin — the site builder's configured Default Value)
 → **modifiers** (transform it) → **settings** (configure the widget, never the value).
-Every provider has a **Processing** mode: *Stop when a value is found* (non-empty wins,
-empty falls through), *Provide, allow later changes* (never final — a later provider can
-overwrite), *Always stop / block if empty* (always final: empty renders **nothing**; the
-shipped default for list-like providers whose `examples` are scaffolding). Two rules of
-thumb: a provider that finds nothing (and isn't on *block*) leaves the previous value
-standing, so attaching one can't make a prop worse; and a provider on *block* starves the
-Default Value plugin — never combine "block" with a configured default.
+The per-prop Customize form lists only the **active** plugins per group, as summary rows
+with an *Add provider* select for the rest; Edit opens one plugin's settings at a time,
+and everything stages on the form until Save. Every provider's chain behavior is the
+**"When this provider runs"** radios at the top of its settings: *Use its value and stop*
+(non-empty wins, empty falls through), *Add its value and continue* (never final — a
+later provider can overwrite), *Always use its value — final* (always claims: empty
+renders **nothing**; the shipped default for list-like providers whose `examples` are
+scaffolding). Two rules of thumb: a provider that finds nothing (and isn't on the final
+mode) leaves the previous value standing, so attaching one can't make a prop worse; and a
+provider on the final mode starves the Default Value plugin — never combine it with a
+configured default.
 
 **Primary source with a fallback** — the ordering + modes recipe, and it works on list
 props and on an aggregated component's `_aggregate` alike: `entity_reference` (mode
-*Stop when a value is found*) dragged **above** `entity_query` (mode *block*). A filled
-reference claims and the query never runs; an empty (or dangling) reference falls
-through to the query; an empty query claims emptiness so schema examples never leak.
-Map the Shape Fields once — the second provider's form offers "Copy field mapping from"
-to clone a sibling's mapping. Editor previews on an unsaved host always show the query
+*Use its value and stop*) dragged **above** `entity_query` (mode *Always use its value —
+final*). A filled reference claims and the query never runs; an empty (or dangling)
+reference falls through to the query; an empty query claims emptiness so schema examples
+never leak. Map the fields once — under **Advanced**, the second provider's form offers
+"Copy field mapping from" to clone a sibling's mapping. Editor previews on an unsaved host always show the query
 fallback (a new entity has no reference values yet). To hide the component when both
 sources come up empty, add a `prop_value` access rule on a mapped child that empties
 cleanly (a string like a card title — not a boolean/number, whose FALSE/0 count as
 values). Live example: `callout_s1` (service term → `field_related_projects`, else the
-newest project referencing the term via `field_related_services`).
+newest project referencing the term via `field_related_services`). On media/image props
+no recipe is needed for the common case: the auto-attached `media` provider is the
+built-in widget + fallback and never claims, so a provider added anywhere in the list
+supplies the image and the picked/fallback media fills in otherwise.
 
 **Providers** — pick by data source (⊕ = auto-attached to its shape):
 
@@ -455,7 +467,7 @@ newest project referencing the term via `field_related_services`).
 | `breadcrumb` ⊕ | breadcrumb | the real page breadcrumb (hide-home / hide-current options) |
 | `page_title` | string | the resolved page title |
 | `heading` ⊕ | heading | per-key (supertitle/title/subtitle) sourcing: page title / entity label / a field / a literal, plus per-key editability |
-| `media` ⊕ | media/image/file/video | the media-library picker + a shipped fallback file per media type |
+| `media` ⊕ | media/image/file/video | auto-attached infrastructure, locked (removing it would destroy the widget): the media-library picker, the media-to-image conversion, and a shipped fallback file per media type. Defaults to *Add its value and continue*, so a provider added after it still runs — no reordering needed |
 | `share` | menu | social share links for the host entity's canonical URL |
 | `read_time` | string | client-side "N min read" (word count runs in the browser) |
 | `event` | anything | custom module code supplies the value (`ComponentValueEvent`) |
@@ -557,6 +569,7 @@ Always put `{{ attributes.addClass(classes) }}` on a **single root element** —
 
 Rules of thumb:
 - **`container-content`** = centered, responsive max-width, **with** side gutters (the standard content wrapper). **`container-center`** = same but **no** gutters. Both are provided globally by the neo base theme.
+- **Nesting inside another component's region: nothing to do in the child.** A parent that renders a `region` strips its children's side gutters with `neo-region-flush-x`, and reclaims their outer vertical spacing with `neo-region-flush-y` / `-t` / `-b` — see [insight_body](web/themes/front/components/insight_body/insight_body.twig), whose article region hosts Text, Accordion and Testimonial. Those utilities zero `--spacing-container` on the child's content wrapper and match **both** spellings, `container-content` or its longhand `container-center px-container`, so write the wrapper whichever way reads best. Never hand-roll a "flush" variant in the child, and don't add a prop for it: which gutters survive is the *parent's* decision, made once on the region.
 - **Never hand-write a section carrier** — the `gap` prop applies `neo-section-y`. The `*-component` utilities stay available for spacing **inside** the component (`p-component-sm`, `mt-component-lg`, `gap-component`, …); they all read `--spacing-component` set by the `spacing` prop. Prefer the relative size variants (`-xs`, `-sm`, `-lg`, `-xl`) for internal spacing: the base-size vertical ones (`py/pt/pb/my/mt/mb-component`) are still channel-aware for backward compatibility with pre-`gap` components, so a collapsed section zeroes them — use a variant, a numeric utility, or wrap in `component-spacing-reset`.
 - **`component-bg`** marker: add it (alongside `bg-default`) to a background-section root so two adjacent sections rendering the **same color** collapse their doubled spacing into a single, continuous-background gap. "Same color" is **computed at build time** from the actual neo_color token values — `scheme-default` next to a no-scheme section collapses (identical pixels), and transparent components (no `component-bg`) collapse against neighbors matching the **page background**. `bg-default` next to `bg-base-100` under one scheme stays two colors and keeps its full separation. Recognized surfaces: `bg-default`, `bg-base-50/100/200/300`; anything else never collapses (fails safe; extend via `hook_neo_alchemist_component_bg_surfaces_alter()`). The editor opts a section out with the `gap` prop's `keep` option (or hand-add `component-bg-flush-none`).
 - **Colors:** apply `bg-default` (scheme-reactive) where you want a surface fill — text and borders inside a scheme then adapt **automatically with no class** (see next section). Use the `base|primary|secondary|accent` palettes (shades `-0…-950`, with `-content` foreground pairings, e.g. `bg-primary text-primary-content`) for emphasis. Full details in [web/modules/contrib/neo_alchemist/STYLING.md](web/modules/contrib/neo_alchemist/STYLING.md).
@@ -714,6 +727,16 @@ and the component root reveals on scroll (editor-selectable, `apply: true`, no t
 7. **Test interactive elements** with `{% if neoIsPreview %}data-event...{% endif %}` so the editor preview remains clickable.
 8. **Clear the cache** (`drush cr`) after adding a new component — SDC registration is cached.
 9. **Verify from the CLI before finishing** — run `drush neo:alchemist:validate <provider>:<name>` then `drush neo:alchemist:render <provider>:<name>`. Don't hand off a component you haven't rendered. See "Verify from the CLI" below.
+10. **Ask whether to create the library entry** — a finished SDC still isn't usable by editors. Page building runs on `neo_component` **config entities**, and until one exists the component has no manage screen (`/admin/config/neo/alchemist/<id>` returns 404) and never appears in the picker. **Ask; don't assume.** It's a site-builder decision and it isn't 1:1 — one SDC can back several entries, each wired differently (this site carries four apiece for `list_s3` and `hero_s2`), so the entry id is not simply the SDC name. The UI path is **Add component** → `/admin/config/neo/alchemist/add`. On a yes, the equivalent for the default `general` group is:
+
+    ```bash
+    ddev drush ev '$e = \Drupal::entityTypeManager()->getStorage("neo_component")->create([
+      "id" => "media_s2", "label" => "Media with Text", "component" => "front:media_s2",
+      "group" => "general", "status" => TRUE,
+    ]); $e->save();'
+    ```
+
+    Two constraints on the programmatic route. `ComponentForm::save()` applies group-conditional defaults that a raw `create()` skips — the `special` group gets a `protected` access plugin, and the `entity` group gets every prop locked — so only create `general`-group entries this way and send the other groups through the form. And it writes **active config**, so follow with `drush cex` (or say it needs exporting); a library entry that never gets exported exists only on that one environment.
 
 ## Preview & iterate
 
@@ -809,6 +832,9 @@ resolved colors — see "Finding this site's real colors"). All tabular commands
 - **Hardcoding one scheme's colors** (e.g. `bg-base-0`) on a component meant to be recolored — use `bg-default` for the surface and let text/borders adapt automatically so the `scheme` prop can recolor it.
 - **Coloring links or buttons by hand** — `text-primary-600` on an `<a>`, or a "button" built from `bg-primary text-white` utilities, breaks under other schemes: numbered shades never adapt (only the bare role tokens are contrast-picked), and `text-white` is really scheme-reactive `base-0` (dark in a dark scheme). Bare `<a>` elements and the `.btn*` classes are contrast-managed per scheme, hover states included — and when you do need explicit classes, `text-primary hover:text-primary-hover` and `text-link hover:text-link-hover` are the adaptive pairs; on a hand-painted fill the legible ink is the `-content` pairing, not `text-white`. See "Token semantics that trip authors".
 - **Overloading the component `.css`.** Layout, spacing, color, sizing, and hover states all have Tailwind utilities — put them in the `.twig` (use arbitrary values like `text-[0.62rem]`/`basis-[calc((100%_-_5rem)/5)]` for off-scale numbers, and `group`/`group-hover:` for per-element hover). A `.css` full of `display:flex` / `padding` / `color` / `:hover` is a smell; the file is only for what has no utility (keyframes, gradient overlays, exact shadows, scrollbar-hide, `::after` content, styling a generated `<img>`).
+- **Transform dimensions far larger than the slot ever renders** — every number in a `neo_image_style()` call or an `image_size` style is a real file the browser downloads, so derive it from the **widest CSS width the image can occupy**, never from a round number that "looks safe". Do the arithmetic: `container-content` tops out at a **1504px content box** (96rem max-width − 2 × 1rem gutters), so a full-bleed image maxes at 1504 and a column maxes at 1504 × its width fraction — `lg:w-[58%]` → ~872px, `lg:w-[46%]` → ~692px, `lg:max-w-145` → 580px. The house convention for large images is **≈1× that width** (callout_s1 ships 1400 for 1504, list_s2 900 for 872, media_s1 1600 for 1504); 2× is reserved for small marks, where the bytes are cheap (a `size-12` avatar ships 96×96). Two consequences:
+  - When several crops share one column the **width is the binding constraint, not the aspect** — keep the width identical across every option and vary only the height (media_s2: `700×700` / `700×525` / `700×933` / `700×394`).
+  - A component destined for a **nested region renders far narrower than standalone** — Insight Body's `max-w-4xl` article column puts a 46% image near 412px. Size for the widest realistic placement; don't double it to cover both.
 - **Placeholder image dimensions out of sync with the twig transform** — the `placehold.co/WxH.png` URL (and `width`/`height` fields) in the prop's `examples:` should match the dimensions produced by `neo_image_style()` / `neo_image()` in the twig. The right target depends on the size op (see [web/modules/contrib/neo_image/README.md](web/modules/contrib/neo_image/README.md)):
   - Fixed-output ops — `scaleCrop`, `crop`, `focal`, `exact`, and `auto` with both width+height: placeholder must be exactly `{width}x{height}`. E.g. `{scaleCrop: {width: 300, height: 200}}` → `placehold.co/300x200.png`, `width: 300, height: 200`.
   - Width-only ops — `scale`, `focalWidth`, and `auto` with only width (or only height): output keeps the source aspect, so pick a placeholder that matches the *intended display aspect* (e.g. a `scale: {width: 1200}` slot shown in a 4:3 container → `placehold.co/1200x900.png`).
@@ -817,6 +843,6 @@ resolved colors — see "Finding this site's real colors"). All tabular commands
 - **SVG (e.g. a logo) rendered via `neo_image_style` collapses to 0×0 / a tiny square** — image styles are raster ops (GD), so an SVG can't be transformed: the original file is emitted and the size op only sets HTML `width`/`height` attributes. The theme's base reset (`img{height:auto}` in `@layer base`) overrides those attributes, and a viewBox-only SVG has no intrinsic size, so it renders at 0×0 (or a fabricated square if a single-axis op is used). Fix by sizing with a **CSS class** via the 5th `attributes` arg — utilities beat the base layer: `{{ neo_image_style(logo.src, {scale: {height: 30}}, logo.alt, '', {class: ['h-7', 'w-auto']}) }}`. (`w-auto` lets the browser derive width from the SVG's `viewBox` aspect ratio.)
 - **Fixed/floating component blank in the Alchemist preview** — a `position: fixed`/`absolute` root has no flow height, so the preview iframe collapses. Render it in-flow (`relative`) behind `{% if neoIsPreview %}`, with a solid background if it's normally transparent. See "Fixed / floating roots and the preview iframe".
 - **Fixed/sticky component hidden behind the admin toolbar** — pinning a `fixed`/`sticky` root to `top-0` puts it under the Drupal toolbar for logged-in users. Use `top-displace-t` instead (offsets by the toolbar height, `0px` when absent). See "Fixed / floating roots and the preview iframe".
-- **A provider on "block" plus a configured Default Value** — *Always stop (block if empty)* claims unconditionally, so the fallback `default` plugin never gets a turn and the site builder's Default Value silently never renders. Use *Stop when a value is found* when a default is configured.
+- **A provider on the final mode plus a configured Default Value** — *Always use its value — final* claims unconditionally, so the fallback `default` plugin never gets a turn and the site builder's Default Value silently never renders. Use *Use its value and stop* when a default is configured.
 - **`examples:` on a `media` prop** — media props can't carry examples; previews borrow the most recent published media of an allowed type instead. Don't fight it with placeholder URLs — that's what `image` (with `component://` art) is for.
 - **Clearing cache** — after editing `.component.yml`, run `drush cr` or the prop changes won't reflect.

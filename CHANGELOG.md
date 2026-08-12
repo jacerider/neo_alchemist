@@ -1,5 +1,70 @@
 # Changelog
 
+## The media provider no longer starves providers placed after it
+
+The auto-attached `media` plugin on image/media props is infrastructure —
+the media-library widget, the media-to-image conversion, the optional
+fallback image — but in the provider search its old `stop_when_found`
+default claimed the THREADED schema example (non-empty, so the claim fired
+even though the plugin contributed nothing). Any provider a site builder
+added after it silently never ran: "I added an Entity Field provider and
+nothing happened until I dragged it above Media." Site config showed every
+mode hand-set somewhere in self-defense.
+
+- **`media` now defaults to `continue`.** For a media-only provider list
+  (the common case) the modes are outcome-identical — nothing follows that
+  could overwrite — so this only un-breaks the chained case. Explicitly
+  saved modes are untouched; existing `stop_when_found` media instances in
+  this site's config were swept to `continue` (media_s1, hero_s5).
+- **`media` is `status_lock`ed** — no Remove button. Removing it destroys
+  the prop's authoring UI (onShapeInit() is what makes the prop a media
+  reference field with the media-library widget).
+- The plugin now says what it is: a settings summary ("Media picker & value
+  converter", "Fallback image configured") and an honest description in the
+  provider list.
+
+Pinned by `MediaProviderChainTest`: an entity provider *below* media wins
+without reordering; an empty chain keeps the schema example; an explicit
+`stop_when_found` still claims (configured beats default).
+
+## The prop form, rebuilt for site builders
+
+The per-prop Customize form rendered every applicable value plugin as a table
+row — status checkbox, weight select and full settings inline — times every
+value group, times every expanded sub-prop. On callout_s1's `_aggregate` that
+was ~68 provider rows, four stacked vertical-tab sets and 1.1 MB of HTML.
+Rebuilt on the slot form's list↔edit pattern:
+
+- **Only active providers list**, as summary rows (what it's wired to, plus a
+  chain badge), with an *Add provider* select for the rest; Edit opens one
+  provider's settings at a time; changes stage on the unsaved entity until
+  Save, with a status message once anything diverges. Same page, ~80% fewer
+  HTML bytes and ~90% fewer controls.
+- **Prop-first tabs**: one vertical tab per shape (the prop, then each
+  expanded sub-prop), the four value groups stacked inside as collapsed
+  sections badged with their active count. The aggregate root is titled "All
+  properties", not "Base".
+- **`settingsSummary()` on value plugins** (the one plugin type that had
+  none): entity_reference/entity_query/default/entity/entity_load and the
+  prefix/suffix/token modifiers say what they're configured to do wherever
+  they're listed — including the props table on the component manage screen.
+- **Processing mode is now "When this provider runs"** — three radios with
+  one-line descriptions at the top of each provider's settings (*Use its
+  value and stop* / *Always use its value — final* / *Add its value and
+  continue*), replacing a select buried at the bottom behind a 120-word
+  description. Machine values are unchanged.
+- **The children-match mapping is a table** — one Property → Source row per
+  child, "Not mapped" states, the per-child Value Plugins details badged with
+  its enabled count — with `shape_published` and copy-mapping behind a
+  collapsed Advanced section. Explicit `#parents` keep the stored
+  `shape_fields` tree byte-identical; opening and saving a component without
+  edits round-trips its config unchanged.
+
+One regression found and pinned on the way: `Button::getInfo()` defaults
+`#limit_validation_errors` to FALSE, so limited-submission detection must test
+for an array — a presence check classifies Update and Save as limited and
+silently skips the commit path.
+
 ## Aggregate components: primary reference with a query fallback
 
 `entity_reference` now serves object/aggregate shapes as well as arrays (an
