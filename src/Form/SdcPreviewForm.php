@@ -71,6 +71,14 @@ final class SdcPreviewForm extends EntityForm {
    */
   protected function init(FormStateInterface $form_state) {
     parent::init($form_state);
+    // A prop widget is built over a synthetic field definition, not a real
+    // field on the target entity, so the media library has to be opened with
+    // Alchemist's own opener. Without this flag the widget keeps core's
+    // field-widget opener, which resolves the prop name against the target
+    // entity — here a placeholder node — and dies with "Field image is
+    // unknown" the moment a selection is inserted.
+    // @see neo_alchemist_field_widget_single_element_media_library_widget_form_alter()
+    $form_state->set('neo_component_form', TRUE);
     // Capture the value overrides present when the workspace first loaded so
     // that non-iterable shape values can be merged correctly on refresh.
     $form_state->set('original_values', $this->entity->getPreviewValues());
@@ -330,6 +338,20 @@ final class SdcPreviewForm extends EntityForm {
       $values['props'][$propName]['options'] = $shape->getNestedOptions();
     }
 
+    // Apply the harvest to the entity here, mirroring InstanceComponentForm's
+    // $this->instance->setValues(). Every AJAX rebuild of this form has to see
+    // the values and per-prop options the user just produced — not only the
+    // debounced refresh — because setPreviewValues() is what drops the memoized
+    // prop shapes so the next getPropShapes() re-reads them. Deferring it to a
+    // submit handler leaves any other rebuild (the media override button, which
+    // has to turn the "default" option off to reveal its widget) reconstructing
+    // shapes from the previous cache entry, where nothing it just did exists.
+    //
+    // Writing during validation is not a phase violation for this form: it has
+    // no commit step, it already wrote on every debounced keystroke, and the
+    // overrides are a cache entry with a 1-hour TTL behind a Reset button.
+    // ::submitReset() still wins, because it runs after this.
+    $this->entity->setPreviewValues($values);
     // Stash for the submit handler.
     $form_state->set('preview_values', $values);
     return $this->entity;
@@ -339,8 +361,8 @@ final class SdcPreviewForm extends EntityForm {
    * Submit handler for the (debounced) live refresh.
    */
   public function submitRefresh(array $form, FormStateInterface $form_state) {
+    // ::validateForm() has already persisted the overrides.
     $form_state->setRebuild();
-    $this->entity->setPreviewValues($form_state->get('preview_values') ?? []);
   }
 
   /**
