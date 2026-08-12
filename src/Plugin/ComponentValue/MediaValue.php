@@ -215,10 +215,24 @@ final class MediaValue extends ComponentValuePluginBase implements ContainerFact
           '#type' => 'submit',
           '#value' => $this->t('Upload @label', ['@label' => strtolower($shape->getTitle())]),
           '#name' => str_replace('-', '_', $element['#id']) . '_override',
-          '#neo_override' => TRUE,
+          // Names the shape this button belongs to, because
+          // ::massageValuesAlter() runs for every media prop on the component
+          // and the triggering element is form-global. A bare TRUE there means
+          // one click turns the default off for all of them.
+          '#neo_override' => $shape->id(),
           '#attributes' => [
             'class' => ['btn-xs mt-2'],
           ],
+          // Revealing the upload is low-risk and has nothing to do with the
+          // rest of the form. Without this, a validation error anywhere skips
+          // both the submit handlers and the rebuild — each is gated on
+          // !FormState::hasAnyErrors() in FormBuilder — while still raising
+          // FormAjaxException, so the callback below is handed the original,
+          // un-rebuilt form in which the default is still on and this button is
+          // still here. Core's own media library open button carries the same
+          // property for the same reason.
+          // @see \Drupal\media_library\Plugin\Field\FieldWidget\MediaLibraryWidget::formElement()
+          '#limit_validation_errors' => [],
           '#submit' => [
             [get_class($this), 'submitOverride'],
           ],
@@ -300,10 +314,20 @@ final class MediaValue extends ComponentValuePluginBase implements ContainerFact
         '#type' => 'submit',
         '#value' => $this->t('Add media'),
         '#name' => str_replace('-', '_', $element['#id']) . '_override',
-        '#neo_override' => TRUE,
+        // Names the shape this button belongs to. @see the branch above.
+        '#neo_override' => $shape->id(),
         '#attributes' => [
           'class' => ['btn-xs mt-2'],
         ],
+        // Revealing the widget is low-risk and has nothing to do with the rest
+        // of the form. Without this, a validation error anywhere skips both the
+        // submit handlers and the rebuild — each is gated on
+        // !FormState::hasAnyErrors() in FormBuilder — while still raising
+        // FormAjaxException, so ::ajaxOverride() is handed the original,
+        // un-rebuilt form, which has no widget in it at all. Core's own media
+        // library open button carries the same property for the same reason.
+        // @see \Drupal\media_library\Plugin\Field\FieldWidget\MediaLibraryWidget::formElement()
+        '#limit_validation_errors' => [],
         '#submit' => [
           [get_class($this), 'submitOverride'],
         ],
@@ -343,9 +367,16 @@ final class MediaValue extends ComponentValuePluginBase implements ContainerFact
     $parents = array_slice($trigger['#array_parents'], 0, -1);
     $element = NestedArray::getValue($form, $parents);
 
-    if (!empty(Element::getVisibleChildren($element['widget']['widget']['selection']))) {
-      // If there is a media item selected, just return the element.
-      return NestedArray::getValue($form, $parents);
+    // The rebuild is what turns the "default" option off and so puts the widget
+    // into the form; this callback exists to reach into it. If it is not there
+    // — a validation error that #limit_validation_errors cannot suppress still
+    // skips the rebuild — hand the element back unchanged rather than
+    // dereferencing a widget that was never built. ::ajaxConfigFileOverride()
+    // does only this on every path.
+    $selection = $element['widget']['widget']['selection'] ?? NULL;
+    if (!is_array($selection) || !empty(Element::getVisibleChildren($selection))) {
+      // No widget to drive, or a media item is already selected.
+      return $element;
     }
 
     $widgetForm = $element['widget']['widget'];
@@ -373,9 +404,11 @@ final class MediaValue extends ComponentValuePluginBase implements ContainerFact
       $trigger = $form_state->getTriggeringElement();
       $configFileId = $submitted_values['config_file'] ?? NULL;
       // Turn the "Default" option off when the user switches to a custom image,
-      // either by clicking the override button (#neo_override) or by uploading
-      // a file — mirroring the media widget so the custom image is shown.
-      if (($trigger['#neo_override'] ?? FALSE) || $configFileId) {
+      // either by clicking this shape's own override button (#neo_override
+      // names the shape, because the triggering element is form-global and this
+      // method runs for every media prop on the component) or by uploading a
+      // file — mirroring the media widget so the custom image is shown.
+      if (($trigger['#neo_override'] ?? NULL) === $shape->id() || $configFileId) {
         $options = $shape->getOptions();
         if (!empty($options['default'])) {
           $options['default'] = 0;
@@ -387,7 +420,11 @@ final class MediaValue extends ComponentValuePluginBase implements ContainerFact
     }
 
     $trigger = $form_state->getTriggeringElement();
-    if ($trigger['#neo_override'] ?? FALSE) {
+    // Only for the shape whose own override button was clicked: this method
+    // runs once per media prop on the component and the triggering element is
+    // form-global, so a bare truthiness test turned the default off for every
+    // media prop at once — visibly, since the others then render nothing.
+    if (($trigger['#neo_override'] ?? NULL) === $shape->id()) {
       // Set default to disabled when overriding.
       $options = $shape->getOptions();
       $options['default'] = 0;
@@ -400,8 +437,19 @@ final class MediaValue extends ComponentValuePluginBase implements ContainerFact
       // Remove the value if the user has removed the item so that the widget
       // will be switched back to default. This only needs to happen when in
       // config scope as default option is always toggleable.
+      //
+      // Only for this shape's own Remove button: the triggering element is
+      // form-global and this method runs for every media prop on the component,
+      // so an unscoped test empties them all. The media widget's buttons carry
+      // no shape identity of their own, hence the array-parents placement.
+      //
+      // Note this drops the value but leaves the "default" option off, so the
+      // prop renders nothing until the option is turned back on. Restoring the
+      // option here does not work: the widget would not be rebuilt, and core's
+      // remove button AJAX callback returns that widget element, so it fatals
+      // on the missing #parents.
       $trigger = $form_state->getTriggeringElement();
-      if (isset($trigger['#media_id'])) {
+      if (isset($trigger['#media_id']) && $this->triggerBelongsToShape($trigger, $form)) {
         foreach ($trigger['#submit'] ?? [] as $submit) {
           if (is_array($submit) && $submit[1] === 'removeItem') {
             $values = NULL;
@@ -417,6 +465,34 @@ final class MediaValue extends ComponentValuePluginBase implements ContainerFact
         }
       }
     }
+  }
+
+  /**
+   * Whether a triggering element sits inside a shape's own form element.
+   *
+   * ::massageValuesAlter() runs once for every media prop on the component,
+   * but the triggering element is form-global, so a button has to be located
+   * before its effect is applied. The media widget's own buttons carry no
+   * shape identity — unlike the override button, which this module builds and
+   * can stamp — so they are placed by array parents instead.
+   *
+   * @param array $trigger
+   *   The triggering element.
+   * @param array $form
+   *   The shape's own form element.
+   *
+   * @return bool
+   *   TRUE when the trigger is this shape's, FALSE when it is not or when
+   *   either element cannot be placed.
+   */
+  private function triggerBelongsToShape(array $trigger, array $form): bool {
+    $shapeParents = $form['#array_parents'] ?? NULL;
+    $triggerParents = $trigger['#array_parents'] ?? NULL;
+    if (empty($shapeParents) || empty($triggerParents)) {
+      // Unplaceable: claim nothing rather than acting on every media prop.
+      return FALSE;
+    }
+    return array_slice($triggerParents, 0, count($shapeParents)) === $shapeParents;
   }
 
   /**

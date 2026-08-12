@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace Drupal\Tests\neo_alchemist\Unit;
 
+use Drupal\Core\DependencyInjection\ContainerBuilder;
 use Drupal\Core\Entity\EntityStorageInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
+use Drupal\Core\Form\FormStateInterface;
 use Drupal\neo_alchemist\ComponentShapeMediaPluginInterface;
 use Drupal\neo_alchemist\ComponentShapeOption;
 use Drupal\neo_alchemist\ComponentShapePluginInterface;
@@ -176,6 +178,123 @@ class MediaValueTest extends UnitTestCase {
     $entityTypeManager->method('getStorage')->willReturn($storage);
 
     (new MediaValue('media', [], $shape, ['default' => []], $entityTypeManager))->onShapeInit();
+  }
+
+  /**
+   * Builds the plugin over a config-scope media shape with a known id.
+   *
+   * The scope matters: 'field' would divert formAlter() and
+   * massageValuesAlter() into the neo_config_file branch before reaching the
+   * override button these tests are about.
+   *
+   * @param string $shapeId
+   *   The id the shape reports, which the override button is stamped with.
+   * @param bool $defaultOptionEnabled
+   *   What the shape's "default" option reports. TRUE is the state that
+   *   renders the override button rather than the media widget.
+   *
+   * @return array
+   *   A tuple of [plugin, shape].
+   */
+  private function overridePlugin(string $shapeId, bool $defaultOptionEnabled = TRUE): array {
+    $container = new ContainerBuilder();
+    $container->set('string_translation', $this->getStringTranslationStub());
+    \Drupal::setContainer($container);
+
+    [$plugin, $shape] = $this->mediaPlugin($defaultOptionEnabled);
+    $shape->method('id')->willReturn($shapeId);
+    $shape->method('getScope')->willReturn('config');
+    $shape->method('getTitle')->willReturn('Image');
+    $shape->method('getDefaultPreview')->willReturn(NULL);
+    $shape->method('getDefaultValue')->willReturn(NULL);
+
+    return [$plugin, $shape];
+  }
+
+  /**
+   * The override button opts out of validating the rest of the form.
+   *
+   * Its whole job is to reveal the media widget, which only exists after a
+   * rebuild. A validation error anywhere else on the component skips both the
+   * submit handlers and the rebuild while the AJAX exception is still thrown,
+   * so the callback would be handed a form with no widget in it — which is how
+   * "Add media" came to raise a TypeError and reach the editor as a 500.
+   *
+   * @see \Drupal\media_library\Plugin\Field\FieldWidget\MediaLibraryWidget::formElement()
+   */
+  public function testOverrideButtonSkipsValidatingTheRestOfTheForm(): void {
+    [$plugin] = $this->overridePlugin('items~image~0');
+    $element = ['#id' => 'shape-form-values-items-0-image', '#type' => 'container'];
+
+    $plugin->formAlter($element, $this->createMock(FormStateInterface::class));
+
+    $this->assertArrayHasKey('override', $element, 'The default option being on renders the override button.');
+    $this->assertSame([], $element['override']['#limit_validation_errors']);
+    $this->assertSame([[MediaValue::class, 'submitOverride']], $element['override']['#submit']);
+  }
+
+  /**
+   * The override button names the shape it belongs to.
+   *
+   * A bare TRUE cannot be told apart from another prop's button, which is what
+   * ::testOverrideOnlyDisablesTheClickedShapesDefault() pins the effect of.
+   */
+  public function testOverrideButtonCarriesItsShapeId(): void {
+    [$plugin] = $this->overridePlugin('items~image~2');
+    $element = ['#id' => 'shape-form-values-items-2-image', '#type' => 'container'];
+
+    $plugin->formAlter($element, $this->createMock(FormStateInterface::class));
+
+    $this->assertSame('items~image~2', $element['override']['#neo_override']);
+  }
+
+  /**
+   * Only the clicked prop's "default" option is turned off.
+   *
+   * The massage runs once for every media prop on the component while
+   * getTriggeringElement() is form-global, so testing the marker for mere
+   * truthiness turned the default off for all of them at once. The visible
+   * symptom is that every *other* media prop stops rendering, because a prop
+   * that is neither set nor defaulted resolves to nothing.
+   */
+  public function testOverrideOnlyDisablesTheClickedShapesDefault(): void {
+    // A sibling prop on the same component: same click, different shape.
+    [$sibling, $siblingShape] = $this->overridePlugin('items~image~1');
+    $siblingShape->expects($this->never())->method('setOptions');
+
+    [$clicked, $clickedShape] = $this->overridePlugin('items~image~0');
+    $clickedShape->method('getOptions')->willReturn(['default' => 1]);
+    $clickedShape->expects($this->once())->method('setOptions')->with(['default' => 0]);
+
+    $formState = $this->createMock(FormStateInterface::class);
+    $formState->method('getTriggeringElement')->willReturn(['#neo_override' => 'items~image~0']);
+
+    $values = ['target_id' => 7];
+    $sibling->massageValuesAlter($values, [], [], [], $formState);
+    $clicked->massageValuesAlter($values, [], [], [], $formState);
+  }
+
+  /**
+   * Without a widget in the rebuilt form the callback degrades to a no-op.
+   *
+   * Belt and braces for the errors that #limit_validation_errors cannot
+   * suppress: hand the element back rather than dereferencing a widget that
+   * was never built, which is all ::ajaxConfigFileOverride() ever does.
+   */
+  public function testAjaxOverrideWithoutWidgetReturnsElement(): void {
+    [$plugin] = $this->overridePlugin('items~image~0');
+
+    $formState = $this->createMock(FormStateInterface::class);
+    $formState->method('getTriggeringElement')->willReturn([
+      '#array_parents' => ['values', 'image', 'override'],
+    ]);
+    $form = ['values' => ['image' => ['#id' => 'shape-form-values-image']]];
+
+    $this->assertSame(
+      $form['values']['image'],
+      $plugin->ajaxOverride($form, $formState),
+      'A form with no widget yields the element unchanged instead of a TypeError.',
+    );
   }
 
 }
