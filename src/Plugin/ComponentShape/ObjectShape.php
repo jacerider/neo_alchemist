@@ -120,7 +120,19 @@ class ObjectShape extends ChildrenShapeBase implements ComponentShapeExpandedPlu
       // Objects can specify a widget. When they do, we use that widget.
       return parent::form($form, $form_state);
     }
-    $shapes = array_filter($this->getChildShapes(), fn ($shape) => $shape->isEditable());
+    // A child shape has no editability setting of its own and no UI that could
+    // give it one — it only ever inherits the component's prop editability
+    // mode. That mode answers a question about content editors, so in config
+    // scope, where a site builder is authoring the component itself, it must
+    // not decide whether a child's form is built. Left in, a "locked"
+    // component's object props rendered no fields at all in the prop form
+    // while its scalar props still rendered their Default value widget — the
+    // mode does not otherwise blank that form, and there is nothing about an
+    // object prop that should make it the exception.
+    $editableOnly = $this->getScope() !== 'config';
+    $shapes = $editableOnly
+      ? array_filter($this->getChildShapes(), fn ($shape) => $shape->isEditable())
+      : $this->getChildShapes();
     if (empty($shapes)) {
       $this->enforceLocked();
     }
@@ -131,12 +143,9 @@ class ObjectShape extends ChildrenShapeBase implements ComponentShapeExpandedPlu
       $form['#description'] = $this->getDescription();
       $form['#description_display'] = 'before';
       foreach ($shapes as $shape) {
-        if (!$shape->isEditable()) {
-          continue;
-        }
         // When in config scope, we only display forms if the child shape allows
         // plugins.
-        if ($shape->getScope() === 'config' && $shape->allowConfigurablePlugins()) {
+        if (!$editableOnly && $shape->allowConfigurablePlugins()) {
           continue;
         }
         // Force values to allow nesting of multiple shapes. Only do this if the

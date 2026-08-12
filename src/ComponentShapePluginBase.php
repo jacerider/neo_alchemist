@@ -17,6 +17,7 @@ use Drupal\Core\DependencyInjection\DependencySerializationTrait;
 use Drupal\Core\Entity\ContentEntityInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Entity\Plugin\DataType\EntityAdapter;
+use Drupal\Core\Entity\Plugin\DataType\EntityReference;
 use Drupal\Core\Field\FieldDefinitionInterface;
 use Drupal\Core\Field\FieldItemInterface;
 use Drupal\Core\Field\FieldItemListInterface;
@@ -31,6 +32,7 @@ use Drupal\Core\StringTranslation\StringTranslationTrait;
 use Drupal\Core\Template\Attribute;
 use Drupal\Core\TypedData\DataDefinition;
 use Drupal\Core\TypedData\DataDefinitionInterface;
+use Drupal\Core\TypedData\DataReferenceDefinitionInterface;
 use Drupal\Core\TypedData\TypedDataManagerInterface;
 use Drupal\neo_alchemist\Drush\Generators\NeoComponentPropGeneratorInterface;
 use Drupal\neo_alchemist\Drush\Generators\NeoComponentTwig;
@@ -2852,7 +2854,10 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
           $properties[$childShape->getName()] = $childShape->getFieldItem()->getFieldDefinition()->getFieldStorageDefinition()->getPropertyDefinitions();
         }
         if ($properties) {
-          $needs = array_values(array_unique(array_map(fn ($v) => $v->getDataType(), $entityFieldProperties)));
+          $needs = array_values(array_unique(array_map(
+            fn ($v) => $v->getDataType(),
+            $this->contentBearingFieldProperties($entityFieldDefinition, $entityFieldProperties),
+          )));
           // A child that is itself an object or array is backed by a 'map'
           // field, which exposes no properties at all. Such a child can never
           // be fed by a single field property, so it contributes nothing here.
@@ -2868,6 +2873,57 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
       }
     }
     return FALSE;
+  }
+
+  /**
+   * Strips a field's reference pointer, leaving the properties that hold data.
+   *
+   * An entity reference field exposes `target_id` and `entity`: an id and the
+   * thing it points at. Neither carries content — the content is on the
+   * referenced entity, one level down.
+   *
+   * This matters because ::supportsFieldProperties() decides by data-type
+   * overlap, and an id is an integer. A plain node reference therefore matched
+   * any object shape with a numeric child: `field_related_projects` was offered
+   * as a direct source for an `image` prop purely because a node id and the
+   * image's `width`/`height` are both integers. Worse than the nonsense
+   * offer, it was silently exclusive — MatcherField::matchScalar() takes a
+   * supported field and moves on, so the reference was never recursed into and
+   * the fields that *are* wanted (`field_related_projects.field_media`) never
+   * appeared at all.
+   *
+   * Only the pointer pair is dropped, so a field that references something and
+   * also carries its own data keeps matching on that data: core's `image` and
+   * `file` fields still offer alt/title/width/height.
+   *
+   * @param \Drupal\Core\Field\FieldDefinitionInterface $entityFieldDefinition
+   *   The field definition the properties belong to.
+   * @param \Drupal\Core\TypedData\DataDefinitionInterface[] $entityFieldProperties
+   *   The field's property definitions.
+   *
+   * @return \Drupal\Core\TypedData\DataDefinitionInterface[]
+   *   The properties that carry data of their own.
+   *
+   * @see \Drupal\neo_alchemist\MatcherField::matchScalar()
+   */
+  protected function contentBearingFieldProperties(FieldDefinitionInterface $entityFieldDefinition, array $entityFieldProperties): array {
+    // Deliberately the same predicate MatcherField::matchScalar() recurses on,
+    // so this only ever steps aside for a reference it will actually descend
+    // into. A looser test costs real options: `langcode` also carries a
+    // DataReference (its `language` object) but no entity is behind it, and
+    // dropping its `value` alongside left the field matching nothing at all.
+    $references = array_filter(
+      $entityFieldProperties,
+      fn ($property) => $property instanceof DataReferenceDefinitionInterface
+        && is_a($property->getClass(), EntityReference::class, TRUE),
+    );
+    if (!$references) {
+      return $entityFieldProperties;
+    }
+    // The id half of the pair is the field's main property — that is what makes
+    // it the pointer rather than a value the field happens to store.
+    $mainProperty = $entityFieldDefinition->getFieldStorageDefinition()->getMainPropertyName();
+    return array_diff_key($entityFieldProperties, $references, array_flip(array_filter([$mainProperty])));
   }
 
   /**
