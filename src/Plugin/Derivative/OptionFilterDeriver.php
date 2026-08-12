@@ -11,14 +11,17 @@ use Drupal\neo_alchemist\ComponentFilterOptionsPluginManager;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
- * Derives local tasks for entity types.
+ * Derives an Options component filter per declared option set.
+ *
+ * One derivative ("options:<set id>", labelled "Options: <title>") is created
+ * for every set discovered from *.neo_component_filter_options.yml files.
  */
 class OptionFilterDeriver extends DeriverBase implements ContainerDeriverInterface {
 
   use StringTranslationTrait;
 
   /**
-   * Constructs an entity local tasks deriver.
+   * Constructs an OptionFilterDeriver object.
    */
   public function __construct(
     private readonly ComponentFilterOptionsPluginManager $filterOptions,

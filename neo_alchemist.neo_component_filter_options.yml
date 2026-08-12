@@ -1,5 +1,23 @@
-# test:
-#   title: Test
+# Component filter option sets.
+#
+# Any module (or this file) can declare named option sets here; each set
+# becomes an "Options: <title>" ComponentFilter (plugin id "options:<set id>")
+# that a site builder can add to a neo_component as a fixed-choice,
+# per-placement parameter — e.g. a layout switch an editor picks per instance.
+# The stored filter value is the selected option KEY (validated against the
+# set on read, so removing an option degrades to the filter's default).
+#
+# Structure — <set id>: { title, options: { key: label } }:
+#
+# layout:
+#   title: Layout
 #   options:
-#     one: One
-#     two: Two
+#     grid: Grid
+#     list: List
+#     carousel: Carousel
+#
+# No sets ship enabled on purpose: an unused set would appear in every site's
+# filter picker. Declare yours in MODULE_NAME.neo_component_filter_options.yml
+# (or uncomment/adapt the example above) and clear caches.
+#
+# @see \Drupal\neo_alchemist\ComponentFilterOptionsPluginManager

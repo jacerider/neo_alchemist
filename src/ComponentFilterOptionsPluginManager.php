@@ -12,26 +12,29 @@ use Drupal\Core\Plugin\Discovery\YamlDiscovery;
 use Drupal\Core\Plugin\Factory\ContainerFactory;
 
 /**
- * Defines a plugin manager to deal with neo_component_filter_optionss.
+ * Defines a plugin manager for component filter option sets.
  *
- * Modules can define neo_component_filter_optionss in a
- * MODULE_NAME.neo_component_filter_optionss.yml file contained in the module's
- * base directory. Each neo_component_filter_options has the following
- * structure:
+ * Modules can declare option sets in a
+ * MODULE_NAME.neo_component_filter_options.yml file contained in the module's
+ * base directory. Each set becomes an "Options" ComponentFilter derivative
+ * (plugin id "options:MACHINE_NAME") — a fixed select a site builder can
+ * expose as a per-placement filter. Each set has the following structure:
  *
  * @code
  *   MACHINE_NAME:
  *     title: STRING
- *     type: STRING
- *     required: ARRAY
- *     properties: ARRAY
- *     format: STRING
- *     pattern: STRING
- *     examples: ARRAY
+ *     options:
+ *       VALUE: LABEL
+ *       VALUE: LABEL
  * @endcode
  *
- * @see \Drupal\neo_alchemist\PropDefDefault
- * @see \Drupal\neo_alchemist\PropDefInterface
+ * The title is translatable; add title_context to disambiguate. The stored
+ * filter value is the selected VALUE key, validated against the set on read
+ * (a removed option degrades to the filter's default rather than leaking a
+ * stale key).
+ *
+ * @see \Drupal\neo_alchemist\Plugin\ComponentFilter\OptionFilter
+ * @see \Drupal\neo_alchemist\Plugin\Derivative\OptionFilterDeriver
  */
 final class ComponentFilterOptionsPluginManager extends DefaultPluginManager {
 
@@ -45,7 +48,7 @@ final class ComponentFilterOptionsPluginManager extends DefaultPluginManager {
   ];
 
   /**
-   * Constructs PropDefPluginManager object.
+   * Constructs a ComponentFilterOptionsPluginManager object.
    */
   public function __construct(ModuleHandlerInterface $module_handler, CacheBackendInterface $cache_backend) {
     $this->factory = new ContainerFactory($this);
