@@ -1,448 +1,343 @@
 ---
 name: neo-alchemist-dev
-description: Understand and modify the neo_alchemist MODULE internals (PHP) — the neo_component config entity, prop shapes / prop-defs, ComponentValue plugins and the value-resolution pipeline, slots/filters/access plugins, field embedding, previews, and Drush commands. Use when editing files under web/modules/contrib/neo_alchemist/, adding a shape / value plugin / slot / filter / access plugin / Drush command, or diagnosing why a prop resolved to the value it did, why the editor preview differs from the live page, or why an Alchemist screen errors. NOT for authoring or styling page-building components in a theme (*.component.yml / *.twig) — that is the neo-component skill.
+description: Understand and modify the neo_alchemist MODULE internals (PHP) — the neo_component config entity, the ComponentShape/prop-def plugin system, slots/filters/access plugins, the render pipeline, services, and Drush commands. Use when editing files under web/modules/contrib/neo_alchemist/src, adding a ComponentShape/prop-def/slot/filter/Drush command, or debugging how Alchemist renders/previews a component. NOT for authoring page-building components in a theme (*.component.yml / *.twig) — use the neo-component skill for that.
 allowed-tools: Read, Write, Edit, Glob, Grep, Bash
 ---
 
-# Working on the neo_alchemist module
-
-Paths are relative to `web/modules/contrib/neo_alchemist/`. The module ships `ARCHITECTURE.md` and
-`TESTING.md`; read the relevant section before non-trivial work. This file is the fast map plus
-what is easy to get confidently wrong.
-
-## Scope check
-
-The module's concern is **how a prop gets its value and how a component is assembled**, never how a
-component looks. Not this skill: theme component authoring/styling, mega menus, asset compilation,
-color/font/modal/animation. The two boundaries that actually get crossed:
-
-- *"The image shows in the editor but not on the live page."* Sounds like component authoring; it is
-  **module work** — preview and live run different plugins.
-- *"This component's layout is wrong"* / *"give editors a control for how it looks."* Often framed as
-  if a shape handed the template a default; it is **theme work**. Layout lives in the component's own
-  Twig, and a per-component editor knob is a component-local `type: style` prop with its own
-  `styles: {key: {label, value}}` map in that `.component.yml`. Do **not** add an entry to
-  `neo_alchemist.neo_component_prop_defs.yml` to serve one component — that file is site-wide shared
-  vocabulary; a prop-def/shape belongs in the module only when the *type* is reusable.
-
-If the module has no clean seam for what was asked, say so and propose changing the extension
-model — do not repurpose a seam to make the answer tidy.
-
-## Two rules that outrank everything else here
-
-Both are about losing while being correct.
-
-### 1. Answer every distinct thing they raised
-
-List what the message asks before writing. Requests here routinely carry several: a change *plus*
-"and make it readable", a diagnosis *plus* "tell me what I should be looking at", a proposal *plus*
-"is there a simpler option I'm missing" *plus* "is anything we already have at risk". The soft ones —
-legibility, ergonomics, "can we make this nicer" — are usually the reason the request exists, and
-being right about the mechanism does not cover them. An unanswered ask is a loss even when
-everything you did write is true.
-
-**A refusal is not an exemption.** If the mechanism they proposed is wrong you still owe the goal
-behind it: the safe subset of the change, a smaller thing that gets part of the value, the place the
-real fix belongs, or an explicit "nothing here serves that, and here is why". Declining every edit
-and offering nothing for the concern that prompted the request is a half-answer. Same for a
-correction: if checking their premise contradicts them, quote the exported YAML or the line you are
-contradicting them with — and then still answer the question they asked. "Tell me which one you
-meant and I'll decide" is not an answer.
-
-Conversely, answer nothing nobody asked: no tour of the pipeline, no CHANGELOG essay, no adjacent
-refactor, no internals excursion that does not change what the reader does next. The best answer
-here is nearly always the shortest correct one that covers every ask.
-
-### 2. Separate what you read from what you expect
-
-This pipeline has enough deliberate special cases that a plausible inference is usually wrong. Mark
-each load-bearing statement as **read it** (cite file + method), **inferred** (from what), or **not
-checked**. A confident, specific, checkable claim that is false is the worst outcome available —
-worse than silence, because it gets acted on. A preview or CLI render is never evidence about a live
-page (below), and a config file you have not opened is not a config file you know.
-
-The claim that goes wrong most often is about a **test**:
-
-- **Never say an existing test goes red (or stays green) under a proposed change unless you have
-  read both the assertion and the fixture value it turns on.** State them together — "`testX` asserts
-  *A*; its fixture sets prop *P* to *V*" — because that sentence cannot be written from plausibility.
-  Branches here are usually reachable only with a particular fixture shape (empty vs non-empty,
-  required vs not, preview vs live, dev-mode on vs off), so a test that covers the *method* very
-  often does not cover the *branch*. Unopened fixture ⇒ the honest sentence is "there is coverage in
-  this area; check whether its fixture reaches the branch you are changing".
-- For a test you are **writing**, "goes red at the wrong placement" is a design target, not an
-  observation. Name the mutation it is meant to catch, confirm it would not also pass without the
-  change, and say plainly whether you ran it. Unrun is fine; unrun-and-described-as-verified is not,
-  and a red/green claim never goes in a docblock.
-
-### Shapes of request
-
-**"Why did this resolve to that?"** Quote the deciding line and annotate **both** branches — showing
-what the other branch would have done is what refutes the reporter's own theory, which is usually
-the real question. Name the stage, the position in the ordered list, and whether an empty result was
-a claim or a pass-through; then the fix, and the one or two checks that split the remaining suspects.
-
-**"Make this change."** Show where the edit goes *relative to the guard that makes it correct*, and
-what the plausible-but-wrong placement would break. When the requester proposes a spot, check
-whether their mechanism can even attach there before adopting or rejecting it, and say which.
-
-**"What's the best path?"** Options anchored in real seams, each with its cost, and a pick. For
-anything that shares or resolves configuration the deciding question is the **write** side, not the
-read side (below). Ask of each option *who ends up controlling what* — a design that quietly moves a
-decision from the site builder to the content creator, or back, is not the same feature however
-elegant.
-
-The rest of this file is background to draw on, not material to reproduce.
-
-## How a prop's value resolves
-
-The module's core, most asked about and most often guessed wrong. All of it is
-`ComponentShapePluginBase`.
-
-Every pass walks **one flat instance list** from `getValueCollection()`: definitions filtered for the
-shape (`ComponentValuePluginManager::getFilteredDefinitionsFromShape()`), ordered **by group weight
-first** — `providers` (−5), `fallback` (−3), `modifiers` (0), `settings` (5), from
-`neo_alchemist.neo_component_value_groups.yml` via `getGroupOrder()` — and *within* a group by the
-builder's saved drag order, then the remaining plugins by weight, then label.
-
-Saved order is real but **only orders within a group**. The prop form renders one table per group
-(`Form/ComponentPropForm`, `getInstancesByGroup()`), so there is no cross-group drag to make — the
-bottom of the providers table is still above the whole fallback group, which is what guarantees the
-`default` plugin (`fallback`) runs after every provider. Group order is derived at read time, never
-persisted, so re-grouping a plugin needs no update hook.
-
-`getAllowedInstances($op)` filters that list by `isAllowed($op)` and **resets each instance's
-continue flag**, so a claim never leaks between passes. Ops: `init`, `default`, `value`, `edit`,
-`modify`, `form`. `init()` runs `default_plugins` attach → `onShapeInit()` broadcast →
-`getDefaultValue()` → the override overlay (the parent's pushed-down value if any, else
-`getOverrideValue()`, which is nulled when the prop's "use default" option is on or the prop is not
-editable, then the `alterValue($value, 'override')` chain).
-
-`getDefaultValue()` — the part people ask about:
-
-```php
-$value = $originalValue = $this->resolveValue($this->getDefaultSchemaValue());   // SEED
-foreach ($this->getValueCollection()->getAllowedInstances('default') as $instance) {
-  $provided = $instance->provideDefaultValue($value);
-  if ($instance instanceof ComponentValueProcessingModeInterface) {
-    $instance->applyProcessingMode($provided);
-  }
-  $value = $this->isProvidedValueEmpty($provided) && !$instance->hasClaimedValue()
-    ? $value      // empty and UNCLAIMED → the incoming value survives untouched
-    : $provided;  // non-empty, OR an empty that was CLAIMED → written through
-  if (!$instance->shouldContinueProcessing()) { break; }
-}
-```
-
-Still inside `getDefaultValue()`: a field default (`getFieldDefaultValue()`) overrides whatever the
-search produced; `setFieldItemValue($value, FALSE)`; a second loop runs `alterValue($value,
-'default')` on a **fresh** instance list (so a claim above does not truncate it); finally, if the
-result is empty **and the prop is required**, the value reverts to `$originalValue` — the seed — so
-SDC is never handed a missing required prop.
-
-Consequences worth stating when diagnosing:
-
-- **The seed is the prop's schema `examples`** (`getDefaultSchemaValue()`; `ArrayShape` and
-  `UrlShapeTrait` override it). "The example disappeared" is normally a claim overwriting the seed,
-  not a provider failing.
-- **A provider that finds nothing and does not claim leaves the incoming value standing.** Attaching
-  a provider can never make a prop worse than not attaching it — unless it claims.
-- **A claim writes an empty result through, over the seed.** The deliberate "nothing IS the answer".
-- **`isProvidedValueEmpty()` is the emptiness contract, not PHP truthiness**: only `NULL` and `''`
-  are empty for scalars; `0`, `'0'`, `FALSE` are values. For arrays the key `size` is stripped
-  before the test (seeded by the media image-size modifier, not content).
-
-### Processing mode governs the provider search and nothing else
-
-`ComponentValueProcessingModeInterface` + `Plugin/ComponentValue/ComponentValueProcessingModeTrait`,
-config key `processing_mode`. `applyProcessingMode()` has exactly **one** call site, the loop above.
-
-| Constant | Value | Label in the UI | Claims when… |
-|---|---|---|---|
-| `MODE_STOP_WHEN_FOUND` | `stop_when_found` (default) | "Stop when a value is found" | the produced value is non-empty |
-| `MODE_CONTINUE` | `continue` | "Provide, allow later changes" | never |
-| `MODE_BLOCK` | `block` | "Always stop (block if empty)" | unconditionally — including on empty |
-
-`claimValue()` *is* `stopFurtherProcessing()`; `hasClaimedValue()` is `!shouldContinueProcessing()`.
-The mode does not govern `modifyValue()`, either `alterValue()` loop, `onShapeInit()`, `isEditable()`
-or the authored-override pass — those are chains where every plugin gets a turn. `continue` is not a
-safe substitute for `stop_when_found`: it never claims, so a later provider can still overwrite what
-it found. `block` is for props whose `examples` are editor scaffolding (placeholder cards, stock
-images, menu links) that must never reach a visitor, not for a prop with a genuine human-readable
-fallback — and it suppresses every plugin below it in the list, not just the fallback group.
-
-### At render time
-
-`getValue()` → `buildValue()`; when rendering, `buildRenderValue()`: `resolveValue()` → the shape's
-`preRenderValue($value, $attributes)` → the `modifyValue()` chain (op `modify`, same list).
-`Entity/Component::getPropValues()` then drops every empty-valued prop, so an empty prop is simply
-absent from `#props`. It merges each shape's cacheable metadata **after**
-`getPropValue()`/`getPreviewPlaceholder()` have run — dependencies a provider registers via
-`$shape->addCacheableDependency()` exist only by then, and merging earlier snapshots an empty set
-and loses the tags silently (stale pages, no error). The method carries an in-code comment saying
-so; read it before rearranging that loop.
-
-## Groups are behavioral declarations, not form tabs
-
-`providers` sources a value · `fallback` fills one in when no provider sourced one · `modifiers`
-transform an existing one · `settings` never touch the value, they configure how the prop is
-edited/rendered (`widget`, `region_size`, `region_custom`). Besides driving order, group membership
-is read by
-`Plugin/ComponentShape/ChildrenShapeBase::childHasOwnValueProvider()` — literally "does this child
-shape have an enabled `providers`-group instance". If it does, the parent **refuses to push its
-value down** into that child. Mislabelling a non-sourcing plugin as `providers` therefore makes
-nested props of that type silently render the schema `examples` instead of authored content, in
-components that have nothing to do with the new plugin.
-
-The `default` plugin ("Default" in the UI) is `group: 'fallback', weight: 1000` — terminal, never
-claims, and its `provideDefaultValue()` treats a value still equal to the seeded schema example as
-*untouched*, so a builder's configured default supersedes the component author's placeholder but not
-a real provider value.
-
-`tests/src/Kernel/ValueGroupTaxonomyTest` pins the complete `id => group` map with `assertSame`, so
-adding or removing any ComponentValue plugin means updating it in the same change.
-
-## Adding a ComponentValue plugin
-
-Class in `src/Plugin/ComponentValue/`, `#[ComponentValue]`, extends `ComponentValuePluginBase`.
-Attribute parameters (all of them): `id`, `label`, `description`, `group`, `inline`,
-`status_default`, `status_lock`, `prop_types`, `ref_types`, `entity_types`, `allow_on_default`,
-`weight`, `deriver`.
-
-- `prop_types` filters on `$shape->getType()` — the JSON-schema type (`string`, `integer`, `array`,
-  `object`…). `ref_types` filters on `$shape->getRef()` — the prop-def name (`heading`, `media`,
-  `link`…). `entity_types` accepts `*`, `node.*`, `node.article`. All three support a `!` prefix for
-  exclusion. Confusing the first two ships a plugin that never appears.
-- `weight` orders **within** the group — reason a modifier's weight against the shipped modifiers
-  rather than defaulting to 0, since a transform that must see the finished string sorts after the
-  ones that extend it. `inline: TRUE` surfaces the plugin inside another plugin's nested-field UI
-  (`ComponentShapePluginCollection::getInlineInstances()`), i.e. on a child prop of an array.
-- **A plugin that stores configuration must declare `neo_alchemist.neo_component_value.<id>` in
-  `config/schema/neo_alchemist.schema.yml`.** The `…neo_component_value.*` fallback is a keyless
-  `mapping`, so without an explicit entry every stored key is unschema'd. One entry covers both
-  storage paths — root props resolve `[%parent.id]`, the nested path `[%parent.plugin_id]`.
-- **The nested-field path never runs your form handlers.** Root prop settings go through
-  `validateConfigurationForm()`/`submitConfigurationForm()`; the inline path
-  (`ComponentValueChildrenMatchTrait::validateChildMatchConfigurationForm()`) writes raw form values
-  straight to config after only stamping `plugin_id`/status, so a `#type: number` posts a string and
-  violates a `type: integer` schema there. Put coercion in an `#element_validate` callback on the
-  element — and re-list the element's own default validator (e.g. `Number::validateNumber`), since
-  `#element_validate` replaces the element-info default rather than appending to it.
-- A **producer** additionally `implements ComponentValueProcessingModeInterface; use
-  ComponentValueProcessingModeTrait;`, merges `processingModeDefaultConfiguration()` into its
-  defaults, calls `buildProcessingModeForm()` in its form, then just returns a value (return the
-  incoming `$value` when it cannot act) — never call `claimValue()`/`stopFurtherProcessing()` by
-  hand, the vetoes `user_has_role` / `entity_has_value` being the deliberate exception. Override
-  `processingModeDefault()` to `MODE_BLOCK` when the prop's examples are scaffolding, as
-  `entity_query`, `menu`, `entity_reference` and `breadcrumb` do. A **modifier** implements
-  `modifyValue()` and/or `alterValue()`, never claims, and returns a value shape it cannot safely
-  handle unchanged rather than mangling it.
-- Lifecycle: `onAdd()`/`onUpdate()`/`onRemove()` fire from `Component::preSave()`/`preDelete()` via
-  the shape's `onPluginAdd()`/`onPluginRemove()`, and can own state outside config —
-  `MediaValue::onRemove()` deletes the `neo_config_file` entity behind a config-hosted image.
-  Discovery is cached: `drush cr`.
-
-## Plugin families, prop types, and what does not exist
-
-Five live families — **ComponentShape**, **ComponentValue**, **ComponentSlot**, **ComponentFilter**,
-**ComponentAccess** — each with a namespace under `src/Plugin/`, an attribute in `src/Attribute/`,
-and a `plugin.manager.neo_component_*` service. Slot, filter and access plugins are plain
-attribute-discovered classes; `#[ComponentSlot]` takes only `id`, `label`, `description`, `deriver`.
-
-A slot plugin needing a service uses `ContainerFactoryPluginInterface` with a `create()` reading
-`$configuration['component' | 'uuid' | 'settings']` into the base constructor, plus
-`DependencySerializationTrait`. For the entity type manager the family already ships
-`Plugin/ComponentSlot/EntityManagerDependentSlotTrait` (used by `BlockSlot`) doing exactly that —
-reuse it rather than re-deriving the constructor.
-
-`src/Attribute/` also contains `ComponentStyle.php`, `ComponentValueProvider.php` and
-`ComponentValueModifier.php`. **These are inert** — no plugin manager, no plugin type, no
-`src/Plugin/` namespace, zero classes anywhere on the site carry them. Value plugins of every role,
-provider and modifier alike, use `#[ComponentValue]` with the right `group:`. Never cite or use the
-inert three.
-
-A prop `type:` is a **prop-def** (declarative — schema, `examples`, `twig`, `styles` — in a
-`*.neo_component_prop_defs.yml`) plus, usually, a **ComponentShape** PHP plugin keyed by the `prop`
-parameter of `#[ComponentShape]`; a pure prop-def with no PHP shape gets no shape plugin at all. The
-module's own prop-defs file declares 30 top-level types — check it before asserting a type does or
-does not exist. A prop value handed to Twig as an **object** must expose `get*()`/`has*()`/`is*()`
-accessors (the Twig sandbox permits no other method calls), implement `JsonSerializable` so SDC prop
-validation sees the wrapped data, and add `ArrayAccess` (`src/ViewsFilterTwig.php` is the shipped
-example, wrapped in **both** the shape's `preRenderValue()` and the provider's `modifyValue()`).
-
-Two landmarks, since services, routes, submodule remits and the seven alter hooks are already
-documented in `ARCHITECTURE.md` and `neo_alchemist.api.php`: component trees embed in entities
-through field type `neo_component_tree` (`ComponentTreeItem`, with
-`src/Plugin/Field/NeoComponentTreeList.php`, widget and formatter alongside); and in `src/Form/`
-services are injected as **non-promoted `protected`** properties, because forms are serialized into
-the form cache and `DependencySerializationTrait::__sleep()` cannot see a `private` property declared
-in a subclass — so the whole service graph gets serialized with the form. Controllers, never
-serialized, may use promoted `private readonly`.
-
-## How slot output actually reaches the DOM
-
-`Component::toRenderable()` builds `#slots` as
-`array_filter(array_map(fn($slot) => $slot->toRenderable(), $slots))`. Core then generates, per
-surviving key, `{% block <slot> %}{{ <slot> }}{% endblock %}` inside an `{% embed %}` of the
-component template (`ComponentElement::generateComponentTemplate()`). Two consequences:
-
-- **There is no wrapper element around a slot.** The value is printed by `{{ }}`, so an
-  `#attributes` key added at the `#slots` line has nothing to consume it. Marking slot output in the
-  DOM means `#prefix`/`#suffix`, or giving the value a `#type`/`#theme` that emits an element.
-- **An empty slot must keep returning `[]`.** That is what `array_filter` drops, which is what stops
-  core emitting a `{% block %}` override, which is what lets the component's own
-  `{% block name %}…{% endblock %}` fallback render. Anything truthy applied *before* emptiness is
-  decided makes every unfilled slot on the site look filled and kills its fallback. An individual
-  slot *plugin* with nothing to contribute returns falsy — `ComponentSlotPluginBase::toRenderable()`
-  returns `NULL` — and `ComponentSlot::toRenderable()` `array_filter`s the children before deciding
-  the slot is empty.
-
-Slot-level output work therefore belongs **below the empty early-return**, inside `ComponentSlot`.
-`annotateSlot()` already sits exactly there on both return paths, already gated on
-`templateLocator->isDevMode()` and already composing with any existing affix via
-`Markup::create($open . self::filterExisting(...))` — load bearing, because `Renderer::doRender()`
-runs affixes through `Xss::filterAdmin()` (which strips HTML comments) and `filterExisting()`
-re-applies exactly that filtering so wrapping cannot widen it. Reuse that gate and that composition
-rather than inventing a parallel one.
-
-## Preview is not live
-
-`neo_alchemist.preview_builder` → `ComponentPreviewBuilder::build(string $component, bool $preview = TRUE)`
-creates a **fresh unsaved** `neo_component` from the SDC definition; it never loads the saved
-component, so nothing a builder configured there runs. `drush neo:alchemist:render` always renders
-that transient entity — `--live` only flips `$preview` (and the injected `neoIsPreview` prop), it
-does not switch to the saved component's configuration. What *does* run there is shape-level
-`default_plugins`, so props whose shape declares one (`breadcrumb`, `image`, `media`, `markup`,
-`scheme`, `file`, local and remote video) still resolve through that provider — say that, rather
-than "nothing resolves on the CLI".
-
-So provider-driven output (menu, media, entity field, views…) can only be verified on a real page.
-Never present a preview or CLI render as evidence about a live page or vice versa; when the symptom
-is "works in one, not the other", explain which plugins execute in each.
-
-`Component::toRenderable()` also has a preview-only branch: when required props are still unsatisfied
-after `getPreviewPlaceholder()` had its chance, the SDC build is replaced by a notice naming the
-missing props rather than failing SDC's schema assertion. Live renders are untouched — extend this
-rather than adding a second such notice.
-
-## Designing something shared, inherited or reusable across components
-
-"Define it once, attach it in N places" recurs. The constraint is the **write** side, and it is the
-first question, not the last:
-
-- `settings.props` is a **resolved snapshot**. `Component::preSave()` calls `setPropShapeSettings()`
-  for every unchanged root shape on **every** save (rebuilding all of them from scratch when the
-  generated expression changed), and saves happen without a human —
-  `ComponentPluginManager::getDefinitions()` re-saves a component whose expression drifted, so a
-  cache rebuild is a save. An overlay resolved at read time (`getValueCollection()`, `getPlugins()`)
-  and not *also* excluded at `setPropShapeSettings()` is therefore **baked into all N components'
-  stored config on the next `drush cr`**, after which nothing is shared.
-  `tests/src/Kernel/ComponentSaveIdempotenceTest` pins that a load/save round-trip is byte-identical,
-  and is the natural place to pin that a preset is *not* written.
-- Two seams look better than they are. A "bundle" plugin occupying one instance slot **cannot
-  control cross-group execution order** (one plugin sits in one group) and is invisible to
-  `childHasOwnValueProvider()`. And giving the prop a new `type`/`ref` that carries the plugins
-  changes the generated expression, discarding stored settings for **every** prop on that component
-  and firing the departing shape's `onRemove()`.
-- A `#[ComponentShape]`'s **`default_plugins`** is the nearest existing layer, and the only one with
-  a live route: on shapes a builder cannot configure (`!allowConfigurablePlugins()` — non-expanded
-  children, an expanded root's children) they attach in `init()` on every build and
-  `setPropShapeSettings()` skips exactly those shapes, so they are resolved live and **never written
-  into config**. On root props and expanded *iterable* roots they attach in `onAdd()`/`onUpdate()`
-  during `preSave()` and **are** written into `settings.props` — and since `addPlugin()` no-ops only
-  when the instance is already active, an entry a builder disabled comes back on the next save. But
-  it is keyed by prop *type*, not by a name a builder attaches — usually the gap between it and what
-  was asked. Name the gap.
-
-The honest answer is sometimes that the module has no representation of *unresolved* prop
-configuration: everything a component stores is already resolved. Saying so, with what it would take
-to add one, beats bolting a mechanism onto a snapshot.
-
-## Things that silently destroy authored config
-
-- **The `settings.props` rebuild** above — triggered by a prop added/removed, a prop's `ref` changed,
-  or aggregate mode toggled, and regenerated from the live SDC on a save nobody initiated, so a flag
-  hand-placed in raw config can be wiped by a `drush cr`. Say up front what a diverged component loses.
-- **A new component entity's id is re-derived on first save** — `Component::save()` replaces it with
-  `getUniqueId()`, so a second component on the same SDC becomes `<sdc>_2`. Read `$component->id()`
-  back; writing `getEditable('neo_alchemist.neo_component.<assumed id>')` mints an id-less config
-  object and the next `load()` dies with `EntityMalformedException`.
-- **Field modes must keep their meaning** (`Plugin/Field/NeoComponentTreeList`,
-  `Entity/ComponentFieldConfig`): `allow_custom` off = **locked** (the field's default layout always
-  wins); on = **custom** (a saved entity tree replaces the default wholesale, so those entities stop
-  tracking the default); off **plus** an instance placed in the stored default layout whose component
-  enables the `settings`-group `region_custom` plugin on a `region` prop = **hybrid**. `isHybrid()`
-  is `!allowCustom() && hasCustomRegions()`, and `getCustomRegions()` also needs a stored default
-  layout — enabling `region_custom` alone changes nothing. Hybrid entities store only the flagged
-  subtrees, merged on load and stripped on save: everything outside a flagged region keeps inheriting
-  the default on every load, while a region an editor has saved is frozen at what they saved.
-  Inherited instances are locked server-side by `ComponentInstanceBase::checkHybridAccess()`. Never
-  convert one mode into another as a side effect, and never strand stored subtrees.
-- **Aggregate mode** wraps the whole prop schema in one synthetic `object` prop named `_aggregate`,
-  unwrapped before SDC sees it, toggled at `/admin/config/neo/alchemist/{neo_component}/aggregate`.
-  It is not a real schema property, hence the special case in `Access/ComponentPropAccessCheck`, and
-  toggling it changes the expression, discarding prop settings in both directions.
-
-## Tests that can actually fail
-
-`tests/src/{Unit,Kernel}`, fixture module `tests/modules/neo_alchemist_test/`; `TESTING.md` is the
-full guide. The site's `phpunit.xml` declares one suite pointing at this module's `tests/src`, so a
-bare run is already scoped here. Making a pin non-vacuous is most of the value:
-
-- **Assert the premise in the same test.** If it asserts an unfilled slot is absent from `#slots`,
-  also assert the filled one is present; if it depends on dev mode, assert the gate reads open. A
-  broken fixture must fail loudly, not pass by producing nothing.
-- **Name the mutation it is meant to catch** — the specific wrong-but-plausible placement, not
-  "remove the fix" — and confirm the fixture actually reaches the branch that mutation changes. A
-  fixture that never produces an empty value cannot pin empty-value behavior whatever it asserts.
-- **Build fixtures through the production API** (`Component::create()->save()`, `addPlugin()`,
-  `setSlotSettings()`, `setPropShapeSettings()`) where you can. A raw `getEditable()` write skips
-  `preSave()`'s regeneration and can pin a config shape the module never produces.
-- **Shape state is memoised per object** — a test comparing two resolutions must `resetCache()` and
-  re-`load()`, not reuse one instance.
-
-Setup and conventions:
-
-- Kernel baseline is `['system', 'user', 'neo_settings', 'neo_alchemist']`. **`neo_settings` is
-  mandatory and must be listed explicitly** — `neo_alchemist.settings` declares
-  `parent: neo_settings.repository`, yet `neo_settings` is not a declared dependency of
-  `neo_alchemist` (it arrives transitively through `neo`) and `enableModules()` does not resolve
-  declared dependencies anyway. `field` is *not* needed; never add
-  `neo_build`/`neo_color` speculatively (`@?neo_build` is optional precisely so the container
-  compiles without it).
-- PHPUnit **attributes** (`#[Group('neo_alchemist')]`, `#[DataProvider]`), never doc-comment
-  `@group`; **named helper classes, never anonymous classes** (and never run `phpcbf` over a file
-  containing one — it inserts malformed docblocks). Extend the shared bases where they exist
-  (`HybridFieldKernelTestBase`, `FieldMatchKernelTestBase`).
-- Create `neo_component` entities in `setUp()`, not `config/install`: `save()` regenerates
-  `expression`/`schema` from the live SDC, so checked-in config drifts. `description` is a
-  non-nullable string with no SDC default. To exercise an authored value with no host entity, use a
-  config-scope `Component` with `setPreview(TRUE)` + `setPreviewValues()` — copy the exact shape from
-  an existing Kernel test rather than reconstructing it.
-- Dev-mode-gated behavior: `ComponentSlotTemplateLocator::isDevMode()` is `neo_build`'s dev mode
-  **or** `config_split.config_split.dev`'s `status` read through the config factory, so
-  `$GLOBALS['config']['config_split.config_split.dev']['status'] = TRUE` switches it on without
-  installing `config_split`.
-
-## Environment and verification
-
-- The site runs in **DDEV**: `ddev drush …`, `ddev phpunit …`, `ddev exec "<cmd>"`. A host
-  `drush`/`php` proves nothing about the site.
-- Edit the copy the site loads: `web/modules/contrib/neo_alchemist/`. A separate canonical checkout
-  exists at `~/Projects/neo_alchemist`; editing there changes nothing on the site.
-- The site copy is an extracted composer package: `composer require/install/update` re-extracts it
-  and **deletes uncommitted work under it**. Run composer before starting, or after handing off.
-- `drush cr` after any plugin/attribute/service/prop-def/schema change — discovery is cached.
-- If you cannot execute (no shell, no containers), say exactly what you could not run and give the
-  command, once, plainly. Do not describe unrun tests as verified.
-
-The Drush surface is complete at six commands on `NeoAlchemistCommands`; cite no others.
-`neo:alchemist:render <id> [--live] [--scheme=<id>] [--html]` · `neo:alchemist:validate <id>` ·
-`neo:alchemist:slot <neo_component id> [<slot>]` · `neo:alchemist:shapes [name]` ·
-`neo:alchemist:components [--theme]` · `neo:alchemist:info <id>`. Generators live in
-`src/Drush/Generators/`; new commands are methods with `#[CLI\Command]`, injected via
-`#[Autowire(service: '…')]`.
-
-Deliver the smallest change that fully satisfies the request, then stop. Touch the module's
-`ARCHITECTURE.md`/`TESTING.md`/`CHANGELOG.md` when a change alters what they document, not as a
-matter of course.
+# Developing the neo_alchemist module
+
+This skill is for working on **neo_alchemist's own code**. If you're building a
+component in a theme (`web/themes/*/components/*`), stop — that's the **neo-component**
+skill.
+
+> **Authoritative deep reference:** [web/modules/contrib/neo_alchemist/ARCHITECTURE.md](web/modules/contrib/neo_alchemist/ARCHITECTURE.md)
+> covers the entity, plugin systems, render pipeline, services, routing, and every
+> extension point in full. Read it before non-trivial work. This skill is the fast map.
+
+## Mental model
+
+Alchemist is a thin layer over **Drupal SDC**. A **`neo_component` config entity**
+([src/Entity/Component.php](web/modules/contrib/neo_alchemist/src/Entity/Component.php))
+wraps an SDC that declares `neo: true` and stores the editor config (props, slots,
+filters, access, values) layered on top. `Component::toRenderable()` turns it into a
+`#type: component` render array (`#component` / `#props` / `#slots`), adding the
+`neoId` / `neoUuid` / `neoIsPreview` props. Two worlds share the entity: **saved**
+components and **transient previews** built from the SDC's `examples` via
+`neo_alchemist.preview_builder` (`ComponentPreviewBuilder::build($id, $preview)`).
+
+## Where things live (`src/`)
+
+| Area | Location / service |
+|---|---|
+| Config entity | `src/Entity/Component.php` (type `neo_component`) |
+| Prop shapes | `src/Plugin/ComponentShape/` + base `src/ComponentShapePluginBase.php` + `#[ComponentShape]` (`src/Attribute/`) → `plugin.manager.neo_component_shape` |
+| Prop-defs (declarative) | `neo_alchemist.neo_component_prop_defs.yml` → `plugin.manager.neo_component_prop_def` |
+| Slots / Filters / Access / Value | `src/Plugin/Component{Slot,Filter,Access,Value}/` → matching `plugin.manager.neo_component_*` |
+| Field embedding | `src/Plugin/Field/FieldType/ComponentTreeItem` (field type) + `src/Plugin/Field/NeoComponentTreeList` (list class: mode resolution, hybrid merge/strip) + `src/Plugin/Field/{FieldWidget/ComponentTreeWidget,FieldFormatter/ComponentTreeFormatter}` |
+| Render | `src/Render/ComponentPageRenderer.php` (`neo_component_page_renderer`) |
+| Preview | `src/ComponentPreviewBuilder.php`, `src/Controller/SdcPreviewController.php` |
+| SDC thumbnails | `src/SdcThumbnailWriter.php` (`neo_alchemist.sdc_thumbnail_writer`) + `src/Controller/SdcThumbnailCaptureController.php` — writes `thumbnail.png` into the component dir; gated on (`NeoBuild::isDevMode()` **or** the `config_split.config_split.dev` status override) + `is_writable()`. Both signals are soft: `@?neo_build` is an **optional** service reference (neo_alchemist does not declare neo_build, so a hard `@neo_build` breaks container compilation in every Kernel test), and the split is read through the config factory so an absent config_split simply reads as FALSE. |
+| Drush | `src/Drush/Commands/NeoAlchemistCommands.php`, `src/Drush/Generators/` |
+| Services | `neo_alchemist.services.yml` |
+| Submodules | `modules/` — `neo_alchemist_block` (config-entity trees as blocks), `neo_alchemist_menu` (mega menu component-region items — see the **neo-alchemist-menu** skill), `neo_alchemist_taxonomy` (per-hierarchy-level term layouts via a `level` third-party setting on tree fields), `neo_alchemist_examples`, `neo_alchemist_library` |
+
+## The shape system (the main extension surface)
+
+A prop `type:` in a `.component.yml` (`heading`, `image`, `scheme`, …) is backed by a
+**prop-def** (declarative: schema + `examples` + `twig` in `*.neo_component_prop_defs.yml`)
+and usually a **ComponentShape plugin** (PHP: value coercion, field type/widget defaults,
+render transform). Resolution (`ComponentPluginManager::alterProp()` →
+`ComponentShapePluginManager::getInstance()`): the prop-def sets `ref: <type>` and merges
+its schema over the author's prop, **transitively** (`containment` → `style` → `string`);
+then the shape plugin whose id equals `ref` is instantiated, else the plugin for the
+resolved JSON type. Consequences: a pure prop-def with no PHP works (`menu`,
+`views_summary`, every style prop-def); a shape plugin with no prop-def is a raw JSON type
+(`string`, `integer`, `number`, `boolean`, `array`, `object`); an unknown `type:` is
+logged and downgraded to `string`, never a fatal.
+
+`#[ComponentShape]` fields: `prop` (the id — what authors write as `type:`), `label`,
+`default_field_type` / `default_field_widget` (+ `*_with_options` variants used when the
+prop declares an `enum`), `default_plugins` (ComponentValue ids auto-attached — e.g.
+`formatted_text` on markup, `media` on the media shapes, `breadcrumb`, `widget` on
+scheme), `supports_field_types` / `supports_field_props` (entity-field matching — compared
+by **plugin id**, so `timestamp` must be listed even though it subclasses integer),
+`formats` (alternate field/widget configs selected with `format:` on the prop),
+`provider`, `deriver`. Canonical example: `StringShape`. The load-bearing bases:
+`ChildrenShapeBase` (object/array child machinery + `childHasOwnValueProvider()`),
+`StructuredObjectShapeBase` (link), `MediaShapeBase` (media/image/file/videos —
+`theme://` / `component://` src resolution; previews borrow the newest published media),
+`StyleShapeBase`/`StyleShape` (option map → `ComponentShapeStyleAttribute`, whose
+`getValue()` is the option **key**), `UrlShapeBase` + `UrlShapeTrait` (url/link). Naming
+traps: `ImageSize.php` **is** a shape plugin (`prop: 'image_size'`, a style shape whose
+option values are dynamic-style arrays) despite lacking the `*Shape` suffix; there is
+**no** `MenuShape` — `menu` is a prop-def filled by the `MenuValue` value plugin. Full
+field reference: ARCHITECTURE.md §"Prop-def + ComponentShape system".
+
+## The other four families — inventories and contracts
+
+All are attribute-discovered classes in `src/Plugin/Component{Value,Slot,Filter,Access}/`.
+⚠ A plugin **id must equal its group or be prefixed `group:sub`** (attribute docblock — a
+discovery quirk, not a convention). `src/Attribute/` also holds `ComponentStyle`,
+`ComponentValueProvider` and `ComponentValueModifier`: **inert** — no manager, no plugin
+type, zero users anywhere. Never cite or use them; value plugins of every role use
+`#[ComponentValue]` with the right `group:`.
+
+### ComponentValue (39 production plugins)
+
+| group | ids |
+|---|---|
+| `providers` | `entity` · `entity_reference` · `entity_query` · `entity_load` · `entity_filter` · `views` · `views_exposed_filter` · `views_active_filters` · `views_summary` · `menu` · `breadcrumb` · `page_title` · `heading` · `media` · `share` · `read_time` · `event` · `entity_has_value` · `user_has_role` — plus neo_alchemist_taxonomy's `taxonomy_children`/`taxonomy_siblings`/`taxonomy_menu` and neo_site_settings' `site_settings`/`site_settings_field`/`site_settings_links`/`site_settings_fallback_media` |
+| `fallback` | `default` (weight 1000 — terminal by construction, never claims) |
+| `modifiers` | `prefix` · `suffix` · `token` · `date` · `number` · `link_title` · `link_uri` · `formatted_text` · `media_image_size` |
+| `settings` | `widget` · `region_size` · `region_custom` |
+
+`ValueGroupTaxonomyTest` pins the full `id => group` map with `assertSame` — adding,
+removing or re-grouping any plugin means updating it in the same change.
+
+Attribute targeting: **`prop_types` filters on the JSON type** (`$shape->getType()`),
+**`ref_types` on the prop-def name** (`$shape->getRef()` — `heading`, `media`, `link`…),
+`entity_types` on the target entity (`*`, `node.*`, `node.article`); all three take a `!`
+prefix for exclusion, and confusing the first two ships a plugin that never appears.
+`inline: TRUE` surfaces the plugin on *child* props inside a provider's "Shape Fields" UI;
+`allow_on_default` offers it on non-entity-bound shapes; `status_default`/`status_lock`
+pre-enable/freeze it. The vetoes (`entity_has_value`, `user_has_role`) are the only
+plugins allowed to call `claimValue()` by hand.
+
+Mechanics the "Where to add X" bullet doesn't cover:
+
+- **Modes** (`processing_mode`): `stop_when_found` claims on non-empty; `continue` never
+  claims (a later provider can overwrite); `block` claims unconditionally — including on
+  empty, which also starves `default` (never pair `block` with a configured Default
+  Value). `applyProcessingMode()` has exactly **one** call site — the provider search in
+  `getDefaultValue()`; it governs neither `modifyValue()` nor either `alterValue()` pass.
+- **Emptiness is `isProvidedValueEmpty()`, not `empty()`**: scalars are empty only when
+  `NULL`/`''` (`0`, `'0'`, `FALSE` are values); arrays discount the `size` key that
+  `media_image_size` seeds.
+- After the provider search: a field default can override the result, `alterValue($value,
+  'default')` runs on a **fresh** instance list (a claim can't truncate it), and a
+  required-but-empty result reverts to the schema-example seed so SDC never sees a
+  missing required prop.
+- `default` fills only when the value is *the untouched schema example* or empty — a
+  builder's default supersedes the author's placeholder but never a provider's value.
+- `provideOverrideValue()` carries authored content; **no shipped plugin implements it**,
+  and `ComponentValueProcessingModeScopeTest` fails if one appears.
+- A plugin that stores configuration must declare
+  `neo_alchemist.neo_component_value.<id>` in `config/schema/neo_alchemist.schema.yml`
+  (the `.*` fallback is a keyless mapping — every stored key is unschema'd without an
+  entry). The nested/inline path never runs your validate/submit handlers — coerce in an
+  `#element_validate` on the element, re-listing the element's default validator
+  (`#element_validate` replaces, not appends).
+- Lifecycle: `onShapeInit()` (field type / widget / sizes setup) at shape init;
+  `onAdd()/onUpdate()/onRemove()` fire from `Component::preSave()/preDelete()` —
+  `MediaValue::onRemove()` deletes the `neo_config_file` behind a config-hosted image.
+
+### ComponentSlot (12 plugins)
+
+`block` · `block_plugin` · `entity` · `entity_display` · `entity_field` ·
+`entity_query_pager` · `form` · `product_variation_field` · `views` · `views_header` ·
+`views_pager` · `views_exposed_filters`. Stored as
+`settings.slots.<slot>.plugins.<uuid> = {plugin, key?, settings}`. Availability is
+PHP-side only (the info.yml declares none of views/block/commerce): static
+`isApplicable(ComponentInterface)` gates `entity_display`/`entity_field` (needs a target
+entity type), `entity_query_pager` (`hasPropShapeWithPlugin('entity_query')`), the
+`ViewsSlotBase` three (`hasPropShapeWithPlugin('views')` — they consume the executed-view
+context the `views` **value** provider registers, via `getPropShapeContexts('views')`),
+and `product_variation_field` (`commerce_product` target; the class simply fails to load
+without commerce). Cacheability trap: `getCacheableMetadata()` returns the component's
+**shared** metadata object — always `mergeCacheMaxAge()`, never set (a permissive view
+would raise a max-age someone else lowered to 0), and call
+`addViewAsCacheableDependency()` once per render, not per item (it walks Search API
+results on every call).
+
+### ComponentFilter (typed per-placement parameters, not visibility)
+
+`string` · `number` · `entity` · `options:<set>` (one derivative per set declared in a
+`MODULE.neo_component_filter_options.yml` — schema `<set id>: {title, options: {key:
+label}}`; no sets ship enabled on purpose, so the family is empty until a module declares
+one). A filter is
+`settings.filters.<uuid>` = title/description/plugin/default value/`editable`/`required`;
+per-instance overrides land via `Component::getFilters()` → `setOverrideValue()`, and
+consumers read `getProcessedValue()` (= `$plugin->getValue($override ?? $default)`).
+Values persist as **strings** — `entity` multi-values join with `,`/`+` (the Views
+argument convention) and `EntityFilter` keeps its preview entity in **state**
+(`neo_alchemist.<id>.filter.<uuid>.preview_entity`), not config. Consumers: `ViewsSlot`
+contextual args, `FormSlot` args, `EntitySlot` dynamic pick, `EntityFilterValue`, and
+`EntityQueryValue`'s `length_filter`.
+
+### ComponentAccess (deny-only)
+
+`role` · `permission` · `protected` · `prop_value` · `entity_field_value`. Stored as
+`settings.access.<uuid> = {plugin_id, plugin_settings}`. `Component::checkAccess($op)`
+iterates instances and short-circuits on the **first forbidden**, else neutral — plugins
+can deny, never grant. Ops: `view` (frontend render — captured in `ComponentTreeHydrated`
+and `RegionShape`), `update` / `create` (backend management). Admin bypass is
+`administer neo_alchemist` + `$plugin->bypassAdminAccess($op)`; `prop_value` returns
+FALSE for `view` **on purpose** (an empty component hides for admins too), resolves the
+whole value pipeline to test the props, and attaches `$component->getCacheableMetadata()`
+so provider list tags invalidate the decision. Cacheability of consulted plugins is
+folded manually because core's neutral∧neutral `orIf()` drops the second operand's
+cacheability. Access plugins support static `isApplicable(ComponentInterface)` like
+slots (`getFilteredDefinitionsFromComponent()` filters the Add Access picker) —
+`entity_field_value` uses it to appear only on entity-bound components; a saved rule
+whose plugin later turns non-applicable still executes, so plugins must degrade to
+neutral in that case. `entity_field_value` is the whole-component counterpart of the
+`entity_has_value` value veto: forbids `view` unless every selected target-entity field
+is non-empty (neutral on new/placeholder entities so builder previews stay visible;
+admins do NOT bypass, mirroring `prop_value`). ⚠ Field emptiness anywhere in the module
+is `FieldItemList::isEmpty()`, never truthiness of `getValue()` — an empty
+text-with-format field returns a phantom `[{value: NULL, format: NULL}]` item that
+reads as "has a value" (`entity_has_value` had exactly this bug).
+
+## Aggregate mode (`aggregate: TRUE`)
+
+A `neo_component` can wrap its **whole** props schema in one synthetic object prop named
+**`_aggregate`** (`Component::getAggregateSchema()`; toggled by `ComponentAggregateForm`
+at `/admin/config/neo/alchemist/{id}/aggregate`). It exists so a listing component whose
+every prop comes from the same iterated entity can be bound by **one** children-match
+provider instead of the same provider configured on eight props.
+
+Consequences you will trip over while debugging:
+
+- `getPropShapes()` returns exactly one shape (`_aggregate`, an `ObjectShape`); the real
+  props are its **children**, configured through the children-match "Shape Fields" UI.
+- `settings.props` has a single `_aggregate` key. Per-prop keys are not written —
+  `setPropShapeSettings()` refuses any other shape while aggregating.
+- The prop route is `/prop/_aggregate`. `_aggregate` is **not** in
+  `getComponentSchema()['properties']`, which is why `ComponentPropAccessCheck`
+  special-cases the name.
+- SDC is unaffected: `getPropValues()` unwraps `$values['_aggregate']`, so the component
+  still receives the flat prop set it declared.
+- It is the **only** way an `array` prop is reached as a *child* rather than a root — so
+  aggregate components are where children-match list-vs-map bugs surface first.
+
+> ⚠ Toggling the flag **discards prop value settings in both directions** (the prop set
+> changes → the expression changes → `preSave()` takes its `setSetting('props', [])`
+> rebuild branch). No merge, no undo. Pinned by `AggregateModeTest`.
+
+## Tree fields: locked / custom / hybrid
+
+A `neo_component_tree` field resolves what renders in
+[src/Plugin/Field/NeoComponentTreeList.php](web/modules/contrib/neo_alchemist/src/Plugin/Field/NeoComponentTreeList.php)
+from the **field default layout** (the `defaults` field setting, edited via Field-UI
+Alchemist in config scope) and the per-entity stored value:
+
+- `allow_custom` off — **locked**: the default always renders; entity values are ignored.
+- `allow_custom` on — **custom**: a saved entity tree replaces the default wholesale
+  (all-or-nothing; site builders lose control after the first entity save).
+- `allow_custom` off + a region prop with the **`region_custom`** value plugin enabled
+  (`src/Plugin/ComponentValue/RegionCustomValue.php`, no settings — enabled = flagged) —
+  **hybrid**: creators manage only the flagged regions' content per entity; the default
+  stays authoritative for structure, so header/footer changes propagate to existing
+  entities. Entities store just the region subtrees: merge-on-load / strip-on-save in
+  `NeoComponentTreeList::setValue()/preSave()/postSave()`, anchors from
+  `ComponentFieldConfig::getCustomRegions()/isHybrid()`, inherited instances locked
+  server-side in `ComponentInstanceBase::checkHybridAccess()` ("Inherited layout"
+  badge). Semantics (seed copy-on-write, explicitly-empty slots, orphan preservation) →
+  ARCHITECTURE.md §"Field modes: locked, custom, hybrid".
+
+## Where to add X
+
+- **ComponentShape** → `src/Plugin/ComponentShape/MyShape.php` with `#[ComponentShape(prop:'my_type', …)]` extends `ComponentShapePluginBase`; implement `preRenderValue()` (+ optional `getGenerationExamples()`/`onGenerateTwig()`); add a `my_type:` entry to `neo_alchemist.neo_component_prop_defs.yml`; `drush cr`.
+- **Pure prop-def** (no PHP) → add an entry to any `*.neo_component_prop_defs.yml`.
+- **Slot / Filter / Access plugin** → class in `src/Plugin/Component*/` with the matching `#[Component*]` attribute; auto-discovered.
+- **Exposed filter as data** → `views_filter` prop def + `ViewsExposedFilterValue`, and `views_active_filters` + `ViewsActiveFiltersValue` (removable chips), both extending `ViewsExposedFilterValueBase` (`src/Plugin/ComponentValue/` — shared context read, config-time filter listing, request URL builder, option normalization). At render each prop value is a helper object (`src/ViewsFilterTwig.php` / `src/ViewsActiveFiltersTwig.php`): ArrayAccess for data + `get*()` attribute methods (the Twig sandbox only allows get/has/is-prefixed method calls on objects — same constraint as SwiperTwig). The objects are `JsonSerializable` so SDC prop validation sees the wrapped data — core's class-typed-prop support is unusable with mixed `[object, FQCN]` types (it nullifies the value but keeps `object` required). Wrapping happens in BOTH the shape (`ViewsFilterShape`/`ViewsActiveFiltersShape` `preRenderValue()` — covers example/preview data) and the provider's `modifyValue()` (covers resolved data; preRender runs before modify). **Resolves in `modifyValue()`, never `provideDefaultValue()`** — defaults run at shape init inside `loadPropShapes()`, where the views provider hasn't executed its view yet AND where forcing a shape build recurses fatally; the modify stage runs during each prop's render-value build, in schema order, so a views_filter prop declared after the views-bound prop sees the registered context. It reads that context with `getPropShapeContexts('views', FALSE)` (the non-forcing `$build` param exists precisely for in-pipeline callers) and returns `[]` live / keeps examples in preview when unresolvable. Options come from `$view->exposed_widgets[<identifier>]['#options']` — **unwrapping the `(object) ['option' => [id => label]]` entries hierarchical taxonomy selects use** — with handler `getValueOptions()` as fallback; hierarchy/clean labels from `loadTree($vid)`; URLs hand-built from the raw request (route-free so headless renders degrade to NULL urls instead of throwing). Interaction style (links vs form, auto-submit or Apply) is deliberately NOT config — it is the template's hardcoded design decision. AJAX swapping is the `neo_alchemist/swap` library (`src/js/neo-swap.ts`, front scope): one document-level delegated click/submit listener (bound via `once` on html, so it survives swaps); same-origin same-path URLs inside a `[data-neo-swap][data-neo-uuid]` boundary are fetched and the matching subtree swapped (`detachBehaviors` → `replaceWith` → `attachBehaviors`; Alpine self-heals via its observer); pushState/popstate for history; ANY pipeline failure falls back to `location.assign` — but post-swap decoration (focus restore, aria-live announce, scroll) is isolated in its own try/catch so a cosmetic error can never trigger the navigation fallback (focus restore also excludes `[type="hidden"]`: sibling mini-forms carry same-named hidden inputs). Related hardening: `ArrayShape::buildValue()` skips scalar deltas (an `items: {type: string}` array used to fatal on `unset($values[$delta][$name])`), and `neo:alchemist:validate` lints views_filter prop ordering.
+- **Slot render keys / slot templates** → all in `ComponentSlot`. `getKeys()` resolves each plugin's Twig key (configured `key`, else plugin id, `_2`/`_3` on collision, seeded against `RESERVED_KEYS`); `toRenderable()` keys children by it, then wraps them in an `inline_template` when `neo_alchemist.slot_template_locator` finds `slots/<slot>.twig` in the component directory. `prepareChild()` prepends the `<base hook>__<component>__<slot>__<key>` theme suggestions that let a component override one item's internals, and adds the dev-mode HTML annotation. **`toRenderable()` must keep returning `[]` for an empty slot** — `Component::toRenderable()` filters empty slots out so core emits no `{% block %}`, which is what preserves a component's own fallback content. `getItemInfo()` is the single source of truth behind `drush neo:alchemist:slot`.
+- **ComponentValue plugin** → `src/Plugin/ComponentValue/*` + `#[ComponentValue]`. **Pick `group:` by role — it is a behavioral contract other code queries, not a form tab**: `providers` = sources a value, `fallback` = fills an empty one (`default`), `modifiers` = transforms an existing one (`prefix`, `token`, `formatted_text`), `settings` = never touches the value, just configures the prop (`widget`, `region_size`, `region_custom`). Mislabelling a non-sourcing plugin as `providers` makes `ChildrenShapeBase::childHasOwnValueProvider()` block the parent's pushdown, so nested props of that type silently render the schema's `examples` instead of authored content. Group **is** the pipeline's primary sort key (`getValueCollection()`: group weight, then the saved drag-and-drop order within the group, then remaining plugins by weight/label) — this is what guarantees `default` runs after every provider — but it is never persisted, so re-grouping needs no update hook. A **producer** also `implements ComponentValueProcessingModeInterface; use ComponentValueProcessingModeTrait;`, appends `processingModeDefaultConfiguration()` to defaults, and calls `buildProcessingModeForm()` in its form — then just produces the value (return the incoming `$value` when it can't act). The pipeline claims per the site-builder **"Processing"** mode (stop-when-found / allow-changes / block-if-empty) + `isProvidedValueEmpty()`; **never call `stopFurtherProcessing()`/`claimValue()` yourself** (vetoes like `user_has_role` are the exception). **An empty return from a non-claiming producer does not overwrite the threaded value** — the pipeline seeds from the schema `examples`, so a producer whose source is empty leaves the component author's example standing rather than blanking the prop. If your producer fills a prop whose examples are scaffolding (lists, menus, trails, placeholder images) — or names a bound source that must not fall back to placeholders — override `processingModeDefault()` to `MODE_BLOCK` so empty means empty, as `entity`/`entity_query`/`menu`/`entity_reference`/`breadcrumb` do (`ComponentValueProcessingModeIntegrationTest` pins the set). A **modifier** implements `modifyValue()`/`alterValue()` and never claims. Full model → ARCHITECTURE.md "ComponentValue processing model".
+- **Per-item data on the `menu` value provider** (badges, mega menu regions, …) → implement `hook_neo_alchemist_menu_value_item_alter()` (documented in `neo_alchemist.api.php`); extra `$entry` keys flow through to twig, `$entry = NULL` drops an item, and cacheability goes through `$shape->addCacheableDependency()`.
+- **Drush command** → method on `NeoAlchemistCommands` with `#[CLI\Command]`; inject via `#[Autowire(service:'…')]` (`AutowireTrait`).
+
+## Introspect at runtime instead of reading plugins
+
+Prefer these over grepping the shape/definition code:
+`drush neo:alchemist:shapes [name]` · `neo:alchemist:info <id>` ·
+`neo:alchemist:components` · `neo:alchemist:validate <id>` ·
+`neo:alchemist:render <id> [--live] [--scheme=<id>] [--html]` ·
+`neo:alchemist:slot <neo_component id> [<slot>]` (per slot item: Twig key, theme hook,
+the template filename that overrides it, and that template's variables).
+(Icons/schemes live in their owning modules: `drush neo:icon:list`, `drush neo:color:schemes`.)
+
+## Tests
+
+> **Full guide:** [web/modules/contrib/neo_alchemist/TESTING.md](web/modules/contrib/neo_alchemist/TESTING.md)
+> — host-site setup, the fixture module, and how to write a Kernel test. Read it
+> before adding tests. This is the fast map.
+
+`ddev phpunit` runs everything; `tests/src/Unit` needs no database and runs in
+milliseconds; `--filter=<Class>` for one class.
+
+- **Kernel `$modules` is short.** `enableModules()` does *not* resolve declared
+  dependencies, so despite `neo_alchemist.info.yml`, this is the working baseline:
+  `['system','user','neo_settings','neo_alchemist']`. **`neo_settings` is
+  mandatory** — `neo_alchemist.settings` has `parent: neo_settings.repository`, and
+  `neo` ships no services file. The hard floor is just `neo_settings` +
+  `neo_alchemist`; `system`/`user` are conventional baseline.
+- **`field` is NOT needed**, despite every prop building a field item —
+  `plugin.manager.field.*` are declared in `core.services.yml`, not by the `field`
+  module. Add it only for real `FieldStorageConfig`/`FieldConfig` entities. Never add
+  `neo_build`/`neo_color` speculatively.
+- **Fixtures live in `tests/modules/neo_alchemist_test/`**, discovered because core's
+  SDC manager scans every enabled module's `components/` dir. It ships a
+  **dependency-free provider twin** (`TestProvidedShape` + `TestProviderValue`,
+  `group: 'providers'`) that reproduces the `childHasOwnValueProvider()` condition
+  without pulling in `media`/`file`/`image`.
+- **The fixture's only dependency is `neo_alchemist`, and it omits
+  `core_version_requirement` on purpose** — `package: Testing` is exempt, so it tracks
+  the running core rather than going silently core-incompatible (and undiscovered)
+  when the parent gains a new major. It depends on no core test modules either.
+- **Create `neo_component` entities in `setUp()`, not `config/install`** —
+  `Component::save()` regenerates `expression`/`schema` from the live SDC, so
+  checked-in config drifts. `description` is a non-nullable string and will not
+  default from the SDC definition.
+- **`Component::save()` re-derives a NEW entity's id** from its SDC id
+  (`getUniqueId()`), so the `'id' => …` you passed to `create()` is *not* the id it
+  lands on when something already owns that name — a second component on the same SDC
+  becomes `<sdc>_2`. Read `$component->id()` back before addressing its config. Writing
+  `getEditable('neo_alchemist.neo_component.<assumed id>')` instead mints a config
+  object with no `id` key, and the next `$storage->load()` dies with
+  `EntityMalformedException: The entity does not have an ID.` — which reads as storage
+  corruption, not as a wrong name.
+- **Authored values without a host entity:** a config-scope `Component` with
+  `setPreview(TRUE)` + `setPreviewValues(['props' => [<prop> => ['ref','value','options']]])`.
+  Child option keys are `<prop>~<child>~<delta>`; set `default => 0` so a missing
+  value resolves to nothing rather than silently falling back to the schema example.
+- **Shape state is memoised per object** — a test comparing two resolutions must
+  `resetCache()` and re-`load()`, not reuse one instance.
+- **Prove a regression test can fail.** Break the fix by hand, confirm red *with a
+  failure message about lost content*, restore, confirm green. For the delta suite,
+  `testWarmingDoesNotChangeResolvedValues` must also go red — if it stays green the
+  fixture never reached the cache-hit branch and the test is worthless.
+- Use PHPUnit **attributes** (`#[Group]`, `#[DataProvider]`), not `@group`.
+- **Never run `phpcbf` over files with anonymous classes** — it inserts malformed
+  docblocks. Extract to named helper classes instead.
+
+## Dev workflow gotchas
+
+- Edit the **running site contrib copy** (`web/modules/contrib/neo_alchemist/…`); the
+  source in `/Projects` is synced separately.
+- **Inject services into forms as `protected` non-promoted properties**, never
+  `private readonly`. Form objects are serialized into the form cache, and
+  `DependencySerializationTrait::__sleep()` swaps services for their IDs using
+  `get_object_vars($this)` from `FormBase`'s scope — which cannot see a private
+  property declared in your subclass. The service is then serialized whole,
+  dragging its object graph (a plugin manager pulls in its cache backend and
+  discovery) into every cached form. Controllers are not serialized, so
+  `private readonly` is fine there.
+- **Composer re-extracts the module.** Any `composer require`/`install`/`update`
+  deletes uncommitted work under `web/modules/contrib/neo_alchemist/` — sync to
+  `/Projects` first, and run composer *before* starting new work there.
+- Run **`drush cr`** after any plugin/attribute/service/prop-def change — discovery is cached.
+- Run **`drush neo:build <scope>`** (front and/or back) if you changed Tailwind-scanned output.
+- `neoIsPreview` is a prop set in `toRenderable()`; it's TRUE in the editor preview and in
+  `neo:alchemist:render` by default, FALSE under `--live`. The CLI render deliberately
+  avoids `renderBarePage` (page attachment hooks need an HTTP request/route).
+- **`neo:alchemist:render` always renders from the SDC `examples`** — even with `--live`,
+  which only flips `neoIsPreview`. The preview builder creates a **fresh unsaved**
+  `neo_component`, so nothing a site builder configured on the saved entity runs; verify
+  provider-driven output (menu, entity, views, …) by loading actual pages. What *does*
+  run there is shape-level `default_plugins` — props whose shape declares one
+  (breadcrumb, image, media, markup, scheme, file, local and remote video) still resolve
+  through that provider, so say that rather than "nothing resolves on the CLI".
+- Value-provider cacheability: dependencies added during `getPropValue()` (via
+  `$shape->addCacheableDependency()`) are merged into the component build **after** the
+  value is computed (`Component::getPropValues()`) — never merge shape metadata before
+  the providers have run, or their tags are silently lost.
