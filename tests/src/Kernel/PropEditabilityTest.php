@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Drupal\Tests\neo_alchemist\Kernel;
 
+use Drupal\Core\Form\FormState;
+use Drupal\Core\Render\Element;
 use Drupal\KernelTests\KernelTestBase;
 use Drupal\Tests\user\Traits\UserCreationTrait;
 use Drupal\neo_alchemist\ComponentInterface;
@@ -242,6 +244,74 @@ class PropEditabilityTest extends KernelTestBase {
     $this->assertNotEmpty($nested, 'Precondition: the fixture has nested shapes to check.');
     foreach ($nested as $id => $shape) {
       $this->assertTrue($shape->isLocked(), sprintf('Nested shape "%s" is locked.', $id));
+    }
+  }
+
+  /**
+   * Guarded does not reach nested shapes.
+   *
+   * The counterpart to testLockedLocksNestedShapes(), and the distinction the
+   * two modes rest on: "locked" is a live override that legitimately reaches
+   * everything, while "guarded" only supplies a construction default for a
+   * *prop* with no stored setting. A child shape is derived from its parent's
+   * schema, so it never has a stored setting and there is no UI that could
+   * give it one — it is not the thing the policy is about.
+   *
+   * Letting guarded reach them made every child of every object prop
+   * non-editable, and ObjectShape::form() emits only editable children, so the
+   * prop's form came back with no fields in it at all — in the instance editor
+   * and, more confusingly, in the config-scope Default value form, where a
+   * site builder authoring a default is not editing content and the mode has
+   * no business applying.
+   *
+   * @see \Drupal\neo_alchemist\ComponentShapePluginManager::getChildInstancesFromSchema()
+   */
+  public function testGuardedLeavesNestedShapesEditable(): void {
+    // Switch an existing component rather than creating one guarded: creating
+    // it guarded stores every prop non-editable, which would make the props
+    // themselves the reason no field appears and say nothing about children.
+    $component = $this->createComponent();
+    $component->setPropEditability(ComponentInterface::PROP_EDITABILITY_GUARDED)->save();
+    $component = $this->reload($component->id());
+
+    $box = $component->getPropShape('box');
+    $this->assertTrue($box->isEditable(), 'Precondition: the object prop itself carries a stored editable setting.');
+
+    $children = $box->getChildShapes();
+    $this->assertNotEmpty($children, 'Precondition: the object prop has children to check.');
+    foreach ($children as $name => $child) {
+      $this->assertFalse($child->isLocked(), sprintf('Child "%s" is not locked.', $name));
+      $this->assertTrue($child->isEditable(), sprintf('Child "%s" is editable.', $name));
+    }
+
+    // The symptom itself: the fields the children stand for reach the form.
+    $form = $box->getForm(['#parents' => ['values']], new FormState());
+    $this->assertSame(
+      ['text', 'flag', 'note', 'count'],
+      array_values(array_intersect(Element::children($form), array_keys($children))),
+      'Every child renders a field.',
+    );
+  }
+
+  /**
+   * A structured object's children are exempt from guarded too.
+   *
+   * LinkShape and friends build their children through a second call site
+   * (StructuredObjectShapeBase), so fixing only ObjectShape's would leave
+   * uri/title/target non-editable on the same components.
+   */
+  public function testGuardedLeavesStructuredObjectChildrenEditable(): void {
+    $component = $this->createComponent();
+    $component->setPropEditability(ComponentInterface::PROP_EDITABILITY_GUARDED)->save();
+    $component = $this->reload($component->id());
+
+    $link = $component->getPropShape('link');
+    $this->assertTrue($link->isEditable(), 'Precondition: the link prop itself carries a stored editable setting.');
+
+    $children = $link->getChildShapes();
+    $this->assertNotEmpty($children, 'Precondition: the link prop has structured children.');
+    foreach ($children as $name => $child) {
+      $this->assertTrue($child->isEditable(), sprintf('Structured child "%s" is editable.', $name));
     }
   }
 
