@@ -41,3 +41,19 @@ neo_alchemist.neo_component_value.taxonomy_children:
     processing_mode:
       type: string
       label: 'Processing mode'
+
+neo_alchemist.neo_component_value.taxonomy_siblings:
+  type: mapping
+  label: 'Sibling terms value provider'
+  mapping:
+    shape_fields:
+      type: neo_alchemist.neo_component_shape_fields
+    shape_published:
+      type: boolean
+      label: Shape published
+    exclude_self:
+      type: boolean
+      label: 'Exclude the current term'
+    processing_mode:
+      type: string
+      label: 'Processing mode'
