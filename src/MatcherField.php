@@ -388,27 +388,8 @@ final class MatcherField extends MatcherBase {
     bool $all = FALSE,
   ): array {
     $matches = [];
-    if ($entityTypeId) {
-      $entityType = $this->entityTypeManager->getDefinition($entityTypeId);
-      if (!$entityType->getKey('bundle')) {
-        $entityBundle = $entityTypeId;
-      }
-      $dataType = implode(':', array_filter([
-        'entity',
-        $entityTypeId,
-        $entityBundle,
-      ]));
-      $entityDataDefinition = EntityDataDefinition::createFromDataType($dataType);
-    }
-    elseif ($entityType = $shape->getTargetEntityType()) {
-      $dataType = implode(':', array_filter([
-        'entity',
-        $entityType,
-        $shape->getTargetEntityBundle() ?? $entityType,
-      ]));
-      $entityDataDefinition = EntityDataDefinition::createFromDataType($dataType);
-    }
-    else {
+    $entityDataDefinition = $this->rootDefinition($shape, $entityTypeId, $entityBundle);
+    if (!$entityDataDefinition) {
       return $matches;
     }
 
@@ -437,6 +418,223 @@ final class MatcherField extends MatcherBase {
     });
 
     return $matches;
+  }
+
+  /**
+   * The starting entity data definition for a match walk.
+   *
+   * Mirrors the override contract of ::getMatches(): an explicit entity type
+   * takes its bundle from the override only, and with no override the shape's
+   * target entity type and bundle decide.
+   *
+   * @param \Drupal\neo_alchemist\ComponentShapePluginInterface $shape
+   *   The component shape plugin.
+   * @param string|null $entityTypeId
+   *   (optional) The entity type ID to match against. Defaults to NULL.
+   * @param string|null $entityBundle
+   *   (optional) The entity bundle to match against. Defaults to NULL.
+   *
+   * @return \Drupal\Core\Entity\TypedData\EntityDataDefinitionInterface|null
+   *   The definition, or NULL when neither an override nor the shape names an
+   *   entity type.
+   */
+  private function rootDefinition(ComponentShapePluginInterface $shape, ?string $entityTypeId = NULL, ?string $entityBundle = NULL): ?EntityDataDefinitionInterface {
+    if ($entityTypeId) {
+      $entityType = $this->entityTypeManager->getDefinition($entityTypeId);
+      if (!$entityType->getKey('bundle')) {
+        $entityBundle = $entityTypeId;
+      }
+      return EntityDataDefinition::createFromDataType(implode(':', array_filter([
+        'entity',
+        $entityTypeId,
+        $entityBundle,
+      ])));
+    }
+    if ($entityType = $shape->getTargetEntityType()) {
+      return EntityDataDefinition::createFromDataType(implode(':', array_filter([
+        'entity',
+        $entityType,
+        $shape->getTargetEntityBundle() ?? $entityType,
+      ])));
+    }
+    return NULL;
+  }
+
+  /**
+   * The most reference hops a node address may take.
+   *
+   * The browser lets a site builder descend one pane at a time, and a cyclic
+   * reference (a taxonomy parent, a node referencing nodes) makes the tree
+   * infinitely deep in principle. Eight hops is far past any sane binding and
+   * exists so a crafted key cannot make ::getNodeMatches() walk forever.
+   */
+  private const MAX_HOPS = 8;
+
+  /**
+   * The matches and reference doorways at one node of the entity tree.
+   *
+   * ::getMatches() walks the whole tree to ::$maxLevels and flattens it, which
+   * global search needs but a column browser does not: a pane shows one entity
+   * level. This computes exactly that — the fields at the node a hop path
+   * reaches, plus the references leading out of it — so its cost is bounded by
+   * one entity's field list no matter how referenced the site's content model
+   * is, and a pane can sit deeper than ::$maxLevels ever walks.
+   *
+   * The hop predicate is ::matchScalar()'s recursion branch, verbatim: a field
+   * descends only if it passed the same gates (exclusion list, requiredness,
+   * ::allowFieldDefinition()) and was NOT already claimed as a leaf — so a key
+   * assembled from these panes is a key the eager walk would also have built,
+   * had it walked deep enough. In `$all` mode the gates relax exactly as
+   * ::matchAll()'s do.
+   *
+   * @param \Drupal\neo_alchemist\ComponentShapePluginInterface $shape
+   *   The component shape plugin.
+   * @param string[] $hops
+   *   Reference field names leading to the node, [] for the root entity.
+   * @param string|null $entityTypeId
+   *   (optional) The entity type ID to match against. Defaults to NULL.
+   * @param string|null $entityBundle
+   *   (optional) The entity bundle to match against. Defaults to NULL.
+   * @param bool $all
+   *   (optional) Whether to match all fields. Defaults to FALSE.
+   *
+   * @return array|null
+   *   NULL when the path does not resolve, or:
+   *   - 'entity': the node's entity type label;
+   *   - 'crumbs': one ['label', 'entity'] per level, root first — the root is
+   *     labelled by its entity type, each hop by the field that took it;
+   *   - 'leaves': matches at the node, as ::getMatches() would key and title
+   *     them;
+   *   - 'refs': the doorways out, as ['segment', 'label', 'target'].
+   */
+  public function getNodeMatches(ComponentShapePluginInterface $shape, array $hops = [], ?string $entityTypeId = NULL, ?string $entityBundle = NULL, bool $all = FALSE): ?array {
+    if (count($hops) > self::MAX_HOPS) {
+      return NULL;
+    }
+    $entityDataDefinition = $this->rootDefinition($shape, $entityTypeId, $entityBundle);
+    if (!$entityDataDefinition) {
+      return NULL;
+    }
+    $crumbs = [
+      [
+        'label' => $this->entityTypeLabel($entityDataDefinition->getEntityTypeId()),
+        'entity' => '',
+      ],
+    ];
+    $parentDefinitions = [];
+    foreach ($hops as $hop) {
+      $fieldDefinition = $this->dataDefinitions($entityDataDefinition)[(string) $hop] ?? NULL;
+      if (!$fieldDefinition instanceof FieldDefinitionInterface) {
+        return NULL;
+      }
+      $target = $this->referenceTarget($fieldDefinition, $shape, $all);
+      if (!$target) {
+        return NULL;
+      }
+      $entityDataDefinition = $target;
+      $parentDefinitions[] = $fieldDefinition;
+      $crumbs[] = [
+        'label' => (string) $fieldDefinition->getLabel(),
+        'entity' => $this->entityTypeLabel($target->getEntityTypeId()),
+      ];
+    }
+
+    $leaves = $all
+      ? $this->matchAll($entityDataDefinition, 0, $parentDefinitions)
+      : $this->matchScalar($entityDataDefinition, $shape, 0, $parentDefinitions);
+
+    $refs = [];
+    foreach ($this->dataDefinitions($entityDataDefinition) as $name => $fieldDefinition) {
+      if (!$fieldDefinition instanceof FieldDefinitionInterface) {
+        continue;
+      }
+      $target = $this->referenceTarget($fieldDefinition, $shape, $all);
+      if (!$target) {
+        continue;
+      }
+      $refs[] = [
+        'segment' => (string) $name,
+        'label' => (string) $fieldDefinition->getLabel(),
+        'target' => $this->entityTypeLabel($target->getEntityTypeId()),
+      ];
+    }
+
+    return [
+      'entity' => $this->entityTypeLabel($entityDataDefinition->getEntityTypeId()),
+      'crumbs' => $crumbs,
+      'leaves' => $leaves,
+      'refs' => $refs,
+    ];
+  }
+
+  /**
+   * Where a field's entity reference leads, if the walk would descend it.
+   *
+   * This is the doorway predicate: NULL means ::matchScalar() (or, with $all,
+   * ::matchAll()) would not recurse into this field — because it is excluded,
+   * fails the shape's gates, or was already claimed as a leaf — and a hop
+   * through it is therefore not a legal address.
+   *
+   * @param \Drupal\Core\Field\FieldDefinitionInterface $fieldDefinition
+   *   The field definition.
+   * @param \Drupal\neo_alchemist\ComponentShapePluginInterface $shape
+   *   The component shape plugin.
+   * @param bool $all
+   *   Whether every field is on the table rather than only shape-supported
+   *   ones.
+   *
+   * @return \Drupal\Core\Entity\TypedData\EntityDataDefinitionInterface|null
+   *   The referenced entity's data definition, or NULL.
+   */
+  private function referenceTarget(FieldDefinitionInterface $fieldDefinition, ComponentShapePluginInterface $shape, bool $all): ?EntityDataDefinitionInterface {
+    if ($fieldDefinition instanceof ComponentFieldConfigInterface) {
+      return NULL;
+    }
+    if (in_array($fieldDefinition->getType(), static::EXCLUDED_FIELD_TYPES, TRUE)) {
+      return NULL;
+    }
+    if (!$all) {
+      $requireRequired = $shape->isRequired() || $shape->getFieldItemList()->getFieldDefinition()->isRequired();
+      if ($requireRequired && !$fieldDefinition->isRequired()) {
+        return NULL;
+      }
+      if (!$shape->allowFieldDefinition($fieldDefinition)) {
+        return NULL;
+      }
+      // A field the shape consumes whole is a leaf; the walk records it and
+      // moves on without descending.
+      if ($shape->supportsFieldDefinition($fieldDefinition)) {
+        return NULL;
+      }
+      if ($shape->supportsFieldProperties($fieldDefinition, $this->dataDefinitions($fieldDefinition))) {
+        return NULL;
+      }
+    }
+    foreach ($this->dataDefinitions($fieldDefinition) as $property) {
+      if (!$this->isReference($property)) {
+        continue;
+      }
+      if ($property instanceof DataReferenceDefinitionInterface && is_a($property->getClass(), EntityReference::class, TRUE)) {
+        $target = $property->getTargetDefinition();
+        if ($target instanceof EntityDataDefinitionInterface) {
+          return $target;
+        }
+      }
+    }
+    return NULL;
+  }
+
+  /**
+   * An entity type id as ::group() spells it ("user_role" → "User Role").
+   *
+   * @param string|null $entityTypeId
+   *   The entity type id.
+   *
+   * @return string
+   *   The label.
+   */
+  private function entityTypeLabel(?string $entityTypeId): string {
+    return ucwords(str_replace('_', ' ', (string) $entityTypeId));
   }
 
   /**

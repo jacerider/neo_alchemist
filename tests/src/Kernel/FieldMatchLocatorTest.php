@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace Drupal\Tests\neo_alchemist\Kernel;
 
+use Drupal\entity_test\Entity\EntityTestBundle;
+use Drupal\field\Entity\FieldConfig;
+use Drupal\field\Entity\FieldStorageConfig;
 use PHPUnit\Framework\Attributes\Group;
 
 /**
@@ -14,12 +17,24 @@ use PHPUnit\Framework\Attributes\Group;
  * because nothing about it was a decision. This layer makes three decisions
  * that do: which matches are offered at all (the access check and the
  * exclusion list), how they rank (an unranked list opens on link templates
- * nobody wants), and how the flat list regroups into a browsable tree.
+ * nobody wants), and how the tree is served one pane at a time — search is
+ * the only consumer that still pays for the flattened recursive walk.
  *
  * @see \Drupal\neo_alchemist\FieldMatchLocator
  */
 #[Group('neo_alchemist')]
 class FieldMatchLocatorTest extends FieldMatchKernelTestBase {
+
+  /**
+   * {@inheritdoc}
+   *
+   * `field`, on top of the base set: the beyond-the-walk test builds a
+   * configurable self-reference field, which the fixture's base fields cannot
+   * express.
+   */
+  protected static $modules = [
+    'field',
+  ];
 
   /**
    * A sensitive field type is never offered, in either mode.
@@ -155,7 +170,7 @@ class FieldMatchLocatorTest extends FieldMatchKernelTestBase {
   }
 
   /**
-   * The flat list regroups into one pane per reference hop.
+   * The tree is served one pane per reference hop.
    */
   public function testBrowseSplitsTheFlatListIntoPanes(): void {
     $shape = $this->titleShape();
@@ -166,10 +181,53 @@ class FieldMatchLocatorTest extends FieldMatchKernelTestBase {
     $this->assertSame(['roles'], array_column($root['refs'], 'path'), 'The one reference is offered as a doorway.');
     $this->assertSame('Roles', $root['refs'][0]['label'], 'The hop is named by its field label, not its machine name.');
     $this->assertSame('User Role', $root['refs'][0]['target'], 'And says what it leads to.');
-    $this->assertGreaterThan(0, $root['refs'][0]['count']);
 
     // A leaf of the root pane is never also listed as a hop from it.
     $this->assertNotContains('roles', array_column($root['leaves'], 'value'));
+  }
+
+  /**
+   * Browsing and labelling reach past the depth search flattens to.
+   *
+   * Panes used to be a regrouping of the flat recursive walk, which stops at
+   * MatcherField::$maxLevels — so a reference two hops in showed no doorways,
+   * the browser was silently capped at the walk's depth, and every pane and
+   * every stored-value label paid for the whole cartesian walk before showing
+   * one entity's fields. Node-at-a-time serving is what this pins: a pane
+   * exists wherever the hops resolve, and a key picked there labels (and
+   * therefore validates) even though the flat list has never contained it.
+   */
+  public function testBrowseAndLabelReachPastTheSearchWalk(): void {
+    // A self-reference makes the tree infinitely deep; the walk flattens two
+    // hops of it. A bundled entity type on purpose: a reference hop resolves a
+    // bundle-less target to its base fields only, so the configurable field
+    // must live on a type whose bundles the matcher walks.
+    EntityTestBundle::create(['id' => 'a', 'label' => 'A'])->save();
+    FieldStorageConfig::create([
+      'field_name' => 'field_ref',
+      'entity_type' => 'entity_test_with_bundle',
+      'type' => 'entity_reference',
+      'settings' => ['target_type' => 'entity_test_with_bundle'],
+    ])->save();
+    FieldConfig::create([
+      'field_name' => 'field_ref',
+      'entity_type' => 'entity_test_with_bundle',
+      'bundle' => 'a',
+      'label' => 'Self reference',
+    ])->save();
+
+    $shape = $this->titleShape();
+    $key = 'field_ref.field_ref.field_ref.name';
+
+    $this->assertArrayNotHasKey($key, $this->locator()->getMatches($shape, FALSE, 'entity_test_with_bundle'), 'Premise: the flattened walk stops short of this key.');
+
+    $pane = $this->locator()->browse($shape, 'field_ref.field_ref.field_ref', FALSE, 'entity_test_with_bundle');
+    $this->assertSame('Entity Test With Bundle', $pane['entity']);
+    $this->assertContains($key, array_column($pane['leaves'], 'value'), 'A pane exists past the walk depth.');
+    $this->assertContains('field_ref', array_column($pane['refs'], 'segment'), 'And still offers the next doorway.');
+    $this->assertCount(4, $pane['crumbs'], 'The trail back out is complete.');
+
+    $this->assertNotNull($this->locator()->label($shape, $key, FALSE, 'entity_test_with_bundle'), 'A key picked there labels, and therefore validates.');
   }
 
   /**

@@ -7,6 +7,7 @@ namespace Drupal\Tests\neo_alchemist\Kernel;
 use Drupal\field\Entity\FieldConfig;
 use Drupal\field\Entity\FieldStorageConfig;
 use Drupal\KernelTests\KernelTestBase;
+use Drupal\neo_alchemist\ComponentShapePluginInterface;
 use Drupal\neo_alchemist\Entity\Component;
 use Drupal\user\Entity\User;
 use PHPUnit\Framework\Attributes\Group;
@@ -35,6 +36,13 @@ use PHPUnit\Framework\Attributes\Group;
  */
 #[Group('neo_alchemist')]
 class MatcherFieldOfferTest extends KernelTestBase {
+
+  /**
+   * The saved id of the object-prop probe component.
+   *
+   * @var string
+   */
+  private string $objectProbeId;
 
   /**
    * {@inheritdoc}
@@ -200,6 +208,110 @@ class MatcherFieldOfferTest extends KernelTestBase {
       ->getEntityValue(entity: $user, key: 'pass:value');
 
     $this->assertNotEmpty($resolved, 'Resolution is not filtered — only the offer list is.');
+  }
+
+  /**
+   * Returns the match keys offered to an object prop with a numeric child.
+   *
+   * `box` is {src, alt, width, height} — the same shape as an `image` prop.
+   * Its integer children are what an entity reference's integer `target_id`
+   * used to collide with, and entity_test's base `user_id` is that reference.
+   */
+  private function boxPropMatchKeys(): array {
+    return array_keys($this->container->get('neo_alchemist.matcher_field')
+      ->getMatches($this->boxPropShape()));
+  }
+
+  /**
+   * The `box` object prop shape of a component targeting entity_test.
+   */
+  private function boxPropShape(): ComponentShapePluginInterface {
+    $storage = $this->container->get('entity_type.manager')->getStorage('neo_component');
+    if (!isset($this->objectProbeId)) {
+      $component = Component::create([
+        'label' => 'Object match probe fixture',
+        'description' => 'Object match probe fixture',
+        'component' => 'neo_alchemist_test:na_object_ref_probe',
+        'status' => TRUE,
+        'target_entity_type' => 'entity_test',
+        'target_entity_bundle' => 'entity_test',
+      ]);
+      // Component::save() re-derives the id from the SDC id, so read it back.
+      $component->save();
+      $this->objectProbeId = $component->id();
+    }
+    $storage->resetCache([$this->objectProbeId]);
+    /** @var \Drupal\neo_alchemist\Entity\Component $component */
+    $component = $storage->load($this->objectProbeId);
+
+    return $component->getPropShapes()['box'];
+  }
+
+  /**
+   * An entity reference is traversed for an object prop, not claimed whole.
+   *
+   * ::supportsFieldProperties() decides by data-type overlap, and an entity
+   * reference's `target_id` is an integer. That let a bare node reference
+   * match any object shape with a numeric child — `field_related_projects`
+   * was offered as a source for an `image` prop because a node id and the
+   * image's `width`/`height` are all integers.
+   *
+   * The offer was nonsense on its own, but the damage was that it was
+   * exclusive: MatcherField::matchScalar() records a supported field and
+   * moves on, so the reference was never recursed into and the fields
+   * actually wanted on the far side of it were never offered at all.
+   *
+   * @see \Drupal\neo_alchemist\ComponentShapePluginBase::contentBearingFieldProperties()
+   */
+  public function testEntityReferenceIsTraversedForObjectProps(): void {
+    $keys = $this->boxPropMatchKeys();
+
+    $this->assertNotContains('user_id', $keys, 'A bare entity reference is not a source for an object prop.');
+    $through = array_values(array_filter($keys, static fn (string $key): bool => str_starts_with($key, 'user_id.')));
+    $this->assertNotEmpty($through, 'The reference is recursed into instead, offering the fields behind it.');
+  }
+
+  /**
+   * A reference that carries its own data still matches on that data.
+   *
+   * Only the pointer pair (`target_id` + `entity`) is set aside. A field that
+   * references something AND stores properties of its own must keep matching
+   * on those — core's `image` field feeding an image prop via alt/width/height
+   * is the case that matters, and the naive "any field with a reference in it"
+   * rule broke it.
+   */
+  public function testReferenceFieldWithOwnDataStillMatches(): void {
+    $definition = $this->container->get('entity_field.manager')
+      ->getFieldDefinitions('entity_test', 'entity_test')['user_id'];
+    $properties = $definition->getFieldStorageDefinition()->getPropertyDefinitions();
+
+    $shape = $this->boxPropShape();
+
+    $this->assertFalse(
+      $shape->supportsFieldProperties($definition, $properties),
+      'A pointer-only reference no longer matches on its id.',
+    );
+    // The same field with a data property alongside the pointer still does.
+    $altProperties = $shape->getChildShapes()['alt']->getFieldItem()
+      ->getFieldDefinition()->getFieldStorageDefinition()->getPropertyDefinitions();
+    $withData = $properties + ['alt' => $altProperties['value']];
+    $this->assertTrue(
+      $shape->supportsFieldProperties($definition, $withData),
+      'A reference that also carries data still matches on that data.',
+    );
+  }
+
+  /**
+   * The langcode field keeps matching even though it carries a DataReference.
+   *
+   * Its `language` property is a reference, but no entity sits behind it and
+   * its `value` is the real content. An exclusion keyed on "has a reference"
+   * rather than "has an entity reference" dropped the field entirely.
+   */
+  public function testLangcodeStillOfferedToObjectProps(): void {
+    $keys = $this->boxPropMatchKeys();
+
+    $this->assertContains('langcode', $keys, 'The langcode field is not a pointer and still matches.');
   }
 
 }

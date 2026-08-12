@@ -15,7 +15,7 @@
 (function (Drupal, once) {
 
   interface Leaf { value: string; label: string; tier?: number; }
-  interface Ref { path: string; segment: string; label: string; target: string; count: number; }
+  interface Ref { path: string; segment: string; label: string; target: string; }
   interface Crumb { path: string; label: string; entity: string; }
   interface Pane { path: string; entity: string; crumbs: Crumb[]; leaves: Leaf[]; refs: Ref[]; }
   interface Hit { value: string; label: string; path: string; }
@@ -258,7 +258,12 @@
         const refs = document.createElement('div');
         refs.className = 'neo-field-browser--refs shrink-0 border-t overflow-y-auto max-h-44';
         const sep = sectionHeading(t('Follow a reference'));
-        sep.classList.add('sticky', 'top-0', 'bg-form-item-base');
+        // Sticky, so it must be genuinely opaque: `form-item-bg` is the real
+        // utility (`bg-form-item-base` resolved to an undefined --color-* var),
+        // the mt-1 margin is a strip the background never covers, and z-10
+        // keeps the rows scrolling under it rather than over.
+        sep.classList.remove('mt-1');
+        sep.classList.add('sticky', 'top-0', 'z-10', 'form-item-bg');
         refs.append(sep);
         pane.refs.forEach(ref => refs.append(this.refRow(ref, col)));
         col.append(refs);
@@ -384,11 +389,18 @@
 
   /**
    * A divider naming the group of rows that follows it.
+   *
+   * The dimming sits on an inner span, not the element: element-level opacity
+   * dims the background too, and the refs heading is sticky — a 60%-opaque
+   * background lets the rows scrolling beneath show through the label.
    */
   function sectionHeading(label: string): HTMLElement {
     const el = document.createElement('div');
-    el.className = 'neo-field-browser--heading px-3 py-2 mt-1 border-t text-xs uppercase tracking-wide opacity-60';
-    el.textContent = label;
+    el.className = 'neo-field-browser--heading px-3 py-2 mt-1 border-t text-xs uppercase tracking-wide';
+    const text = document.createElement('span');
+    text.className = 'opacity-60';
+    text.textContent = label;
+    el.append(text);
     return el;
   }
 
