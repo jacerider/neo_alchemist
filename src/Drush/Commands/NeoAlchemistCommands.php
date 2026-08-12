@@ -237,6 +237,16 @@ final class NeoAlchemistCommands extends DrushCommands {
       if ($this->hasDynamicClasses($twig)) {
         $warnings[] = 'Twig appears to build Tailwind class names dynamically (e.g. `bg-{{ x }}-500` or `\'text-\' ~ x`). Those never compile — enumerate full class names or use CSS variables.';
       }
+      // Numbered role shades never adapt to color schemes: text-primary-500
+      // is the raw brand ramp under every scheme, so on colorized or dark
+      // schemes it can sit on — or be — the surface. Only components that
+      // declare a scheme prop are flagged (they are explicitly designed to
+      // be recolored), and only as a warning: decor marks that must stay
+      // raw-brand are a legitimate use of numbered shades.
+      $hasSchemeProp = (bool) array_filter($rawProps, fn($p) => is_array($p) && (($p['type'] ?? NULL) === 'scheme'));
+      if ($hasSchemeProp && ($rawShades = $this->numberedRoleShadeClasses($twig))) {
+        $warnings[] = sprintf('Twig uses numbered role shade(s) `%s` — these never adapt to the component\'s scheme(s). Adaptive alternatives: bare tokens (`text-primary`), hover steps (`hover:text-primary-hover`), link tokens (`text-link` / `hover:text-link-hover`), or `.btn*` classes. Keep a numbered shade only for deliberate raw-brand marks (decor).', implode('`, `', $rawShades));
+      }
     }
 
     // Report.
@@ -640,6 +650,33 @@ final class NeoAlchemistCommands extends DrushCommands {
       return TRUE;
     }
     return FALSE;
+  }
+
+  /**
+   * Collects numbered primary/secondary/accent shade utilities from Twig.
+   *
+   * Numbered role shades (text-primary-500, hover:bg-accent-600, …) are the
+   * raw brand ramp in every scheme — only the bare tokens, their -hover
+   * steps, the link tokens and the .btn* classes are contrast-managed. Base
+   * is deliberately not matched: the base ramp is scheme-scoped, so
+   * bg-base-100 and friends DO adapt.
+   *
+   * @param string $twig
+   *   The Twig source.
+   *
+   * @return string[]
+   *   Distinct offending class strings (variant prefixes included), in
+   *   source order.
+   */
+  private function numberedRoleShadeClasses(string $twig): array {
+    // Twig comments cannot apply a class to an element, and docs that *name*
+    // these classes (to explain why they are avoided) must not trip the
+    // check — unlike the dynamic-class check, whose subject is compilation,
+    // where comments do count.
+    $twig = (string) preg_replace('/\{#.*?#\}/s', '', $twig);
+    $utils = 'bg|text|border(?:-[trblxyse])?|from|via|to|fill|stroke|ring|shadow|divide|outline|decoration|accent|caret|placeholder';
+    preg_match_all('/(?:[a-z][a-z0-9-]*:)*(?:' . $utils . ')-(?:primary|secondary|accent)-\d{1,3}(?:-content)?\b/', $twig, $matches);
+    return array_values(array_unique($matches[0]));
   }
 
 }
