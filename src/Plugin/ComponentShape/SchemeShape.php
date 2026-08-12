@@ -102,7 +102,16 @@ class SchemeShape extends StyleShapeBase {
    */
   protected function preRenderValue(mixed $value, Attribute $attributes): mixed {
     $value = parent::preRenderValue($value, $attributes);
-    $target_id = $value['target_id'] ?? $value;
+    // The child/aggregate path can hand this an array rather than the scheme
+    // id string: a delta-keyed field value ([{target_id: x}]), or the [] that
+    // a block-claimed empty resolves to (e.g. an _aggregate entity_query with
+    // zero results empties every child so the shapes hide). Never fatal on
+    // those — resolve to the id where one exists, else render an empty
+    // attribute, mirroring StyleShape's tolerance of empty values.
+    $target_id = $value['target_id'] ?? $value[0]['target_id'] ?? $value;
+    if (!is_string($target_id) || $target_id === '') {
+      $target_id = NULL;
+    }
     $finalValue = new ComponentShapeStyleAttribute([], $target_id);
     if ($target_id && is_string($target_id)) {
       /** @var \Drupal\neo_color\SchemeInterface $scheme */
