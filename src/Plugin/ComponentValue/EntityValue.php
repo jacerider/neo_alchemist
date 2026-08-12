@@ -96,6 +96,22 @@ final class EntityValue extends ComponentValuePluginBase implements ContainerFac
   }
 
   /**
+   * {@inheritdoc}
+   */
+  public function settingsSummary(): array {
+    $summary = [];
+    if ($field = $this->configuration['field']) {
+      $summary[] = $this->t('From %field', [
+        '%field' => explode(':', $field)[0],
+      ]);
+    }
+    if ($this->configuration['render_field'] ?? NULL) {
+      $summary[] = $this->t('Rendered with a field formatter');
+    }
+    return $summary;
+  }
+
+  /**
    * Configuration form for the value provider plugin.
    */
   protected function configurationForm(array $form, FormStateInterface $form_state, array &$complete_form): array {

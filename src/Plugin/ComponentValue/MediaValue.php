@@ -28,9 +28,13 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
 #[ComponentValue(
   id: 'media',
   label: new TranslatableMarkup('Media'),
-  description: new TranslatableMarkup('Provide media entity values.'),
+  description: new TranslatableMarkup('Provides the media picker and renders the picked media. Optionally supplies a fallback image. Does not block other providers.'),
   group: 'providers',
   weight: 10,
+  // Removing this plugin destroys the prop's authoring UI — onShapeInit() is
+  // what makes the prop a media reference field with the media-library
+  // widget — so it is locked into the provider list.
+  status_lock: TRUE,
 )]
 final class MediaValue extends ComponentValuePluginBase implements ContainerFactoryPluginInterface, ComponentValueProcessingModeInterface {
 
@@ -88,6 +92,35 @@ final class MediaValue extends ComponentValuePluginBase implements ContainerFact
     return [
       'default' => [],
     ] + $this->processingModeDefaultConfiguration();
+  }
+
+  /**
+   * {@inheritdoc}
+   *
+   * Never claim by default. Under stop_when_found this provider claimed the
+   * THREADED seeded value (the schema example, or the configured default) —
+   * it is non-empty, so the claim fired even though this plugin contributed
+   * nothing — and every provider a site builder placed after it silently
+   * never ran, an ordering trap that had real configs fighting it with
+   * hand-set modes. For a media-only provider list the two modes are
+   * outcome-identical (nothing follows that could overwrite), and this
+   * plugin's real jobs — the widget (onShapeInit), the media-to-image
+   * conversion (alterValue) and the fallback image (provideDefaultValue) —
+   * are all mode-independent.
+   */
+  protected function processingModeDefault(): string {
+    return ComponentValueProcessingModeInterface::MODE_CONTINUE;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function settingsSummary(): array {
+    $summary = [$this->t('Media picker & value converter')];
+    if (array_filter($this->configuration['default'])) {
+      $summary[] = $this->t('Fallback image configured');
+    }
+    return $summary;
   }
 
   /**

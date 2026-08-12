@@ -62,16 +62,85 @@ trait ComponentValueChildrenMatchTrait {
   }
 
   /**
+   * A settings-summary line for the children-match mapping.
+   *
+   * @return array
+   *   Zero or one translated lines ("6 of 9 fields mapped").
+   */
+  protected function childrenMatchSummary(): array {
+    if (!$this->shape instanceof ComponentShapeChildrenMatchPluginInterface) {
+      return [];
+    }
+    $total = count($this->shape->getChildShapeNames());
+    if (!$total) {
+      return [];
+    }
+    $mapped = count(array_filter(
+      $this->configuration['shape_fields'] ?? [],
+      static fn ($settings) => !empty($settings['field'])
+    ));
+    return [
+      $this->t('@mapped of @total fields mapped', [
+        '@mapped' => $mapped,
+        '@total' => $total,
+      ]),
+    ];
+  }
+
+  /**
    * Configuration form for the value provider plugin.
    */
   protected function buildChildrenMatchConfigurationForm(ComponentShapeChildrenMatchPluginInterface $shape, $form, FormStateInterface $form_state, $entityTypeId, $bundle = NULL, array $configuration = []): array {
     $wrapperId = $form['#id'];
     $childShapes = $shape->getChildShapes();
     if ($childShapes) {
+      // A mapping table: one row per child shape, its title on the left and
+      // the source control (plus any branch extras and inline value plugins)
+      // on the right — in place of a fieldset per child.
       $form['shape_fields'] = [
-        '#type' => 'fieldset',
-        '#title' => $this->t('Shape Fields'),
+        '#type' => 'table',
+        '#header' => [
+          'label' => $this->t('Property'),
+          'content' => $this->t('Source'),
+        ],
         '#element_validate' => [[static::class, 'validateChildrenMatchConfigurationForm']],
+      ];
+      foreach ($childShapes as $shapeName => $childShape) {
+        $mapped = !empty($configuration['shape_fields'][$shapeName]['field']);
+        $form['shape_fields'][$shapeName]['label'] = [
+          '#type' => 'inline_template',
+          '#template' => '<strong>{{ title }}</strong><br /><small class="description">{{ type }}</small>{% if not mapped %}<br /><small class="description">{{ "Not mapped"|t }}</small>{% endif %}',
+          '#context' => [
+            'title' => $childShape->getTitle(),
+            'type' => $childShape->getType(),
+            'mapped' => $mapped,
+          ],
+        ];
+        $form['shape_fields'][$shapeName]['content'] = [
+          '#type' => 'container',
+          '#compact' => TRUE,
+          '#id' => $wrapperId . '-' . $shapeName,
+          '#attributes' => [
+            'id' => $wrapperId . '-' . $shapeName,
+          ],
+          // Explicit parents keep the stored value tree exactly as before the
+          // table layout — the row and cell levels never reach config.
+          '#parents' => array_merge($form['#parents'], [
+            'shape_fields',
+            $shapeName,
+          ]),
+        ];
+        $form['shape_fields'][$shapeName]['content'] = $this->buildChildMatchConfigurationForm($childShape, $form['shape_fields'][$shapeName]['content'], $form_state, $entityTypeId, $bundle, $configuration['shape_fields'][$shapeName] ?? []);
+      }
+
+      // The rarely-touched controls live behind Advanced. Their #parents stay
+      // where they always were (shape_published at the provider root, _copy
+      // under shape_fields), so stored config and the copy-mapping submit
+      // paths are untouched by the visual move.
+      $form['advanced'] = [
+        '#type' => 'details',
+        '#title' => $this->t('Advanced'),
+        '#neo_size' => 'xs',
       ];
       // Chained providers on one shape (a primary entity_reference above an
       // entity_query fallback) almost always want the same mapping, and until
@@ -82,13 +151,13 @@ trait ComponentValueChildrenMatchTrait {
       // is stored until the whole form is saved.
       if ($copySources = $this->copyMappingSources($shape)) {
         $copyParents = array_merge($form['#parents'], ['shape_fields', '_copy']);
-        $form['shape_fields']['_copy'] = [
+        $form['advanced']['_copy'] = [
           '#type' => 'container',
           '#attributes' => [
             'class' => ['form--inline', 'form--inline-min', 'items-end'],
           ],
         ];
-        $form['shape_fields']['_copy']['source'] = [
+        $form['advanced']['_copy']['source'] = [
           '#type' => 'select',
           '#title' => $this->t('Copy field mapping from'),
           '#options' => array_map(static fn (array $source) => $source['label'], $copySources),
@@ -96,7 +165,7 @@ trait ComponentValueChildrenMatchTrait {
           '#parents' => array_merge($copyParents, ['source']),
           '#neo_size' => 'xs',
         ];
-        $form['shape_fields']['_copy']['apply'] = [
+        $form['advanced']['_copy']['apply'] = [
           '#type' => 'submit',
           '#value' => $this->t('Copy mapping'),
           // Buttons are told apart by name; there can be one of these per
@@ -113,22 +182,12 @@ trait ComponentValueChildrenMatchTrait {
           '#neo_size' => 'xs',
         ];
       }
-      foreach ($childShapes as $shapeName => $childShape) {
-        $form['shape_fields'][$shapeName] = [
-          '#id' => $wrapperId . '-' . $shapeName,
-          '#parents' => array_merge($form['#parents'], [
-            'shape_fields',
-            $shapeName,
-          ]),
-        ];
-        $form['shape_fields'][$shapeName] = $this->buildChildMatchConfigurationForm($childShape, $form['shape_fields'][$shapeName], $form_state, $entityTypeId, $bundle, $configuration['shape_fields'][$shapeName] ?? []);
-      }
-
-      $form['shape_published'] = [
+      $form['advanced']['shape_published'] = [
         '#type' => 'checkbox',
         '#title' => $this->t('Only use published entities'),
         '#description' => $this->t('If checked, only published entities will be used. This is only applicaable for entities that have a "status" entity key.'),
         '#default_value' => $configuration['shape_published'] ?? TRUE,
+        '#parents' => array_merge($form['#parents'], ['shape_published']),
       ];
     }
     else {
@@ -145,7 +204,9 @@ trait ComponentValueChildrenMatchTrait {
    * Validate the match configuration form.
    */
   public static function validateChildrenMatchConfigurationForm(array &$element, FormStateInterface $form_state, array &$complete_form) {
-    $values = $form_state->getValue($element['#parents']);
+    // A limited-validation submission (Cancel and friends) may carry no value
+    // at all for this subtree.
+    $values = $form_state->getValue($element['#parents']) ?? [];
     // The copy-mapping control lives inside this fieldset for layout but is
     // pure form chrome — it must never reach the plugin's stored settings.
     unset($values['_copy']);
@@ -323,6 +384,11 @@ trait ComponentValueChildrenMatchTrait {
       'wrapper' => $wrapperId,
     ];
 
+    // Inside the mapping table the row already names the child, so the
+    // control's own label is for screen readers only.
+    $compact = !empty($form['#compact']);
+    $fieldTitle = $compact ? $shape->getTitle() : $this->t('Field');
+
     if ($iterable) {
       // A key that is no longer offered — the reference field was deleted, or
       // the iteration source changed under it — must not be handed back to the
@@ -332,7 +398,8 @@ trait ComponentValueChildrenMatchTrait {
       $field = isset($flatOptions[$field]) ? $field : NULL;
       $form['field'] = [
         '#type' => 'select',
-        '#title' => $this->t('Field'),
+        '#title' => $fieldTitle,
+        '#title_display' => $compact ? 'invisible' : 'before',
         '#description' => $shape->getDescription(),
         '#options' => $options,
         '#empty_option' => $emptyOption,
@@ -350,7 +417,8 @@ trait ComponentValueChildrenMatchTrait {
       // along as a pinned extra, since none of it is a field on the tree.
       $form['field'] = [
         '#type' => 'neo_field_select',
-        '#title' => $this->t('Field'),
+        '#title' => $fieldTitle,
+        '#title_display' => $compact ? 'invisible' : 'before',
         '#description' => $shape->getDescription(),
         '#component' => $shape->getComponent()->id(),
         '#prop' => $shape->getRootShape()->getName(),
@@ -466,7 +534,7 @@ trait ComponentValueChildrenMatchTrait {
    * Validate the match configuration form.
    */
   public static function validateChildMatchConfigurationForm(array &$element, FormStateInterface $form_state, array &$complete_form) {
-    $values = $form_state->getValue($element['#parents']);
+    $values = $form_state->getValue($element['#parents']) ?? [];
     // Store plugin IDs for use in schema.
     $values['plugins'] = $values['plugins'] ?? [];
     foreach ($values['plugins'] as $pluginId => &$plugin) {

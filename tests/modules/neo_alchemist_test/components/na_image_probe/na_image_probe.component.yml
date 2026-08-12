@@ -1,0 +1,19 @@
+$schema: 'https://git.drupalcode.org/project/drupal/-/raw/10.1.x/core/modules/sdc/src/metadata.schema.json'
+name: 'NA image probe fixture'
+description: >
+  A single image prop, so the media provider's interaction with other
+  providers on the same shape can be pinned: the auto-attached media plugin
+  must not starve a provider placed after it.
+status: stable
+neo: true
+props:
+  type: object
+  properties:
+    image:
+      type: image
+      title: Image
+      examples:
+        src: 'https://placehold.co/100x50.png'
+        alt: 'Example image'
+        width: 100
+        height: 50

@@ -161,6 +161,38 @@ final class EntityQueryValue extends ComponentValuePluginBase implements Contain
   }
 
   /**
+   * {@inheritdoc}
+   */
+  public function settingsSummary(): array {
+    $summary = [];
+    if ($entityTypeId = $this->configuration['entity_type']) {
+      $definition = $this->entityTypeManager->getDefinition($entityTypeId, FALSE);
+      $typeLabel = $definition ? $definition->getLabel() : $entityTypeId;
+      if ($bundle = $this->configuration['bundle']) {
+        $bundles = $this->entityTypeBundleInfo->getBundleInfo($entityTypeId);
+        $summary[] = $this->t('Queries %bundle (@type)', [
+          '%bundle' => $bundles[$bundle]['label'] ?? $bundle,
+          '@type' => $typeLabel,
+        ]);
+      }
+      else {
+        $summary[] = $this->t('Queries %type', ['%type' => $typeLabel]);
+      }
+    }
+    if ($sortField = $this->configuration['sort_field']) {
+      $summary[] = $this->configuration['sort_direction'] === 'DESC'
+        ? $this->t('Newest by @field', ['@field' => explode(':', $sortField)[0]])
+        : $this->t('Oldest by @field', ['@field' => explode(':', $sortField)[0]]);
+    }
+    if ($filterEntity = $this->configuration['filter_entity']) {
+      $summary[] = $this->t('Filtered by @field', [
+        '@field' => explode(':', $filterEntity)[0],
+      ]);
+    }
+    return array_merge($summary, $this->childrenMatchSummary());
+  }
+
+  /**
    * Configuration form for the value provider plugin.
    */
   protected function configurationForm(array $form, FormStateInterface $form_state, array &$complete_form): array {

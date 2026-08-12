@@ -289,8 +289,17 @@ final class ComponentManageForm extends EntityForm {
         $row['type']['#markup'] = $shape->getType() . ' (' . $shape->getRef() . ')';
         $collection = $shape->getValueCollection();
         foreach (array_keys($valueGroups) as $groupId) {
-          $row[$groupId]['#markup'] = implode(', ', array_map(
-            fn ($plugin) => $plugin->label(),
+          // Label plus the plugin's first summary line, so the overview says
+          // what each prop is wired to — not just which plugin touches it.
+          $row[$groupId]['#markup'] = implode('<br />', array_map(
+            function ($plugin) {
+              $summary = $plugin->settingsSummary();
+              $markup = '<strong>' . $plugin->label() . '</strong>';
+              if ($summary) {
+                $markup .= '<br /><small class="description">' . reset($summary) . '</small>';
+              }
+              return $markup;
+            },
             $collection->getActiveInstances($groupId)
           ));
         }

@@ -138,6 +138,19 @@ final class EntityReferenceValue extends ComponentValuePluginBase implements Con
   }
 
   /**
+   * {@inheritdoc}
+   */
+  public function settingsSummary(): array {
+    $summary = [];
+    if ($entityKey = $this->configuration['entity']) {
+      $summary[] = $this->t('From %field', [
+        '%field' => explode(':', $entityKey)[0],
+      ]);
+    }
+    return array_merge($summary, $this->childrenMatchSummary());
+  }
+
+  /**
    * Configuration form for the value provider plugin.
    */
   protected function configurationForm(array $form, FormStateInterface $form_state, array &$complete_form): array {

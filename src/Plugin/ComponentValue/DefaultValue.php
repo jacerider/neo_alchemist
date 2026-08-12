@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\neo_alchemist\Plugin\ComponentValue;
 
+use Drupal\Component\Utility\Unicode;
 use Drupal\Core\DependencyInjection\DependencySerializationTrait;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Plugin\ContainerFactoryPluginInterface;
@@ -72,6 +73,30 @@ final class DefaultValue extends ComponentValuePluginBase implements ContainerFa
       'field_type' => NULL,
       'default' => NULL,
       'options' => [],
+    ];
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function settingsSummary(): array {
+    $default = $this->configuration['default'] ?? NULL;
+    $flat = [];
+    // array_walk_recursive() takes its subject by reference, so it must be a
+    // variable — an inline expression is a runtime fatal.
+    $walkable = is_array($default) ? $default : [$default];
+    array_walk_recursive($walkable, static function ($leaf) use (&$flat) {
+      if (is_scalar($leaf) && trim((string) $leaf) !== '') {
+        $flat[] = (string) $leaf;
+      }
+    });
+    if (!$flat) {
+      return [];
+    }
+    return [
+      $this->t('Default: %value', [
+        '%value' => Unicode::truncate(implode(', ', $flat), 60, TRUE, TRUE),
+      ]),
     ];
   }
 

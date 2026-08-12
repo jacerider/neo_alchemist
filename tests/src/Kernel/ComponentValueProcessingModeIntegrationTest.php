@@ -198,6 +198,14 @@ class ComponentValueProcessingModeIntegrationTest extends KernelTestBase {
       'entity_query' => ComponentValueProcessingModeInterface::MODE_BLOCK,
       'entity_reference' => ComponentValueProcessingModeInterface::MODE_BLOCK,
       'event' => ComponentValueProcessingModeInterface::MODE_CONTINUE,
+      // Auto-attached infrastructure, not a source: media carries the widget,
+      // the media-to-image conversion and the fallback image, all of which
+      // are mode-independent. Under stop_when_found it claimed the THREADED
+      // schema example and starved every provider a site builder placed after
+      // it — with a media-only provider list (the common case) the two modes
+      // are outcome-identical, so continue only un-breaks the chained case.
+      // @see \Drupal\Tests\neo_alchemist\Kernel\MediaProviderChainTest
+      'media' => ComponentValueProcessingModeInterface::MODE_CONTINUE,
       'menu' => ComponentValueProcessingModeInterface::MODE_BLOCK,
       // Share links fill a menu prop, so the same reasoning as `menu` applies:
       // its schema examples are invented links, and "this entity has no

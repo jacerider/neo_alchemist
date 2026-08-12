@@ -38,9 +38,19 @@ trait ComponentValuePluginTrait {
       return !empty($item['status']);
     }));
     if ($instances) {
+      $enabledCount = count(array_filter($defaults, function ($item) {
+        return !empty($item['status']);
+      }));
+      // The count rides in the collapsed summary so a mapped row communicates
+      // whether plugins act on it without being opened (same unescaped-title
+      // idiom as the prop form's section badges).
+      $title = $this->t('Value Plugins');
+      if ($enabledCount) {
+        $title .= ' <div class="inline-block badge bg-primary text-primary-content leading-tight">' . $enabledCount . '</div>';
+      }
       $form['plugins'] = [
         '#type' => 'details',
-        '#title' => $this->t('Value Plugins'),
+        '#title' => $title,
         '#neo_size' => 'xs',
         '#open' => $hasEnabled,
       ];

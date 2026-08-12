@@ -93,14 +93,35 @@ trait ComponentValueProcessingModeTrait {
    */
   protected function processingModeOptions(): array {
     return [
-      ComponentValueProcessingModeInterface::MODE_STOP_WHEN_FOUND => $this->t('Stop when a value is found'),
-      ComponentValueProcessingModeInterface::MODE_CONTINUE => $this->t('Provide, allow later changes'),
-      ComponentValueProcessingModeInterface::MODE_BLOCK => $this->t('Always stop (block if empty)'),
+      ComponentValueProcessingModeInterface::MODE_STOP_WHEN_FOUND => $this->t('Use its value and stop'),
+      ComponentValueProcessingModeInterface::MODE_BLOCK => $this->t('Always use its value — final'),
+      ComponentValueProcessingModeInterface::MODE_CONTINUE => $this->t('Add its value and continue'),
     ];
   }
 
   /**
-   * Adds the standard "Processing" select to the provider's config form.
+   * A short badge-style description of the configured mode.
+   *
+   * Used in provider lists and section badges so the chain semantics are
+   * visible without opening the provider's form.
+   *
+   * @return \Drupal\Core\StringTranslation\TranslatableMarkup
+   *   The mode summary.
+   */
+  public function processingModeSummary() {
+    return match ($this->getProcessingMode()) {
+      ComponentValueProcessingModeInterface::MODE_BLOCK => $this->t('always claims — final'),
+      ComponentValueProcessingModeInterface::MODE_CONTINUE => $this->t('adds and continues'),
+      default => $this->t('stops when it finds a value'),
+    };
+  }
+
+  /**
+   * Adds the standard "Processing" radios to the provider's config form.
+   *
+   * Rendered first in the provider's form (weight -10): the chain behavior is
+   * the one setting that decides how this provider interacts with the others
+   * on the prop, so it must not be buried below the provider's own settings.
    *
    * @param array $form
    *   The form array.
@@ -108,15 +129,25 @@ trait ComponentValueProcessingModeTrait {
    *   The form state.
    *
    * @return array
-   *   The form array with the processing mode select added.
+   *   The form array with the processing mode radios added.
    */
   protected function buildProcessingModeForm(array $form, FormStateInterface $form_state): array {
     $form['processing_mode'] = [
       '#type' => 'select',
-      '#title' => $this->t('Processing'),
-      '#description' => $this->t('What happens after this provider runs, while the providers on this prop are searched for a value. "Stop when a value is found" lets later providers fill in when this one is empty. "Provide, allow later changes" always lets later providers change the value. "Always stop" halts the search even when empty — pick it when an empty source must render nothing, such as a list, menu or image whose example is only a placeholder for the editor. With either of the other two, a provider that finds nothing leaves the value alone, so a prop whose source field is empty falls back to the component\'s own example. Modifiers such as prefix and format still run afterwards in every case, and an authored value still wins.'),
+      '#title' => $this->t('When this provider runs'),
       '#options' => $this->processingModeOptions(),
       '#default_value' => $this->getProcessingMode(),
+      '#neo_size' => 'sm',
+      '#weight' => -10,
+      ComponentValueProcessingModeInterface::MODE_STOP_WHEN_FOUND => [
+        '#description' => $this->t('If it finds nothing, later providers may still fill in.'),
+      ],
+      ComponentValueProcessingModeInterface::MODE_BLOCK => [
+        '#description' => $this->t('Halts the search even when empty — an empty source renders nothing instead of the example.'),
+      ],
+      ComponentValueProcessingModeInterface::MODE_CONTINUE => [
+        '#description' => $this->t('Later providers may still change the value.'),
+      ],
     ];
     return $form;
   }

@@ -92,6 +92,13 @@ abstract class ComponentValuePluginBase extends PluginBase implements ComponentV
   /**
    * {@inheritdoc}
    */
+  public function settingsSummary(): array {
+    return [];
+  }
+
+  /**
+   * {@inheritdoc}
+   */
   public function getShape(): ComponentShapePluginInterface {
     return $this->shape;
   }

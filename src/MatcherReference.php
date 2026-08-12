@@ -167,7 +167,7 @@ final class MatcherReference extends MatcherBase {
       $entityType = $this->entityTypeManager->getDefinition($entityTypeId);
       $data = [];
       if ($bundleKey = $entityType->getKey('bundle')) {
-        $bundles = $reference['definition']->getSetting('handler_settings')['target_bundles'] ?: [$entityTypeId];
+        $bundles = ($reference['definition']->getSetting('handler_settings')['target_bundles'] ?? NULL) ?: [$entityTypeId];
         $bundle = reset($bundles);
         $data[$bundleKey] = $bundle;
       }
@@ -288,7 +288,7 @@ final class MatcherReference extends MatcherBase {
       $entityType = $this->entityTypeManager->getDefinition($entityTypeId);
       $data = [];
       if ($bundleKey = $entityType->getKey('bundle')) {
-        $bundles = $reference['definition']->getSetting('handler_settings')['target_bundles'] ?: [$entityTypeId];
+        $bundles = ($reference['definition']->getSetting('handler_settings')['target_bundles'] ?? NULL) ?: [$entityTypeId];
         $bundle = reset($bundles);
         $data[$bundleKey] = $bundle;
       }

@@ -128,6 +128,20 @@ final class EntityLoadValue extends ComponentValuePluginBase implements Containe
   }
 
   /**
+   * {@inheritdoc}
+   */
+  public function settingsSummary(): array {
+    $summary = [];
+    if (($entityTypeId = $this->configuration['entity_type']) && $this->configuration['entity_id'] !== '') {
+      $summary[] = $this->t('Loads @type #@id', [
+        '@type' => $entityTypeId,
+        '@id' => $this->configuration['entity_id'],
+      ]);
+    }
+    return array_merge($summary, $this->childrenMatchSummary());
+  }
+
+  /**
    * Configuration form for the value provider plugin.
    */
   protected function configurationForm(array $form, FormStateInterface $form_state, array &$complete_form): array {

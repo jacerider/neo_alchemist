@@ -184,9 +184,12 @@ function neo_alchemist_update_11003() {
 *   `entity` would claim the value and `media` would never run.
 * - A shape carrying a `fallback` plugin (the configured Default Value) is left
 *   alone — blocking claims the value and the fallback loop never runs.
-* - An explicit `continue`, and a producer whose class defaults to `continue`
-*   (`event`, which contributes a value later providers may still change), are
-*   both left alone.
+* - An explicit `continue` is left alone, as is a mode-less `event` — the one
+*   provider that defaulted to continue when this hook shipped. That list is
+*   era-frozen on purpose: a migration's decisions must not drift when a
+*   plugin's shipped default changes later (media moved to continue after this
+*   hook had already run in production, and blocking a last-producer media on
+*   entity-group components is exactly the outcome this migration produced).
 * - An unresolvable plugin id means a disabled module and an unknowable
 *   pipeline order, so the whole shape is skipped.
 *
@@ -370,7 +373,14 @@ function _neo_alchemist_processing_mode_claim(array $instances, array $base, arr
     $skipped[] = $label . ' ("' . $last . '" is explicitly set to continue)';
     return;
   }
-  if ($stored === NULL && _neo_alchemist_processing_mode_default($definitions, $last) === 'continue') {
+  // Era-frozen, not reflected from the live class: this migration's decisions
+  // must not drift when a plugin's shipped default changes later. At the time
+  // this hook shipped, `event` was the only provider defaulting to continue —
+  // and `media` defaulting to continue TODAY must not exempt it here, because
+  // "block the last producer" (media included, on entity-group components) is
+  // exactly the outcome this migration produced on the sites it has already
+  // run against.
+  if ($stored === NULL && $last === 'event') {
     $skipped[] = $label . ' ("' . $last . '" defaults to continue)';
     return;
   }
@@ -423,29 +433,3 @@ function _neo_alchemist_processing_mode_capable(array $definitions, string $plug
     && is_subclass_of($class, 'Drupal\neo_alchemist\ComponentValueProcessingModeInterface');
 }
 
-/**
-* The mode a plugin falls back to when the key is unset.
-*
-* processingModeDefault() is protected, and every implementation is a bare
-* `return self::MODE_X;` that touches no state — so an uninitialised instance
-* answers it correctly. Reflecting is what lets the `continue` rule be written
-* against behaviour instead of hard-coding "event".
-*/
-function _neo_alchemist_processing_mode_default(array $definitions, string $pluginId): string {
-  static $cache = [];
-  $class = $definitions[$pluginId]['class'] ?? '';
-  if (!array_key_exists($class, $cache)) {
-    $cache[$class] = 'stop_when_found';
-    try {
-      $reflection = new \ReflectionClass($class);
-      $method = $reflection->getMethod('processingModeDefault');
-      $method->setAccessible(TRUE);
-      $cache[$class] = (string) $method->invoke($reflection->newInstanceWithoutConstructor());
-    }
-    catch (\Throwable) {
-      // An unreflectable class keeps the trait's own default, which is the
-      // conservative answer: it does not exempt the plugin from the migration.
-    }
-  }
-  return $cache[$class];
-}

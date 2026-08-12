@@ -20,6 +20,19 @@ interface ComponentValuePluginInterface extends ConfigurableInterface, PluginFor
   public function label(): string;
 
   /**
+   * Returns a short summary of the plugin's configured state.
+   *
+   * Shown wherever the plugin is listed without its form — the provider lists
+   * on the prop form and the props table on the component manage page — so a
+   * site builder can tell what a plugin is wired to without opening it. Return
+   * an empty array when the plugin has nothing configured worth surfacing.
+   *
+   * @return array
+   *   An array of translated summary lines, most important first.
+   */
+  public function settingsSummary(): array;
+
+  /**
    * Get the shape which owns this plugin.
    *
    * @return \Drupal\neo_alchemist\ComponentShapePluginInterface
