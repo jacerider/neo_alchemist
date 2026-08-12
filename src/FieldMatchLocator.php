@@ -92,6 +92,10 @@ final class FieldMatchLocator {
    * own. The result depends only on the entity model and the shape's own
    * matching predicate, so it survives until field definitions change.
    *
+   * Only ::search() still consumes this: a global search genuinely needs the
+   * flattened tree. ::browse() and ::label() resolve one node at a time via
+   * ::getNode(), so nothing pays for the walk until someone types a query.
+   *
    * @param \Drupal\neo_alchemist\ComponentShapePluginInterface $shape
    *   The shape to match against.
    * @param bool $all
@@ -108,21 +112,7 @@ final class FieldMatchLocator {
    *   returns them, minus the field definition objects (which do not cache).
    */
   public function getMatches(ComponentShapePluginInterface $shape, bool $all = FALSE, ?string $entityTypeId = NULL, ?string $bundle = NULL): array {
-    // The cid has to mirror MatcherField::getMatches()'s own resolution, which
-    // treats the pair as one decision: an entity type override takes its bundle
-    // from the override too, a NULL there meaning "every bundle". Letting the
-    // bundle fall back to the shape's own target independently makes
-    // (node, every bundle) and (node, the shape's bundle) share one entry, and
-    // whichever picker warms the cache first decides what the other one offers.
-    $cid = implode(':', [
-      'neo_alchemist.field_match',
-      $entityTypeId ?? $shape->getTargetEntityType() ?? '',
-      $entityTypeId !== NULL ? ($bundle ?? '') : ($bundle ?? $shape->getTargetEntityBundle() ?? ''),
-      $shape->getRef(),
-      $shape->getFormat(),
-      $shape->isRequired() ? '1' : '0',
-      $all ? 'all' : 'matched',
-    ]);
+    $cid = $this->cid($shape, $all, $entityTypeId, $bundle);
     if ($cached = $this->cache->get($cid)) {
       return $cached->data;
     }
@@ -141,6 +131,83 @@ final class FieldMatchLocator {
       'entity_bundles',
     ]);
     return $matches;
+  }
+
+  /**
+   * The cache id for a shape's match list.
+   *
+   * Has to mirror MatcherField::getMatches()'s own resolution, which treats
+   * the pair as one decision: an entity type override takes its bundle from
+   * the override too, a NULL there meaning "every bundle". Letting the bundle
+   * fall back to the shape's own target independently makes (node, every
+   * bundle) and (node, the shape's bundle) share one entry, and whichever
+   * picker warms the cache first decides what the other one offers.
+   *
+   * @param \Drupal\neo_alchemist\ComponentShapePluginInterface $shape
+   *   The shape to match against.
+   * @param bool $all
+   *   Whether every field is offered.
+   * @param string|null $entityTypeId
+   *   The entity type override.
+   * @param string|null $bundle
+   *   The bundle override.
+   *
+   * @return string
+   *   The cache id.
+   */
+  private function cid(ComponentShapePluginInterface $shape, bool $all, ?string $entityTypeId, ?string $bundle): string {
+    return implode(':', [
+      'neo_alchemist.field_match',
+      $entityTypeId ?? $shape->getTargetEntityType() ?? '',
+      $entityTypeId !== NULL ? ($bundle ?? '') : ($bundle ?? $shape->getTargetEntityBundle() ?? ''),
+      $shape->getRef(),
+      $shape->getFormat(),
+      $shape->isRequired() ? '1' : '0',
+      $all ? 'all' : 'matched',
+    ]);
+  }
+
+  /**
+   * One node of the entity tree, computed lazily and cached.
+   *
+   * @param \Drupal\neo_alchemist\ComponentShapePluginInterface $shape
+   *   The shape to match against.
+   * @param string[] $hops
+   *   Reference field names leading to the node, [] for the root.
+   * @param bool $all
+   *   Whether every field is offered.
+   * @param string|null $entityTypeId
+   *   The entity type override.
+   * @param string|null $bundle
+   *   The bundle override.
+   *
+   * @return array|null
+   *   MatcherField::getNodeMatches()'s structure with leaves reduced to
+   *   scalars, or NULL when the path does not resolve. Unresolvable paths are
+   *   not negative-cached: the endpoint sits behind an admin permission, and a
+   *   probe per bogus path must not be able to fill the bin.
+   */
+  private function getNode(ComponentShapePluginInterface $shape, array $hops, bool $all, ?string $entityTypeId, ?string $bundle): ?array {
+    $cid = $this->cid($shape, $all, $entityTypeId, $bundle) . ':node:' . implode('.', $hops);
+    if ($cached = $this->cache->get($cid)) {
+      return $cached->data;
+    }
+    $node = $this->matcherField->getNodeMatches($shape, $hops, $entityTypeId, $bundle, $all);
+    if ($node === NULL) {
+      return NULL;
+    }
+    // Same reduction as ::getMatches(): live field definition objects have no
+    // place in a cache bin, and nothing downstream of the picker reads them.
+    $node['leaves'] = array_map(static fn (array $match): array => [
+      'title' => (string) $match['title'],
+      'group' => (string) $match['group'],
+    ], $node['leaves']);
+    $this->cache->set($cid, $node, time() + self::CACHE_LIFETIME, [
+      'entity_field_info',
+      'entity_types',
+      'entity_bundles',
+    ]);
+    return $node;
   }
 
   /**
@@ -238,12 +305,20 @@ final class FieldMatchLocator {
   /**
    * One pane of the field browser: what sits at a point in the entity tree.
    *
-   * The flat match list is the cartesian view of a tree that is small at every
-   * node — 56 rows at the root here, ~37 one hop in, ~30 two hops in. Nothing
-   * new has to be matched to get that tree back: the keys already encode it,
-   * as dot-separated reference hops ending in a field or property, and the
-   * group string carries the entity label reached by each hop. So this is a
-   * regrouping of the cached list, not a second traversal.
+   * Computed from that node alone — MatcherField::getNodeMatches() follows the
+   * hops and matches one entity level with recursion off — rather than by
+   * regrouping the flat recursive walk. The walk's cost is the cartesian
+   * product of every reference path to ::$maxLevels, and it was paid before
+   * the first column could paint; a node is one entity's field list, whatever
+   * the site's content model looks like. It also unties the browser's depth
+   * from the walk's: panes exist wherever the hops resolve, so a reference can
+   * be followed past the depth search flattens to.
+   *
+   * One visible consequence: a reference is offered as a doorway whether or
+   * not anything behind it can supply the prop — the pane no longer knows, and
+   * a hop can dead-end in "nothing here". That is ordinary column-browser
+   * behavior (an empty folder is still a folder), and the doorway predicate
+   * still only opens references the recursive walk would descend.
    *
    * @param \Drupal\neo_alchemist\ComponentShapePluginInterface $shape
    *   The shape to match against.
@@ -262,126 +337,69 @@ final class FieldMatchLocator {
    *   ['path', 'entity', 'crumbs', 'leaves', 'refs'].
    */
   public function browse(ComponentShapePluginInterface $shape, string $path = '', bool $all = FALSE, ?string $entityTypeId = NULL, ?string $bundle = NULL): array {
-    $matches = $this->getMatches($shape, $all, $entityTypeId, $bundle);
     $prefix = $path === '' ? [] : explode('.', $path);
-    $depth = count($prefix);
+    $node = $this->getNode($shape, $prefix, $all, $entityTypeId, $bundle);
+    if ($node === NULL) {
+      // A path that leads nowhere is an empty pane, not an error: the panes a
+      // stale browser still shows may address references a field update has
+      // since removed.
+      return [
+        'path' => $path,
+        'entity' => '',
+        'crumbs' => [],
+        'leaves' => [],
+        'refs' => [],
+      ];
+    }
 
     $leaves = [];
-    $refs = [];
-    $entity = '';
-    // Human labels for reference hops, harvested from the hop field's own leaf
-    // entry ("Term Parents: Taxonomy term ID (parent)"). Collected across the
-    // whole list rather than per node, so an ancestor crumb can be named even
-    // though its own pane was never requested. Not every hop has such a leaf —
-    // an entity reference is rarely a valid source for a string prop — so this
-    // degrades to the machine name rather than depending on it.
-    $hopLabels = [];
-
-    foreach ($matches as $key => $match) {
-      $parts = explode('.', $key);
-      $leaf = array_pop($parts);
-      $hop = explode(':', $leaf)[0];
-      if (!isset($hopLabels[$hop])) {
-        $hopLabels[$hop] = trim(explode(':', $match['title'])[0]);
-      }
-      if (array_slice($parts, 0, $depth) !== $prefix) {
-        continue;
-      }
-      $segments = explode(' → ', $match['group']);
-
-      if ($parts === $prefix) {
-        // A field at this node.
-        $entity = $entity ?: ($segments[$depth] ?? '');
-        $leaves[] = [
-          'value' => $key,
-          'label' => $match['title'],
-          // Kept, not stripped: three alphabetical runs concatenated read as
-          // no order at all, so the column draws a boundary where this
-          // changes.
-          'tier' => $this->tier($key),
-        ];
-        continue;
-      }
-
-      // Something deeper: the next segment is a reference hop from this node.
-      $next = $parts[$depth];
-      $hopPath = $path === '' ? $next : "$path.$next";
-      if (!isset($refs[$next])) {
-        $refs[$next] = [
-          'path' => $hopPath,
-          'segment' => $next,
-          // Filled after the loop: the hop's own leaf may not be seen yet.
-          'label' => $next,
-          'target' => $segments[$depth + 1] ?? '',
-          'count' => 0,
-        ];
-      }
-      $refs[$next]['count']++;
+    foreach ($node['leaves'] as $key => $match) {
+      $leaves[] = [
+        'value' => $key,
+        'label' => $match['title'],
+        // Kept, not stripped: three alphabetical runs concatenated read as
+        // no order at all, so the column draws a boundary where this
+        // changes.
+        'tier' => $this->tier($key),
+      ];
     }
-
-    foreach ($refs as $hop => &$ref) {
-      $ref['label'] = $hopLabels[$hop] ?? $hop;
-    }
-    unset($ref);
-
     usort($leaves, static fn (array $a, array $b) => [$a['tier'], $a['label']] <=> [$b['tier'], $b['label']]);
+
+    $refs = [];
+    foreach ($node['refs'] as $ref) {
+      $refs[] = [
+        'path' => $path === '' ? $ref['segment'] : "$path.{$ref['segment']}",
+        'segment' => $ref['segment'],
+        'label' => $ref['label'],
+        'target' => $ref['target'],
+      ];
+    }
     usort($refs, static fn (array $a, array $b) => $a['label'] <=> $b['label']);
 
-    return [
-      'path' => $path,
-      'entity' => $entity,
-      'crumbs' => $this->crumbs($matches, $prefix, $hopLabels),
-      'leaves' => $leaves,
-      'refs' => array_values($refs),
-    ];
-  }
-
-  /**
-   * The breadcrumb for a reference path.
-   *
-   * @param array $matches
-   *   The full match list.
-   * @param array $prefix
-   *   The path segments.
-   * @param array $hopLabels
-   *   Field-name to human-label map for reference hops.
-   *
-   * @return array
-   *   A list of ['path' => …, 'label' => …, 'entity' => …], root first.
-   */
-  private function crumbs(array $matches, array $prefix, array $hopLabels): array {
-    // Any match reaching at least this deep carries the entity label for every
-    // level along the way in its group string.
-    $segments = [];
-    foreach ($matches as $key => $match) {
-      $parts = explode('.', $key);
-      array_pop($parts);
-      if (array_slice($parts, 0, count($prefix)) === $prefix) {
-        $segments = explode(' → ', $match['group']);
-        break;
-      }
-    }
     // The root crumb names the entity; every crumb after it names the hop that
     // reached the level, with the entity as its subtitle. Naming them all by
     // entity instead reads as "Taxonomy Term / Taxonomy Term" the moment a
     // reference points back at its own type, which `parent` always does.
     $crumbs = [];
-    $path = '';
-    $stripEntity = static fn (string $segment): string => preg_replace('/\s*\([^)]*\)$/', '', $segment);
-    $crumbs[] = [
-      'path' => '',
-      'label' => $stripEntity($segments[0] ?? ''),
-      'entity' => '',
-    ];
-    foreach ($prefix as $i => $hop) {
-      $path = $path === '' ? $hop : "$path.$hop";
+    $crumbPath = '';
+    foreach ($node['crumbs'] as $i => $crumb) {
+      if ($i > 0) {
+        $crumbPath = $crumbPath === '' ? $prefix[$i - 1] : $crumbPath . '.' . $prefix[$i - 1];
+      }
       $crumbs[] = [
-        'path' => $path,
-        'label' => $hopLabels[$hop] ?? $hop,
-        'entity' => $stripEntity($segments[$i + 1] ?? ''),
+        'path' => $crumbPath,
+        'label' => $crumb['label'],
+        'entity' => $crumb['entity'],
       ];
     }
-    return $crumbs;
+
+    return [
+      'path' => $path,
+      'entity' => $node['entity'],
+      'crumbs' => $crumbs,
+      'leaves' => $leaves,
+      'refs' => $refs,
+    ];
   }
 
   /**
@@ -405,7 +423,17 @@ final class FieldMatchLocator {
    *   (or is no longer) a valid match for this shape.
    */
   public function label(ComponentShapePluginInterface $shape, string $key, bool $all = FALSE, ?string $entityTypeId = NULL, ?string $bundle = NULL): ?array {
-    $match = $this->getMatches($shape, $all, $entityTypeId, $bundle)[$key] ?? NULL;
+    if ($key === '') {
+      return NULL;
+    }
+    // Resolved from the key's own node rather than the full walk: rendering a
+    // form with a stored value must not pay for the whole tree, and a key
+    // picked from a pane deeper than the walk flattens to must still label
+    // and validate.
+    $hops = explode('.', $key);
+    array_pop($hops);
+    $node = $this->getNode($shape, $hops, $all, $entityTypeId, $bundle);
+    $match = $node['leaves'][$key] ?? NULL;
     if (!$match) {
       return NULL;
     }
