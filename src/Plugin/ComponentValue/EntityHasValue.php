@@ -113,13 +113,25 @@ final class EntityHasValue extends ComponentValuePluginBase implements Container
    * {@inheritdoc}
    */
   public function provideDefaultValue(mixed $value): mixed {
-    $isEmpty = !empty($this->matcherField->getEntityValue(
+    // Emptiness is the field item list's own isEmpty() — the field type's
+    // semantic notion — NOT truthiness of getValue(): an empty text-with-
+    // format field still returns a phantom [{value: NULL, format: NULL}]
+    // item, which read as "has a value". Dynamic selections (_entity:/
+    // _field: keys) resolve to no item list; those keep the value
+    // truthiness check.
+    $field = $this->matcherField->getEntityField(
+      entity: $this->shape->getEntity(),
+      key: $this->configuration['field'],
+      published: TRUE,
+      cacheableMetadata: $this->shape->getCacheableMetadata()
+    );
+    $hasValue = $field ? !$field->isEmpty() : !empty($this->matcherField->getEntityValue(
       entity: $this->shape->getEntity(),
       key: $this->configuration['field'],
       published: TRUE,
       cacheableMetadata: $this->shape->getCacheableMetadata()
     ));
-    if (!$isEmpty) {
+    if (!$hasValue) {
       $this->claimValue();
       return FALSE;
     }
