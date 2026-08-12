@@ -45,11 +45,17 @@ final class ComponentCloneForm extends ComponentForm {
     $form['description']['#default_value'] = $source->get('description');
 
     // Props, slots and value plugins can reference fields on the scoped entity
-    // type, so a clone stays on the source's scope — the same rule the parent
-    // applies to a saved component.
+    // type, so a clone stays on the source's entity type — the same rule the
+    // parent applies to a saved component.
     $form['target_entity_type']['#disabled'] = TRUE;
+    // The bundle stays open. Retargeting a copy at a sibling bundle is the
+    // common reason to clone a scoped component, and because the entity type is
+    // fixed the copied configuration keeps resolving against the same field
+    // definitions — only bundle-specific fields need a second look.
     if (isset($form['target_entity_bundle']['#type']) && $form['target_entity_bundle']['#type'] === 'select') {
-      $form['target_entity_bundle']['#disabled'] = TRUE;
+      $form['target_entity_bundle']['#description'] = $this->t('Scope this copy to a different %label bundle if you want. Props and slots bound to fields the new bundle does not have will need to be re-pointed.', [
+        '%label' => $this->entityTypeManager->getDefinition($this->entity->getTargetEntityTypeId())->getLabel(),
+      ]);
     }
 
     return $form;
