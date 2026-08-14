@@ -1,44 +1,48 @@
+{#
+  Container — a heading + CTA header above a single content slot.
+  - `scheme` paints the root, so the surface spans the full viewport and
+    everything inside — including whatever an editor drops in the content slot —
+    is recolored with it. Text, borders, links and `.btn*` buttons all follow the
+    scheme with no color classes of their own, so none are written here.
+  - `component-bg` lets two adjacent containers on the same scheme collapse their
+    doubled spacing into one continuous band.
+  - `containment` sits on the inner wrapper rather than the root: the background
+    is full-bleed, the content it wraps is not. `px-container` supplies the side
+    gutters that `container mx-auto` (the containment classes) does not.
+#}
+{% set classes = ['bg-default', 'component-bg'] %}
 {%
-  set classes = [
-    'container-content',
-    'my-component',
-  ]
-%}
-{%
-  set heading_wrapper_classes = links ? ['mb-2', 'flex', 'flex-col', 'md:flex-row', 'items-center'] : []
+  set heading_wrapper_classes = links ? ['mb-10', 'flex', 'flex-col', 'md:flex-row', 'items-center'] : ['mb-10']
 %}
 
 <div{{ attributes.addClass(classes) }}>
-  {% if heading or links %}
-  <div class="{{ heading_wrapper_classes|join(' ') }}">
-    {# Heading: Start #}
-      {% if heading %}
-        <div{{ heading.size }}>
-          {% if heading.supertitle %}<div class="component-supertitle">{{ heading.supertitle }}</div>{% endif %}
-          <h2 class="component-title">{{ heading.title }}</h2>
-          {% if heading.subtitle %}<div class="component-subtitle">{{ heading.subtitle }}</div>{% endif %}
-        </div>
-      {% endif %}
-    {# Heading: End #}
-    {# Links: Start #}
-      {% if links %}
-        <div class='mt-2 md:mt-0 md:ml-auto'>
-        {% for item in links %}
-          <div>
-          {# Link: Start #}
-          {% if item.link %}
-            <a{{ item.button_style }} href="{{ neo_uri(item.link.uri, item.link.options) }}">
-              {{ item.link.title }}
-            </a>
-          {% endif %}
-          {# Link: End #}
+  <div{{ containment.addClass(['px-container']) }}>
+    {% if heading or links %}
+    <div class="{{ heading_wrapper_classes|join(' ') }}">
+      {# Heading: Start #}
+        {% if heading %}
+          <div{{ heading.size }}>
+            {% if heading.anchor %}<a name="{{ heading.anchor }}" title="{{ heading.title }}"></a>{% endif %}
+            {% if heading.supertitle %}<div class="component-supertitle">{{ heading.supertitle }}</div>{% endif %}
+            {% if heading.title %}<h2 class="component-title">{{ heading.title }}</h2>{% endif %}
+            {% if heading.subtitle %}<div class="component-subtitle">{{ heading.subtitle }}</div>{% endif %}
           </div>
-        {% endfor %}
-        </div>
-      {% endif %}
-    {# Links: End #}
-  </div>
-  {% endif %}
+        {% endif %}
+      {# Heading: End #}
+      {# Links: Start #}
+        {% if links %}
+          <div class="mt-2 md:mt-0 md:ml-auto">
+            {% for item in links %}
+              {% if item.link.title and item.link.access %}
+                <a{% if item.button_style.getValue() %}{{ item.button_style }}{% else %} class="btn btn-md"{% endif %} href="{{ neo_uri(item.link.uri, item.link.options) }}" target="{{ item.link.target }}">{{ item.link.title }}</a>
+              {% endif %}
+            {% endfor %}
+          </div>
+        {% endif %}
+      {# Links: End #}
+    </div>
+    {% endif %}
 
-  {% block content %}{% endblock %}
+    {% block content %}{% endblock %}
+  </div>
 </div>

@@ -42,18 +42,6 @@ props:
       type: text_align
       title: Text Align
       apply: true
-    heading_class:
-      type: style
-      title: 'Heading Option'
-      apply: false
-      styles:
-        default:
-          label: Default
-          value: component-title-alt
-        non-alt:
-          label: Non Alternate
-          value: component-title font-semibold
-      examples: default
 slots:
   content:
     title: Content
