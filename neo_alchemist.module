@@ -788,6 +788,15 @@ function neo_alchemist_neo_token_image_alter(&$uri, &$params, ContentEntityInter
   if (!$entity) {
     return;
   }
+  // Never walk a component tree while a views value provider is executing:
+  // result caching can serialize row entities, which computes metatag fields,
+  // whose image token lands here — and initializing tree shapes at that point
+  // executes their bound views mid-serialization (infinitely, when a search
+  // page's own node appears in its results). The head-of-page metatag pass
+  // runs outside any execution and resolves the image normally.
+  if (\Drupal\neo_alchemist\Plugin\ComponentValue\ViewsValue::isExecuting()) {
+    return;
+  }
   if ($fieldName = neo_alchemist_get_entity_field_name($entity)) {
     if (!$entity->hasField($fieldName)) {
       return;

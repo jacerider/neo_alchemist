@@ -85,6 +85,26 @@ final class ViewsValue extends ComponentValuePluginBase implements ContainerFact
   protected bool $viewResolved = FALSE;
 
   /**
+   * Views currently executing, keyed "view_id:display_id".
+   *
+   * Static on purpose: the guard must span plugin instances, because each
+   * nested resolution constructs a fresh ViewsValue.
+   *
+   * @var array<string, true>
+   */
+  protected static array $executingViews = [];
+
+  /**
+   * Whether any views value provider is currently executing its view.
+   *
+   * Lets serialization-triggered code paths (e.g. the metatag image token
+   * walking a component tree) avoid initializing shapes mid-execution.
+   */
+  public static function isExecuting(): bool {
+    return !empty(self::$executingViews);
+  }
+
+  /**
    * Search API indexes keyed by view base table. FALSE when there is none.
    *
    * @var array<string, \Drupal\Core\Entity\EntityInterface|false>
@@ -237,7 +257,7 @@ final class ViewsValue extends ComponentValuePluginBase implements ContainerFact
         $form['view_entity_type_id'] = [
           '#type' => 'select',
           '#title' => $this->t('Result entity type'),
-          '#description' => $this->t('The entity type the view rows resolve to. Results that are not of this type are skipped.'),
+          '#description' => $this->t('The entity type whose fields the mapping below offers. This scopes the mapping UI only — at render time every row resolves against its own entity, so mixed-type views work when the mapped sources are type-agnostic (<code>_entity:*</code>, <code>_view:*</code>); a real field simply resolves empty on rows of another type.'),
           '#options' => $entityTypeOptions,
           '#default_value' => $viewEntityTypeId,
           '#required' => TRUE,
@@ -411,75 +431,99 @@ final class ViewsValue extends ComponentValuePluginBase implements ContainerFact
       // Views::getView() on every call for the rest of the request.
       $this->viewResolved = TRUE;
       $this->view = NULL;
+      // Re-entrancy guard. Executing a view can serialize its row entities
+      // (e.g. a result cache plugin), which computes fields like metatags,
+      // whose tokens can walk a row entity's component tree — and when that
+      // tree binds THIS view (a search page appearing in its own results),
+      // shape init would execute it again, forever. A nested execution of the
+      // same view/display resolves to no view instead; the outer execution's
+      // results are unaffected.
+      $key = ($this->configuration['view_id'] ?? '') . ':' . ($this->configuration['view_display_id'] ?? '');
+      if (!empty(self::$executingViews[$key])) {
+        return NULL;
+      }
       if ($this->configuration['view_id'] && $this->configuration['view_display_id']) {
-        $view = Views::getView($this->configuration['view_id']);
-        if ($view) {
-          $view->setDisplay($this->configuration['view_display_id']);
-          // Add cache metadata from the display handler.
-          $this->shape->addCacheableDependency($view->display_handler->getCacheMetadata());
-          /** @var \Drupal\views\Plugin\views\cache\CachePluginBase $cache_plugin */
-          $cache_plugin = $view->display_handler->getPlugin('cache');
-          $cacheableMetadata = $this->shape->getCacheableMetadata();
-          // Merge, never set: the shape's metadata is shared with every other
-          // provider on it, and setCacheMaxAge() overwrites, so a permissive
-          // view could raise a max-age another provider had lowered to 0.
-          $cacheableMetadata->mergeCacheMaxAge($cache_plugin->getCacheMaxAge());
-          $cacheableMetadata->addCacheTags($cache_plugin->getCacheTags());
-
-          if ($this->configuration['view_items_per_page'] ?? NULL) {
-            $view->setItemsPerPage($this->configuration['view_items_per_page']);
-          }
-          if ($this->configuration['view_items_offset'] ?? NULL) {
-            $view->setOffset($this->configuration['view_items_offset']);
-          }
-          if ($this->configuration['view_arguments']) {
-            $arguments = $view->getHandlers('argument');
-            if ($arguments) {
-              $args = [];
-              foreach ($arguments as $id => $argument) {
-                $argValue = NULL;
-                $argKey = $this->configuration['view_arguments'][$id] ?? NULL;
-                if ($argKey) {
-                  $argValue = 'all';
-                  switch ($argKey) {
-                    case '_entity':
-                      $argValue = $this->shape->getEntity()->id();
-                      break;
-
-                    case '_taxonomy_term_children':
-                      $entity = $this->shape->getEntity();
-                      $argValue = [
-                        $entity->id(),
-                      ];
-                      /** @var \Drupal\taxonomy\TermStorageInterface $storage */
-                      $storage = $this->entityTypeManager->getStorage('taxonomy_term');
-                      foreach ($storage->loadTree($entity->bundle(), $entity->id()) as $term) {
-                        $argValue[] = $term->tid;
-                      }
-                      $argValue = implode(',', $argValue);
-                      break;
-
-                    default:
-                      if ($filter = $this->shape->getComponent()->getFilter($argKey)) {
-                        $argValue = $filter->getProcessedValue();
-                      }
-                      break;
-                  }
-                }
-                $args[] = $argValue;
-              }
-              $view->setArguments($args);
-            }
-          }
-          $view->preExecute();
-          $view->execute();
-          $this->view = $view;
-          // Set a context for use by slots.
-          $this->shape->getComponent()->setPropShapeContext('views', $this->shape, $view);
+        self::$executingViews[$key] = TRUE;
+        try {
+          $this->doResolveView();
+        }
+        finally {
+          unset(self::$executingViews[$key]);
         }
       }
     }
     return $this->view;
+  }
+
+  /**
+   * Loads, configures, and executes the configured view.
+   */
+  protected function doResolveView(): void {
+    $view = Views::getView($this->configuration['view_id']);
+    if ($view) {
+      $view->setDisplay($this->configuration['view_display_id']);
+      // Add cache metadata from the display handler.
+      $this->shape->addCacheableDependency($view->display_handler->getCacheMetadata());
+      /** @var \Drupal\views\Plugin\views\cache\CachePluginBase $cache_plugin */
+      $cache_plugin = $view->display_handler->getPlugin('cache');
+      $cacheableMetadata = $this->shape->getCacheableMetadata();
+      // Merge, never set: the shape's metadata is shared with every other
+      // provider on it, and setCacheMaxAge() overwrites, so a permissive
+      // view could raise a max-age another provider had lowered to 0.
+      $cacheableMetadata->mergeCacheMaxAge($cache_plugin->getCacheMaxAge());
+      $cacheableMetadata->addCacheTags($cache_plugin->getCacheTags());
+
+      if ($this->configuration['view_items_per_page'] ?? NULL) {
+        $view->setItemsPerPage($this->configuration['view_items_per_page']);
+      }
+      if ($this->configuration['view_items_offset'] ?? NULL) {
+        $view->setOffset($this->configuration['view_items_offset']);
+      }
+      if ($this->configuration['view_arguments']) {
+        $arguments = $view->getHandlers('argument');
+        if ($arguments) {
+          $args = [];
+          foreach ($arguments as $id => $argument) {
+            $argValue = NULL;
+            $argKey = $this->configuration['view_arguments'][$id] ?? NULL;
+            if ($argKey) {
+              $argValue = 'all';
+              switch ($argKey) {
+                case '_entity':
+                  $argValue = $this->shape->getEntity()->id();
+                  break;
+
+                case '_taxonomy_term_children':
+                  $entity = $this->shape->getEntity();
+                  $argValue = [
+                    $entity->id(),
+                  ];
+                  /** @var \Drupal\taxonomy\TermStorageInterface $storage */
+                  $storage = $this->entityTypeManager->getStorage('taxonomy_term');
+                  foreach ($storage->loadTree($entity->bundle(), $entity->id()) as $term) {
+                    $argValue[] = $term->tid;
+                  }
+                  $argValue = implode(',', $argValue);
+                  break;
+
+                default:
+                  if ($filter = $this->shape->getComponent()->getFilter($argKey)) {
+                    $argValue = $filter->getProcessedValue();
+                  }
+                  break;
+              }
+            }
+            $args[] = $argValue;
+          }
+          $view->setArguments($args);
+        }
+      }
+      $view->preExecute();
+      $view->execute();
+      $this->view = $view;
+      // Set a context for use by slots.
+      $this->shape->getComponent()->setPropShapeContext('views', $this->shape, $view);
+    }
   }
 
   /**
