@@ -1,0 +1,17 @@
+$schema: 'https://git.drupalcode.org/project/drupal/-/raw/10.1.x/core/modules/sdc/src/metadata.schema.json'
+name: 'NA empty heading fixture'
+description: >
+  A heading prop carrying no examples, the way a component ships an optional
+  section heading (see the theme's list_s4). Nothing here is authored, so the
+  only child that resolves is `size` — which always falls back to `md`. That
+  lone child is what used to keep the value non-empty and make `{% if heading %}`
+  true for a heading with no text in it.
+status: stable
+neo: true
+props:
+  type: object
+  properties:
+    heading:
+      type: heading
+      title: Heading
+      examples: {}
