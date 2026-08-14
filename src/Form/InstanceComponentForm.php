@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Drupal\neo_alchemist\Form;
 
 use Drupal\Component\Datetime\TimeInterface;
+use Drupal\Component\Serialization\Json;
 use Drupal\Component\Utility\Html;
 use Drupal\Component\Utility\NestedArray;
 use Drupal\Core\Ajax\AjaxResponse;
@@ -409,6 +410,36 @@ final class InstanceComponentForm extends ContentEntityForm {
         'data-neo-modal-close' => '1',
       ],
     ];
+    if ($this->instance->isNew()) {
+      // A new component was picked from the library, so cancel returns there
+      // rather than to the manage page — with the placement intact, so picking
+      // a different component lands in the same spot. The query is set on the
+      // Url object because neither scope's toUrl() forwards options.
+      $url = $this->instance->getFieldItem()->toUrl('library');
+      if ($query = array_filter(['parent' => $this->parent, 'before' => $this->before, 'after' => $this->after])) {
+        $url->setOption('query', $query);
+      }
+      $actions['cancel']['#url'] = $url;
+      if ($this->isAjax()) {
+        // In the modal flow the library and add screens replace each other in
+        // one dialog: a plain href would navigate the whole page and
+        // data-neo-modal-close would just close the modal. Mirror the
+        // library's own component links so cancel swaps the library back in.
+        unset($actions['cancel']['#attributes']['data-neo-modal-close']);
+        $actions['cancel']['#attributes']['class'][] = 'use-ajax';
+        $actions['cancel']['#attributes']['data-dialog-type'] = 'modal';
+        $actions['cancel']['#attributes']['data-dialog-options'] = Json::encode([
+          'width' => '100%',
+          'height' => '100%',
+          'neo' => [
+            'displaceTop' => '0px',
+            'displaceBottom' => '0px',
+            'contentPadding' => '0px',
+          ],
+        ]);
+        $actions['cancel']['#attached']['library'][] = 'core/drupal.dialog.ajax';
+      }
+    }
     $actions['submit']['#attributes']['class'][] = 'btn btn-primary btn-xs';
     $actions['cancel']['#attributes']['class'][] = 'btn btn-xs';
     if ($this->isAjax()) {
