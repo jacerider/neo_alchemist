@@ -512,19 +512,27 @@ final class ComponentSlotForm extends EntityForm {
       $form_state->set('op', 'list');
     }
 
+    // An empty slot builds its list table with #access FALSE, and a table is a
+    // form input: with no rows to write into it and no user input allowed, it
+    // falls back to the '' every input element defaults to. So the key exists
+    // and ?? does not catch it — adding the very first plugin to a slot would
+    // otherwise hand a string to the array handling below.
+    $rows = $values['plugins']['list'] ?? [];
+    $rows = is_array($rows) ? $rows : [];
+
     // Must run before ::toArray() below. The line that reorders 'plugins' keeps
     // only the submitted row ORDER and replaces every row value with the
     // plugin's own settings, so anything typed into a row — the Twig key
     // included — is discarded there unless it has already been folded into the
     // slot.
-    if (!$this->applyPluginKeys($form, $form_state, $values['plugins']['list'] ?? [])) {
+    if (!$this->applyPluginKeys($form, $form_state, $rows)) {
       return;
     }
 
     // Extract any settings and update the component entity.
     $settings = $this->slot->toArray();
-    if (!empty($values['plugins']['list'])) {
-      $settings['plugins'] = array_replace(array_intersect_key($values['plugins']['list'], $settings['plugins']), $settings['plugins']);
+    if ($rows) {
+      $settings['plugins'] = array_replace(array_intersect_key($rows, $settings['plugins']), $settings['plugins']);
     }
     $this->entity->setSlotSettings($this->slot, $settings);
   }
