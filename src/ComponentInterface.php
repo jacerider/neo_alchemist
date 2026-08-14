@@ -300,6 +300,19 @@ interface ComponentInterface extends ConfigEntityInterface, RenderableInterface,
   public function isManagePreview(): bool;
 
   /**
+   * Checks if the component is in a single-component editor preview.
+   *
+   * TRUE only for the previews paired with a component form — the instance
+   * add/edit iframe and the SDC/config-scope workspace frames. FALSE for the
+   * live front end, for the page-builder canvas (which has its own overlay
+   * system), and for CLI renders.
+   *
+   * @return bool
+   *   TRUE if the component is in an editor preview, FALSE otherwise.
+   */
+  public function isEditorPreview(): bool;
+
+  /**
    * Set the component as rebuilding.
    *
    * @param bool $rebuilding

@@ -9,6 +9,7 @@ use Drupal\Core\Controller\ControllerBase;
 use Drupal\Core\Render\BareHtmlPageRendererInterface;
 use Drupal\Core\TempStore\PrivateTempStoreFactory;
 use Drupal\neo_alchemist\Plugin\Field\FieldType\ComponentTreeItem;
+use Drupal\neo_alchemist\PreviewPropMapBuilder;
 use Drupal\neo_icon\IconTrait;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\HttpFoundation\Request;
@@ -89,14 +90,20 @@ final class InstanceComponentPreviewController extends ControllerBase {
 
     $component = $neo_field->getComponent($uuid);
     $component->setInstancePreview(TRUE);
+    $renderable = $component->toRenderable();
     return [
       '#theme' => 'neo_alchemist_component_preview',
       '#attached' => [
         'library' => [
           'neo_alchemist/component.child',
         ],
+        'drupalSettings' => [
+          'neoAlchemist' => [
+            'propMap' => PreviewPropMapBuilder::build($component, $renderable),
+          ],
+        ],
       ],
-      'component' => $component->toRenderable(),
+      'component' => $renderable,
     ];
   }
 

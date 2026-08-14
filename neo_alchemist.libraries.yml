@@ -37,11 +37,16 @@ component.child:
   neo: true
   js:
     src/js/component-child.ts: {}
+  css:
+    component:
+      src/css/component-child.css: {}
   dependencies:
-    # The chunk ends `})(Drupal, once)`. This is the only JS the preview iframe
-    # attaches, so there is nothing else on that page to pull these in.
+    # The chunk ends `})(Drupal, once, drupalSettings)`. This is the only JS
+    # the preview iframe attaches, so there is nothing else on that page to
+    # pull these in.
     - core/drupal
     - core/once
+    - core/drupalSettings
 
 component.form:
   version: VERSION

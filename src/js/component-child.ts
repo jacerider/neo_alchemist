@@ -1,4 +1,4 @@
-(function (Drupal, once) {
+(function (Drupal, once, drupalSettings) {
 
   // TypeScript interfaces
   interface ClickOptions {
@@ -6,8 +6,39 @@
     passive?: boolean;
   }
 
+  interface PropMapInfo {
+    root: string;
+    title: string;
+    ref: string;
+    type: string;
+    hints?: {
+      text?: string[];
+      src?: string[];
+      href?: string[];
+    };
+  }
+
+  interface PropMap {
+    component: string;
+    props: Record<string, PropMapInfo>;
+  }
+
   const id = new URLSearchParams(window.location.search).get('id');
   const size = new URLSearchParams(window.location.search).get('size');
+
+  // Elements mapped back to a prop field: stamped server-side on
+  // attribute-carrying values (data-neo-prop) or claimed here from the prop
+  // map's hints (data-neo-prop-target). The heuristic claim is the more
+  // content-specific of the two — a heading's text beats its size attribute —
+  // so it wins in propIdOf().
+  const targetSelector = '[data-neo-prop-target],[data-neo-prop]';
+  const propMap: PropMap | undefined = drupalSettings.neoAlchemist?.propMap;
+  let hoverTarget: HTMLElement | null = null;
+  let activeTargets: HTMLElement[] = [];
+  let hoverOverlay: HTMLElement | null = null;
+  let hoverOverlayLabel: HTMLElement | null = null;
+  let activeOverlays: HTMLElement[] = [];
+  let pointerRaf = 0;
 
   Drupal.behaviors.neoAlchemistComponentChild = {
     attach: function () {
@@ -48,6 +79,7 @@
               size: size,
               height: element.scrollHeight,
             }, '*');
+            refreshOverlays();
           }
         });
 
@@ -56,6 +88,9 @@
 
         // Disable global left click on the body element
         disableGlobalLeftClick(element);
+
+        // Map preview DOM back to the form's prop fields.
+        initPropTargets(element as HTMLElement);
       });
     }
   };
@@ -73,4 +108,333 @@
     element.addEventListener('click', handleClick, { capture: true } as ClickOptions);
   };
 
-})(Drupal, once);
+  const post = (type: string, data: Record<string, unknown>): void => {
+    window.parent.postMessage({
+      type: type,
+      id: id,
+      size: size,
+      ...data,
+    }, window.location.origin);
+  };
+
+  /**
+   * Both ids an element may carry, heuristic claim first.
+   */
+  const propIdOf = (el: HTMLElement): string => {
+    return el.dataset.neoPropTarget || el.dataset.neoProp || '';
+  };
+
+  /**
+   * Index clickable prop targets and wire the pointer delegation.
+   */
+  const initPropTargets = (element: HTMLElement): void => {
+    const scope = element.querySelector<HTMLElement>('[data-neo-component]') || element;
+
+    // Authoritative targets stamped server-side.
+    element.querySelectorAll<HTMLElement>('[data-neo-prop]').forEach(el => {
+      el.classList.add('neo-alchemist--prop-target');
+    });
+
+    // Heuristic targets from the prop map. Absent on preview flavors that do
+    // not attach one — stamped targets still work there.
+    if (propMap && propMap.props) {
+      indexTextHints(scope);
+      indexSrcHints(scope);
+      indexHrefHints(scope);
+    }
+
+    // Hit-test through the point rather than the event target: decorative
+    // layers (gradients, stretched pseudo-links) often sit on top of the
+    // element the editor means, and closest() from the covering layer walks
+    // the wrong branch. The overlays are pointer-events: none, so they never
+    // appear in the stack. The global left-click suppression is capture-phase
+    // preventDefault only, so these bubble-phase listeners still see every
+    // event.
+    let pointerX = 0;
+    let pointerY = 0;
+    element.addEventListener('mousemove', (event: MouseEvent) => {
+      pointerX = event.clientX;
+      pointerY = event.clientY;
+      if (pointerRaf) {
+        return;
+      }
+      pointerRaf = requestAnimationFrame(() => {
+        pointerRaf = 0;
+        setHover(resolveFromPoint(pointerX, pointerY));
+      });
+    });
+    element.addEventListener('mouseleave', () => setHover(null));
+    element.addEventListener('click', (event: MouseEvent) => {
+      if (event.button !== 0) {
+        return;
+      }
+      const target = resolveFromPoint(event.clientX, event.clientY)
+        || (event.target as HTMLElement).closest<HTMLElement>(targetSelector);
+      if (target) {
+        post('prop', { propId: propIdOf(target) });
+      }
+    });
+  };
+
+  /**
+   * The prop target under a point: a direct target on top wins, then the
+   * closest ancestor target of anything in the stack.
+   */
+  const resolveFromPoint = (x: number, y: number): HTMLElement | null => {
+    const stack = document.elementsFromPoint(x, y) as HTMLElement[];
+    for (const el of stack) {
+      if (el.matches && el.matches(targetSelector)) {
+        return el;
+      }
+    }
+    for (const el of stack) {
+      const target = el.closest && el.closest<HTMLElement>(targetSelector);
+      if (target) {
+        return target;
+      }
+    }
+    return null;
+  };
+
+  /**
+   * The part of an element actually visible through its clipping ancestors.
+   *
+   * Outlines painted on the element itself are at the mercy of author CSS —
+   * a hover scale inside an overflow-hidden crop pushes every edge out of
+   * view. The overlays instead draw over this rect, so a half-cropped slider
+   * card gets a border around its visible half.
+   */
+  const visibleRect = (el: HTMLElement): DOMRect | null => {
+    const rect = el.getBoundingClientRect();
+    let left = rect.left;
+    let top = rect.top;
+    let right = rect.right;
+    let bottom = rect.bottom;
+    let parent = el.parentElement;
+    while (parent && parent !== document.body) {
+      const style = window.getComputedStyle(parent);
+      if (style.overflowX !== 'visible' || style.overflowY !== 'visible') {
+        const clip = parent.getBoundingClientRect();
+        left = Math.max(left, clip.left);
+        top = Math.max(top, clip.top);
+        right = Math.min(right, clip.right);
+        bottom = Math.min(bottom, clip.bottom);
+      }
+      parent = parent.parentElement;
+    }
+    if (right - left <= 0 || bottom - top <= 0) {
+      return null;
+    }
+    return new DOMRect(left, top, right - left, bottom - top);
+  };
+
+  const buildOverlay = (kind: string): HTMLElement => {
+    const overlay = document.createElement('div');
+    overlay.className = 'neo-alchemist--prop-overlay ' + kind;
+    document.body.appendChild(overlay);
+    return overlay;
+  };
+
+  const positionOverlay = (overlay: HTMLElement, target: HTMLElement): void => {
+    const rect = visibleRect(target);
+    if (!rect) {
+      overlay.style.display = 'none';
+      return;
+    }
+    overlay.style.display = '';
+    overlay.style.left = (rect.left + window.scrollX) + 'px';
+    overlay.style.top = (rect.top + window.scrollY) + 'px';
+    overlay.style.width = rect.width + 'px';
+    overlay.style.height = rect.height + 'px';
+  };
+
+  const setHover = (target: HTMLElement | null): void => {
+    if (target === hoverTarget) {
+      // Keep tracking transforms mid-transition (hover scale effects).
+      if (hoverTarget && hoverOverlay) {
+        positionOverlay(hoverOverlay, hoverTarget);
+      }
+      return;
+    }
+    hoverTarget = target;
+    if (!hoverTarget) {
+      if (hoverOverlay) {
+        hoverOverlay.style.display = 'none';
+      }
+      post('propHover', { propId: null });
+      return;
+    }
+    if (!hoverOverlay) {
+      hoverOverlay = buildOverlay('is-hover');
+      hoverOverlayLabel = document.createElement('span');
+      hoverOverlayLabel.className = 'neo-alchemist--prop-overlay-label';
+      hoverOverlay.appendChild(hoverOverlayLabel);
+    }
+    const propId = propIdOf(hoverTarget);
+    if (hoverOverlayLabel) {
+      const title = propMap?.props[propId]?.title || '';
+      hoverOverlayLabel.textContent = title;
+      hoverOverlayLabel.style.display = title ? '' : 'none';
+    }
+    positionOverlay(hoverOverlay, hoverTarget);
+    post('propHover', { propId: propId });
+  };
+
+  const renderActiveOverlays = (): void => {
+    activeOverlays.forEach(overlay => overlay.remove());
+    activeOverlays = activeTargets.map(target => {
+      const overlay = buildOverlay('is-active');
+      positionOverlay(overlay, target);
+      return overlay;
+    });
+  };
+
+  const refreshOverlays = (): void => {
+    if (hoverTarget && hoverOverlay) {
+      positionOverlay(hoverOverlay, hoverTarget);
+    }
+    activeTargets.forEach((target, index) => {
+      if (activeOverlays[index]) {
+        positionOverlay(activeOverlays[index], target);
+      }
+    });
+  };
+
+  /**
+   * Claim an element for a prop; the first claim wins.
+   */
+  const claimTarget = (el: HTMLElement, propId: string): void => {
+    if (el.dataset.neoPropTarget) {
+      return;
+    }
+    el.dataset.neoPropTarget = propId;
+    el.classList.add('neo-alchemist--prop-target');
+  };
+
+  /**
+   * Exact-trim text-node matching, document-order pairing for duplicates.
+   */
+  const indexTextHints = (scope: HTMLElement): void => {
+    if (!propMap) {
+      return;
+    }
+    // Hint text → prop ids carrying it, in map order (= delta order).
+    const byText: Record<string, string[]> = {};
+    Object.keys(propMap.props).forEach(propId => {
+      (propMap.props[propId].hints?.text || []).forEach(text => {
+        (byText[text] = byText[text] || []).push(propId);
+      });
+    });
+    const walker = document.createTreeWalker(scope, NodeFilter.SHOW_TEXT);
+    let node: Node | null;
+    while ((node = walker.nextNode())) {
+      const text = (node.textContent || '').trim();
+      if (!text) {
+        continue;
+      }
+      const queue = byText[text];
+      const parent = (node as Text).parentElement;
+      if (!queue || !queue.length || !parent) {
+        continue;
+      }
+      claimTarget(parent, queue.shift() as string);
+    }
+  };
+
+  /**
+   * Match images by source basename (derivatives keep the filename).
+   */
+  const indexSrcHints = (scope: HTMLElement): void => {
+    if (!propMap) {
+      return;
+    }
+    const imgs = Array.from(scope.querySelectorAll<HTMLImageElement>('img[src]'));
+    Object.keys(propMap.props).forEach(propId => {
+      (propMap.props[propId].hints?.src || []).forEach(basename => {
+        for (const img of imgs) {
+          if (img.dataset.neoPropTarget) {
+            continue;
+          }
+          let src = img.src;
+          try {
+            src = decodeURIComponent(src);
+          }
+          catch (_e) {
+            // Keep the raw src.
+          }
+          if (src.includes(basename)) {
+            claimTarget(img, propId);
+            break;
+          }
+        }
+      });
+    });
+  };
+
+  /**
+   * Match links by href path.
+   */
+  const indexHrefHints = (scope: HTMLElement): void => {
+    if (!propMap) {
+      return;
+    }
+    const anchors = Array.from(scope.querySelectorAll<HTMLAnchorElement>('a[href]'));
+    Object.keys(propMap.props).forEach(propId => {
+      (propMap.props[propId].hints?.href || []).forEach(href => {
+        for (const anchor of anchors) {
+          if (anchor.dataset.neoPropTarget) {
+            continue;
+          }
+          const match = href.startsWith('/')
+            ? (anchor.pathname + anchor.search === href || anchor.pathname === href)
+            : (anchor.href === href || anchor.href.startsWith(href));
+          if (match) {
+            claimTarget(anchor, propId);
+            break;
+          }
+        }
+      });
+    });
+  };
+
+  /**
+   * Elements matching a prop id exactly or as a `~` prefix.
+   */
+  const findPropElements = (propId: string): HTMLElement[] => {
+    const matches: HTMLElement[] = [];
+    document.querySelectorAll<HTMLElement>(targetSelector).forEach(el => {
+      const ids = [el.dataset.neoPropTarget, el.dataset.neoProp];
+      if (ids.some(target => target && (target === propId || target.startsWith(propId + '~')))) {
+        matches.push(el);
+      }
+    });
+    return matches;
+  };
+
+  // Highlight requests from the parent editor (form focus, and re-asserted
+  // after each preview reload). No scrolling here: the iframe is auto-sized
+  // to its full content height, so it has nothing to scroll itself — the
+  // browser would propagate the scroll to the embedding editor page and pan
+  // the canvas instead.
+  window.addEventListener('message', (e: MessageEvent) => {
+    if (e.origin !== window.location.origin) {
+      return;
+    }
+    const data = e.data;
+    if (!data || data.type !== 'propFocus') {
+      return;
+    }
+    let propId: string = data.propId || '';
+    let matches: HTMLElement[] = [];
+    while (propId && !matches.length) {
+      matches = findPropElements(propId);
+      if (!matches.length) {
+        const idx = propId.lastIndexOf('~');
+        propId = idx === -1 ? '' : propId.substring(0, idx);
+      }
+    }
+    activeTargets = matches;
+    renderActiveOverlays();
+  });
+
+})(Drupal, once, drupalSettings);

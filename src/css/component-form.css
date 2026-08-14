@@ -71,3 +71,26 @@
     margin-top: calc(var(--spacing) * 2);
   }
 }
+
+/* Preview-to-form focus feedback (component-parent.ts focusProp/hintProp). */
+.neo-alchemist--prop-hint {
+  outline: 2px dashed rgb(var(--color-primary-500, 59 130 246) / 0.5);
+  outline-offset: 2px;
+}
+
+.neo-alchemist--prop-flash {
+  animation: neo-alchemist-prop-flash 1.2s ease-out;
+}
+
+@keyframes neo-alchemist-prop-flash {
+  0% {
+    outline: 2px solid rgb(var(--color-primary-500, 59 130 246) / 0.9);
+    outline-offset: 2px;
+    background-color: rgb(var(--color-primary-500, 59 130 246) / 0.12);
+  }
+  100% {
+    outline: 2px solid rgb(var(--color-primary-500, 59 130 246) / 0);
+    outline-offset: 2px;
+    background-color: transparent;
+  }
+}

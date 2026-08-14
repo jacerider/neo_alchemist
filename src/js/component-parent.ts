@@ -718,6 +718,9 @@
     });
 
     let sizeCount = 0;
+    let activePropId: string | null = null;
+    let hintedWrapper: HTMLElement | null = null;
+    let suppressFocusin = false;
     const operations:any = {
       size: function (data:any) {
         const size = data.size;
@@ -740,7 +743,22 @@
           if (wrapper && sizeCount >= 1) {
             wrapper.style.visibility = '';
           }
+          // The frame reloads after every debounced form refresh and loses its
+          // highlight state; size is the first message a fresh document sends.
+          if (activePropId) {
+            iframe.contentWindow?.postMessage({ type: 'propFocus', propId: activePropId }, window.location.origin);
+          }
         }
+      },
+
+      prop: function (data:any) {
+        if (typeof data.propId === 'string' && data.propId) {
+          focusProp(data.propId);
+        }
+      },
+
+      propHover: function (data:any) {
+        hintProp(typeof data.propId === 'string' ? data.propId : null);
       },
 
       messages: function (data:any) {
@@ -803,6 +821,142 @@
         }), 'error');
       },
     };
+
+    /**
+     * The form wrapper for a prop id, one trailing ~segment coarser on miss.
+     *
+     * Preview and form both carry the shape id verbatim in data-neo-prop, so
+     * an exact hit covers deltas (items~heading~0); stripping handles
+     * hint-only ids whose child has no wrapper of its own (heading~title →
+     * heading).
+     */
+    function resolvePropWrapper(propId: string): HTMLElement | null {
+      if (!form) {
+        return null;
+      }
+      let candidate = propId;
+      while (candidate) {
+        const wrapper = form.querySelector<HTMLElement>('[data-neo-prop="' + CSS.escape(candidate) + '"]');
+        if (wrapper) {
+          return wrapper;
+        }
+        const idx = candidate.lastIndexOf('~');
+        candidate = idx === -1 ? '' : candidate.substring(0, idx);
+      }
+      return null;
+    }
+
+    /**
+     * Opens every collapsed group enclosing the wrapper, outermost first.
+     *
+     * @return TRUE if anything had to open (the caller then waits for the
+     *   Alpine collapse transition before measuring).
+     */
+    function openPropGroups(wrapper: HTMLElement): boolean {
+      const groups: HTMLElement[] = [];
+      let node = wrapper.closest<HTMLElement>('details, .accordion-item');
+      while (node) {
+        groups.unshift(node);
+        node = node.parentElement?.closest<HTMLElement>('details, .accordion-item') || null;
+      }
+      let opened = false;
+      groups.forEach(group => {
+        if (group instanceof HTMLDetailsElement) {
+          if (!group.open) {
+            group.open = true;
+            opened = true;
+          }
+          return;
+        }
+        // Accordion items toggle through their Alpine-bound summary button;
+        // aria-expanded is server-rendered, so this is truthful pre-init too.
+        const summary = group.querySelector<HTMLElement>(':scope > button[aria-expanded]');
+        if (summary && summary.getAttribute('aria-expanded') !== 'true') {
+          summary.click();
+          opened = true;
+        }
+      });
+      return opened;
+    }
+
+    /**
+     * Brings the form field controlling a preview element into focus.
+     */
+    function focusProp(propId: string): void {
+      const wrapper = resolvePropWrapper(propId);
+      if (!wrapper) {
+        return;
+      }
+      activePropId = propId;
+      postPropFocus();
+      const opened = openPropGroups(wrapper);
+      // A freshly opened accordion item is still mid x-collapse transition;
+      // measure once it has its height.
+      setTimeout(() => {
+        if (scroll) {
+          Drupal.behaviors.neoAlchemistComponentParent.scrollElementIntoView(wrapper, scroll, { top: 16, bottom: 16 });
+        }
+        const input = wrapper.querySelector<HTMLElement>('input:not([type="hidden"]):not([disabled]), select, textarea, [contenteditable="true"], .ck-editor__editable');
+        if (input) {
+          suppressFocusin = true;
+          input.focus({ preventScroll: true });
+          setTimeout(() => {
+            suppressFocusin = false;
+          }, 0);
+        }
+        wrapper.classList.remove('neo-alchemist--prop-flash');
+        // Force a restyle so a repeated click replays the animation.
+        void wrapper.offsetWidth;
+        wrapper.classList.add('neo-alchemist--prop-flash');
+        wrapper.addEventListener('animationend', () => {
+          wrapper.classList.remove('neo-alchemist--prop-flash');
+        }, { once: true });
+      }, opened ? 350 : 0);
+    }
+
+    /**
+     * Soft pre-highlight while hovering a preview element.
+     */
+    function hintProp(propId: string | null): void {
+      const wrapper = propId ? resolvePropWrapper(propId) : null;
+      if (wrapper === hintedWrapper) {
+        return;
+      }
+      if (hintedWrapper) {
+        hintedWrapper.classList.remove('neo-alchemist--prop-hint');
+      }
+      hintedWrapper = wrapper;
+      if (hintedWrapper) {
+        hintedWrapper.classList.add('neo-alchemist--prop-hint');
+      }
+    }
+
+    /**
+     * Sends the active prop highlight to the previews.
+     */
+    function postPropFocus(frame?: HTMLIFrameElement): void {
+      const targets = frame ? [frame] : Array.from(iframes);
+      targets.forEach(target => {
+        target.contentWindow?.postMessage({ type: 'propFocus', propId: activePropId }, window.location.origin);
+      });
+    }
+
+    // Reverse direction: focusing a form field highlights the preview
+    // element(s) it controls.
+    if (form) {
+      form.addEventListener('focusin', (e) => {
+        if (suppressFocusin) {
+          return;
+        }
+        const wrapper = (e.target as HTMLElement).closest<HTMLElement>('[data-neo-prop]');
+        const propId = wrapper?.dataset.neoProp || null;
+        if (propId === activePropId) {
+          return;
+        }
+        activePropId = propId;
+        postPropFocus();
+      });
+    }
 
     // Pad the edges of the drag area
     const padding = Math.floor(document.body.clientWidth * 0.9);

@@ -552,6 +552,13 @@ class Component extends ConfigEntityBase implements ComponentInterface {
   /**
    * {@inheritdoc}
    */
+  public function isEditorPreview(): bool {
+    return $this->isPreview() && ($this->isInstancePreview() || $this->isComponentPreview());
+  }
+
+  /**
+   * {@inheritdoc}
+   */
   public function setRebuilding(bool $rebuilding): self {
     $this->rebuilding = $rebuilding;
     return $this;
@@ -1447,6 +1454,12 @@ class Component extends ConfigEntityBase implements ComponentInterface {
       $build['#props']['neoId'] = $this->id();
       $build['#props']['neoUuid'] = $this->uuid();
       $build['#props']['neoIsPreview'] = $this->isPreview();
+      if ($this->isEditorPreview() && $build['#props']['attributes'] instanceof Attribute) {
+        // Scoping root for the editor preview's prop-target index. Distinct
+        // from the page-builder canvas' data-component-uuid, which is stamped
+        // in prepareRenderableForPreview() and never coexists with this.
+        $build['#props']['attributes']->setAttribute('data-neo-component', $this->uuid());
+      }
       if ($slots = $this->getSlots()) {
         $build['#slots'] = array_filter(array_map(fn($slot) => $slot->toRenderable(), $slots));
       }

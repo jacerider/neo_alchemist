@@ -1880,6 +1880,11 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
         break;
       }
     }
+    if ($value instanceof Attribute && $value !== $attributes && $this->getComponent()->isEditorPreview()) {
+      // Stamped after preRenderValue() so a style shape's merge into the
+      // shared component attributes cannot carry a child's id onto the root.
+      $value->setAttribute('data-neo-prop', $this->id());
+    }
     return $value;
   }
 
@@ -2345,6 +2350,10 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
     }
 
     $form['#attributes']['class'][] = 'neo-alchemist--component-form-shape';
+    // The same id is stamped on Attribute-carrying render values in the editor
+    // preview, so the preview and the form share one vocabulary — no id
+    // munging on either side.
+    $form['#attributes']['data-neo-prop'] = $this->id();
     $form['#attached']['library'][] = 'neo_alchemist/component.form';
 
     $this->prepForm($form, $form_state);
