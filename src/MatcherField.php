@@ -877,6 +877,11 @@ final class MatcherField extends MatcherBase {
 
     // Content entity type definitions.
     if ($entityType instanceof ContentEntityTypeInterface) {
+      if ($entityType->hasKey('bundle')) {
+        $entityDefinitions['_entity:bundle_label'] = $this->createDynamicDefinition('string', $labelPrefix . $this->t('Type label'), '_entity:bundle_label', $entityTypeId, $isRequired);
+        $entityDefinitions['_entity:bundle_label_page'] = $this->createDynamicDefinition('string', $labelPrefix . $this->t('Type label (with System Page to Page conversion)'), '_entity:bundle_label_page', $entityTypeId, $isRequired);
+        $entityDefinitions['_entity:icon_page'] = $this->createDynamicDefinition('string', $labelPrefix . $this->t('Icon (with System Page to Page conversion)'), '_entity:icon_page', $entityTypeId, $isRequired);
+      }
       foreach ($entityType->getLinkTemplates() as $templateId => $template) {
         if (str_starts_with($templateId, 'alchemist.')) {
           continue;
@@ -985,18 +990,51 @@ final class MatcherField extends MatcherBase {
     return match ($property) {
       'label' => [$entity->label()],
       'label_page' => [$entity->id() === 'system' ? 'Page' : $entity->label()],
+      'bundle_label' => [$this->getEntityBundleLabel($entity)],
+      'bundle_label_page' => [$this->entityIsSystemPage($entity) ? 'Page' : $this->getEntityBundleLabel($entity)],
       'icon' => (function () use ($entity) {
         $icon = neo_icon_entity($entity)->getIcon();
         return [$icon?->getName() ?? ''];
       })(),
       'icon_page' => (function () use ($entity) {
-        $labelOverride = $entity->id() === 'system' ? 'Page' : NULL;
+        $labelOverride = $entity->id() === 'system' || $this->entityIsSystemPage($entity) ? 'Page' : NULL;
         $icon = neo_icon_entity($entity, $labelOverride)->getIcon();
         return [$icon?->getName() ?? ''];
       })(),
       'link' => $this->getEntityDefinitionLink($entity, $subProperty),
       default => [],
     };
+  }
+
+  /**
+   * Gets a content entity's bundle label from bundle info.
+   *
+   * @param \Drupal\Core\Entity\EntityInterface $entity
+   *   The entity.
+   *
+   * @return string
+   *   The bundle label, falling back to the bundle id.
+   */
+  private function getEntityBundleLabel(EntityInterface $entity): string {
+    $info = \Drupal::service('entity_type.bundle.info')->getBundleInfo($entity->getEntityTypeId());
+    return (string) ($info[$entity->bundle()]['label'] ?? $entity->bundle());
+  }
+
+  /**
+   * Whether a content entity is a "system" page bundle.
+   *
+   * System bundles are an admin-facing concept ("structural page you should
+   * not casually delete"); visitor-facing output converts them to "Page" —
+   * the same convention the config-entity label_page/icon_page tokens apply.
+   *
+   * @param \Drupal\Core\Entity\EntityInterface $entity
+   *   The entity.
+   *
+   * @return bool
+   *   TRUE for content entities in a "system" bundle.
+   */
+  private function entityIsSystemPage(EntityInterface $entity): bool {
+    return $entity instanceof ContentEntityInterface && $entity->bundle() === 'system';
   }
 
   /**
@@ -1051,7 +1089,10 @@ final class MatcherField extends MatcherBase {
     $titleReplacements = ['-', '_', '.'];
     $route = \Drupal::service('router.route_provider')->getRouteByName($url->getRouteName());
     $title = match($property) {
-      'canonical' => $route->getDefault('_title') ?? $entity->label(),
+      // A canonical link means "this entity" — its label, never the route's
+      // static _title (taxonomy's canonical route hard-codes _title
+      // 'Taxonomy term', which would title every term link identically).
+      'canonical' => $entity->label() ?? $route->getDefault('_title'),
       default => $route->getDefault('_title') ?? ucwords(str_replace($titleReplacements, ' ', str_replace('-form', '', $property))),
     };
     $options = [];
