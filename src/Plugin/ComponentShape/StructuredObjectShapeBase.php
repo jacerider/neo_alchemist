@@ -88,6 +88,14 @@ abstract class StructuredObjectShapeBase extends ComponentShapePluginBase implem
     // examples. A bare array_filter() here dropped authored 0/'0'/FALSE and
     // the merge below then silently replaced them with the component
     // author's placeholder content.
+    //
+    // Asked of $this rather than of each child's own shape, unlike ::147 below
+    // and ObjectShape::buildValue(). Presentational keys are per-shape, so the
+    // two forms differ the moment a child names one — and the only subclass
+    // here, LinkShape, names none, so building the child shapes early to ask
+    // them would buy nothing but an ordering risk. A subclass that does name
+    // presentational keys has to switch this to the child-shape form, via
+    // ::getValueResolverShape().
     $value = array_filter($value, fn ($childValue) => !$this->isProvidedValueEmpty($childValue));
     $value += $this->getDefaultSchemaValue();
     // Ensure we return cleaned values.

@@ -62,9 +62,17 @@ class HeadingShape extends ObjectShape {
    * `size` always resolves — it falls back to `md` even when the editor has
    * touched nothing — and `anchor` is a link target rather than text, so
    * neither says anything about whether there is a heading to render.
+   *
+   * Both keys are named here rather than inherited. A heading's `size` is a
+   * schema property of its own, unrelated to the identically named key the
+   * media modifier seeds on ImageShape — the two shapes discount the same word
+   * for entirely separate reasons, and neither should stop doing so if the
+   * other changes its mind.
+   *
+   * @see \Drupal\neo_alchemist\Plugin\ComponentShape\ImageShape::getPresentationalValueKeys()
    */
   protected function getPresentationalValueKeys(): array {
-    return array_merge(parent::getPresentationalValueKeys(), ['anchor']);
+    return array_merge(parent::getPresentationalValueKeys(), ['size', 'anchor']);
   }
 
   /**

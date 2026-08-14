@@ -1780,10 +1780,39 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
       // as empty would make a provider fall through to the fallback.
       return $value === NULL || $value === '';
     }
-    // The `size` key is seeded by the media image size modifier and is not
-    // content, so a value carrying only `size` still counts as empty.
-    unset($value['size']);
+    // Presentational keys never make a value non-empty. Which keys those are
+    // is the shape's own business — see ::getPresentationalValueKeys().
+    foreach ($this->getPresentationalValueKeys() as $key) {
+      unset($value[$key]);
+    }
     return empty($value);
+  }
+
+  /**
+   * The value keys that carry presentation rather than content.
+   *
+   * A composite value made up *entirely* of these keys carries nothing an
+   * editor put there, so ::isProvidedValueEmpty() reports it empty. Override
+   * this in a shape whose schema always resolves some child regardless of
+   * authored input — otherwise that child alone keeps the whole value looking
+   * non-empty, which starves the fallback plugin and, for shapes that collapse
+   * an empty render value, leaves templates unable to test the prop at all.
+   *
+   * Empty by default, because "this key is presentation" is a fact about one
+   * shape's schema, not about values in general. The base used to name `size`
+   * for everybody, which meant a component author's object prop whose only
+   * child happened to be called `size` — a spacer, a gap — resolved as empty
+   * and was dropped from its parent with nothing to show for it. Each shape
+   * that has such a key now says so itself.
+   *
+   * @return string[]
+   *   Value keys that do not count as content.
+   *
+   * @see \Drupal\neo_alchemist\Plugin\ComponentShape\ImageShape::getPresentationalValueKeys()
+   * @see \Drupal\neo_alchemist\Plugin\ComponentShape\HeadingShape::getPresentationalValueKeys()
+   */
+  protected function getPresentationalValueKeys(): array {
+    return [];
   }
 
   /**

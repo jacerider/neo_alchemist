@@ -6,7 +6,7 @@ namespace Drupal\Tests\neo_alchemist\Unit;
 
 use Drupal\neo_alchemist\ComponentShapePluginInterface;
 use Drupal\neo_alchemist\ComponentShapeStylePluginInterface;
-use Drupal\neo_alchemist\Plugin\ComponentShape\StringShape;
+use Drupal\neo_alchemist\Plugin\ComponentShape\ImageShape;
 use Drupal\neo_alchemist\Plugin\ComponentValue\MediaImageSizeValue;
 use Drupal\Tests\UnitTestCase;
 use PHPUnit\Framework\Attributes\Group;
@@ -147,10 +147,14 @@ class MediaImageSizeValueTest extends UnitTestCase {
    * This is the sentinel rule's whole reason: the default pass above seeds
    * `size` into an otherwise empty image value, and the pipeline must still
    * treat that as "nothing was produced" so a fallback gets its turn.
+   *
+   * Asked of ImageShape, because that is the shape this plugin seeds — its
+   * `ref_types` cover `image`, and the discount lives with the shape rather
+   * than on the base every other prop inherits from.
    */
   public function testSeededSizeOnlyValueIsEmptyPerTheContract(): void {
     $seeded = $this->plugin()->provideDefaultValue([]);
-    $shape = (new \ReflectionClass(StringShape::class))->newInstanceWithoutConstructor();
+    $shape = (new \ReflectionClass(ImageShape::class))->newInstanceWithoutConstructor();
 
     $this->assertTrue($shape->isProvidedValueEmpty($seeded), 'A value carrying only the seeded size key is empty.');
     $this->assertFalse(

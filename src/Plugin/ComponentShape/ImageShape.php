@@ -35,6 +35,21 @@ class ImageShape extends MediaShapeBase {
 
   /**
    * {@inheritDoc}
+   *
+   * The `size` key is not something an editor picked an image with — it is
+   * seeded unconditionally by the `media_image_size` modifier, which is scoped
+   * to `image` refs and so lands on this shape and no other. Left counting as
+   * content, that lone key keeps an imageless value looking authored, and the
+   * fallback that should have supplied a picture never gets its turn.
+   *
+   * @see \Drupal\neo_alchemist\Plugin\ComponentValue\MediaImageSizeValue::provideDefaultValue()
+   */
+  protected function getPresentationalValueKeys(): array {
+    return array_merge(parent::getPresentationalValueKeys(), ['size']);
+  }
+
+  /**
+   * {@inheritDoc}
    */
   protected function isFieldItemEmpty(): bool {
     $value = $this->fieldItem->getValue();

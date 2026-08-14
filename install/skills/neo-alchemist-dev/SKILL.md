@@ -111,8 +111,20 @@ Mechanics the "Where to add X" bullet doesn't cover:
   Value). `applyProcessingMode()` has exactly **one** call site — the provider search in
   `getDefaultValue()`; it governs neither `modifyValue()` nor either `alterValue()` pass.
 - **Emptiness is `isProvidedValueEmpty()`, not `empty()`**: scalars are empty only when
-  `NULL`/`''` (`0`, `'0'`, `FALSE` are values); arrays discount the `size` key that
-  `media_image_size` seeds.
+  `NULL`/`''` (`0`, `'0'`, `FALSE` are values); arrays discount whatever
+  `getPresentationalValueKeys()` names — **nothing on the base**; `ImageShape` adds `size`
+  (the key `media_image_size` seeds), `HeadingShape` adds `size` + `anchor`. Override that
+  method on a shape whose schema always resolves some child regardless of authored input,
+  or that child alone keeps the whole value looking non-empty and starves the `fallback`
+  plugin. Name the keys on the shape that has them, never on the base — a shared default
+  made every prop discount `size`, so an author's object prop whose only child was called
+  `size` resolved empty and vanished. Ask the shape that **owns** the value: a parent
+  testing a child's value calls `$child->isProvidedValueEmpty()`, not `$this->`.
+  `HeadingShape` also
+  **collapses its render value to `[]`** when the contract says it is empty, so a template
+  can guard the block with a plain `{% if heading %}` — `size` resolves to `md` unasked, so
+  without it every heading was truthy and a textless one rendered an empty sized wrapper
+  whose spacing still applied (`HeadingEmptyValueTest`).
 - After the provider search: a field default can override the result, `alterValue($value,
   'default')` runs on a **fresh** instance list (a claim can't truncate it), and a
   required-but-empty result reverts to the schema-example seed so SDC never sees a
@@ -254,7 +266,11 @@ Prefer these over grepping the shape/definition code:
 `neo:alchemist:components` · `neo:alchemist:validate <id>` ·
 `neo:alchemist:render <id> [--live] [--scheme=<id>] [--html]` ·
 `neo:alchemist:slot <neo_component id> [<slot>]` (per slot item: Twig key, theme hook,
-the template filename that overrides it, and that template's variables).
+the template filename that overrides it, and that template's variables) ·
+`neo:alchemist:views-page <view>:<display> [--component=<id>]` (hand a views page to an
+Alchemist-owned node: creates the node + alias, seeds the tree, removes the page display,
+warns about mini pagers / uncacheable cache plugins / dangling quick-search links —
+`Drush/Commands/NeoAlchemistViewsPageCommands.php`).
 (Icons/schemes live in their owning modules: `drush neo:icon:list`, `drush neo:color:schemes`.)
 
 ## Tests

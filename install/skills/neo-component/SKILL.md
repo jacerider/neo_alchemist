@@ -96,7 +96,7 @@ Alchemist extends SDC with custom "shapes" — reusable prop definitions from [n
 > **Get shapes from the CLI (authoritative):** `drush neo:alchemist:shapes` lists every available shape; `drush neo:alchemist:shapes <name>` (e.g. `heading`) dumps that shape's resolved schema, a paste-ready `.component.yml` prop snippet, and its Twig render pattern. Prefer this over guessing from the summary below.
 
 ### Content shapes
-- `heading` — object with `supertitle`, `title`, `subtitle`, `size`, `anchor`. Provide `examples` with the text fields you use. When the heading is the component's **main title**, render `size` (see the `heading_size` style shape below and the render table) so editors control the title grade. `title` is **optional** — a heading may be `supertitle`/`subtitle`-only (handy when reusing this shape for a two-tone item caption/label whose emphasized word is the only text, e.g. a single accent word). When you hand-render the heading, guard each part with `{% if %}` so a missing `title` doesn't emit an empty `<h2>`. Free wiring: a filled heading also sets the component root's `id` (from `anchor`, else a machine-cased title), adds `scroll-mt-neo`, and stamps `data-component-title` — any component with a heading is anchor-linkable without extra markup.
+- `heading` — object with `supertitle`, `title`, `subtitle`, `size`, `anchor`. **Every one of the three text parts must render — see "Rendering a `heading`: all three parts, always" below; it is the single most-missed rule in this skill.** Guard the block with plain `{% if heading %}`: the shape reports itself empty when all three text parts are (its `size`/`anchor` children are presentational and don't count), so the object is falsy exactly when there is nothing to render. Provide `examples` with the text fields you use (title-only examples are fine — the *markup* must still handle all three). When the heading is the component's **main title**, render `size` (see the `heading_size` style shape below and the render table) so editors control the title grade. `title` is **optional** — a heading may be `supertitle`/`subtitle`-only (handy when reusing this shape for a two-tone item caption/label whose emphasized word is the only text, e.g. a single accent word). Free wiring: a filled heading also sets the component root's `id` (from `anchor`, else a machine-cased title), adds `scroll-mt-neo`, and stamps `data-component-title` — any component with a heading is anchor-linkable without extra markup.
 - `markup` — rich text / array. Use for prose descriptions. Ships with the `formatted_text` value plugin attached (text-format-aware editing) by default.
 - `string` — plain text. Add `enum: [a, b, c]` for a fixed-choice select, or `format: textarea` for multi-line plain text.
 - `boolean`, `integer`, `number` — real typed scalars; Twig receives a bool / int / float, not a string. A `boolean` can never be "empty" (use it for on/off toggles you `{% if %}` on); `integer`/`number` support `enum:`. Note the editor widget truncates decimals typed into an `integer` prop — use `number` for anything fractional.
@@ -307,6 +307,54 @@ focus returns to the same-named control (a visitor typing in search keeps their 
 Back/Forward walk the filter states. `data-neo-swap-announce` marks the element whose text is
 announced to screen readers after each swap. Opt any single control out with `data-no-swap`.
 Card links point at other paths and are never intercepted.
+
+### Views pages the Alchemist way (node-owns-the-page)
+
+A views **page display** (e.g. a `/search` page) renders raw views markup a site builder
+cannot touch. The convention is to hand the page to a node instead:
+
+1. A `system` (or `page`) node takes the path via an **explicit alias**, and the views page
+   display is **removed** — never rely on an alias silently shadowing a views route. The
+   view keeps its `default` display and becomes a headless query.
+2. A component binds to that display (`views` value plugin + `views_filter` /
+   `views_active_filters` / `views_summary` props + a `views_pager` slot). Exposed input
+   (`?s=`), `?page`, and every filter URL are read from/built against the **current page
+   URL** automatically — no extra wiring, wherever the component is placed.
+3. Site builders then edit the page in the normal Layout editor.
+
+Automated conversion:
+
+```
+drush neo:alchemist:views-page <view_id>:<display_id> [--bundle=system] [--title=…] [--alias=/…] [--component=<neo_component id>]
+```
+
+Creates the node (published, pathauto-skipped alias), optionally seeds its tree with a
+saved component, removes the page display, rebuilds routes, and warns about: `mini` pagers
+(no count query → `views_summary` totals inexact — use `full`), `none`/`search_api_none`
+cache plugins (max-age 0 → the bound component is uncacheable — use `tag`/`search_api_tag`),
+and quick-search configs whose all-results link pointed at the removed display.
+
+Mixed-datasource indexes (node + taxonomy rows in one view): every mapping source is
+type-agnostic — `title → _entity:label`, `link → _entity:link:canonical`, type badges
+via **`_entity:bundle_label_page`** (bundle-info label; converts the admin-facing
+`system` bundle to "Page") and **`_entity:icon_page`** (the bundle's configured
+neo_icon; same System→Page conversion). Bundle-info labels need no indexed fields, no
+view fields, and no access grants. Plain `_entity:bundle_label` / `_entity:icon` skip
+the conversion. Excerpts: `_view:search_api_excerpt`. `?s`/`?page` are page-global —
+two views-bound components on one page share them.
+
+Self-reference note: a search page's own node can appear in its own results. ViewsValue
+guards re-entrant execution of the same view/display (a nested resolution returns no
+view), and the metatag image token skips component-tree walks while a views value is
+executing (`ViewsValue::isExecuting()`) — result caching serializes row entities, which
+computes metatags mid-execution.
+
+Worked example: the `search` view + `list_search` component + `/search` system node.
+neo_search ships that component as a scaffold (`install/components/list_search`) and
+`drush neo:search:setup`, which provisions the whole stack in one idempotent command —
+index checks, templated view, a theme-owned copy of the component (bound as
+`<theme>:list_search`; the site restyles it freely), page conversion, quick-search
+variation, permissions.
 
 ### Inline custom `style` shapes
 Define a per-component style selector inline:
@@ -651,7 +699,7 @@ Remember the resolved value is scheme-specific: if you hardcode a hex from one s
 
 | Shape | Twig pattern |
 |---|---|
-| `heading` | Canonical: `<div{{ heading.size }}>` wrapper with `component-title`/`component-supertitle`/`component-subtitle` children, then access `.supertitle`, `.title`, `.subtitle`, `.anchor`. Hand-rolled main title: put size + consumer on the h-tag itself — `<h2{{ heading.size.addClass(['component-title', 'text-balance']) }}>{{ heading.title }}</h2>` (see [list_s2](web/themes/front/components/list_s2/list_s2.twig)) |
+| `heading` | `<div{{ heading.size }}>` wrapper with `component-supertitle`/`component-title`/`component-subtitle` children — **all three, each `{% if %}`-guarded**. Full rules and the required guard: "Rendering a `heading`: all three parts, always" below |
 | `markup` | `{{ description }}` wrapped in `<div class="prose max-w-none">` |
 | `image` | `{{ neo_image_style(img.src, {focal: {width: 1200, height: 575}}, img.alt) }}` or `neo_image()` for responsive |
 | `image` (**SVG**, e.g. a logo) | Image styles can't rasterize an SVG, so the original file is emitted and the size op only sets HTML `width`/`height` attributes — which the theme's base reset (`img{height:auto}` in `@layer base`) then overrides. A viewBox-only SVG has no intrinsic size, so it collapses to 0×0. **Size it with a CSS class** (utilities win over the base layer): `{{ neo_image_style(logo.src, {scale: {height: 30}}, logo.alt, '', {class: ['h-7', 'w-auto']}) }}` |
@@ -662,6 +710,66 @@ Remember the resolved value is scheme-specific: if you hardcode a hex from one s
 | `region` | `{{ accordion.region }}` — auto-renders nested components |
 | `style` (apply:false) | Render as an attribute — `<div{{ border_top.addClass(['…']) }}>` emits the selected option's `value` classes. `.getValue()` returns the **key** — for `{% if %}` branching only, never to re-type the classes |
 | `array` | `{% for item in items %} ... {% endfor %}` |
+
+### Rendering a `heading`: all three parts, always
+
+**A component that declares a `heading` prop MUST render all three text parts —
+`supertitle`, `title` and `subtitle`.** They are editor-facing fields on every heading:
+if the markup only prints `title`, an editor who fills in a supertitle or subtitle sees
+their text silently vanish. Rendering only the title is the single most common defect in
+this codebase's components — do not copy a title-only heading from an existing component.
+
+The canonical form (what `drush neo:alchemist:shapes heading` prints):
+
+```twig
+{% if heading %}
+  <div{{ heading.size }}>
+    {% if heading.anchor %}<a name="{{ heading.anchor }}" title="{{ heading.title }}"></a>{% endif %}
+    {% if heading.supertitle %}<div class="component-supertitle">{{ heading.supertitle }}</div>{% endif %}
+    {% if heading.title %}<h2 class="component-title">{{ heading.title }}</h2>{% endif %}
+    {% if heading.subtitle %}<div class="component-subtitle">{{ heading.subtitle }}</div>{% endif %}
+  </div>
+{% endif %}
+```
+
+Four rules, each load-bearing:
+
+1. **All three children present**, each `{% if %}`-guarded so an unfilled part emits nothing.
+2. **`heading.size` on the shared wrapper, `component-*` on the children.** `title-*` only
+   sets the `--title-size` / `--supertitle-size` / `--subtitle-size` **variables**; the
+   `component-supertitle` / `component-title` / `component-subtitle` classes consume them.
+   Put `size` on the wrapper and all three parts scale together from one editor control.
+   (A hand-rolled `<h2{{ heading.size.addClass(['component-title']) }}>` puts size and
+   consumer on the same tag — that works *only* for the title, which is precisely why it
+   tends to leave the other two parts unrendered. Prefer the wrapper.)
+3. **`{% if heading %}` is the outer guard — plain, no three-way test.** The shape reports
+   itself empty when `supertitle`, `title` and `subtitle` are all empty, so the object is
+   falsy exactly when there is nothing to render. Don't hand-roll
+   `{% if heading.supertitle or heading.title or heading.subtitle %}`; it is equivalent but
+   noisier, and the emptiness rule belongs in one place. (`size` and `anchor` are declared
+   *presentational* and deliberately don't count — `size` always resolves to `md`, so
+   before that contract existed every heading tested as truthy and a textless one emitted a
+   phantom `<div class="title-md mb-4"></div>` whose spacing still pushed content down. If
+   you meet that symptom, the shape's `getPresentationalValueKeys()` is what governs it.)
+4. **Never gate one part on another.** `{% if heading.supertitle %}<h2>{{ heading.title }}</h2>{% endif %}`
+   makes the title disappear whenever the supertitle is empty. Each part guards itself.
+
+Spacing and color between the parts is the component's design decision — the usual house
+treatment is a small `mb-2` under the supertitle and `mt-2` above the subtitle, with the
+outer two in the brand color (`text-primary`, the adaptive bare token — **not**
+`text-primary-500`). Layout may sit around them: only the *title row* needs to be a flex
+when a trailing arrow or icon rides beside the title, leaving supertitle/subtitle stacked
+above and below (see [list_s3](web/themes/front/components/list_s3/list_s3.twig)).
+
+Inline variants are fine where the design calls for a single run of text — hero_s1 and
+list_s1 render supertitle and subtitle as colored `<span>`s *inside* the `<h1>`/`<h2>`
+around the title. That still satisfies the rule: all three parts render. What is never
+acceptable is dropping a part entirely.
+
+**Verify it.** Examples are usually title-only, so a rendered preview won't exercise the
+other two. Temporarily add `supertitle`/`subtitle` to the prop's `examples:`, run
+`drush neo:alchemist:render <provider>:<name> --html`, confirm all three appear, then
+revert the examples.
 
 ### Preview-mode hooks
 
@@ -719,11 +827,11 @@ and the component root reveals on scroll (editor-selectable, `apply: true`, no t
 ## Workflow for a new component
 
 1. **Pick a machine name** — snake_case, typically `<purpose>_s<n>` (e.g. `testimonial_s1`). Confirm it's not already taken with `drush neo:alchemist:components` (lists every Neo component with its provider, prop, and slot counts).
-2. **Find the closest existing component** and read its yml + twig. Copy that pattern — don't invent from scratch. One exception: **don't copy hover-color idioms verbatim** — older components predate the adaptive tokens, so `hover:text-primary-600` / `hover:bg-primary-600` in copied markup should become `hover:text-primary-hover` / `hover:bg-primary-hover` (or `text-link hover:text-link-hover`, or a bare `<a>`). `validate` will warn if one slips through.
+2. **Find the closest existing component** and read its yml + twig. Copy that pattern — don't invent from scratch. Two exceptions: **don't copy hover-color idioms verbatim** — older components predate the adaptive tokens, so `hover:text-primary-600` / `hover:bg-primary-600` in copied markup should become `hover:text-primary-hover` / `hover:bg-primary-hover` (or `text-link hover:text-link-hover`, or a bare `<a>`); `validate` will warn if one slips through. And **don't copy a title-only `heading` block** — several components historically rendered `heading.title` alone, dropping the editor's supertitle and subtitle. Render all three parts (see "Rendering a `heading`: all three parts, always").
 3. **Create the folder** at `web/themes/front/components/<name>/`.
 4. **Write `<name>.component.yml`** — always include `$schema`, `name`, `status: stable`, `neo: true`, and both a `spacing` and a `gap` prop. Use existing shapes (`heading`, `markup`, `image`, etc.) rather than raw JSON Schema types.
 5. **Provide `examples:`** for every prop — these populate the Alchemist editor's default values and the preview. Arrays with `region` or booleans can use `- TRUE` as placeholder rows.
-6. **Write `<name>.twig`** — root div with `{{ attributes.addClass(classes) }}`, wrap optional sections in `{% if ... %}`, use `neo_uri()` for all URLs, `icon()` for icons, `neo_image_style()` for images.
+6. **Write `<name>.twig`** — root div with `{{ attributes.addClass(classes) }}`, wrap optional sections in `{% if ... %}`, use `neo_uri()` for all URLs, `icon()` for icons, `neo_image_style()` for images. If the component has a `heading` prop, render **all three** of its text parts (see "Rendering a `heading`: all three parts, always").
 7. **Test interactive elements** with `{% if neoIsPreview %}data-event...{% endif %}` so the editor preview remains clickable.
 8. **Clear the cache** (`drush cr`) after adding a new component — SDC registration is cached.
 9. **Verify from the CLI before finishing** — run `drush neo:alchemist:validate <provider>:<name>` then `drush neo:alchemist:render <provider>:<name>`. Don't hand off a component you haven't rendered. See "Verify from the CLI" below.
@@ -822,7 +930,10 @@ resolved colors — see "Finding this site's real colors"). All tabular commands
 - **Raw `{{ url }}` instead of `{{ neo_uri(link.uri, link.options) }}`** — breaks internal `internal:/` URIs.
 - **Missing `examples`** — editor shows empty previews and broken defaults.
 - **Not wrapping in `{% if prop %}`** — component renders empty scaffolding when editor leaves fields blank.
-- **Using `heading.title` for the `<h2>`** but dropping `heading.size` — the editor's Size selector silently no-ops. And `heading.size` alone isn't enough: `title-*` only sets variables, so the same element (or a child) needs `component-title` to consume them. `<h2{{ heading.size.addClass(['component-title']) }}>` is the minimal correct form for a hand-rolled main title.
+- **Rendering only `heading.title`** — the editor's supertitle and subtitle fields exist on every heading prop, so text typed into them silently disappears. Render all three parts, each `{% if %}`-guarded. See "Rendering a `heading`: all three parts, always".
+- **Hand-rolling a heading's emptiness test** — `{% if heading.supertitle or heading.title or heading.subtitle %}` (or a `{% set has_heading = … %}` hoist) duplicates a rule the shape already enforces. Plain `{% if heading %}` is falsy exactly when all three text parts are empty; `size`/`anchor` are declared presentational and don't count.
+- **Gating one heading part on another** — e.g. `{% if heading.supertitle %}<h2>{{ heading.title }}</h2>{% endif %}` drops the title whenever the supertitle is empty. Each part guards itself.
+- **Using `heading.title` for the `<h2>`** but dropping `heading.size` — the editor's Size selector silently no-ops. And `heading.size` alone isn't enough: `title-*` only sets variables, so the same element (or a child) needs `component-title` to consume them. Put `size` on the shared wrapper and `component-supertitle`/`component-title`/`component-subtitle` on the children, so one Size control scales all three.
 - **New style prop with `apply: true` but missing `examples`** — class won't be present on first render.
 - **Re-mapping a `style` prop's key back to hand-written classes** — `{% set h = size.getValue() == 'short' ? 'h-72' : 'h-96' %}` duplicates the yml `styles.*.value` strings. `.getValue()` is the **key**, not the classes; the prop is already an `Attribute` carrying the option's `value`, so render it (`<div{{ size.addClass(['relative']) }}>`) and keep the yml the single source of truth. The hand map silently drifts from the yml (which then never renders) — reserve `.getValue()` for `{% if %}` branching.
 - **Hand-writing `py-component`/`my-component` as a section carrier** — that's the deprecated pre-`gap` pattern, kept working only for legacy components. The `gap` prop applies `neo-section-y` to the root; a hand-written carrier doubles it. Declare `gap: { type: gap }` instead (or `apply: false` + merge for deep-carrier layouts).

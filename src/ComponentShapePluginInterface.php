@@ -874,15 +874,22 @@ interface ComponentShapePluginInterface extends PluginInspectionInterface, Deriv
   /**
    * Determine whether a value produced by a provider is empty.
    *
-   * Used by the value-provision contract to decide "found vs empty". Ignores
-   * non-content sentinel keys (currently `size`, seeded by the media image size
-   * modifier) so a size-only media value still counts as empty.
+   * Used by the value-provision contract to decide "found vs empty". A scalar
+   * is empty only when NULL or the empty string — `0`, `'0'` and FALSE are
+   * values. A composite discounts whichever keys the shape reports as
+   * presentation rather than content, so a value carrying nothing but those
+   * still counts as empty.
+   *
+   * Ask the shape that owns the value. Each shape names its own presentational
+   * keys, so a parent testing a child's value must call this on the child.
    *
    * @param mixed $value
    *   The value threaded through the provider chain.
    *
    * @return bool
    *   TRUE if the value carries no content, FALSE otherwise.
+   *
+   * @see \Drupal\neo_alchemist\ComponentShapePluginBase::getPresentationalValueKeys()
    */
   public function isProvidedValueEmpty(mixed $value): bool;
 
