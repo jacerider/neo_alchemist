@@ -20,9 +20,10 @@ use PHPUnit\Framework\Attributes\Group;
  * - custom (allow_custom on): an empty entity renders the default, a saved
  *   entity tree replaces it wholesale.
  *
- * One method is deliberately a CHARACTERIZATION of a flagged-but-unfixed
- * behavior (locked mode persisting a default snapshot into entity rows) —
- * it documents, not endorses; see the method docblock.
+ * Locked mode also persists nothing at all, so nothing reading the column
+ * directly mistakes a default snapshot for content — but only on insert, so
+ * content authored while the field was hybrid survives a trip through locked.
+ * Those two pull in opposite directions; both are pinned here.
  */
 #[Group('neo_alchemist')]
 class LockedAndCustomModeTest extends HybridFieldKernelTestBase {
@@ -63,12 +64,19 @@ class LockedAndCustomModeTest extends HybridFieldKernelTestBase {
     $definition = $entity->get(static::FIELD_NAME)->getFieldDefinition();
     $this->assertFalse($definition->isHybrid(), 'Premise: no flagged regions, so the field is locked, not hybrid.');
 
-    // Plant a rogue stored row directly — the API path is (correctly)
-    // unable to write to a locked field. An UPDATE, because the locked save
-    // already persisted a row (the snapshot behavior characterized below).
+    // Plant a rogue stored row directly — the API path is (correctly) unable
+    // to write to a locked field. An INSERT, because a locked save persists
+    // nothing at all; there is no row to update.
+    $this->assertNull($this->rawStoredValue($entity), 'Premise: a locked save left no row to update.');
     $this->container->get('database')
-      ->update('entity_test__' . static::FIELD_NAME)
+      ->insert('entity_test__' . static::FIELD_NAME)
       ->fields([
+        'bundle' => $entity->bundle(),
+        'deleted' => 0,
+        'entity_id' => $entity->id(),
+        'revision_id' => $entity->getRevisionId() ?? $entity->id(),
+        'langcode' => $entity->language()->getId(),
+        'delta' => 0,
         static::FIELD_NAME . '_tree' => Json::encode([
           ComponentTreeStructure::ROOT_UUID => [
             ['uuid' => 'rogue', 'component' => 'na_leaf'],
@@ -76,7 +84,6 @@ class LockedAndCustomModeTest extends HybridFieldKernelTestBase {
         ]),
         static::FIELD_NAME . '_props' => Json::encode(['rogue' => $this->leafProps('ROGUE')]),
       ])
-      ->condition('entity_id', $entity->id())
       ->execute();
 
     $tree = Json::decode($this->reloadEntity($entity)->get(static::FIELD_NAME)->first()->getValue()['tree']);
@@ -90,30 +97,38 @@ class LockedAndCustomModeTest extends HybridFieldKernelTestBase {
   }
 
   /**
-   * CHARACTERIZATION: locked mode persists a default snapshot on save.
+   * Locked mode persists nothing into entity rows.
    *
-   * The constructor always seeds the default and preSave() only strips in
-   * hybrid scope, so saving an entity with a locked field writes a frozen
-   * copy of the default layout into its row. Invisible while the field stays
-   * locked (the load path ignores it) — but it becomes a stale snapshot that
-   * starts rendering the moment allow_custom is flipped on, and a
-   * fully-customized hybrid value the moment a region_custom flag appears.
-   * Documented here, deliberately NOT endorsed; see TESTING.md's residual
-   * list. If this fails after a fix that makes locked fields persist
-   * nothing, update it to pin the new (better) behavior.
+   * The constructor seeds the default into every entity-scope list, so without
+   * the insert-time guard in preSave() that seed was written verbatim into
+   * each entity's row. Such a row never rendered — the load path ignores it —
+   * but it was indistinguishable from real usage to anything reading the
+   * column directly, and it became a stale snapshot the moment the default
+   * layout moved on: content usage reports counted components the layout had
+   * already dropped.
+   *
+   * The field default is the only authority in locked mode, so the row stays
+   * empty and the runtime value still renders the default.
+   *
+   * @see \Drupal\neo_alchemist\Plugin\Field\NeoComponentTreeList::preSave()
    */
-  public function testLockedModeCurrentlyPersistsDefaultSnapshotIntoEntityRows(): void {
+  public function testLockedModePersistsNothingIntoEntityRows(): void {
     $this->configureField(FALSE, $this->leafOnlyLayout());
     $entity = $this->createTestEntity();
 
-    $stored = $this->rawStoredValue($entity);
+    $this->assertNull($this->rawStoredValue($entity), 'A locked entity stores no row.');
 
-    $this->assertNotNull($stored, 'A locked entity currently stores a row.');
+    // The value still renders, and still renders after a re-save.
+    $tree = Json::decode($entity->get(static::FIELD_NAME)->first()->getValue()['tree']);
     $this->assertSame(
       [['uuid' => 'default-leaf', 'component' => 'na_leaf']],
-      $stored['tree'][ComponentTreeStructure::ROOT_UUID] ?? NULL,
-      'The row is a frozen copy of the default layout.',
+      $tree[ComponentTreeStructure::ROOT_UUID] ?? NULL,
+      'The runtime value is the default layout, not the blanked storage value.',
     );
+
+    $entity->set('name', 'Re-saved');
+    $entity->save();
+    $this->assertNull($this->rawStoredValue($this->reloadEntity($entity)), 'A locked update stores no row either.');
   }
 
   /**

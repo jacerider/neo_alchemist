@@ -346,7 +346,20 @@ from two sources: the **field default layout** (the `defaults` field setting, ed
 the Field-UI Alchemist routes in config scope) and the **per-entity stored value**.
 
 - **Locked** (`allow_custom` off): the stored entity value is ignored; the field default
-  always renders.
+  always renders. Nothing is persisted on insert either — otherwise the constructor's
+  default seed would be written into every row, where anything reading the column
+  directly (the component usage report) reads it as authored content. On *update* a
+  locked field still writes nothing at all, which is what keeps content authored while
+  the field was hybrid alive across a trip through locked mode.
+
+  Rows written **before** the field was locked stay put — turning `allow_custom` off is
+  silent, and nothing migrates the data. Those layouts stop rendering but remain
+  recoverable: turning customization back on renders them again.
+  [src/InertComponentData.php](src/InertComponentData.php) reports them (a "Stored but
+  not rendered" section on the component usage page, never counted as usage) and purges
+  them per field, from the field's Layout page. It only removes rows whose tree **root
+  is populated**; an empty root is a hybrid storage subset, which re-flagging a region
+  legitimately restores.
 - **Custom** (`allow_custom` on): a saved entity value *replaces* the default wholesale
   (all-or-nothing; the default is only a starting point).
 - **Hybrid** (`allow_custom` off + the default layout contains at least one

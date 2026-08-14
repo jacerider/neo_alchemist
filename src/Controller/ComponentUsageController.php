@@ -52,17 +52,23 @@ final class ComponentUsageController extends ControllerBase {
         'description' => $this->t('Blocks built from this component.'),
         'empty' => $this->t('This component is not used in any Alchemist block.'),
       ],
+      'inert' => [
+        'title' => $this->t('Stored but not rendered'),
+        'description' => $this->t('Fields that no longer allow customization, where entities still store this component. Nothing renders it, but re-enabling customization would bring it back. Listed per field, because that is what a purge acts on.'),
+        'empty' => $this->t('No entity is storing this component in a locked field.'),
+      ],
     ];
 
     $build = [];
     $total = 0;
+    $inert = 0;
     foreach ($sections as $type => $section) {
       // The blocks section is only meaningful when the submodule is enabled.
       if ($type === 'block' && !$this->moduleHandler()->moduleExists('neo_alchemist_block')) {
         continue;
       }
       $rows = [];
-      foreach ($usages[$type] as $usage) {
+      foreach ($usages[$type] ?? [] as $usage) {
         $label = $usage['url']
           ? Link::fromTextAndUrl($usage['label'], $usage['url'])->toRenderable()
           : ['#markup' => $usage['label']];
@@ -71,7 +77,14 @@ final class ComponentUsageController extends ControllerBase {
           'context' => ['data' => ['#markup' => $usage['context']]],
         ];
       }
-      $total += count($rows);
+      // Inert rows are shown but never counted as usage — nothing renders
+      // them, so letting them into $total would call a dead component "used".
+      if ($type === 'inert') {
+        $inert += count($rows);
+      }
+      else {
+        $total += count($rows);
+      }
       $build[$type] = [
         '#type' => 'table',
         '#header' => [
@@ -89,9 +102,17 @@ final class ComponentUsageController extends ControllerBase {
     }
 
     if (!$total) {
-      $build['#prefix'] = '<div class="card p-3 mb-6">' . $this->t('%label is not used anywhere. It can be safely changed or deleted.', [
-        '%label' => $neo_component->label(),
-      ]) . '</div>';
+      // Inert data is not usage, but it is not nothing either: deleting the
+      // component leaves those rows pointing at something that no longer
+      // exists, and re-enabling customization would then try to render it.
+      $message = $inert
+        ? $this->t('%label is not rendered anywhere, but it is still stored on the fields listed below. It can be changed or deleted, provided you accept that the stored copies would break if customization were re-enabled. Purge them first to be sure.', [
+          '%label' => $neo_component->label(),
+        ])
+        : $this->t('%label is not used anywhere. It can be safely changed or deleted.', [
+          '%label' => $neo_component->label(),
+        ]);
+      $build['#prefix'] = '<div class="card p-3 mb-6">' . $message . '</div>';
     }
 
     $build['#cache']['tags'] = $this->componentUsage->getCacheTags();

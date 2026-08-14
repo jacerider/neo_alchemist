@@ -433,3 +433,117 @@ function _neo_alchemist_processing_mode_capable(array $definitions, string $plug
     && is_subclass_of($class, 'Drupal\neo_alchemist\ComponentValueProcessingModeInterface');
 }
 
+
+/**
+* Purge the default-layout snapshots locked component tree fields left behind.
+*
+* A locked field (allow_custom: FALSE, no custom regions) renders its default
+* layout and ignores the stored row entirely — NeoComponentTreeList::setValue()
+* discards it on load. Until the accompanying ::preSave() fix, though, the
+* constructor's default seed was written verbatim into every entity's row on
+* insert. Those rows never rendered, but anything reading the column directly
+* saw them: the component usage report counted them as content usage, and kept
+* counting components the default layout had long since dropped.
+*
+* Only rows with a POPULATED root are purged. A hybrid storage subset always
+* has an empty root (::extractHybridStorageValue() seeds [ROOT_UUID => []]), so
+* content authored while a field was hybrid — dormant but recoverable if the
+* region is re-flagged — is left untouched.
+*
+* Every purged row is archived to state first, so this is reversible.
+*
+* @see \Drupal\neo_alchemist\Plugin\Field\NeoComponentTreeList::preSave()
+*/
+function neo_alchemist_update_11005() {
+  $rootUuid = \Drupal\neo_alchemist\Plugin\DataType\ComponentTreeStructure::ROOT_UUID;
+  $entityTypeManager = \Drupal::entityTypeManager();
+  $entityFieldManager = \Drupal::service('entity_field.manager');
+  $database = \Drupal::database();
+  $archive = [];
+  $purged = [];
+  $skipped = 0;
+
+  foreach ($entityTypeManager->getStorage('field_config')->loadMultiple() as $field) {
+    if ($field->getType() !== 'neo_component_tree') {
+      continue;
+    }
+    // The mode accessors live on ComponentFieldConfig; a field_config loaded
+    // from storage is a plain FieldConfig.
+    $componentField = $field instanceof \Drupal\neo_alchemist\Entity\ComponentFieldConfig
+      ? $field
+      : new \Drupal\neo_alchemist\Entity\ComponentFieldConfig($field->toArray(), 'field_config');
+    if ($componentField->allowCustom() || $componentField->isHybrid()) {
+      continue;
+    }
+
+    $entityTypeId = $field->getTargetEntityTypeId();
+    $bundle = $field->getTargetBundle();
+    $fieldName = $field->getName();
+    $storage = $entityTypeManager->getStorage($entityTypeId);
+    if (!$storage instanceof \Drupal\Core\Entity\Sql\SqlEntityStorageInterface) {
+      continue;
+    }
+    $storageDefinition = $entityFieldManager->getFieldStorageDefinitions($entityTypeId)[$fieldName] ?? NULL;
+    if (!$storageDefinition) {
+      continue;
+    }
+    $tableMapping = $storage->getTableMapping();
+    $column = $tableMapping->getFieldColumnName($storageDefinition, 'tree');
+    $tables = [$tableMapping->getFieldTableName($fieldName)];
+    if ($tableMapping instanceof \Drupal\Core\Entity\Sql\DefaultTableMapping) {
+      $tables[] = $tableMapping->getDedicatedRevisionTableName($storageDefinition);
+    }
+
+    foreach (array_unique(array_filter($tables)) as $table) {
+      if (!$database->schema()->tableExists($table) || !$database->schema()->fieldExists($table, 'bundle')) {
+        continue;
+      }
+      $rows = $database->select($table, 't')
+        ->fields('t')
+        ->condition('t.bundle', $bundle)
+        ->execute()
+        ->fetchAll(\PDO::FETCH_ASSOC);
+
+      foreach ($rows as $row) {
+        $tree = !empty($row[$column]) ? json_decode($row[$column], TRUE) : NULL;
+        // An empty root means a hybrid subset (or nothing at all) — keep it.
+        if (!is_array($tree) || empty($tree[$rootUuid])) {
+          $skipped++;
+          continue;
+        }
+        $archive[] = ['table' => $table, 'row' => $row];
+        $delete = $database->delete($table)
+          ->condition('entity_id', $row['entity_id'])
+          ->condition('langcode', $row['langcode'])
+          ->condition('delta', $row['delta']);
+        if (array_key_exists('deleted', $row)) {
+          $delete->condition('deleted', $row['deleted']);
+        }
+        if (array_key_exists('revision_id', $row)) {
+          $delete->condition('revision_id', $row['revision_id']);
+        }
+        $delete->execute();
+        $key = $entityTypeId . '.' . $bundle . '.' . $fieldName;
+        $purged[$key] = ($purged[$key] ?? 0) + 1;
+      }
+    }
+  }
+
+  if (!$archive) {
+    return (string) t('No locked-field default-layout snapshots found. Skipped @skipped row(s) that were not snapshots.', [
+      '@skipped' => $skipped,
+    ]);
+  }
+
+  \Drupal::state()->set('neo_alchemist.purged_locked_rows_11005', $archive);
+
+  $parts = [];
+  foreach ($purged as $key => $count) {
+    $parts[] = $key . ' (' . $count . ')';
+  }
+  return (string) t('Purged @count default-layout snapshot row(s) from locked component tree fields: @list. Left @skipped row(s) untouched. The purged rows are archived in state under "neo_alchemist.purged_locked_rows_11005"; delete that key once the result looks right.', [
+    '@count' => count($archive),
+    '@list' => implode(', ', $parts),
+    '@skipped' => $skipped,
+  ]);
+}

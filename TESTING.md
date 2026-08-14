@@ -428,7 +428,9 @@ where noted in the class docblock).
 | `Kernel/HybridUnflaggedRegionTest` | Un-flagging one region preserves its authored content as orphans and re-flagging restores it |
 | `Kernel/HybridOrphanPreservationTest` | Orphans survive saves and in-session merged-tree sets, stay render-inert, and are replaced (not resurrected) by a fresh storage subset |
 | `Kernel/HybridAccessLockingTest` | Inherited instances refuse every mutating op; creation only inside customizable regions; the root is never a target |
-| `Kernel/LockedAndCustomModeTest` | Locked ignores stored values; custom is all-or-nothing; PLUS a characterization of the locked-snapshot behavior (see below) |
+| `Kernel/LockedAndCustomModeTest` | Locked ignores stored values and persists none; custom is all-or-nothing; the hybrid → locked content-preservation guard |
+| `Kernel/ComponentUsageScanTest` | What the content usage scan counts, per field mode: locked rows never, custom trees always, hybrid only the entity-owned subset |
+| `Kernel/InertComponentDataTest` | Finding and purging stored layouts nothing renders: custom → locked strands them, purge deletes and archives, hybrid-era region content always survives |
 | `Kernel/WidgetDoesNotWipeTreeTest` | The widget's one-line no-op guard against total field wipe on entity form saves |
 | `Kernel/BootSpikeTest` | The module boots under Kernel with a minimal module set |
 
@@ -470,20 +472,26 @@ examples instead.
 - **`ComponentInstanceBase::access()` early returns** (preview-allowed,
   hybrid-forbidden, the create checks) still return without folding prior
   cacheability; only `Component::checkAccess()` folds today.
+- **Fixed, and pinned so it stays fixed:**
+  - **Locked fields no longer write a default snapshot on insert.**
+    `NeoComponentTreeList::preSave()` blanks the seeded default in locked
+    scope, but ONLY when the host entity is new — the restriction is
+    load-bearing, not caution (see the next point).
+    `LockedAndCustomModeTest::testLockedModePersistsNothingIntoEntityRows`
+    pins the new behavior. The rows created before the fix were purged by
+    `neo_alchemist_update_11005()`, which only removes rows with a POPULATED
+    root: a hybrid storage subset always has an empty root, so dormant
+    authored content is never touched.
+
+    The consequence had stopped being latent. `ComponentUsage::scanContent()`
+    reads the column directly, so every snapshot counted as content usage —
+    including components the default layout had long since dropped, which is
+    exactly the signal that is supposed to say "safe to delete". The scan is
+    now mode-aware as well (locked bundles are skipped outright), so it stays
+    correct against data predating the fix; `ComponentUsageScanTest` pins all
+    three modes.
 - **Characterized, deliberately not fixed** (each needs a design decision):
-  - **Locked fields write a default snapshot when an entity is first
-    created.** `LockedAndCustomModeTest` documents it. Scope, measured: only
-    on INSERT. On update, core skips a field whose value is unchanged versus
-    `$entity->original`
-    (`SqlContentEntityStorage::saveToDedicatedTables()`), and a locked list
-    deterministically holds the seeded default on both, so existing rows are
-    never rewritten. The consequence is therefore latent rather than
-    destructive: entities created while a field is locked carry a frozen
-    default-layout row that would be treated as authored content if the field
-    later becomes hybrid or custom. Fixing it means making locked mode
-    persist nothing on insert — safe in itself, but it must not be
-    generalised to update (see the next point).
-  - **The hybrid → locked transition depends on that core skip.**
+  - **The hybrid → locked transition depends on a core skip.**
     Un-flagging the LAST flagged region drops the field out of hybrid mode
     entirely, so the orphan preservation that covers a partial un-flag never
     runs. Existing entities keep their authored content anyway — purely

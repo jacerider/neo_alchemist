@@ -12,6 +12,7 @@ use Drupal\Core\Entity\Sql\SqlEntityStorageInterface;
 use Drupal\Core\Extension\ModuleHandlerInterface;
 use Drupal\Core\StringTranslation\StringTranslationTrait;
 use Drupal\Core\Url;
+use Drupal\field\FieldConfigInterface;
 use Drupal\neo_alchemist\Entity\ComponentFieldConfig;
 use Drupal\neo_alchemist\Plugin\DataType\ComponentTreeStructure;
 
@@ -38,6 +39,16 @@ final class ComponentUsage {
   public const CID = 'neo_alchemist:component_usage';
 
   /**
+   * Cache tag for usage facts no entity or config tag covers.
+   *
+   * Purging inert rows writes no entity and no config, so none of the list
+   * tags below fire — this is what a purge invalidates.
+   *
+   * @see \Drupal\neo_alchemist\InertComponentData::purge()
+   */
+  public const CACHE_TAG = 'neo_alchemist_component_usage';
+
+  /**
    * Memoized usage tally.
    *
    * @var array|null
@@ -54,6 +65,7 @@ final class ComponentUsage {
     protected CacheBackendInterface $cache,
     protected ModuleHandlerInterface $moduleHandler,
     protected ComponentSubgroupResolver $subgroupResolver,
+    protected InertComponentData $inertData,
   ) {}
 
   /**
@@ -293,11 +305,14 @@ final class ComponentUsage {
    *   string] arrays.
    */
   public function getUsages(string $componentId): array {
-    $usages = ['content' => [], 'default' => [], 'block' => []];
+    $usages = ['content' => [], 'default' => [], 'block' => [], 'inert' => []];
     $scans = [
       'content' => $this->scanContent(),
       'default' => $this->scanDefaultLayouts(),
       'block' => $this->scanBlocks(),
+      // Reported, never counted: inert rows are stored but nothing renders
+      // them, so they are not usage. ::getCounts() deliberately ignores them.
+      'inert' => $this->inertData->scan(),
     ];
     foreach ($scans as $type => $found) {
       foreach ($found as $usage) {
@@ -317,7 +332,7 @@ final class ComponentUsage {
    *   The cache tags.
    */
   public function getCacheTags(): array {
-    $tags = [];
+    $tags = [self::CACHE_TAG];
     foreach (array_keys($this->entityFieldManager->getFieldMapByFieldType('neo_component_tree')) as $entityTypeId) {
       if ($definition = $this->entityTypeManager->getDefinition($entityTypeId, FALSE)) {
         $tags = array_merge($tags, $definition->getListCacheTags());
@@ -353,9 +368,21 @@ final class ComponentUsage {
       $tableMapping = $storage->getTableMapping();
       $storageDefinitions = $this->entityFieldManager->getFieldStorageDefinitions($entityTypeId);
 
-      foreach (array_keys($fields) as $fieldName) {
+      foreach ($fields as $fieldName => $fieldInfo) {
         $storageDefinition = $storageDefinitions[$fieldName] ?? NULL;
         if (!$storageDefinition) {
+          continue;
+        }
+        // A locked field's row is never read back — ::setValue() discards it
+        // and renders the field default instead — so whatever sits in the
+        // column is not usage. Historically it is a snapshot of the default
+        // layout at insert time, which would otherwise report the field's own
+        // components as content usage, and keep reporting them after the
+        // layout moved on. allow_custom is a field *instance* setting, so this
+        // is per bundle: one table can hold both locked and customizable rows.
+        $bundles = $fieldInfo['bundles'] ?? [];
+        $lockedBundles = $this->getLockedBundles($entityTypeId, $fieldName, $bundles);
+        if ($lockedBundles && count($lockedBundles) === count($bundles)) {
           continue;
         }
         $table = $tableMapping->getFieldTableName($fieldName);
@@ -377,6 +404,14 @@ final class ComponentUsage {
           $select->condition('t.deleted', 0);
         }
         $select->isNotNull('t.' . $column);
+        // Dedicated field tables carry the bundle, so locked rows can be left
+        // in the database. A shared table cannot be filtered here; those rows
+        // are dropped after load, below.
+        $filterLockedAfterLoad = (bool) $lockedBundles;
+        if ($lockedBundles && $schema->fieldExists($table, 'bundle')) {
+          $select->condition('t.bundle', $lockedBundles, 'NOT IN');
+          $filterLockedAfterLoad = FALSE;
+        }
 
         $byEntity = [];
         foreach ($select->execute() as $record) {
@@ -397,6 +432,9 @@ final class ComponentUsage {
         foreach ($byEntity as $entityId => $componentIds) {
           $entity = $entities[$entityId] ?? NULL;
           if (!$entity) {
+            continue;
+          }
+          if ($filterLockedAfterLoad && in_array($entity->bundle(), $lockedBundles, TRUE)) {
             continue;
           }
           $url = NULL;
@@ -480,6 +518,48 @@ final class ComponentUsage {
       ];
     }
     return $usages;
+  }
+
+  /**
+   * Finds the bundles where a component tree field is locked.
+   *
+   * Locked is the absence of the two modes that let an entity own content:
+   * allow_custom (the entity owns the whole tree) and hybrid (the entity owns
+   * the flagged regions). A locked field renders its default layout and
+   * ignores the stored row entirely.
+   *
+   * @param string $entityTypeId
+   *   The entity type id.
+   * @param string $fieldName
+   *   The field name.
+   * @param string[] $bundles
+   *   The bundles the field is attached to.
+   *
+   * @return string[]
+   *   The bundles in which the field is locked.
+   */
+  protected function getLockedBundles(string $entityTypeId, string $fieldName, array $bundles): array {
+    $locked = [];
+    foreach ($bundles as $bundle) {
+      $definition = $this->entityFieldManager->getFieldDefinitions($entityTypeId, $bundle)[$fieldName] ?? NULL;
+      if (!$definition instanceof ComponentFieldConfigInterface) {
+        // hook_entity_bundle_field_info_alter() normally swaps the class in;
+        // rebuild it the same way if something bypassed that.
+        if (!$definition instanceof FieldConfigInterface) {
+          continue;
+        }
+        try {
+          $definition = new ComponentFieldConfig($definition->toArray(), 'field_config');
+        }
+        catch (\Exception) {
+          continue;
+        }
+      }
+      if (!$definition->allowCustom() && !$definition->isHybrid()) {
+        $locked[] = $bundle;
+      }
+    }
+    return $locked;
   }
 
   /**

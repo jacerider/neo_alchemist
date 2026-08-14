@@ -56,9 +56,13 @@ services:
     class: Drupal\neo_alchemist\ComponentSubgroupResolver
     arguments: ['@plugin.manager.neo_component_group', '@entity_type.manager', '@entity_type.bundle.info']
 
+  neo_alchemist.inert_component_data:
+    class: Drupal\neo_alchemist\InertComponentData
+    arguments: ['@entity_type.manager', '@entity_field.manager', '@database', '@state', '@cache.default', '@cache_tags.invalidator']
+
   neo_alchemist.component_usage:
     class: Drupal\neo_alchemist\ComponentUsage
-    arguments: ['@entity_type.manager', '@entity_field.manager', '@database', '@cache.default', '@module_handler', '@neo_alchemist.component_subgroup']
+    arguments: ['@entity_type.manager', '@entity_field.manager', '@database', '@cache.default', '@module_handler', '@neo_alchemist.component_subgroup', '@neo_alchemist.inert_component_data']
 
   plugin.manager.neo_component_value_group:
     class: Drupal\neo_alchemist\ComponentValueGroupPluginManager

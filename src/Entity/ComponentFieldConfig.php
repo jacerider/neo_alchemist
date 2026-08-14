@@ -39,6 +39,9 @@ class ComponentFieldConfig extends NeoFieldConfig implements ComponentFieldConfi
       'library' => Url::fromRoute("entity.{$entityTypeId}.field_ui.alchemist.library", $parameters),
       'add' => Url::fromRoute("entity.{$entityTypeId}.field_ui.alchemist.add", $parameters),
       'sort' => Url::fromRoute("entity.{$entityTypeId}.field_ui.alchemist.sort", $parameters),
+      // The mirror image of the three below: purging stored entity data is
+      // only meaningful for the field, never for a single entity.
+      'purge' => Url::fromRoute("entity.{$entityTypeId}.field_ui.alchemist.purge", $parameters),
       'publish' => throw new EntityMalformedException('Publish is not supported for component fields.'),
       'revert' => throw new EntityMalformedException('Revert is not supported for component fields.'),
       'reset' => throw new EntityMalformedException('Reset is not supported for component fields.'),

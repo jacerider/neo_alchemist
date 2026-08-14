@@ -329,6 +329,28 @@ class ComponentManageHelper {
         '#modal' => $modalSettings,
       ];
     }
+    if ($instance instanceof ComponentTreeItem && $instance->access('purge')) {
+      // The count decides whether the button appears at all — a locked field
+      // with nothing stored has nothing to offer. access('purge') covers mode
+      // and permission, deliberately without querying rows.
+      $field = $instance->getFieldDefinition();
+      $count = \Drupal::service('neo_alchemist.inert_component_data')->countFor(
+        $field->getTargetEntityTypeId(),
+        $field->getTargetBundle(),
+        $field->getName(),
+      );
+      if ($count) {
+        $build['purge'] = [
+          '#type' => 'neo_modal_link',
+          '#title' => neo_icon_admin(t('Purge stored data (@count)', ['@count' => $count])),
+          '#url' => $instance->toUrl('purge'),
+          '#attributes' => [
+            'class' => ['use-ajax', 'btn', 'btn-xs', 'btn-alert'],
+          ],
+          '#modal' => $modalSettings,
+        ];
+      }
+    }
     return $build;
   }
 

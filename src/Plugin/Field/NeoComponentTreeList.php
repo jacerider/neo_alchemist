@@ -57,11 +57,16 @@ class NeoComponentTreeList extends FieldItemList {
   ];
 
   /**
-   * Hybrid mode: stash of the merged value while the subset is persisted.
+   * Stash of the runtime value while a reduced value is persisted.
+   *
+   * Both hybrid and locked scope replace the list value in ::preSave() with
+   * what should actually hit the row — the entity-owned subset for hybrid,
+   * nothing at all for a locked insert. ::postSave() puts the runtime value
+   * back so references held across the save keep seeing what renders.
    *
    * @var array|null
    */
-  protected ?array $hybridMergedValue = NULL;
+  protected ?array $preSaveRuntimeValue = NULL;
 
   /**
    * {@inheritDoc}
@@ -376,6 +381,23 @@ class NeoComponentTreeList extends FieldItemList {
   }
 
   /**
+   * Checks if this list operates in locked mode on an actual entity.
+   *
+   * Locked is the absence of both other modes: the field default layout is
+   * wholly authoritative and ::setValue() discards anything the row held.
+   *
+   * @return bool
+   *   TRUE when locked and entity scope, FALSE otherwise.
+   */
+  public function isLockedScope(): bool {
+    $definition = $this->getFieldDefinition();
+    return $definition instanceof ComponentFieldConfigInterface
+      && !$this->belongsToFieldConfig()
+      && !$definition->allowCustom()
+      && !$definition->isHybrid();
+  }
+
+  /**
    * Extracts the entity-owned storage subset from the current merged value.
    *
    * Once an entity is customized, the stored value is authoritative for every
@@ -447,7 +469,7 @@ class NeoComponentTreeList extends FieldItemList {
    */
   public function preSave() {
     if ($this->isHybridScope()) {
-      $this->hybridMergedValue = $this->getValue();
+      $this->preSaveRuntimeValue = $this->getValue();
       if ($this->isDefault()) {
         // Nothing has been customized: persist nothing so the field default
         // remains fully authoritative. This tree form is what isEmpty()
@@ -469,6 +491,29 @@ class NeoComponentTreeList extends FieldItemList {
         }
       }
     }
+    elseif ($this->isLockedScope() && $this->getEntity()->isNew()) {
+      // Locked mode: the constructor seeds the default layout into every
+      // entity-scope list, and without this the seed is written verbatim into
+      // the entity's row on insert. That row is dead weight — ::setValue()
+      // discards it on every subsequent load — but it is indistinguishable
+      // from real usage to anything reading the column directly, and it
+      // becomes a stale snapshot the moment the default layout moves on.
+      // Persist nothing instead; the field default stays authoritative.
+      //
+      // ONLY on insert. On update the row may hold content authored while the
+      // field was hybrid, kept alive purely because core skips unchanged
+      // fields in saveToDedicatedTables(). That content is invisible here (the
+      // load path already dropped it, and $entity->original holds the same
+      // seeded default), so blanking on update would destroy it silently.
+      // @see \Drupal\Tests\neo_alchemist\Kernel\LockedAndCustomModeTest::testUnflaggingTheOnlyRegionPreservesAuthoredContent
+      $this->preSaveRuntimeValue = $this->getValue();
+      foreach ($this->list as $item) {
+        $item->setValue([
+          'tree' => Json::encode([]),
+          'props' => '{}',
+        ], FALSE);
+      }
+    }
     parent::preSave();
   }
 
@@ -477,11 +522,11 @@ class NeoComponentTreeList extends FieldItemList {
    */
   public function postSave($update) {
     $result = parent::postSave($update);
-    if ($this->hybridMergedValue !== NULL) {
-      // Restore the merged runtime value that ::preSave() replaced with the
-      // storage subset. Restore in place so references held across the save
-      // keep seeing the merged value.
-      foreach ($this->hybridMergedValue as $delta => $value) {
+    if ($this->preSaveRuntimeValue !== NULL) {
+      // Restore the runtime value that ::preSave() replaced with the reduced
+      // storage value. Restore in place so references held across the save
+      // keep seeing what renders.
+      foreach ($this->preSaveRuntimeValue as $delta => $value) {
         if (isset($this->list[$delta])) {
           $this->list[$delta]->setValue($value, FALSE);
         }
@@ -489,7 +534,7 @@ class NeoComponentTreeList extends FieldItemList {
           $this->appendItem($value);
         }
       }
-      $this->hybridMergedValue = NULL;
+      $this->preSaveRuntimeValue = NULL;
     }
     return $result;
   }

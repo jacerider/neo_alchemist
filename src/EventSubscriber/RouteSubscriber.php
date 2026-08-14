@@ -242,8 +242,8 @@ class RouteSubscriber extends RouteSubscriberBase {
           $defaults = [
             'entity_type_id' => $entityTypeId,
           ];
-          // If the entity type has no bundles and it doesn't use {bundle} in its
-          // admin path, use the entity type.
+          // If the entity type has no bundles and it doesn't use {bundle} in
+          // its admin path, use the entity type.
           if (!str_contains($path, '{bundle}')) {
             $defaults['bundle'] = !$entityType->hasKey('bundle') ? $entityTypeId : '';
           }
@@ -307,6 +307,20 @@ class RouteSubscriber extends RouteSubscriberBase {
               ->setOption('_admin_route', TRUE)
               ->setRequirement('_neo_component_field', "neo_field.sort");
             $collection->add("entity.{$entityTypeId}.field_ui.alchemist.sort", $route);
+
+            // Field-only: the entity-scope family has no purge, because a
+            // single entity's stored value is either rendered (custom/hybrid)
+            // or replaced by the default (locked) — never left over.
+            $route = new Route("$path/alchemist/{neo_field}/purge");
+            $route
+              ->setDefaults([
+                '_form' => 'Drupal\neo_alchemist\Form\PurgeInertDataForm',
+                '_title' => 'Purge stored layout data',
+              ] + $defaults)
+              ->setOptions($fieldOptions)
+              ->setOption('_admin_route', TRUE)
+              ->setRequirement('_neo_component_field', "neo_field.purge");
+            $collection->add("entity.{$entityTypeId}.field_ui.alchemist.purge", $route);
 
             $fieldComponentOptions = $fieldOptions;
             $fieldComponentOptions['parameters']['neo_component'] = [

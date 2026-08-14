@@ -112,6 +112,40 @@ class ComponentTreeItem extends FieldItemBase implements RenderableInterface, Co
       '#default_value' => $settings['allow_custom'] ?? FALSE,
     ];
 
+    // Turning customization off is silent and lossy-looking: the customized
+    // layouts stop rendering but stay in the database, invisible. Say so
+    // before the save, while it is still a choice.
+    $definition = $this->getFieldDefinition();
+    if (!empty($settings['allow_custom']) && $definition->getTargetBundle()) {
+      $stored = \Drupal::service('neo_alchemist.inert_component_data')->countStored(
+        $definition->getTargetEntityTypeId(),
+        $definition->getTargetBundle(),
+        $definition->getName(),
+      );
+      if ($stored) {
+        $element['allow_custom_warning'] = [
+          '#type' => 'container',
+          '#states' => [
+            'visible' => [
+              ':input[name="settings[allow_custom]"]' => ['checked' => FALSE],
+            ],
+          ],
+          'message' => [
+            '#theme' => 'status_messages',
+            '#message_list' => [
+              'warning' => [
+                $this->formatPlural(
+                  $stored,
+                  '1 entity has a customized layout. Turning this off means the default layout renders instead — the customized one is kept but never shown, and turning this back on would restore it. To delete it for good, use "Purge stored data" on this field\'s Layout page after saving.',
+                  '@count entities have customized layouts. Turning this off means the default layout renders instead — the customized ones are kept but never shown, and turning this back on would restore them. To delete them for good, use "Purge stored data" on this field\'s Layout page after saving.',
+                ),
+              ],
+            ],
+          ],
+        ];
+      }
+    }
+
     $element['sizes'] = [
       '#type' => 'checkboxes',
       '#title' => $this->t('Supported component sizes'),
@@ -273,6 +307,16 @@ class ComponentTreeItem extends FieldItemBase implements RenderableInterface, Co
         $operation === 'create' => AccessResult::allowedIf($this->getSetting('allow_custom') || $this->getFieldDefinition()->isHybrid())->andIf($this->getEntity()->access('update', $account, TRUE)),
         $operation === 'revert' => AccessResult::allowedIf($this->hasDraft())->andIf($this->getEntity()->access('update', $account, TRUE)),
         $operation === 'reset' => AccessResult::allowedIf(!$this->belongsToFieldConfig() && !$this->getParent()->isDefault())->andIf($this->getEntity()->access('update', $account, TRUE)),
+        // Purging stored entity data is a field-administration act, not an
+        // edit of any one entity, and it only means anything while the field
+        // is locked — that is the only mode whose rows nothing reads back.
+        // Deliberately no row count here: whether data exists decides whether
+        // the BUTTON shows, not whether the route is permitted.
+        $operation === 'purge' => AccessResult::allowedIf(
+          $this->belongsToFieldConfig()
+          && !$this->getSetting('allow_custom')
+          && !$this->getFieldDefinition()->isHybrid()
+        )->andIf($this->getFieldDefinition()->access('update', $account, TRUE)),
         // Restructuring the tree — reordering, removing or duplicating an
         // instance — is an edit of the host entity, never a delete of it and
         // never an operation the host defines itself. Left to the default arm,
