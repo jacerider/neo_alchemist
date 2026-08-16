@@ -77,10 +77,8 @@ field reference: ARCHITECTURE.md §"Prop-def + ComponentShape system".
 
 All are attribute-discovered classes in `src/Plugin/Component{Value,Slot,Filter,Access}/`.
 ⚠ A plugin **id must equal its group or be prefixed `group:sub`** (attribute docblock — a
-discovery quirk, not a convention). `src/Attribute/` also holds `ComponentStyle`,
-`ComponentValueProvider` and `ComponentValueModifier`: **inert** — no manager, no plugin
-type, zero users anywhere. Never cite or use them; value plugins of every role use
-`#[ComponentValue]` with the right `group:`.
+discovery quirk, not a convention). Value plugins of every role use `#[ComponentValue]`
+with the right `group:`.
 
 ### ComponentValue (39 production plugins)
 

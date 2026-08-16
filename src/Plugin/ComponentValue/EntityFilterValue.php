@@ -7,8 +7,6 @@ namespace Drupal\neo_alchemist\Plugin\ComponentValue;
 use Drupal\Component\Utility\Html;
 use Drupal\Component\Utility\NestedArray;
 use Drupal\Core\DependencyInjection\DependencySerializationTrait;
-use Drupal\Core\Entity\EntityTypeBundleInfoInterface;
-use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Plugin\ContainerFactoryPluginInterface;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
@@ -43,20 +41,6 @@ final class EntityFilterValue extends ComponentValuePluginBase implements Contai
   use ComponentValueProcessingModeTrait;
 
   /**
-   * The entity type manager service.
-   *
-   * @var \Drupal\Core\Entity\EntityTypeManagerInterface
-   */
-  protected EntityTypeManagerInterface $entityTypeManager;
-
-  /**
-   * The entity type bundle info service.
-   *
-   * @var \Drupal\Core\Entity\EntityTypeBundleInfoInterface
-   */
-  protected EntityTypeBundleInfoInterface $entityTypeBundleInfo;
-
-  /**
    * The field matcher.
    *
    * @var \Drupal\neo_alchemist\MatcherField
@@ -78,14 +62,10 @@ final class EntityFilterValue extends ComponentValuePluginBase implements Contai
     $plugin_definition,
     ComponentShapePluginInterface $shape,
     array $configuration,
-    EntityTypeManagerInterface $entity_type_manager,
-    EntityTypeBundleInfoInterface $entity_type_bundle_info,
     MatcherField $matcher_field,
     MatcherReference $matcher_reference,
   ) {
     parent::__construct($plugin_id, $plugin_definition, $shape, $configuration);
-    $this->entityTypeManager = $entity_type_manager;
-    $this->entityTypeBundleInfo = $entity_type_bundle_info;
     $this->matcherField = $matcher_field;
     $this->matcherReference = $matcher_reference;
   }
@@ -99,8 +79,6 @@ final class EntityFilterValue extends ComponentValuePluginBase implements Contai
       $plugin_definition,
       $configuration['shape'],
       $configuration['settings'],
-      $container->get('entity_type.manager'),
-      $container->get('entity_type.bundle.info'),
       $container->get('neo_alchemist.matcher_field'),
       $container->get('neo_alchemist.matcher_reference')
     );

@@ -8,7 +8,6 @@ use Drupal\Component\Utility\Html;
 use Drupal\Component\Utility\NestedArray;
 use Drupal\Core\DependencyInjection\DependencySerializationTrait;
 use Drupal\Core\Entity\ContentEntityTypeInterface;
-use Drupal\Core\Entity\EntityTypeBundleInfoInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Plugin\ContainerFactoryPluginInterface;
@@ -50,13 +49,6 @@ final class EntityLoadValue extends ComponentValuePluginBase implements Containe
   protected EntityTypeManagerInterface $entityTypeManager;
 
   /**
-   * The entity type bundle info service.
-   *
-   * @var \Drupal\Core\Entity\EntityTypeBundleInfoInterface
-   */
-  protected EntityTypeBundleInfoInterface $entityTypeBundleInfo;
-
-  /**
    * The event dispatcher.
    *
    * @var \Symfony\Component\EventDispatcher\EventDispatcherInterface
@@ -86,14 +78,12 @@ final class EntityLoadValue extends ComponentValuePluginBase implements Containe
     ComponentShapePluginInterface $shape,
     array $configuration,
     EntityTypeManagerInterface $entity_type_manager,
-    EntityTypeBundleInfoInterface $entity_type_bundle_info,
     EventDispatcherInterface $event_dispatcher,
     MatcherField $matcher_field,
     MatcherReference $matcher_reference,
   ) {
     parent::__construct($plugin_id, $plugin_definition, $shape, $configuration);
     $this->entityTypeManager = $entity_type_manager;
-    $this->entityTypeBundleInfo = $entity_type_bundle_info;
     $this->eventDispatcher = $event_dispatcher;
     $this->matcherField = $matcher_field;
     $this->matcherReference = $matcher_reference;
@@ -109,7 +99,6 @@ final class EntityLoadValue extends ComponentValuePluginBase implements Containe
       $configuration['shape'],
       $configuration['settings'],
       $container->get('entity_type.manager'),
-      $container->get('entity_type.bundle.info'),
       $container->get('event_dispatcher'),
       $container->get('neo_alchemist.matcher_field'),
       $container->get('neo_alchemist.matcher_reference')

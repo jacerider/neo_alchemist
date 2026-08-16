@@ -39,13 +39,6 @@ final class EntityValue extends ComponentValuePluginBase implements ContainerFac
   use ComponentValueProcessingModeTrait;
 
   /**
-   * Flag to indicate if the value has been set.
-   *
-   * @var bool
-   */
-  protected $hasEntityValue = FALSE;
-
-  /**
    * The field matcher.
    *
    * @var \Drupal\neo_alchemist\MatcherField
@@ -189,8 +182,6 @@ final class EntityValue extends ComponentValuePluginBase implements ContainerFac
       ? $this->configuration['field_properties']
       : $this->getDefaultMatchProperties();
     $entityValue = $this->getMatchValueWithFallback($this->shape, $properties, FALSE);
-    $hasValue = !empty($entityValue);
-    $this->hasEntityValue = $hasValue;
 
     if ($this->shape->isNew() && !$this->shape->isRebuilding()) {
       // On a brand new component, we set the option default to true so that

@@ -33,42 +33,6 @@ use Drupal\neo_alchemist\Plugin\Field\NeoComponentTreeList;
 use Drupal\node\NodeInterface;
 
 /**
- * Recursively updates a shape value within a nested props array.
- *
- * Searches for a matching shape key/value pair and replaces it with a new
- * key/value pair.
- *
- * @param array $props
- *   The props array to search through.
- * @param string $originalShapeKey
- *   The original shape key to find.
- * @param mixed $originalShapeValue
- *   The original shape value to match.
- * @param string $newShapeKey
- *   The new shape key to set.
- * @param mixed $newShapeValue
- *   The new shape value to set.
- * @param bool $found
- *   Reference flag indicating whether the value was found.
- *
- * @return array
- *   The updated props array.
- */
-function neo_alchemist_recursive_update_value(array $props, $originalShapeKey, $originalShapeValue, $newShapeKey, $newShapeValue, &$found = FALSE) {
-  foreach ($props as &$data) {
-    if (is_array($data)) {
-      if (array_key_exists($originalShapeKey, $data) && isset($data[$originalShapeKey]['value']) && $data[$originalShapeKey]['value'] == $originalShapeValue) {
-        $data[$newShapeKey]['value'] = $newShapeValue;
-        unset($data[$originalShapeKey]);
-        $found = TRUE;
-      }
-      $data = neo_alchemist_recursive_update_value($data, $originalShapeKey, $originalShapeValue, $newShapeKey, $newShapeValue, $found);
-    }
-  }
-  return $props;
-}
-
-/**
  * Implements hook_theme().
  */
 function neo_alchemist_theme(): array {

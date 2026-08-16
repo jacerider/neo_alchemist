@@ -80,7 +80,6 @@ class EntityProviderPassThroughTest extends UnitTestCase {
       $shape,
       $configuration,
       $entityTypeManager,
-      $this->createMock(EntityTypeBundleInfoInterface::class),
       $this->createMock(EventDispatcherInterface::class),
       $this->matcherField(),
       $this->matcherReference(),
@@ -146,8 +145,6 @@ class EntityProviderPassThroughTest extends UnitTestCase {
       [],
       $this->createMock(ComponentShapePluginInterface::class),
       ['filter' => 'some-filter'],
-      $this->createMock(EntityTypeManagerInterface::class),
-      $this->createMock(EntityTypeBundleInfoInterface::class),
       $this->matcherField(),
       $this->matcherReference(),
     );
@@ -169,8 +166,6 @@ class EntityProviderPassThroughTest extends UnitTestCase {
       [],
       $shape,
       ['filter' => 'deleted-filter'],
-      $this->createMock(EntityTypeManagerInterface::class),
-      $this->createMock(EntityTypeBundleInfoInterface::class),
       $this->matcherField(),
       $this->matcherReference(),
     );

@@ -49,25 +49,11 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
   use StringTranslationTrait;
 
   /**
-   * The field item list.
-   *
-   * @var \Drupal\Core\Field\FieldItemListInterface
-   */
-  protected FieldItemListInterface $field;
-
-  /**
    * The field item.
    *
    * @var \Drupal\Core\Field\FieldItemInterface
    */
   protected FieldItemInterface $fieldItem;
-
-  /**
-   * Whether the prop is nested.
-   *
-   * @var bool
-   */
-  protected bool $nested = FALSE;
 
   /**
    * Whether the prop is active.
@@ -154,62 +140,6 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
    * @var array
    */
   protected array $widgetSettings;
-
-  /**
-   * The value providers.
-   *
-   * @var array
-   */
-  protected $providers = [];
-
-  /**
-   * The nested value providers.
-   *
-   * @var array
-   */
-  protected $providersNested = [];
-
-  /**
-   * The value provider instances.
-   *
-   * @var Drupal\neo_alchemist\ComponentValueProviderPluginInterface[]
-   */
-  protected $providerInstances;
-
-  /**
-   * The value provider definitions.
-   *
-   * @var array
-   */
-  protected array $providerDefinitions;
-
-  /**
-   * The value modifiers.
-   *
-   * @var array
-   */
-  protected $modifiers = [];
-
-  /**
-   * The nested value modifiers.
-   *
-   * @var array
-   */
-  protected $modifiersNested = [];
-
-  /**
-   * The value provider instances.
-   *
-   * @var Drupal\neo_alchemist\ComponentValueModifierPluginInterface[]
-   */
-  protected $modifierInstances;
-
-  /**
-   * The value modifier definitions.
-   *
-   * @var array
-   */
-  protected array $modifierDefinitions;
 
   /**
    * The field item list.
