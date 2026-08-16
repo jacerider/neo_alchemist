@@ -87,13 +87,6 @@ class ComponentFilter implements ComponentFilterInterface {
   protected ?string $overrideValue;
 
   /**
-   * The processed value.
-   *
-   * @var string|null
-   */
-  protected ?string $processedValue;
-
-  /**
    * Flag to indicate if the filter is editable.
    *
    * @var bool
@@ -379,13 +372,12 @@ class ComponentFilter implements ComponentFilterInterface {
    * {@inheritdoc}
    */
   public function getProcessedValue(): ?string {
-    if (!isset($this->processedValue)) {
-      $this->processedValue = NULL;
-      if ($this->getPlugin()) {
-        $this->processedValue = $this->getPlugin()->getValue($this->getValue());
-      }
-    }
-    return $this->processedValue;
+    // Computed per call rather than memoised: setDefaultValue(),
+    // setOverrideValue(), setPluginId() and setPluginSettings() all change the
+    // inputs, and a memo none of them cleared could only ever answer with the
+    // value from before the edit. Every shipped plugin's getValue() is either
+    // a pass-through or a single array lookup.
+    return $this->getPlugin()?->getValue($this->getValue());
   }
 
   /**

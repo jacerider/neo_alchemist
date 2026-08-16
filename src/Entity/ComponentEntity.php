@@ -22,7 +22,7 @@ final class ComponentEntity extends ComponentInstanceBase implements ComponentEn
    *
    * @var \Drupal\neo_alchemist\ComponentFieldInterface|null
    */
-  protected ?ComponentFieldInterface $fieldComponent;
+  protected ComponentFieldInterface|false|null $fieldComponent = NULL;
 
   /**
    * {@inheritdoc}
@@ -46,8 +46,14 @@ final class ComponentEntity extends ComponentInstanceBase implements ComponentEn
    * {@inheritdoc}
    */
   public function getFieldComponent(): ?ComponentFieldInterface {
-    if (!isset($this->fieldComponent)) {
-      $this->fieldComponent = NULL;
+    // FALSE means "looked, found nothing" — distinct from NULL, "not looked
+    // yet". A plain nullable could not tell those apart, so every miss re-ran
+    // the lookup, and the lookup is expensive: it clones the host entity's
+    // field list and re-parses the stored tree and props. A miss is the common
+    // case on an allow_custom field, where only components that also appear in
+    // the field's default layout can hit.
+    if ($this->fieldComponent === NULL) {
+      $this->fieldComponent = FALSE;
       $fieldItem = $this->getFieldDefinition()->getFieldItem($this->getTargetEntity());
       $uuid = $this->uuid();
       if ($fieldItem->hasComponent($uuid)) {
@@ -56,7 +62,7 @@ final class ComponentEntity extends ComponentInstanceBase implements ComponentEn
         $this->fieldComponent = $fieldItem->getComponent($uuid);
       }
     }
-    return $this->fieldComponent;
+    return $this->fieldComponent ?: NULL;
   }
 
 }

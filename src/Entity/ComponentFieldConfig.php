@@ -199,6 +199,21 @@ class ComponentFieldConfig extends NeoFieldConfig implements ComponentFieldConfi
   /**
    * {@inheritdoc}
    */
+  public function setSetting($setting_name, $value) {
+    if ($setting_name === 'defaults') {
+      // The customisable-region anchors are read out of these defaults, and
+      // isHybrid() is derived from them in turn. Field-scope saves rewrite the
+      // defaults on the shared, EntityFieldManager-cached definition object
+      // mid-request, so a memo left in place would keep describing the layout
+      // as it was before the save.
+      $this->customRegions = NULL;
+    }
+    return parent::setSetting($setting_name, $value);
+  }
+
+  /**
+   * {@inheritdoc}
+   */
   public function setComponentValuesFromFieldItem(ComponentTreeItem $fieldItem): self {
     $value = $fieldItem->getValue();
     $value['tree'] = Json::decode($value['tree']);
