@@ -551,23 +551,13 @@ final class MediaValue extends ComponentValuePluginBase implements ContainerFact
     }
     $media = NULL;
     foreach (array_filter($this->configuration['default']) as $type => $default) {
-      /** @var \Drupal\neo_config_file\ConfigFileInterface $configFile */
-      $configFile = $this->entityTypeManager->getStorage('neo_config_file')->load($default);
-      if ($configFile) {
-        // Set media to first found value.
-        $file = $configFile->getFile();
-        /** @var \Drupal\media\MediaInterface $media */
-        $media = $this->entityTypeManager->getStorage('media')->create([
-          'bundle' => $type,
-        ]);
-        /** @var \Drupal\Core\Field\FieldDefinitionInterface $field */
-        $field = $media->getSource()->getSourceFieldDefinition($media->bundle->entity);
-        $media->get($field->getName())->setValue($file);
+      // Take the first configured fallback that actually resolves to a file.
+      $media = $this->mediaFromConfigFile($default, $type);
+      if ($media) {
         break;
       }
     }
     if ($media instanceof MediaInterface) {
-      $shape->addCacheableDependency($media);
       if ($mediaValue = $shape->getValueFromMedia($media)) {
         return $mediaValue;
       }
@@ -637,24 +627,49 @@ final class MediaValue extends ComponentValuePluginBase implements ContainerFact
     if (!$mediaType) {
       return [];
     }
+    $media = $this->mediaFromConfigFile($configFileId, $mediaType->id());
+    if (!$media) {
+      return [];
+    }
+    return $shape->getValueFromMedia($media);
+  }
+
+  /**
+   * Builds an unsaved media entity wrapping a config file's file.
+   *
+   * The fallback media never exists in storage: it is assembled so the shape
+   * can read a value out of it. Cacheability therefore has to hang off the
+   * config file, which is the thing an editor can actually change — an unsaved
+   * entity carries no usable cache tags, so depending on it would leave render
+   * caches holding a replaced fallback image.
+   *
+   * @param string $configFileId
+   *   The neo_config_file ID holding the fallback.
+   * @param string $bundle
+   *   The media bundle to build.
+   *
+   * @return \Drupal\media\MediaInterface|null
+   *   The unsaved media entity, or NULL if the config file or its file is gone.
+   */
+  private function mediaFromConfigFile(string $configFileId, string $bundle): ?MediaInterface {
     /** @var \Drupal\neo_config_file\ConfigFileInterface|null $configFile */
     $configFile = $this->entityTypeManager->getStorage('neo_config_file')->load($configFileId);
     if (!$configFile) {
-      return [];
+      return NULL;
     }
     $file = $configFile->getFile();
     if (!$file) {
-      return [];
+      return NULL;
     }
     /** @var \Drupal\media\MediaInterface $media */
     $media = $this->entityTypeManager->getStorage('media')->create([
-      'bundle' => $mediaType->id(),
+      'bundle' => $bundle,
     ]);
     /** @var \Drupal\Core\Field\FieldDefinitionInterface $field */
     $field = $media->getSource()->getSourceFieldDefinition($media->bundle->entity);
     $media->get($field->getName())->setValue($file);
-    $shape->addCacheableDependency($configFile);
-    return $shape->getValueFromMedia($media);
+    $this->shape->addCacheableDependency($configFile);
+    return $media;
   }
 
   /**
