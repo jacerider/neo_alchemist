@@ -32,7 +32,7 @@ class BooleanShape extends ComponentShapePluginBase {
    * {@inheritDoc}
    */
   protected function buildValue(): mixed {
-    return (bool) parent::buildValue();
+    return $this->castScalar(parent::buildValue());
   }
 
   /**
@@ -41,9 +41,26 @@ class BooleanShape extends ComponentShapePluginBase {
   public function massageFormValues(array $values, array $original_values, array $form, FormStateInterface $form_state): ?array {
     $values = parent::massageFormValues($values, $original_values, $form, $form_state);
     if (isset($values['value'])) {
-      $values['value'] = (bool) $values['value'];
+      $values['value'] = $this->castScalar($values['value']);
     }
     return $values;
+  }
+
+  /**
+   * Casts a value to the PHP type this shape stores.
+   *
+   * The single home for the cast: the render path and the form-save path both
+   * go through here, so they cannot drift into disagreeing about what a boolean
+   * prop holds.
+   *
+   * @param mixed $value
+   *   The value to cast.
+   *
+   * @return bool
+   *   The value as a bool.
+   */
+  protected function castScalar(mixed $value): bool {
+    return (bool) $value;
   }
 
   /**

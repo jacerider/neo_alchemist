@@ -26,7 +26,7 @@ class NumberShape extends ComponentShapePluginBase {
    * {@inheritDoc}
    */
   protected function buildValue(): mixed {
-    return (float) parent::buildValue();
+    return $this->castScalar(parent::buildValue());
   }
 
   /**
@@ -35,9 +35,26 @@ class NumberShape extends ComponentShapePluginBase {
   public function massageFormValues(array $values, array $original_values, array $form, FormStateInterface $form_state): ?array {
     $values = parent::massageFormValues($values, $original_values, $form, $form_state);
     if (isset($values['value'])) {
-      $values['value'] = (int) $values['value'];
+      $values['value'] = $this->castScalar($values['value']);
     }
     return $values;
+  }
+
+  /**
+   * Casts a value to the PHP type this shape stores.
+   *
+   * The single home for the cast: the render path and the form-save path both
+   * go through here, so they cannot drift into disagreeing about what a number
+   * prop holds.
+   *
+   * @param mixed $value
+   *   The value to cast.
+   *
+   * @return float
+   *   The value as a float.
+   */
+  protected function castScalar(mixed $value): float {
+    return (float) $value;
   }
 
   /**
