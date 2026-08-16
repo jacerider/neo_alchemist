@@ -3,6 +3,9 @@ components.parent:
   neo: true
   js:
     src/js/components-parent.ts: {}
+  css:
+    component:
+      src/css/components-parent.css: {}
   dependencies:
     - core/drupalSettings
     - neo_loader/loader
@@ -24,7 +27,7 @@ component.parent:
     src/js/component-parent.ts: {}
   css:
     component:
-      src/css/components-parent.css: {}
+      src/css/component-parent.css: {}
   dependencies:
     - core/drupal
     - core/once
