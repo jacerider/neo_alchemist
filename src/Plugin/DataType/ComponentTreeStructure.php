@@ -92,6 +92,18 @@ class ComponentTreeStructure extends TypedData {
   protected ?array $graph = NULL;
 
   /**
+   * Placement of every component instance, keyed by UUID.
+   *
+   * Each entry holds the component ID plus where the instance sits:
+   * ['component' => id, 'parent' => ?uuid, 'slot' => ?slot], with parent and
+   * slot NULL for root-level instances. Built in a single pass and dropped
+   * alongside the graph whenever the value changes.
+   *
+   * @var null|array
+   */
+  protected ?array $index = NULL;
+
+  /**
    * {@inheritdoc}
    */
   public function getValue() {
@@ -115,8 +127,9 @@ class ComponentTreeStructure extends TypedData {
     $this->value = $value;
     $this->tree = Json::decode($value);
 
-    // Keep the graph representation in sync: force it to be recomputed.
+    // Keep the derived representations in sync: force them to be recomputed.
     $this->graph = NULL;
+    $this->index = NULL;
 
     // Notify the parent of any changes.
     if ($notify && isset($this->parent)) {
@@ -307,12 +320,59 @@ class ComponentTreeStructure extends TypedData {
    * @see \Drupal\experience_builder\Entity\Component
    */
   public function getComponentId(string $uuid): ?string {
-    if (!in_array($uuid, $this->getComponentInstanceUuids(), TRUE)) {
-      return NULL;
+    return $this->getIndex()[$uuid]['component'] ?? NULL;
+  }
+
+  /**
+   * Builds the UUID-to-placement index, once per value.
+   *
+   * Each of getComponentId(), getComponentParentUuid() and getComponentSlot()
+   * used to guard with a full scan for the UUID and then walk the tree again
+   * to answer, so instantiating one component instance walked the whole tree
+   * six times — and the parent and slot walks were duplicates of each other
+   * that could in principle disagree. One pass answers all three, and parent
+   * and slot come from the same record.
+   *
+   * Where a UUID appears more than once the first placement in traversal order
+   * wins, matching what the sequential scans returned.
+   *
+   * @return array
+   *   Placement records keyed by component instance UUID.
+   *
+   * @throws \UnexpectedValueException
+   *   Thrown when a slot's items are not an array, as the section readers do.
+   */
+  private function getIndex(): array {
+    if ($this->index !== NULL) {
+      return $this->index;
     }
-    $components = $this->getComponents();
-    $index = array_search($uuid, array_column($components, 'uuid'));
-    return $components[$index]['component'];
+    $this->index = [];
+    foreach ($this->tree as $sectionUuid => $sectionValue) {
+      if ($sectionUuid === self::ROOT_UUID) {
+        foreach ($sectionValue ?? [] as $component) {
+          $this->index[$component['uuid']] ??= [
+            'component' => $component['component'] ?? NULL,
+            'parent' => NULL,
+            'slot' => NULL,
+          ];
+        }
+        continue;
+      }
+      foreach ($sectionValue as $slot => $items) {
+        if (!is_array($items)) {
+          // @see self::getComponentsBySection()
+          throw new \UnexpectedValueException(sprintf('Expected an array of items expect in %s, but got %s.', $slot, gettype($items)));
+        }
+        foreach ($items as $component) {
+          $this->index[$component['uuid']] ??= [
+            'component' => $component['component'] ?? NULL,
+            'parent' => $sectionUuid,
+            'slot' => $slot,
+          ];
+        }
+      }
+    }
+    return $this->index;
   }
 
   /**
@@ -325,25 +385,7 @@ class ComponentTreeStructure extends TypedData {
    *   The parent UUID, or NULL if the component is not found or is the root.
    */
   public function getComponentParentUuid(string $uuid): ?string {
-    if (!in_array($uuid, $this->getComponentInstanceUuids(), TRUE)) {
-      return NULL;
-    }
-    if ($uuid === self::ROOT_UUID) {
-      return NULL;
-    }
-    foreach ($this->tree as $parent_uuid => $sub_tree_value) {
-      foreach ($sub_tree_value as $slot => $items) {
-        if ($parent_uuid === self::ROOT_UUID) {
-          continue;
-        }
-        foreach ($items as $component) {
-          if ($component['uuid'] === $uuid) {
-            return $parent_uuid;
-          }
-        }
-      }
-    }
-    return NULL;
+    return $this->getIndex()[$uuid]['parent'] ?? NULL;
   }
 
   /**
@@ -356,25 +398,7 @@ class ComponentTreeStructure extends TypedData {
    *   The slot name, or NULL if the component is not found or is the root.
    */
   public function getComponentSlot(string $uuid): ?string {
-    if (!in_array($uuid, $this->getComponentInstanceUuids(), TRUE)) {
-      return NULL;
-    }
-    if ($uuid === self::ROOT_UUID) {
-      return NULL;
-    }
-    foreach ($this->tree as $parent_uuid => $sub_tree_value) {
-      foreach ($sub_tree_value as $slot => $items) {
-        if ($parent_uuid === self::ROOT_UUID) {
-          continue;
-        }
-        foreach ($items as $component) {
-          if ($component['uuid'] === $uuid) {
-            return $slot;
-          }
-        }
-      }
-    }
-    return NULL;
+    return $this->getIndex()[$uuid]['slot'] ?? NULL;
   }
 
   /**
