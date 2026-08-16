@@ -34,13 +34,13 @@ class Media extends MediaShapeBase {
 
   /**
    * {@inheritDoc}
+   *
+   * The authored datum is the referenced media entity, not a resolved src: a
+   * value can carry a src derived from the entity, so treating src as content
+   * here would report a value with no entity behind it as authored.
    */
-  protected function isFieldItemEmpty(): bool {
-    $value = $this->fieldItem->getValue();
-    if (!empty($value['entity_id'])) {
-      return FALSE;
-    }
-    return parent::isFieldItemEmpty();
+  protected function getMediaValueContentKeys(): array {
+    return ['entity_id'];
   }
 
   /**

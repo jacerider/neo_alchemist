@@ -51,19 +51,6 @@ class ImageShape extends MediaShapeBase {
   /**
    * {@inheritDoc}
    */
-  protected function isFieldItemEmpty(): bool {
-    $value = $this->fieldItem->getValue();
-    // Since this shape provides non-standard default values, we do not consider
-    // the field as empty if it has an src value.
-    if (!empty($value['src'])) {
-      return FALSE;
-    }
-    return parent::isFieldItemEmpty();
-  }
-
-  /**
-   * {@inheritDoc}
-   */
   public function getValueFromMedia(MediaInterface $media): array {
     $file = $this->getFileFromMedia($media);
     if ($file instanceof FileInterface) {

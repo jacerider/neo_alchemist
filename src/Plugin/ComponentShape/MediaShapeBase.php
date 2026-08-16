@@ -219,4 +219,32 @@ abstract class MediaShapeBase extends ObjectShape implements ComponentShapeMedia
     $values += $override_values;
   }
 
+  /**
+   * Value keys that mean this shape's field item holds authored content.
+   *
+   * Media shapes provide non-standard default values, so the field item can
+   * carry a resolved value while the underlying field reports itself empty.
+   * A shape declares which key carries the authored datum; anything else falls
+   * through to the field's own emptiness check.
+   *
+   * @return string[]
+   *   The value keys to treat as content.
+   */
+  protected function getMediaValueContentKeys(): array {
+    return ['src'];
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  protected function isFieldItemEmpty(): bool {
+    $value = $this->fieldItem->getValue();
+    foreach ($this->getMediaValueContentKeys() as $key) {
+      if (!empty($value[$key])) {
+        return FALSE;
+      }
+    }
+    return parent::isFieldItemEmpty();
+  }
+
 }
