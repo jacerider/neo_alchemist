@@ -494,7 +494,7 @@ trait ComponentValueChildrenMatchTrait {
           // Not currently supported.
           $parts = explode('~', $field);
           $entityKey = $parts[1];
-          $referenceEntity = $this->matcherReference->getReferenceEntityByEntityType($entityTypeId, $entityKey, TRUE);
+          $referenceEntity = $this->matcherReference->getReferenceEntityByEntityType($entityTypeId, $entityKey);
           if ($referenceEntity) {
             $form = $this->buildChildrenMatchConfigurationForm($shape, $form, $form_state, $referenceEntity->getEntityTypeId(), $referenceEntity->bundle(), $configuration);
           }

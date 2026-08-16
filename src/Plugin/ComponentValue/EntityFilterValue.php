@@ -161,7 +161,7 @@ final class EntityFilterValue extends ComponentValuePluginBase implements Contai
             ],
           ];
           if ($entityKey) {
-            $entity = $this->matcherReference->getReferenceEntityByEntityType($entityTypeId, $entityKey, TRUE);
+            $entity = $this->matcherReference->getReferenceEntityByEntityType($entityTypeId, $entityKey);
             $entityTypeId = $entity->getEntityTypeId();
             $bundle = $entity->bundle();
           }

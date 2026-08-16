@@ -159,21 +159,7 @@ final class MatcherReference extends MatcherBase {
    *   The reference entity, if found.
    */
   public function getReferenceEntityByEntityType(string $entityTypeId, string $key): ?EntityInterface {
-    $references = $this->getReferences($entityTypeId);
-    if (isset($references[$key])) {
-      $reference = $references[$key];
-      $entityTypeId = $reference['definition']->getSetting('target_type');
-
-      $entityType = $this->entityTypeManager->getDefinition($entityTypeId);
-      $data = [];
-      if ($bundleKey = $entityType->getKey('bundle')) {
-        $bundles = ($reference['definition']->getSetting('handler_settings')['target_bundles'] ?? NULL) ?: [$entityTypeId];
-        $bundle = reset($bundles);
-        $data[$bundleKey] = $bundle;
-      }
-      return $this->entityTypeManager->getStorage($entityTypeId)->create($data);
-    }
-    return NULL;
+    return $this->buildPlaceholderEntity($entityTypeId, $key);
   }
 
   /**
@@ -183,27 +169,24 @@ final class MatcherReference extends MatcherBase {
    *   The content entity.
    * @param string $key
    *   The key.
-   * @param bool $force
-   *   Whether to force the return of a new entity if an existing entity is not
-   *   found.
+   * @param bool $placeholder
+   *   Ask for a prototypical entity of the target type instead of the real
+   *   reference. Form-building callers pass TRUE because they only need the
+   *   target's entity type and bundle, which no stored value can supply while
+   *   the host entity is still unsaved.
    * @param \Drupal\Core\Cache\CacheableMetadata|null $cacheableMetadata
    *   The cacheable metadata to attach to the reference entity.
    *
    * @return \Drupal\Core\Entity\EntityInterface|null
    *   The reference entity, if found.
    */
-  public function getReferenceEntity(ContentEntityInterface $entity, string $key, bool $force = FALSE, ?CacheableMetadata $cacheableMetadata = NULL): ?EntityInterface {
-    if ($entity->isNew() || $force) {
-      return $this->getReferencePlaceholderEntity($entity, $key);
+  public function getReferenceEntity(ContentEntityInterface $entity, string $key, bool $placeholder = FALSE, ?CacheableMetadata $cacheableMetadata = NULL): ?EntityInterface {
+    if ($entity->isNew() || $placeholder) {
+      return $this->buildPlaceholderEntity($entity->getEntityTypeId(), $key);
     }
-    else {
-      $field = $this->getReferenceField($entity, $key, $cacheableMetadata);
-      if (!$field && $force) {
-        return $this->getReferencePlaceholderEntity($entity, $key);
-      }
-      return $field->entity;
-    }
-    return NULL;
+    // An empty, missing or dangling reference yields no field, and the target
+    // may itself be gone; either way there is no entity to return.
+    return $this->getReferenceField($entity, $key, $cacheableMetadata)?->entity;
   }
 
   /**
@@ -269,18 +252,22 @@ final class MatcherReference extends MatcherBase {
   }
 
   /**
-   * Get a reference placeholder entity for a given key.
+   * Builds an unsaved entity of a reference's target type and bundle.
    *
-   * @param \Drupal\Core\Entity\ContentEntityInterface $entity
-   *   The content entity.
+   * Callers use this at form-build time to learn what a reference points at
+   * when no stored value can tell them — the host entity is new, or they are
+   * describing the target rather than reading it. The entity is never saved.
+   *
+   * @param string $entityTypeId
+   *   The entity type ID that declares the reference.
    * @param string $key
-   *   The key.
+   *   The reference key.
    *
-   * @return \Drupal\Core\Entity\ContentEntityInterface|null
-   *   The reference placeholder entity, if found.
+   * @return \Drupal\Core\Entity\EntityInterface|null
+   *   An unsaved entity of the target type, or NULL if the key is unknown.
    */
-  private function getReferencePlaceholderEntity(ContentEntityInterface $entity, string $key) {
-    $references = $this->getReferences($entity->getEntityTypeId());
+  private function buildPlaceholderEntity(string $entityTypeId, string $key): ?EntityInterface {
+    $references = $this->getReferences($entityTypeId);
     if (isset($references[$key])) {
       $reference = $references[$key];
       $entityTypeId = $reference['definition']->getSetting('target_type');
