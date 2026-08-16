@@ -294,18 +294,75 @@ class ComponentTreeStructure extends TypedData {
    *   The UUID of the component to be removed.
    */
   public function removeComponent(string $uuid) {
+    // Removing a component removes everything underneath it. Dropping only its
+    // own section leaves each descendant's section in place but unreachable —
+    // a dangling subtree, which the structure validator rejects and the
+    // hydrated tree silently discards at render.
+    $removed = $this->getSubtreeUuidSet($uuid);
     foreach ($this->tree as $sub_tree_uuid => &$sub_tree_value) {
       if ($sub_tree_uuid === self::ROOT_UUID) {
-        $sub_tree_value = array_filter($sub_tree_value ?? [], fn($v) => $v['uuid'] !== $uuid);
+        $sub_tree_value = array_values(array_filter($sub_tree_value ?? [], fn($v) => !isset($removed[$v['uuid']])));
         continue;
       }
       foreach ($sub_tree_value as $slot => $items) {
         assert(is_array($items));
-        $sub_tree_value[$slot] = array_filter($items, fn($v) => $v['uuid'] !== $uuid);
+        // array_values() keeps each slot a JSON list: array_filter() preserves
+        // keys, so dropping any item but the last would otherwise re-encode
+        // the slot as an object.
+        $sub_tree_value[$slot] = array_values(array_filter($items, fn($v) => !isset($removed[$v['uuid']])));
       }
     }
-    unset($this->tree[$uuid]);
+    unset($sub_tree_value);
+    foreach (array_keys($removed) as $removedUuid) {
+      unset($this->tree[$removedUuid]);
+    }
     $this->setValue(Json::encode($this->tree));
+  }
+
+  /**
+   * Lists a component instance and every descendant beneath it.
+   *
+   * @param string $uuid
+   *   The UUID of the component instance at the top of the subtree.
+   *
+   * @return string[]
+   *   The UUID passed in, followed by the UUIDs of all its descendants.
+   */
+  public function getSubtreeUuids(string $uuid): array {
+    return array_keys($this->getSubtreeUuidSet($uuid));
+  }
+
+  /**
+   * Collects a subtree's UUIDs as a set, for O(1) membership tests.
+   *
+   * Walks sections breadth-first. A UUID already seen is never queued again,
+   * so a tree that somehow contains a cycle terminates instead of hanging.
+   *
+   * @param string $uuid
+   *   The UUID of the component instance at the top of the subtree.
+   *
+   * @return array
+   *   TRUE values keyed by UUID, starting with the UUID passed in.
+   */
+  private function getSubtreeUuidSet(string $uuid): array {
+    $found = [$uuid => TRUE];
+    $queue = [$uuid];
+    while ($queue) {
+      $current = array_shift($queue);
+      foreach ($this->tree[$current] ?? [] as $items) {
+        if (!is_array($items)) {
+          continue;
+        }
+        foreach ($items as $component) {
+          $child = $component['uuid'] ?? NULL;
+          if ($child !== NULL && !isset($found[$child])) {
+            $found[$child] = TRUE;
+            $queue[] = $child;
+          }
+        }
+      }
+    }
+    return $found;
   }
 
   /**

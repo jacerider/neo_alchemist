@@ -753,13 +753,13 @@ class ComponentTreeItem extends FieldItemBase implements RenderableInterface, Co
     assert($tree instanceof ComponentTreeStructure);
     $props = $this->get('props');
     assert($props instanceof ComponentPropsValues);
-    // Get any nested components.
-    $components = $tree->getComponentsBySection($uuid);
+    // Collect the whole subtree before the tree drops it: props are keyed by
+    // instance UUID with no parent links, so once the sections are gone there
+    // is nothing left to work out which prop values belonged underneath.
+    $removed = $tree->getSubtreeUuids($uuid);
     $tree->removeComponent($uuid);
-    $props->removeComponent($uuid);
-    // Clean up any nested component props.
-    foreach ($components as $data) {
-      $props->removeComponent($data['uuid']);
+    foreach ($removed as $removedUuid) {
+      $props->removeComponent($removedUuid);
     }
     return $this;
   }
