@@ -43,7 +43,7 @@ final class ViewsSlot extends ComponentSlotPluginBase implements TrustedCallback
   public function settingsSummary(): array {
     $summary = parent::settingsSummary();
     $summary[] = $this->t('View: %view', ['%view' => $this->configuration['view_id']]);
-    $summary[] = $this->t('View display: %view_display_id', ['%view' => $this->configuration['view_display_id']]);
+    $summary[] = $this->t('View display: %view_display_id', ['%view_display_id' => $this->configuration['view_display_id']]);
     if ($this->configuration['view_items_per_page']) {
       $summary[] = $this->t('Items per page: %items_per_page', ['%items_per_page' => $this->configuration['view_items_per_page']]);
     }
@@ -52,8 +52,12 @@ final class ViewsSlot extends ComponentSlotPluginBase implements TrustedCallback
     }
     if ($this->configuration['view_arguments']) {
       $args = [];
-      foreach ($this->configuration['view_arguments'] as $id => $filter) {
-        $args[] = $this->component->getFilter($filter)->label();
+      foreach ($this->configuration['view_arguments'] as $filter) {
+        // A filter referenced here can have been deleted since; toRenderable()
+        // already guards the same lookup.
+        if ($filterEntity = $this->component->getFilter($filter)) {
+          $args[] = $filterEntity->label();
+        }
       }
       if ($args) {
         $summary[] = $this->t('Arguments: %args', ['%args' => implode(', ', $args)]);
@@ -124,7 +128,9 @@ final class ViewsSlot extends ComponentSlotPluginBase implements TrustedCallback
         '#type' => 'number',
         '#title' => $this->t('Offset items'),
         '#default_value' => $this->configuration['view_items_offset'] ?? NULL,
-        '#min' => 1,
+        // An offset of 0 is meaningful — it is "start at the beginning" — and
+        // is what the equivalent control on the views value plugin allows.
+        '#min' => 0,
       ];
 
       if ($viewDisplayId) {
