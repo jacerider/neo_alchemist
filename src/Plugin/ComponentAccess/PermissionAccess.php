@@ -5,17 +5,14 @@ declare(strict_types=1);
 namespace Drupal\neo_alchemist\Plugin\ComponentAccess;
 
 use Drupal\Core\Access\AccessResult;
-use Drupal\Core\Access\AccessResultInterface;
 use Drupal\Core\DependencyInjection\DependencySerializationTrait;
 use Drupal\Core\Extension\ModuleExtensionList;
-use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Plugin\ContainerFactoryPluginInterface;
 use Drupal\Core\Session\AccountInterface;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\neo_alchemist\Attribute\ComponentAccess;
 use Drupal\neo_alchemist\ComponentAccessInterface;
-use Drupal\neo_alchemist\ComponentAccessPluginBase;
-use Drupal\neo_icon\IconTrait;
+use Drupal\neo_alchemist\ComponentAccessOpsMatchPluginBase;
 use Drupal\user\PermissionHandlerInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
@@ -27,10 +24,9 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
   label: new TranslatableMarkup('Permission'),
   description: new TranslatableMarkup('Check if the user has specific permission(s).'),
 )]
-final class PermissionAccess extends ComponentAccessPluginBase implements ContainerFactoryPluginInterface {
+final class PermissionAccess extends ComponentAccessOpsMatchPluginBase implements ContainerFactoryPluginInterface {
 
   use DependencySerializationTrait;
-  use IconTrait;
 
   /**
    * The permission handler.
@@ -79,87 +75,56 @@ final class PermissionAccess extends ComponentAccessPluginBase implements Contai
   /**
    * {@inheritdoc}
    */
-  public function defaultConfiguration() {
+  protected function getValueKey(): string {
+    return 'permissions';
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  protected function getValueLabel(): string {
+    return 'Permissions';
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  protected function buildSelectionElement(array $default): array {
     return [
-      'ops' => [],
+      '#type' => 'select',
+      '#title' => $this->t('Permissions'),
+      '#options' => $this->getPermissionsAsOptions(),
+      '#default_value' => $default,
+      '#multiple' => TRUE,
     ];
   }
 
   /**
    * {@inheritdoc}
    */
-  public function settingsSummary(): array {
-    $summary = parent::settingsSummary();
-
-    // $roles = $this->getRoles();
-    foreach (ComponentAccessInterface::OPS as $op => $info) {
-      $config = $this->configuration['ops'][$op] ?? [];
-      if ($config) {
-        $summary[] = strtoupper($info['label']);
-        $summary[] = '- ' . $this->t('Permissions: @permissions', [
-          '@permissions' => '[' . implode('], [', $config['permissions']) . ']',
-        ]);
-        $summary[] = '- ' . $this->t('Match: @match', [
-          '@match' => $config['match'] === 'any' ? $this->t('Any') : $this->t('All'),
-        ]);
-      }
-    }
-
-    return $summary;
+  protected function summarizeSelection(array $selected): string {
+    return '[' . implode('], [', $selected) . ']';
   }
 
   /**
-   * Configuration form for the value provider plugin.
+   * {@inheritdoc}
    */
-  protected function configurationForm(array $form, FormStateInterface $form_state, array &$complete_form): array {
-    $permissionOptions = $this->getPermissionsAsOptions();
-
-    $form['ops'] = [
-      '#type' => 'container',
-    ];
-    foreach (ComponentAccessInterface::OPS as $op => $info) {
-      $row = [
-        '#type' => 'details',
-        '#title' => $this->adminIcon($info['label']),
-        '#description' => $info['description'],
-        '#description_display' => 'before',
-        '#open' => !empty($this->configuration['ops'][$op]),
-      ];
-      $row['permissions'] = [
-        '#type' => 'select',
-        '#title' => $this->t('Permissions'),
-        '#options' => $permissionOptions,
-        '#default_value' => $this->configuration['ops'][$op]['permissions'] ?? [],
-        '#multiple' => TRUE,
-      ];
-      $row['match'] = [
-        '#type' => 'radios',
-        '#title' => $this->t('Match'),
-        '#options' => [
-          'any' => $this->t('Has any of the selected roles'),
-          'all' => $this->t('Has all of the selected roles'),
-        ],
-        '#default_value' => $this->configuration['ops'][$op]['match'] ?? 'any',
-        '#required' => TRUE,
-      ];
-      $form['ops'][$op] = $row;
-    }
-    return $form;
+  protected function accountMatches(AccountInterface $account, array $selected, string $match): bool {
+    return AccessResult::allowedIfHasPermissions($account, $selected, $match === 'any' ? 'OR' : 'AND')->isAllowed();
   }
 
   /**
-   * Form validation for the value provider plugin configuration.
+   * {@inheritdoc}
    */
-  protected function configurationValidate(array $form, FormStateInterface $form_state): void {
-    foreach (ComponentAccessInterface::OPS as $op => $info) {
-      $permissions = array_filter($form_state->getValue(['ops', $op, 'permissions'], []));
-      if ($permissions) {
-        $form_state->setValue(['ops', $op, 'permissions'], $permissions);
-      }
-      else {
-        $form_state->unsetValue(['ops', $op]);
-      }
-    }
+  protected function getForbiddenReason(): string {
+    return 'You do not have the required permissions to access this content.';
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  protected function getAccessCacheContexts(): array {
+    return ['user.permissions'];
   }
 
   /**
@@ -177,18 +142,6 @@ final class PermissionAccess extends ComponentAccessPluginBase implements Contai
       $perms[$display_name][$perm] = strip_tags((string) $perm_item['title']);
     }
     return $perms;
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function access(string $op, AccountInterface $account): AccessResultInterface {
-    if (!empty($this->configuration['ops'][$op])) {
-      $config = $this->configuration['ops'][$op];
-      $access = AccessResult::allowedIfHasPermissions($account, $config['permissions'], $config['match'] === 'any' ? 'OR' : 'AND');
-      return AccessResult::forbiddenIf(!$access->isAllowed())->cachePerPermissions();
-    }
-    return AccessResult::neutral();
   }
 
 }
