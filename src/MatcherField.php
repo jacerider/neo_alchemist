@@ -438,6 +438,30 @@ final class MatcherField extends MatcherBase {
    *   The definition, or NULL when neither an override nor the shape names an
    *   entity type.
    */
+  public function resolveTarget(ComponentShapePluginInterface $shape, ?string $entityTypeId = NULL, ?string $entityBundle = NULL): ?EntityDataDefinitionInterface {
+    return $this->rootDefinition($shape, $entityTypeId, $entityBundle);
+  }
+
+  /**
+   * Resolves the entity type and bundle a match runs against.
+   *
+   * An entity type override takes its bundle from the override too, a NULL
+   * there meaning "every bundle"; a bundle passed without an entity type is
+   * ignored. Callers that need to key something off the outcome — a cache id,
+   * say — must derive it from here rather than replay the decision, or the two
+   * drift and answers get filed under the wrong key.
+   *
+   * @param \Drupal\neo_alchemist\ComponentShapePluginInterface $shape
+   *   The shape being matched.
+   * @param string|null $entityTypeId
+   *   (optional) The entity type to match against. Defaults to NULL.
+   * @param string|null $entityBundle
+   *   (optional) The entity bundle to match against. Defaults to NULL.
+   *
+   * @return \Drupal\Core\Entity\TypedData\EntityDataDefinitionInterface|null
+   *   The definition, or NULL when neither an override nor the shape names an
+   *   entity type.
+   */
   private function rootDefinition(ComponentShapePluginInterface $shape, ?string $entityTypeId = NULL, ?string $entityBundle = NULL): ?EntityDataDefinitionInterface {
     if ($entityTypeId) {
       $entityType = $this->entityTypeManager->getDefinition($entityTypeId);

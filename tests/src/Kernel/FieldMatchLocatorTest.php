@@ -345,10 +345,13 @@ class FieldMatchLocatorTest extends FieldMatchKernelTestBase {
     $shape = $this->titleShape();
     $this->locator()->getMatches($shape);
 
+    // The target segment is the matcher's own resolution of entity type and
+    // bundle, so entries are filed under what the match actually ran against
+    // rather than under a second, drift-prone reading of the overrides.
+    $target = $this->container->get('neo_alchemist.matcher_field')->resolveTarget($shape);
     $cid = implode(':', [
       'neo_alchemist.field_match',
-      $shape->getTargetEntityType() ?? '',
-      $shape->getTargetEntityBundle() ?? '',
+      $target?->getDataType() ?? '',
       $shape->getRef(),
       $shape->getFormat(),
       $shape->isRequired() ? '1' : '0',

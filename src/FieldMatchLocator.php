@@ -136,12 +136,12 @@ final class FieldMatchLocator {
   /**
    * The cache id for a shape's match list.
    *
-   * Has to mirror MatcherField::getMatches()'s own resolution, which treats
-   * the pair as one decision: an entity type override takes its bundle from
-   * the override too, a NULL there meaning "every bundle". Letting the bundle
-   * fall back to the shape's own target independently makes (node, every
-   * bundle) and (node, the shape's bundle) share one entry, and whichever
-   * picker warms the cache first decides what the other one offers.
+   * The target segment is asked of the matcher rather than recomputed here.
+   * The override contract is subtle — an entity type override takes its bundle
+   * from the override too, and a bundle passed without an entity type is
+   * ignored — and a second copy of that reasoning drifted from the first:
+   * entries were filed under a target the match would never actually use, so
+   * whichever picker warmed the cache first decided what the other one offered.
    *
    * @param \Drupal\neo_alchemist\ComponentShapePluginInterface $shape
    *   The shape to match against.
@@ -158,8 +158,7 @@ final class FieldMatchLocator {
   private function cid(ComponentShapePluginInterface $shape, bool $all, ?string $entityTypeId, ?string $bundle): string {
     return implode(':', [
       'neo_alchemist.field_match',
-      $entityTypeId ?? $shape->getTargetEntityType() ?? '',
-      $entityTypeId !== NULL ? ($bundle ?? '') : ($bundle ?? $shape->getTargetEntityBundle() ?? ''),
+      $this->matcherField->resolveTarget($shape, $entityTypeId, $bundle)?->getDataType() ?? '',
       $shape->getRef(),
       $shape->getFormat(),
       $shape->isRequired() ? '1' : '0',
