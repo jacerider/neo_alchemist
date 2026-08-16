@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\neo_alchemist_taxonomy;
 
+use Drupal\Core\Cache\RefinableCacheableDependencyInterface;
 use Drupal\Core\Entity\EntityFieldManagerInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\neo_alchemist\ComponentFieldConfigInterface;
@@ -93,23 +94,8 @@ final class TermLevelResolver {
     if ($tid && isset($this->levels[$tid])) {
       return $this->levels[$tid];
     }
-    $storage = $this->entityTypeManager->getStorage('taxonomy_term');
-    $level = 1;
-    $visited = [$tid => TRUE];
-    $current = $term;
-    while ($level < self::MAX_LEVEL) {
-      $parentId = (int) ($current->get('parent')->target_id ?? 0);
-      if (!$parentId || isset($visited[$parentId])) {
-        break;
-      }
-      $parent = $storage->load($parentId);
-      if (!$parent instanceof TermInterface) {
-        break;
-      }
-      $visited[$parentId] = TRUE;
-      $level++;
-      $current = $parent;
-    }
+    // Depth is how far the ancestry reaches: a root term is its own ancestry.
+    $level = count($this->getAncestry($term));
     if ($tid) {
       $this->levels[$tid] = $level;
     }
@@ -187,6 +173,78 @@ final class TermLevelResolver {
       }
     }
     return $match;
+  }
+
+  /**
+   * The level-managed fields that do NOT apply to a term.
+   *
+   * Four hooks all want the same thing — every managed field except the one
+   * matching this term's level — and each derived it from getManagedFields()
+   * and getMatchingFieldName() itself.
+   *
+   * @param \Drupal\taxonomy\TermInterface $term
+   *   The term.
+   *
+   * @return string[]
+   *   Field names to hide, empty when the vocabulary manages no levels.
+   */
+  public function getHiddenFieldNames(TermInterface $term): array {
+    $managed = $this->getManagedFields($term->bundle());
+    if (!$managed) {
+      return [];
+    }
+    $match = $this->getMatchingFieldName($term);
+    return array_values(array_filter(
+      array_keys($managed),
+      static fn (string $fieldName): bool => $fieldName !== $match,
+    ));
+  }
+
+  /**
+   * Applies the cacheability of a level decision.
+   *
+   * Which field matches depends on the term and on its ancestry, and an
+   * ancestor can be re-parented without this term ever being saved — so the
+   * vocabulary's term list has to invalidate the answer too. Callers that
+   * dropped one of the two produced results that outlived their input.
+   *
+   * @param \Drupal\Core\Cache\RefinableCacheableDependencyInterface $target
+   *   The thing to make dependent on the decision.
+   * @param \Drupal\taxonomy\TermInterface $term
+   *   The term the decision was made for.
+   */
+  public function applyLevelCacheability(RefinableCacheableDependencyInterface $target, TermInterface $term): void {
+    $target->addCacheableDependency($term);
+    $target->addCacheTags(['taxonomy_term_list:' . $term->bundle()]);
+  }
+
+  /**
+   * A term and its ancestors, following the first parent.
+   *
+   * The first parent only, so the walk is deterministic in poly-hierarchies
+   * and independent of term access. Cycle-safe, and capped like the level
+   * computation it backs.
+   *
+   * @param \Drupal\taxonomy\TermInterface $term
+   *   The term to walk up from.
+   *
+   * @return int[]
+   *   Term IDs, the given term first, then each ancestor in turn.
+   */
+  public function getAncestry(TermInterface $term): array {
+    $storage = $this->entityTypeManager->getStorage('taxonomy_term');
+    $tids = [];
+    $current = $term;
+    while ($current instanceof TermInterface && count($tids) < self::MAX_LEVEL) {
+      $tid = (int) $current->id();
+      if (isset($tids[$tid])) {
+        break;
+      }
+      $tids[$tid] = TRUE;
+      $parentId = (int) ($current->get('parent')->target_id ?? 0);
+      $current = $parentId ? $storage->load($parentId) : NULL;
+    }
+    return array_keys($tids);
   }
 
 }

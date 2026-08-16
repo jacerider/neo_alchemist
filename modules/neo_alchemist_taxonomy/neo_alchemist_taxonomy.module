@@ -79,19 +79,14 @@ function neo_alchemist_taxonomy_entity_field_access($operation, FieldDefinitionI
     return AccessResult::neutral();
   }
   $resolver = neo_alchemist_taxonomy_resolver();
-  $managed = $resolver->getManagedFields($term->bundle());
   $fieldName = $field_definition->getName();
-  if (!isset($managed[$fieldName])) {
+  if (!isset($resolver->getManagedFields($term->bundle())[$fieldName])) {
     return AccessResult::neutral();
   }
-  // Which field matches is level-dependent, so both outcomes must vary on the
-  // term and on the vocabulary's term hierarchy (an ancestor can be
-  // re-parented without this term being saved).
-  $result = $fieldName === $resolver->getMatchingFieldName($term)
-    ? AccessResult::neutral()
-    : AccessResult::forbidden('The component tree does not match the term hierarchy level.');
-  $result->addCacheableDependency($term);
-  $result->addCacheTags(['taxonomy_term_list:' . $term->bundle()]);
+  $result = in_array($fieldName, $resolver->getHiddenFieldNames($term), TRUE)
+    ? AccessResult::forbidden('The component tree does not match the term hierarchy level.')
+    : AccessResult::neutral();
+  $resolver->applyLevelCacheability($result, $term);
   return $result;
 }
 
@@ -100,19 +95,18 @@ function neo_alchemist_taxonomy_entity_field_access($operation, FieldDefinitionI
  */
 function neo_alchemist_taxonomy_taxonomy_term_view(array &$build, TermInterface $term, EntityViewDisplayInterface $display, string $view_mode): void {
   $resolver = neo_alchemist_taxonomy_resolver();
-  $managed = $resolver->getManagedFields($term->bundle());
-  if (!$managed) {
+  $hidden = $resolver->getHiddenFieldNames($term);
+  if (!$resolver->getManagedFields($term->bundle())) {
     return;
   }
   // Fields denied by neo_alchemist_taxonomy_entity_field_access() still
   // occupy their key as an empty array in the build; remove them so a term
   // whose only remaining fieldable field is the matching component tree gets
   // the full-page treatment in neo_alchemist_entity_view_alter().
-  $match = $resolver->getMatchingFieldName($term);
   $meta = CacheableMetadata::createFromRenderArray($build);
-  $meta->addCacheTags(['taxonomy_term_list:' . $term->bundle()]);
-  foreach (array_keys($managed) as $fieldName) {
-    if ($fieldName === $match || !isset($build[$fieldName])) {
+  $resolver->applyLevelCacheability($meta, $term);
+  foreach ($hidden as $fieldName) {
+    if (!isset($build[$fieldName])) {
       continue;
     }
     $meta = $meta->merge(CacheableMetadata::createFromRenderArray($build[$fieldName]));
@@ -128,16 +122,8 @@ function neo_alchemist_taxonomy_neo_alchemist_entity_component_fields_alter(arra
   if (!$entity instanceof TermInterface) {
     return;
   }
-  $resolver = neo_alchemist_taxonomy_resolver();
-  $managed = $resolver->getManagedFields($entity->bundle());
-  if (!$managed) {
-    return;
-  }
-  $match = $resolver->getMatchingFieldName($entity);
-  foreach (array_keys($managed) as $fieldName) {
-    if ($fieldName !== $match) {
-      unset($fieldDefinitions[$fieldName]);
-    }
+  foreach (neo_alchemist_taxonomy_resolver()->getHiddenFieldNames($entity) as $fieldName) {
+    unset($fieldDefinitions[$fieldName]);
   }
 }
 
@@ -150,20 +136,15 @@ function neo_alchemist_taxonomy_menu_local_tasks_alter(array &$data, $route_name
     return;
   }
   $resolver = neo_alchemist_taxonomy_resolver();
-  $managed = $resolver->getManagedFields($term->bundle());
-  if (!$managed) {
+  $hidden = $resolver->getHiddenFieldNames($term);
+  if (!$resolver->getManagedFields($term->bundle())) {
     return;
   }
-  $match = $resolver->getMatchingFieldName($term);
-  foreach (array_keys($managed) as $fieldName) {
-    if ($fieldName === $match) {
-      continue;
-    }
+  foreach ($hidden as $fieldName) {
     unset($data['tabs'][0]['entity.neo_component_tasks:taxonomy_term.' . $fieldName]);
     unset($data['tabs'][1]['entity.neo_component_tasks:taxonomy_term.' . $fieldName]);
   }
-  $cacheability->addCacheableDependency($term);
-  $cacheability->addCacheTags(['taxonomy_term_list:' . $term->bundle()]);
+  $resolver->applyLevelCacheability($cacheability, $term);
 }
 
 /**

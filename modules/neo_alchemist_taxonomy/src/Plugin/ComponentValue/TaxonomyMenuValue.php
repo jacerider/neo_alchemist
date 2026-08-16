@@ -17,6 +17,7 @@ use Drupal\Core\Routing\RouteMatchInterface;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\neo_alchemist\Attribute\ComponentValue;
 use Drupal\neo_alchemist\ComponentShapePluginInterface;
+use Drupal\neo_alchemist_taxonomy\TermLevelResolver;
 use Drupal\neo_alchemist\ComponentValueProcessingModeInterface;
 use Drupal\neo_alchemist\ComponentValuePluginBase;
 use Drupal\neo_alchemist\Plugin\ComponentValue\ComponentValueProcessingModeTrait;
@@ -101,6 +102,13 @@ final class TaxonomyMenuValue extends ComponentValuePluginBase implements Contai
   protected ModuleHandlerInterface $moduleHandler;
 
   /**
+   * The term level resolver.
+   *
+   * @var \Drupal\neo_alchemist_taxonomy\TermLevelResolver
+   */
+  protected TermLevelResolver $levelResolver;
+
+  /**
    * {@inheritdoc}
    */
   public function __construct(
@@ -112,12 +120,14 @@ final class TaxonomyMenuValue extends ComponentValuePluginBase implements Contai
     EntityFieldManagerInterface $entity_field_manager,
     RouteMatchInterface $route_match,
     ModuleHandlerInterface $module_handler,
+    TermLevelResolver $level_resolver,
   ) {
     parent::__construct($plugin_id, $plugin_definition, $shape, $configuration);
     $this->entityTypeManager = $entity_type_manager;
     $this->entityFieldManager = $entity_field_manager;
     $this->routeMatch = $route_match;
     $this->moduleHandler = $module_handler;
+    $this->levelResolver = $level_resolver;
   }
 
   /**
@@ -133,6 +143,7 @@ final class TaxonomyMenuValue extends ComponentValuePluginBase implements Contai
       $container->get('entity_field.manager'),
       $container->get('current_route_match'),
       $container->get('module_handler'),
+      $container->get('neo_alchemist_taxonomy.level_resolver'),
     );
   }
 
@@ -474,9 +485,9 @@ final class TaxonomyMenuValue extends ComponentValuePluginBase implements Contai
   /**
    * Get the active-trail term IDs for the current route.
    *
-   * When the current page is a term canonical page, this is that term plus each
-   * of its ancestors (following the first parent, like TermLevelResolver, so it
-   * is deterministic in poly-hierarchies and independent of term access).
+   * When the current page is a term canonical page, this is that term plus
+   * each of its ancestors, walked by TermLevelResolver so the trail and the
+   * level computation cannot disagree about what an ancestor is.
    *
    * @return array
    *   A lookup set of active term IDs ([tid => TRUE]); empty off a term page.
@@ -486,22 +497,15 @@ final class TaxonomyMenuValue extends ComponentValuePluginBase implements Contai
       return [];
     }
     $term = $this->routeMatch->getParameter('taxonomy_term');
-    $storage = $this->entityTypeManager->getStorage('taxonomy_term');
     if (!$term instanceof TermInterface) {
-      $term = is_scalar($term) ? $storage->load($term) : NULL;
+      $term = is_scalar($term)
+        ? $this->entityTypeManager->getStorage('taxonomy_term')->load($term)
+        : NULL;
     }
-    $tids = [];
-    $current = $term;
-    while ($current instanceof TermInterface && count($tids) < self::MAX_DEPTH) {
-      $tid = (int) $current->id();
-      if (isset($tids[$tid])) {
-        break;
-      }
-      $tids[$tid] = TRUE;
-      $parentId = (int) ($current->get('parent')->target_id ?? 0);
-      $current = $parentId ? $storage->load($parentId) : NULL;
+    if (!$term instanceof TermInterface) {
+      return [];
     }
-    return $tids;
+    return array_fill_keys($this->levelResolver->getAncestry($term), TRUE);
   }
 
   /**
