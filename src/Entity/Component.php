@@ -383,10 +383,10 @@ class Component extends ConfigEntityBase implements ComponentInterface {
    * {@inheritdoc}
    */
   public function setPropEditability(string $mode): self {
-    // Mirrors setSetting(): shapes resolve their editable default and memoize
-    // their locked state at construction, so a mode change within a single
-    // request must drop the memo.
-    unset($this->propShapes);
+    // Shapes resolve their editable default and memoize their locked state at
+    // construction, so a mode change within a single request must drop the
+    // derived state just as a settings write does.
+    $this->invalidateDerivedSettings();
     $this->prop_editability = $mode;
     return $this;
   }
@@ -589,10 +589,28 @@ class Component extends ConfigEntityBase implements ComponentInterface {
    * {@inheritdoc}
    */
   public function setSetting(string $key, $value): self {
-    // Reload prop shapes.
-    unset($this->propShapes);
+    $this->invalidateDerivedSettings();
     $this->settings[$key] = $value;
     return $this;
+  }
+
+  /**
+   * Drops every cached value derived from $settings.
+   *
+   * Prop shapes, slots, filters and access instances are all built lazily from
+   * $settings and memoised, so any write to $settings leaves them describing
+   * the previous state. Rather than asking each mutator to remember which
+   * memo it invalidates — the arrangement that let deleted filters and access
+   * rules keep answering reads — every write funnels through here.
+   *
+   * Over-invalidation is deliberate and cheap: rebuilding is lazy, and the
+   * writes all happen on admin/save paths rather than during rendering.
+   *
+   * Callers that hold a shape, slot or filter in a local keep their object;
+   * only the entity's cache of them is dropped.
+   */
+  protected function invalidateDerivedSettings(): void {
+    unset($this->propShapes, $this->slots, $this->filters, $this->access);
   }
 
   /**
@@ -773,9 +791,10 @@ class Component extends ConfigEntityBase implements ComponentInterface {
    * {@inheritdoc}
    */
   public function setPreviewValues(array $values): self {
-    // Reload prop shapes so the new overrides are reflected immediately within
-    // the current request (e.g. form rebuilds).
-    unset($this->propShapes);
+    // Reflect the new overrides immediately within the current request (e.g.
+    // form rebuilds). getFilters() bakes these values into each filter it
+    // builds, so the filter memo has to go as well as the shapes.
+    $this->invalidateDerivedSettings();
     \Drupal::cache()->set('neo_alchemist.' . $this->id() . '.preview_values', $values, strtotime('+1 hour'));
     return $this;
   }
@@ -784,7 +803,7 @@ class Component extends ConfigEntityBase implements ComponentInterface {
    * {@inheritdoc}
    */
   public function resetPreviewValues(): self {
-    unset($this->propShapes);
+    $this->invalidateDerivedSettings();
     \Drupal::cache()->delete('neo_alchemist.' . $this->id() . '.preview_values');
     return $this;
   }
@@ -1042,7 +1061,7 @@ class Component extends ConfigEntityBase implements ComponentInterface {
       // Do not save individual shapes when aggregating.
       return $this;
     }
-    unset($this->propShapes);
+    $this->invalidateDerivedSettings();
     $expanded = $shape->getExpanded();
     $settings = [
       'prop' => $shape->getName(),
@@ -1136,6 +1155,7 @@ class Component extends ConfigEntityBase implements ComponentInterface {
    * {@inheritdoc}
    */
   public function setSlotSettings(ComponentSlotInterface $slot, array $settings): self {
+    $this->invalidateDerivedSettings();
     $this->settings['slots'][$slot->getName()] = $settings;
     return $this;
   }
@@ -1144,7 +1164,7 @@ class Component extends ConfigEntityBase implements ComponentInterface {
    * {@inheritdoc}
    */
   public function setFilter(ComponentFilterInterface $filter): ComponentFilterInterface {
-    unset($this->filters);
+    $this->invalidateDerivedSettings();
     $uuid = $filter->isNew() ? $this->uuidGenerator()->generate() : $filter->uuid();
     $this->settings['filters'][$uuid] = $filter->toArray();
     return $this->getFilter($uuid);
@@ -1161,6 +1181,7 @@ class Component extends ConfigEntityBase implements ComponentInterface {
    * {@inheritdoc}
    */
   public function deleteFilter(string $uuid): self {
+    $this->invalidateDerivedSettings();
     unset($this->settings['filters'][$uuid]);
     return $this;
   }
@@ -1233,7 +1254,7 @@ class Component extends ConfigEntityBase implements ComponentInterface {
    * {@inheritdoc}
    */
   public function setAccess(ComponentAccessInterface $access): ComponentAccessInterface {
-    unset($this->access);
+    $this->invalidateDerivedSettings();
     $uuid = $access->isNew() ? $this->uuidGenerator()->generate() : $access->uuid();
     $this->settings['access'][$uuid] = $access->toArray();
     return $this->getAccess($uuid);
@@ -1250,6 +1271,7 @@ class Component extends ConfigEntityBase implements ComponentInterface {
    * {@inheritdoc}
    */
   public function deleteAccess(string $uuid): self {
+    $this->invalidateDerivedSettings();
     unset($this->settings['access'][$uuid]);
     return $this;
   }

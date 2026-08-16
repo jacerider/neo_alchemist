@@ -1,0 +1,19 @@
+$schema: 'https://git.drupalcode.org/project/drupal/-/raw/10.1.x/core/modules/sdc/src/metadata.schema.json'
+name: 'NA slot host fixture'
+description: >
+  Declares a single SDC slot so tests can exercise Component::getSlots() and
+  setSlotSettings(). No test component otherwise declares a slot, so the
+  slot-settings memo has no fixture to reach it.
+status: stable
+neo: true
+props:
+  type: object
+  properties:
+    text:
+      type: string
+      title: Text
+      examples: 'EXAMPLE SLOT HOST TEXT'
+slots:
+  body:
+    title: Body
+    description: The slot whose stored settings the tests read back.

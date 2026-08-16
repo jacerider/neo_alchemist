@@ -1,0 +1,8 @@
+{#
+  Minimal slot host. Exists so a component with a real SDC slot is available
+  to kernel tests.
+#}
+<div{{ attributes }}>
+  <span>{{ text }}</span>
+  {% block body %}{% endblock %}
+</div>
