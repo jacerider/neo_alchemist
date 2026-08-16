@@ -10,6 +10,7 @@ use Drupal\Core\Render\BareHtmlPageRendererInterface;
 use Drupal\Core\Theme\ComponentPluginManager;
 use Drupal\Core\Url;
 use Drupal\neo_alchemist\ComponentManageHelper;
+use Drupal\neo_alchemist\ComponentPreviewBuilder;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
@@ -28,12 +29,14 @@ final class SdcPreviewManageController extends ControllerBase {
   public function __construct(
     private readonly BareHtmlPageRendererInterface $bareHtmlPageRenderer,
     private readonly ComponentPluginManager $componentPluginManager,
+    private readonly ComponentPreviewBuilder $previewBuilder,
   ) {}
 
   public static function create(ContainerInterface $container): self {
     return new self(
       $container->get('neo_component_page_renderer'),
       $container->get('plugin.manager.sdc'),
+      $container->get('neo_alchemist.preview_builder'),
     );
   }
 
@@ -93,8 +96,9 @@ final class SdcPreviewManageController extends ControllerBase {
   /**
    * Builds the transient component entity for the given SDC.
    *
-   * Uses the same deterministic id as SdcPreviewController so the preview-value
-   * cache overrides written by the form are read back by the iframe render.
+   * Delegates so the deterministic id has one owner. That id is what links the
+   * preview-value cache entries this form writes to the ones the iframe render
+   * reads back, and a second copy of the derivation could drift the two apart.
    *
    * @param string $component
    *   The SDC component id (e.g. "front:accordion_test").
@@ -103,21 +107,10 @@ final class SdcPreviewManageController extends ControllerBase {
    *   The transient component entity.
    */
   private function buildEntity(string $component) {
-    $definition = $this->componentPluginManager->hasDefinition($component)
-      ? $this->componentPluginManager->getDefinition($component)
-      : NULL;
-    if (!$definition || empty($definition['neo'])) {
+    $entity = $this->previewBuilder->build($component);
+    if (!$entity) {
       throw new NotFoundHttpException();
     }
-
-    /** @var \Drupal\neo_alchemist\ComponentInterface $entity */
-    $entity = $this->entityTypeManager()->getStorage('neo_component')->create([
-      'id' => 'sdc_preview_' . hash('crc32b', $component),
-      'label' => $definition['name'] ?? $component,
-      'component' => $component,
-      'status' => TRUE,
-    ]);
-    $entity->setPreview(TRUE);
     return $entity;
   }
 
