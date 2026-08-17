@@ -438,11 +438,24 @@
       layersToggleButton?.style.setProperty('display', 'none');
     }
 
-    // Dismiss an open breadcrumb menu on Escape or a click elsewhere.
+    // Escape climbs out of the selection — component, then its region, then the
+    // page — the same step clicking the dimmed area takes, so pressing it
+    // repeatedly deselects. Escape had no other job on this page, but two
+    // things do treat it as "close me" and get the press first: an open
+    // breadcrumb menu, and any modal (its own handler runs on body, and
+    // stealing the press would back the canvas out from under the dialog).
     document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape') {
-        crumbMenuClose();
+      if (e.key !== 'Escape') {
+        return;
       }
+      if (openCrumbMenu) {
+        crumbMenuClose();
+        return;
+      }
+      if (document.body.classList.contains('has-neo-modal')) {
+        return;
+      }
+      layerBack();
     });
     document.addEventListener('click', (e) => {
       if (openCrumbMenu && e.target instanceof Node && !openCrumbMenu.parentElement?.contains(e.target)) {
