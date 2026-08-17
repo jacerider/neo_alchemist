@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\neo_alchemist\Form;
 
+use Drupal\Core\Cache\Cache;
 use Drupal\Component\Datetime\TimeInterface;
 use Drupal\Component\Serialization\Json;
 use Drupal\Component\Utility\Html;
@@ -134,6 +135,7 @@ final class InstanceComponentForm extends ContentEntityForm {
     $form_state->set('neo_component_manage_id', ComponentManageHelper::getId($this->instance->getFieldItem()));
     $form_state->set('original_values', $this->instance->getValues());
     $this->store->delete($this->instance->getFieldItem()->getDraftKey($this->instance->uuid()));
+    Cache::invalidateTags([$this->instance->getFieldItem()->getDraftCacheTag($this->instance->uuid())]);
     $form_state->set('neo_component_uuid', $this->instance->uuid());
   }
 
@@ -499,6 +501,7 @@ final class InstanceComponentForm extends ContentEntityForm {
   public function submitRefresh(array $form, FormStateInterface $form_state) {
     $form_state->setRebuild();
     $this->store->set($this->instance->getFieldItem()->getDraftKey($form_state->getValue('uuid')), $this->instance->getValues());
+    Cache::invalidateTags([$this->instance->getFieldItem()->getDraftCacheTag($form_state->getValue('uuid'))]);
   }
 
   /**

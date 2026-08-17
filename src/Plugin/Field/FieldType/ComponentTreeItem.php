@@ -7,6 +7,7 @@ namespace Drupal\neo_alchemist\Plugin\Field\FieldType;
 use Drupal\Component\Render\FormattableMarkup;
 use Drupal\Component\Serialization\Json;
 use Drupal\Core\Access\AccessResult;
+use Drupal\Core\Cache\Cache;
 use Drupal\Core\Entity\EntityChangedInterface;
 use Drupal\Core\Entity\RevisionableInterface;
 use Drupal\Core\Field\Attribute\FieldType;
@@ -858,6 +859,27 @@ class ComponentTreeItem extends FieldItemBase implements RenderableInterface, Co
   }
 
   /**
+   * The cache tag that tracks whether a draft exists for this item.
+   *
+   * A preview renders the stored layout until someone starts editing, at which
+   * point it has to reflect the draft instead. That cannot be decided inside
+   * the preview controller alone: once Dynamic Page Cache holds an entry it
+   * serves it without running the controller again, so the controller never
+   * gets the chance to declare itself uncacheable. Tagging the response and
+   * invalidating the tag whenever a draft is written or cleared is what lets
+   * the cache find out.
+   *
+   * @param string|null $uuid
+   *   (optional) The UUID of the component instance.
+   *
+   * @return string
+   *   The cache tag.
+   */
+  public function getDraftCacheTag(?string $uuid = NULL): string {
+    return 'neo_alchemist_draft:' . $this->getDraftKey($uuid);
+  }
+
+  /**
    * Retrieves the draft value of the component tree item.
    *
    * @return array|null
@@ -878,6 +900,7 @@ class ComponentTreeItem extends FieldItemBase implements RenderableInterface, Co
    */
   public function setDraftValue(array $value): self {
     $this->getState()->set($this->getDraftKey(), $value);
+    Cache::invalidateTags([$this->getDraftCacheTag()]);
     return $this;
   }
 
@@ -892,6 +915,7 @@ class ComponentTreeItem extends FieldItemBase implements RenderableInterface, Co
    */
   public function deleteDraft(): self {
     $this->getState()->delete($this->getDraftKey());
+    Cache::invalidateTags([$this->getDraftCacheTag()]);
     return $this;
   }
 
