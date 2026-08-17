@@ -292,9 +292,9 @@ final class ShareValue extends ComponentValuePluginBase implements ComponentValu
     $component = $this->shape->getComponent();
     $entity = $this->shape->getEntity();
 
-    // getTargetEntity() never returns NULL — it fabricates an unsaved
-    // placeholder when the component has no host — so an unsaved entity is the
-    // real test for "nothing to share yet".
+    // getTargetEntity() never returns NULL and may hand back a placeholder, so
+    // an unsaved entity is the real test for "nothing to share yet".
+    // @see \Drupal\neo_alchemist\ComponentInterface::getTargetEntity()
     if ($component->isPreview() || $entity->isNew()) {
       // Keep the links rendering in the editor preview, pointed at a harmless
       // placeholder, so the component does not look broken while it is being

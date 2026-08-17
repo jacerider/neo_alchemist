@@ -403,8 +403,20 @@ interface ComponentInterface extends ConfigEntityInterface, RenderableInterface,
   /**
    * Retrieves the parent entity.
    *
+   * Never returns NULL, and the entity is frequently a placeholder rather than
+   * a host the component was bound to. In order of preference it is the
+   * configured preview entity, an unsaved placeholder of the component's
+   * target entity type, or — for a component bound to no entity type, which is
+   * the common case — an unsaved throwaway node. Callers that need a real host
+   * should test isNew() rather than assume a saved entity.
+   *
    * @return \Drupal\Core\Entity\ContentEntityInterface
-   *   The parent entity.
+   *   The parent entity, saved or placeholder.
+   *
+   * @throws \Drupal\neo_alchemist\MissingHostEntityException
+   *   Thrown when the component declares a target entity type that no
+   *   placeholder can be built for, and when no entity type is available to
+   *   stand in for an unbound component.
    */
   public function getTargetEntity(): ContentEntityInterface;
 

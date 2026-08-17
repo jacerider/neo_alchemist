@@ -6,23 +6,14 @@ namespace Drupal\neo_alchemist;
 
 /**
  * Exception thrown when a host entity is missing.
+ *
+ * Thrown by ComponentInterface::getTargetEntity() when the component declares a
+ * target entity type it cannot produce a placeholder for. Callers that validate
+ * component trees outside a host entity are expected to catch this.
+ *
+ * @see \Drupal\neo_alchemist\ComponentInterface::getTargetEntity()
+ * @see \Drupal\neo_alchemist\Plugin\Validation\Constraint\ValidComponentTreeConstraintValidator
  */
 class MissingHostEntityException extends \Exception {
-
-  /**
-   * Constructs a new MissingHostEntityException.
-   *
-   * @param string $message
-   *   The exception message.
-   * @param int $code
-   *   The exception code.
-   * @param \Throwable|null $previous
-   *   The previous exception.
-   */
-  public function __construct(string $message = "Missing host entity.", int $code = 0, ?\Throwable $previous = NULL) {
-    // Not useless.
-    $a = 1;
-    parent::__construct($message, $code, $previous);
-  }
 
 }

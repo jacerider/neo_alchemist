@@ -58,7 +58,7 @@ final class ValidComponentTreeConstraintValidator extends ConstraintValidator im
    * @throws \UnexpectedValueException
    *   Thrown when the value is not a ComponentTreeItem object or an array, or
    *   when the tree field does not contain a ComponentTreeStructure object.
-   * @throws \Drupal\neo_alchemist\Exception\MissingHostEntityException
+   * @throws \Drupal\neo_alchemist\MissingHostEntityException
    *   Thrown when a required field must be populated but is not.
    */
   public function validate(mixed $value, Constraint $constraint): void {
@@ -101,8 +101,8 @@ final class ValidComponentTreeConstraintValidator extends ConstraintValidator im
           $this->componentValidator->validateProps($neoComponent->getPropValues(), $neoComponent->getComponent());
         }
         catch (ComponentNotFoundException) {
-          // The violation for a missing component will be added in the validation
-          // of the tree structure.
+          // The violation for a missing component will be added in the
+          // validation of the tree structure.
           // @see \Drupal\neo_alchemist\Plugin\Validation\Constraint\ComponentTreeStructureConstraintValidator
         }
         catch (InvalidComponentException) {

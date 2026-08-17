@@ -25,6 +25,7 @@ use Drupal\neo_alchemist\ComponentInterface;
 use Drupal\neo_alchemist\ComponentManageHelper;
 use Drupal\neo_alchemist\ComponentShapePluginInterface;
 use Drupal\neo_alchemist\ComponentSlotInterface;
+use Drupal\neo_alchemist\MissingHostEntityException;
 use Drupal\neo_icon\IconTrait;
 
 /**
@@ -649,16 +650,49 @@ class Component extends ConfigEntityBase implements ComponentInterface {
    */
   public function getTargetEntity(): ContentEntityInterface {
     $entity = $this->getTargetPreviewEntity();
-    if (!$entity && $this->getTargetEntityTypeId()) {
+    if (!$entity && ($entityTypeId = $this->getTargetEntityTypeId())) {
       $entity = $this->createTargetPlaceholderEntity();
+      if (!$entity) {
+        // The component declares a host type but none can be built — the type
+        // has no instantiable bundle. Falling through to the unbound
+        // placeholder would answer a question about one entity type with an
+        // entity of another, so the props resolve against the wrong fields and
+        // render plausible-looking values. Refuse instead; tree validation
+        // outside a host entity already catches this.
+        throw new MissingHostEntityException(sprintf('Component %s targets entity type %s, which has no bundle a placeholder could be created for.', $this->id(), $entityTypeId));
+      }
     }
     if (!$entity) {
-      $entityTypeManager = \Drupal::entityTypeManager();
-      $entity = $entityTypeManager->getStorage('node')->create([
-        'type' => 'page',
-      ]);
+      $entity = $this->createUnboundPlaceholderEntity();
     }
     return $entity;
+  }
+
+  /**
+   * Create a placeholder for a component bound to no entity type at all.
+   *
+   * Most components declare no `target_entity_type`: they are placed in a
+   * layout rather than rendered against a host. Their shapes still reach
+   * getEntity() — token replacement and the entity-oriented value providers
+   * call it unconditionally — so this returns a throwaway node rather than
+   * making every one of those callers null-check a host they never had.
+   *
+   * @return \Drupal\Core\Entity\ContentEntityInterface
+   *   An unsaved placeholder entity.
+   *
+   * @throws \Drupal\neo_alchemist\MissingHostEntityException
+   *   Thrown when the site has no node entity type to fall back to.
+   */
+  protected function createUnboundPlaceholderEntity(): ContentEntityInterface {
+    $entityTypeManager = \Drupal::entityTypeManager();
+    if (!$entityTypeManager->hasDefinition('node')) {
+      // Without node installed there is nothing generic left to stand in, and
+      // returning NULL would break the return type every caller relies on.
+      throw new MissingHostEntityException(sprintf('Component %s is bound to no entity type and the node entity type is unavailable to stand in for one.', $this->id()));
+    }
+    return $entityTypeManager->getStorage('node')->create([
+      'type' => 'page',
+    ]);
   }
 
   /**
