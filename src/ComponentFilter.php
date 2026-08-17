@@ -13,6 +13,7 @@ use Drupal\Core\StringTranslation\StringTranslationTrait;
  */
 class ComponentFilter implements ComponentFilterInterface {
 
+  use ConfiguredPluginWrapperTrait;
   use DependencySerializationTrait;
   use StringTranslationTrait;
 
@@ -184,64 +185,10 @@ class ComponentFilter implements ComponentFilterInterface {
   }
 
   /**
-   * {@inheritdoc}
-   */
-  public function setPluginId(string $pluginId): self {
-    if ($this->pluginId !== $pluginId) {
-      $this->plugin = NULL;
-      $this->pluginSettings = [];
-    }
-    $this->pluginId = $pluginId;
-    return $this;
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function getPluginId(): string {
-    return $this->pluginId;
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function getPluginSettings(): array {
-    return $this->pluginSettings;
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function setPluginSettings(array $pluginSettings): self {
-    if ($this->pluginSettings !== $pluginSettings) {
-      $this->plugin = NULL;
-    }
-    $this->pluginSettings = $pluginSettings;
-    return $this;
-  }
-
-  /**
    * {@inheritDoc}
    */
   public function getPlugin(): ?ComponentFilterPluginInterface {
-    if (!isset($this->plugin)) {
-      $this->plugin = NULL;
-      $pluginId = $this->getPluginId();
-      if ($pluginId && $this->manager->hasDefinition($pluginId)) {
-        $this->plugin = $this->manager->createInstance($pluginId, [
-          'filter' => $this,
-          'settings' => $this->getPluginSettings(),
-        ]);
-      }
-    }
-    return $this->plugin;
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function isNew(): bool {
-    return empty($this->uuid());
+    return $this->loadPlugin('filter');
   }
 
   /**
