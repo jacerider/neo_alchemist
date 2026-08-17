@@ -280,8 +280,13 @@ Modifiers always run afterward regardless. Mechanics:
   component author's placeholder. Note that blocking claims before it runs: a prop with a
   configured Default Value must not put its producer on block, or the default never gets
   a turn.
-- **Veto** producers (`user_has_role`, `entity_has_value`) opt out of the mode; they
-  `claimValue()` explicitly and return `FALSE`.
+- Three kinds of producer claim for themselves, and they are the whole list. **Veto**
+  producers (`user_has_role`, `entity_has_value`) opt out of the mode; they
+  `claimValue()` explicitly and return `FALSE`. **`default`** claims once it has filled,
+  so clearing a configured default cannot fall back to the component author's example.
+  **`event`** does use the mode, and additionally raises the claim when a subscriber
+  called `$event->stopFurtherProcessing()` — a veto from code that has already seen the
+  value outranks the mode a site builder picked in the form.
 
 **Entity-field matching** — the `entity` producer sources a prop straight from an entity
 field via `ComponentValueMatchTrait`. Its `field` select takes a matcher key (a dotted
@@ -549,8 +554,10 @@ From [neo_alchemist.services.yml](neo_alchemist.services.yml):
   above, plus `implements ComponentValueProcessingModeInterface; use
   ComponentValueProcessingModeTrait;`, append `processingModeDefaultConfiguration()` to
   `defaultConfiguration()`, and call `buildProcessingModeForm()` in the config form. Then
-  just produce the value (return the incoming `$value` when you can't act — never
-  `claimValue()`/`stopFurtherProcessing()` manually; the pipeline claims per the mode).
+  just produce the value (return the incoming `$value` when you can't act — a producer
+  on the mode does not `claimValue()`/`stopFurtherProcessing()` itself; the pipeline
+  claims per the mode). The producers that do claim for themselves are inventoried under
+  "ComponentValue processing model"; adding a fourth means saying why there.
   Override `processingModeDefault()` to change the default mode. See "ComponentValue
   processing model". A *modifier* instead implements `modifyValue()`/`alterValue()` and
   never claims.
