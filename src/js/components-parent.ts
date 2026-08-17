@@ -1930,6 +1930,7 @@
       url += `&parent=${parentUuid}`;
     }
     Drupal.ajax({
+      progress: ajaxProgress(),
       url: url,
       dialogType: 'modal',
       dialog: baseModalOptions,
@@ -2325,6 +2326,26 @@
     });
   }
 
+  /**
+   * The progress setting every operation's request needs.
+   *
+   * These requests are built by hand with no triggering element, and core
+   * disables the indicator outright for exactly that case —
+   * `if (!settings.progress && !element) { settings.progress = false; }` in
+   * Drupal.ajax(). So the canvas opted out of neo_loader's site-wide loader by
+   * omission and sat silent for the ~half second an edit form takes; worst on
+   * the double-click shortcut, where there was no button press to acknowledge
+   * the click either. `throbber` is the same key neo_modal's own link handler
+   * asks for, and neo_loader redirects it to its fullscreen loader.
+   *
+   * A fresh object per call: Drupal.Ajax shallow-copies these settings onto
+   * itself and then writes progress.element, so one shared literal would be
+   * scribbled on by every in-flight request at once.
+   */
+  function ajaxProgress(): { type: string } {
+    return { type: 'throbber' };
+  }
+
   function actionExecute(
     opKey: keyof Actions
   ): void {
@@ -2336,6 +2357,7 @@
   const actions: Actions = {
     library: (uuid: string | null): void => {
       Drupal.ajax({
+        progress: ajaxProgress(),
         url: `${drupalSettings.neoAlchemist.baseUrl}/library${uuid ? `?parent=${uuid}` : ''}`,
         dialogType: 'modal',
         dialog: baseModalOptions,
@@ -2344,6 +2366,7 @@
 
     sort: (uuid: string | null): void => {
       Drupal.ajax({
+        progress: ajaxProgress(),
         url: `${drupalSettings.neoAlchemist.baseUrl}/sort${uuid ? `?parent=${uuid}` : ''}`,
         dialogType: 'modal',
         dialog: baseModalOptions,
@@ -2375,6 +2398,7 @@
         },
       };
       Drupal.ajax({
+        progress: ajaxProgress(),
         url: `${drupalSettings.neoAlchemist.baseUrl}/edit/${uuid}`,
         dialogType: 'modal',
         dialog: modalOptionsEdit,
@@ -2383,6 +2407,7 @@
 
     sort: (uuid: string): void => {
       Drupal.ajax({
+        progress: ajaxProgress(),
         url: `${drupalSettings.neoAlchemist.baseUrl}/sort?uuid=${uuid}${regionUuid ? `&parent=${regionUuid}` : ''}`,
         dialogType: 'modal',
         dialog: baseModalOptions,
@@ -2391,6 +2416,7 @@
 
     delete: (uuid: string): void => {
       Drupal.ajax({
+        progress: ajaxProgress(),
         url: `${drupalSettings.neoAlchemist.baseUrl}/delete/${uuid}`,
         dialogType: 'modal',
         dialog: {
@@ -2403,6 +2429,7 @@
 
     clone: (uuid: string): void => {
       Drupal.ajax({
+        progress: ajaxProgress(),
         url: `${drupalSettings.neoAlchemist.baseUrl}/clone/${uuid}`,
       }).execute();
     },
@@ -2417,6 +2444,7 @@
         }
       }
       Drupal.ajax({
+        progress: ajaxProgress(),
         url: url,
         dialogType: 'modal',
         dialog: baseModalOptions,
@@ -2433,6 +2461,7 @@
         }
       }
       Drupal.ajax({
+        progress: ajaxProgress(),
         url: url,
       }).execute();
     },
