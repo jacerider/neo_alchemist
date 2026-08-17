@@ -51,6 +51,11 @@
 
   const throttledInput = debounce(handleRefresh, 250);
   const formId = 'neo-alchemist--instance-component-form';
+  // The form instance the build id below belongs to. Both are per-form state,
+  // but this module outlives any one form: every component opens its own edit
+  // form into the same modal, so without tracking which form the id came from,
+  // the previous component's id is still sitting here when the next one mounts.
+  let formElement = null as HTMLElement|null;
   let formBuildId = null as string|null;
 
   Drupal.behaviors.neoAlchemistInstanceComponentAjaxForm = {
@@ -270,8 +275,20 @@
         });
       });
       // Process form on each request.
+      //
+      // A build id that changed while the form stayed put means the form was
+      // rebuilt, and the preview has to catch up — that is what the refresh is
+      // for. A build id that changed because this is a different form entirely
+      // means nothing of the sort: a newly opened component simply has its own,
+      // and comparing it against the last component's fires a refresh for a
+      // form nobody has touched. That cost an extra POST plus a reload of all
+      // three preview frames on every component opened after the first.
       const form = document.getElementById(formId) as HTMLElement;
       if (form) {
+        if (form !== formElement) {
+          formElement = form;
+          formBuildId = null;
+        }
         const el = form.querySelector('input[name="form_build_id"]') as HTMLInputElement;
         if (el && el.value !== formBuildId) {
           if (formBuildId) {
