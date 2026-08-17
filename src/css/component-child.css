@@ -19,15 +19,38 @@
   z-index: 9999;
   box-sizing: border-box;
   pointer-events: none;
+
+  /* Halo rings that ride either side of the brand stroke.
+   *
+   * The stroke is drawn over author content of unknown colour, and on a dark
+   * component it disappears into the ground — the label still read, so the
+   * highlight looked simply absent rather than broken. No token swap can fix
+   * that: `--color-primary-500` is the one stop neo deliberately holds still
+   * across schemes, and plenty of dark components are a bare `bg-base-900`
+   * with no scheme wrapper to react to in the first place.
+   *
+   * So the shape carries its own contrast instead. A light ring inside and a
+   * dark ring outside means one of the two always reads, whatever it lands on,
+   * while the brand stroke between them still carries the colour wherever the
+   * ground allows it.
+   */
+  --neo-prop-halo-light: rgb(255 255 255 / 0.8);
+  --neo-prop-halo-dark: rgb(0 0 0 / 0.5);
 }
 
 .neo-alchemist--prop-overlay.is-hover {
-  border: 2px dashed rgb(var(--color-primary-500, 59 130 246) / 0.8);
+  border: 2px dashed rgb(var(--color-primary-500, 59 130 246) / 0.9);
   background: rgb(var(--color-primary-500, 59 130 246) / 0.06);
+  box-shadow:
+    0 0 0 1px var(--neo-prop-halo-dark),
+    inset 0 0 0 1px var(--neo-prop-halo-light);
 }
 
 .neo-alchemist--prop-overlay.is-active {
   border: 2px solid rgb(var(--color-primary-500, 59 130 246) / 0.9);
+  box-shadow:
+    0 0 0 1px var(--neo-prop-halo-dark),
+    inset 0 0 0 1px var(--neo-prop-halo-light);
 }
 
 .neo-alchemist--prop-overlay-label {
@@ -37,7 +60,10 @@
   max-width: 100%;
   overflow: hidden;
   padding: 1px 6px;
-  background: rgb(var(--color-primary-500, 59 130 246) / 0.9);
+  /* Opaque, and ringed like the stroke: the chip is the one part that already
+   * read on any ground, and it should keep doing so where it meets one. */
+  background: rgb(var(--color-primary-500, 59 130 246));
+  box-shadow: 0 0 0 1px var(--neo-prop-halo-dark);
   color: rgb(var(--color-primary-500-content, 255 255 255));
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   font-size: 10px;
