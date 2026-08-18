@@ -45,7 +45,6 @@
   // watching the subtree it is about to discard.
   let resizeObserver: ResizeObserver | null = null;
   let refreshController: AbortController | null = null;
-
   Drupal.behaviors.neoAlchemistComponentChild = {
     attach: function () {
       once('neo.alchemist', '.neo-alchemist-preview').forEach(element => {
@@ -236,10 +235,38 @@
     return new DOMRect(left, top, right - left, bottom - top);
   };
 
+  let overlayLayer: HTMLElement | null = null;
+
+  /**
+   * The layer the outlines are drawn on, created on first use.
+   *
+   * Appending them straight to the body let them take part in the document's
+   * scroll size — and the parent sizes this frame to exactly its content
+   * height, so the document sits permanently one fraction of a pixel away from
+   * needing a scrollbar. Where scrollbars take width (Firefox; not Chrome,
+   * which is why it never reproduced there) that tipped into a loop: scrollbar
+   * appears, the frame narrows, text rewraps, the height changes, the parent
+   * resizes, the scrollbar goes, and round again — visibly, tens of times a
+   * second, and only in the narrowest frame where a rewrap moves the most.
+   *
+   * Fixed and clipped, the layer cannot influence layout or scroll size at
+   * all. Its children are positioned in viewport coordinates to match; the
+   * frame never scrolls itself, which is the same assumption the highlight
+   * handler already documents.
+   */
+  const getOverlayLayer = (): HTMLElement => {
+    if (!overlayLayer || !overlayLayer.isConnected) {
+      overlayLayer = document.createElement('div');
+      overlayLayer.className = 'neo-alchemist--prop-overlays';
+      document.body.appendChild(overlayLayer);
+    }
+    return overlayLayer;
+  };
+
   const buildOverlay = (kind: string): HTMLElement => {
     const overlay = document.createElement('div');
     overlay.className = 'neo-alchemist--prop-overlay ' + kind;
-    document.body.appendChild(overlay);
+    getOverlayLayer().appendChild(overlay);
     return overlay;
   };
 
@@ -250,8 +277,9 @@
       return;
     }
     overlay.style.display = '';
-    overlay.style.left = (rect.left + window.scrollX) + 'px';
-    overlay.style.top = (rect.top + window.scrollY) + 'px';
+    // Viewport coordinates: the layer is fixed, so no scroll offset applies.
+    overlay.style.left = rect.left + 'px';
+    overlay.style.top = rect.top + 'px';
     overlay.style.width = rect.width + 'px';
     overlay.style.height = rect.height + 'px';
   };
@@ -574,9 +602,9 @@
     return matches;
   };
 
-  // A refreshed subtree replays its scroll-entrance animation, which moves
-  // elements by transform — and a transform resizes nothing, so the resize
-  // observer never fires and an outline measured mid-flight stays where the
+  // Anything that moves an element by transform — an author's own transition,
+  // a component's internal animation — resizes nothing, so the resize observer
+  // never fires and an outline measured mid-flight would stay where the
   // element briefly was. Both events bubble, so one listener covers the
   // subtree however it is replaced.
   document.addEventListener('animationend', refreshOverlays);
