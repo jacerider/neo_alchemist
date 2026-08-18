@@ -66,7 +66,7 @@ final class InstanceComponentPreviewController extends ControllerBase {
     else {
       $build = $this->all($neo_field);
       if ($request->query->get('size') === 'desktop') {
-        $build['#attached']['library'][] = 'neo_alchemist/component.screenshot';
+        neo_alchemist_attach_screenshot($build);
       }
       $hasDraft = $neo_field->hasDraft();
     }

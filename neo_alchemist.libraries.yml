@@ -74,8 +74,8 @@ component.screenshot:
   css:
     component:
       src/css/component-screenshot.css: {}
-  dependencies:
-    - neo_alchemist/library.snapdom
+  # library.snapdom is deliberately NOT a dependency: it is ~140KB loaded on
+  # demand by loadSnapdom() when a capture actually starts.
 
 component.ajax:
   version: VERSION

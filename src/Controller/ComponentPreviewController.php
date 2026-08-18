@@ -49,7 +49,7 @@ final class ComponentPreviewController extends ControllerBase {
 
     $size = \Drupal::request()->query->get('size');
     if ($size === 'desktop') {
-      $build['#attached']['library'][] = 'neo_alchemist/component.screenshot';
+      neo_alchemist_attach_screenshot($build);
     }
 
     $neo_component->setPreview(TRUE);
