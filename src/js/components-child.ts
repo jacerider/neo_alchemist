@@ -89,6 +89,21 @@
 
   // Events called from parent iframes.
   const onParent:any = {
+    // The layout preview reloads rather than swapping in place. It refreshes
+    // on saves and structural changes, not on every keystroke, and the parent
+    // rebuilds its entire overlay model from the structure and position data
+    // a fresh document reports — which a markup swap would not re-send. Left
+    // unhandled, the refresh was a silent no-op here: stale structure data,
+    // and a canvas that could no longer find its own components.
+    //
+    // Staggered for the same reason the initial loads are: three documents
+    // rebuilding at once re-request the same asset URLs, and Firefox will
+    // hand one of them an empty body.
+    previewRefresh: function (_data: any) {
+      const order = ['desktop', 'tablet', 'mobile'].indexOf(size || 'desktop');
+      window.setTimeout(() => window.location.reload(), Math.max(0, order) * 400);
+    },
+
     getStructureData: function (_data: any) {
       window.parent.postMessage({
         type: 'structureData',
