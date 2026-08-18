@@ -296,6 +296,16 @@
       const eventType = data.eventType as string;
       const eventUuid = data.uuid as string;
       const eventData = getEventData(eventUuid);
+      // The tree this event belongs to is gone — the previews reload after a
+      // save, and the events they report can name a node the parent has not
+      // heard of yet. getEventData() returns null for those, and reading
+      // .type/.action/.group off it threw, taking the whole handler with it:
+      // the canvas stopped responding until fresh structure data rebuilt it,
+      // which is the moment where nothing appears to be selected. Nothing here
+      // is meaningful without the definition, so let it go by.
+      if (!eventData) {
+        return;
+      }
 
       sizes.forEach(size => {
         if (size !== data.size) {
