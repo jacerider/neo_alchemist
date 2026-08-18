@@ -290,7 +290,12 @@
       const size = data.size as 'desktop' | 'tablet' | 'mobile';
       positionData[size] = data.data;
       elementsPosition();
-      layerShow(layerUuid, true, true);
+      // Redraw the layer where it now is, but do not chase it with the
+      // viewport: this fires whenever a preview reports fresh positions, which
+      // after a refresh happens twice — once before the rebuilt elements have
+      // real positions, sending the canvas to the top, and again once they do,
+      // bringing it back. The author never asked to move.
+      layerShow(layerUuid, true, true, false);
     },
     onEvent: function (data: any) {
       const eventType = data.eventType as string;
@@ -744,7 +749,7 @@
           });
         });
       }
-      layerShow(layerUuid, true, true);
+      layerShow(layerUuid, true, true, false);
     }
   }
 
@@ -1432,7 +1437,16 @@
   }
 
   // let layerTimeout: ReturnType<typeof setTimeout> | null = null;
-  function layerShow(uuid: string | null = null, force: boolean = false, instant: boolean = false): void {
+  /**
+   * @param scroll
+   *   Whether to bring the layer into view. False when restoring a selection
+   *   the author already had — after a preview refresh the canvas has not
+   *   moved, so scrolling to a layer they are already looking at is at best
+   *   redundant. It is also wrong twice over: ready() runs before the rebuilt
+   *   elements have real positions, so the first scroll goes to the top of the
+   *   canvas and a second one lands it back where it started.
+   */
+  function layerShow(uuid: string | null = null, force: boolean = false, instant: boolean = false, scroll: boolean = true): void {
     if (!uuid && !layerUuid) {
       return;
     }
@@ -1524,7 +1538,7 @@
     titleSet(uuid);
     opsSet(uuid);
 
-    if (uuid) {
+    if (uuid && scroll) {
       sizes.forEach(size => {
         const element = structureElements[uuid as string]?.[size];
         if (size === layerInteractSize && element) {
