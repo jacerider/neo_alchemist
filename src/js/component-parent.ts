@@ -754,7 +754,13 @@
       prop: function (data:any) {
         if (typeof data.propId === 'string' && data.propId) {
           focusProp(data.propId);
+          return;
         }
+        // Deselected in the preview. Drop the highlight in every frame rather
+        // than leaving it on the prop that was being edited a moment ago.
+        activePropId = null;
+        hintProp(null);
+        postPropFocus();
       },
 
       propHover: function (data:any) {

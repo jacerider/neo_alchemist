@@ -65,7 +65,7 @@ final class SdcPreviewController extends ControllerBase {
 
     $size = \Drupal::request()->query->get('size');
     if ($size === 'desktop') {
-      $build['#attached']['library'][] = 'neo_alchemist/component.screenshot';
+      neo_alchemist_attach_screenshot($build);
     }
 
     return $this->bareHtmlPageRenderer

@@ -143,6 +143,47 @@
     }
   };
 
+  let snapdomLoader: Promise<void> | null = null;
+
+  /**
+   * Fetch snapdom the first time a capture actually needs it.
+   *
+   * It is ~140KB of JS whose only job is rasterising, and the frame it used to
+   * be attached to is the desktop preview — the one an editor sits in all day.
+   * Every component open paid for it to serve a button most opens never press.
+   *
+   * @see neo_alchemist_attach_screenshot()
+   */
+  const loadSnapdom = (): Promise<void> => {
+    if (typeof snapdom !== 'undefined') {
+      return Promise.resolve();
+    }
+    if (snapdomLoader) {
+      return snapdomLoader;
+    }
+    const url = (window as any).drupalSettings?.neoAlchemist?.snapdomUrl;
+    if (!url) {
+      return Promise.reject(new Error('No snapdom URL was provided.'));
+    }
+    snapdomLoader = new Promise<void>((resolve, reject) => {
+      const script = document.createElement('script');
+      script.src = url;
+      script.onload = () => {
+        // A 200 carrying the wrong thing still fires onload.
+        typeof snapdom === 'undefined'
+          ? reject(new Error('snapdom did not define itself.'))
+          : resolve();
+      };
+      script.onerror = () => reject(new Error('snapdom could not be fetched.'));
+      document.head.appendChild(script);
+    });
+    // Let a later capture retry rather than inheriting this failure forever.
+    snapdomLoader.catch(() => {
+      snapdomLoader = null;
+    });
+    return snapdomLoader;
+  };
+
   const enterCaptureMode = (reqId: string): void => {
     wrapper = document.querySelector('.neo-alchemist-preview');
     componentEl = wrapper ? wrapper.querySelector('[data-component-id]') : null;
@@ -150,8 +191,15 @@
       post({ type: 'thumbnailCaptureError', message: 'Preview component not found.' }, reqId);
       return;
     }
-    if (typeof snapdom === 'undefined') {
-      post({ type: 'thumbnailCaptureError', message: 'The snapdom capture library failed to load.' }, reqId);
+    loadSnapdom()
+      .then(() => beginCaptureMode(reqId))
+      .catch(() => {
+        post({ type: 'thumbnailCaptureError', message: 'The snapdom capture library failed to load.' }, reqId);
+      });
+  };
+
+  const beginCaptureMode = (reqId: string): void => {
+    if (!wrapper || !componentEl) {
       return;
     }
     active = true;
@@ -306,7 +354,10 @@
    */
   const captureComponents = async (reqId: string, uuids?: string[], boxWidth?: number, boxHeight?: number): Promise<void> => {
     const images: Record<string, string> = {};
-    if (typeof snapdom === 'undefined') {
+    try {
+      await loadSnapdom();
+    }
+    catch (e) {
       post({ type: 'screenshotComponents', images: images }, reqId);
       return;
     }

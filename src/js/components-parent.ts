@@ -290,12 +290,27 @@
       const size = data.size as 'desktop' | 'tablet' | 'mobile';
       positionData[size] = data.data;
       elementsPosition();
-      layerShow(layerUuid, true, true);
+      // Redraw the layer where it now is, but do not chase it with the
+      // viewport: this fires whenever a preview reports fresh positions, which
+      // after a refresh happens twice — once before the rebuilt elements have
+      // real positions, sending the canvas to the top, and again once they do,
+      // bringing it back. The author never asked to move.
+      layerShow(layerUuid, true, true, false);
     },
     onEvent: function (data: any) {
       const eventType = data.eventType as string;
       const eventUuid = data.uuid as string;
       const eventData = getEventData(eventUuid);
+      // The tree this event belongs to is gone — the previews reload after a
+      // save, and the events they report can name a node the parent has not
+      // heard of yet. getEventData() returns null for those, and reading
+      // .type/.action/.group off it threw, taking the whole handler with it:
+      // the canvas stopped responding until fresh structure data rebuilt it,
+      // which is the moment where nothing appears to be selected. Nothing here
+      // is meaningful without the definition, so let it go by.
+      if (!eventData) {
+        return;
+      }
 
       sizes.forEach(size => {
         if (size !== data.size) {
@@ -438,11 +453,24 @@
       layersToggleButton?.style.setProperty('display', 'none');
     }
 
-    // Dismiss an open breadcrumb menu on Escape or a click elsewhere.
+    // Escape climbs out of the selection — component, then its region, then the
+    // page — the same step clicking the dimmed area takes, so pressing it
+    // repeatedly deselects. Escape had no other job on this page, but two
+    // things do treat it as "close me" and get the press first: an open
+    // breadcrumb menu, and any modal (its own handler runs on body, and
+    // stealing the press would back the canvas out from under the dialog).
     document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape') {
-        crumbMenuClose();
+      if (e.key !== 'Escape') {
+        return;
       }
+      if (openCrumbMenu) {
+        crumbMenuClose();
+        return;
+      }
+      if (document.body.classList.contains('has-neo-modal')) {
+        return;
+      }
+      layerBack();
     });
     document.addEventListener('click', (e) => {
       if (openCrumbMenu && e.target instanceof Node && !openCrumbMenu.parentElement?.contains(e.target)) {
@@ -721,7 +749,7 @@
           });
         });
       }
-      layerShow(layerUuid, true, true);
+      layerShow(layerUuid, true, true, false);
     }
   }
 
@@ -1409,7 +1437,16 @@
   }
 
   // let layerTimeout: ReturnType<typeof setTimeout> | null = null;
-  function layerShow(uuid: string | null = null, force: boolean = false, instant: boolean = false): void {
+  /**
+   * @param scroll
+   *   Whether to bring the layer into view. False when restoring a selection
+   *   the author already had — after a preview refresh the canvas has not
+   *   moved, so scrolling to a layer they are already looking at is at best
+   *   redundant. It is also wrong twice over: ready() runs before the rebuilt
+   *   elements have real positions, so the first scroll goes to the top of the
+   *   canvas and a second one lands it back where it started.
+   */
+  function layerShow(uuid: string | null = null, force: boolean = false, instant: boolean = false, scroll: boolean = true): void {
     if (!uuid && !layerUuid) {
       return;
     }
@@ -1501,7 +1538,7 @@
     titleSet(uuid);
     opsSet(uuid);
 
-    if (uuid) {
+    if (uuid && scroll) {
       sizes.forEach(size => {
         const element = structureElements[uuid as string]?.[size];
         if (size === layerInteractSize && element) {
@@ -1917,6 +1954,7 @@
       url += `&parent=${parentUuid}`;
     }
     Drupal.ajax({
+      progress: ajaxProgress(),
       url: url,
       dialogType: 'modal',
       dialog: baseModalOptions,
@@ -2312,6 +2350,26 @@
     });
   }
 
+  /**
+   * The progress setting every operation's request needs.
+   *
+   * These requests are built by hand with no triggering element, and core
+   * disables the indicator outright for exactly that case —
+   * `if (!settings.progress && !element) { settings.progress = false; }` in
+   * Drupal.ajax(). So the canvas opted out of neo_loader's site-wide loader by
+   * omission and sat silent for the ~half second an edit form takes; worst on
+   * the double-click shortcut, where there was no button press to acknowledge
+   * the click either. `throbber` is the same key neo_modal's own link handler
+   * asks for, and neo_loader redirects it to its fullscreen loader.
+   *
+   * A fresh object per call: Drupal.Ajax shallow-copies these settings onto
+   * itself and then writes progress.element, so one shared literal would be
+   * scribbled on by every in-flight request at once.
+   */
+  function ajaxProgress(): { type: string } {
+    return { type: 'throbber' };
+  }
+
   function actionExecute(
     opKey: keyof Actions
   ): void {
@@ -2323,6 +2381,7 @@
   const actions: Actions = {
     library: (uuid: string | null): void => {
       Drupal.ajax({
+        progress: ajaxProgress(),
         url: `${drupalSettings.neoAlchemist.baseUrl}/library${uuid ? `?parent=${uuid}` : ''}`,
         dialogType: 'modal',
         dialog: baseModalOptions,
@@ -2331,6 +2390,7 @@
 
     sort: (uuid: string | null): void => {
       Drupal.ajax({
+        progress: ajaxProgress(),
         url: `${drupalSettings.neoAlchemist.baseUrl}/sort${uuid ? `?parent=${uuid}` : ''}`,
         dialogType: 'modal',
         dialog: baseModalOptions,
@@ -2362,6 +2422,7 @@
         },
       };
       Drupal.ajax({
+        progress: ajaxProgress(),
         url: `${drupalSettings.neoAlchemist.baseUrl}/edit/${uuid}`,
         dialogType: 'modal',
         dialog: modalOptionsEdit,
@@ -2370,6 +2431,7 @@
 
     sort: (uuid: string): void => {
       Drupal.ajax({
+        progress: ajaxProgress(),
         url: `${drupalSettings.neoAlchemist.baseUrl}/sort?uuid=${uuid}${regionUuid ? `&parent=${regionUuid}` : ''}`,
         dialogType: 'modal',
         dialog: baseModalOptions,
@@ -2378,6 +2440,7 @@
 
     delete: (uuid: string): void => {
       Drupal.ajax({
+        progress: ajaxProgress(),
         url: `${drupalSettings.neoAlchemist.baseUrl}/delete/${uuid}`,
         dialogType: 'modal',
         dialog: {
@@ -2390,6 +2453,7 @@
 
     clone: (uuid: string): void => {
       Drupal.ajax({
+        progress: ajaxProgress(),
         url: `${drupalSettings.neoAlchemist.baseUrl}/clone/${uuid}`,
       }).execute();
     },
@@ -2404,6 +2468,7 @@
         }
       }
       Drupal.ajax({
+        progress: ajaxProgress(),
         url: url,
         dialogType: 'modal',
         dialog: baseModalOptions,
@@ -2420,6 +2485,7 @@
         }
       }
       Drupal.ajax({
+        progress: ajaxProgress(),
         url: url,
       }).execute();
     },

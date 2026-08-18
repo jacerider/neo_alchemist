@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\neo_alchemist\Form;
 
+use Drupal\Core\Cache\Cache;
 use Drupal\Component\Datetime\TimeInterface;
 use Drupal\Component\Serialization\Json;
 use Drupal\Component\Utility\Html;
@@ -134,6 +135,7 @@ final class InstanceComponentForm extends ContentEntityForm {
     $form_state->set('neo_component_manage_id', ComponentManageHelper::getId($this->instance->getFieldItem()));
     $form_state->set('original_values', $this->instance->getValues());
     $this->store->delete($this->instance->getFieldItem()->getDraftKey($this->instance->uuid()));
+    Cache::invalidateTags([$this->instance->getFieldItem()->getDraftCacheTag($this->instance->uuid())]);
     $form_state->set('neo_component_uuid', $this->instance->uuid());
   }
 
@@ -367,12 +369,25 @@ final class InstanceComponentForm extends ContentEntityForm {
       if (isset($form['values'][$propName])) {
         $subform_state = SubformState::createForSubform($form['values'][$propName], $form, $form_state);
         $originalValue = $original_values['props'][$propName]['value'] ?? [];
+        // A prop stored as a scalar (markup, string, number) cannot travel
+        // through massageFormValues(), which both takes and returns an array —
+        // passing one fatals, and every validation of this form runs through
+        // here, so Save is broken too. Keep it out of that path rather than
+        // wrapping it: wrapping would survive the call but then merge a stray
+        // numeric key into the stored value via the union below.
+        $originalArray = is_array($originalValue) ? $originalValue : [];
         $shape->validateForm($form['values'][$propName], $subform_state);
         $value = $subform_state->getValues();
         $values['props'][$propName]['ref'] = $shape->getRef();
-        $values['props'][$propName]['value'] = $shape->massageFormValues($value, $originalValue, $form['values'][$propName], $subform_state);
+        $values['props'][$propName]['value'] = $shape->massageFormValues($value, $originalArray, $form['values'][$propName], $subform_state);
         if (!$shape->isIterable() && !empty($values['props'][$propName]['value'])) {
-          $values['props'][$propName]['value'] += $originalValue;
+          $values['props'][$propName]['value'] += $originalArray;
+        }
+        if (!is_array($originalValue) && $shape->getOptionDefault()->isEnabled()) {
+          // Restoring the previous value is the one thing the original is
+          // threaded through for, so hand the scalar back directly — the array
+          // return type above cannot carry it.
+          $values['props'][$propName]['value'] = $originalValue;
         }
         $values['props'][$propName]['options'] = $shape->getNestedOptions();
       }
@@ -486,6 +501,7 @@ final class InstanceComponentForm extends ContentEntityForm {
   public function submitRefresh(array $form, FormStateInterface $form_state) {
     $form_state->setRebuild();
     $this->store->set($this->instance->getFieldItem()->getDraftKey($form_state->getValue('uuid')), $this->instance->getValues());
+    Cache::invalidateTags([$this->instance->getFieldItem()->getDraftCacheTag($form_state->getValue('uuid'))]);
   }
 
   /**

@@ -54,16 +54,55 @@ final class InstanceComponentPreviewController extends ControllerBase {
   public function __invoke(Request $request, ComponentTreeItem $neo_field) {
     // Render in preview mode.
     $neo_field->setPreview(TRUE);
+    // Whether anything unsaved is in play. A preview that merely shows the
+    // stored layout is the same for every request that can see it, so it is
+    // ordinary cacheable output; only a draft makes it request-specific.
+    $hasDraft = FALSE;
     if ($uuid = $request->query->get('uuid')) {
-      $build = $this->single($neo_field, $uuid, $request->query->get('component'));
+      $draft = $this->store->get($neo_field->getDraftKey($uuid));
+      $hasDraft = !empty($draft);
+      $build = $this->single($neo_field, $uuid, $request->query->get('component'), $draft);
     }
     else {
       $build = $this->all($neo_field);
       if ($request->query->get('size') === 'desktop') {
-        $build['#attached']['library'][] = 'neo_alchemist/component.screenshot';
+        neo_alchemist_attach_screenshot($build);
       }
+      $hasDraft = $neo_field->hasDraft();
     }
-    return $this->bareHtmlPageRenderer->renderBarePage($build, $this->getTitle($neo_field), 'front')->addCacheableDependency((new CacheableMetadata())->setCacheMaxAge(0));
+
+    // Tag the response with the draft that would change it. Writing or
+    // clearing a draft invalidates this, which is the only thing that can make
+    // an already-cached preview re-run this controller — Dynamic Page Cache
+    // serves a hit without ever calling us, so the $hasDraft branch below can
+    // never demote an entry that already exists.
+    $cacheability = new CacheableMetadata();
+    $cacheability->addCacheTags([$neo_field->getDraftCacheTag($uuid ?: NULL)]);
+    if ($hasDraft) {
+      // The draft lives in tempstore/state, which carry no cache tag to
+      // invalidate on, so an unsaved preview cannot be cached at all.
+      $cacheability->setCacheMaxAge(0);
+    }
+    else {
+      // Dynamic Page Cache keys on `route`, which ignores query arguments
+      // entirely — so every argument that changes what this controller returns
+      // has to be declared, or the first response rendered is handed to all of
+      // them. All three of these do: `uuid` and `component` choose between the
+      // whole-layout preview and one component's, and `size` selects the
+      // screenshot library above. (`id` is deliberately absent: it only labels
+      // the postMessage channel, is read from location.search in the browser,
+      // and never reaches this controller — including it would fragment the
+      // cache per editor container for no gain.)
+      $cacheability->addCacheContexts([
+        'url.query_args:uuid',
+        'url.query_args:component',
+        'url.query_args:size',
+      ]);
+    }
+
+    return $this->bareHtmlPageRenderer
+      ->renderBarePage($build, $this->getTitle($neo_field), 'front')
+      ->addCacheableDependency($cacheability);
   }
 
   /**
@@ -75,17 +114,21 @@ final class InstanceComponentPreviewController extends ControllerBase {
    *   The component UUID.
    * @param string $component
    *   The component name.
+   * @param array|null $draft
+   *   The unsaved draft for this component, if the editor has one open. Read
+   *   by the caller, which needs to know whether one exists to decide the
+   *   response's cacheability, and passed in rather than re-read here.
    *
    * @return array
    *   The render array.
    */
-  protected function single(ComponentTreeItem $neo_field, string $uuid, string $component) {
+  protected function single(ComponentTreeItem $neo_field, string $uuid, string $component, ?array $draft = NULL) {
     if (!$neo_field->hasComponent($uuid)) {
       $neo_field->addComponent($uuid, $component);
     }
 
-    if ($data = $this->store->get($neo_field->getDraftKey($uuid))) {
-      $neo_field->updateComponent($uuid, $data);
+    if (!empty($draft)) {
+      $neo_field->updateComponent($uuid, $draft);
     }
 
     $component = $neo_field->getComponent($uuid);

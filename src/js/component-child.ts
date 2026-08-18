@@ -32,14 +32,19 @@
   // content-specific of the two — a heading's text beats its size attribute —
   // so it wins in propIdOf().
   const targetSelector = '[data-neo-prop-target],[data-neo-prop]';
-  const propMap: PropMap | undefined = drupalSettings.neoAlchemist?.propMap;
+  // Re-read from the response on every in-place refresh: the map describes the
+  // markup, so a swap that changed the markup invalidates it.
+  let propMap: PropMap | undefined = drupalSettings.neoAlchemist?.propMap;
   let hoverTarget: HTMLElement | null = null;
   let activeTargets: HTMLElement[] = [];
   let hoverOverlay: HTMLElement | null = null;
   let hoverOverlayLabel: HTMLElement | null = null;
   let activeOverlays: HTMLElement[] = [];
   let pointerRaf = 0;
-
+  // Held at module scope so an in-place refresh can disconnect the observer
+  // watching the subtree it is about to discard.
+  let resizeObserver: ResizeObserver | null = null;
+  let refreshController: AbortController | null = null;
   Drupal.behaviors.neoAlchemistComponentChild = {
     attach: function () {
       once('neo.alchemist', '.neo-alchemist-preview').forEach(element => {
@@ -71,7 +76,8 @@
         }
 
         // Create a ResizeObserver instance
-        const resizeObserver = new ResizeObserver(entries => {
+        resizeObserver?.disconnect();
+        resizeObserver = new ResizeObserver(entries => {
           for (const _entry of entries) {
             window.parent.postMessage({
               type: 'size',
@@ -170,9 +176,10 @@
       }
       const target = resolveFromPoint(event.clientX, event.clientY)
         || (event.target as HTMLElement).closest<HTMLElement>(targetSelector);
-      if (target) {
-        post('prop', { propId: propIdOf(target) });
-      }
+      // A click on nothing in particular is a deselect: it already blurs the
+      // form field, so the outline has to go with it rather than being left
+      // pointing at a prop no longer being edited.
+      post('prop', { propId: target ? propIdOf(target) : null });
     });
   };
 
@@ -228,10 +235,38 @@
     return new DOMRect(left, top, right - left, bottom - top);
   };
 
+  let overlayLayer: HTMLElement | null = null;
+
+  /**
+   * The layer the outlines are drawn on, created on first use.
+   *
+   * Appending them straight to the body let them take part in the document's
+   * scroll size — and the parent sizes this frame to exactly its content
+   * height, so the document sits permanently one fraction of a pixel away from
+   * needing a scrollbar. Where scrollbars take width (Firefox; not Chrome,
+   * which is why it never reproduced there) that tipped into a loop: scrollbar
+   * appears, the frame narrows, text rewraps, the height changes, the parent
+   * resizes, the scrollbar goes, and round again — visibly, tens of times a
+   * second, and only in the narrowest frame where a rewrap moves the most.
+   *
+   * Fixed and clipped, the layer cannot influence layout or scroll size at
+   * all. Its children are positioned in viewport coordinates to match; the
+   * frame never scrolls itself, which is the same assumption the highlight
+   * handler already documents.
+   */
+  const getOverlayLayer = (): HTMLElement => {
+    if (!overlayLayer || !overlayLayer.isConnected) {
+      overlayLayer = document.createElement('div');
+      overlayLayer.className = 'neo-alchemist--prop-overlays';
+      document.body.appendChild(overlayLayer);
+    }
+    return overlayLayer;
+  };
+
   const buildOverlay = (kind: string): HTMLElement => {
     const overlay = document.createElement('div');
     overlay.className = 'neo-alchemist--prop-overlay ' + kind;
-    document.body.appendChild(overlay);
+    getOverlayLayer().appendChild(overlay);
     return overlay;
   };
 
@@ -242,8 +277,9 @@
       return;
     }
     overlay.style.display = '';
-    overlay.style.left = (rect.left + window.scrollX) + 'px';
-    overlay.style.top = (rect.top + window.scrollY) + 'px';
+    // Viewport coordinates: the layer is fixed, so no scroll offset applies.
+    overlay.style.left = rect.left + 'px';
+    overlay.style.top = rect.top + 'px';
     overlay.style.width = rect.width + 'px';
     overlay.style.height = rect.height + 'px';
   };
@@ -287,6 +323,12 @@
       positionOverlay(overlay, target);
       return overlay;
     });
+    // A refreshed subtree is measured the moment it lands, which is before
+    // anything above it has finished resolving its height — so the outline
+    // gets placed where the element briefly was. The resize observer corrects
+    // this only if something happens to resize afterwards; re-measuring on the
+    // next frame does not depend on that.
+    requestAnimationFrame(refreshOverlays);
   };
 
   const refreshOverlays = (): void => {
@@ -315,13 +357,14 @@
    * Exact-trim text-node matching, document-order pairing for duplicates.
    */
   const indexTextHints = (scope: HTMLElement): void => {
-    if (!propMap) {
+    const map = propMap;
+    if (!map) {
       return;
     }
     // Hint text → prop ids carrying it, in map order (= delta order).
     const byText: Record<string, string[]> = {};
-    Object.keys(propMap.props).forEach(propId => {
-      (propMap.props[propId].hints?.text || []).forEach(text => {
+    Object.keys(map.props).forEach(propId => {
+      (map.props[propId].hints?.text || []).forEach(text => {
         (byText[text] = byText[text] || []).push(propId);
       });
     });
@@ -345,12 +388,13 @@
    * Match images by source basename (derivatives keep the filename).
    */
   const indexSrcHints = (scope: HTMLElement): void => {
-    if (!propMap) {
+    const map = propMap;
+    if (!map) {
       return;
     }
     const imgs = Array.from(scope.querySelectorAll<HTMLImageElement>('img[src]'));
-    Object.keys(propMap.props).forEach(propId => {
-      (propMap.props[propId].hints?.src || []).forEach(basename => {
+    Object.keys(map.props).forEach(propId => {
+      (map.props[propId].hints?.src || []).forEach(basename => {
         for (const img of imgs) {
           if (img.dataset.neoPropTarget) {
             continue;
@@ -375,12 +419,13 @@
    * Match links by href path.
    */
   const indexHrefHints = (scope: HTMLElement): void => {
-    if (!propMap) {
+    const map = propMap;
+    if (!map) {
       return;
     }
     const anchors = Array.from(scope.querySelectorAll<HTMLAnchorElement>('a[href]'));
-    Object.keys(propMap.props).forEach(propId => {
-      (propMap.props[propId].hints?.href || []).forEach(href => {
+    Object.keys(map.props).forEach(propId => {
+      (map.props[propId].hints?.href || []).forEach(href => {
         for (const anchor of anchors) {
           if (anchor.dataset.neoPropTarget) {
             continue;
@@ -398,6 +443,152 @@
   };
 
   /**
+   * The stylesheet and script URLs a document depends on, as one comparable
+   * string.
+   *
+   * A prop edit can change which libraries the component needs — turning on a
+   * slider pulls in JS that is simply not in this document. Swapping markup
+   * cannot bring assets with it, so when the set differs the refresh has to
+   * give up and let the frame reload instead.
+   */
+  const assetFingerprint = (root: Document): string => {
+    return Array.from(root.querySelectorAll('link[rel="stylesheet"][href], script[src]'))
+      .map(el => el.getAttribute('href') || el.getAttribute('src') || '')
+      .sort()
+      .join('\n');
+  };
+
+  /**
+   * The prop map carried by a fetched document.
+   */
+  const readPropMap = (doc: Document): PropMap | undefined => {
+    const json = doc.querySelector('script[type="application/json"][data-drupal-selector="drupal-settings-json"]');
+    if (!json || !json.textContent) {
+      return undefined;
+    }
+    try {
+      return JSON.parse(json.textContent)?.neoAlchemist?.propMap;
+    }
+    catch (e) {
+      return undefined;
+    }
+  };
+
+  /**
+   * Drop everything bound to the subtree about to be replaced.
+   *
+   * The overlays are the part that is easy to miss: they are appended to
+   * document.body rather than to the preview root, so replacing the root
+   * leaves them behind pointing at elements that no longer exist.
+   */
+  const teardownPreview = (element: HTMLElement): void => {
+    resizeObserver?.disconnect();
+    resizeObserver = null;
+    if (pointerRaf) {
+      cancelAnimationFrame(pointerRaf);
+      pointerRaf = 0;
+    }
+    hoverOverlay?.remove();
+    hoverOverlay = null;
+    hoverOverlayLabel = null;
+    activeOverlays.forEach(overlay => overlay.remove());
+    activeOverlays = [];
+    activeTargets = [];
+    hoverTarget = null;
+    Drupal.detachBehaviors(element, drupalSettings, 'unload');
+  };
+
+  /**
+   * Reload as a last resort, staggered by frame.
+   *
+   * Three frames failing together would otherwise re-request the same ~25
+   * asset URLs at once, which is the Firefox empty-body case the staggered
+   * initial load exists to avoid. Spacing them by size keeps that property on
+   * the one path that still reloads.
+   */
+  const fallbackReload = (): void => {
+    const order = ['desktop', 'tablet', 'mobile'].indexOf(size || 'desktop');
+    window.setTimeout(() => window.location.reload(), Math.max(0, order) * 400);
+  };
+
+  /**
+   * Re-render the component in place.
+   *
+   * This replaced a location.reload() of every preview frame on every
+   * debounced edit — three documents discarded and rebuilt, assets and all,
+   * which is where the flash came from. Editors type slowly and pause often,
+   * so it fired constantly: one sentence measured 12 refreshes and 36 frame
+   * reloads.
+   *
+   * Fetching the same URL and swapping only the component subtree keeps the
+   * document, its assets and its scroll position alive. A newer edit aborts an
+   * in-flight fetch, so a burst of typing costs one swap rather than a queue
+   * of them. Anything this cannot do safely falls back to the reload, so the
+   * worst case is the behaviour it replaced.
+   */
+  const refreshPreview = (provided: string | null): void => {
+    const element = document.querySelector<HTMLElement>('.neo-alchemist-preview');
+    if (!element) {
+      fallbackReload();
+      return;
+    }
+    refreshController?.abort();
+    refreshController = new AbortController();
+    // The parent renders once and hands the markup to all three frames, since
+    // the three responses differ only by the data-size stamped below. Fetching
+    // here is the fallback for a caller that sent none.
+    const source = provided !== null
+      ? Promise.resolve(provided)
+      : fetch(window.location.href, {
+        credentials: 'same-origin',
+        signal: refreshController.signal,
+      })
+        .then(response => {
+          if (!response.ok) {
+            throw new Error(String(response.status));
+          }
+          return response.text();
+        });
+    source
+      .then(html => {
+        const doc = new DOMParser().parseFromString(html, 'text/html');
+        const fresh = doc.querySelector<HTMLElement>('.neo-alchemist-preview');
+        if (!fresh) {
+          throw new Error('Preview root missing from response');
+        }
+        if (assetFingerprint(doc) !== assetFingerprint(document)) {
+          throw new Error('Asset set changed');
+        }
+        teardownPreview(element);
+        const next = document.importNode(fresh, true);
+        // Otherwise once() reads the marker the server never wrote but the
+        // previous document did, and skips initialising the new subtree.
+        next.removeAttribute('data-once');
+        // The markup may have been rendered for a different frame — that is
+        // the point of rendering once — so restamp the one attribute the
+        // server varies by size.
+        if (size) {
+          next.setAttribute('data-size', size);
+        }
+        element.replaceWith(next);
+        // Before behaviors run: initPropTargets() indexes against this.
+        const nextMap = readPropMap(doc);
+        if (nextMap) {
+          propMap = nextMap;
+          drupalSettings.neoAlchemist = drupalSettings.neoAlchemist || {};
+          drupalSettings.neoAlchemist.propMap = nextMap;
+        }
+        Drupal.attachBehaviors(next, drupalSettings);
+      })
+      .catch((error: unknown) => {
+        if (error instanceof DOMException && error.name === 'AbortError') {
+          return;
+        }
+        fallbackReload();
+      });
+  };
+
+  /**
    * Elements matching a prop id exactly or as a `~` prefix.
    */
   const findPropElements = (propId: string): HTMLElement[] => {
@@ -411,6 +602,14 @@
     return matches;
   };
 
+  // Anything that moves an element by transform — an author's own transition,
+  // a component's internal animation — resizes nothing, so the resize observer
+  // never fires and an outline measured mid-flight would stay where the
+  // element briefly was. Both events bubble, so one listener covers the
+  // subtree however it is replaced.
+  document.addEventListener('animationend', refreshOverlays);
+  document.addEventListener('transitionend', refreshOverlays);
+
   // Highlight requests from the parent editor (form focus, and re-asserted
   // after each preview reload). No scrolling here: the iframe is auto-sized
   // to its full content height, so it has nothing to scroll itself — the
@@ -421,6 +620,10 @@
       return;
     }
     const data = e.data;
+    if (data && data.type === 'previewRefresh') {
+      refreshPreview(typeof data.html === 'string' ? data.html : null);
+      return;
+    }
     if (!data || data.type !== 'propFocus') {
       return;
     }

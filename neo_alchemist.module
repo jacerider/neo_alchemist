@@ -147,6 +147,24 @@ function template_preprocess_neo_alchemist_manage(&$variables) {
 }
 
 /**
+ * Attaches the thumbnail capture library to a preview build.
+ *
+ * The capture library is small; snapdom, which does the actual rasterising, is
+ * not, and it is only ever needed once someone presses Capture. So it is left
+ * out of the dependency chain and fetched on demand from the URL handed over
+ * here.
+ *
+ * @param array $build
+ *   The preview render array.
+ */
+function neo_alchemist_attach_screenshot(array &$build): void {
+  $build['#attached']['library'][] = 'neo_alchemist/component.screenshot';
+  $build['#attached']['drupalSettings']['neoAlchemist']['snapdomUrl'] = base_path()
+    . \Drupal::service('extension.list.module')->getPath('neo_alchemist')
+    . '/lib/js/snapdom.js';
+}
+
+/**
  * Implements hook_preprocess_HOOK() for neo_alchemist_component_preview.
  */
 function template_preprocess_neo_alchemist_component_preview(&$variables) {
