@@ -839,12 +839,20 @@ and the component root reveals on scroll (editor-selectable, `apply: true`, no t
 
     ```bash
     ddev drush ev '$e = \Drupal::entityTypeManager()->getStorage("neo_component")->create([
-      "id" => "media_s2", "label" => "Media with Text", "component" => "front:media_s2",
+      "id" => "media_s2", "label" => "Media with Text", "description" => "",
+      "component" => "front:media_s2",
       "group" => "general", "status" => TRUE,
     ]); $e->save();'
     ```
 
-    Two constraints on the programmatic route. `ComponentForm::save()` applies group-conditional defaults that a raw `create()` skips — the `special` group gets a `protected` access plugin, and the `entity` group gets every prop locked — so only create `general`-group entries this way and send the other groups through the form. And it writes **active config**, so follow with `drush cex` (or say it needs exporting); a library entry that never gets exported exists only on that one environment.
+    ⚠ **`"description" => ""` is not optional padding.** `Component::$description` is a typed
+    `string`, so omitting the key stores NULL — which `create()` and `save()` accept without
+    complaint, and which then throws `Cannot assign null to property … of type string` on the
+    **next load**, from `EntityBase.php`, naming neither the key nor the entity. `cex` exports
+    it as `description: null`, so the broken value gets committed and shipped. `ComponentForm`
+    fills it in, which is why only the programmatic route hits this.
+
+    Two further constraints on the programmatic route. `ComponentForm::save()` applies group-conditional defaults that a raw `create()` skips — the `special` group gets a `protected` access plugin, and the `entity` group gets every prop locked — so only create `general`-group entries this way and send the other groups through the form. And it writes **active config**, so follow with `drush cex` (or say it needs exporting); a library entry that never gets exported exists only on that one environment.
 
 ## Preview & iterate
 
