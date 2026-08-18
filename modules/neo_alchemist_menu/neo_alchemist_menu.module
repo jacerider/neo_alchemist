@@ -120,7 +120,7 @@ function neo_alchemist_menu_form_menu_link_content_menu_link_content_form_valida
 /**
  * Implements hook_entity_operation_alter().
  *
- * neo_alchemist adds a generic "Layout" operation to every menu link once
+ * Neo_alchemist adds a generic "Layout" operation to every menu link once
  * the component tree field exists. Scope it to region items and point it
  * straight at the Alchemist manage route for the components field.
  */

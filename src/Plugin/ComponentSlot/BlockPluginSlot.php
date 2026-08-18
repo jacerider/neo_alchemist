@@ -146,7 +146,11 @@ final class BlockPluginSlot extends ComponentSlotPluginBase implements Container
         '#tree' => TRUE,
         '#parents' => array_merge($form['#parents'], ['block_settings']),
       ];
-      $subform_state = SubformState::createForSubform($form['block_settings'], $form, $form_state);
+      $subform_state = SubformState::createForSubform(
+        $form['block_settings'],
+        $form,
+        $form_state
+      );
       $form['block_settings'] = $plugin->buildConfigurationForm($form['block_settings'], $subform_state);
       $form['block_settings']['admin_label']['#access'] = FALSE;
       $form['block_settings']['label']['#access'] = FALSE;
@@ -163,7 +167,11 @@ final class BlockPluginSlot extends ComponentSlotPluginBase implements Container
   protected function configurationValidate(array $form, FormStateInterface $form_state): void {
     if (!empty($form['block_settings'])) {
       $plugin = $this->blockManager->createInstance($this->configuration['block_plugin'], $this->configuration['block_settings']);
-      $subform_state = SubformState::createForSubform($form['block_settings'], $form, $form_state);
+      $subform_state = SubformState::createForSubform(
+        $form['block_settings'],
+        $form,
+        $form_state
+      );
       $plugin->validateConfigurationForm($form['block_settings'], $subform_state);
     }
   }
@@ -180,10 +188,15 @@ final class BlockPluginSlot extends ComponentSlotPluginBase implements Container
       return;
     }
     $plugin = $this->blockManager->createInstance($block_plugin, $this->configuration['block_settings']);
-    $subform_state = SubformState::createForSubform($form['block_settings'], $form, $form_state);
+    $subform_state = SubformState::createForSubform(
+      $form['block_settings'],
+      $form,
+      $form_state
+    );
     // Run the block plugin's own submit handler so its values are massaged the
-    // same way as a standalone block placement (e.g. NeoModalBlockBase collapses
-    // its header/footer block tables into their canonical structure). Without
+    // same way as a standalone block placement (e.g. NeoModalBlockBase
+    // collapses its header/footer block tables into their canonical
+    // structure). Without
     // this the raw nested form values are stored, which do not match the block
     // plugin's config schema. blockSubmit() is called directly rather than
     // submitConfigurationForm() to avoid overwriting label/label_display, whose

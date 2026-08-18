@@ -1,15 +1,67 @@
 <?php
 
 /**
-* @file
-* Install, update, and uninstall functions for Neo Alchemist.
-*
-* @ingroup neo_alchemist
-*/
+ * @file
+ * Install, update, and uninstall functions for Neo Alchemist.
+ *
+ * @ingroup neo_alchemist
+ */
 
 /**
-* Resave all components to support shape to ref changes.
-*/
+ * Implements hook_requirements().
+ *
+ * Reports component placements whose component no longer exists. Nothing else
+ * surfaces this: the tree stores the component id as a plain string, and a
+ * missing one is skipped at render, so the page returns 200 with a hole in it
+ * and writes nothing anywhere. Without this the only way to notice is to look
+ * at the page and already know what used to be there.
+ */
+function neo_alchemist_requirements(string $phase): array {
+  if ($phase !== 'runtime') {
+    return [];
+  }
+  $dangling = \Drupal::service('neo_alchemist.dangling_component_data')->scan();
+  if (!$dangling) {
+    return [];
+  }
+
+  $items = [];
+  foreach ($dangling as $componentId => $info) {
+    $items[] = t('%component — @count placement(s)', [
+      '%component' => $componentId,
+      '@count' => $info['count'],
+    ]);
+  }
+
+  return [
+    'neo_alchemist_dangling_components' => [
+      'title' => t('Neo Alchemist component placements'),
+      'value' => t('@count placement(s) reference a component that does not exist', [
+        '@count' => array_sum(array_column($dangling, 'count')),
+      ]),
+      'description' => [
+        'intro' => [
+          '#markup' => t('These placements render nothing and report no error. Run <code>drush neo:alchemist:integrity</code> to see where they are, <code>drush neo:alchemist:rename OLD NEW</code> if a component was renamed, or <code>drush neo:alchemist:integrity --detach</code> to remove them.'),
+        ],
+        'list' => [
+          '#theme' => 'item_list',
+          '#items' => $items,
+        ],
+      ],
+      'severity' => REQUIREMENT_WARNING,
+    ],
+  ];
+}
+
+use Drupal\Core\Entity\Sql\DefaultTableMapping;
+use Drupal\Core\Entity\Sql\SqlEntityStorageInterface;
+use Drupal\neo_alchemist\Entity\ComponentFieldConfig;
+use Drupal\neo_alchemist\Plugin\DataType\ComponentTreeStructure;
+use Drupal\Component\Utility\NestedArray;
+
+/**
+ * Resave all components to support shape to ref changes.
+ */
 function neo_alchemist_update_11001() {
   /** @var \Drupal\neo_alchemist\ComponentInterface[] $components */
   $components = \Drupal::entityTypeManager()->getStorage('neo_component')->loadMultiple();
@@ -19,13 +71,13 @@ function neo_alchemist_update_11001() {
 }
 
 /**
-* Migrate the entity query "continue" flag to the standard processing mode.
-*
-* The bespoke "continue" setting on the entity_query/entity_filter/views value
-* providers is replaced by the configurable processing mode. "continue: true"
-* maps to "stop_when_found"; "continue: false" is the new default ("block"), so
-* the key is simply removed.
-*/
+ * Migrate the entity query "continue" flag to the standard processing mode.
+ *
+ * The bespoke "continue" setting on the entity_query/entity_filter/views value
+ * providers is replaced by the configurable processing mode. "continue: true"
+ * maps to "stop_when_found"; "continue: false" is the new default ("block"), so
+ * the key is simply removed.
+ */
 function neo_alchemist_update_11002() {
   $queryProviders = ['entity_query', 'entity_filter', 'views'];
   $migrate = function (array &$data) use (&$migrate, $queryProviders) {
@@ -56,37 +108,37 @@ function neo_alchemist_update_11002() {
 }
 
 /**
-* Block on empty where a prop's examples are editor scaffolding.
-*
-* getDefaultValue() no longer lets a producer that came up empty destroy the
-* value threaded into it: the search moves on carrying the schema example the
-* pipeline seeded, so attaching an Entity Field provider to a prop no longer
-* silently blanks it on entities whose source field happens to be empty.
-*
-* That is right for a prop whose example is the component author's default —
-* a label, a heading, a subtitle. It is wrong for a prop whose examples are
-* editor scaffolding: placeholder cards, placehold.co images, invented menu
-* links and breadcrumb trails that exist to make the preview legible and must
-* never reach a visitor. Those props say "nothing IS the answer" with the
-* "Always stop (block if empty)" mode, which is now also the default for the
-* producers that fill them (menu, taxonomy_menu, taxonomy_children,
-* entity_reference and breadcrumb, joining entity_query, entity_filter and
-* views). Existing components store their mode explicitly, so this migrates
-* them and keeps rendering exactly as it was.
-*
-* Deliberately conservative — a prop is only rewritten when all of:
-* - Its `ref` is one whose examples are scaffolding rather than a default.
-* - The plugins sit on the prop's own top-level shape. Nested shapes
-*   (`heading~subtitle`, a provider's per-child `shape_fields`) are usually
-*   scalars, where keeping the example is the point of the change.
-* - No `fallback` plugin (the configured Default Value) is enabled on it —
-*   blocking claims the value and would skip the default, replacing one silent
-*   blanking with another.
-* - Only the LAST producer in the pipeline is touched, so a deliberate chain
-*   (entity_reference falling through to entity_query) keeps working.
-* - Every plugin id on the prop resolves. An unknown one means a disabled
-*   module and an unknowable order, so the prop is left alone.
-*/
+ * Block on empty where a prop's examples are editor scaffolding.
+ *
+ * GetDefaultValue() no longer lets a producer that came up empty destroy the
+ * value threaded into it: the search moves on carrying the schema example the
+ * pipeline seeded, so attaching an Entity Field provider to a prop no longer
+ * silently blanks it on entities whose source field happens to be empty.
+ *
+ * That is right for a prop whose example is the component author's default —
+ * a label, a heading, a subtitle. It is wrong for a prop whose examples are
+ * editor scaffolding: placeholder cards, placehold.co images, invented menu
+ * links and breadcrumb trails that exist to make the preview legible and must
+ * never reach a visitor. Those props say "nothing IS the answer" with the
+ * "Always stop (block if empty)" mode, which is now also the default for the
+ * producers that fill them (menu, taxonomy_menu, taxonomy_children,
+ * entity_reference and breadcrumb, joining entity_query, entity_filter and
+ * views). Existing components store their mode explicitly, so this migrates
+ * them and keeps rendering exactly as it was.
+ *
+ * Deliberately conservative — a prop is only rewritten when all of:
+ * - Its `ref` is one whose examples are scaffolding rather than a default.
+ * - The plugins sit on the prop's own top-level shape. Nested shapes
+ *   (`heading~subtitle`, a provider's per-child `shape_fields`) are usually
+ *   scalars, where keeping the example is the point of the change.
+ * - No `fallback` plugin (the configured Default Value) is enabled on it —
+ *   blocking claims the value and would skip the default, replacing one silent
+ *   blanking with another.
+ * - Only the LAST producer in the pipeline is touched, so a deliberate chain
+ *   (entity_reference falling through to entity_query) keeps working.
+ * - Every plugin id on the prop resolves. An unknown one means a disabled
+ *   module and an unknowable order, so the prop is left alone.
+ */
 function neo_alchemist_update_11003() {
   $definitions = \Drupal::service('plugin.manager.neo_component_value')->getDefinitions();
   // Refs whose schema examples are scaffolding, not a usable default.
@@ -158,51 +210,51 @@ function neo_alchemist_update_11003() {
 }
 
 /**
-* Finish the block-on-empty backfill for components in the entity group.
-*
-* neo_alchemist_update_11003() only ever reached props whose `ref` was one of a
-* fixed scaffolding list, and only the plugins sitting on the prop's OWN
-* top-level shape. It deliberately left scalar refs alone, on the grounds that
-* a string or heading example is usually the component author's default rather
-* than invented content.
-*
-* That reasoning does not hold for a component in the **entity** group. Those
-* components exist to render one entity's fields, so their examples are always
-* invented — "Example string", "Example link", a placeholder video id — and a
-* provider that came up empty must render nothing rather than fall back to
-* them. This finishes the job for that group, and reaches the two places 11003
-* structurally could not:
-* - nested shape ids (`heading~title`), which is where a sub-prop bound to an
-*   entity field actually stores its provider;
-* - a provider's per-child `shape_fields` plugin lists, which
-*   enableChildShapePlugin() hands to the child shape at render time.
-*
-* The guardrails from 11003 are kept, because each of them exists to stop this
-* migration replacing one silent blanking with another:
-* - Only the LAST producer on a shape is touched, so a deliberate chain keeps
-*   working. `entity` falling through to `media` is the live case: blocking
-*   `entity` would claim the value and `media` would never run.
-* - A shape carrying a `fallback` plugin (the configured Default Value) is left
-*   alone — blocking claims the value and the fallback loop never runs.
-* - An explicit `continue` is left alone, as is a mode-less `event` — the one
-*   provider that defaulted to continue when this hook shipped. That list is
-*   era-frozen on purpose: a migration's decisions must not drift when a
-*   plugin's shipped default changes later (media moved to continue after this
-*   hook had already run in production, and blocking a last-producer media on
-*   entity-group components is exactly the outcome this migration produced).
-* - An unresolvable plugin id means a disabled module and an unknowable
-*   pipeline order, so the whole shape is skipped.
-*
-* The mode is written explicitly even where it matches the plugin's PHP
-* default. An unset key is a live reference to processingModeDefault(), so a
-* future change to that constant would move these sites a second time with
-* nothing in config to show for it; and an explicit key is what makes the
-* change visible in `git diff config/`.
-*
-* NOTE for config-managed sites: a `drush cim` after this runs will revert it.
-* Run `drush updb` against a copy of the production database, `drush cex`, and
-* review and commit the diff — then deploy normally.
-*/
+ * Finish the block-on-empty backfill for components in the entity group.
+ *
+ * Neo_alchemist_update_11003() only ever reached props whose `ref` was one of a
+ * fixed scaffolding list, and only the plugins sitting on the prop's OWN
+ * top-level shape. It deliberately left scalar refs alone, on the grounds that
+ * a string or heading example is usually the component author's default rather
+ * than invented content.
+ *
+ * That reasoning does not hold for a component in the **entity** group. Those
+ * components exist to render one entity's fields, so their examples are always
+ * invented — "Example string", "Example link", a placeholder video id — and a
+ * provider that came up empty must render nothing rather than fall back to
+ * them. This finishes the job for that group, and reaches the two places 11003
+ * structurally could not:
+ * - nested shape ids (`heading~title`), which is where a sub-prop bound to an
+ *   entity field actually stores its provider;
+ * - a provider's per-child `shape_fields` plugin lists, which
+ *   enableChildShapePlugin() hands to the child shape at render time.
+ *
+ * The guardrails from 11003 are kept, because each of them exists to stop this
+ * migration replacing one silent blanking with another:
+ * - Only the LAST producer on a shape is touched, so a deliberate chain keeps
+ *   working. `entity` falling through to `media` is the live case: blocking
+ *   `entity` would claim the value and `media` would never run.
+ * - A shape carrying a `fallback` plugin (the configured Default Value) is left
+ *   alone — blocking claims the value and the fallback loop never runs.
+ * - An explicit `continue` is left alone, as is a mode-less `event` — the one
+ *   provider that defaulted to continue when this hook shipped. That list is
+ *   era-frozen on purpose: a migration's decisions must not drift when a
+ *   plugin's shipped default changes later (media moved to continue after this
+ *   hook had already run in production, and blocking a last-producer media on
+ *   entity-group components is exactly the outcome this migration produced).
+ * - An unresolvable plugin id means a disabled module and an unknowable
+ *   pipeline order, so the whole shape is skipped.
+ *
+ * The mode is written explicitly even where it matches the plugin's PHP
+ * default. An unset key is a live reference to processingModeDefault(), so a
+ * future change to that constant would move these sites a second time with
+ * nothing in config to show for it; and an explicit key is what makes the
+ * change visible in `git diff config/`.
+ *
+ * NOTE for config-managed sites: a `drush cim` after this runs will revert it.
+ * Run `drush updb` against a copy of the production database, `drush cex`, and
+ * review and commit the diff — then deploy normally.
+ */
 function neo_alchemist_update_11004() {
   $definitions = \Drupal::service('plugin.manager.neo_component_value')->getDefinitions();
   $changed = [];
@@ -219,7 +271,8 @@ function neo_alchemist_update_11004() {
     $writes = [];
 
     foreach ($data['settings']['props'] ?? [] as $propId => $prop) {
-      // $shapeId is the prop's own id OR a nested child shape ('heading~title').
+      // $shapeId is the prop's own id OR a nested child shape
+      // ('heading~title').
       foreach ($prop['plugins'] ?? [] as $shapeId => $instances) {
         if (!is_array($instances) || !$instances) {
           continue;
@@ -239,7 +292,7 @@ function neo_alchemist_update_11004() {
     // place: a recursive walk by reference is exactly where silent
     // reference-carryover bugs live, and this is production data.
     foreach ($writes as $write) {
-      \Drupal\Component\Utility\NestedArray::setValue($data, $write['path'], $write['value'], TRUE);
+      NestedArray::setValue($data, $write['path'], $write['value'], TRUE);
       $changed[] = $write['label'];
     }
     if ($writes) {
@@ -265,24 +318,24 @@ function neo_alchemist_update_11004() {
 }
 
 /**
-* Queue the processing-mode rewrites for one shape's plugin list.
-*
-* Handles all three nesting axes: the shape's own plugins, the heading
-* plugin's per-sub-prop modes, and a provider's `shape_fields` recursion.
-*
-* @param array $instances
-*   The plugin instances, keyed by plugin id.
-* @param array $base
-*   The config key path of $instances.
-* @param array $definitions
-*   The neo_component_value plugin definitions.
-* @param string $label
-*   Human-readable location, for the update's summary.
-* @param array $writes
-*   Collected rewrites, each ['path' => [], 'value' => mixed, 'label' => ''].
-* @param array $skipped
-*   Collected skip messages.
-*/
+ * Queue the processing-mode rewrites for one shape's plugin list.
+ *
+ * Handles all three nesting axes: the shape's own plugins, the heading
+ * plugin's per-sub-prop modes, and a provider's `shape_fields` recursion.
+ *
+ * @param array $instances
+ *   The plugin instances, keyed by plugin id.
+ * @param array $base
+ *   The config key path of $instances.
+ * @param array $definitions
+ *   The neo_component_value plugin definitions.
+ * @param string $label
+ *   Human-readable location, for the update's summary.
+ * @param array $writes
+ *   Collected rewrites, each ['path' => [], 'value' => mixed, 'label' => ''].
+ * @param array $skipped
+ *   Collected skip messages.
+ */
 function _neo_alchemist_processing_mode_visit(array $instances, array $base, array $definitions, string $label, array &$writes, array &$skipped): void {
   // `shape_fields` instances carry a status flag, and a disabled one is never
   // handed to the child shape — so it is not in the pipeline and cannot be the
@@ -312,10 +365,10 @@ function _neo_alchemist_processing_mode_visit(array $instances, array $base, arr
 }
 
 /**
-* Walk a provider's per-child `shape_fields` configuration.
-*
-* @see \Drupal\neo_alchemist\Plugin\ComponentValue\ComponentValueChildrenMatchTrait
-*/
+ * Walk a provider's per-child `shape_fields` configuration.
+ *
+ * @see \Drupal\neo_alchemist\Plugin\ComponentValue\ComponentValueChildrenMatchTrait
+ */
 function _neo_alchemist_processing_mode_children(array $settings, array $base, array $definitions, string $label, array &$writes, array &$skipped): void {
   foreach ($settings['shape_fields'] ?? [] as $childName => $child) {
     if (!is_array($child)) {
@@ -333,8 +386,8 @@ function _neo_alchemist_processing_mode_children(array $settings, array $base, a
 }
 
 /**
-* Queue "block" on the one plugin whose emptiness decides the prop.
-*/
+ * Queue "block" on the one plugin whose emptiness decides the prop.
+ */
 function _neo_alchemist_processing_mode_claim(array $instances, array $base, array $definitions, string $label, array &$writes, array &$skipped): void {
   if (!$instances) {
     return;
@@ -392,14 +445,15 @@ function _neo_alchemist_processing_mode_claim(array $instances, array $base, arr
 }
 
 /**
-* Queue "render nothing" on heading sub-props bound to an entity field.
-*
-* Mirrors HeadingValue::isBlockedEmptyField() exactly. The mode is only ever
-* read for a sub-prop with a field binding and no higher-precedence source
-* above it, so writing it anywhere else would be config that lies about what
-* runs. This is independent of the claim rules above: the heading's per-sub-prop
-* mode acts through the child shape's empty option, not by claiming the value.
-*/
+ * Queue "render nothing" on heading sub-props bound to an entity field.
+ *
+ * Mirrors HeadingValue::isBlockedEmptyField() exactly. The mode is only ever
+ * read for a sub-prop with a field binding and no higher-precedence source
+ * above it, so writing it anywhere else would be config that lies about what
+ * runs. This is independent of the claim rules above: the heading's
+ * per-sub-prop mode acts through the child shape's empty option, not by
+ * claiming the value.
+ */
 function _neo_alchemist_processing_mode_heading(array $settings, array $base, string $label, array &$writes): void {
   foreach (['supertitle', 'title', 'subtitle'] as $key) {
     if (empty($settings["{$key}_field"])) {
@@ -420,12 +474,12 @@ function _neo_alchemist_processing_mode_heading(array $settings, array $base, st
 }
 
 /**
-* Whether a plugin exposes a processing mode at all.
-*
-* Tested against the interface rather than a list of plugin ids, so a plugin
-* that adopts it later — in this module or a contrib one — is covered without
-* anyone remembering to update a constant here.
-*/
+ * Whether a plugin exposes a processing mode at all.
+ *
+ * Tested against the interface rather than a list of plugin ids, so a plugin
+ * that adopts it later — in this module or a contrib one — is covered without
+ * anyone remembering to update a constant here.
+ */
 function _neo_alchemist_processing_mode_capable(array $definitions, string $pluginId): bool {
   $class = $definitions[$pluginId]['class'] ?? NULL;
   return is_string($class)
@@ -433,29 +487,28 @@ function _neo_alchemist_processing_mode_capable(array $definitions, string $plug
     && is_subclass_of($class, 'Drupal\neo_alchemist\ComponentValueProcessingModeInterface');
 }
 
-
 /**
-* Purge the default-layout snapshots locked component tree fields left behind.
-*
-* A locked field (allow_custom: FALSE, no custom regions) renders its default
-* layout and ignores the stored row entirely — NeoComponentTreeList::setValue()
-* discards it on load. Until the accompanying ::preSave() fix, though, the
-* constructor's default seed was written verbatim into every entity's row on
-* insert. Those rows never rendered, but anything reading the column directly
-* saw them: the component usage report counted them as content usage, and kept
-* counting components the default layout had long since dropped.
-*
-* Only rows with a POPULATED root are purged. A hybrid storage subset always
-* has an empty root (::extractHybridStorageValue() seeds [ROOT_UUID => []]), so
-* content authored while a field was hybrid — dormant but recoverable if the
-* region is re-flagged — is left untouched.
-*
-* Every purged row is archived to state first, so this is reversible.
-*
-* @see \Drupal\neo_alchemist\Plugin\Field\NeoComponentTreeList::preSave()
-*/
+ * Purge the default-layout snapshots locked component tree fields left behind.
+ *
+ * A locked field (allow_custom: FALSE, no custom regions) renders its default
+ * layout and ignores the stored row entirely — NeoComponentTreeList::setValue()
+ * discards it on load. Until the accompanying ::preSave() fix, though, the
+ * constructor's default seed was written verbatim into every entity's row on
+ * insert. Those rows never rendered, but anything reading the column directly
+ * saw them: the component usage report counted them as content usage, and kept
+ * counting components the default layout had long since dropped.
+ *
+ * Only rows with a POPULATED root are purged. A hybrid storage subset always
+ * has an empty root (::extractHybridStorageValue() seeds [ROOT_UUID => []]), so
+ * content authored while a field was hybrid — dormant but recoverable if the
+ * region is re-flagged — is left untouched.
+ *
+ * Every purged row is archived to state first, so this is reversible.
+ *
+ * @see \Drupal\neo_alchemist\Plugin\Field\NeoComponentTreeList::preSave()
+ */
 function neo_alchemist_update_11005() {
-  $rootUuid = \Drupal\neo_alchemist\Plugin\DataType\ComponentTreeStructure::ROOT_UUID;
+  $rootUuid = ComponentTreeStructure::ROOT_UUID;
   $entityTypeManager = \Drupal::entityTypeManager();
   $entityFieldManager = \Drupal::service('entity_field.manager');
   $database = \Drupal::database();
@@ -469,9 +522,9 @@ function neo_alchemist_update_11005() {
     }
     // The mode accessors live on ComponentFieldConfig; a field_config loaded
     // from storage is a plain FieldConfig.
-    $componentField = $field instanceof \Drupal\neo_alchemist\Entity\ComponentFieldConfig
-      ? $field
-      : new \Drupal\neo_alchemist\Entity\ComponentFieldConfig($field->toArray(), 'field_config');
+    $componentField = $field instanceof
+    ComponentFieldConfig ? $field
+      : new ComponentFieldConfig($field->toArray(), 'field_config');
     if ($componentField->allowCustom() || $componentField->isHybrid()) {
       continue;
     }
@@ -480,7 +533,7 @@ function neo_alchemist_update_11005() {
     $bundle = $field->getTargetBundle();
     $fieldName = $field->getName();
     $storage = $entityTypeManager->getStorage($entityTypeId);
-    if (!$storage instanceof \Drupal\Core\Entity\Sql\SqlEntityStorageInterface) {
+    if (!$storage instanceof SqlEntityStorageInterface) {
       continue;
     }
     $storageDefinition = $entityFieldManager->getFieldStorageDefinitions($entityTypeId)[$fieldName] ?? NULL;
@@ -490,7 +543,7 @@ function neo_alchemist_update_11005() {
     $tableMapping = $storage->getTableMapping();
     $column = $tableMapping->getFieldColumnName($storageDefinition, 'tree');
     $tables = [$tableMapping->getFieldTableName($fieldName)];
-    if ($tableMapping instanceof \Drupal\Core\Entity\Sql\DefaultTableMapping) {
+    if ($tableMapping instanceof DefaultTableMapping) {
       $tables[] = $tableMapping->getDedicatedRevisionTableName($storageDefinition);
     }
 

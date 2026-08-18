@@ -14,8 +14,8 @@ use Drupal\neo_icon\IconTrait;
 /**
  * Lets a developer render neighbor components in the SDC preview workspace.
  *
- * Two selects (Above / Below) choose Alchemist SDCs to render as siblings around
- * the previewed component so spacing — including the same-background
+ * Two selects (Above / Below) choose Alchemist SDCs to render as siblings
+ * around the previewed component so spacing — including the same-background
  * `component-bg` collapse — can be tested against real neighbors. The selection
  * is stored as a cache-backed preview context on the (transient) component and
  * the preview iframes are reloaded to reflect it.

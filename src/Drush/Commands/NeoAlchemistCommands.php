@@ -13,6 +13,7 @@ use Drupal\neo_alchemist\ComponentPreviewBuilder;
 use Drupal\neo_alchemist\ComponentPropDefPluginManager;
 use Drupal\neo_alchemist\ComponentShapePluginManager;
 use Drupal\neo_alchemist\ComponentSlotTemplateLocator;
+use Drupal\neo_alchemist\ThemeComponentInstaller;
 use Drush\Attributes as CLI;
 use Drush\Commands\AutowireTrait;
 use Drush\Commands\DrushCommands;
@@ -56,8 +57,59 @@ final class NeoAlchemistCommands extends DrushCommands {
     private readonly RendererInterface $renderer,
     #[Autowire(service: 'neo_alchemist.slot_template_locator')]
     private readonly ComponentSlotTemplateLocator $slotTemplateLocator,
+    #[Autowire(service: 'neo_alchemist.theme_component_installer')]
+    private readonly ThemeComponentInstaller $themeComponentInstaller,
   ) {
     parent::__construct();
+  }
+
+  /**
+   * Copy module components into a theme so the theme owns their markup.
+   */
+  #[CLI\Command(name: 'neo:alchemist:eject', aliases: ['neoa-eject'])]
+  #[CLI\Argument(name: 'component', description: 'Component id to eject, e.g. neo_search:search_quick. Omit to eject every component declaring `neo_install: true`.')]
+  #[CLI\Option(name: 'theme', description: 'Theme that receives the copy (defaults to the site default theme).')]
+  #[CLI\Option(name: 'force', description: 'Overwrite an existing theme copy. Destructive — the copy is the site\'s to edit.')]
+  #[CLI\Usage(name: 'drush neo:alchemist:eject', description: 'Eject every module component that asks to be ejected.')]
+  #[CLI\Usage(name: 'drush neo:alchemist:eject neo_search:search_quick --force', description: 'Restore one component from its module source, discarding local edits.')]
+  public function eject(?string $component = NULL, array $options = ['theme' => NULL, 'force' => FALSE]): int {
+    $theme = $this->themeComponentInstaller->resolveTheme($options['theme'] ?: NULL);
+    if (!$theme) {
+      $this->io()->error('No installed theme to eject into. Pass --theme=<installed theme>.');
+      return self::EXIT_FAILURE;
+    }
+
+    try {
+      $results = $component
+        ? [$component => $this->themeComponentInstaller->install($component, $theme, (bool) $options['force'])]
+        : $this->themeComponentInstaller->installAll($theme, (bool) $options['force']);
+    }
+    catch (\InvalidArgumentException $e) {
+      $this->io()->error($e->getMessage());
+      return self::EXIT_FAILURE;
+    }
+
+    if (!$results) {
+      $this->io()->warning('No components declare `neo_install: true`.');
+      return self::EXIT_SUCCESS;
+    }
+
+    $path = \Drupal::service('extension.list.theme')->getPath($theme);
+    foreach ($results as $id => $status) {
+      match ($status) {
+        'installed' => $this->io()->success(sprintf('%s → %s/components/%s', $id, $path, explode(':', $id)[1] ?? $id)),
+        'exists' => $this->io()->text(sprintf('%s: "%s" already has a copy — left untouched (--force to overwrite).', $id, $theme)),
+        default => $this->io()->error(sprintf('%s: could not be installed. Check the log.', $id)),
+      };
+    }
+
+    if (in_array('installed', $results, TRUE)) {
+      $this->io()->listing([
+        'Rebuild assets so the copy\'s Tailwind classes compile: drush neo:build && npm run deploy',
+        'The copy is yours — it is never overwritten again without --force.',
+      ]);
+    }
+    return in_array('failed', $results, TRUE) ? self::EXIT_FAILURE : self::EXIT_SUCCESS;
   }
 
   /**
@@ -133,12 +185,22 @@ final class NeoAlchemistCommands extends DrushCommands {
     $warnings = [];
     $oks = [];
 
-    // Required Alchemist / SDC metadata.
-    if (empty($def['neo'])) {
+    // Required Alchemist / SDC metadata. A source template is the deliberate
+    // exception: `neo: false` keeps the module's copy out of the picker, and
+    // the copy installed into the theme has the flag flipped on. Reporting
+    // that as an error would invite someone to "fix" it and put a duplicate
+    // in the picker.
+    if (!empty($def['neo_install']) && empty($def['neo'])) {
+      $oks[] = '`neo_install: true` source template — the module copy stays out of the picker; the theme copy gets `neo: true`.';
+    }
+    elseif (empty($def['neo'])) {
       $errors[] = 'Missing `neo: true` — the component will not appear in Alchemist.';
     }
     else {
       $oks[] = '`neo: true` present.';
+      if (!empty($def['neo_install'])) {
+        $warnings[] = '`neo_install: true` with `neo: true` — the module copy and its theme copy will both appear in the picker. Source templates should declare `neo: false`.';
+      }
     }
     if (empty($def['name'])) {
       $errors[] = 'Missing `name`.';
@@ -417,7 +479,7 @@ final class NeoAlchemistCommands extends DrushCommands {
   }
 
   /**
-   * List local Neo components (SDC with neo: true).
+   * List local Neo components (SDC with neo: true or neo_install: true).
    */
   #[CLI\Command(name: 'neo:alchemist:components', aliases: ['neoa-components'])]
   #[CLI\Option(name: 'theme', description: 'Only components provided by this theme/module machine name.')]
@@ -426,16 +488,20 @@ final class NeoAlchemistCommands extends DrushCommands {
     'name' => 'Name',
     'status' => 'Status',
     'provider' => 'Provider',
+    'install' => 'Ejects',
     'props' => 'Props',
     'slots' => 'Slots',
   ])]
-  #[CLI\DefaultFields(fields: ['id', 'name', 'status', 'provider', 'props', 'slots'])]
+  #[CLI\DefaultFields(fields: ['id', 'name', 'status', 'provider', 'install', 'props', 'slots'])]
   #[CLI\Usage(name: 'drush neo:alchemist:components', description: 'List every Neo component and check which machine names are taken.')]
   public function components(array $options = ['theme' => NULL, 'format' => 'table']): RowsOfFields {
     $rows = [];
     $theme = $options['theme'] ?: NULL;
     foreach ($this->componentPluginManager->getDefinitions() as $id => $def) {
-      if (empty($def['neo'])) {
+      // Source templates carry `neo: false` so they stay out of the picker,
+      // but a machine-name check has to see them — that is what this listing
+      // is for.
+      if (empty($def['neo']) && empty($def['neo_install'])) {
         continue;
       }
       $provider = $def['provider'] ?? '';
@@ -447,6 +513,7 @@ final class NeoAlchemistCommands extends DrushCommands {
         'name' => (string) ($def['name'] ?? ''),
         'status' => (string) ($def['status'] ?? ''),
         'provider' => $provider,
+        'install' => !empty($def['neo_install']) ? 'yes' : '',
         'props' => (string) count(array_diff_key($def['props']['properties'] ?? [], ['attributes' => TRUE])),
         'slots' => (string) count($def['slots'] ?? []),
       ];

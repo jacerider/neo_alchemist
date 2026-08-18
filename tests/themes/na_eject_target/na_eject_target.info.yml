@@ -1,0 +1,7 @@
+name: 'NA Eject Target'
+type: theme
+description: 'Disposable eject target for ThemeComponentInstallerTest. The test writes a components/ directory here and removes it again; nothing else uses this theme.'
+base theme: false
+package: Testing
+hidden: true
+core_version_requirement: ^10.3 || ^11

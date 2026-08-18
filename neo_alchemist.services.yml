@@ -13,6 +13,32 @@ services:
     class: Drupal\neo_alchemist\ComponentPreviewBuilder
     arguments: ['@entity_type.manager', '@plugin.manager.sdc']
 
+  # Finds placements whose component no longer exists. A diff over
+  # ComponentUsage rather than another sweep of its own.
+  neo_alchemist.dangling_component_data:
+    class: Drupal\neo_alchemist\DanglingComponentData
+    arguments: ['@entity_type.manager', '@neo_alchemist.component_usage', '@renderer']
+
+  # Copies module components declaring `neo_install: true` into the front
+  # theme. Driven by hook_modules_installed()/hook_themes_installed(), which
+  # between them cover both install orders (see the class docblock).
+  neo_alchemist.theme_component_installer:
+    class: Drupal\neo_alchemist\ThemeComponentInstaller
+    arguments:
+      - '@plugin.manager.sdc'
+      - '@theme_handler'
+      - '@extension.list.theme'
+      - '@config.factory'
+      - '@file_system'
+      - '@library.discovery'
+      - '@theme.registry'
+      - '@logger.channel.neo_alchemist'
+      - '%app.root%'
+
+  logger.channel.neo_alchemist:
+    parent: logger.channel_base
+    arguments: ['neo_alchemist']
+
   # neo_build is a runtime dependency of neo (and so always present on a real
   # site) but is not declared by neo_alchemist, and Kernel tests enable a
   # minimal module list. Reference it optionally so the container still

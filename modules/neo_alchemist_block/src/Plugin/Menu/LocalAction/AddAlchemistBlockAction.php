@@ -10,7 +10,7 @@ use Drupal\Core\Routing\RouteMatchInterface;
 use Drupal\Core\Url;
 
 /**
- * "Add Alchemist block" local action that returns to the block layout page.
+ * Local action for "Add Alchemist block" that returns to the block layout.
  *
  * When the action link is shown on the Block layout page it appends a
  * ?destination back to that same page, so creating a block returns the user

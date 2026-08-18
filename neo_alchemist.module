@@ -7,6 +7,7 @@
 
 declare(strict_types=1);
 
+use Drupal\neo_alchemist\Plugin\ComponentValue\ViewsValue;
 use Drupal\Core\Entity\ContentEntityFormInterface;
 use Drupal\Core\Entity\ContentEntityInterface;
 use Drupal\Core\Entity\ContentEntityTypeInterface;
@@ -219,10 +220,30 @@ function template_preprocess_neo_alchemist_overlay(&$variables) {
   // grouped by verb. The outline clusters pull each one out by name, so this
   // order does not affect them.
   $positionOps = [
-    'add-before' => ['label' => t('Add Component Before'), 'short' => t('Before'), 'icon' => 'plus', 'placement' => 'top'],
-    'add-after' => ['label' => t('Add Component After'), 'short' => t('After'), 'icon' => 'plus', 'placement' => 'bottom'],
-    'move-up' => ['label' => t('Move Component Up'), 'short' => NULL, 'icon' => 'arrow-up', 'placement' => 'top'],
-    'move-down' => ['label' => t('Move Component Down'), 'short' => NULL, 'icon' => 'arrow-down', 'placement' => 'bottom'],
+    'add-before' => [
+      'label' => t('Add Component Before'),
+      'short' => t('Before'),
+      'icon' => 'plus',
+      'placement' => 'top',
+    ],
+    'add-after' => [
+      'label' => t('Add Component After'),
+      'short' => t('After'),
+      'icon' => 'plus',
+      'placement' => 'bottom',
+    ],
+    'move-up' => [
+      'label' => t('Move Component Up'),
+      'short' => NULL,
+      'icon' => 'arrow-up',
+      'placement' => 'top',
+    ],
+    'move-down' => [
+      'label' => t('Move Component Down'),
+      'short' => NULL,
+      'icon' => 'arrow-down',
+      'placement' => 'bottom',
+    ],
   ];
   $variables['position_ops'] = [];
   foreach ($positionOps as $op => $config) {
@@ -342,7 +363,7 @@ function neo_alchemist_content_entity_form_redirect(array $form, FormStateInterf
   if ($formObject instanceof ContentEntityFormInterface) {
     $entity = $formObject->getEntity();
     if ($entity->hasLinkTemplate('alchemist')) {
-      // remove 'destination' query parameter from current request to avoid
+      // Remove 'destination' query parameter from current request to avoid
       // interfering with our redirect.
       $request = \Drupal::request();
       $request->query->remove('destination');
@@ -766,7 +787,7 @@ function neo_alchemist_config_schema_info_alter(&$definitions) {
 /**
  * Implements hook_neo_token_image_alter().
  */
-function neo_alchemist_neo_token_image_alter(&$uri, &$params, ContentEntityInterface $entity = NULL) {
+function neo_alchemist_neo_token_image_alter(&$uri, &$params, ?ContentEntityInterface $entity = NULL) {
   if (!$entity) {
     return;
   }
@@ -776,7 +797,7 @@ function neo_alchemist_neo_token_image_alter(&$uri, &$params, ContentEntityInter
   // executes their bound views mid-serialization (infinitely, when a search
   // page's own node appears in its results). The head-of-page metatag pass
   // runs outside any execution and resolves the image normally.
-  if (\Drupal\neo_alchemist\Plugin\ComponentValue\ViewsValue::isExecuting()) {
+  if (ViewsValue::isExecuting()) {
     return;
   }
   if ($fieldName = neo_alchemist_get_entity_field_name($entity)) {
@@ -856,4 +877,34 @@ function neo_alchemist_get_entity_field_name(ContentEntityInterface $entity) {
   }
   $fieldNames = array_intersect($cache[$entityTypeId][$bundle], array_keys(neo_alchemist_entity_component_field_definitions($entity)));
   return $fieldNames ? reset($fieldNames) : NULL;
+}
+
+/**
+ * Implements hook_modules_installed().
+ *
+ * Ejects module components declaring `neo_install: true` into the front theme.
+ * Covers installing a module onto a site whose theme is already up; the fresh
+ * install case is handled by hook_themes_installed(), because core installs
+ * every module before any theme.
+ */
+function neo_alchemist_modules_installed($modules, $is_syncing) {
+  if ($is_syncing) {
+    // A config import must not write to the filesystem.
+    return;
+  }
+  \Drupal::service('neo_alchemist.theme_component_installer')->installAll();
+}
+
+/**
+ * Implements hook_themes_installed().
+ *
+ * The load-bearing half of the eject. During a profile install core runs
+ * install_profile_modules() — and so every hook_install() — before
+ * install_profile_themes(), so when a module is installed there is no theme to
+ * copy into and SDC could not discover the copy if there were. Sweeping every
+ * installed module again once a theme exists makes the eject independent of
+ * install order.
+ */
+function neo_alchemist_themes_installed($theme_list) {
+  \Drupal::service('neo_alchemist.theme_component_installer')->installAll();
 }

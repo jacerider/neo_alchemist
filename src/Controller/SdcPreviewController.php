@@ -25,6 +25,9 @@ final class SdcPreviewController extends ControllerBase {
     private readonly ComponentPreviewBuilder $previewBuilder,
   ) {}
 
+  /**
+   * {@inheritdoc}
+   */
   public static function create(ContainerInterface $container): self {
     return new self(
       $container->get('neo_component_page_renderer'),

@@ -69,6 +69,24 @@ class ComponentPluginManager extends ThemeComponentPluginManager {
     /** @var \Drupal\neo_alchemist\ComponentInterface[] $components */
     $components = $this->entityTypeManager->getStorage('neo_component')->loadMultiple();
     foreach ($components as $component) {
+      // Never re-derive from an SDC that is not in this rebuild. The expression
+      // and the props skeleton are both generated from the component's schema,
+      // so with no SDC to read they come out empty — and saving that empty
+      // result silently destroys every value provider, slot and filter the site
+      // builder configured. That is not hypothetical: it is one `drush cr`
+      // during a half-applied rename, or a theme uninstalled for a moment, or a
+      // component directory that has not been deployed yet. A stale pointer is
+      // recoverable; the settings it wipes are not.
+      if (!isset($definitions[$component->getComponentId()])) {
+        // \Drupal:: rather than an injected channel: this manager is built
+        // during theme initialization and its service definition belongs to
+        // core, matching the isConfigSyncing() call above.
+        \Drupal::logger('neo_alchemist')->warning('Component "@id" points at "@component", which does not exist. Its configuration has been left untouched — restore the component or fix the id.', [
+          '@id' => $component->id(),
+          '@component' => $component->getComponentId(),
+        ]);
+        continue;
+      }
       if ($component->getExpression() !== $component->generateExpression()) {
         $component->save();
       }
@@ -146,13 +164,13 @@ class ComponentPluginManager extends ThemeComponentPluginManager {
       $prop['items'] = array_map([__CLASS__, 'alterProp'], ['items' => $prop['items']])['items'];
     }
 
-    // Gracefully handle a prop whose type references a prop def (or class) that
-    // does not exist on this site — e.g. an SDC pulled from another project that
-    // used a custom prop type. Left unresolved, core's ComponentValidator treats
-    // the unknown type as a class name and throws an InvalidComponentException,
-    // breaking the whole component. Fall back to a permissive string so the
-    // component still loads; the prop simply gets no specialized widget/handling
-    // until the missing prop definition is provided.
+    // Gracefully handle a prop whose type references a prop def (or class)
+    // that does not exist on this site — e.g. an SDC pulled from another
+    // project that used a custom prop type. Left unresolved, core's
+    // ComponentValidator treats the unknown type as a class name and throws an
+    // InvalidComponentException, breaking the whole component. Fall back to a
+    // permissive string so the component still loads; the prop simply gets no
+    // specialized widget/handling until the missing prop def is provided.
     $rootType = is_array($prop['type'] ?? NULL) ? reset($prop['type']) : ($prop['type'] ?? NULL);
     if (is_string($rootType) && $rootType !== ''
       && !in_array($rootType, ['string', 'number', 'integer', 'boolean', 'object', 'array', 'null'], TRUE)
@@ -167,9 +185,10 @@ class ComponentPluginManager extends ThemeComponentPluginManager {
 
     // Drop an empty `required` array. JSON Schema (and core's SDC validator)
     // requires `required` to hold at least one property name, so `required: []`
-    // is invalid. It can slip in from a component yml or the editor declaring the
-    // key with no entries — this was previously masked whenever a prop def merged
-    // in its own non-empty `required`, and only surfaces once that def omits it.
+    // is invalid. It can slip in from a component yml or the editor declaring
+    // the key with no entries — this was previously masked whenever a prop def
+    // merged in its own non-empty `required`, and surfaces once that def omits
+    // it.
     if (isset($prop['required']) && is_array($prop['required']) && $prop['required'] === []) {
       unset($prop['required']);
     }

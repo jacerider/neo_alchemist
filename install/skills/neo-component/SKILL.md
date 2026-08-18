@@ -88,6 +88,49 @@ Key fields:
 - **`neo: true`** — required flag. Without it the component is not picked up by Alchemist.
 - **`status`** — `stable`, `beta`, `experimental`, or `deprecated`.
 - **`libraryOverrides.dependencies`** — attach Drupal libraries (e.g. `neo/library.alpine` for Alpine.js).
+- **`neo_install: true`** — for components shipped by a **module**; see below.
+
+## Shipping a component from a module (`neo_install`)
+
+Components normally live in a theme. A **module** that wants to ship one — a
+search results body, a login panel, anything the module itself renders or seeds
+— puts it in `MODULE/components/<name>/` and declares:
+
+```yaml
+neo: false          # source template: keep this copy out of the picker
+neo_install: true   # copy me into the front theme on install
+```
+
+neo_alchemist then copies the directory into the site's default theme and
+**flips the copy to `neo: true`**. From that moment the theme copy is the real
+component — pickable, previewable, and the site's to restyle. It is never
+overwritten again (`drush neo:alchemist:eject <id> --force` if you want the
+module's version back).
+
+The module's own copy stays discoverable, so a module that renders its own
+component still has a working fallback if the theme copy is deleted. It just
+never appears in the picker, which is what `neo: false` buys you — otherwise
+every site would show two identically-named entries.
+
+```
+drush neo:alchemist:eject                      # every neo_install component
+drush neo:alchemist:eject neo_search:search_quick --force
+drush neo:alchemist:components                 # the "Ejects" column shows which
+```
+
+Why it is a module-install concern and not something you script yourself: core
+installs **every module — and runs every `hook_install()` — before any theme**
+during a profile install, so at module-install time there is no theme to copy
+into and SDC could not discover the copy if there were. neo_alchemist listens on
+both `hook_modules_installed()` and `hook_themes_installed()` so the eject lands
+whichever order things happen in. Writing that per module gets it wrong.
+
+Two consequences worth knowing:
+
+- `drush neo:alchemist:validate MODULE:<name>` reports a source template rather
+  than erroring on the missing `neo: true`. That is deliberate — do not "fix" it.
+- `neo:alchemist:render` and the SDC preview both require `neo: true`, so preview
+  the **theme** copy (`front:<name>`), not the module source.
 
 ## Prop types (Alchemist shapes)
 
@@ -349,11 +392,11 @@ view), and the metatag image token skips component-tree walks while a views valu
 executing (`ViewsValue::isExecuting()`) — result caching serializes row entities, which
 computes metatags mid-execution.
 
-Worked example: the `search` view + `list_search` component + `/search` system node.
-neo_search ships that component as a scaffold (`install/components/list_search`) and
-`drush neo:search:setup`, which provisions the whole stack in one idempotent command —
+Worked example: the `search` view + `search_list` component + `/search` system node.
+neo_search ships that component with `neo_install: true` (`components/search_list`), so it
+lands in the theme on install; `drush neo:search:setup` then provisions the rest in one idempotent command —
 index checks, templated view, a theme-owned copy of the component (bound as
-`<theme>:list_search`; the site restyles it freely), page conversion, quick-search
+`<theme>:search_list`; the site restyles it freely), page conversion, quick-search
 variation, permissions.
 
 ### Inline custom `style` shapes
@@ -934,7 +977,7 @@ resolved colors — see "Finding this site's real colors"). All tabular commands
 > role shades before you ship.
 
 
-- **Forgetting `neo: true`** — component won't appear in Alchemist's picker.
+- **Forgetting `neo: true`** — component won't appear in Alchemist's picker. (A module source template declaring `neo_install: true` is the one deliberate exception — see "Shipping a component from a module".)
 - **Raw `{{ url }}` instead of `{{ neo_uri(link.uri, link.options) }}`** — breaks internal `internal:/` URIs.
 - **Missing `examples`** — editor shows empty previews and broken defaults.
 - **Not wrapping in `{% if prop %}`** — component renders empty scaffolding when editor leaves fields blank.
@@ -965,3 +1008,14 @@ resolved colors — see "Finding this site's real colors"). All tabular commands
 - **A provider on the final mode plus a configured Default Value** — *Always use its value — final* claims unconditionally, so the fallback `default` plugin never gets a turn and the site builder's Default Value silently never renders. Use *Use its value and stop* when a default is configured.
 - **`examples:` on a `media` prop** — media props can't carry examples; previews borrow the most recent published media of an allowed type instead. Don't fight it with placeholder URLs — that's what `image` (with `component://` art) is for.
 - **Clearing cache** — after editing `.component.yml`, run `drush cr` or the prop changes won't reflect.
+- **Renaming or deleting a component that is placed** — a `neo_component` entity id is a plain string in every tree that places it, so renaming or deleting one leaves those placements resolving to NULL. They are then skipped at render: the page returns 200 with a hole in it. Do not do this by hand — use the command, which moves the entity and every tree together:
+
+    ```bash
+    drush neo:alchemist:rename old_id new_id     # entity + every placement
+    drush neo:alchemist:integrity                # what is currently dangling
+    drush neo:alchemist:integrity --detach       # remove placements that cannot be repaired
+    ```
+
+    If it happens anyway you will now hear about it rather than discovering it later: the render logs a warning naming the host and the missing component, `/admin/reports/status` reports the count, and `neo:alchemist:integrity` exits non-zero so a deploy can gate on it. Deleting a placed component warns first, with the count.
+
+    The mirror image — a component entity whose **SDC** is missing — is guarded separately: the definition-rebuild sweep skips it and logs, rather than re-deriving it from an empty schema and wiping every value provider, slot and filter it had.

@@ -44,7 +44,15 @@ class ComponentTreeHydrated extends TypedData implements RenderableInterface {
     foreach ($tree->getComponentInstanceUuids() as $key => $uuid) {
       $instance = $item->getComponent($uuid);
       if (!$instance) {
-        // Component no longer exists.
+        // Component no longer exists. Skipping is the only safe thing to do —
+        // renderify() below re-resolves each uuid unguarded, so keeping this
+        // one to render a placeholder would fatal — but skipping silently is
+        // what makes a renamed or deleted component look like an empty page
+        // with nothing wrong. Say so instead.
+        //
+        // Only this branch logs. The published check below filters unpublished
+        // components too, and that is routine, not a fault.
+        self::logMissingComponent($item, $uuid);
         continue;
       }
       // We allow unpublished components to be rendered, but only if we are
@@ -208,6 +216,42 @@ class ComponentTreeHydrated extends TypedData implements RenderableInterface {
     }
     // This appears to be an ephemeral component tree, hence it is uncacheable.
     return (new CacheableMetadata())->setCacheMaxAge(0);
+  }
+
+  /**
+   * Logs a tree entry whose component config entity no longer exists.
+   *
+   * Deduplicated per request: the render path is cache-backed, but a hot
+   * uncached page would otherwise write one entry per render per instance, and
+   * a warning nobody can read is no better than no warning.
+   */
+  protected static function logMissingComponent(ComponentTreeItem $item, string $uuid): void {
+    static $seen = [];
+
+    $componentId = (string) ($item->get('tree')->getComponentId($uuid) ?? '');
+    $host = 'unknown';
+    $field = '';
+    try {
+      $entity = $item->getEntity();
+      $host = $entity->getEntityTypeId() . ':' . ($entity->id() ?? 'new');
+      $field = $item->getFieldDefinition()->getName();
+    }
+    catch (\Throwable) {
+      // An ephemeral tree with no host entity still deserves the warning; it
+      // just cannot say where it came from.
+    }
+
+    $key = $host . '|' . $field . '|' . $uuid . '|' . $componentId;
+    if (isset($seen[$key])) {
+      return;
+    }
+    $seen[$key] = TRUE;
+
+    \Drupal::logger('neo_alchemist')->warning('Component tree on @host (@field) places "@component", which does not exist. That placement renders nothing. Run `drush neo:alchemist:integrity` to locate it.', [
+      '@host' => $host,
+      '@field' => $field ?: 'unknown field',
+      '@component' => $componentId ?: 'unknown component',
+    ]);
   }
 
 }

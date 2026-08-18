@@ -59,9 +59,9 @@ final class NeoAlchemistViewsPageCommands extends DrushCommands {
   #[CLI\Option(name: 'bundle', description: 'Node bundle to create — must carry a component tree field (defaults to "system").')]
   #[CLI\Option(name: 'title', description: 'Title for the new node (defaults to the view label).')]
   #[CLI\Option(name: 'alias', description: 'Path alias for the node (defaults to the display path).')]
-  #[CLI\Option(name: 'component', description: 'A neo_component id to seed the node tree with (e.g. list_search).')]
+  #[CLI\Option(name: 'component', description: 'A neo_component id to seed the node tree with (e.g. search_list).')]
   #[CLI\Option(name: 'keep-display', description: 'Do not remove the views page display (testing only — the alias will shadow the views route).')]
-  #[CLI\Usage(name: 'drush neo:alchemist:views-page search:page_1 --component=list_search', description: 'Hand /search to a system node seeded with the list_search component.')]
+  #[CLI\Usage(name: 'drush neo:alchemist:views-page search:page_1 --component=search_list', description: 'Hand /search to a system node seeded with the search_list component.')]
   public function convert(
     string $display,
     array $options = [

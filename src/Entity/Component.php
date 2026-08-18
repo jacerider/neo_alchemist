@@ -54,7 +54,7 @@ use Drupal\neo_icon\IconTrait;
  *       "slot" = "Drupal\neo_alchemist\Form\ComponentSlotForm",
  *       "filter" = "Drupal\neo_alchemist\Form\ComponentFilterForm",
  *       "access" = "Drupal\neo_alchemist\Form\ComponentAccessForm",
- *       "delete" = "Drupal\Core\Entity\EntityDeleteForm",
+ *       "delete" = "Drupal\neo_alchemist\Form\ComponentDeleteForm",
  *       "manage" = "Drupal\neo_alchemist\Form\ComponentManageForm",
  *       "style" = "Drupal\neo_alchemist\Form\ComponentStyleForm",
  *       "preview_value" = "Drupal\neo_alchemist\Form\SdcPreviewForm",

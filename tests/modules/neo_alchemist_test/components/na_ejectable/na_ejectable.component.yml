@@ -1,0 +1,13 @@
+$schema: 'https://git.drupalcode.org/project/drupal/-/raw/10.1.x/core/modules/sdc/src/metadata.schema.json'
+name: 'NA Ejectable'
+status: stable
+description: 'Fixture for ThemeComponentInstallerTest: a module source template that asks to be copied into the front theme.'
+neo: false
+neo_install: true
+props:
+  type: object
+  properties:
+    label:
+      type: string
+      title: 'Label'
+      examples: ['Ejected']
