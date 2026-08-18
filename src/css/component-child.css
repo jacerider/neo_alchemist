@@ -72,3 +72,28 @@
   white-space: nowrap;
   text-overflow: ellipsis;
 }
+
+/**
+ * No entrance animations inside the editor preview.
+ *
+ * The preview re-renders on every edit, so a reveal replays constantly — and
+ * while one is mid-flight the element is displaced by a transform. That is
+ * exactly what the editor measures: to place its prop outlines, and to report
+ * component rects to the canvas overlays. A transform fires no resize, so a
+ * rect captured mid-animation is never corrected, which showed up as outlines
+ * sitting 30-odd pixels off their element.
+ *
+ * Showing the content outright removes the whole class of problem rather than
+ * correcting each measurement site. An entrance animation is something to
+ * judge on the real page, not in a canvas that rebuilds as you type.
+ *
+ * `opacity` is needed because neo_animate holds unarmed elements at 0 (see
+ * neo_animate/src/css/neo-animate.css); `animation` and `transform` undo the
+ * catalog keyframes the driver applies.
+ */
+[class*='neo-animate-enter--'].neo-animate,
+[class*='neo-animate-enter--'].neo-animate-stagger .neo-animate-item {
+  animation: none !important;
+  opacity: 1 !important;
+  transform: none !important;
+}
