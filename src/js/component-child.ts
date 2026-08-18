@@ -177,9 +177,10 @@
       }
       const target = resolveFromPoint(event.clientX, event.clientY)
         || (event.target as HTMLElement).closest<HTMLElement>(targetSelector);
-      if (target) {
-        post('prop', { propId: propIdOf(target) });
-      }
+      // A click on nothing in particular is a deselect: it already blurs the
+      // form field, so the outline has to go with it rather than being left
+      // pointing at a prop no longer being edited.
+      post('prop', { propId: target ? propIdOf(target) : null });
     });
   };
 
@@ -294,6 +295,12 @@
       positionOverlay(overlay, target);
       return overlay;
     });
+    // A refreshed subtree is measured the moment it lands, which is before
+    // anything above it has finished resolving its height — so the outline
+    // gets placed where the element briefly was. The resize observer corrects
+    // this only if something happens to resize afterwards; re-measuring on the
+    // next frame does not depend on that.
+    requestAnimationFrame(refreshOverlays);
   };
 
   const refreshOverlays = (): void => {
@@ -566,6 +573,14 @@
     });
     return matches;
   };
+
+  // A refreshed subtree replays its scroll-entrance animation, which moves
+  // elements by transform — and a transform resizes nothing, so the resize
+  // observer never fires and an outline measured mid-flight stays where the
+  // element briefly was. Both events bubble, so one listener covers the
+  // subtree however it is replaced.
+  document.addEventListener('animationend', refreshOverlays);
+  document.addEventListener('transitionend', refreshOverlays);
 
   // Highlight requests from the parent editor (form focus, and re-asserted
   // after each preview reload). No scrolling here: the iframe is auto-sized
