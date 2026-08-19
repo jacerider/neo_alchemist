@@ -138,7 +138,7 @@ final class DefaultValue extends ComponentValuePluginBase implements ContainerFa
       foreach ($this->shape->getParentShapes() as $parentShape) {
         $this->defaultShape->addParentShape($parentShape);
       }
-      $this->defaultShape->setDefaultNestedOptions($this->configuration['options'] ?? []);
+      $this->defaultShape->getNestedOptionMap()->mergeFallbacks($this->configuration['options'] ?? []);
       $this->defaultShape->init();
       $this->defaultShape->getOptionDefault()->alwaysShowForm(TRUE, 'Always show form when default.');
       if (!$this->defaultShape->isIterable()) {
@@ -172,20 +172,13 @@ final class DefaultValue extends ComponentValuePluginBase implements ContainerFa
       if (!is_array($originalValues)) {
         $originalValues = [$originalValues];
       }
-      $nestedOptions = array_filter($defaultShape->getNestedOptions(), function ($key) use ($defaultShape) {
-        $id = $defaultShape->id();
-        if ($key === $id) {
-          return TRUE;
-        }
-        if (substr($key, 0, strlen($id) + 1) === $id . '~') {
-          return TRUE;
-        }
-        return $key === $defaultShape->id();
-      }, ARRAY_FILTER_USE_KEY);
       $values = [
         'field_type' => $defaultShape->getFieldType(),
         'default' => $defaultShape->massageFormValues($values, $originalValues, $form, $form_state),
-        'options' => $nestedOptions,
+        // This provider stores its own shape's options, not the whole
+        // component's. Narrowing used to be done here with a hand-rolled copy
+        // of the shape-id key format.
+        'options' => $defaultShape->getNestedOptionMap()->subtree(),
       ];
       if ($values['default'] === '_default') {
         $values['default'] = NULL;
@@ -206,7 +199,7 @@ final class DefaultValue extends ComponentValuePluginBase implements ContainerFa
    */
   public function onShapeInit() {
     parent::onShapeInit();
-    $this->shape->setDefaultNestedOptions($this->configuration['options'] ?? []);
+    $this->shape->getNestedOptionMap()->mergeFallbacks($this->configuration['options'] ?? []);
   }
 
   /**

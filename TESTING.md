@@ -393,6 +393,8 @@ number written down here.
 | Class | Retires |
 |---|---|
 | `Unit/ComponentShapeOptionTest` | Option precedence (locked > set > default) and first-write-wins locking, so a parent's constraint cannot be escaped by a nested child |
+| `Unit/NestedOptionMapTest` | Where those options come from: the shape-id key format, that a saved option shadows a shape's whole fallback entry, that reads see the saved layer alone, and that merging never overwrites |
+| `Unit/HeadingValueOptionChoreographyTest` | What the Heading provider records per sub-prop — source ⇒ fallback, not-editable ⇒ saved + access withdrawn, and the mid-method read that decides whether the anchor follows the title |
 | `Unit/ComponentTreeStructureTest` | Tree algebra; depth-first traversal yielding children before parents, which the hydrated render pass depends on |
 | `Unit/HybridTreeAlgebraTest` | Hybrid closure math — anchors, nested descendants, cycle termination, malformed JSON |
 | `Unit/ExpandTupleClosureTest` | The descendant walker behind hybrid ownership: cycles, junk seeds, missing sections |

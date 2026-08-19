@@ -16,6 +16,7 @@ use Drupal\neo_alchemist\ComponentShapePluginInterface;
 use Drupal\neo_alchemist\ComponentValueProcessingModeInterface;
 use Drupal\neo_alchemist\ComponentValuePluginBase;
 use Drupal\neo_alchemist\MatcherField;
+use Drupal\neo_alchemist\NestedOptionMap;
 use Drupal\neo_alchemist\Plugin\ComponentShape\ObjectShape;
 
 /**
@@ -391,7 +392,7 @@ final class HeadingValue extends ComponentValuePluginBase implements ContainerFa
       // value provider form.
       $element['title']['_options']['default']['#ajax']['wrapper'] = $element['#id'];
       $element['title']['_options']['default']['#ajax_level'] = -3;
-      if ($this->shape->getNestedOptionDefault('title')) {
+      if ($this->shape->getNestedOptionMap()->get('title', NestedOptionMap::OPTION_DEFAULT)) {
         // Hide the anchor when no title editing is allowed.
         $element['anchor']['#access'] = FALSE;
       }
@@ -413,6 +414,7 @@ final class HeadingValue extends ComponentValuePluginBase implements ContainerFa
       $shape->getOptionEmpty()->setLockedValue(TRUE, 'Heading hidden by Heading value provider.');
     }
 
+    $options = $shape->getNestedOptionMap();
     $dynamicAnchor = FALSE;
     foreach (static::TEXT_KEYS as $field) {
       // A sub-prop that draws its value from somewhere — the page title, the
@@ -442,10 +444,10 @@ final class HeadingValue extends ComponentValuePluginBase implements ContainerFa
       // The missing title_empty key is now seeded alongside its siblings.
       $hasSource = $this->hasSource($field);
       if ($hasSource || $this->configuration["{$field}_default"]) {
-        $shape->setDefaultNestedOptionDefault($field);
+        $options->setFallback($field, NestedOptionMap::OPTION_DEFAULT);
       }
       if (!empty($this->configuration["{$field}_empty"])) {
-        $shape->setDefaultNestedOptionEmpty($field);
+        $options->setFallback($field, NestedOptionMap::OPTION_EMPTY);
       }
       // No `??` fallbacks here: setConfiguration() merges every saved value
       // over defaultConfiguration(), which seeds `_edit` and `_empty` for all
@@ -454,10 +456,14 @@ final class HeadingValue extends ComponentValuePluginBase implements ContainerFa
       // being absent from the defaults went unnoticed for as long as it did.
       if (!$this->configuration["{$field}_edit"]) {
         if (!empty($this->configuration["{$field}_empty"])) {
-          $shape->setNestedOptionEmpty($field);
+          $options->set($field, NestedOptionMap::OPTION_EMPTY);
         }
-        $shape->setNestedOptionDefault($field);
-        $shape->setNestedOptionAccess($field);
+        $options->set($field, NestedOptionMap::OPTION_DEFAULT);
+        // Withdrawing access, not granting it: "not editable" is exactly what
+        // this branch is. The old wrapper spelled the same thing by defaulting
+        // its value argument to FALSE, so `setNestedOptionAccess($field)` read
+        // as a grant and meant a denial.
+        $options->set($field, NestedOptionMap::OPTION_ACCESS, FALSE);
         if ($field === 'title') {
           $dynamicAnchor = TRUE;
         }
@@ -473,22 +479,21 @@ final class HeadingValue extends ComponentValuePluginBase implements ContainerFa
       // empty while size — or any other sub-property — still holds a value, so
       // "Always stop (block if empty)" never fires for a single empty title.
       if ($this->isBlockedEmptyField($field)) {
-        $shape->setNestedOptionEmpty($field);
+        $options->set($field, NestedOptionMap::OPTION_EMPTY);
       }
     }
-    if ($this->configuration['size_default']) {
-      $shape->setNestedOptionDefault('size');
+    if ($this->configuration['size_default'] || !$this->configuration['size_edit']) {
+      $options->set('size', NestedOptionMap::OPTION_DEFAULT);
     }
     if (!$this->configuration['size_edit']) {
-      $shape->setNestedOptionDefault('size');
-      $shape->setNestedOptionAccess('size');
+      $options->set('size', NestedOptionMap::OPTION_ACCESS, FALSE);
     }
-    if ($this->shape->getNestedOptionDefault('title')) {
+    if ($options->get('title', NestedOptionMap::OPTION_DEFAULT)) {
       $dynamicAnchor = TRUE;
     }
     if ($dynamicAnchor) {
-      $shape->setNestedOptionDefault('anchor');
-      $shape->setNestedOptionAccess('anchor');
+      $options->set('anchor', NestedOptionMap::OPTION_DEFAULT);
+      $options->set('anchor', NestedOptionMap::OPTION_ACCESS, FALSE);
     }
   }
 

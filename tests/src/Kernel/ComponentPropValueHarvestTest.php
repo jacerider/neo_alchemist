@@ -325,7 +325,7 @@ class ComponentPropValueHarvestTest extends KernelTestBase {
     $props = $this->harvest($component, $this->stringSubmission('text', 'SUBMITTED'));
 
     $this->assertSame(
-      $component->getPropShapes()['text']->getNestedOptions(),
+      $component->getPropShapes()['text']->getNestedOptionMap()->toArray(),
       $props['text']['options'],
       'The harvest reports the shape\'s nested options verbatim.',
     );

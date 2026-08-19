@@ -114,7 +114,7 @@ final class ComponentShapePluginManager extends DefaultPluginManager {
           // provide backwards compatibility.
           if (isset($values['props'][$propName]) && (empty($values['props'][$propName]['ref']) || ($values['props'][$propName]['ref'] === $shape->getRef()))) {
             $shape->setOverrideValue($values['props'][$propName]['value'] ?? NULL);
-            $shape->setNestedOptions($values['props'][$propName]['options'] ?? []);
+            $shape->getNestedOptionMap()->merge($values['props'][$propName]['options'] ?? []);
           }
           $instances[$propName] = $shape;
         }

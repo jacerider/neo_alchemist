@@ -602,8 +602,8 @@ class ArrayShape extends ChildrenShapeBase implements ComponentShapeInterablePlu
     // changes the order of elements in the dom. It is only when they are
     // submitted that we actually change the saved order. As a result, we have
     // to make sure the 'options' are assigned to the correct delta.
-    // @todo change when and how getNestedOptions() is calculated.
-    $id = $this->id();
+    // @todo change when and how the nested option map is calculated.
+    $options = $this->getNestedOptionMap();
     $originalValue = $values['value'] ?? [];
     $originalOptions = $values['options'] ?? [];
     $newValue = [];
@@ -614,8 +614,9 @@ class ArrayShape extends ChildrenShapeBase implements ComponentShapeInterablePlu
         unset($value['_weight']);
         $newValue[$newDelta] = $value;
         foreach ($value as $name => $val) {
-          if (isset($values['options'][$id . '~' . $name . '~' . $delta])) {
-            $newOptions[$id . '~' . $name . '~' . $newDelta] = $values['options'][$id . '~' . $name . '~' . $delta];
+          $from = $options->childKey($name, $delta);
+          if (isset($values['options'][$from])) {
+            $newOptions[$options->childKey($name, $newDelta)] = $values['options'][$from];
           }
         }
       }

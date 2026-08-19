@@ -87,7 +87,7 @@ final class ComponentPropValueHarvester {
         // return type above cannot carry it.
         $props[$propName]['value'] = $originalValue;
       }
-      $props[$propName]['options'] = $shape->getNestedOptions();
+      $props[$propName]['options'] = $shape->getNestedOptionMap()->toArray();
     }
     return $props;
   }

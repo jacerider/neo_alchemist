@@ -136,6 +136,19 @@ Two layers:
    (`plugin.manager.neo_component_shape`); `getInstancesFromSchema()` builds the shape
    tree for a component.
 
+Every shape in that tree carries three options — `empty` (render nothing), `default`
+(sit on its own default value) and `access` (an editor may change it) — as
+[ComponentShapeOption](src/ComponentShapeOption.php) objects. Where they *come from* is
+[NestedOptionMap](src/NestedOptionMap.php), reached through
+`ComponentShapePluginInterface::getNestedOptionMap()`: one store on the root shape,
+keyed by shape id, holding a saved layer (what a site builder configured, and what
+round-trips through `settings.props.*.options`) over a fallback layer (what a value
+provider would like when nothing else has an opinion). It is separate from the shapes
+because a parent sets options for children that do not exist yet — a provider runs
+during the parent's `init()`. Note the two layers union by top-level key rather than
+merging, so one saved option discards a shape's whole fallback entry; that is
+deliberate and pinned by `NestedOptionMapTest`.
+
 The `#[ComponentShape]` attribute ([src/Attribute/ComponentShape.php](src/Attribute/ComponentShape.php))
 — id is `prop`:
 

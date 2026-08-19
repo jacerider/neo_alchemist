@@ -35,11 +35,11 @@ use PHPUnit\Framework\Attributes\Group;
  *
  * None of that was visible from the outside, for a reason this suite also pins
  * (::testEditFalseShadowsTheHiddenDefault): when a sub-prop is not editable,
- * onShapeInit() writes nestedOptions for it, and getNestedOptions() unions
- * `nestedOptions + defaultNestedOptions` by TOP-LEVEL key — so one saved option
- * discards the whole default entry, hidden flag included. Every heading in the
- * site that prompted this change had `_edit: false`, so the branch under test
- * was inert and the bug could not be observed by editing a component.
+ * onShapeInit() saves an option for it, and NestedOptionMap unions its saved
+ * layer over its fallback one by TOP-LEVEL key — so one saved option discards
+ * the whole fallback entry, hidden flag included. Every heading in the site
+ * that prompted this change had `_edit: false`, so the branch under test was
+ * inert and the bug could not be observed by editing a component.
  *
  * @see \Drupal\neo_alchemist\Plugin\ComponentValue\HeadingValue::onShapeInit()
  */
@@ -289,11 +289,11 @@ class HeadingValueSubPropOptionsTest extends KernelTestBase {
    * A non-editable sub-prop discards the hidden default, and always has.
    *
    * This is not the desired behaviour so much as the reason the `??` bug went
-   * unnoticed: the !edit branch writes nestedOptions for the sub-prop, and
-   * getNestedOptions() unions `nestedOptions + defaultNestedOptions` by
-   * top-level key, so the whole default entry — hidden flag included — is
-   * dropped. Pinned so that changing the union to a deep merge (a separate,
-   * module-wide change) cannot happen silently: this test is what will fail.
+   * unnoticed: the !edit branch saves an option for the sub-prop, and
+   * NestedOptionMap unions its saved layer over its fallback one by top-level
+   * key, so the whole fallback entry — hidden flag included — is dropped.
+   * Pinned so that changing the union to a deep merge (a separate, module-wide
+   * change) cannot happen silently: this test is what will fail.
    */
   public function testEditFalseShadowsTheHiddenDefault(): void {
     $states = $this->optionStates([
@@ -305,7 +305,7 @@ class HeadingValueSubPropOptionsTest extends KernelTestBase {
 
     $this->assertFalse(
       $states['title']['empty'],
-      'nestedOptions written by the !edit branch shadow the whole defaultNestedOptions entry.',
+      'A saved option written by the !edit branch shadows the whole fallback entry.',
     );
   }
 

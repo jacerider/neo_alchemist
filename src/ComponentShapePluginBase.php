@@ -245,18 +245,15 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
   protected array $plugins = [];
 
   /**
-   * The default nested options.
+   * The nested options for this shape's whole tree.
    *
-   * @var array
-   */
-  protected array $defaultNestedOptions = [];
-
-  /**
-   * The nested options.
+   * Only ever populated on the root shape — every other shape reaches it
+   * through a view, which is what makes a parent's decision about a child the
+   * same record the child later reads for itself.
    *
-   * @var array
+   * @var \Drupal\neo_alchemist\NestedOptionMap|null
    */
-  protected array $nestedOptions = [];
+  protected ?NestedOptionMap $nestedOptionMap = NULL;
 
   /**
    * The default value of the 'empty' option.
@@ -2580,66 +2577,22 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
   /**
    * {@inheritDoc}
    */
-  public function setDefaultOptions(array $options, ?string $id = NULL): self {
-    $id = $id ?? $this->id();
-    match ($this->isRoot()) {
-      TRUE => $this->defaultNestedOptions[$id] = $options,
-      FALSE => $this->getRootShape()->setDefaultOptions($options, $id),
-    };
-    return $this;
-  }
-
-  /**
-   * {@inheritDoc}
-   */
-  public function setDefaultNestedOptions(array $options): self {
-    match ($this->isRoot()) {
-      TRUE => $this->defaultNestedOptions = NestedArray::mergeDeep($options, $this->defaultNestedOptions),
-      FALSE => $this->getRootShape()->setDefaultNestedOptions($options),
-    };
-    return $this;
-  }
-
-  /**
-   * {@inheritDoc}
-   */
-  public function setDefaultNestedOption(string $name, string $optionName, bool $value = TRUE, bool $prependCurrentId = TRUE): self {
-    assert(!$this->isInitialized(), 'Shape cannot be initialized before setting default nested options.');
-    if ($prependCurrentId) {
-      $name = $this->id() . '~' . $name;
+  public function getNestedOptionMap(): NestedOptionMap {
+    // The one place the shape family delegates to its root. Every other
+    // accessor used to carry its own copy of this branch; a view holds the
+    // root's store, so re-scoping it is the delegation.
+    if (!$this->isRoot()) {
+      return $this->getRootShape()->getNestedOptionMap()->forShape($this->id());
     }
-    match ($this->isRoot()) {
-      TRUE => $this->defaultNestedOptions[$name][$optionName] = $value,
-      FALSE => $this->getRootShape()->setDefaultNestedOption($name, $optionName, $value, FALSE),
-    };
-    return $this;
-  }
-
-  /**
-   * {@inheritDoc}
-   */
-  public function setDefaultNestedOptionEmpty(string $name, bool $value = TRUE): self {
-    $this->setDefaultNestedOption($name, 'empty', $value);
-    return $this;
-  }
-
-  /**
-   * {@inheritDoc}
-   */
-  public function setDefaultNestedOptionDefault(string $name, bool $value = TRUE): self {
-    $this->setDefaultNestedOption($name, 'default', $value);
-    return $this;
+    $this->nestedOptionMap ??= new NestedOptionMap();
+    return $this->nestedOptionMap->forShape($this->id());
   }
 
   /**
    * {@inheritDoc}
    */
   public function setOptions(array $options, ?string $id = NULL): self {
-    $id = $id ?? $this->id();
-    match ($this->isRoot()) {
-      TRUE => $this->nestedOptions[$id] = $options,
-      FALSE => $this->getRootShape()->setOptions($options, $id),
-    };
+    $this->getNestedOptionMap()->forShape($id ?? $this->id())->replaceOwn($options);
     return $this;
   }
 
@@ -2647,104 +2600,7 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
    * {@inheritDoc}
    */
   public function getOptions(?string $id = NULL): array {
-    $id = $id ?? $this->id();
-    return $this->getNestedOptions()[$id] ?? [];
-  }
-
-  /**
-   * {@inheritDoc}
-   */
-  public function setNestedOptions(array $options): self {
-    match ($this->isRoot()) {
-      TRUE => $this->nestedOptions = NestedArray::mergeDeep($options, $this->nestedOptions),
-      FALSE => $this->getRootShape()->setNestedOptions($options),
-    };
-    return $this;
-  }
-
-  /**
-   * {@inheritDoc}
-   */
-  public function getNestedOptions(): array {
-    return match ($this->isRoot()) {
-      TRUE => $this->nestedOptions + $this->defaultNestedOptions,
-      FALSE => $this->getRootShape()->getNestedOptions(),
-    };
-  }
-
-  /**
-   * {@inheritDoc}
-   */
-  public function setNestedOption(string $name, string $optionName, bool $value = TRUE, bool $prependCurrentId = TRUE): self {
-    assert(!$this->isInitialized(), 'Shape cannot be initialized before setting default nested options.');
-    if ($prependCurrentId) {
-      $name = $this->id() . '~' . $name;
-    }
-    match ($this->isRoot()) {
-      TRUE => $this->nestedOptions[$name][$optionName] = $value,
-      FALSE => $this->getRootShape()->setNestedOption($name, $optionName, $value, FALSE),
-    };
-    return $this;
-  }
-
-  /**
-   * {@inheritDoc}
-   */
-  public function setNestedOptionEmpty(string $name, bool $value = TRUE): self {
-    $this->setNestedOption($name, 'empty', $value);
-    return $this;
-  }
-
-  /**
-   * {@inheritDoc}
-   */
-  public function setNestedOptionDefault(string $name, bool $value = TRUE): self {
-    $this->setNestedOption($name, 'default', $value);
-    return $this;
-  }
-
-  /**
-   * {@inheritDoc}
-   */
-  public function setNestedOptionAccess(string $name, bool $value = FALSE): self {
-    $this->setNestedOption($name, 'access', $value);
-    return $this;
-  }
-
-  /**
-   * {@inheritDoc}
-   */
-  public function getNestedOption(string $name, string $optionName, bool $prependCurrentId = TRUE): bool {
-    if ($prependCurrentId) {
-      $name = $this->id() . '~' . $name;
-    }
-    if ($this->isRoot()) {
-      return !empty($this->nestedOptions[$name][$optionName]);
-    }
-    else {
-      return $this->getRootShape()->getNestedOption($name, $optionName, FALSE);
-    }
-  }
-
-  /**
-   * {@inheritDoc}
-   */
-  public function getNestedOptionEmpty(string $name, bool $value = TRUE): bool {
-    return $this->getNestedOption($name, 'empty', $value);
-  }
-
-  /**
-   * {@inheritDoc}
-   */
-  public function getNestedOptionDefault(string $name, bool $value = TRUE): bool {
-    return $this->getNestedOption($name, 'default', $value);
-  }
-
-  /**
-   * {@inheritDoc}
-   */
-  public function getNestedOptionAccess(string $name, bool $value = FALSE): bool {
-    return $this->getNestedOption($name, 'access', $value);
+    return $this->getNestedOptionMap()->forShape($id ?? $this->id())->getOwn();
   }
 
   /**
@@ -3033,6 +2889,12 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
     unset($this->fieldItem);
     unset($this->fieldItemList);
     unset($this->widget);
+    // The option store was two arrays before it was an object, so a clone used
+    // to get its own copy for free. Copying it keeps that: a cloned root shape
+    // is a separate tree and must not write into the original's options.
+    if ($this->nestedOptionMap) {
+      $this->nestedOptionMap = clone $this->nestedOptionMap;
+    }
   }
 
 }

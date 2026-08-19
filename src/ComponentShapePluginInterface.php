@@ -1167,92 +1167,32 @@ interface ComponentShapePluginInterface extends PluginInspectionInterface, Deriv
   public function getOptionAccess(): ComponentShapeOption;
 
   /**
-   * Sets the default options for a given nested ID.
+   * Returns the options recorded for this shape and its descendants.
    *
-   * These options will be used if no nested options are set for the shape.
+   * The map is the store behind the empty/default/access options: what a site
+   * builder configured, and what a value provider decided for children that do
+   * not exist yet. It is scoped to this shape, so a child is named relative to
+   * it and building the key is never a caller's business.
+   *
+   * This replaced fourteen methods — a get/set × fallback/saved × three option
+   * names grid over the same two arrays — three of which carried a flag
+   * controlling key prefixing that no caller ever passed and whose default two
+   * of them disagreed about.
+   *
+   * @return \Drupal\neo_alchemist\NestedOptionMap
+   *   The map, scoped to this shape.
+   */
+  public function getNestedOptionMap(): NestedOptionMap;
+
+  /**
+   * Replaces the options recorded for this shape.
+   *
+   * Replaces rather than merges — see NestedOptionMap::replaceOwn().
    *
    * @param array $options
-   *   An associative array of options to set for the nested component shape.
+   *   An associative array of options to set for the shape.
    * @param string $id
-   *   The identifier for the nested component shape.
-   *
-   * @return $this
-   */
-  public function setDefaultOptions(array $options, ?string $id = NULL): self;
-
-  /**
-   * Sets default nested options for the component shape.
-   *
-   * This method sets the nested options for the current component shape. If the
-   * current shape is the root shape, it merges the provided options with the
-   * existing nested options. If the current shape is not the root shape, it
-   * delegates the setting of nested options to the root parent shape.
-   *
-   * The options add to the previously set options. Already set options
-   * cannot be overwritten.
-   *
-   * @param array $options
-   *   An associative array of options to set.
-   *
-   * @return $this
-   *   The current instance of the component shape with updated nested options.
-   */
-  public function setDefaultNestedOptions(array $options): self;
-
-  /**
-   * Sets a default nested option for a given name and option name.
-   *
-   * @param string $name
-   *   The name of the nested option.
-   * @param string $optionName
-   *   The name of the option to set.
-   * @param bool $value
-   *   The value of the option.
-   * @param bool $prependCurrentId
-   *   Whether to prepend the current ID to the nested option name.
-   *
-   * @return $this
-   *   The current instance of the component shape.
-   */
-  public function setDefaultNestedOption(string $name, string $optionName, bool $value = TRUE, bool $prependCurrentId = TRUE): self;
-
-  /**
-   * Sets the default 'empty' nested option.
-   *
-   * @param string $name
-   *   The name of the nested option.
-   * @param bool $value
-   *   The value to set for the 'empty' option.
-   *
-   * @return $this
-   *   The current instance of the component shape.
-   */
-  public function setDefaultNestedOptionEmpty(string $name, bool $value = TRUE): self;
-
-  /**
-   * Sets the default 'default' nested option.
-   *
-   * @param string $name
-   *   The name of the nested option.
-   * @param bool $value
-   *   The value to set for the 'default' option.
-   *
-   * @return $this
-   *   The current instance of the component shape.
-   */
-  public function setDefaultNestedOptionDefault(string $name, bool $value = TRUE): self;
-
-  /**
-   * Sets the options for a given nested ID.
-   *
-   * This method sets the options for a nested component shape. If the current
-   * shape is the root, it directly sets the options in the nestedOptions array.
-   * Otherwise, it delegates the setting of options to the root parent shape.
-   *
-   * @param array $options
-   *   An associative array of options to set for the nested component shape.
-   * @param string $id
-   *   The identifier for the nested component shape.
+   *   The shape id to set them for, defaulting to this shape's own.
    *
    * @return self
    *   Returns the current instance for method chaining.
@@ -1260,162 +1200,15 @@ interface ComponentShapePluginInterface extends PluginInspectionInterface, Deriv
   public function setOptions(array $options, ?string $id = NULL): self;
 
   /**
-   * Retrieves the options for a given nested ID.
-   *
-   * This method retrieves the options for a nested component shape. If the
-   * current shape is the root, it directly retrieves the options from the
-   * nestedOptions array. Otherwise, it delegates the retrieval of options to
-   * the root parent shape.
+   * Retrieves the options recorded for this shape.
    *
    * @param string $id
-   *   The identifier for the nested component shape.
+   *   The shape id to read them for, defaulting to this shape's own.
    *
    * @return array
-   *   An associative array of options for the nested component shape.
+   *   An associative array of options for the shape.
    */
   public function getOptions(?string $id = NULL): array;
-
-  /**
-   * Sets nested options for the component shape.
-   *
-   * This method sets the nested options for the current component shape. If the
-   * current shape is the root shape, it merges the provided options with the
-   * existing nested options. If the current shape is not the root shape, it
-   * delegates the setting of nested options to the root parent shape.
-   *
-   * The options add to the previously set options. Already set options
-   * cannot be overwritten.
-   *
-   * @param array $options
-   *   An associative array of options to set.
-   *
-   * @return $this
-   *   The current instance of the component shape with updated nested options.
-   */
-  public function setNestedOptions(array $options): self;
-
-  /**
-   * Retrieves the nested options for the current shape.
-   *
-   * This method returns the nested options based on whether the current shape
-   * is the root shape or not. If the current shape is the root, it returns its
-   * own nested options. Otherwise, it retrieves the nested options from the
-   * root parent shape.
-   *
-   * @return array
-   *   An array of nested options.
-   */
-  public function getNestedOptions(): array;
-
-  /**
-   * Sets a nested option for a given nested component shape.
-   *
-   * @param string $name
-   *   The name of the nested component shape.
-   * @param string $optionName
-   *   The name of the option to set.
-   * @param bool $value
-   *   The value to set for the option.
-   * @param bool $prependCurrentId
-   *   Whether to prepend the current shape ID to the nested option name.
-   *
-   * @return $this
-   *   The current instance of the component shape.
-   */
-  public function setNestedOption(string $name, string $optionName, bool $value = TRUE, bool $prependCurrentId = TRUE): self;
-
-  /**
-   * Sets a nested option to mark it as empty.
-   *
-   * @param string $name
-   *   The name of the nested component shape.
-   * @param bool $value
-   *   The value to set for the empty option.
-   *
-   * @return $this
-   *   The current instance of the component shape.
-   */
-  public function setNestedOptionEmpty(string $name, bool $value = TRUE): self;
-
-  /**
-   * Sets a nested option to mark it as default.
-   *
-   * @param string $name
-   *   The name of the nested component shape.
-   * @param bool $value
-   *   The value to set for the default option.
-   *
-   * @return $this
-   *   The current instance of the component shape.
-   */
-  public function setNestedOptionDefault(string $name, bool $value = TRUE): self;
-
-  /**
-   * Sets a nested option to mark its access.
-   *
-   * @param string $name
-   *   The name of the nested component shape.
-   * @param bool $value
-   *   The value to set for the access option.
-   *
-   * @return $this
-   *   The current instance of the component shape.
-   */
-  public function setNestedOptionAccess(string $name, bool $value = FALSE): self;
-
-  /**
-   * Retrieves a nested option for a given name and option name.
-   *
-   * @param string $name
-   *   The name of the nested option.
-   * @param string $optionName
-   *   The name of the option to retrieve.
-   * @param bool $prependCurrentId
-   *   Whether to prepend the current ID to the nested option name.
-   *
-   * @return mixed
-   *   The value of the nested option, or NULL if not found.
-   */
-  public function getNestedOption(string $name, string $optionName, bool $prependCurrentId = TRUE): bool;
-
-  /**
-   * Retrieves the 'empty' nested option for a given name.
-   *
-   * @param string $name
-   *   The name of the nested option.
-   * @param bool $value
-   *   The default value to return if the option is not found.
-   *
-   * @return bool
-   *   The value of the 'empty' nested option.
-   */
-  public function getNestedOptionEmpty(string $name, bool $value = TRUE): bool;
-
-  /**
-   * Retrieves the 'default' nested option for a given name.
-   *
-   * @param string $name
-   *   The name of the nested option.
-   * @param bool $value
-   *   The default value to return if the option is not found.
-   *
-   * @return bool
-   *   The value of the 'default' nested option.
-   */
-  public function getNestedOptionDefault(string $name, bool $value = TRUE): bool;
-
-  /**
-   * Retrieves the 'access' nested option for a given name.
-   *
-   * @param string $name
-   *   The name of the nested option.
-   * @param bool $value
-   *   The default value to return if the option is not found.
-   *
-   * @return bool
-   *   The value of the 'access' nested option.
-   */
-  public function getNestedOptionAccess(string $name, bool $value = FALSE): bool;
 
   /**
    * Checks if the field definition is supported by the shape.
