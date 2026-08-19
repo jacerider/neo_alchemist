@@ -1,0 +1,141 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Drupal\neo_alchemist;
+
+/**
+ * Resolves the prop's value.
+ *
+ * The role a ComponentValue plugin most often wants: what does this prop hold,
+ * what would it hold by default, and is that empty. Resolution is layered —
+ * the schema default, then the provider chain, then the parent value, then an
+ * editor's override — and the getters here read the result of that pipeline
+ * rather than re-running it.
+ *
+ * `resolveValue()` is called both during default assembly and just before
+ * rendering, so implementations must be idempotent and must not depend on
+ * `init()` having run.
+ *
+ * @see \Drupal\neo_alchemist\ComponentShapeRenderInterface
+ * @see \Drupal\neo_alchemist\ComponentShapePluginInterface
+ */
+interface ComponentShapeValueInterface extends ComponentShapeIdentityInterface {
+
+  /**
+   * Resolve a value into its final usable form.
+   *
+   * Called with the schema default during default-value assembly and with the
+   * full value (stored or default) just before rendering, so implementations
+   * MUST be idempotent. May be invoked on a shape that has not been
+   * initialized, so implementations MUST NOT rely on the field item or any
+   * init()-time state. The returned value must keep the schema's shape.
+   * Container shapes (object/array) recurse into their children so every
+   * nested shape gets a chance to resolve its own slice of the value.
+   *
+   * @param mixed $value
+   *   The value to resolve.
+   *
+   * @return mixed
+   *   The resolved value.
+   */
+  public function resolveValue(mixed $value): mixed;
+
+  /**
+   * Get the working prop value.
+   *
+   * This value should be able to be passed to the SDC.
+   *
+   * @return mixed
+   *   The prop value.
+   */
+  public function getValue(): mixed;
+
+  /**
+   * Get the default value of the prop.
+   *
+   * @return mixed
+   *   The default value provided by SDC.
+   */
+  public function getDefaultValue(): mixed;
+
+  /**
+   * Build the default value for the prop.
+   *
+   * This will return the default value ready for component usage.
+   *
+   * @return mixed
+   *   The built default value.
+   */
+  public function buildDefaultValue(): mixed;
+
+  /**
+   * Get the default defined in the schema.
+   *
+   * @return mixed
+   *   The default value defined in the schema.
+   */
+  public function getDefaultSchemaValue(): mixed;
+
+  /**
+   * Sets the override value.
+   *
+   * @param mixed $value
+   *   The value to set as the override.
+   *
+   * @return $this
+   *   The current instance for method chaining.
+   */
+  public function setOverrideValue(mixed $value): ComponentShapePluginInterface;
+
+  /**
+   * Retrieves the override value.
+   *
+   * @return mixed
+   *   The override value, which can be of various types including array,
+   *   string, integer, float, or boolean.
+   */
+  public function getOverrideValue(): mixed;
+
+  /**
+   * Sets the parent value.
+   *
+   * @param mixed $value
+   *   The value to set as the parent override.
+   *
+   * @return $this
+   *   The current instance for method chaining.
+   */
+  public function setParentValue(mixed $value): ComponentShapePluginInterface;
+
+  /**
+   * Checks if the component shape is empty.
+   *
+   * @return bool
+   *   TRUE if the component shape is empty, FALSE otherwise.
+   */
+  public function isEmpty(): bool;
+
+  /**
+   * Determine whether a value produced by a provider is empty.
+   *
+   * Used by the value-provision contract to decide "found vs empty". A scalar
+   * is empty only when NULL or the empty string — `0`, `'0'` and FALSE are
+   * values. A composite discounts whichever keys the shape reports as
+   * presentation rather than content, so a value carrying nothing but those
+   * still counts as empty.
+   *
+   * Ask the shape that owns the value. Each shape names its own presentational
+   * keys, so a parent testing a child's value must call this on the child.
+   *
+   * @param mixed $value
+   *   The value threaded through the provider chain.
+   *
+   * @return bool
+   *   TRUE if the value carries no content, FALSE otherwise.
+   *
+   * @see \Drupal\neo_alchemist\ComponentShapePluginBase::getPresentationalValueKeys()
+   */
+  public function isProvidedValueEmpty(mixed $value): bool;
+
+}

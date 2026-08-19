@@ -32,6 +32,12 @@ namespace Drupal\neo_alchemist;
  * Stateless: everything it needs arrives as arguments, so it can be asserted
  * directly without a container.
  *
+ * The child arrives as ComponentShapeOptionsInterface rather than as a whole
+ * shape, because setting options is all this does to it. The type is the
+ * documentation: nothing here reads the child's value, schema or children, and
+ * the compiler now says so.
+ *
+ * @see \Drupal\neo_alchemist\ComponentShapeOptionsInterface
  * @see \Drupal\neo_alchemist\Plugin\ComponentShape\ChildrenShapeBase::initChildShape()
  * @see \Drupal\neo_alchemist\Plugin\ComponentShape\StructuredObjectShapeBase::getChildShapes()
  * @see \Drupal\neo_alchemist\Plugin\ComponentValue\ComponentValueChildrenMatchTrait
@@ -46,7 +52,7 @@ final class ChildOptionPolicy {
    *
    * @param \Drupal\neo_alchemist\ComponentShapeChildrenMatchPluginInterface $parent
    *   The parent shape building the child.
-   * @param \Drupal\neo_alchemist\ComponentShapePluginInterface $child
+   * @param \Drupal\neo_alchemist\ComponentShapeOptionsInterface $child
    *   The child shape being built. Not yet initialized.
    * @param int|null $delta
    *   The delta the child is being built for, or NULL when the parent is not
@@ -54,7 +60,7 @@ final class ChildOptionPolicy {
    * @param int $count
    *   How many children the parent is building in this pass.
    */
-  public function apply(ComponentShapeChildrenMatchPluginInterface $parent, ComponentShapePluginInterface $child, ?int $delta, int $count): void {
+  public function apply(ComponentShapeChildrenMatchPluginInterface $parent, ComponentShapeOptionsInterface $child, ?int $delta, int $count): void {
     $this->applyProducerFlags($parent, $child);
     $this->applyOptionToggles($parent, $child, $delta, $count);
     $this->applyInheritedState($parent, $child);
@@ -75,10 +81,10 @@ final class ChildOptionPolicy {
    *
    * @param \Drupal\neo_alchemist\ComponentShapeChildrenMatchPluginInterface $parent
    *   The parent shape.
-   * @param \Drupal\neo_alchemist\ComponentShapePluginInterface $child
+   * @param \Drupal\neo_alchemist\ComponentShapeOptionsInterface $child
    *   The child shape.
    */
-  private function applyProducerFlags(ComponentShapeChildrenMatchPluginInterface $parent, ComponentShapePluginInterface $child): void {
+  private function applyProducerFlags(ComponentShapeChildrenMatchPluginInterface $parent, ComponentShapeOptionsInterface $child): void {
     $childId = $child->id(TRUE);
     $state = $parent->getChildShapeState();
 
@@ -106,14 +112,14 @@ final class ChildOptionPolicy {
    *
    * @param \Drupal\neo_alchemist\ComponentShapeChildrenMatchPluginInterface $parent
    *   The parent shape.
-   * @param \Drupal\neo_alchemist\ComponentShapePluginInterface $child
+   * @param \Drupal\neo_alchemist\ComponentShapeOptionsInterface $child
    *   The child shape.
    * @param int|null $delta
    *   The delta the child is being built for, if any.
    * @param int $count
    *   How many children the parent is building in this pass.
    */
-  private function applyOptionToggles(ComponentShapeChildrenMatchPluginInterface $parent, ComponentShapePluginInterface $child, ?int $delta, int $count): void {
+  private function applyOptionToggles(ComponentShapeChildrenMatchPluginInterface $parent, ComponentShapeOptionsInterface $child, ?int $delta, int $count): void {
     if ($delta !== NULL && $count === 1) {
       $child->getOptionDefault()->setAccess(FALSE, 'Shape has a single prop, so setting as default is not allowed.');
       $child->getOptionEmpty()->setAccess(FALSE, 'Shape has a single prop, so setting as default is not allowed.');
@@ -142,10 +148,10 @@ final class ChildOptionPolicy {
    *
    * @param \Drupal\neo_alchemist\ComponentShapeChildrenMatchPluginInterface $parent
    *   The parent shape.
-   * @param \Drupal\neo_alchemist\ComponentShapePluginInterface $child
+   * @param \Drupal\neo_alchemist\ComponentShapeOptionsInterface $child
    *   The child shape.
    */
-  private function applyExpandability(ComponentShapeChildrenMatchPluginInterface $parent, ComponentShapePluginInterface $child): void {
+  private function applyExpandability(ComponentShapeChildrenMatchPluginInterface $parent, ComponentShapeOptionsInterface $child): void {
     if ($parent instanceof ComponentShapeExpandedPluginInterface && !$parent->allowExpanded()) {
       $child->getOptionDefault()->setAccess(FALSE, 'Parent shape is not expandable.');
       $child->getOptionEmpty()->setAccess(FALSE, 'Parent shape is not expandable.');
@@ -163,10 +169,10 @@ final class ChildOptionPolicy {
    *
    * @param \Drupal\neo_alchemist\ComponentShapeChildrenMatchPluginInterface $parent
    *   The parent shape.
-   * @param \Drupal\neo_alchemist\ComponentShapePluginInterface $child
+   * @param \Drupal\neo_alchemist\ComponentShapeOptionsInterface $child
    *   The child shape.
    */
-  private function applyInheritedState(ComponentShapeChildrenMatchPluginInterface $parent, ComponentShapePluginInterface $child): void {
+  private function applyInheritedState(ComponentShapeChildrenMatchPluginInterface $parent, ComponentShapeOptionsInterface $child): void {
     if ($parent->getScope() === 'config') {
       $child->getOptionAccess()->setAccess(TRUE, 'Scope is config.');
       return;

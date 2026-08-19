@@ -448,6 +448,7 @@ number written down here.
 | `Kernel/ComponentRouteAccessCheckTest` | All six route access checkers constructed (two were, before): the shared parse, unresolvable parameters and short requirements falling to neutral instead of fataling, and the cacheability four of them used to attach none of |
 | `Kernel/EntityComponentRouteAccessTest` | The Layout routes offer exactly what the controller can act on — the per-entity narrowing, the field-config scope's immunity to it, and the entity attached as a cacheable dependency on every outcome including the refusals |
 | `Kernel/BootSpikeTest` | The module boots under Kernel with a minimal module set |
+| `Unit/ShapeRoleInterfaceTest` | The shape's fourteen roles: each stays under the twelve-method ceiling, no method is on two of them, `ComponentShapePluginInterface` declares nothing of its own beyond the Drupal interfaces it extends, and every role can still name its shape — so a caller can hold one role and know what it promises |
 
 Shared Kernel infrastructure: `HybridFieldKernelTestBase` stands up a real
 `neo_component_tree` field on `entity_test` with a hybrid-ready default
