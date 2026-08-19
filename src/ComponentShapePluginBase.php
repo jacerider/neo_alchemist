@@ -384,21 +384,12 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
   }
 
   /**
-   * {@inheritDoc}
+   * Get the nested delta of the shape.
+   *
+   * @return int|null
+   *   The nested delta.
    */
-  public function ids($includeRoot = TRUE): array {
-    $ids = array_map(fn($parent) => $parent->id(), $this->parents);
-    $ids[] = $this->id();
-    if (!$includeRoot) {
-      array_shift($ids);
-    }
-    return $ids;
-  }
-
-  /**
-   * {@inheritDoc}
-   */
-  public function getDelta(): ?int {
+  protected function getDelta(): ?int {
     return $this->delta;
   }
 
@@ -876,9 +867,16 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
   }
 
   /**
-   * {@inheritDoc}
+   * Retrieves the structure of the component shape.
+   *
+   * Every shape in this subtree, this one included, as nested ID => prop ref.
+   * Sorted by ID so the same tree always yields the same array, which is what
+   * lets getExpression() flatten it into a comparable string.
+   *
+   * @return array
+   *   Prop refs keyed by nested ID, sorted by key.
    */
-  public function getStructure(): array {
+  protected function getStructure(): array {
     $data = array_map(fn($shape) => $shape->getRef(), $this->getAllShapes(TRUE));
     ksort($data);
     return $data;
@@ -1003,9 +1001,18 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
   }
 
   /**
-   * {@inheritDoc}
+   * Retrieves the path of component names from the root down to this shape.
+   *
+   * @param bool $includeRoot
+   *   (optional) Whether to keep the root shape's name — the outermost parent,
+   *   or this shape's own name when it has no parents. Defaults to TRUE. The
+   *   interface docblock this moved from said "the current component", which
+   *   the body has never done: it drops the *first* segment, not the last.
+   *
+   * @return array
+   *   The component names, outermost first, ending with this shape's own.
    */
-  public function getNestedPath($includeRoot = TRUE): array {
+  protected function getNestedPath($includeRoot = TRUE): array {
     $path = array_map(fn($parent) => $parent->getName(), $this->parents);
     $path[] = $this->getName();
     if (!$includeRoot) {
@@ -1290,22 +1297,17 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
   }
 
   /**
-   * {@inheritDoc}
+   * Checks if the component shape is expanded.
+   *
+   * This method determines if the current instance implements the
+   * ComponentShapeExpandedPluginInterface, allows expansion, and if the
+   * nested ID of the component is in the list of expanded components.
+   *
+   * @return bool
+   *   TRUE if the component shape is expanded, FALSE otherwise.
    */
-  public function isExpanded(): bool {
+  protected function isExpanded(): bool {
     return $this->isExpandable() && in_array($this->id(), $this->getExpanded());
-  }
-
-  /**
-   * {@inheritDoc}
-   */
-  public function belongsToExpanded(): bool {
-    foreach ($this->getParentShapes() as $shape) {
-      if ($shape->isExpanded()) {
-        return TRUE;
-      }
-    }
-    return $this->isExpanded();
   }
 
   /**
@@ -1335,9 +1337,12 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
   }
 
   /**
-   * {@inheritDoc}
+   * Checks if the required enforcement is enabled.
+   *
+   * @return bool
+   *   TRUE if the required enforcement is enabled, FALSE otherwise.
    */
-  public function isEnforcedRequired(): bool {
+  protected function isEnforcedRequired(): bool {
     return $this->enforceRequired;
   }
 
@@ -1398,9 +1403,15 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
   }
 
   /**
-   * {@inheritDoc}
+   * Sets the locked state of the component.
+   *
+   * @param bool $locked
+   *   (optional) The locked state to set. Defaults to TRUE.
+   *
+   * @return $this
+   *   The current instance of the class for method chaining.
    */
-  public function enforceLocked(bool $locked = TRUE): self {
+  protected function enforceLocked(bool $locked = TRUE): self {
     $this->enforceLocked = $locked;
     return $this;
   }
@@ -1544,9 +1555,12 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
   }
 
   /**
-   * {@inheritDoc}
+   * Get the field storage settings.
+   *
+   * @return array
+   *   The field storage settings.
    */
-  public function getFieldStorageSettings(): array {
+  protected function getFieldStorageSettings(): array {
     return $this->fieldStorageSettings ?? $this->getDefaultFieldStorageSettings();
   }
 
@@ -1580,9 +1594,12 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
   }
 
   /**
-   * {@inheritDoc}
+   * Get the field instance settings.
+   *
+   * @return array
+   *   The field instance settings.
    */
-  public function getFieldInstanceSettings(): array {
+  protected function getFieldInstanceSettings(): array {
     return $this->fieldInstanceSettings ?? $this->getDefaultFieldInstaceSettings();
   }
 
@@ -1661,16 +1678,28 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
   }
 
   /**
-   * {@inheritDoc}
+   * Checks if the component shape is about to be rendered.
+   *
+   * This is using the renderAttributes property on the root shape to determine
+   * if the component shape is about to be rendered.
+   *
+   * @return bool
+   *   TRUE if the component shape is about to be rendered, FALSE otherwise.
    */
-  public function isRendering(): bool {
+  protected function isRendering(): bool {
     return $this->getRootShape()->renderAttributes !== NULL;
   }
 
   /**
-   * {@inheritDoc}
+   * Get the attributes that will be applied to the component wrapper.
+   *
+   * This will only be available when the component is being rendered.
+   *
+   * @return \Drupal\Core\Template\Attribute|null
+   *   The attributes that will be applied to the component wrapper, or NULL if
+   *   not rendering.
    */
-  public function getRenderAttributes(): ?Attribute {
+  protected function getRenderAttributes(): ?Attribute {
     return $this->getRootShape()->renderAttributes;
   }
 
@@ -1961,9 +1990,12 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
   }
 
   /**
-   * {@inheritDoc}
+   * Get the default value of the field item.
+   *
+   * @return array
+   *   The default value of the field item.
    */
-  public function getDefaultFieldItemValue(): array {
+  protected function getDefaultFieldItemValue(): array {
     $fieldItem = clone $this->fieldItem;
     $fieldItem->setValue($this->getDefaultValue());
     return $fieldItem->getValue();
@@ -2037,9 +2069,13 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
   }
 
   /**
-   * {@inheritDoc}
+   * Retrieves the parent override value.
+   *
+   * @return mixed
+   *   The parent value, which can be of various types including array,
+   *   string, integer, float, or boolean.
    */
-  public function getParentValue(): mixed {
+  protected function getParentValue(): mixed {
     return $this->parentValue;
   }
 
@@ -2178,9 +2214,12 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
   }
 
   /**
-   * {@inheritDoc}
+   * Get the widget type options.
+   *
+   * @return string[]
+   *   The widget type options.
    */
-  public function getWidgetTypeOptions(): array {
+  protected function getWidgetTypeOptions(): array {
     $fieldDefinition = $this->fieldItem->getFieldDefinition();
     $options = $this->widgetManager->getOptions($fieldDefinition->getType());
     $applicable_options = [];
@@ -2238,14 +2277,6 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
       $this->widgetSettings = $this->getDefaultWidgetSettings();
     }
     return $this->widgetSettings;
-  }
-
-  /**
-   * {@inheritDoc}
-   */
-  public function setWidgetSetting(string $key, mixed $value): self {
-    $this->widgetSettings[$key] = $value;
-    return $this;
   }
 
   /**
@@ -2798,15 +2829,6 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
   }
 
   /**
-   * {@inheritDoc}
-   */
-  public function getConfigShape(): ComponentShapePluginInterface {
-    /** @var \Drupal\neo_alchemist\ComponentInterface $neoComponent */
-    $neoComponent = $this->entityTypeManager->getStorage('neo_component')->load($this->getComponent()->id());
-    return $neoComponent->getPropShape($this->getName());
-  }
-
-  /**
    * Called when a component is generated using this shape.
    *
    * @param array $prop
@@ -2851,39 +2873,8 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
   /**
    * {@inheritDoc}
    */
-  public function isScalar(): bool {
-    return match ($this->getType()) {
-      // A subset of the "primitive types" in JSON schema are:
-      // - "scalar values" in PHP terminology
-      // - "primitives" in Drupal Typed data terminology.
-      // @see https://www.php.net/manual/en/function.is-scalar.php
-      // @see \Drupal\Core\TypedData\PrimitiveInterface
-      self::STRING, self::NUMBER, self::INTEGER, self::BOOLEAN => TRUE,
-      // Another subset of the "primitive types" in JSON schema are:
-      // - "non-scalar values" in PHP terminology, specifically "iterable"
-      // - "traversable" in Drupal Typed Data terminology, specifically "lists"
-      //   ("sequences" in config schema) or "complex data" ("mappings" in
-      //   config schema)
-      // @see https://www.php.net/manual/en/function.is-iterable.php
-      // @see \Drupal\Core\TypedData\ListInterface
-      // @see \Drupal\Core\TypedData\ComplexDataInterface
-      // @see \Drupal\Core\TypedData\TraversableTypedDataInterface
-      self::ARRAY, self::OBJECT => FALSE,
-    };
-  }
-
-  /**
-   * {@inheritDoc}
-   */
   public function isIterable(): bool {
     return $this->getType() === self::ARRAY;
-  }
-
-  /**
-   * {@inheritDoc}
-   */
-  public function isTraversable(): bool {
-    return !$this->isScalar();
   }
 
   /**

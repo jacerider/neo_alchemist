@@ -50,30 +50,11 @@ interface ComponentShapePluginInterface extends PluginInspectionInterface, Deriv
   public function id(bool $ignoreDelta = FALSE): string;
 
   /**
-   * Retrieves the path of parent component nested ids.
-   *
-   * This method iterates through the list of parent components and collects
-   * their nested ids into an array.
-   *
-   * @param bool $includeRoot
-   *   (optional) Whether to include the current component in the path. Defaults
-   *   to TRUE.
-   *
-   * @return array
-   *   An array of parent component nested ids.
-   */
-  public function ids($includeRoot = TRUE): array;
-
-  /**
-   * Get the nested delta of the shape.
-   *
-   * @return int|null
-   *   The nested delta.
-   */
-  public function getDelta(): ?int;
-
-  /**
    * Set the nested delta of the shape.
+   *
+   * Stays on the interface because the shape bases set it on a *child* shape
+   * they hold as ComponentShapePluginInterface, so this is the type the call
+   * resolves against. Reading the delta back is internal to the base.
    *
    * @param int $delta
    *   The nested delta.
@@ -265,19 +246,6 @@ interface ComponentShapePluginInterface extends PluginInspectionInterface, Deriv
   public function getExpression(): string;
 
   /**
-   * Retrieves the structure of the component shape.
-   *
-   * This method constructs an array representing the structure of the component
-   * shape. It includes the nested ID and reference of the current shape. If the
-   * current shape implements the ComponentShapeChildrenPluginInterface, it also
-   * merges the structures of its child shapes.
-   *
-   * @return array
-   *   An associative array representing the structure of the component shape.
-   */
-  public function getStructure(): array;
-
-  /**
    * Retrieves the list of plugin settings.
    *
    * @return array
@@ -464,21 +432,6 @@ interface ComponentShapePluginInterface extends PluginInspectionInterface, Deriv
   public function isNested(): bool;
 
   /**
-   * Retrieves the path of parent component names.
-   *
-   * This method iterates through the list of parent components and collects
-   * their names into an array.
-   *
-   * @param bool $includeRoot
-   *   (optional) Whether to include the current component in the path. Defaults
-   *   to TRUE.
-   *
-   * @return array
-   *   An array of parent component names.
-   */
-  public function getNestedPath($includeRoot = TRUE): array;
-
-  /**
    * Retrieves the concatenated title of the current component and its parents.
    *
    * This method constructs a title string by combining the title of the current
@@ -511,6 +464,10 @@ interface ComponentShapePluginInterface extends PluginInspectionInterface, Deriv
    * is possible. The isExpandable method checks if the component has allowed
    * it.
    *
+   * Stays on the interface because a shape asks it of its *parents*, which
+   * getParentShapes() hands back as ComponentShapePluginInterface, so this is
+   * the type the call resolves against.
+   *
    * @return bool
    *   TRUE if the component shape supports expansion, FALSE otherwise.
    */
@@ -537,30 +494,6 @@ interface ComponentShapePluginInterface extends PluginInspectionInterface, Deriv
    *   An array of child shape nested ids that are expaneded.
    */
   public function getExpanded(): array;
-
-  /**
-   * Checks if the component shape is expanded.
-   *
-   * This method determines if the current instance implements the
-   * ComponentShapeExpandedPluginInterface, allows expansion, and if the
-   * nested ID of the component is in the list of expanded components.
-   *
-   * @return bool
-   *   TRUE if the component shape is expanded, FALSE otherwise.
-   */
-  public function isExpanded(): bool;
-
-  /**
-   * Checks if the component shape belongs to an expanded component.
-   *
-   * This method checks if the current instance is a child of an expanded
-   * component shape or is itself expanded.
-   *
-   * @return bool
-   *   TRUE if the component shape belongs to an expanded component, FALSE
-   *   otherwise.
-   */
-  public function belongsToExpanded(): bool;
 
   /**
    * Sets the active status of the component shape.
@@ -593,14 +526,6 @@ interface ComponentShapePluginInterface extends PluginInspectionInterface, Deriv
   public function enforceRequired(): self;
 
   /**
-   * Checks if the required enforcement is enabled.
-   *
-   * @return bool
-   *   TRUE if the required enforcement is enabled, FALSE otherwise.
-   */
-  public function isEnforcedRequired(): bool;
-
-  /**
    * Sets the required status of the component shape.
    *
    * @param bool $required
@@ -628,10 +553,15 @@ interface ComponentShapePluginInterface extends PluginInspectionInterface, Deriv
   public function allowRequired(): bool;
 
   /**
-   * Determines if the component shape can be unset if empty.
+   * Determines if the component shape can be dropped from a value when empty.
+   *
+   * Stays on the interface because ArrayShape asks it of each *child* shape it
+   * is massaging, holding them as ComponentShapePluginInterface, so this is the
+   * type the call resolves against.
    *
    * @return bool
-   *   TRUE if the component shape allows empty values, FALSE otherwise.
+   *   TRUE if a value carrying nothing for this shape may omit it, which is the
+   *   case whenever the shape is not required.
    */
   public function allowUnsetEmpty(): bool;
 
@@ -667,17 +597,6 @@ interface ComponentShapePluginInterface extends PluginInspectionInterface, Deriv
    *   TRUE if the component shape is editable, FALSE otherwise.
    */
   public function isEditable(): bool;
-
-  /**
-   * Sets the locked state of the component.
-   *
-   * @param bool $locked
-   *   (optional) The locked state to set. Defaults to TRUE.
-   *
-   * @return $this
-   *   The current instance of the class for method chaining.
-   */
-  public function enforceLocked(bool $locked = TRUE): self;
 
   /**
    * Determines if the component shape is locked.
@@ -764,14 +683,6 @@ interface ComponentShapePluginInterface extends PluginInspectionInterface, Deriv
   public function setFieldStorageSettings(array $settings): self;
 
   /**
-   * Get the field storage settings.
-   *
-   * @return array
-   *   The field storage settings.
-   */
-  public function getFieldStorageSettings(): array;
-
-  /**
    * Sets the field instance settings.
    *
    * @param array $settings
@@ -781,14 +692,6 @@ interface ComponentShapePluginInterface extends PluginInspectionInterface, Deriv
    *   The current instance of the class for method chaining.
    */
   public function setFieldInstanceSettings(array $settings): self;
-
-  /**
-   * Get the field instance settings.
-   *
-   * @return array
-   *   The field instance settings.
-   */
-  public function getFieldInstanceSettings(): array;
 
   /**
    * Retrieves the field options from the schema.
@@ -824,28 +727,6 @@ interface ComponentShapePluginInterface extends PluginInspectionInterface, Deriv
    *   The field item.
    */
   public function getFieldItem(): FieldItemInterface;
-
-  /**
-   * Checks if the component shape is about to be rendered.
-   *
-   * This is using the renderAttributes property on the root shape to determine
-   * if the component shape is about to be rendered.
-   *
-   * @return bool
-   *   TRUE if the component shape is about to be rendered, FALSE otherwise.
-   */
-  public function isRendering(): bool;
-
-  /**
-   * Get the attributes that will be applied to the component wrapper.
-   *
-   * This will only be available when the component is being rendered.
-   *
-   * @return \Drupal\Core\Template\Attribute|null
-   *   The attributes that will be applied to the component wrapper, or NULL if
-   *   not rendering.
-   */
-  public function getRenderAttributes(): ?Attribute;
 
   /**
    * Get the prop value that will be sent to the component for rendering.
@@ -966,14 +847,6 @@ interface ComponentShapePluginInterface extends PluginInspectionInterface, Deriv
   public function buildDefaultValue(): mixed;
 
   /**
-   * Get the default value of the field item.
-   *
-   * @return array|string
-   *   The default value of the field item.
-   */
-  public function getDefaultFieldItemValue(): array;
-
-  /**
    * Sets the override value.
    *
    * @param mixed $value
@@ -1003,15 +876,6 @@ interface ComponentShapePluginInterface extends PluginInspectionInterface, Deriv
    *   The current instance for method chaining.
    */
   public function setParentValue(mixed $value): self;
-
-  /**
-   * Retrieves the parent override value.
-   *
-   * @return mixed
-   *   The parent value, which can be of various types including array,
-   *   string, integer, float, or boolean.
-   */
-  public function getParentValue(): mixed;
 
   /**
    * Checks if the component shape is empty.
@@ -1060,19 +924,6 @@ interface ComponentShapePluginInterface extends PluginInspectionInterface, Deriv
   public function getWidget(): ?WidgetInterface;
 
   /**
-   * Sets a widget setting.
-   *
-   * @param string $key
-   *   The key of the setting to set.
-   * @param mixed $value
-   *   The value to set for the specified key.
-   *
-   * @return self
-   *   The current instance for method chaining.
-   */
-  public function setWidgetSetting(string $key, mixed $value): self;
-
-  /**
    * Sets the widget settings.
    *
    * @param array $settings
@@ -1082,14 +933,6 @@ interface ComponentShapePluginInterface extends PluginInspectionInterface, Deriv
    *   The current instance of the class for method chaining.
    */
   public function setWidgetSettings(array $settings): self;
-
-  /**
-   * Get the widget type options.
-   *
-   * @return string[]
-   *   The widget type options.
-   */
-  public function getWidgetTypeOptions(): array;
 
   /**
    * Get the prop form.
@@ -1290,38 +1133,11 @@ interface ComponentShapePluginInterface extends PluginInspectionInterface, Deriv
   public function getMatches(FieldDefinitionInterface $entityFieldDefinition);
 
   /**
-   * Retrieves the config shape for the component.
-   *
-   * The is useful for getting the fully processed shape with its default
-   * values without any override values.
-   *
-   * @return \Drupal\neo_alchemist\Plugin\ComponentShapePluginInterface
-   *   The default shape for the component.
-   */
-  public function getConfigShape(): ComponentShapePluginInterface;
-
-  /**
-   * Check if shape is scalar.
-   *
-   * @return bool
-   *   Returns TRUE if the shape is scalar, FALSE otherwise.
-   */
-  public function isScalar(): bool;
-
-  /**
    * Check if shape is iterable.
    *
    * @return bool
    *   Returns TRUE if the shape is iterable, FALSE otherwise.
    */
   public function isIterable(): bool;
-
-  /**
-   * Check if shape is traversable.
-   *
-   * @return bool
-   *   Returns TRUE if the shape is traversable, FALSE otherwise.
-   */
-  public function isTraversable(): bool;
 
 }
