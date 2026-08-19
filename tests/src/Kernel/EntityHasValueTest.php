@@ -5,9 +5,11 @@ declare(strict_types=1);
 namespace Drupal\Tests\neo_alchemist\Kernel;
 
 use Drupal\Core\Cache\CacheableMetadata;
+use Drupal\Core\Cache\CacheableResponseInterface;
+use Drupal\Tests\neo_alchemist\Traits\ShapeDoubleTrait;
 use Drupal\entity_test\Entity\EntityTest;
 use Drupal\KernelTests\KernelTestBase;
-use Drupal\neo_alchemist\ComponentShapePluginInterface;
+use Drupal\neo_alchemist\ComponentShapeContextInterface;
 use Drupal\neo_alchemist\Plugin\ComponentValue\EntityHasValue;
 use PHPUnit\Framework\Attributes\Group;
 
@@ -35,6 +37,8 @@ use PHPUnit\Framework\Attributes\Group;
  */
 #[Group('neo_alchemist')]
 class EntityHasValueTest extends KernelTestBase {
+
+  use ShapeDoubleTrait;
 
   /**
    * {@inheritdoc}
@@ -66,9 +70,13 @@ class EntityHasValueTest extends KernelTestBase {
    *   The configured field key.
    */
   private function plugin(EntityTest $entity, string $field = 'name'): EntityHasValue {
-    $shape = $this->createMock(ComponentShapePluginInterface::class);
-    $shape->method('getEntity')->willReturn($entity);
-    $shape->method('getCacheableMetadata')->willReturn(new CacheableMetadata());
+    // What entity to read is the context role's; collecting cacheability is
+    // the Drupal interface the union also extends, and neither is the other's.
+    $context = $this->shapeRole(ComponentShapeContextInterface::class);
+    $context->method('getEntity')->willReturn($entity);
+    $cacheable = $this->shapeRole(CacheableResponseInterface::class);
+    $cacheable->method('getCacheableMetadata')->willReturn(new CacheableMetadata());
+    $shape = $this->shapeDouble([$context, $cacheable]);
 
     $plugin = new EntityHasValue(
       'entity_has_value',

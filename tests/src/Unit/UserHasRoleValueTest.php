@@ -6,7 +6,7 @@ namespace Drupal\Tests\neo_alchemist\Unit;
 
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Session\AccountInterface;
-use Drupal\neo_alchemist\ComponentShapePluginInterface;
+use Drupal\Tests\neo_alchemist\Traits\ShapeDoubleTrait;
 use Drupal\neo_alchemist\Plugin\ComponentValue\UserHasRoleValue;
 use Drupal\Tests\UnitTestCase;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -31,6 +31,8 @@ use PHPUnit\Framework\Attributes\Group;
 #[Group('neo_alchemist')]
 class UserHasRoleValueTest extends UnitTestCase {
 
+  use ShapeDoubleTrait;
+
   /**
    * Builds the plugin for an account with the given roles.
    *
@@ -46,7 +48,7 @@ class UserHasRoleValueTest extends UnitTestCase {
     return new UserHasRoleValue(
       'user_has_role',
       [],
-      $this->createMock(ComponentShapePluginInterface::class),
+      $this->unusedShape(),
       $configuration,
       $account,
       $this->createMock(EntityTypeManagerInterface::class),

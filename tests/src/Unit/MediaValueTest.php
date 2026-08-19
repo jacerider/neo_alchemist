@@ -8,9 +8,16 @@ use Drupal\Core\DependencyInjection\ContainerBuilder;
 use Drupal\Core\Entity\EntityStorageInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Form\FormStateInterface;
+use Drupal\Tests\neo_alchemist\Traits\ShapeDoubleTrait;
+use Drupal\neo_alchemist\ComponentShapeContextInterface;
+use Drupal\neo_alchemist\ComponentShapeFieldItemInterface;
+use Drupal\neo_alchemist\ComponentShapeFormInterface;
+use Drupal\neo_alchemist\ComponentShapeIdentityInterface;
 use Drupal\neo_alchemist\ComponentShapeMediaPluginInterface;
 use Drupal\neo_alchemist\ComponentShapeOption;
+use Drupal\neo_alchemist\ComponentShapeOptionsInterface;
 use Drupal\neo_alchemist\ComponentShapePluginInterface;
+use Drupal\neo_alchemist\ComponentShapeValueInterface;
 use Drupal\neo_alchemist\Plugin\ComponentValue\MediaValue;
 use Drupal\Tests\UnitTestCase;
 use PHPUnit\Framework\Attributes\Group;
@@ -41,6 +48,49 @@ use PHPUnit\Framework\Attributes\Group;
 #[Group('neo_alchemist')]
 class MediaValueTest extends UnitTestCase {
 
+  use ShapeDoubleTrait;
+
+  /**
+   * The roles a media shape answers through.
+   *
+   * MediaValue is one of the wide consumers — it names the prop, reads its
+   * scope, rewires it onto a field item, swaps its widget, reads and writes
+   * its options and asks what media it supports — so the double declares six
+   * roles and the media capability rather than pretending to one. Each is
+   * still narrow on its own, which is what makes a stub land on the role that
+   * owns the method or not at all.
+   *
+   * The widget is a case in point. "Rewire the shape" reads as one act and is
+   * two: the field type and its settings are the field-item role's, while the
+   * widget belongs to the form role, because a widget is how the prop is
+   * edited rather than how it is stored.
+   *
+   * @return \PHPUnit\Framework\MockObject\MockObject[]
+   *   The role doubles, keyed 'identity', 'context', 'value', 'options',
+   *   'fieldItem', 'form' and 'media'.
+   */
+  private function mediaShapeRoles(): array {
+    return [
+      'identity' => $this->shapeRole(ComponentShapeIdentityInterface::class),
+      'context' => $this->shapeRole(ComponentShapeContextInterface::class),
+      'value' => $this->shapeRole(ComponentShapeValueInterface::class),
+      'options' => $this->shapeRole(ComponentShapeOptionsInterface::class),
+      'fieldItem' => $this->shapeRole(ComponentShapeFieldItemInterface::class),
+      'form' => $this->shapeRole(ComponentShapeFormInterface::class),
+      'media' => $this->shapeRole(ComponentShapeMediaPluginInterface::class),
+    ];
+  }
+
+  /**
+   * Assembles the roles into a shape a value provider will accept.
+   *
+   * @param \PHPUnit\Framework\MockObject\MockObject[] $roles
+   *   The role doubles, as ::mediaShapeRoles() returns them.
+   */
+  private function mediaShape(array $roles): ComponentShapePluginInterface {
+    return $this->shapeDouble(array_values($roles), [ComponentShapeMediaPluginInterface::class]);
+  }
+
   /**
    * Builds the plugin against a media-capable shape.
    *
@@ -50,18 +100,15 @@ class MediaValueTest extends UnitTestCase {
    *   The plugin configuration.
    *
    * @return array
-   *   A tuple of [plugin, shape].
+   *   A tuple of [plugin, roles].
    */
   private function mediaPlugin(bool $defaultOptionEnabled, array $configuration = ['default' => []]): array {
     $option = $this->createMock(ComponentShapeOption::class);
     $option->method('isEnabled')->willReturn($defaultOptionEnabled);
 
-    $shape = $this->createMockForIntersectionOfInterfaces([
-      ComponentShapePluginInterface::class,
-      ComponentShapeMediaPluginInterface::class,
-    ]);
-    $shape->method('getOptionDefault')->willReturn($option);
-    $shape->method('getSupportedMediaTypes')->willReturn(['image', 'remote_video']);
+    $roles = $this->mediaShapeRoles();
+    $roles['options']->method('getOptionDefault')->willReturn($option);
+    $roles['media']->method('getSupportedMediaTypes')->willReturn(['image', 'remote_video']);
 
     // No neo_config_file exists, so no default media hydrates.
     $storage = $this->createMock(EntityStorageInterface::class);
@@ -69,8 +116,8 @@ class MediaValueTest extends UnitTestCase {
     $entityTypeManager = $this->createMock(EntityTypeManagerInterface::class);
     $entityTypeManager->method('getStorage')->willReturn($storage);
 
-    $plugin = new MediaValue('media', [], $shape, $configuration, $entityTypeManager);
-    return [$plugin, $shape];
+    $plugin = new MediaValue('media', [], $this->mediaShape($roles), $configuration, $entityTypeManager);
+    return [$plugin, $roles];
   }
 
   /**
@@ -119,11 +166,10 @@ class MediaValueTest extends UnitTestCase {
    * the media interface must be left entirely alone.
    */
   public function testNonMediaShapeIsPassThrough(): void {
-    $shape = $this->createMock(ComponentShapePluginInterface::class);
     $storage = $this->createMock(EntityStorageInterface::class);
     $entityTypeManager = $this->createMock(EntityTypeManagerInterface::class);
     $entityTypeManager->method('getStorage')->willReturn($storage);
-    $plugin = new MediaValue('media', [], $shape, ['default' => []], $entityTypeManager);
+    $plugin = new MediaValue('media', [], $this->unusedShape(), ['default' => []], $entityTypeManager);
 
     $this->assertSame('UNTOUCHED', $plugin->provideDefaultValue('UNTOUCHED'));
   }
@@ -141,37 +187,39 @@ class MediaValueTest extends UnitTestCase {
       ->method('alwaysShowForm')
       ->with(TRUE, $this->isType('string'));
 
-    $shape = $this->createMockForIntersectionOfInterfaces([
-      ComponentShapePluginInterface::class,
-      ComponentShapeMediaPluginInterface::class,
-    ]);
-    $shape->method('getOptionDefault')->willReturn($option);
-    $shape->method('getSupportedMediaTypes')->willReturn(['image', 'remote_video']);
+    $roles = $this->mediaShapeRoles();
+    $roles['options']->method('getOptionDefault')->willReturn($option);
+    $roles['media']->method('getSupportedMediaTypes')->willReturn(['image', 'remote_video']);
 
-    $shape->expects($this->once())->method('setFieldType')->with('entity_reference');
-    $shape->expects($this->once())->method('setFieldStorageSettings')->with(['target_type' => 'media']);
-    $shape->expects($this->once())->method('setFieldInstanceSettings')->with([
+    // How it is stored is the field-item role's; how it is edited is the
+    // form role's.
+    $fieldItem = $roles['fieldItem'];
+    $fieldItem->expects($this->once())->method('setFieldType')->with('entity_reference');
+    $fieldItem->expects($this->once())->method('setFieldStorageSettings')->with(['target_type' => 'media']);
+    $fieldItem->expects($this->once())->method('setFieldInstanceSettings')->with([
       'handler' => 'default:media',
       'handler_settings' => [
         'target_bundles' => ['image' => 'image', 'remote_video' => 'remote_video'],
       ],
     ]);
-    $shape->expects($this->once())->method('setWidget')->with('media_library_widget');
+    $roles['form']->expects($this->once())->method('setWidget')->with('media_library_widget');
 
     $storage = $this->createMock(EntityStorageInterface::class);
     $entityTypeManager = $this->createMock(EntityTypeManagerInterface::class);
     $entityTypeManager->method('getStorage')->willReturn($storage);
 
-    (new MediaValue('media', [], $shape, ['default' => []], $entityTypeManager))->onShapeInit();
+    (new MediaValue('media', [], $this->mediaShape($roles), ['default' => []], $entityTypeManager))->onShapeInit();
   }
 
   /**
    * Shape init leaves a non-media shape alone.
    */
   public function testShapeInitIgnoresNonMediaShape(): void {
-    $shape = $this->createMock(ComponentShapePluginInterface::class);
-    $shape->expects($this->never())->method('setFieldType');
-    $shape->expects($this->never())->method('setWidget');
+    $fieldItem = $this->shapeRole(ComponentShapeFieldItemInterface::class);
+    $fieldItem->expects($this->never())->method('setFieldType');
+    $form = $this->shapeRole(ComponentShapeFormInterface::class);
+    $form->expects($this->never())->method('setWidget');
+    $shape = $this->shapeDouble([$fieldItem, $form]);
 
     $storage = $this->createMock(EntityStorageInterface::class);
     $entityTypeManager = $this->createMock(EntityTypeManagerInterface::class);
@@ -194,21 +242,21 @@ class MediaValueTest extends UnitTestCase {
    *   renders the override button rather than the media widget.
    *
    * @return array
-   *   A tuple of [plugin, shape].
+   *   A tuple of [plugin, roles].
    */
   private function overridePlugin(string $shapeId, bool $defaultOptionEnabled = TRUE): array {
     $container = new ContainerBuilder();
     $container->set('string_translation', $this->getStringTranslationStub());
     \Drupal::setContainer($container);
 
-    [$plugin, $shape] = $this->mediaPlugin($defaultOptionEnabled);
-    $shape->method('id')->willReturn($shapeId);
-    $shape->method('getScope')->willReturn('config');
-    $shape->method('getTitle')->willReturn('Image');
-    $shape->method('getDefaultPreview')->willReturn(NULL);
-    $shape->method('getDefaultValue')->willReturn(NULL);
+    [$plugin, $roles] = $this->mediaPlugin($defaultOptionEnabled);
+    $roles['identity']->method('id')->willReturn($shapeId);
+    $roles['identity']->method('getTitle')->willReturn('Image');
+    $roles['context']->method('getScope')->willReturn('config');
+    $roles['media']->method('getDefaultPreview')->willReturn(NULL);
+    $roles['value']->method('getDefaultValue')->willReturn(NULL);
 
-    return [$plugin, $shape];
+    return [$plugin, $roles];
   }
 
   /**
@@ -259,12 +307,12 @@ class MediaValueTest extends UnitTestCase {
    */
   public function testOverrideOnlyDisablesTheClickedShapesDefault(): void {
     // A sibling prop on the same component: same click, different shape.
-    [$sibling, $siblingShape] = $this->overridePlugin('items~image~1');
-    $siblingShape->expects($this->never())->method('setOptions');
+    [$sibling, $siblingRoles] = $this->overridePlugin('items~image~1');
+    $siblingRoles['options']->expects($this->never())->method('setOptions');
 
-    [$clicked, $clickedShape] = $this->overridePlugin('items~image~0');
-    $clickedShape->method('getOptions')->willReturn(['default' => 1]);
-    $clickedShape->expects($this->once())->method('setOptions')->with(['default' => 0]);
+    [$clicked, $clickedRoles] = $this->overridePlugin('items~image~0');
+    $clickedRoles['options']->method('getOptions')->willReturn(['default' => 1]);
+    $clickedRoles['options']->expects($this->once())->method('setOptions')->with(['default' => 0]);
 
     $formState = $this->createMock(FormStateInterface::class);
     $formState->method('getTriggeringElement')->willReturn(['#neo_override' => 'items~image~0']);

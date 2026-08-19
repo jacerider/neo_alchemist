@@ -7,7 +7,8 @@ namespace Drupal\Tests\neo_alchemist\Unit;
 use Drupal\Core\DependencyInjection\ContainerBuilder;
 use Drupal\Core\Entity\ContentEntityInterface;
 use Drupal\Core\Utility\Token;
-use Drupal\neo_alchemist\ComponentShapePluginInterface;
+use Drupal\Tests\neo_alchemist\Traits\ShapeDoubleTrait;
+use Drupal\neo_alchemist\ComponentShapeContextInterface;
 use Drupal\neo_alchemist\Plugin\ComponentValue\TokenValue;
 use Drupal\Tests\UnitTestCase;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -29,6 +30,8 @@ use PHPUnit\Framework\Attributes\Group;
 #[Group('neo_alchemist')]
 class TokenValueTest extends UnitTestCase {
 
+  use ShapeDoubleTrait;
+
   /**
    * The token service double, recording what it was asked to replace.
    */
@@ -47,9 +50,12 @@ class TokenValueTest extends UnitTestCase {
     $entity = $this->createMock(ContentEntityInterface::class);
     $entity->method('getEntityTypeId')->willReturn('node');
 
-    $shape = $this->createMock(ComponentShapePluginInterface::class);
-    $shape->method('getEntity')->willReturn($entity);
-    $shape->method('getTargetEntityType')->willReturn('node');
+    // Resolving tokens is entirely a question of what the shape is attached
+    // to, so the context role is the whole of what it answers.
+    $context = $this->shapeRole(ComponentShapeContextInterface::class);
+    $context->method('getEntity')->willReturn($entity);
+    $context->method('getTargetEntityType')->willReturn('node');
+    $shape = $this->shapeDouble([$context]);
 
     $token = $this->createMock(Token::class);
     $token->method('replace')->willReturnCallback(function (string $text): string {

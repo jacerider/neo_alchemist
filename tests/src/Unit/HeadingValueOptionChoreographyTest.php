@@ -7,8 +7,10 @@ namespace Drupal\Tests\neo_alchemist\Unit;
 use Drupal\Core\Controller\TitleResolverInterface;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Routing\RouteMatchInterface;
+use Drupal\Tests\neo_alchemist\Traits\ShapeDoubleTrait;
 use Drupal\neo_alchemist\ComponentShapeChildrenPluginInterface;
 use Drupal\neo_alchemist\ComponentShapeOption;
+use Drupal\neo_alchemist\ComponentShapeOptionsInterface;
 use Drupal\neo_alchemist\ComponentShapePluginInterface;
 use Drupal\neo_alchemist\NestedOptionMap;
 use Drupal\neo_alchemist\Plugin\ComponentValue\HeadingValue;
@@ -40,6 +42,8 @@ use Symfony\Component\HttpFoundation\Request;
 #[Group('neo_alchemist')]
 class HeadingValueOptionChoreographyTest extends UnitTestCase {
 
+  use ShapeDoubleTrait;
+
   /**
    * The heading shape's own "empty" option.
    *
@@ -67,12 +71,18 @@ class HeadingValueOptionChoreographyTest extends UnitTestCase {
    *   The shape double.
    */
   private function shape(NestedOptionMap $options, bool $children = TRUE): ComponentShapePluginInterface {
-    $shape = $this->createMock(
-      $children ? ComponentShapeChildrenPluginInterface::class : ComponentShapePluginInterface::class,
+    // Both of the provider's questions are the options role's — the map it
+    // writes sub-prop options into, and the heading's own empty toggle. Having
+    // children is a capability rather than something it asks about: the
+    // provider tests for it with instanceof and does nothing without it.
+    $role = $this->shapeRole(ComponentShapeOptionsInterface::class);
+    $role->method('getNestedOptionMap')->willReturn($options);
+    $role->method('getOptionEmpty')->willReturn($this->emptyOption);
+
+    return $this->shapeDouble(
+      [$role],
+      $children ? [ComponentShapeChildrenPluginInterface::class] : [],
     );
-    $shape->method('getNestedOptionMap')->willReturn($options);
-    $shape->method('getOptionEmpty')->willReturn($this->emptyOption);
-    return $shape;
   }
 
   /**

@@ -10,9 +10,13 @@ use Drupal\Core\Entity\EntityTypeBundleInfoInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Routing\RouteProviderInterface;
 use Drupal\Core\Extension\ModuleHandlerInterface;
+use Drupal\Tests\neo_alchemist\Traits\ShapeDoubleTrait;
 use Drupal\neo_alchemist\ComponentInterface;
 use Drupal\neo_alchemist\ComponentShapeChildrenMatchPluginInterface;
+use Drupal\neo_alchemist\ComponentShapeContextInterface;
+use Drupal\neo_alchemist\ComponentShapeExpansionInterface;
 use Drupal\neo_alchemist\ComponentShapePluginInterface;
+use Drupal\neo_alchemist\ComponentShapeSchemaInterface;
 use Drupal\neo_alchemist\MatcherField;
 use Drupal\neo_alchemist\MatcherReference;
 use Drupal\neo_alchemist\Plugin\ComponentValue\EntityFilterValue;
@@ -43,6 +47,8 @@ use Symfony\Component\EventDispatcher\EventDispatcherInterface;
  */
 #[Group('neo_alchemist')]
 class EntityProviderPassThroughTest extends UnitTestCase {
+
+  use ShapeDoubleTrait;
 
   /**
    * A real MatcherField over mocked services (the class is final).
@@ -91,14 +97,25 @@ class EntityProviderPassThroughTest extends UnitTestCase {
   /**
    * A shape that supports children matching.
    *
-   * ComponentShapeChildrenMatchPluginInterface already extends the shape
-   * interface, so it is mocked directly — intersecting the two would fail
-   * with "Interfaces must not declare the same method". (Contrast the media
-   * and style interfaces, which are standalone markers and DO need an
-   * intersection mock.)
+   * The providers only test the capability with instanceof, so the double
+   * carries it and answers for nothing else unless a component is passed —
+   * which is the one thing EntityFilterValue asks its shape for, and belongs
+   * to the context role.
+   *
+   * @param \Drupal\neo_alchemist\ComponentInterface|null $component
+   *   The component the shape reports, when the test needs one.
    */
-  private function matchShape(): ComponentShapeChildrenMatchPluginInterface {
-    return $this->createMock(ComponentShapeChildrenMatchPluginInterface::class);
+  private function matchShape(?ComponentInterface $component = NULL): ComponentShapeChildrenMatchPluginInterface {
+    $roles = [];
+    if ($component !== NULL) {
+      $context = $this->shapeRole(ComponentShapeContextInterface::class);
+      $context->method('getComponent')->willReturn($component);
+      $roles[] = $context;
+    }
+
+    $shape = $this->shapeDouble($roles, [ComponentShapeChildrenMatchPluginInterface::class]);
+    assert($shape instanceof ComponentShapeChildrenMatchPluginInterface);
+    return $shape;
   }
 
   /**
@@ -106,7 +123,7 @@ class EntityProviderPassThroughTest extends UnitTestCase {
    */
   public function testLoadValueIgnoresNonMatchShape(): void {
     $plugin = $this->loadValue(
-      $this->createMock(ComponentShapePluginInterface::class),
+      $this->unusedShape(),
       ['entity_type' => 'node', 'entity_id' => 1],
     );
 
@@ -145,7 +162,7 @@ class EntityProviderPassThroughTest extends UnitTestCase {
     $plugin = new EntityFilterValue(
       'entity_filter',
       [],
-      $this->createMock(ComponentShapePluginInterface::class),
+      $this->unusedShape(),
       ['filter' => 'some-filter'],
       $this->matcherField(),
       $this->matcherReference(),
@@ -160,8 +177,7 @@ class EntityProviderPassThroughTest extends UnitTestCase {
   public function testFilterValueIgnoresMissingFilter(): void {
     $component = $this->createMock(ComponentInterface::class);
     $component->method('getFilter')->willReturn(NULL);
-    $shape = $this->matchShape();
-    $shape->method('getComponent')->willReturn($component);
+    $shape = $this->matchShape($component);
 
     $plugin = new EntityFilterValue(
       'entity_filter',
@@ -182,7 +198,7 @@ class EntityProviderPassThroughTest extends UnitTestCase {
     $plugin = new EntityReferenceValue(
       'entity_reference',
       [],
-      $this->createMock(ComponentShapePluginInterface::class),
+      $this->unusedShape(),
       ['entity' => ''],
       $this->matcherField(),
       $this->matcherReference(),
@@ -200,21 +216,10 @@ class EntityProviderPassThroughTest extends UnitTestCase {
    * cannot, and must not be offered the plugin.
    */
   public function testReferenceValueApplicability(): void {
-    $iterable = $this->createMock(ComponentShapePluginInterface::class);
-    $iterable->method('getTargetEntityType')->willReturn('node');
-    $iterable->method('isIterable')->willReturn(TRUE);
-
-    $expandable = $this->createMock(ComponentShapePluginInterface::class);
-    $expandable->method('getTargetEntityType')->willReturn('node');
-    $expandable->method('isIterable')->willReturn(FALSE);
-    $expandable->method('isExpandable')->willReturn(TRUE);
-
-    $flat = $this->createMock(ComponentShapePluginInterface::class);
-    $flat->method('getTargetEntityType')->willReturn('node');
-
-    $withoutTarget = $this->createMock(ComponentShapePluginInterface::class);
-    $withoutTarget->method('getTargetEntityType')->willReturn(NULL);
-    $withoutTarget->method('isIterable')->willReturn(TRUE);
+    $iterable = $this->distributableShape('node', iterable: TRUE);
+    $expandable = $this->distributableShape('node', iterable: FALSE, expandable: TRUE);
+    $flat = $this->distributableShape('node');
+    $withoutTarget = $this->distributableShape(NULL, iterable: TRUE);
 
     $this->assertTrue(EntityReferenceValue::isApplicable($iterable), 'An iterable (array) shape is offered the plugin.');
     $this->assertTrue(EntityReferenceValue::isApplicable($expandable), 'An expandable object (aggregate) shape is offered the plugin.');
@@ -226,10 +231,35 @@ class EntityProviderPassThroughTest extends UnitTestCase {
    * None of the entity providers are author-editable.
    */
   public function testNoneAreEditable(): void {
-    $shape = $this->createMock(ComponentShapePluginInterface::class);
+    $shape = $this->unusedShape();
 
     $this->assertFalse($this->loadValue($shape, [])->isEditable());
     $this->assertFalse((new EntityReferenceValue('entity_reference', [], $shape, [], $this->matcherField(), $this->matcherReference()))->isEditable());
+  }
+
+  /**
+   * A shape reporting what the applicability gate reads, and nothing else.
+   *
+   * Three roles, one question each: the target entity type is context, being
+   * iterable is schema, being expandable is expansion. Naming them is what
+   * keeps a stub for one from being accepted against another.
+   *
+   * @param string|null $targetEntityType
+   *   The entity type the shape targets, or NULL for none.
+   * @param bool $iterable
+   *   Whether the shape is an iterable list.
+   * @param bool $expandable
+   *   Whether the shape is an expandable object.
+   */
+  private function distributableShape(?string $targetEntityType, bool $iterable = FALSE, bool $expandable = FALSE): ComponentShapePluginInterface {
+    $context = $this->shapeRole(ComponentShapeContextInterface::class);
+    $context->method('getTargetEntityType')->willReturn($targetEntityType);
+    $schema = $this->shapeRole(ComponentShapeSchemaInterface::class);
+    $schema->method('isIterable')->willReturn($iterable);
+    $expansion = $this->shapeRole(ComponentShapeExpansionInterface::class);
+    $expansion->method('isExpandable')->willReturn($expandable);
+
+    return $this->shapeDouble([$context, $schema, $expansion]);
   }
 
 }

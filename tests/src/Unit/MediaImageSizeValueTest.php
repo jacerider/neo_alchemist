@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace Drupal\Tests\neo_alchemist\Unit;
 
+use Drupal\Tests\neo_alchemist\Traits\ShapeDoubleTrait;
 use Drupal\neo_alchemist\ComponentShapePluginInterface;
 use Drupal\neo_alchemist\ComponentShapeStylePluginInterface;
+use Drupal\neo_alchemist\ComponentShapeValueInterface;
 use Drupal\neo_alchemist\Plugin\ComponentShape\ImageShape;
 use Drupal\neo_alchemist\Plugin\ComponentValue\MediaImageSizeValue;
 use Drupal\Tests\UnitTestCase;
@@ -28,6 +30,8 @@ use PHPUnit\Framework\Attributes\Group;
  */
 #[Group('neo_alchemist')]
 class MediaImageSizeValueTest extends UnitTestCase {
+
+  use ShapeDoubleTrait;
 
   /**
    * A configured size list, shaped the way modifyValue() reads it.
@@ -52,9 +56,7 @@ class MediaImageSizeValueTest extends UnitTestCase {
    *   The configured size list.
    */
   private function plugin(mixed $overrideValue = NULL, array $sizes = self::SIZES): MediaImageSizeValue {
-    $shape = $this->createMock(ComponentShapePluginInterface::class);
-    $shape->method('getOverrideValue')->willReturn($overrideValue);
-    return new MediaImageSizeValue('media_image_size', [], $shape, ['sizes' => $sizes]);
+    return new MediaImageSizeValue('media_image_size', [], $this->sizeShape($overrideValue), ['sizes' => $sizes]);
   }
 
   /**
@@ -69,12 +71,26 @@ class MediaImageSizeValueTest extends UnitTestCase {
    *   What the shape reports as its stored override value.
    */
   private function stylePlugin(mixed $overrideValue = NULL): MediaImageSizeValue {
-    $shape = $this->createMockForIntersectionOfInterfaces([
-      ComponentShapePluginInterface::class,
-      ComponentShapeStylePluginInterface::class,
-    ]);
-    $shape->method('getOverrideValue')->willReturn($overrideValue);
+    $shape = $this->sizeShape($overrideValue, [ComponentShapeStylePluginInterface::class]);
     return new MediaImageSizeValue('media_image_size', [], $shape, ['sizes' => self::SIZES]);
+  }
+
+  /**
+   * A shape answering the one question this modifier asks it.
+   *
+   * The stored override is a value-role question, and it is the only one: the
+   * plugin decides everything else from its own configuration and from what
+   * the pipeline hands it.
+   *
+   * @param mixed $overrideValue
+   *   What the shape reports as its stored override value.
+   * @param string[] $capabilities
+   *   Interfaces the shape must also satisfy.
+   */
+  private function sizeShape(mixed $overrideValue, array $capabilities = []): ComponentShapePluginInterface {
+    $value = $this->shapeRole(ComponentShapeValueInterface::class);
+    $value->method('getOverrideValue')->willReturn($overrideValue);
+    return $this->shapeDouble([$value], $capabilities);
   }
 
   /**

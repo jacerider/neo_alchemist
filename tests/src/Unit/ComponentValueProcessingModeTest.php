@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\Tests\neo_alchemist\Unit;
 
-use Drupal\neo_alchemist\ComponentShapePluginInterface;
+use Drupal\neo_alchemist\ComponentShapeValueInterface;
 use Drupal\neo_alchemist\ComponentValueProcessingModeInterface;
 use Drupal\neo_alchemist\Plugin\ComponentValue\PrefixValue;
 use Drupal\Tests\UnitTestCase;
@@ -40,7 +40,7 @@ class ComponentValueProcessingModeTest extends UnitTestCase {
    *   A provider reset to "not yet claimed".
    */
   private function provider(?string $mode, bool $providedValueIsEmpty): TestProcessingModeProvider {
-    $shape = $this->createMock(ComponentShapePluginInterface::class);
+    $shape = $this->createMock(ComponentShapeValueInterface::class);
     $shape->method('isProvidedValueEmpty')->willReturn($providedValueIsEmpty);
 
     $provider = new TestProcessingModeProvider();

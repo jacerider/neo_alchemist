@@ -4,14 +4,17 @@ declare(strict_types=1);
 
 namespace Drupal\Tests\neo_alchemist\Unit;
 
+use Drupal\Tests\neo_alchemist\Traits\ShapeDoubleTrait;
 use Drupal\neo_alchemist\ChildOptionPolicy;
 use Drupal\neo_alchemist\ChildShapeState;
 use Drupal\neo_alchemist\ComponentShapeChildrenMatchPluginInterface;
+use Drupal\neo_alchemist\ComponentShapeContextInterface;
 use Drupal\neo_alchemist\ComponentShapeExpandedPluginInterface;
 use Drupal\neo_alchemist\ComponentShapeOption;
-use Drupal\neo_alchemist\ComponentShapePluginInterface;
+use Drupal\neo_alchemist\ComponentShapeOptionsInterface;
 use Drupal\Tests\UnitTestCase;
 use PHPUnit\Framework\Attributes\Group;
+use PHPUnit\Framework\MockObject\MockObject;
 
 /**
  * Tests the parent-constrains-child rules in isolation.
@@ -29,6 +32,8 @@ use PHPUnit\Framework\Attributes\Group;
  */
 #[Group('neo_alchemist')]
 class ChildOptionPolicyTest extends UnitTestCase {
+
+  use ShapeDoubleTrait;
 
   /**
    * The policy under test.
@@ -60,11 +65,16 @@ class ChildOptionPolicyTest extends UnitTestCase {
   /**
    * A child shape whose options are the ones this test inspects.
    *
-   * @return \Drupal\neo_alchemist\ComponentShapePluginInterface
+   * The options role, not a whole shape: it is the type the policy takes, and
+   * it is the whole of what the policy does to a child. A double of it is ten
+   * methods rather than a hundred, so reaching for anything else here is an
+   * error at the point of stubbing.
+   *
+   * @return \Drupal\neo_alchemist\ComponentShapeOptionsInterface
    *   The child shape double.
    */
-  private function child(): ComponentShapePluginInterface {
-    $child = $this->createMock(ComponentShapePluginInterface::class);
+  private function child(): ComponentShapeOptionsInterface {
+    $child = $this->createMock(ComponentShapeOptionsInterface::class);
     $child->method('id')->willReturn('root~child');
     $child->method('getOptionEmpty')->willReturn($this->childOptions['empty']);
     $child->method('getOptionDefault')->willReturn($this->childOptions['default']);
@@ -91,11 +101,6 @@ class ChildOptionPolicyTest extends UnitTestCase {
    *   The parent shape double.
    */
   private function parentShape(array $flags = [], array $own = [], string $scope = 'entity', bool $singleProp = FALSE): ComponentShapeChildrenMatchPluginInterface {
-    $own += [
-      'empty' => new ComponentShapeOption(FALSE, TRUE),
-      'default' => new ComponentShapeOption(FALSE, TRUE),
-      'access' => new ComponentShapeOption(TRUE, FALSE),
-    ];
     $state = new ChildShapeState();
     foreach ([
       'hidden' => ChildShapeState::HIDDEN,
@@ -106,14 +111,7 @@ class ChildOptionPolicyTest extends UnitTestCase {
         $state->setFlag('root~child', $flag, $flags[$key]);
       }
     }
-    $parent = $this->createMock(ComponentShapeChildrenMatchPluginInterface::class);
-    $parent->method('getChildShapeState')->willReturn($state);
-    $parent->method('isSingleProp')->willReturn($singleProp);
-    $parent->method('getScope')->willReturn($scope);
-    $parent->method('getOptionEmpty')->willReturn($own['empty']);
-    $parent->method('getOptionDefault')->willReturn($own['default']);
-    $parent->method('getOptionAccess')->willReturn($own['access']);
-    return $parent;
+    return $this->buildParent($state, $own, $scope, $singleProp);
   }
 
   /**
@@ -307,17 +305,60 @@ class ChildOptionPolicyTest extends UnitTestCase {
    *   The parent shape double.
    */
   private function unexpandableParent(string $scope = 'entity'): ComponentShapeChildrenMatchPluginInterface {
-    $parent = $this->createMockForIntersectionOfInterfaces([
-      ComponentShapeChildrenMatchPluginInterface::class,
-      ComponentShapeExpandedPluginInterface::class,
-    ]);
-    $parent->method('getChildShapeState')->willReturn(new ChildShapeState());
-    $parent->method('isSingleProp')->willReturn(FALSE);
-    $parent->method('getScope')->willReturn($scope);
-    $parent->method('getOptionEmpty')->willReturn(new ComponentShapeOption(FALSE, TRUE));
-    $parent->method('getOptionDefault')->willReturn(new ComponentShapeOption(FALSE, TRUE));
-    $parent->method('getOptionAccess')->willReturn(new ComponentShapeOption(TRUE, FALSE));
-    $parent->method('allowExpanded')->willReturn(FALSE);
+    $expanded = $this->shapeRole(ComponentShapeExpandedPluginInterface::class);
+    $expanded->method('allowExpanded')->willReturn(FALSE);
+
+    return $this->buildParent(new ChildShapeState(), [], $scope, FALSE, $expanded);
+  }
+
+  /**
+   * Assembles a parent shape from the narrow things that answer for it.
+   *
+   * The parent stays a whole children-matching shape, because that is the type
+   * the policy takes — a capability rather than a role, as ticket 05 settled.
+   * Nothing is stubbed on it even so: the children capability answers the two
+   * child-shape questions, the options role the parent's own three, the
+   * context role the scope.
+   *
+   * @param \Drupal\neo_alchemist\ChildShapeState $state
+   *   The producer flags the parent carries.
+   * @param array $own
+   *   The parent's own options, keyed `empty`, `default` and `access`.
+   * @param string $scope
+   *   The parent's scope.
+   * @param bool $singleProp
+   *   Whether the parent reports a single property.
+   * @param \PHPUnit\Framework\MockObject\MockObject|null $expanded
+   *   An expandability double, for a parent that refuses expansion.
+   *
+   * @return \Drupal\neo_alchemist\ComponentShapeChildrenMatchPluginInterface
+   *   The parent shape double.
+   */
+  private function buildParent(ChildShapeState $state, array $own, string $scope, bool $singleProp, ?MockObject $expanded = NULL): ComponentShapeChildrenMatchPluginInterface {
+    $own += [
+      'empty' => new ComponentShapeOption(FALSE, TRUE),
+      'default' => new ComponentShapeOption(FALSE, TRUE),
+      'access' => new ComponentShapeOption(TRUE, FALSE),
+    ];
+
+    $children = $this->shapeRole(ComponentShapeChildrenMatchPluginInterface::class);
+    $children->method('getChildShapeState')->willReturn($state);
+    $children->method('isSingleProp')->willReturn($singleProp);
+    $context = $this->shapeRole(ComponentShapeContextInterface::class);
+    $context->method('getScope')->willReturn($scope);
+    $options = $this->shapeRole(ComponentShapeOptionsInterface::class);
+    $options->method('getOptionEmpty')->willReturn($own['empty']);
+    $options->method('getOptionDefault')->willReturn($own['default']);
+    $options->method('getOptionAccess')->willReturn($own['access']);
+
+    $parent = $this->shapeDouble(
+      array_filter([$children, $context, $options, $expanded]),
+      array_filter([
+        ComponentShapeChildrenMatchPluginInterface::class,
+        $expanded ? ComponentShapeExpandedPluginInterface::class : NULL,
+      ]),
+    );
+    assert($parent instanceof ComponentShapeChildrenMatchPluginInterface);
     return $parent;
   }
 

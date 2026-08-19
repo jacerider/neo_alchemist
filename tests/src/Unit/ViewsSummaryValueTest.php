@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\Tests\neo_alchemist\Unit;
 
-use Drupal\neo_alchemist\ComponentShapePluginInterface;
+use Drupal\Tests\neo_alchemist\Traits\ShapeDoubleTrait;
 use Drupal\neo_alchemist\Plugin\ComponentValue\ViewsSummaryValue;
 use Drupal\Tests\UnitTestCase;
 use Drupal\views\Plugin\views\pager\PagerPluginBase;
@@ -36,6 +36,8 @@ use PHPUnit\Framework\Attributes\Group;
  */
 #[Group('neo_alchemist')]
 class ViewsSummaryValueTest extends UnitTestCase {
+
+  use ShapeDoubleTrait;
 
   /**
    * Builds an executed-view double.
@@ -76,7 +78,7 @@ class ViewsSummaryValueTest extends UnitTestCase {
     $plugin = new ViewsSummaryValue(
       'views_summary',
       [],
-      $this->createMock(ComponentShapePluginInterface::class),
+      $this->unusedShape(),
       ['context' => 'items'],
     );
     $method = new \ReflectionMethod($plugin, 'summarize');

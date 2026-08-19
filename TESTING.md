@@ -222,14 +222,18 @@ tests/
 │   └── neo_alchemist_test.neo_component_prop_defs.yml
 └── src/
     ├── Unit/                          # no container, no database
-    └── Kernel/                        # real container, real config entities
+    ├── Kernel/                        # real container, real config entities
+    └── Traits/                        # helpers both suites use (ShapeDoubleTrait)
     # Named helpers live beside the tests: TestProcessingModeProvider and
     # LimitedSubmissionProbe (Unit), HybridFieldKernelTestBase and
-    # CheckAccessExposedComponent (Kernel).
+    # CheckAccessExposedComponent (Kernel). A helper only earns a place in
+    # Traits/ once both suites need it — ShapeDoubleTrait does, since Unit and
+    # Kernel tests both double shapes.
 ```
 
-Namespaces follow Drupal convention: `Drupal\Tests\neo_alchemist\{Unit,Kernel}`.
-The fixture module autoloads as `Drupal\neo_alchemist_test\`.
+Namespaces follow Drupal convention:
+`Drupal\Tests\neo_alchemist\{Unit,Kernel,Traits}`. The fixture module autoloads
+as `Drupal\neo_alchemist_test\`.
 
 ---
 
@@ -458,6 +462,39 @@ number written down here.
 | `Kernel/EntityComponentRouteAccessTest` | The Layout routes offer exactly what the controller can act on — the per-entity narrowing, the field-config scope's immunity to it, and the entity attached as a cacheable dependency on every outcome including the refusals |
 | `Kernel/BootSpikeTest` | The module boots under Kernel with a minimal module set |
 | `Unit/ShapeRoleInterfaceTest` | The shape's fourteen roles: each stays under the twelve-method ceiling, no method is on two of them, `ComponentShapePluginInterface` declares nothing of its own beyond the Drupal interfaces it extends, and every role can still name its shape — so a caller can hold one role and know what it promises |
+| `Unit/ShapeDoubleTest` | The other half of the roles: `ShapeDoubleTrait` forwards a role double through a union-typed one, so a stub off the declared role is rejected where the hundred-method double accepted it |
+
+**Doubling a shape.** Use `ShapeDoubleTrait`, never
+`createMock(ComponentShapePluginInterface::class)`. Declare the role that owns
+each method you stub, and hand the assembled double to the code under test:
+
+```php
+use ShapeDoubleTrait;
+
+$context = $this->shapeRole(ComponentShapeContextInterface::class);
+$context->method('getScope')->willReturn('field');
+
+new EntityValue('entity', [], $this->shapeDouble([$context]), [], $matcher);
+```
+
+The union double is plumbing — `ComponentValuePluginBase` types its shape as
+`ComponentShapePluginInterface`, so a bare role double is rejected by every
+value provider's constructor. Nothing is stubbed on it directly.
+
+- **Every role you make must be declared.** A role stubbed and then left out of
+  the `shapeDouble()` call forwards to nobody, so nothing it was told reaches
+  the code under test — silently. The trait fails the test rather than letting
+  that pass.
+- **`$this->unusedShape()`** for a provider that never looks at its shape.
+  Every method throws, so the day it starts looking, the test says which
+  method.
+- **Capabilities** — media, style, children — go in the second argument, since
+  providers test for them with `instanceof`. One that already extends the
+  union replaces it rather than joining it.
+- **A method's role is not always the obvious one.** `setWidget()` is the form
+  role, not the field-item role, because a widget is how a prop is edited
+  rather than how it is stored. Migrating `MediaValueTest` surfaced exactly
+  that, which is the point: on the wide double it was invisible.
 
 Shared Kernel infrastructure: `HybridFieldKernelTestBase` stands up a real
 `neo_component_tree` field on `entity_test` with a hybrid-ready default

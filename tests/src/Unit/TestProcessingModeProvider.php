@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\Tests\neo_alchemist\Unit;
 
-use Drupal\neo_alchemist\ComponentShapePluginInterface;
+use Drupal\neo_alchemist\ComponentShapeValueInterface;
 use Drupal\neo_alchemist\Plugin\ComponentValue\ComponentValueProcessingModeTrait;
 
 /**
@@ -38,9 +38,15 @@ final class TestProcessingModeProvider {
   /**
    * The shape this provider decides a value for.
    *
-   * @var \Drupal\neo_alchemist\ComponentShapePluginInterface|null
+   * The value role rather than the whole shape: deciding whether to claim is
+   * one question — is what was produced empty — and the type says so. The real
+   * base class holds the union, which it has to, since a provider may reach
+   * for any role; nothing here needs that, and a narrow double is one a
+   * misspelled stub fails against.
+   *
+   * @var \Drupal\neo_alchemist\ComponentShapeValueInterface|null
    */
-  public ?ComponentShapePluginInterface $shape = NULL;
+  public ?ComponentShapeValueInterface $shape = NULL;
 
   /**
    * Whether the pipeline may keep running after this provider.

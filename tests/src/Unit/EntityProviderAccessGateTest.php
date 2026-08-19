@@ -10,6 +10,8 @@ use Drupal\Core\Entity\EntityTypeBundleInfoInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Routing\RouteProviderInterface;
 use Drupal\Core\Extension\ModuleHandlerInterface;
+use Drupal\Tests\neo_alchemist\Traits\ShapeDoubleTrait;
+use Drupal\neo_alchemist\ComponentShapeContextInterface;
 use Drupal\neo_alchemist\ComponentShapePluginInterface;
 use Drupal\neo_alchemist\MatcherField;
 use Drupal\neo_alchemist\Plugin\ComponentValue\EntityHasValue;
@@ -47,17 +49,23 @@ use PHPUnit\Framework\Attributes\Group;
 #[Group('neo_alchemist')]
 class EntityProviderAccessGateTest extends UnitTestCase {
 
+  use ShapeDoubleTrait;
+
   /**
    * Builds a shape reporting the given scope and entity state.
+   *
+   * The gate asks the shape two questions and both are the context role's —
+   * what scope this is and what entity it is attached to — so that is the only
+   * role the double answers for.
    */
   private function shape(string $scope, bool $entityIsNew): ComponentShapePluginInterface {
     $entity = $this->createMock(ContentEntityInterface::class);
     $entity->method('isNew')->willReturn($entityIsNew);
 
-    $shape = $this->createMock(ComponentShapePluginInterface::class);
-    $shape->method('getScope')->willReturn($scope);
-    $shape->method('getEntity')->willReturn($entity);
-    return $shape;
+    $context = $this->shapeRole(ComponentShapeContextInterface::class);
+    $context->method('getScope')->willReturn($scope);
+    $context->method('getEntity')->willReturn($entity);
+    return $this->shapeDouble([$context]);
   }
 
   /**
