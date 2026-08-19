@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Drupal\Tests\neo_alchemist\Unit;
 
 use Drupal\Core\TypedData\DataDefinition;
+use Drupal\neo_alchemist\EmptySectionPolicy;
 use Drupal\neo_alchemist\Plugin\DataType\ComponentTreeStructure;
 use Drupal\Tests\UnitTestCase;
 use PHPUnit\Framework\Attributes\Group;
@@ -106,7 +107,7 @@ class ComponentTreeStructureTest extends UnitTestCase {
     $structure->addComponent('parent', 'container');
     $structure->addComponent('child', 'card', 'parent', 'content');
 
-    $structure->removeComponent('parent');
+    $structure->removeComponent('parent', EmptySectionPolicy::Preserve);
 
     $this->assertNotContains('parent', $structure->getComponentInstanceUuids());
     $this->assertNull($structure->getComponentId('child'), 'The orphaned child is gone with its parent.');
@@ -122,52 +123,85 @@ class ComponentTreeStructureTest extends UnitTestCase {
     $structure->addComponent('child-a', 'card', 'parent', 'content');
     $structure->addComponent('child-b', 'card', 'parent', 'content');
 
-    $structure->removeComponent('child-a');
+    $structure->removeComponent('child-a', EmptySectionPolicy::Preserve);
 
     $this->assertSame(['child-b'], $structure->getComponentInstanceUuids('parent', 'content'));
     $this->assertSame('container', $structure->getComponentId('parent'));
   }
 
   /**
-   * Sorting reorders a section to match the given UUID order.
+   * Preserve keeps a slot the removal emptied, as an explicit empty marker.
    */
-  public function testSortComponentsAtRoot(): void {
+  public function testRemoveComponentPreservesTheEmptiedSlot(): void {
+    $structure = $this->tree();
+    $structure->addComponent('parent', 'container');
+    $structure->addComponent('child', 'card', 'parent', 'content');
+
+    $structure->removeComponent('child', EmptySectionPolicy::Preserve);
+
+    $this->assertSame([], $structure->getComponentsBySection('parent', 'content'));
+    $this->assertArrayHasKey('parent', json_decode((string) $structure, TRUE));
+  }
+
+  /**
+   * Collapse drops a slot the removal emptied, and its section with it.
+   */
+  public function testRemoveComponentCollapsesTheEmptiedSlot(): void {
+    $structure = $this->tree();
+    $structure->addComponent('parent', 'container');
+    $structure->addComponent('child', 'card', 'parent', 'content');
+
+    $structure->removeComponent('child', EmptySectionPolicy::Collapse);
+
+    $decoded = json_decode((string) $structure, TRUE);
+    $this->assertArrayNotHasKey('parent', $decoded, 'A subtree with no populated slot is omitted.');
+    $this->assertSame('container', $structure->getComponentId('parent'), 'The instance itself is still placed.');
+  }
+
+  /**
+   * Reordering permutes a section to match the given UUID order.
+   */
+  public function testReorderComponentsAtRoot(): void {
     $structure = $this->tree();
     $structure->addComponent('uuid-a', 'card');
     $structure->addComponent('uuid-b', 'banner');
     $structure->addComponent('uuid-c', 'cta');
 
-    $structure->sortComponents(['uuid-c', 'uuid-a', 'uuid-b']);
+    $structure->reorderComponents(['uuid-c', 'uuid-a', 'uuid-b']);
 
     $this->assertSame(['uuid-c', 'uuid-a', 'uuid-b'], $structure->getComponentInstanceUuids());
   }
 
   /**
-   * UUIDs omitted from a sort are dropped from that section.
+   * UUIDs omitted from a reorder keep their positions.
    *
-   * Characterising deliberately: sortComponents() rebuilds the section from
-   * the supplied list, so a caller that passes a partial list loses the rest.
+   * The inversion of a test that used to characterise the defect: the
+   * destructive predecessor rebuilt the section from the supplied list, so a
+   * caller passing a partial list silently deleted the rest. A reorder is a
+   * permutation now, never a deletion.
+   *
+   * @see \Drupal\Tests\neo_alchemist\Unit\ComponentTreeReorderTest
    */
-  public function testSortComponentsDropsOmittedUuids(): void {
+  public function testReorderComponentsKeepsOmittedUuids(): void {
     $structure = $this->tree();
     $structure->addComponent('uuid-a', 'card');
     $structure->addComponent('uuid-b', 'banner');
 
-    $structure->sortComponents(['uuid-b']);
+    $structure->reorderComponents(['uuid-b']);
 
-    $this->assertSame(['uuid-b'], $structure->getComponentInstanceUuids());
+    $this->assertSame(['uuid-a', 'uuid-b'], $structure->getComponentInstanceUuids());
   }
 
   /**
-   * Sorting a non-root parent without naming a slot is rejected.
+   * Reordering a non-root parent without naming a slot is rejected.
    */
-  public function testSortComponentsRequiresSlotForNonRoot(): void {
+  public function testReorderComponentsRequiresSlotForNonRoot(): void {
     $structure = $this->tree();
     $structure->addComponent('parent', 'container');
     $structure->addComponent('child', 'card', 'parent', 'content');
 
     $this->expectException(\InvalidArgumentException::class);
-    $structure->sortComponents(['child'], 'parent');
+    $structure->reorderComponents(['child'], 'parent');
   }
 
   /**

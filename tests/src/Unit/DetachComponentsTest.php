@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Drupal\Tests\neo_alchemist\Unit;
 
 use Drupal\neo_alchemist\ComponentUsage;
+use Drupal\neo_alchemist\EmptySectionPolicy;
 use Drupal\neo_alchemist\Plugin\DataType\ComponentTreeStructure;
 use Drupal\Tests\UnitTestCase;
 use PHPUnit\Framework\Attributes\Group;
@@ -13,16 +14,24 @@ use PHPUnit\Framework\Attributes\Group;
  * Removing a component from a tree must leave a structurally valid tree.
  *
  * This is what keeps a component deletion from destroying its hosts: the
- * config dependency system deletes any dependent it cannot fix, so
- * a field config or Alchemist block only survives if this returns a tree that
- * still passes ComponentTreeStructureConstraintValidator. That validator is
+ * config dependency system deletes any dependent it cannot fix, so a field
+ * config or Alchemist block only survives if this returns a tree that still
+ * passes ComponentTreeStructureConstraintValidator. That validator is
  * unforgiving in three specific ways, and each is a case below:
  * - the root uuid key is required even when it holds nothing;
  * - a slot left with no instances must be omitted, not left empty;
  * - a subtree may not be keyed by an instance that is no longer in the tree,
  *   so removing a parent has to take its whole descendant chain with it.
  *
- * @see \Drupal\neo_alchemist\ComponentUsage::detachComponents()
+ * Those three describe **config** scope, and detachment reaches entity rows
+ * too. A hybrid entity's row is a storage subset in which an empty flagged
+ * slot is the authoritative marker for "this region was deliberately emptied",
+ * so collapsing it there is a data-loss path rather than a validity
+ * requirement. Which reading applies is the empty-section policy, and it is an
+ * argument rather than an assumption — see EmptySectionPolicyTest for the
+ * regression that motivated it.
+ *
+ * @see \Drupal\neo_alchemist\Plugin\DataType\ComponentTreeStructure::detachComponents()
  * @see \Drupal\neo_alchemist\Plugin\Validation\Constraint\ComponentTreeStructureConstraintValidator
  */
 #[Group('neo_alchemist')]
@@ -60,10 +69,21 @@ final class DetachComponentsTest extends UnitTestCase {
   }
 
   /**
+   * Detaches from the fixture with the config-scope policy.
+   */
+  private function detach(array $componentIds, ?array $values = NULL): array {
+    return ComponentTreeStructure::detachComponents(
+      $values ?? $this->fixture(),
+      $componentIds,
+      EmptySectionPolicy::Collapse,
+    );
+  }
+
+  /**
    * Removing a parent takes its children and grandchildren with it.
    */
   public function testRemovingParentRemovesDescendants(): void {
-    $result = ComponentUsage::detachComponents($this->fixture(), ['compA']);
+    $result = $this->detach(['compA']);
 
     $this->assertSame([['uuid' => 'B', 'component' => 'compB']], $result['tree'][self::ROOT]);
     // A's subtree would be dangling, and C's with it.
@@ -77,7 +97,7 @@ final class DetachComponentsTest extends UnitTestCase {
    * Removing one instance leaves its siblings in place.
    */
   public function testRemovingMidLevelInstanceKeepsSiblings(): void {
-    $result = ComponentUsage::detachComponents($this->fixture(), ['compC']);
+    $result = $this->detach(['compC']);
 
     $this->assertSame(
       [['uuid' => 'D', 'component' => 'compD']],
@@ -93,7 +113,7 @@ final class DetachComponentsTest extends UnitTestCase {
    * A slot emptied by the removal is omitted, along with its subtree.
    */
   public function testEmptiedSlotIsOmitted(): void {
-    $result = ComponentUsage::detachComponents($this->fixture(), ['compC', 'compD']);
+    $result = $this->detach(['compC', 'compD']);
 
     // "region" was A's only populated slot, so A's subtree goes entirely —
     // an empty subtree or empty slot is a validation error.
@@ -106,7 +126,7 @@ final class DetachComponentsTest extends UnitTestCase {
    * An emptied root keeps its key, because the validator requires it.
    */
   public function testEmptiedRootKeepsItsKey(): void {
-    $result = ComponentUsage::detachComponents($this->fixture(), ['compA', 'compB']);
+    $result = $this->detach(['compA', 'compB']);
 
     $this->assertSame([self::ROOT => []], $result['tree']);
     $this->assertSame([], $result['props']);
@@ -117,17 +137,17 @@ final class DetachComponentsTest extends UnitTestCase {
    */
   public function testAbsentComponentChangesNothing(): void {
     $fixture = $this->fixture();
-    $this->assertSame($fixture, ComponentUsage::detachComponents($fixture, ['not_placed']));
-    $this->assertSame($fixture, ComponentUsage::detachComponents($fixture, []));
+    $this->assertSame($fixture, $this->detach(['not_placed'], $fixture));
+    $this->assertSame($fixture, $this->detach([], $fixture));
   }
 
   /**
    * An empty tree survives without error.
    */
   public function testEmptyTreeIsHandled(): void {
-    $this->assertSame([], ComponentUsage::detachComponents([], ['compA']));
+    $this->assertSame([], $this->detach(['compA'], []));
     $empty = ['tree' => [], 'props' => []];
-    $this->assertSame($empty, ComponentUsage::detachComponents($empty, ['compA']));
+    $this->assertSame($empty, $this->detach(['compA'], $empty));
   }
 
   /**
@@ -144,10 +164,31 @@ final class DetachComponentsTest extends UnitTestCase {
       ],
       'props' => array_fill_keys(['A', 'B', 'C'], ['status' => TRUE]),
     ];
-    $result = ComponentUsage::detachComponents($values, ['dupe']);
+    $result = $this->detach(['dupe'], $values);
 
     $this->assertSame([['uuid' => 'B', 'component' => 'keep']], $result['tree'][self::ROOT]);
     $this->assertSame(['B'], array_keys($result['props']));
+  }
+
+  /**
+   * Every surviving instance still has a props entry afterwards.
+   *
+   * The parity postcondition, on a pair that arrives already broken: a tree
+   * whose props are missing an entry must not come out of detachment still
+   * missing it, or the next save throws instead of the write that caused it.
+   */
+  public function testSurvivingInstancesGetTheirPropsBackfilled(): void {
+    $values = $this->fixture();
+    unset($values['props']['B']);
+
+    $result = $this->detach(['compA'], $values);
+
+    $this->assertSame([], $result['props']['B'] ?? NULL, 'The props-less survivor was backfilled.');
+    $placed = ComponentTreeStructure::collectInstanceUuids($result['tree']);
+    sort($placed);
+    $stored = array_keys($result['props']);
+    sort($stored);
+    $this->assertSame($placed, $stored);
   }
 
   /**

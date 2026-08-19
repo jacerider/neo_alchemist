@@ -380,19 +380,32 @@ Hybrid mechanics:
   the flag). `ComponentFieldConfig::getCustomRegions()` derives the **anchors**
   (`ownerUuid` → flagged slot ids) from the default tree; `isHybrid()` is the predicate
   used by every gate.
-- **Merge on load** (`NeoComponentTreeList::setValue()`): the entity stores only the
-  anchor sections + their descendant closure + props. Loading composes the merged tree:
-  field default structure, with each anchor slot *present in storage* replacing the
-  default seed children (present-but-empty = explicitly emptied; absent = the anchor
-  postdates the last save, seeds render). Inherited instances always render field
-  default props. The merge is idempotent — stored subsets, in-session merged values and
-  stashed drafts all normalize to the same result.
-- **Strip on save** (`preSave()`/`postSave()`): before storage write the item value is
-  replaced by the storage subset (every flagged slot is always written once the entity
-  is customized), and restored in place after. A pristine (`isDefault()`) entity
-  persists nothing. **Orphan sections** — content whose anchor was removed from the
-  default — are stashed on the list and re-emitted on save (render-inert, restored if a
-  config revert brings the anchor back).
+- **Merge on load** (`ComponentTreeStructure::composeHybrid()`, called from
+  `NeoComponentTreeList::setValue()`): the entity stores only the anchor sections +
+  their descendant closure + props. Loading composes the merged tree: field default
+  structure, with each anchor slot *present in storage* replacing the default seed
+  children (present-but-empty = explicitly emptied; absent = the anchor postdates the
+  last save, seeds render). **Both answers survive into the merged tree**: an emptied
+  flagged slot stays present-and-empty rather than being dropped, because "absent" is
+  already spoken for and a merged value that dropped the key re-seeded the region the
+  next time it was composed. Inherited instances always render field default props. The
+  merge is idempotent — stored subsets, in-session merged values and stashed drafts all
+  normalize to the same result — and `HybridRoundTripTest` enforces that rather than
+  leaving it as a claim.
+- **Strip on save** (`ComponentTreeStructure::extractHybridStorage()`, called from
+  `preSave()`/`postSave()`): before storage write the item value is replaced by the
+  storage subset (every flagged slot is always written once the entity is customized),
+  and restored in place after. Extraction is the inverse of the merge and satisfies
+  tree↔props parity as a postcondition. A pristine (`isDefault()`) entity persists
+  nothing. **Orphan sections** — content whose anchor was removed from the default — are
+  detected by the merge, stashed on the list and re-emitted on save (render-inert,
+  restored if a config revert brings the anchor back).
+- **Which module owns what.** The tree algebra is the seam's (see below); the field list
+  keeps only the Field API lifecycle — *when* to merge, *when* to strip, what to persist
+  on insert versus update, the constructor's default seed, the runtime-value stash
+  across save, and the empty-tree contract that lets a pristine entity persist nothing.
+  Anchor resolution stays on `ComponentFieldConfig` because it has to load component
+  config entities to ask which region props are flagged.
 - **Locking** is ops-driven and server-side only:
   `ComponentInstanceBase::checkHybridAccess()` forbids `update`/`delete`/`clone`/`sort`
   on inherited instances (they get an "Inherited layout" badge) and `create` outside a
@@ -401,6 +414,66 @@ Hybrid mechanics:
   per-op access booleans.
 - Since the rendered tree depends on the field config, `ComponentTreeHydrated`
   adds the field config as a cacheable dependency of every entity render.
+
+### The component tree seam
+
+Every subsystem that touches a layout operates on the same decoded pair —
+`['tree' => …, 'props' => …]`. [ComponentTreeStructure](src/Plugin/DataType/ComponentTreeStructure.php)
+is the one module that knows the shape of it. It is a TypedData class but it is pure
+PHP: no container, no entities, constructible in one line, which is why the whole
+algebra is unit-tested at full speed.
+
+**It owns the pair, not just the tree.** `bindProps()` attaches the props companion, and
+every operation that adds or removes an instance then maintains tree↔props parity as a
+postcondition — no props entry outlives its instance, no instance outlives its entry.
+`ComponentTreeItem` binds on every access. Unbound (config scope, read-only callers,
+unit fixtures) it behaves exactly as it always did. The save-time `LogicException` in
+`ComponentTreeItem::preSave()` is retained as belt-and-braces: reaching it now means a
+caller assembled a value by hand instead of going through the seam.
+
+**Reorder is a permutation, never a deletion.** `reorderComponents()` refills only the
+positions the listed UUIDs occupy and leaves everything else at its own index. Its
+destructive predecessor `sortComponents()` rebuilt the section from the supplied list,
+and its callers built that list from `ComponentTreeItem::toOptions()` — a *labelling*
+helper, which can only offer a row for an instance whose `neo_component` config still
+loads. One "move down" next to a broken component deleted it. `getPlacedUuids()` is the
+sibling reorder callers use; `toOptions()` stays a labelling concern.
+
+**One closure walker.** `expandClosure()` replaced four independent descendant walks.
+The collectors — `collectUuids()`, `collectInstanceUuids()`, `collectInstances()`,
+`collectComponentIds()`, `collectChildTuples()`, `collectAnchorClosure()` — are all
+built on a single private section walk, replacing three verbatim copies of the
+root-versus-slot idiom across two classes.
+
+**The empty-section policy is an argument, never a default.**
+[EmptySectionPolicy](src/EmptySectionPolicy.php) is passed to `removeComponent()` and
+`detachComponents()`:
+
+- `Collapse` — drop an emptied slot and a section left with no slot. What config scope
+  needs: `ComponentTreeStructureConstraintValidator` rejects both, and the config
+  dependency system *deletes* any dependent it cannot fix.
+- `Preserve` — keep an emptied slot as `[]`. What hybrid entity storage needs: that
+  empty slot is the marker saying a creator deliberately emptied the region.
+
+Both readings are individually correct, and the divergence is invisible until the two
+subsystems meet — `drush neo:alchemist:integrity --detach` rewrites entity rows, and a
+hybrid row is a storage subset. Collapsing one leaves `{root: []}`, which the next load
+reads as "never customized" and answers with the site builder's seed components. The
+command therefore picks per row via `isStorageSubset()`, the same discriminant the load
+path branches on.
+
+**Who calls what:**
+
+| Caller | Uses |
+|---|---|
+| `ComponentTreeItem` | the bound instance API — add/reorder/remove/clone |
+| `NeoComponentTreeList` | `composeHybrid()` / `extractHybridStorage()` / `decodeValue()` / `isStorageSubset()` |
+| `ComponentUsage`, `InertComponentData`, `AlchemistBlock` | `collectComponentIds()` |
+| `NeoFieldConfig`, `AlchemistBlock` | `detachComponents(…, Collapse)` |
+| `NeoAlchemistIntegrityCommands` | `detachComponents(…, Preserve|Collapse)` per row |
+| `ComponentFieldConfig::getCustomRegions()` | `collectInstances()` |
+| `ComponentTreeItem::cloneComponentChildren()` | `collectChildTuples()` |
+| `neo_alchemist_update_11006()` | `collectInstanceUuids()` / `isStorageSubset()` |
 
 ### Draft model: detached copies
 

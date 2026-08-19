@@ -1,5 +1,130 @@
 # Changelog
 
+## The component tree has one owner, and hybrid layout sits behind it
+
+A site builder reordered components in a layout and one of them silently
+disappeared.
+
+`ComponentTreeStructure::sortComponents()` rebuilt a section from the list of
+UUIDs it was handed and discarded everything else, and its callers built that
+list from `ComponentTreeItem::toOptions()` — a labelling helper, which can only
+offer a row for an instance whose `neo_component` config still loads. So a
+section holding `[A, B, C]` where `A`'s component was missing became `[C, B]`
+after one "move down" on `B`. If `A` had a slot, its subtree and every
+descendant's props stayed in storage in exactly the dangling state the module's
+own structure validator rejects. Nothing warned, nothing logged, the entity
+saved cleanly.
+
+**Reorder replaces sort.** `reorderComponents()` refills only the positions the
+listed UUIDs occupy and leaves everything else at its own index, so no list a
+caller can pass is capable of removing anything. `getPlacedUuids()` is the new
+sibling reorder callers use; `toOptions()` stays a labelling concern. The unit
+test that pinned the destructive behaviour was inverted — it documented the
+defect, not a requirement.
+
+### The seam
+
+That defect was a symptom: the decoded `(tree, props)` pair is where component
+usage scanning, dependency detachment, hybrid merge and strip, anchor
+resolution, structure validation and the Drush integrity command all meet, and
+nothing satisfied an interface there. Descendant-closure expansion existed four
+times; the section-walk idiom three times across two classes; parity was
+maintained by hand in six places.
+
+`ComponentTreeStructure` is that seam now. It owns the pair (`bindProps()`, so
+parity is a postcondition rather than a rule), the one closure walker, the
+collectors, dependency detachment, and the hybrid compose/extract algebra —
+which were already pure functions of a default layout, a stored subset and a set
+of anchors, just entangled with a field item. The field list keeps the Field API
+lifecycle and nothing else; anchor resolution stays on the field config, which
+needs entity storage.
+
+### Two data-loss paths closed
+
+- **Detaching a deleted component no longer resurrects seed content.** "A
+  section that has become empty" meant *collapse it* to config-scope dependency
+  removal and *preserve it, it means explicitly emptied* to hybrid storage. Both
+  are correct in isolation; together they were a data-loss path, because
+  `drush neo:alchemist:integrity --detach` rewrites entity rows and a hybrid row
+  is a storage subset. Collapsing one left `{root: []}`, which the next load
+  reads as "never customized" and answers by repopulating the region with the
+  site builder's seeds. `EmptySectionPolicy` is now a named argument at every
+  call site, and the integrity command picks per row from the tree's own shape.
+- **An emptied region stays empty through a second draft save.** The merge used
+  to *drop* an emptied flagged slot. But "absent" already means "this anchor
+  postdates the stored value, apply its seed children" — so composing a merged
+  value a second time, which is what a second draft save does, brought the seeds
+  back into a region a creator had cleared. The slot now stays
+  present-and-empty. This also makes the merge genuinely idempotent, the
+  property `ARCHITECTURE.md` claimed and nothing enforced.
+
+### Tests
+
+`HybridRoundTripTest` expresses the properties as properties: extract∘compose
+returns the subset it started from, compose∘compose changes nothing, extraction
+always satisfies parity. `ComponentTreeReorderTest` and `EmptySectionPolicyTest`
+pin the two regressions. The three test-only classes that existed purely to
+reach protected methods — including one needing a mock that had to contradict
+itself to construct — are deleted; the tests call what production calls.
+
+### Breaking changes
+
+Published interfaces move. Anything outside this repository calling these breaks
+on update; there are no such callers on this site.
+
+| Removed | Replacement |
+|---|---|
+| `ComponentTreeStructure::sortComponents()` | `::reorderComponents()` (non-destructive) |
+| `ComponentTreeItem::sortComponents()` | `::reorderComponents()` |
+| `ComponentUsage::detachComponents()` | `ComponentTreeStructure::detachComponents()`, with a policy |
+| `ComponentUsage::extractComponentIds()` | `ComponentTreeStructure::collectComponentIds()` |
+| `NeoComponentTreeList::getSectionClosureUuids()` | `ComponentTreeStructure::collectAnchorClosure()` |
+| `NeoComponentTreeList::{expandTupleClosure,getTreeUuids,getTreeTupleUuids,decodeHybridItemValue}()` | `ComponentTreeStructure::{expandClosure,collectUuids,collectInstanceUuids,decodeValue}()` |
+
+`ComponentTreeStructure::removeComponent()` takes a required
+`EmptySectionPolicy`. `ComponentTreeItem` gains `isHybridScope()` — the
+predicate was hand-rolled as `!belongsToFieldConfig() && …->isHybrid()` in five
+places, each of which would fatal on a field definition that is not a
+`ComponentFieldConfig`.
+
+**Stored data does not change shape**, so there is no config sweep and no
+migration. But rows damaged by the old reorder already exist in the wild, so
+`neo_alchemist_update_11006()` scans entity tree storage and **reports**
+dangling subtrees and unattributable prop entries without rewriting them — the
+damage is historical, the rows are content, and the choice between re-placing
+and purging is a maintainer's.
+
+Ownership of an instance is also memoised per value now: the editor chrome asks
+several access questions per instance while rendering a layout, and each one
+used to re-decode the tree JSON and re-walk the whole ownership closure.
+
+### Lint sweep
+
+The module's `Drupal,DrupalPractice` warnings are cleared, which moves a few
+constructor signatures. All of these are services or forms built by the
+container, so only code constructing them by hand is affected:
+
+- `MatcherField` takes a fifth argument, `@router.route_provider`.
+- `ComponentManageForm` takes a fifth argument, `@user.permissions`.
+- `ComponentPreviewController` and `SdcPreviewController` take the `Request` as
+  their first route argument.
+- `NeoComponentGenerator` takes `@plugin.cache_clearer`.
+
+Two categories of warning are suppressed rather than fixed, because fixing them
+would make the code worse:
+
+- **`\Drupal::getContainer()` in the five plugin managers' `createInstance()`.**
+  Each family's plugins take a bespoke constructor that `DefaultFactory` cannot
+  produce, so the managers build them by hand and must hand a container to any
+  plugin implementing `ContainerFactoryPluginInterface`. Core's
+  `ContainerFactory::createInstance()` makes the identical call for the
+  identical reason. Injecting `@service_container` instead would be a service
+  locator — and would break three public constructor signatures to satisfy a
+  sniff that cannot tell a plugin factory from ordinary code.
+- **`Remove "version" from the info file` (six files).** Neo reads that field to
+  decide whether compiled assets are stale, so removing it would give every
+  developer a false "assets need rebuilding" state.
+
 ## The media provider no longer starves providers placed after it
 
 The auto-attached `media` plugin on image/media props is infrastructure —

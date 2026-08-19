@@ -14,6 +14,8 @@ use Drupal\Core\Render\RenderContext;
 use Drupal\Core\Render\RendererInterface;
 use Drupal\neo_alchemist\ComponentUsage;
 use Drupal\neo_alchemist\DanglingComponentData;
+use Drupal\neo_alchemist\EmptySectionPolicy;
+use Drupal\neo_alchemist\Plugin\DataType\ComponentTreeStructure;
 use Drush\Attributes as CLI;
 use Drush\Commands\AutowireTrait;
 use Drush\Commands\DrushCommands;
@@ -107,9 +109,17 @@ final class NeoAlchemistIntegrityCommands extends DrushCommands {
   /**
    * Removes the given component ids from every stored tree.
    *
-   * Writes the tree/props pair back through ComponentUsage::detachComponents(),
-   * which prunes the instances and everything nested beneath them, so no
-   * orphaned children are left behind.
+   * Writes the tree/props pair back through
+   * ComponentTreeStructure::detachComponents(), which prunes the instances and
+   * everything nested beneath them, so no orphaned children are left behind.
+   *
+   * These are **entity** rows, and a hybrid field's row is a storage subset
+   * rather than a whole tree — so the empty-section policy is decided per row.
+   * Collapsing a subset would drop the flagged sections a creator had
+   * deliberately emptied, and the next load reads a subset with nothing left
+   * in it as "never customized" and repopulates the region with the site
+   * builder's seed components. A maintenance command detaching an unrelated
+   * deleted component must not rewrite anyone's pages.
    *
    * @return int
    *   The number of rows rewritten.
@@ -127,7 +137,10 @@ final class NeoAlchemistIntegrityCommands extends DrushCommands {
         }
         $props = json_decode((string) ($record[$propsColumn] ?? ''), TRUE);
         $before = ['tree' => $tree, 'props' => is_array($props) ? $props : []];
-        $after = ComponentUsage::detachComponents($before, $componentIds);
+        $policy = ComponentTreeStructure::isStorageSubset($tree)
+          ? EmptySectionPolicy::Preserve
+          : EmptySectionPolicy::Collapse;
+        $after = ComponentTreeStructure::detachComponents($before, $componentIds, $policy);
         if ($after === $before) {
           continue;
         }

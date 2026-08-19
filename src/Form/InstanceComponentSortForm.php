@@ -125,7 +125,7 @@ final class InstanceComponentSortForm extends ContentEntityForm {
       ];
       $row['weight'] = [
         '#type' => 'weight',
-        '#title' => t('Weight'),
+        '#title' => $this->t('Weight'),
         '#title_display' => 'invisible',
         '#default_value' => $weight,
         // Integer, and rounded up. Weight::processWeight() walks -delta to
@@ -196,7 +196,10 @@ final class InstanceComponentSortForm extends ContentEntityForm {
     $fieldItem = $this->fieldItem;
     $parentUuid = $form_state->get('parentUuid');
     $shapeId = $form_state->get('shapeId');
-    $fieldItem->sortComponents(array_keys($form_state->getValue('values')), $parentUuid, $shapeId);
+    // The table only carries rows for instances that have a label, so this
+    // list can be incomplete — which is exactly why the reorder permutes
+    // rather than rebuilds. An unlabelable instance keeps its position.
+    $fieldItem->reorderComponents(array_keys($form_state->getValue('values')), $parentUuid, $shapeId);
     $result = $fieldItem->saveComponents();
     $this->messenger()->addStatus($this->t('Components have been sorted successfully on %label: %field_label.', [
       '%label' => $fieldItem->belongsToFieldConfig() ? $this->entityTypeManager->getDefinition($fieldDefinition->getTargetEntityTypeId())->getLabel() : $this->entity->label(),

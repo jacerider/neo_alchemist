@@ -244,7 +244,7 @@ abstract class ComponentInstanceBase extends Component implements ComponentInsta
     if ($operation === 'view' && $this->isPreview()) {
       return $return_as_object ? AccessResult::allowed() : TRUE;
     }
-    if (!$this->getFieldItem()->belongsToFieldConfig() && $this->getFieldDefinition()->isHybrid()) {
+    if ($this->getFieldItem()->isHybridScope()) {
       $hybridAccess = $this->checkHybridAccess($operation);
       if ($hybridAccess->isForbidden()) {
         return $return_as_object ? $hybridAccess : FALSE;
@@ -323,10 +323,7 @@ abstract class ComponentInstanceBase extends Component implements ComponentInsta
    */
   public function isInherited(): bool {
     $fieldItem = $this->getFieldItem();
-    if ($fieldItem->belongsToFieldConfig() || $this->isNew()) {
-      return FALSE;
-    }
-    if (!$this->getFieldDefinition()->isHybrid()) {
+    if ($this->isNew() || !$fieldItem->isHybridScope()) {
       return FALSE;
     }
     return $fieldItem->isInheritedInstance($this->uuid());

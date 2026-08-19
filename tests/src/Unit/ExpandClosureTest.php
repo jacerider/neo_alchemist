@@ -9,16 +9,16 @@ use Drupal\Tests\UnitTestCase;
 use PHPUnit\Framework\Attributes\Group;
 
 /**
- * Pins expandTupleClosure(), the descendant walker behind hybrid ownership.
+ * Pins expandClosure(), the one descendant walker on the tree seam.
  *
- * The public getSectionClosureUuids() (covered by HybridTreeAlgebraTest)
- * delegates the actual graph walk to this helper, exposed on the test subclass
- * but never directly exercised. Everything hybrid ultimately keys ownership
- * off this closure, so its edge behavior — cycles, junk seeds, missing
- * sections — deserves its own pins.
+ * Four independent implementations of this walk used to exist: the structure's
+ * own subtree set, the field list's tuple-closure expansion, the dependency-
+ * detachment recursion and the field item's clone recursion. They were free to
+ * disagree about cycles, junk seeds and missing sections; there is one now, and
+ * these are its edge-case pins.
  */
 #[Group('neo_alchemist')]
-class ExpandTupleClosureTest extends UnitTestCase {
+class ExpandClosureTest extends UnitTestCase {
 
   /**
    * Seeds are included and every nested descendant is collected.
@@ -30,7 +30,7 @@ class ExpandTupleClosureTest extends UnitTestCase {
       'b' => ['inner' => [['uuid' => 'd']]],
     ];
 
-    $closure = TestNeoComponentTreeList::expandTupleClosurePublic($tree, ['a']);
+    $closure = ComponentTreeStructure::expandClosure($tree, ['a']);
     sort($closure);
 
     $this->assertSame(['a', 'b', 'c', 'd'], $closure);
@@ -42,7 +42,7 @@ class ExpandTupleClosureTest extends UnitTestCase {
   public function testDuplicateSeedsDeduplicated(): void {
     $tree = ['a' => ['slot' => [['uuid' => 'b']]]];
 
-    $closure = TestNeoComponentTreeList::expandTupleClosurePublic($tree, ['a', 'a', 'b']);
+    $closure = ComponentTreeStructure::expandClosure($tree, ['a', 'a', 'b']);
     sort($closure);
 
     $this->assertSame(['a', 'b'], $closure);
@@ -57,7 +57,7 @@ class ExpandTupleClosureTest extends UnitTestCase {
       'b' => ['slot' => [['uuid' => 'a']]],
     ];
 
-    $closure = TestNeoComponentTreeList::expandTupleClosurePublic($tree, ['a']);
+    $closure = ComponentTreeStructure::expandClosure($tree, ['a']);
     sort($closure);
 
     $this->assertSame(['a', 'b'], $closure);
@@ -69,7 +69,7 @@ class ExpandTupleClosureTest extends UnitTestCase {
   public function testNonStringSeedsSkipped(): void {
     $tree = ['a' => ['slot' => [['uuid' => 'b']]]];
 
-    $closure = TestNeoComponentTreeList::expandTupleClosurePublic($tree, [NULL, 42, ['nested'], 'a']);
+    $closure = ComponentTreeStructure::expandClosure($tree, [NULL, 42, ['nested'], 'a']);
     sort($closure);
 
     $this->assertSame(['a', 'b'], $closure);
@@ -79,7 +79,7 @@ class ExpandTupleClosureTest extends UnitTestCase {
    * Seeds without a section are still part of the closure.
    */
   public function testMissingSectionsTolerated(): void {
-    $closure = TestNeoComponentTreeList::expandTupleClosurePublic([], ['ghost']);
+    $closure = ComponentTreeStructure::expandClosure([], ['ghost']);
 
     $this->assertSame(['ghost'], $closure);
   }
@@ -92,7 +92,7 @@ class ExpandTupleClosureTest extends UnitTestCase {
       'a' => ['slot' => [['component' => 'no_uuid'], [], ['uuid' => ''], ['uuid' => 'b']]],
     ];
 
-    $closure = TestNeoComponentTreeList::expandTupleClosurePublic($tree, ['a']);
+    $closure = ComponentTreeStructure::expandClosure($tree, ['a']);
     sort($closure);
 
     $this->assertSame(['a', 'b'], $closure);

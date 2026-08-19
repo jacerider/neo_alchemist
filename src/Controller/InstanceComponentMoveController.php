@@ -27,14 +27,20 @@ final class InstanceComponentMoveController extends ControllerBase {
   public function __invoke(Request $request, ComponentTreeItem $neo_field, ComponentInterface $neo_component, string $direction) {
     $parent = $request->query->get('parent');
     [$parentUuid, $shapeId] = explode('--', (string) ($parent ?? '--'));
-    if (!$neo_field->belongsToFieldConfig() && $neo_field->getFieldDefinition()->isHybrid()) {
+    if ($neo_field->isHybridScope()) {
       // Hybrid mode: only entity-owned components within an
       // entity-customizable region may be moved.
       if (!$neo_field->isCustomTarget($parentUuid ?: NULL, $shapeId ?: NULL) || $neo_field->isInheritedInstance($neo_component->uuid())) {
         throw new AccessDeniedHttpException();
       }
     }
-    $uuids = array_keys($neo_field->toOptions($parentUuid, $shapeId));
+    // Every placed instance, not just the labelable ones: an instance whose
+    // component config no longer loads has no label, and ordering built from
+    // the labelled options used to skip it — which turned a move into a
+    // deletion. The reorder is non-destructive now, but the ordering source
+    // should be complete regardless, so a move past a broken component moves
+    // past it rather than over it.
+    $uuids = $neo_field->getPlacedUuids($parentUuid, $shapeId);
     $swap_with = NULL;
     switch ($direction) {
       case 'up':
@@ -57,7 +63,7 @@ final class InstanceComponentMoveController extends ControllerBase {
       $index2 = array_search($swap_with, $uuids, TRUE);
       [$uuids[$index1], $uuids[$index2]] = [$uuids[$index2], $uuids[$index1]];
       // Perform the swap.
-      $neo_field->sortComponents($uuids, $parentUuid, $shapeId);
+      $neo_field->reorderComponents($uuids, $parentUuid, $shapeId);
       $neo_field->saveComponents();
       $this->messenger()->addStatus($this->t('@op component %name successfully on %label: %field_label.', [
         '@op' => 'Moved',

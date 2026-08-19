@@ -176,7 +176,7 @@ final class InstanceComponentLibraryController extends ControllerBase {
       $groups[$group_id]['subgroups'] = $subgrouped;
     }
 
-    if (!$groups && !$neo_field->belongsToFieldConfig() && $neo_field->getFieldDefinition()->isHybrid()) {
+    if (!$groups && $neo_field->isHybridScope()) {
       // An empty library in hybrid mode has two unrelated causes, so explain
       // the right one: either the target isn't an entity-customizable region
       // at all, or it is a valid region but no component qualifies for it

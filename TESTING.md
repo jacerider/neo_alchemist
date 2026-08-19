@@ -212,9 +212,8 @@ tests/
 └── src/
     ├── Unit/                          # no container, no database
     └── Kernel/                        # real container, real config entities
-    # Named helpers live beside the tests: TestNeoComponentTreeList,
-    # TestHybridComposerList/TestHybridItemStub (Unit) and
-    # HybridFieldKernelTestBase/CheckAccessExposedComponent (Kernel).
+    # Named helpers live beside the tests: TestProcessingModeProvider (Unit)
+    # and HybridFieldKernelTestBase/CheckAccessExposedComponent (Kernel).
 ```
 
 Namespaces follow Drupal convention: `Drupal\Tests\neo_alchemist\{Unit,Kernel}`.
@@ -625,9 +624,15 @@ ddev exec vendor/bin/phpcs --standard=Drupal,DrupalPractice \
 **Do not run `phpcbf` over files containing anonymous classes** — it inserts
 malformed docblocks around `@codingStandardsIgnore*` markers and around methods
 inside the anonymous class body. Extract such helpers into named classes
-instead (see `tests/src/Unit/TestProcessingModeProvider.php` and
-`TestNeoComponentTreeList.php`, which also expose protected statics for
-testing).
+instead (see `tests/src/Unit/TestProcessingModeProvider.php`).
+
+A test-only subclass that exists purely to re-publish a protected method is a
+different smell, and not one to solve this way: it means the algebra is on the
+wrong class. Three of them used to stand between the unit tests and the tree
+algebra — including one whose mock had to contradict itself to construct — and
+they were deleted when that algebra moved onto
+`Plugin/DataType/ComponentTreeStructure.php`. The tests call what production
+calls now.
 
 Two sniff quirks worth knowing: method names may not contain consecutive
 capitals (`testCloneMatchesAFreshlyBuilt…` is rejected), and doc-comment first

@@ -87,20 +87,9 @@ class ComponentFieldConfig extends NeoFieldConfig implements ComponentFieldConfi
     if (!isset($this->customRegions)) {
       $this->customRegions = [];
       if (!$this->allowCustom() && $this->hasComponentValues()) {
-        $tree = $this->getComponentValues()['tree'] ?? [];
-        // Collect the component id of every instance placed in the default
-        // layout, in tree order.
-        $instances = [];
-        foreach ($tree as $key => $section) {
-          $lists = $key === ComponentTreeStructure::ROOT_UUID ? [$section] : array_values((array) $section);
-          foreach ($lists as $tuples) {
-            foreach ((array) $tuples as $tuple) {
-              if (!empty($tuple['uuid']) && !empty($tuple['component'])) {
-                $instances[$tuple['uuid']] = $tuple['component'];
-              }
-            }
-          }
-        }
+        // The component id of every instance placed in the default layout, in
+        // tree order.
+        $instances = ComponentTreeStructure::collectInstances($this->getComponentValues()['tree'] ?? []);
         // Resolve which components flag a region prop as entity-customizable.
         // The 'region_custom' value plugin is stored per shape id, and shape
         // ids double as the tree slot keys.

@@ -6,6 +6,8 @@ namespace Drupal\neo_alchemist\Entity;
 
 use Drupal\field\Entity\FieldConfig;
 use Drupal\neo_alchemist\ComponentUsage;
+use Drupal\neo_alchemist\EmptySectionPolicy;
+use Drupal\neo_alchemist\Plugin\DataType\ComponentTreeStructure;
 
 /**
  * A field config that tracks the components in its Alchemist default layout.
@@ -52,7 +54,7 @@ class NeoFieldConfig extends FieldConfig {
       return $changed;
     }
     $defaults = $this->getSetting('defaults') ?: [];
-    $updated = ComponentUsage::detachComponents($defaults, $componentIds);
+    $updated = ComponentTreeStructure::detachComponents($defaults, $componentIds, EmptySectionPolicy::Collapse);
     if ($updated !== $defaults) {
       $this->setSetting('defaults', $updated);
       $changed = TRUE;
@@ -81,7 +83,7 @@ class NeoFieldConfig extends FieldConfig {
       return [];
     }
     $tree = $this->getSetting('defaults')['tree'] ?? [];
-    return is_array($tree) ? ComponentUsage::extractComponentIds($tree) : [];
+    return is_array($tree) ? ComponentTreeStructure::collectComponentIds($tree) : [];
   }
 
 }

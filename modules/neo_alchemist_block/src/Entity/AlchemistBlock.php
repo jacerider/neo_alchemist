@@ -7,6 +7,8 @@ namespace Drupal\neo_alchemist_block\Entity;
 use Drupal\Core\Config\Entity\ConfigEntityBundleBase;
 use Drupal\Core\Entity\EntityStorageInterface;
 use Drupal\neo_alchemist\ComponentUsage;
+use Drupal\neo_alchemist\EmptySectionPolicy;
+use Drupal\neo_alchemist\Plugin\DataType\ComponentTreeStructure;
 use Drupal\neo_alchemist_block\AlchemistBlockInterface;
 
 /**
@@ -146,7 +148,9 @@ class AlchemistBlock extends ConfigEntityBundleBase implements AlchemistBlockInt
     if (!$componentIds) {
       return $changed;
     }
-    $updated = ComponentUsage::detachComponents($this->components, $componentIds);
+    // Config scope: the structure validator rejects an empty slot or an empty
+    // subtree outright, so anything the removal empties collapses.
+    $updated = ComponentTreeStructure::detachComponents($this->components, $componentIds, EmptySectionPolicy::Collapse);
     if ($updated !== $this->components) {
       $this->components = $updated;
       $changed = TRUE;
@@ -161,7 +165,7 @@ class AlchemistBlock extends ConfigEntityBundleBase implements AlchemistBlockInt
    *   The component config entity IDs.
    */
   protected function getTreeComponentIds(): array {
-    return ComponentUsage::extractComponentIds($this->components['tree'] ?? []);
+    return ComponentTreeStructure::collectComponentIds($this->components['tree'] ?? []);
   }
 
   /**

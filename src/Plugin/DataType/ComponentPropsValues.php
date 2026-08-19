@@ -112,6 +112,19 @@ class ComponentPropsValues extends TypedData implements \Stringable {
   }
 
   /**
+   * Checks whether an instance already has an entry.
+   *
+   * @param string $uuid
+   *   The UUID of the component instance.
+   *
+   * @return bool
+   *   TRUE when an entry exists, even an empty one.
+   */
+  public function hasComponent(string $uuid): bool {
+    return array_key_exists($uuid, $this->propsValues);
+  }
+
+  /**
    * Get component prop sources.
    *
    * @param string $component_instance_uuid
