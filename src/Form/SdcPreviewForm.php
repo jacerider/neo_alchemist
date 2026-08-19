@@ -113,8 +113,7 @@ final class SdcPreviewForm extends EntityForm {
     // its container rather than flush to the edges.
     $form['#neo_style'] = 'clean';
 
-    $form['#attached']['library'][] = 'neo_alchemist/component.ajax';
-    $form['#attached']['library'][] = 'neo_alchemist/component.ajax.form';
+    $this->valuePanelBuilder->attachClient($form);
 
     // A developer here is previewing an unsaved component, not configuring a
     // saved one, so the per-prop option controls are hidden; and the props are

@@ -433,7 +433,7 @@ where noted in the class docblock).
 | `Kernel/InertComponentDataTest` | Finding and purging stored layouts nothing renders: custom → locked strands them, purge deletes and archives, hybrid-era region content always survives |
 | `Kernel/WidgetDoesNotWipeTreeTest` | The widget's one-line no-op guard against total field wipe on entity form saves |
 | `Kernel/ComponentPropValueHarvestTest` | The six rules a submitted prop value survives on its way to storage — scalar guard, scalar restore, the union and its iterability scope, the update-access gate, nested options — each mutation-proven |
-| `Kernel/ComponentValueEditorHarvestWiringTest` | The other half of the same seam: the on-page editor writes the harvest to the instance's values and the workspace writes it to its preview overrides |
+| `Kernel/ComponentValueEditorHarvestWiringTest` | The other half of the same seam: the on-page editor writes the harvest to the instance's values, the workspace writes it to its preview overrides, and both publish the DOM ids the editor client reads (it keeps no literal copy, so dropping them breaks refresh silently) |
 | `Kernel/BootSpikeTest` | The module boots under Kernel with a minimal module set |
 
 Shared Kernel infrastructure: `HybridFieldKernelTestBase` stands up a real

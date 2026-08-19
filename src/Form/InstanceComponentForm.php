@@ -230,8 +230,7 @@ final class InstanceComponentForm extends ContentEntityForm {
     $form['#neo_size'] = 'sm';
 
     $form['#process'][] = '::processForm';
-    $form['#attached']['library'][] = 'neo_alchemist/component.ajax';
-    $form['#attached']['library'][] = 'neo_alchemist/component.ajax.form';
+    $this->valuePanelBuilder->attachClient($form);
 
     if ($description = $this->instance->getDescription()) {
       $form['description'] = [

@@ -42,8 +42,8 @@ final class ComponentValuePanelBuilder {
    *
    * Declared here rather than applied here — each editor sets `#id` on its own
    * form — because this class is where the value panel's contract with the
-   * client lives. The client still matches literals (three of them, in the
-   * file above); this is the server's single copy of the name.
+   * client lives. The client reads it from the settings ::attachClient()
+   * publishes, so this is the only copy of the name anywhere.
    */
   public const FORM_ID = 'neo-alchemist--instance-component-form';
 
@@ -56,6 +56,31 @@ final class ComponentValuePanelBuilder {
    * @see \Drupal\neo_alchemist\ComponentValuePanelBuilder::FORM_ID
    */
   public const REFRESH_ID = 'neo-alchemist--refresh';
+
+  /**
+   * Attaches the editor client and the DOM ids it matches on.
+   *
+   * The libraries and the settings go on together deliberately. The behavior
+   * has no literals left to fall back on, so settings without the library is
+   * dead weight and the library without the settings is a dead behavior —
+   * publishing both from one place is what stops either happening.
+   *
+   * Its corollary is worth stating, because the client depends on it: the ids
+   * are present on exactly the pages that have a value editor, so the
+   * behavior's early return on missing settings is "no editor here", not an
+   * error path.
+   *
+   * @param array $form
+   *   The form to attach to, modified by reference.
+   */
+  public function attachClient(array &$form): void {
+    $form['#attached']['library'][] = 'neo_alchemist/component.ajax';
+    $form['#attached']['library'][] = 'neo_alchemist/component.ajax.form';
+    $form['#attached']['drupalSettings']['neoAlchemist']['valueEditor'] = [
+      'formId' => self::FORM_ID,
+      'refreshId' => self::REFRESH_ID,
+    ];
+  }
 
   /**
    * Builds the styles accordion, the values container and the prop forms.
