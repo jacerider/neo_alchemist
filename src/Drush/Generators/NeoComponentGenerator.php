@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Drupal\neo_alchemist\Drush\Generators;
 
 use Drupal\Core\Asset\LibraryDiscoveryInterface;
+use Drupal\Core\Plugin\CachedDiscoveryClearerInterface;
 use Drupal\Core\DependencyInjection\ContainerInjectionInterface;
 use Drupal\Core\Extension\ModuleHandlerInterface;
 use Drupal\Core\Extension\ThemeHandlerInterface;
@@ -48,6 +49,7 @@ final class NeoComponentGenerator extends BaseGenerator implements ContainerInje
     private readonly LibraryDiscoveryInterface $libraryDiscovery,
     private readonly ComponentPropDefPluginManager $propDefManager,
     private readonly ComponentShapePluginManager $shapeManager,
+    private readonly CachedDiscoveryClearerInterface $pluginCacheClearer,
   ) {
     parent::__construct();
   }
@@ -62,6 +64,7 @@ final class NeoComponentGenerator extends BaseGenerator implements ContainerInje
       $container->get('library.discovery'),
       $container->get('plugin.manager.neo_component_prop_def'),
       $container->get('plugin.manager.neo_component_shape'),
+      $container->get('plugin.cache_clearer'),
     );
   }
 
@@ -75,7 +78,7 @@ final class NeoComponentGenerator extends BaseGenerator implements ContainerInje
     $this->generateAssets($vars, $assets);
 
     // Clear all plugin caches.
-    \Drupal::service('plugin.cache_clearer')->clearCachedDefinitions();
+    $this->pluginCacheClearer->clearCachedDefinitions();
   }
 
   /**

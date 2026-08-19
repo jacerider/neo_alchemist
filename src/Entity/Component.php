@@ -52,8 +52,8 @@ use Drupal\neo_icon\IconTrait;
  *       "aggregate" = "Drupal\neo_alchemist\Form\ComponentAggregateForm",
  *       "prop" = "Drupal\neo_alchemist\Form\ComponentPropForm",
  *       "slot" = "Drupal\neo_alchemist\Form\ComponentSlotForm",
- *       "filter" = "Drupal\neo_alchemist\Form\ComponentFilterForm",
- *       "access" = "Drupal\neo_alchemist\Form\ComponentAccessForm",
+ *       "filter" = "Drupal\neo_alchemist\Form\ComponentConfiguredPluginForm",
+ *       "access" = "Drupal\neo_alchemist\Form\ComponentConfiguredPluginForm",
  *       "delete" = "Drupal\neo_alchemist\Form\ComponentDeleteForm",
  *       "manage" = "Drupal\neo_alchemist\Form\ComponentManageForm",
  *       "style" = "Drupal\neo_alchemist\Form\ComponentStyleForm",
@@ -1455,7 +1455,7 @@ class Component extends ConfigEntityBase implements ComponentInterface {
     foreach ($entities as $entity) {
       foreach ($entity->getPropShapes() as $shape) {
         $shape->onRemove();
-        foreach ($shape->getPlugins() as $id => $plugins) {
+        foreach ($shape->getPlugins() as $plugins) {
           foreach ($plugins as $pluginType => $plugin) {
             $shape->onPluginRemove($pluginType);
           }

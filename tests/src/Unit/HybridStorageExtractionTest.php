@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Drupal\Tests\neo_alchemist\Unit;
 
-use Drupal\neo_alchemist\ComponentFieldConfigInterface;
 use Drupal\neo_alchemist\Plugin\DataType\ComponentTreeStructure;
 use Drupal\Tests\UnitTestCase;
 use PHPUnit\Framework\Attributes\Group;
@@ -12,49 +11,32 @@ use PHPUnit\Framework\Attributes\Group;
 /**
  * Pins the hybrid compose/extract pair at the array-algebra level.
  *
+ * Both are pure functions of a default layout, a stored subset and a set of
+ * anchors. They used to be entangled with the field item — only by where they
+ * read their inputs and where they stashed their output — which meant reaching
+ * them took 194 lines of test-only subclasses, one of which needed a mock that
+ * had to contradict itself: report that the field had no component values (to
+ * keep the constructor's typed-data path out of play) while simultaneously
+ * returning a full default layout. Those classes are gone; these tests call
+ * what production calls, with three arrays.
+ *
  * The two invariants with silent-data-loss consequences:
- * - Un-flagging a region (removing region_custom while the component stays
- *   in the default layout) must preserve the entity's authored region
- *   content as orphans — previously it was neither merged nor stashed, so
- *   the next save destroyed it irrecoverably. Deleting the component from
- *   the layout already preserved content; un-flagging is the more obviously
- *   revertible change of the two and lost it.
- * - Every tuple in the storage subset needs a props entry
- *   (ComponentTreeItem::preSave() throws a LogicException otherwise). The
- *   parity guard previously excluded exactly the container uuids it was
- *   meant to protect.
+ * - Un-flagging a region (removing region_custom while the component stays in
+ *   the default layout) must preserve the entity's authored region content as
+ *   orphans — previously it was neither merged nor stashed, so the next save
+ *   destroyed it irrecoverably. Deleting the component from the layout already
+ *   preserved content; un-flagging is the more obviously revertible change of
+ *   the two and lost it.
+ * - Every tuple in the storage subset needs a props entry. The parity guard
+ *   previously excluded exactly the container uuids it was meant to protect,
+ *   and parity is a postcondition of extraction now rather than a backfill the
+ *   caller performs to appease the save-time check.
  *
- * Red/green proof performed during development: with the pre-fix
- * whole-section orphan skip (isset($defaultFlip[$key])) and the inverted
- * parity-guard clause restored,
- * testComposeStashesUnflaggedAnchorSlotAsOrphan,
- * testComposePartialUnflagStashesOnlyUnflaggedSlot,
- * testExtractReEmitsOrphanSlotsWithoutOverwriting and
- * testExtractBackfillsPropsForContainerTuples go red.
- *
- * @see \Drupal\neo_alchemist\Plugin\Field\NeoComponentTreeList::composeHybridValue()
- * @see \Drupal\neo_alchemist\Plugin\Field\NeoComponentTreeList::extractHybridStorageValue()
+ * @see \Drupal\neo_alchemist\Plugin\DataType\ComponentTreeStructure::composeHybrid()
+ * @see \Drupal\neo_alchemist\Plugin\DataType\ComponentTreeStructure::extractHybridStorage()
  */
 #[Group('neo_alchemist')]
 class HybridStorageExtractionTest extends UnitTestCase {
-
-  /**
-   * Builds the exposed list with a mocked field definition.
-   *
-   * @param array $anchors
-   *   The custom-region anchors the definition reports.
-   * @param array $defaults
-   *   The field default layout ('tree' + 'props').
-   */
-  private function buildList(array $anchors, array $defaults): TestHybridComposerList {
-    $definition = $this->createMock(ComponentFieldConfigInterface::class);
-    // FALSE keeps the constructor's appendItem() path — which needs the
-    // typed-data container — out of play.
-    $definition->method('hasComponentValues')->willReturn(FALSE);
-    $definition->method('getCustomRegions')->willReturn($anchors);
-    $definition->method('getComponentValues')->willReturn($defaults);
-    return new TestHybridComposerList($definition);
-  }
 
   /**
    * The standard default layout: root → host, host.body → seed.
@@ -86,42 +68,39 @@ class HybridStorageExtractionTest extends UnitTestCase {
   }
 
   /**
-   * Un-flagging an anchor stashes the stored slot content as orphans.
+   * Un-flagging an anchor reports the stored slot content as an orphan.
    */
-  public function testComposeStashesUnflaggedAnchorSlotAsOrphan(): void {
+  public function testComposeReportsUnflaggedAnchorSlotAsOrphan(): void {
     // region_custom was removed: no anchors, but host is still in the layout.
-    $list = $this->buildList([], $this->defaults());
-
     $storedTree = [
       'host' => ['body' => [['uuid' => 'authored', 'component' => 'na_leaf']]],
     ];
     $storedProps = ['authored' => ['text' => ['value' => 'AUTHORED']]];
 
-    $merged = $list->composeHybridValuePublic($storedTree, $storedProps);
-    $orphans = $list->getHybridOrphans();
+    $merged = ComponentTreeStructure::composeHybrid($this->defaults(), $storedTree, $storedProps, []);
 
     $this->assertSame(
       [['uuid' => 'authored', 'component' => 'na_leaf']],
-      $orphans['tree']['host']['body'] ?? NULL,
-      'The un-flagged slot content was stashed as an orphan instead of being dropped.',
+      $merged['orphans']['tree']['host']['body'] ?? NULL,
+      'The un-flagged slot content was reported as an orphan instead of being dropped.',
     );
     $this->assertSame(
       ['text' => ['value' => 'AUTHORED']],
-      $orphans['props']['authored'] ?? NULL,
+      $merged['orphans']['props']['authored'] ?? NULL,
       'The orphaned tuple kept its props.',
     );
     // The merged runtime value stays the pure default: orphans are
     // render-inert.
-    $this->assertSame($this->defaults()['tree'], json_decode($merged['tree'], TRUE), 'The merged tree is the unmodified default layout.');
+    $this->assertSame($this->defaults()['tree'], $merged['tree'], 'The merged tree is the unmodified default layout.');
   }
 
   /**
    * A full merged tree passing through composes without phantom orphans.
    *
    * The hybrid setter also receives full merged trees (in-session edits,
-   * drafts). Non-anchor sections that are byte-identical to the default
-   * layout are default structure, not entity content — stashing them would
-   * copy the whole default into every entity's storage.
+   * drafts). Non-anchor sections that are byte-identical to the default layout
+   * are default structure, not entity content — reporting them as orphans
+   * would copy the whole default into every entity's storage.
    */
   public function testComposeSkipsSectionsIdenticalToDefault(): void {
     $defaults = $this->defaults();
@@ -132,10 +111,8 @@ class HybridStorageExtractionTest extends UnitTestCase {
     ];
     $defaults['props'] += ['other' => [], 'deepseed' => ['text' => ['value' => 'DEEP']]];
 
-    $list = $this->buildList($this->hostAnchor(), $defaults);
-
-    // The incoming value is the full merged tree: authored anchor content
-    // plus the default's own sections, verbatim.
+    // The incoming value is the full merged tree: authored anchor content plus
+    // the default's own sections, verbatim.
     $storedTree = [
       'host' => ['body' => [['uuid' => 'authored', 'component' => 'na_leaf']]],
       'other' => $defaults['tree']['other'],
@@ -145,18 +122,16 @@ class HybridStorageExtractionTest extends UnitTestCase {
       'deepseed' => ['text' => ['value' => 'DEEP']],
     ];
 
-    $merged = $list->composeHybridValuePublic($storedTree, $storedProps);
-    $orphans = $list->getHybridOrphans();
+    $merged = ComponentTreeStructure::composeHybrid($defaults, $storedTree, $storedProps, $this->hostAnchor());
 
-    $this->assertSame(['tree' => [], 'props' => []], $orphans, 'Nothing was stashed for default-identical sections or anchored slots.');
-    $mergedTree = json_decode($merged['tree'], TRUE);
-    $this->assertSame($storedTree['host']['body'], $mergedTree['host']['body'], 'The anchored slot carries the authored content.');
+    $this->assertSame(['tree' => [], 'props' => []], $merged['orphans'], 'Nothing was reported for default-identical sections or anchored slots.');
+    $this->assertSame($storedTree['host']['body'], $merged['tree']['host']['body'], 'The anchored slot carries the authored content.');
   }
 
   /**
-   * Un-flagging one of two regions stashes only that region's content.
+   * Un-flagging one of two regions orphans only that region's content.
    */
-  public function testComposePartialUnflagStashesOnlyUnflaggedSlot(): void {
+  public function testComposePartialUnflagOrphansOnlyUnflaggedSlot(): void {
     $defaults = [
       'tree' => [
         ComponentTreeStructure::ROOT_UUID => [
@@ -176,7 +151,6 @@ class HybridStorageExtractionTest extends UnitTestCase {
     // Only `top` is still flagged; `bottom` was un-flagged after the entity
     // stored content in both.
     $anchors = ['duo' => ['component' => 'na_two_region', 'slots' => ['top']]];
-    $list = $this->buildList($anchors, $defaults);
 
     $storedTree = [
       'duo' => [
@@ -189,19 +163,53 @@ class HybridStorageExtractionTest extends UnitTestCase {
       'b1' => ['text' => ['value' => 'AUTHORED BOTTOM']],
     ];
 
-    $merged = $list->composeHybridValuePublic($storedTree, $storedProps);
-    $orphans = $list->getHybridOrphans();
+    $merged = ComponentTreeStructure::composeHybrid($defaults, $storedTree, $storedProps, $anchors);
 
     $this->assertSame(
       ['bottom' => [['uuid' => 'b1', 'component' => 'na_leaf']]],
-      $orphans['tree']['duo'] ?? NULL,
-      'Only the un-flagged slot was stashed.',
+      $merged['orphans']['tree']['duo'] ?? NULL,
+      'Only the un-flagged slot was orphaned.',
     );
-    $this->assertArrayHasKey('b1', $orphans['props']);
-    $this->assertArrayNotHasKey('t1', $orphans['props'], 'The still-flagged slot content is merged, not orphaned.');
-    $mergedTree = json_decode($merged['tree'], TRUE);
-    $this->assertSame($storedTree['duo']['top'], $mergedTree['duo']['top'], 'The still-flagged slot merged the authored content.');
-    $this->assertSame($defaults['tree']['duo']['bottom'], $mergedTree['duo']['bottom'], 'The un-flagged slot renders the default seed again.');
+    $this->assertArrayHasKey('b1', $merged['orphans']['props']);
+    $this->assertArrayNotHasKey('t1', $merged['orphans']['props'], 'The still-flagged slot content is merged, not orphaned.');
+    $this->assertSame($storedTree['duo']['top'], $merged['tree']['duo']['top'], 'The still-flagged slot merged the authored content.');
+    $this->assertSame($defaults['tree']['duo']['bottom'], $merged['tree']['duo']['bottom'], 'The un-flagged slot renders the default seed again.');
+  }
+
+  /**
+   * An anchor added after the last save keeps rendering its default seeds.
+   *
+   * "Absent from storage" and "stored but empty" are different answers: the
+   * first means the anchor postdates the value, the second means a creator
+   * emptied the region.
+   */
+  public function testComposeKeepsSeedsForAnchorsAbsentFromStorage(): void {
+    $merged = ComponentTreeStructure::composeHybrid($this->defaults(), [], [], $this->hostAnchor());
+
+    $this->assertSame($this->defaults()['tree'], $merged['tree'], 'The seed children apply.');
+    $this->assertSame(['tree' => [], 'props' => []], $merged['orphans']);
+  }
+
+  /**
+   * An explicitly emptied flagged slot renders nothing, not the seed.
+   *
+   * The slot stays present-and-empty rather than being dropped. "Absent" is
+   * already spoken for — it means the anchor postdates the stored value, and
+   * compose answers that by applying the seed children. A merged value that
+   * dropped the key therefore re-seeded the region the next time it was
+   * composed, which is what a second draft save does.
+   */
+  public function testComposeHonoursAnExplicitlyEmptiedSlot(): void {
+    $merged = ComponentTreeStructure::composeHybrid(
+      $this->defaults(),
+      ['host' => ['body' => []]],
+      [],
+      $this->hostAnchor(),
+    );
+
+    $this->assertSame([], $merged['tree']['host']['body'], 'The slot is present and empty: nothing renders there.');
+    $this->assertArrayNotHasKey('seed', $merged['props'], 'The seed closure was dropped along with its content.');
+    $this->assertSame([], ComponentTreeStructure::collectAnchorClosure($merged['tree'], $this->hostAnchor()));
   }
 
   /**
@@ -212,22 +220,19 @@ class HybridStorageExtractionTest extends UnitTestCase {
    * guard never fires and the orphan is lost on save.
    */
   public function testExtractReEmitsOrphanSlotsWithoutOverwriting(): void {
-    $list = $this->buildList($this->hostAnchor(), $this->defaults());
-    $list->setStubItemValue([
-      'tree' => [
-        ComponentTreeStructure::ROOT_UUID => [
-          ['uuid' => 'host', 'component' => 'na_region_host'],
-        ],
-        'host' => ['body' => [['uuid' => 'authored', 'component' => 'na_leaf']]],
+    $tree = [
+      ComponentTreeStructure::ROOT_UUID => [
+        ['uuid' => 'host', 'component' => 'na_region_host'],
       ],
-      'props' => ['authored' => ['text' => ['value' => 'AUTHORED']]],
-    ]);
-    $list->setHybridOrphans([
+      'host' => ['body' => [['uuid' => 'authored', 'component' => 'na_leaf']]],
+    ];
+    $props = ['authored' => ['text' => ['value' => 'AUTHORED']]];
+    $orphans = [
       'tree' => ['host' => ['gone_slot' => [['uuid' => 'x1', 'component' => 'na_leaf']]]],
       'props' => ['x1' => ['text' => ['value' => 'ORPHANED']]],
-    ]);
+    ];
 
-    $storage = $list->extractHybridStorageValuePublic();
+    $storage = ComponentTreeStructure::extractHybridStorage($tree, $props, $this->hostAnchor(), $orphans);
 
     $this->assertSame(
       [['uuid' => 'authored', 'component' => 'na_leaf']],
@@ -251,20 +256,17 @@ class HybridStorageExtractionTest extends UnitTestCase {
    * subset) must not be.
    */
   public function testExtractBackfillsPropsForContainerTuples(): void {
-    $list = $this->buildList($this->hostAnchor(), $this->defaults());
-    $list->setStubItemValue([
-      'tree' => [
-        ComponentTreeStructure::ROOT_UUID => [
-          ['uuid' => 'host', 'component' => 'na_region_host'],
-        ],
-        'host' => ['body' => [['uuid' => 'container', 'component' => 'na_two_region']]],
-        'container' => ['top' => [['uuid' => 'leaf', 'component' => 'na_leaf']]],
+    $tree = [
+      ComponentTreeStructure::ROOT_UUID => [
+        ['uuid' => 'host', 'component' => 'na_region_host'],
       ],
-      // The container deliberately has no props entry; only its leaf does.
-      'props' => ['leaf' => ['text' => ['value' => 'DEEP AUTHORED']]],
-    ]);
+      'host' => ['body' => [['uuid' => 'container', 'component' => 'na_two_region']]],
+      'container' => ['top' => [['uuid' => 'leaf', 'component' => 'na_leaf']]],
+    ];
+    // The container deliberately has no props entry; only its leaf does.
+    $props = ['leaf' => ['text' => ['value' => 'DEEP AUTHORED']]];
 
-    $storage = $list->extractHybridStorageValuePublic();
+    $storage = ComponentTreeStructure::extractHybridStorage($tree, $props, $this->hostAnchor());
 
     $this->assertArrayHasKey('container', $storage['props'], 'The props-less container tuple was backfilled to keep tree/props parity.');
     $this->assertSame([], $storage['props']['container']);
@@ -273,46 +275,36 @@ class HybridStorageExtractionTest extends UnitTestCase {
   }
 
   /**
-   * The composed props JSON is always an object, never a bare array.
+   * The storage subset always carries an empty root section.
    *
-   * ComponentPropsValues::setValue() asserts the JSON starts with '{', and
-   * an empty PHP array encodes to '[]'.
+   * That empty root is the discriminant the load path branches on: it is what
+   * marks the value as an authoritative subset rather than an in-session
+   * merged tree.
    */
-  public function testPropsEncodeAsJsonObjectWhenEmpty(): void {
-    $defaults = [
-      'tree' => [
-        ComponentTreeStructure::ROOT_UUID => [
-          ['uuid' => 'host', 'component' => 'na_region_host'],
-        ],
-        'host' => ['body' => []],
-      ],
-      'props' => [],
-    ];
-    $list = $this->buildList($this->hostAnchor(), $defaults);
-
-    $merged = $list->composeHybridValuePublic(
-      ['host' => ['body' => []]],
-      [],
+  public function testExtractAlwaysWritesAnEmptyRoot(): void {
+    $storage = ComponentTreeStructure::extractHybridStorage(
+      $this->defaults()['tree'],
+      $this->defaults()['props'],
+      $this->hostAnchor(),
     );
 
-    $this->assertSame('{}', $merged['props'], 'Empty props encode as a JSON object.');
-    $this->assertStringStartsWith('{', $merged['tree'], 'The tree JSON is an object.');
+    $this->assertSame([], $storage['tree'][ComponentTreeStructure::ROOT_UUID]);
+    $this->assertTrue(ComponentTreeStructure::isStorageSubset($storage['tree']));
   }
 
   /**
-   * The tuple-uuid helper excludes section-only keys.
+   * An emptied flagged slot is still written, as the explicit empty marker.
    */
-  public function testTreeTupleUuidsExcludesSectionOnlyKeys(): void {
+  public function testExtractWritesEveryFlaggedSlotEvenWhenEmpty(): void {
     $tree = [
-      ComponentTreeStructure::ROOT_UUID => [],
-      'host' => ['body' => [['uuid' => 'container', 'component' => 'c']]],
-      'container' => ['top' => [['uuid' => 'leaf', 'component' => 'l']]],
+      ComponentTreeStructure::ROOT_UUID => [
+        ['uuid' => 'host', 'component' => 'na_region_host'],
+      ],
     ];
 
-    $uuids = TestHybridComposerList::getTreeTupleUuidsPublic($tree);
-    sort($uuids);
+    $storage = ComponentTreeStructure::extractHybridStorage($tree, [], $this->hostAnchor());
 
-    $this->assertSame(['container', 'leaf'], $uuids, 'Only tuple uuids are returned — host is a section-only key.');
+    $this->assertSame([], $storage['tree']['host']['body'] ?? NULL);
   }
 
 }

@@ -9,19 +9,23 @@ use Drupal\Tests\UnitTestCase;
 use PHPUnit\Framework\Attributes\Group;
 
 /**
- * Tests the pure tree helpers underpinning hybrid field mode.
+ * Tests the pure tree collectors underpinning hybrid field mode.
  *
  * Hybrid mode lets creators edit only the regions a site builder flagged with
  * `region_custom`, while the field's default layout stays authoritative for
- * everything else. These four statics decide which UUIDs belong to a creator
- * and which belong to the default — get that wrong and content is either
- * dropped on save or leaks between the two.
+ * everything else. These collectors decide which UUIDs belong to a creator and
+ * which belong to the default — get that wrong and content is either dropped
+ * on save or leaks between the two.
  *
  * Hybrid mode is live in production — node.project's field_full via
- * project_full, and taxonomy_term.market's level fields via hero_s2, all
- * carry region_custom flags — so these pins protect shipped data. The
- * instance-level compose/extract pair is covered separately in
- * HybridStorageExtractionTest and the Kernel Hybrid* suites.
+ * project_full, and taxonomy_term.market's level fields via hero_s2, all carry
+ * region_custom flags — so these pins protect shipped data. The compose/extract
+ * pair is covered in HybridStorageExtractionTest and HybridRoundTripTest, and
+ * the Kernel Hybrid* suites cover the same behaviour end to end.
+ *
+ * These used to be reached through a test-only subclass of the field item list,
+ * because the algebra lived on protected statics there. It lives on the tree
+ * seam now and every caller reaches it exactly the way these tests do.
  */
 #[Group('neo_alchemist')]
 class HybridTreeAlgebraTest extends UnitTestCase {
@@ -64,7 +68,7 @@ class HybridTreeAlgebraTest extends UnitTestCase {
    * The closure covers a flagged slot's contents and their descendants.
    */
   public function testClosureIncludesNestedDescendants(): void {
-    $closure = TestNeoComponentTreeList::getSectionClosureUuids($this->tree(), $this->anchors());
+    $closure = ComponentTreeStructure::collectAnchorClosure($this->tree(), $this->anchors());
 
     $this->assertContains('inside', $closure);
     $this->assertContains('deep', $closure, 'Descendants of flagged content are creator-owned too.');
@@ -78,7 +82,7 @@ class HybridTreeAlgebraTest extends UnitTestCase {
    * the site builder's structure.
    */
   public function testClosureExcludesTheAnchorOwner(): void {
-    $closure = TestNeoComponentTreeList::getSectionClosureUuids($this->tree(), $this->anchors());
+    $closure = ComponentTreeStructure::collectAnchorClosure($this->tree(), $this->anchors());
 
     $this->assertNotContains('owner', $closure);
   }
@@ -87,7 +91,7 @@ class HybridTreeAlgebraTest extends UnitTestCase {
    * Content in a slot that was not flagged stays with the default layout.
    */
   public function testClosureExcludesUnflaggedSlots(): void {
-    $closure = TestNeoComponentTreeList::getSectionClosureUuids($this->tree(), $this->anchors());
+    $closure = ComponentTreeStructure::collectAnchorClosure($this->tree(), $this->anchors());
 
     $this->assertNotContains('outside', $closure);
   }
@@ -96,7 +100,7 @@ class HybridTreeAlgebraTest extends UnitTestCase {
    * No anchors means nothing is creator-owned.
    */
   public function testClosureIsEmptyWithoutAnchors(): void {
-    $this->assertSame([], TestNeoComponentTreeList::getSectionClosureUuids($this->tree(), []));
+    $this->assertSame([], ComponentTreeStructure::collectAnchorClosure($this->tree(), []));
   }
 
   /**
@@ -108,7 +112,7 @@ class HybridTreeAlgebraTest extends UnitTestCase {
   public function testClosureToleratesMissingSlot(): void {
     $anchors = ['owner' => ['component' => 'container', 'slots' => ['nonexistent']]];
 
-    $this->assertSame([], TestNeoComponentTreeList::getSectionClosureUuids($this->tree(), $anchors));
+    $this->assertSame([], ComponentTreeStructure::collectAnchorClosure($this->tree(), $anchors));
   }
 
   /**
@@ -125,7 +129,7 @@ class HybridTreeAlgebraTest extends UnitTestCase {
     ];
     $anchors = ['owner' => ['component' => 'container', 'slots' => ['region_a']]];
 
-    $closure = TestNeoComponentTreeList::getSectionClosureUuids($tree, $anchors);
+    $closure = ComponentTreeStructure::collectAnchorClosure($tree, $anchors);
 
     sort($closure);
     $this->assertSame(['a', 'b'], $closure);
@@ -134,8 +138,8 @@ class HybridTreeAlgebraTest extends UnitTestCase {
   /**
    * Every referenced UUID is collected, except the root key itself.
    */
-  public function testGetTreeUuidsCollectsSectionsAndTuples(): void {
-    $uuids = TestNeoComponentTreeList::getTreeUuidsPublic($this->tree());
+  public function testCollectUuidsGathersSectionsAndTuples(): void {
+    $uuids = ComponentTreeStructure::collectUuids($this->tree());
 
     $this->assertNotContains(ComponentTreeStructure::ROOT_UUID, $uuids, 'The root key is a container, not a component.');
     foreach (['owner', 'inside', 'outside', 'deep'] as $expected) {
@@ -146,10 +150,93 @@ class HybridTreeAlgebraTest extends UnitTestCase {
   /**
    * A UUID appearing as both a section key and a tuple is listed once.
    */
-  public function testGetTreeUuidsDeduplicates(): void {
-    $uuids = TestNeoComponentTreeList::getTreeUuidsPublic($this->tree());
+  public function testCollectUuidsDeduplicates(): void {
+    $uuids = ComponentTreeStructure::collectUuids($this->tree());
 
     $this->assertSame(count($uuids), count(array_unique($uuids)));
+  }
+
+  /**
+   * The instance collector excludes section-only keys.
+   *
+   * In a hybrid storage subset an anchor owner is a section key without being
+   * a component instance of the subset itself, and inventing a props entry for
+   * it would trip the save-time parity check.
+   */
+  public function testCollectInstanceUuidsExcludesSectionOnlyKeys(): void {
+    $tree = [
+      ComponentTreeStructure::ROOT_UUID => [],
+      'host' => ['body' => [['uuid' => 'container', 'component' => 'c']]],
+      'container' => ['top' => [['uuid' => 'leaf', 'component' => 'l']]],
+    ];
+
+    $uuids = ComponentTreeStructure::collectInstanceUuids($tree);
+    sort($uuids);
+
+    $this->assertSame(['container', 'leaf'], $uuids, 'Only tuple uuids are returned — host is a section-only key.');
+  }
+
+  /**
+   * Instances map to the component that renders them, in tree order.
+   *
+   * This is what custom-region anchor resolution reads to ask each component
+   * which of its region props carry the region_custom flag.
+   */
+  public function testCollectInstancesMapsUuidsToComponents(): void {
+    $this->assertSame(
+      [
+        'owner' => 'container',
+        'inside' => 'card',
+        'outside' => 'card',
+        'deep' => 'cta',
+      ],
+      ComponentTreeStructure::collectInstances($this->tree()),
+    );
+  }
+
+  /**
+   * Component ids are collected once each, in first-seen order.
+   */
+  public function testCollectComponentIdsDeduplicates(): void {
+    $this->assertSame(
+      ['container', 'card', 'cta'],
+      ComponentTreeStructure::collectComponentIds($this->tree()),
+    );
+  }
+
+  /**
+   * A tuple missing its uuid still contributes its component id.
+   *
+   * The usage report answers "is this component safe to delete?", so a
+   * malformed placement must still count as a placement.
+   */
+  public function testCollectComponentIdsToleratesMissingUuid(): void {
+    $tree = [
+      ComponentTreeStructure::ROOT_UUID => [
+        ['component' => 'orphaned'],
+        ['uuid' => 'a', 'component' => 'card'],
+      ],
+    ];
+
+    $this->assertSame(['orphaned', 'card'], ComponentTreeStructure::collectComponentIds($tree));
+    $this->assertSame(['a' => 'card'], ComponentTreeStructure::collectInstances($tree), 'A uuid-less tuple is not an instance.');
+  }
+
+  /**
+   * A section's children are listed slot by slot.
+   *
+   * The clone recursion walks this rather than reaching into the raw array,
+   * which is what keeps each cloned child in the slot it came from.
+   */
+  public function testCollectChildTuples(): void {
+    $this->assertSame(
+      [
+        'region_a' => [['uuid' => 'inside', 'component' => 'card']],
+        'region_b' => [['uuid' => 'outside', 'component' => 'card']],
+      ],
+      ComponentTreeStructure::collectChildTuples($this->tree(), 'owner'),
+    );
+    $this->assertSame([], ComponentTreeStructure::collectChildTuples($this->tree(), 'deep'), 'A leaf owns no section.');
   }
 
   /**
@@ -162,14 +249,14 @@ class HybridTreeAlgebraTest extends UnitTestCase {
     $tree = [ComponentTreeStructure::ROOT_UUID => [['uuid' => 'a', 'component' => 'x']]];
     $props = ['a' => ['status' => 1]];
 
-    [$fromJson, $propsFromJson] = TestNeoComponentTreeList::decodeHybridItemValuePublic([
+    [$fromJson, $propsFromJson] = ComponentTreeStructure::decodeValue([
       'tree' => json_encode($tree),
       'props' => json_encode($props),
     ]);
     $this->assertSame($tree, $fromJson);
     $this->assertSame($props, $propsFromJson);
 
-    [$fromArray, $propsFromArray] = TestNeoComponentTreeList::decodeHybridItemValuePublic([
+    [$fromArray, $propsFromArray] = ComponentTreeStructure::decodeValue([
       'tree' => $tree,
       'props' => $props,
     ]);
@@ -185,10 +272,29 @@ class HybridTreeAlgebraTest extends UnitTestCase {
    */
   public function testDecodeFallsBackToEmptyArrays(): void {
     foreach ([[], ['tree' => NULL, 'props' => NULL], ['tree' => 'not json', 'props' => '{'], ['tree' => 5]] as $input) {
-      [$tree, $props] = TestNeoComponentTreeList::decodeHybridItemValuePublic($input);
+      [$tree, $props] = ComponentTreeStructure::decodeValue($input);
       $this->assertSame([], $tree);
       $this->assertSame([], $props);
     }
+  }
+
+  /**
+   * An empty root section marks a stored subset; a populated one does not.
+   *
+   * The normalization discriminant. It is a statement about tree shape, which
+   * is why it lives on the seam rather than on the field list that branches on
+   * it — and the Drush integrity command needs the same answer to pick an
+   * empty-section policy per row.
+   */
+  public function testStorageSubsetDiscriminant(): void {
+    $subset = [
+      ComponentTreeStructure::ROOT_UUID => [],
+      'host' => ['body' => [['uuid' => 'a', 'component' => 'x']]],
+    ];
+    $this->assertTrue(ComponentTreeStructure::isStorageSubset($subset));
+
+    $merged = $this->tree();
+    $this->assertFalse(ComponentTreeStructure::isStorageSubset($merged));
   }
 
 }

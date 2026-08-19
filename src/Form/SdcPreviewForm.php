@@ -8,15 +8,13 @@ use Drupal\Core\Ajax\AjaxResponse;
 use Drupal\Core\Entity\EntityForm;
 use Drupal\Core\Entity\EntityInterface;
 use Drupal\Core\Form\FormStateInterface;
-use Drupal\Core\Form\SubformState;
 use Drupal\Core\Render\BubbleableMetadata;
-use Drupal\Core\Render\Element;
 use Drupal\Core\Url;
 use Drupal\neo_alchemist\Ajax\InstanceComponentManageIframeCommand;
 use Drupal\neo_alchemist\ComponentManageHelper;
-use Drupal\neo_alchemist\ComponentShapeStylePluginInterface;
+use Drupal\neo_alchemist\ComponentPropValueHarvester;
+use Drupal\neo_alchemist\ComponentValuePanelBuilder;
 use Drupal\neo_alchemist\SdcThumbnailWriter;
-use Drupal\neo_icon\IconTrait;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
@@ -30,8 +28,6 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
  * developer sees them immediately. Nothing is persisted to configuration.
  */
 final class SdcPreviewForm extends EntityForm {
-
-  use IconTrait;
 
   /**
    * The component entity.
@@ -53,8 +49,26 @@ final class SdcPreviewForm extends EntityForm {
    */
   protected $thumbnailWriter;
 
-  public function __construct(SdcThumbnailWriter $thumbnail_writer) {
+  /**
+   * The value panel builder.
+   *
+   * Protected and non-promoted for the same reason as the writer above.
+   *
+   * @var \Drupal\neo_alchemist\ComponentValuePanelBuilder
+   */
+  protected $valuePanelBuilder;
+
+  /**
+   * The prop value harvester.
+   *
+   * @var \Drupal\neo_alchemist\ComponentPropValueHarvester
+   */
+  protected $propValueHarvester;
+
+  public function __construct(SdcThumbnailWriter $thumbnail_writer, ComponentValuePanelBuilder $value_panel_builder, ComponentPropValueHarvester $prop_value_harvester) {
     $this->thumbnailWriter = $thumbnail_writer;
+    $this->valuePanelBuilder = $value_panel_builder;
+    $this->propValueHarvester = $prop_value_harvester;
   }
 
   /**
@@ -63,6 +77,8 @@ final class SdcPreviewForm extends EntityForm {
   public static function create(ContainerInterface $container): self {
     return new self(
       $container->get('neo_alchemist.sdc_thumbnail_writer'),
+      $container->get('neo_alchemist.value_panel_builder'),
+      $container->get('neo_alchemist.prop_value_harvester'),
     );
   }
 
@@ -92,67 +108,30 @@ final class SdcPreviewForm extends EntityForm {
 
     $form['#parents'] = [];
     // The component.ajax.form behavior keys off this exact id.
-    $form['#id'] = 'neo-alchemist--instance-component-form';
+    $form['#id'] = ComponentValuePanelBuilder::FORM_ID;
     // Match the saved-component manage form styling so the form is inset from
     // its container rather than flush to the edges.
     $form['#neo_style'] = 'clean';
 
-    $form['#attached']['library'][] = 'neo_alchemist/component.ajax';
-    $form['#attached']['library'][] = 'neo_alchemist/component.ajax.form';
+    $this->valuePanelBuilder->attachClient($form);
 
-    $form['styles'] = [
-      '#type' => 'accordion',
-      '#title' => $this->icon('Styles', 'palette'),
-      '#access' => FALSE,
-      '#neo_size' => 'xs',
-    ];
-
-    $form['values'] = [
-      '#title' => $this->t('Values'),
-      '#type' => 'container',
-      '#access' => FALSE,
-    ];
-
-    foreach ($this->entity->getPropShapes() as $propName => $shape) {
-      if (!$shape->access('update')) {
-        continue;
-      }
-      $form['values']['#access'] = TRUE;
-      $subform = [
-        '#type' => 'container',
-        '#parents' => ['values'],
-      ];
-      $subform_state = SubformState::createForSubform($subform, $form, $form_state);
-      $form['values'][$propName] = $shape->getForm($subform, $subform_state);
-      // The shape form exposes per-prop config controls (Allow Edit / Default /
-      // Hide) because it builds in 'config' scope. They are meaningless when a
-      // developer is just previewing values, so hide them. Their default values
-      // are preserved during processing, so value massaging is unaffected.
-      $this->hideOptionControls($form['values'][$propName]);
-      if ($shape instanceof ComponentShapeStylePluginInterface) {
-        $form['styles']['#access'] = TRUE;
-        $form['values'][$propName]['#type'] = 'details';
-        $form['values'][$propName]['#title'] = $shape->getTitle();
-        $form['values'][$propName]['#group'] = 'styles';
-        $form['values'][$propName]['widget']['widget']['#title'] = '';
-      }
-    }
+    // A developer here is previewing an unsaved component, not configuring a
+    // saved one, so the per-prop option controls are hidden; and the props are
+    // left in schema order, which is the order of the declaration on screen.
+    $panel = $this->valuePanelBuilder->build(
+      $this->entity,
+      $form,
+      $form_state,
+      sortStylesByTitle: FALSE,
+      describeStyles: FALSE,
+      hideOptionControls: TRUE,
+    );
+    $form['styles'] = $panel['styles'];
+    $form['values'] = $panel['values'];
 
     // Hidden refresh submit, triggered by the component.ajax.form behavior on
     // every (debounced) input change.
-    $form['refresh'] = [
-      '#type' => 'submit',
-      '#id' => 'neo-alchemist--refresh',
-      '#op' => 'refresh',
-      '#value' => $this->t('Refresh'),
-      '#submit' => ['::submitRefresh'],
-      '#ajax' => [
-        'callback' => '::ajaxRefresh',
-      ],
-      '#weight' => -1000,
-      '#prefix' => '<div class="hidden">',
-      '#suffix' => '</div>',
-    ];
+    $form['refresh'] = $this->valuePanelBuilder->buildRefresh();
 
     return $form;
   }
@@ -273,29 +252,6 @@ final class SdcPreviewForm extends EntityForm {
   }
 
   /**
-   * Recursively hides the per-prop option controls in a shape form.
-   *
-   * Shape forms built in 'config' scope add an `_options` group (Allow Edit /
-   * Default / Hide) for each prop and nested prop. Setting `#access` to FALSE
-   * removes them from the UI while keeping their default values available to
-   * form processing, so massaging the submitted values is unaffected.
-   *
-   * @param array $element
-   *   The render element to process, modified by reference.
-   */
-  private function hideOptionControls(array &$element): void {
-    foreach (Element::children($element) as $key) {
-      if ($key === '_options') {
-        $element[$key]['#access'] = FALSE;
-        continue;
-      }
-      if (is_array($element[$key])) {
-        $this->hideOptionControls($element[$key]);
-      }
-    }
-  }
-
-  /**
    * {@inheritdoc}
    */
   public function buildEntity(array $form, FormStateInterface $form_state) {
@@ -322,26 +278,11 @@ final class SdcPreviewForm extends EntityForm {
 
     $values = [];
     $original_values = $form_state->get('original_values') ?? [];
-    foreach ($this->entity->getPropShapes() as $propName => $shape) {
-      if (!isset($form['values'][$propName])) {
-        continue;
-      }
-      $subform_state = SubformState::createForSubform($form['values'][$propName], $form, $form_state);
-      $originalValue = $original_values['props'][$propName]['value'] ?? [];
-      // See InstanceComponentForm::validateForm() — a scalar prop value cannot
-      // pass through massageFormValues(), which is typed array both ways.
-      $originalArray = is_array($originalValue) ? $originalValue : [];
-      $shape->validateForm($form['values'][$propName], $subform_state);
-      $value = $subform_state->getValues();
-      $values['props'][$propName]['ref'] = $shape->getRef();
-      $values['props'][$propName]['value'] = $shape->massageFormValues($value, $originalArray, $form['values'][$propName], $subform_state);
-      if (!$shape->isIterable() && !empty($values['props'][$propName]['value'])) {
-        $values['props'][$propName]['value'] += $originalArray;
-      }
-      if (!is_array($originalValue) && $shape->getOptionDefault()->isEnabled()) {
-        $values['props'][$propName]['value'] = $originalValue;
-      }
-      $values['props'][$propName]['options'] = $shape->getNestedOptions();
+    // Left unset rather than set empty when nothing was harvested: an empty
+    // 'props' key would make hasPreviewValues() true and light up the Reset
+    // button for a workspace with nothing to reset.
+    if ($props = $this->propValueHarvester->harvest($this->entity, $form, $form_state, $original_values)) {
+      $values['props'] = $props;
     }
 
     // Apply the harvest to the entity here, mirroring InstanceComponentForm's

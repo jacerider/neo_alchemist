@@ -1,4 +1,4 @@
-(function (Drupal, once) {
+(function (Drupal, once, drupalSettings) {
 
   function debounce<T extends (...args: any[]) => void>(func: T, delay: number): T {
     let timeoutId: ReturnType<typeof setTimeout>|null;
@@ -12,8 +12,16 @@
     } as T;
   }
 
+  // The two DOM ids this behavior matches on. The server owns both — see
+  // ComponentValuePanelBuilder::attachClient(), which publishes them with the
+  // library this file ships in — so there is no literal here to drift from it.
+  // They are read on every attach rather than once at load because an AJAX
+  // rebuild can bring settings with it.
+  let formId = '';
+  let refreshId = '';
+
   function handleRefresh() {
-    const form = jQuery('#neo-alchemist--instance-component-form') as any;
+    const form = jQuery('#' + formId) as any;
     if (Drupal.Ajax) {
       // Clear the form id so that the form is not submitted again.
       let url = form.attr('action');
@@ -34,7 +42,7 @@
         event: 'none',
         httpMethod: 'POST',
         keypress: true,
-        selector: '#neo-alchemist--refresh',
+        selector: '#' + refreshId,
         submit: {
           js: true,
           _triggering_element_name: 'op',
@@ -50,7 +58,6 @@
   }
 
   const throttledInput = debounce(handleRefresh, 250);
-  const formId = 'neo-alchemist--instance-component-form';
   // The form instance the build id below belongs to. Both are per-form state,
   // but this module outlives any one form: every component opens its own edit
   // form into the same modal, so without tracking which form the id came from,
@@ -60,6 +67,15 @@
 
   Drupal.behaviors.neoAlchemistInstanceComponentAjaxForm = {
     attach: function () {
+      const contract = drupalSettings.neoAlchemist?.valueEditor;
+      if (!contract?.formId || !contract?.refreshId) {
+        // No value editor on this page. The server publishes both ids with
+        // this behavior's library, so their absence is that and not a fault.
+        return;
+      }
+      formId = contract.formId;
+      refreshId = contract.refreshId;
+
       // Watch autocomplete.
       once('neo.alchemist', '#' + formId + ' [data-autocomplete-path]').forEach(el => {
         jQuery(el).on('autocompleteselect', function (_e) {
@@ -300,4 +316,4 @@
     }
   };
 
-})(Drupal, once);
+})(Drupal, once, drupalSettings);

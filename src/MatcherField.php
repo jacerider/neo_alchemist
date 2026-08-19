@@ -10,14 +10,19 @@ use Drupal\Core\Config\Entity\ConfigEntityTypeInterface;
 use Drupal\Core\Entity\ContentEntityInterface;
 use Drupal\Core\Entity\ContentEntityTypeInterface;
 use Drupal\Core\Entity\EntityInterface;
+use Drupal\Core\Entity\EntityFieldManagerInterface;
+use Drupal\Core\Entity\EntityTypeBundleInfoInterface;
+use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Entity\Plugin\DataType\EntityReference;
 use Drupal\Core\Entity\TypedData\EntityDataDefinition;
 use Drupal\Core\Entity\TypedData\EntityDataDefinitionInterface;
+use Drupal\Core\Extension\ModuleHandlerInterface;
 use Drupal\Core\Field\BaseFieldDefinition;
 use Drupal\Core\Field\EntityReferenceFieldItemListInterface;
 use Drupal\Core\Field\FieldDefinitionInterface;
 use Drupal\Core\Field\FieldItemListInterface;
 use Drupal\Core\StringTranslation\StringTranslationTrait;
+use Drupal\Core\Routing\RouteProviderInterface;
 use Drupal\Core\TypedData\DataReferenceDefinitionInterface;
 use Drupal\Core\Url;
 use Drupal\neo_icon\IconTrait;
@@ -36,6 +41,23 @@ final class MatcherField extends MatcherBase {
    * @var int
    */
   protected $maxLevels = 2;
+
+  /**
+   * Constructs a MatcherField object.
+   *
+   * Extends MatcherBase's dependencies with the route provider, which only
+   * this matcher needs — it titles entity operation links from the route's
+   * own _title default.
+   */
+  public function __construct(
+    ModuleHandlerInterface $moduleHandler,
+    EntityTypeManagerInterface $entityTypeManager,
+    EntityFieldManagerInterface $entityFieldManager,
+    EntityTypeBundleInfoInterface $entityTypeBundleInfo,
+    protected readonly RouteProviderInterface $routeProvider,
+  ) {
+    parent::__construct($moduleHandler, $entityTypeManager, $entityFieldManager, $entityTypeBundleInfo);
+  }
 
   /**
    * Field types never offered as a component prop source.
@@ -295,7 +317,7 @@ final class MatcherField extends MatcherBase {
     if ($finalEntity) {
       $path = explode('.', $key);
       $key = end($path);
-      [$fieldName, $property, $subProperty] = explode(':', $key . '::');
+      [$fieldName, $property] = explode(':', $key . '::');
 
       if ($fieldName === '_field') {
         // Use property as field name when acting on dynamic field.
@@ -844,7 +866,7 @@ final class MatcherField extends MatcherBase {
       $matches[$this->key($parentFieldDefinitions)] = $this->buildMatchEntry($parentFieldDefinitions, $fieldDefinition, $level);
 
       $properties = $this->dataDefinitions($fieldDefinition);
-      foreach ($properties as $propertyName => $property) {
+      foreach ($properties as $property) {
         $isReference = $this->isReference($property);
         if ($isReference === NULL) {
           // Neither a reference nor a primitive.
@@ -1040,7 +1062,7 @@ final class MatcherField extends MatcherBase {
    *   The bundle label, falling back to the bundle id.
    */
   private function getEntityBundleLabel(EntityInterface $entity): string {
-    $info = \Drupal::service('entity_type.bundle.info')->getBundleInfo($entity->getEntityTypeId());
+    $info = $this->entityTypeBundleInfo->getBundleInfo($entity->getEntityTypeId());
     return (string) ($info[$entity->bundle()]['label'] ?? $entity->bundle());
   }
 
@@ -1111,7 +1133,7 @@ final class MatcherField extends MatcherBase {
       return [];
     }
     $titleReplacements = ['-', '_', '.'];
-    $route = \Drupal::service('router.route_provider')->getRouteByName($url->getRouteName());
+    $route = $this->routeProvider->getRouteByName($url->getRouteName());
     $title = match($property) {
       // A canonical link means "this entity" — its label, never the route's
       // static _title (taxonomy's canonical route hard-codes _title

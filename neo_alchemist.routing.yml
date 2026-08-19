@@ -122,11 +122,14 @@ entity.neo_component.edit_slot_form:
   requirements:
     _neo_component_slot: neo_component.slot.manage_value
 
+# The four configured-plugin routes below share one controller. `neo_kind`
+# names the family; `uuid` is what separates edit from add.
 entity.neo_component.add_filter_form:
   path: '/admin/config/neo/alchemist/{neo_component}/filter/add'
   defaults:
     _title: 'Add a component filter'
-    _controller: '\Drupal\neo_alchemist\Controller\ComponentFilterAddController'
+    _controller: '\Drupal\neo_alchemist\Controller\ComponentConfiguredPluginController'
+    neo_kind: 'filter'
   requirements:
     _permission: 'administer neo_alchemist'
 
@@ -134,7 +137,8 @@ entity.neo_component.edit_filter_form:
   path: '/admin/config/neo/alchemist/{neo_component}/filter/{uuid}'
   defaults:
     _title: 'Edit a component filter'
-    _controller: '\Drupal\neo_alchemist\Controller\ComponentFilterEditController'
+    _controller: '\Drupal\neo_alchemist\Controller\ComponentConfiguredPluginController'
+    neo_kind: 'filter'
   requirements:
     _permission: 'administer neo_alchemist'
 
@@ -142,7 +146,8 @@ entity.neo_component.add_access_form:
   path: '/admin/config/neo/alchemist/{neo_component}/access/add'
   defaults:
     _title: 'Add a component access'
-    _controller: '\Drupal\neo_alchemist\Controller\ComponentAccessAddController'
+    _controller: '\Drupal\neo_alchemist\Controller\ComponentConfiguredPluginController'
+    neo_kind: 'access'
   requirements:
     _permission: 'administer neo_alchemist'
 
@@ -150,7 +155,8 @@ entity.neo_component.edit_access_form:
   path: '/admin/config/neo/alchemist/{neo_component}/access/{uuid}'
   defaults:
     _title: 'Edit a component access'
-    _controller: '\Drupal\neo_alchemist\Controller\ComponentAccessEditController'
+    _controller: '\Drupal\neo_alchemist\Controller\ComponentConfiguredPluginController'
+    neo_kind: 'access'
   requirements:
     _permission: 'administer neo_alchemist'
 

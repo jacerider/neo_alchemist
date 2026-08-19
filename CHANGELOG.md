@@ -1,5 +1,242 @@
 # Changelog
 
+## One mold for the component admin forms
+
+A site builder opened the Filters tab on a component and was offered filter
+plugins that component cannot use. Picking one produced a filter that does
+nothing.
+
+The plugin manager method that narrows the offered list to what a component
+supports existed on the access manager and on the slot manager. It did not
+exist on the filter manager, so the filter form fell back to listing every
+definition. The access manager's own docblock said it "mirrors" the slot
+manager's — a copy that documented that it was a copy.
+
+**The narrowing moved to a manager base all three share.** A family can no
+longer ship without it. Filter plugins gained `isApplicable()` (defaulting to
+TRUE, so no shipped filter changes what it offers), and the slot plugin
+interface now declares the method its manager was already calling.
+
+### Three seams
+
+Everything above that method was owned twice, and the copies were made by
+find-and-replace: the access and filter add controllers were byte-identical
+after a rename, so were the factories, and the edit controllers differed by two
+lines.
+
+**A configured-plugin kind.** `ConfiguredPluginKindInterface` declares what
+actually differs between access rules and filters — the manager, the entity
+accessors, the form mode, the label, and any fields the family carries of its
+own. One controller and one form replace four controllers and two forms.
+`ConfiguredPluginInterface` and `ConfiguredPluginWrapperInterface` name the
+plugin and the stored pair the families share. Adding a third kind is one
+implementation plus a service, not four classes.
+
+**A staged plugin list mold.** The list↔edit state machine the prop form and
+the slot form each re-derived is now `StagedPluginListInterface` (the op
+vocabulary, named once) plus `StagedPluginListTrait` (the op buttons, the
+weight column, the add select, the edit-pane actions). Both forms are its
+adapters. How an item is addressed stays with each form, because the two
+genuinely differ: a slot may hold two of the same plugin, a shape holds each
+provider once.
+
+**A route access checker base.** Six checkers each wrote out the same parse,
+parameter resolution and neutral fallback, with the arity varying between two
+and three segments and one of them padding its requirement string to fit. Each
+is now a single decision method over a declared segment format, and the formats
+are tabulated in one docblock.
+
+### Fixes that fall out
+
+- **The limited-submission rule is stated once.** Drupal's Button element
+  defaults `#limit_validation_errors` to FALSE — meaning "do not limit" — so
+  detecting a genuinely limited submission requires testing for an *array*. A
+  presence check classifies Save as limited and skips the commit while
+  reporting success. `LimitedSubmissionTrait` owns that rule and the three
+  forms that branch on it inherit it. The slot form had no guard at all and
+  survived only because the value set its commit path iterates happens to be
+  empty whenever Cancel is on screen.
+- The slot form's edit pane said "Edit" while adding and "Add" while editing.
+- Its cancel submit handler had no callers, and one of its handlers was wired
+  with different capitalisation from its four siblings. Both are gone.
+- **The slot form says when your changes are staged**, as the prop form
+  already did. Nothing on that screen persists until Save, so a site builder
+  who added a plugin and navigated away lost it with no warning. The message
+  renders inside the AJAX-replaced subtree, since that is the only part of the
+  form an op ever redraws.
+- **Route access checkers attach cacheability by default.** Four of the six
+  attached none, so their results varied by nothing and were invalidated by
+  nothing. They are now correctly varied and invalidated. The field checker
+  names what its decision was made from — the entity per-entity, the field
+  config in the shared-layout scope — rather than the field item, which is not
+  cacheable and would have dropped the result to max-age 0.
+- Two access checker services passed a constructor argument to classes that
+  have no constructor.
+
+### Compatibility
+
+- **Breaking for custom access and filter plugins outside this repository.**
+  `ComponentAccessPluginInterface` and `ComponentFilterPluginInterface` now
+  extend `ConfiguredPluginInterface`; a plugin extending the shipped base
+  classes is unaffected, one implementing the interfaces directly must supply
+  `isApplicable()`. `ComponentSlotPluginBase::isApplicable()` gained a `: bool`
+  return type, which every override must match.
+- **Breaking for custom route access checkers** built on the old per-checker
+  pattern: they still work as `AccessInterface` implementations, but nothing
+  shares the parse with them.
+- `ComponentAccessForm`, `ComponentFilterForm` and the four add/edit
+  controllers are removed. They were referenced only by this module's routing.
+- **A caching change on editor routes**, from the checkers that previously
+  attached nothing. This is a fix, and it can surface as different caching on
+  admin routes.
+- **No stored configuration changes and no update hook.** Access, filter and
+  slot settings keep their shape. An already-configured filter keeps its entry
+  and keeps running even if its plugin later declines the component; only the
+  add list narrows, and the plugin select on that filter's own edit screen
+  still offers the plugin it is configured with, so the screen stays saveable.
+- Audited on the site this landed from: 53 components, 5 configured filters,
+  20 access rules, none of them unsupported — so there is nothing to report or
+  remove. No shipped filter plugin declines a component today; the narrowing
+  is an extension point that had been missing, not a change to what the
+  shipped set offers.
+- Before updating a site, audit for custom `ComponentAccess`/`ComponentFilter`
+  plugins and custom route access checkers following the module's pattern.
+
+### Coverage
+
+The slot, access and filter forms had no test at all. They have one each now
+(`ComponentSlotFormUxTest`, `ComponentConfiguredPluginFormTest`), driven the way
+`ComponentPropFormUxTest` drives the prop form: through form state, asserting
+what was staged and what was persisted. `ComponentRouteAccessCheckTest`
+constructs all six checkers, where two were constructed before, and asserts
+cacheability. `LimitedSubmissionTest` pins the rule itself, including the
+premise that core really does default the key to FALSE.
+
+## The component tree has one owner, and hybrid layout sits behind it
+
+A site builder reordered components in a layout and one of them silently
+disappeared.
+
+`ComponentTreeStructure::sortComponents()` rebuilt a section from the list of
+UUIDs it was handed and discarded everything else, and its callers built that
+list from `ComponentTreeItem::toOptions()` — a labelling helper, which can only
+offer a row for an instance whose `neo_component` config still loads. So a
+section holding `[A, B, C]` where `A`'s component was missing became `[C, B]`
+after one "move down" on `B`. If `A` had a slot, its subtree and every
+descendant's props stayed in storage in exactly the dangling state the module's
+own structure validator rejects. Nothing warned, nothing logged, the entity
+saved cleanly.
+
+**Reorder replaces sort.** `reorderComponents()` refills only the positions the
+listed UUIDs occupy and leaves everything else at its own index, so no list a
+caller can pass is capable of removing anything. `getPlacedUuids()` is the new
+sibling reorder callers use; `toOptions()` stays a labelling concern. The unit
+test that pinned the destructive behaviour was inverted — it documented the
+defect, not a requirement.
+
+### The seam
+
+That defect was a symptom: the decoded `(tree, props)` pair is where component
+usage scanning, dependency detachment, hybrid merge and strip, anchor
+resolution, structure validation and the Drush integrity command all meet, and
+nothing satisfied an interface there. Descendant-closure expansion existed four
+times; the section-walk idiom three times across two classes; parity was
+maintained by hand in six places.
+
+`ComponentTreeStructure` is that seam now. It owns the pair (`bindProps()`, so
+parity is a postcondition rather than a rule), the one closure walker, the
+collectors, dependency detachment, and the hybrid compose/extract algebra —
+which were already pure functions of a default layout, a stored subset and a set
+of anchors, just entangled with a field item. The field list keeps the Field API
+lifecycle and nothing else; anchor resolution stays on the field config, which
+needs entity storage.
+
+### Two data-loss paths closed
+
+- **Detaching a deleted component no longer resurrects seed content.** "A
+  section that has become empty" meant *collapse it* to config-scope dependency
+  removal and *preserve it, it means explicitly emptied* to hybrid storage. Both
+  are correct in isolation; together they were a data-loss path, because
+  `drush neo:alchemist:integrity --detach` rewrites entity rows and a hybrid row
+  is a storage subset. Collapsing one left `{root: []}`, which the next load
+  reads as "never customized" and answers by repopulating the region with the
+  site builder's seeds. `EmptySectionPolicy` is now a named argument at every
+  call site, and the integrity command picks per row from the tree's own shape.
+- **An emptied region stays empty through a second draft save.** The merge used
+  to *drop* an emptied flagged slot. But "absent" already means "this anchor
+  postdates the stored value, apply its seed children" — so composing a merged
+  value a second time, which is what a second draft save does, brought the seeds
+  back into a region a creator had cleared. The slot now stays
+  present-and-empty. This also makes the merge genuinely idempotent, the
+  property `ARCHITECTURE.md` claimed and nothing enforced.
+
+### Tests
+
+`HybridRoundTripTest` expresses the properties as properties: extract∘compose
+returns the subset it started from, compose∘compose changes nothing, extraction
+always satisfies parity. `ComponentTreeReorderTest` and `EmptySectionPolicyTest`
+pin the two regressions. The three test-only classes that existed purely to
+reach protected methods — including one needing a mock that had to contradict
+itself to construct — are deleted; the tests call what production calls.
+
+### Breaking changes
+
+Published interfaces move. Anything outside this repository calling these breaks
+on update; there are no such callers on this site.
+
+| Removed | Replacement |
+|---|---|
+| `ComponentTreeStructure::sortComponents()` | `::reorderComponents()` (non-destructive) |
+| `ComponentTreeItem::sortComponents()` | `::reorderComponents()` |
+| `ComponentUsage::detachComponents()` | `ComponentTreeStructure::detachComponents()`, with a policy |
+| `ComponentUsage::extractComponentIds()` | `ComponentTreeStructure::collectComponentIds()` |
+| `NeoComponentTreeList::getSectionClosureUuids()` | `ComponentTreeStructure::collectAnchorClosure()` |
+| `NeoComponentTreeList::{expandTupleClosure,getTreeUuids,getTreeTupleUuids,decodeHybridItemValue}()` | `ComponentTreeStructure::{expandClosure,collectUuids,collectInstanceUuids,decodeValue}()` |
+
+`ComponentTreeStructure::removeComponent()` takes a required
+`EmptySectionPolicy`. `ComponentTreeItem` gains `isHybridScope()` — the
+predicate was hand-rolled as `!belongsToFieldConfig() && …->isHybrid()` in five
+places, each of which would fatal on a field definition that is not a
+`ComponentFieldConfig`.
+
+**Stored data does not change shape**, so there is no config sweep and no
+migration. But rows damaged by the old reorder already exist in the wild, so
+`neo_alchemist_update_11006()` scans entity tree storage and **reports**
+dangling subtrees and unattributable prop entries without rewriting them — the
+damage is historical, the rows are content, and the choice between re-placing
+and purging is a maintainer's.
+
+Ownership of an instance is also memoised per value now: the editor chrome asks
+several access questions per instance while rendering a layout, and each one
+used to re-decode the tree JSON and re-walk the whole ownership closure.
+
+### Lint sweep
+
+The module's `Drupal,DrupalPractice` warnings are cleared, which moves a few
+constructor signatures. All of these are services or forms built by the
+container, so only code constructing them by hand is affected:
+
+- `MatcherField` takes a fifth argument, `@router.route_provider`.
+- `ComponentManageForm` takes a fifth argument, `@user.permissions`.
+- `ComponentPreviewController` and `SdcPreviewController` take the `Request` as
+  their first route argument.
+- `NeoComponentGenerator` takes `@plugin.cache_clearer`.
+
+Two categories of warning are suppressed rather than fixed, because fixing them
+would make the code worse:
+
+- **`\Drupal::getContainer()` in the five plugin managers' `createInstance()`.**
+  Each family's plugins take a bespoke constructor that `DefaultFactory` cannot
+  produce, so the managers build them by hand and must hand a container to any
+  plugin implementing `ContainerFactoryPluginInterface`. Core's
+  `ContainerFactory::createInstance()` makes the identical call for the
+  identical reason. Injecting `@service_container` instead would be a service
+  locator — and would break three public constructor signatures to satisfy a
+  sniff that cannot tell a plugin factory from ordinary code.
+- **`Remove "version" from the info file` (six files).** Neo reads that field to
+  decide whether compiled assets are stale, so removing it would give every
+  developer a false "assets need rebuilding" state.
+
 ## The media provider no longer starves providers placed after it
 
 The auto-attached `media` plugin on image/media props is infrastructure —

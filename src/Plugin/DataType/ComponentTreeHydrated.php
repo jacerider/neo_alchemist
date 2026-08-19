@@ -41,7 +41,7 @@ class ComponentTreeHydrated extends TypedData implements RenderableInterface {
     assert($tree instanceof ComponentTreeStructure);
 
     $hydrated = [];
-    foreach ($tree->getComponentInstanceUuids() as $key => $uuid) {
+    foreach ($tree->getComponentInstanceUuids() as $uuid) {
       $instance = $item->getComponent($uuid);
       if (!$instance) {
         // Component no longer exists. Skipping is the only safe thing to do —
@@ -65,7 +65,7 @@ class ComponentTreeHydrated extends TypedData implements RenderableInterface {
 
         $shapes = $instance->getPropShapesAll(NULL, TRUE);
         // Treat region shapes as slots.
-        foreach ($shapes as $shapeName => $shape) {
+        foreach ($shapes as $shape) {
           if ($shape instanceof ComponentShapeRegionPluginInterface) {
             $hydrated[$uuid]['slots'][$shape->id()] = [];
           }

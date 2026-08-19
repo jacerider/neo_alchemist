@@ -126,6 +126,14 @@ class HybridSaveRoundTripTest extends HybridFieldKernelTestBase {
    *
    * Emptying the region is a choice, not an absence: the slot is stored as
    * [] and the default seeds must not come back on the next load or save.
+   *
+   * The merged value says so too — the slot is present and empty rather than
+   * dropped. An absent slot is already how the merge spells "this anchor
+   * postdates the stored value, apply its seed children", so a merged value
+   * that dropped the key re-seeded the region the moment it was composed a
+   * second time. That is what a second draft save does.
+   *
+   * @see \Drupal\Tests\neo_alchemist\Unit\HybridRoundTripTest::testComposeIsIdempotent()
    */
   public function testExplicitlyEmptySlotStaysEmpty(): void {
     $entity = $this->createTestEntity();
@@ -136,12 +144,25 @@ class HybridSaveRoundTripTest extends HybridFieldKernelTestBase {
 
     $entity = $this->reloadEntity($entity);
     $merged = json_decode($entity->get(static::FIELD_NAME)->first()->getValue()['tree'], TRUE);
-    $this->assertArrayNotHasKey(static::HOST_UUID, $merged, 'No seed content re-enters the merged value.');
+    $this->assertSame([], $merged[static::HOST_UUID]['body'] ?? NULL, 'The merged value keeps saying the region is empty.');
+    $this->assertNotContains(
+      static::SEED_UUID,
+      ComponentTreeStructure::collectInstanceUuids($merged),
+      'No seed content re-enters the merged value.',
+    );
 
     // And it survives another save cycle.
     $entity->save();
     $stored = $this->rawStoredValue($this->reloadEntity($entity));
     $this->assertSame([], $stored['tree'][static::HOST_UUID]['body'] ?? NULL);
+
+    // Re-setting the merged value — what an editor commit and a second draft
+    // save both do — must not resurrect the seed either.
+    $entity = $this->reloadEntity($entity);
+    $entity->set(static::FIELD_NAME, $entity->get(static::FIELD_NAME)->getValue());
+    $reMerged = json_decode($entity->get(static::FIELD_NAME)->first()->getValue()['tree'], TRUE);
+    $this->assertSame([], $reMerged[static::HOST_UUID]['body'] ?? NULL, 'Re-composing a merged value is idempotent.');
+    $this->assertNotContains(static::SEED_UUID, ComponentTreeStructure::collectInstanceUuids($reMerged));
   }
 
   /**

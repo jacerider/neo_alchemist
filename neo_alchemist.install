@@ -600,3 +600,171 @@ function neo_alchemist_update_11005() {
     '@skipped' => $skipped,
   ]);
 }
+
+/**
+ * Report component trees damaged by the pre-fix destructive reorder.
+ *
+ * Reordering a section used to rebuild it from the list of UUIDs the caller
+ * passed and discard everything else, and the callers built that list from a
+ * presentation helper that skips any instance whose neo_component config no
+ * longer loads. So a single "move up" or "move down" on a section containing a
+ * broken component deleted that component's tuple while leaving its subtree
+ * section and every descendant's prop values behind — a dangling subtree, which
+ * ComponentTreeStructureConstraintValidator rejects and the hydrated tree
+ * silently discards at render, plus prop entries nothing can attribute.
+ *
+ * The reorder is a permutation now and cannot do this again, but rows damaged
+ * before the fix are already in the database and nothing surfaces them: the
+ * page still returns 200, just without that component.
+ *
+ * This REPORTS and does not rewrite. The damage is historical, the affected
+ * rows are content, and the recoverable choice is a maintainer's to make with
+ * the scope in front of them.
+ *
+ * On the repair: `drush neo:alchemist:integrity` covers the other half of this
+ * damage — placements whose component no longer exists — and `--detach` removes
+ * them. It does NOT see the stranded sections counted here, because every
+ * component id inside them still resolves. There is deliberately no command
+ * for these: a stranded subtree still holds the creator's authored props, so
+ * whether to re-place that content or discard it is not a decision to automate.
+ * Report the rows, then edit them.
+ *
+ * Batched: this walks entity content tables, including revisions, so a large
+ * site would otherwise exhaust memory or time in a single pass.
+ *
+ * @see \Drupal\neo_alchemist\Plugin\DataType\ComponentTreeStructure::reorderComponents()
+ */
+function neo_alchemist_update_11006(&$sandbox) {
+  $rootUuid = ComponentTreeStructure::ROOT_UUID;
+  $entityTypeManager = \Drupal::entityTypeManager();
+  $entityFieldManager = \Drupal::service('entity_field.manager');
+  $database = \Drupal::database();
+  $schema = $database->schema();
+
+  if (!isset($sandbox['targets'])) {
+    // One pass over the field map to work out what there is to read, then one
+    // target per table so each pass is bounded by a single table's row count.
+    $sandbox['targets'] = [];
+    $sandbox['scanned'] = 0;
+    $sandbox['damaged'] = [];
+    foreach ($entityFieldManager->getFieldMapByFieldType('neo_component_tree') as $entityTypeId => $fields) {
+      $storage = $entityTypeManager->getStorage($entityTypeId);
+      if (!$storage instanceof SqlEntityStorageInterface) {
+        continue;
+      }
+      $tableMapping = $storage->getTableMapping();
+      $definitions = $entityFieldManager->getFieldStorageDefinitions($entityTypeId);
+
+      foreach (array_keys($fields) as $fieldName) {
+        if (!isset($definitions[$fieldName])) {
+          continue;
+        }
+        $treeColumn = $tableMapping->getFieldColumnName($definitions[$fieldName], 'tree');
+        $propsColumn = $tableMapping->getFieldColumnName($definitions[$fieldName], 'props');
+        $tables = [$tableMapping->getFieldTableName($fieldName)];
+        if ($tableMapping instanceof DefaultTableMapping) {
+          $tables[] = $tableMapping->getDedicatedRevisionTableName($definitions[$fieldName]);
+        }
+        foreach (array_unique(array_filter($tables)) as $table) {
+          if (!$schema->tableExists($table) || !$schema->fieldExists($table, $treeColumn)) {
+            continue;
+          }
+          $idColumn = $schema->fieldExists($table, 'entity_id')
+            ? 'entity_id'
+            : $entityTypeManager->getDefinition($entityTypeId)->getKey('id');
+          $sandbox['targets'][] = [
+            'label' => $entityTypeId . '.' . $fieldName,
+            'table' => $table,
+            'tree' => $treeColumn,
+            'props' => $propsColumn,
+            'id' => $idColumn,
+          ];
+        }
+      }
+    }
+    $sandbox['total'] = count($sandbox['targets']);
+    $sandbox['done'] = 0;
+    $sandbox['offset'] = 0;
+  }
+
+  if (!$sandbox['targets']) {
+    $sandbox['#finished'] = 1;
+    return (string) t('Scanned @count stored component tree(s); none carry a dangling subtree or an unattributable prop entry.', [
+      '@count' => $sandbox['scanned'],
+    ]);
+  }
+
+  $target = $sandbox['targets'][0];
+  // Only the three columns the scan reads, and a bounded slice of them.
+  $records = $database->select($target['table'], 't')
+    ->fields('t', [$target['id'], $target['tree'], $target['props']])
+    ->orderBy('t.' . $target['id'])
+    ->range($sandbox['offset'], 200)
+    ->execute()
+    ->fetchAll(\PDO::FETCH_ASSOC);
+
+  foreach ($records as $record) {
+    $tree = !empty($record[$target['tree']]) ? json_decode($record[$target['tree']], TRUE) : NULL;
+    if (!is_array($tree) || !$tree) {
+      continue;
+    }
+    $sandbox['scanned']++;
+    // A hybrid subset's anchor owners are section keys that are not instances
+    // of the subset. Recognisable by the empty root, and deliberately not
+    // counted: they are dangling by design.
+    $subset = ComponentTreeStructure::isStorageSubset($tree);
+    $placed = array_flip(ComponentTreeStructure::collectInstanceUuids($tree));
+
+    $dangling = [];
+    if (!$subset) {
+      foreach (array_keys($tree) as $sectionKey) {
+        if ($sectionKey !== $rootUuid && !isset($placed[$sectionKey])) {
+          $dangling[] = $sectionKey;
+        }
+      }
+    }
+
+    $props = !empty($record[$target['props']]) ? json_decode($record[$target['props']], TRUE) : NULL;
+    $orphanProps = is_array($props) ? array_keys(array_diff_key($props, $placed)) : [];
+
+    if ($dangling || $orphanProps) {
+      $sandbox['damaged'][$target['label']][] = sprintf(
+        '%s %s (%d dangling subtree(s), %d unattributable prop entr(ies))',
+        $target['table'],
+        $record[$target['id']] ?? '?',
+        count($dangling),
+        count($orphanProps),
+      );
+    }
+  }
+
+  if (count($records) < 200) {
+    array_shift($sandbox['targets']);
+    $sandbox['offset'] = 0;
+    $sandbox['done']++;
+  }
+  else {
+    $sandbox['offset'] += 200;
+  }
+
+  $sandbox['#finished'] = $sandbox['targets'] ? $sandbox['done'] / max(1, $sandbox['total']) : 1;
+  if ($sandbox['targets']) {
+    return NULL;
+  }
+
+  if (!$sandbox['damaged']) {
+    return (string) t('Scanned @count stored component tree(s); none carry a dangling subtree or an unattributable prop entry.', [
+      '@count' => $sandbox['scanned'],
+    ]);
+  }
+
+  $parts = [];
+  foreach ($sandbox['damaged'] as $key => $rows) {
+    $parts[] = $key . ': ' . implode('; ', $rows);
+  }
+  return (string) t('Scanned @scanned stored component tree(s) and found damage in @rows row(s), left untouched for review: @list. These are trees a pre-fix reorder deleted an instance from without removing what sat underneath it. Each stranded subtree still holds its authored prop values, so decide per row whether to re-place that content or discard it — nothing here rewrites content, and no command does it for you.', [
+    '@scanned' => $sandbox['scanned'],
+    '@rows' => array_sum(array_map('count', $sandbox['damaged'])),
+    '@list' => implode(' | ', $parts),
+  ]);
+}

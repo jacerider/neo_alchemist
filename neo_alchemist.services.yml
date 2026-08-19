@@ -13,6 +13,16 @@ services:
     class: Drupal\neo_alchemist\ComponentPreviewBuilder
     arguments: ['@entity_type.manager', '@plugin.manager.sdc']
 
+  # The two halves of a component value editor: one builds the prop panel, the
+  # other reads the submission back out of it. Both value editors — the
+  # on-page instance form and the SDC preview workspace — go through these, so
+  # the rules a prop value has to survive are stated once.
+  neo_alchemist.value_panel_builder:
+    class: Drupal\neo_alchemist\ComponentValuePanelBuilder
+
+  neo_alchemist.prop_value_harvester:
+    class: Drupal\neo_alchemist\ComponentPropValueHarvester
+
   # Finds placements whose component no longer exists. A diff over
   # ComponentUsage rather than another sweep of its own.
   neo_alchemist.dangling_component_data:
@@ -130,9 +140,30 @@ services:
     class: Drupal\neo_alchemist\ComponentAccessFactory
     arguments: ['@plugin.manager.neo_component_access']
 
+  # The configured-plugin kinds, and the repository the shared controller and
+  # form resolve one through. A new family is added here, not by copying four
+  # classes.
+  neo_alchemist.configured_plugin_kind.access:
+    class: Drupal\neo_alchemist\ConfiguredPlugin\AccessKind
+    arguments:
+      - '@plugin.manager.neo_component_access'
+      - '@neo_component.access.factory'
+
+  neo_alchemist.configured_plugin_kind.filter:
+    class: Drupal\neo_alchemist\ConfiguredPlugin\FilterKind
+    arguments:
+      - '@plugin.manager.neo_component_filter'
+      - '@neo_component.filter.factory'
+
+  neo_alchemist.configured_plugin_kinds:
+    class: Drupal\neo_alchemist\ConfiguredPlugin\ConfiguredPluginKindRepository
+    arguments:
+      - '@neo_alchemist.configured_plugin_kind.access'
+      - '@neo_alchemist.configured_plugin_kind.filter'
+
   neo_alchemist.matcher_field:
     class: Drupal\neo_alchemist\MatcherField
-    arguments: ['@module_handler', '@entity_type.manager', '@entity_field.manager', '@entity_type.bundle.info']
+    arguments: ['@module_handler', '@entity_type.manager', '@entity_field.manager', '@entity_type.bundle.info', '@router.route_provider']
 
   neo_alchemist.matcher_reference:
     class: Drupal\neo_alchemist\MatcherReference
@@ -173,13 +204,11 @@ services:
 
   neo_alchemist.prop_access_checker:
     class: Drupal\neo_alchemist\Access\ComponentPropAccessCheck
-    arguments: ['@entity_field.manager']
     tags:
       - { name: access_check, applies_to: _neo_component_prop }
 
   neo_alchemist.slot_access_checker:
     class: Drupal\neo_alchemist\Access\ComponentSlotAccessCheck
-    arguments: ['@entity_field.manager']
     tags:
       - { name: access_check, applies_to: _neo_component_slot }
 

@@ -98,7 +98,7 @@ final class ComponentStyleSettingsForm extends ConfigFormBase {
       catch (\Throwable $e) {
         // Be resilient to prop defs from other modules whose shapes cannot be
         // instantiated here; skip them rather than breaking the whole form.
-        \Drupal::logger('neo_alchemist')->warning('Could not build style options for prop def %id: @message', [
+        $this->logger('neo_alchemist')->warning('Could not build style options for prop def %id: @message', [
           '%id' => $style_id,
           '@message' => $e->getMessage(),
         ]);

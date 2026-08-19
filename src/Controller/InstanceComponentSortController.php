@@ -21,7 +21,7 @@ final class InstanceComponentSortController extends ControllerBase {
   public function __invoke(Request $request, ComponentTreeItem $neo_field) {
     $parent = $request->query->get('parent');
     [$parentUuid, $shapeId] = explode('--', (string) ($parent ?? '--'));
-    if (!$neo_field->belongsToFieldConfig() && $neo_field->getFieldDefinition()->isHybrid()) {
+    if ($neo_field->isHybridScope()) {
       // Hybrid mode: only entity-customizable regions may be sorted.
       if (!$neo_field->isCustomTarget($parentUuid ?: NULL, $shapeId ?: NULL)) {
         throw new AccessDeniedHttpException();

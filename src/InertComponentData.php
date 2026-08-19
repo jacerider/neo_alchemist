@@ -84,7 +84,7 @@ final class InertComponentData {
       $componentIds = [];
       foreach ($rows as $row) {
         $entityIds[$row['entity_id']] = TRUE;
-        $componentIds = array_merge($componentIds, ComponentUsage::extractComponentIds($row['tree']));
+        $componentIds = array_merge($componentIds, ComponentTreeStructure::collectComponentIds($row['tree']));
       }
       $count = count($entityIds);
       $usages[] = [

@@ -184,7 +184,7 @@ abstract class ComponentSlotPluginBase extends PluginBase implements ComponentSl
   /**
    * {@inheritdoc}
    */
-  public static function isApplicable(ComponentInterface $component) {
+  public static function isApplicable(ComponentInterface $component): bool {
     // By default, plugins are available for all shapes.
     return TRUE;
   }

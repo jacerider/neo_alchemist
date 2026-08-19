@@ -18,6 +18,7 @@ use Drupal\neo_alchemist\ComponentShapeStylePluginInterface;
 use Drupal\neo_alchemist\ComponentSizePluginManager;
 use Drupal\neo_alchemist\ComponentValueGroupPluginManager;
 use Drupal\neo_icon\IconTrait;
+use Drupal\user\PermissionHandlerInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
@@ -56,6 +57,18 @@ final class ComponentManageForm extends EntityForm {
   protected $componentValueGroupManager;
 
   /**
+   * The permission handler.
+   *
+   * Not `private readonly`: a form object is serialized into the form cache,
+   * and DependencySerializationTrait::__sleep() swaps services for their IDs
+   * using get_object_vars() from FormBase's scope, which cannot see a private
+   * property declared in a subclass.
+   *
+   * @var \Drupal\user\PermissionHandlerInterface
+   */
+  protected $permissionHandler;
+
+  /**
    * {@inheritdoc}
    */
   public static function create(ContainerInterface $container) {
@@ -63,7 +76,8 @@ final class ComponentManageForm extends EntityForm {
       $container->get('entity_type.bundle.info'),
       $container->get('entity_type.manager'),
       $container->get('plugin.manager.neo_component_size'),
-      $container->get('plugin.manager.neo_component_value_group')
+      $container->get('plugin.manager.neo_component_value_group'),
+      $container->get('user.permissions')
     );
   }
 
@@ -78,12 +92,15 @@ final class ComponentManageForm extends EntityForm {
    *   The component value size plugin manager.
    * @param \Drupal\neo_alchemist\ComponentValueGroupPluginManager $component_value_group_manager
    *   The component value group plugin manager.
+   * @param \Drupal\user\PermissionHandlerInterface $permission_handler
+   *   The permission handler.
    */
-  public function __construct(EntityTypeBundleInfoInterface $entity_type_bundle_info, EntityTypeManagerInterface $entity_type_manager, ComponentSizePluginManager $component_value_size_manager, ComponentValueGroupPluginManager $component_value_group_manager) {
+  public function __construct(EntityTypeBundleInfoInterface $entity_type_bundle_info, EntityTypeManagerInterface $entity_type_manager, ComponentSizePluginManager $component_value_size_manager, ComponentValueGroupPluginManager $component_value_group_manager, PermissionHandlerInterface $permission_handler) {
     $this->entityTypeBundleInfo = $entity_type_bundle_info;
     $this->entityTypeManager = $entity_type_manager;
     $this->componentValueSizeManager = $component_value_size_manager;
     $this->componentValueGroupManager = $component_value_group_manager;
+    $this->permissionHandler = $permission_handler;
   }
 
   /**
@@ -188,7 +205,7 @@ final class ComponentManageForm extends EntityForm {
       }
     }
 
-    $permissions = \Drupal::service('user.permissions')->getPermissions();
+    $permissions = $this->permissionHandler->getPermissions();
     $permissions_by_provider = [];
     foreach ($permissions as $permission_name => $permission) {
       $permissions_by_provider[$permission['provider']][$permission_name] = $permission['title'];

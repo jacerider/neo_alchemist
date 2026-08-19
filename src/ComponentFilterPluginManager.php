@@ -4,16 +4,14 @@ declare(strict_types=1);
 
 namespace Drupal\neo_alchemist;
 
-use Drupal\Component\Plugin\Factory\DefaultFactory;
 use Drupal\Core\Cache\CacheBackendInterface;
 use Drupal\Core\Extension\ModuleHandlerInterface;
-use Drupal\Core\Plugin\DefaultPluginManager;
 use Drupal\neo_alchemist\Attribute\ComponentFilter;
 
 /**
  * ComponentFilter plugin manager.
  */
-final class ComponentFilterPluginManager extends DefaultPluginManager {
+final class ComponentFilterPluginManager extends ConfiguredPluginManagerBase {
 
   /**
    * Constructs the object.
@@ -27,22 +25,22 @@ final class ComponentFilterPluginManager extends DefaultPluginManager {
   /**
    * {@inheritdoc}
    */
-  public function createInstance($plugin_id, array $configuration = []) {
-    $plugin_definition = $this->getDefinition($plugin_id);
-    $plugin_class = DefaultFactory::getPluginClass($plugin_id, $plugin_definition);
+  protected function ownerKey(): string {
+    return 'filter';
+  }
 
-    assert($configuration['filter'] instanceof ComponentFilterInterface);
+  /**
+   * {@inheritdoc}
+   */
+  protected function ownerInterface(): string {
+    return ComponentFilterInterface::class;
+  }
 
-    $configuration += [
-      'settings' => [],
-    ];
-
-    // If the plugin provides a factory method, pass the container to it.
-    if (is_subclass_of($plugin_class, 'Drupal\Core\Plugin\ContainerFactoryPluginInterface')) {
-      return $plugin_class::create(\Drupal::getContainer(), $configuration, $plugin_id, $plugin_definition);
-    }
-
-    return new $plugin_class($plugin_id, $plugin_definition, $configuration['filter'], $configuration['settings']);
+  /**
+   * {@inheritdoc}
+   */
+  protected function newInstance(string $class, string $plugin_id, $plugin_definition, array $configuration): object {
+    return new $class($plugin_id, $plugin_definition, $configuration['filter'], $configuration['settings']);
   }
 
 }

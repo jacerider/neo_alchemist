@@ -187,6 +187,36 @@ Supporting managers: `plugin.manager.neo_component_group`, `…_value_group`, `�
 [src/Attribute/](src/Attribute/) and (for slot/filter/access) a small factory service
 (`neo_component.slot.factory`, `.filter.factory`, `.access.factory`).
 
+### Configured plugins: slot, filter and access are one kind of thing
+
+Those three families are the same shape — a plugin picked from a list, configured, and stored
+on a `neo_component` under a uuid — and used to own that shape three times over.
+
+- [ConfiguredPluginInterface](src/ConfiguredPluginInterface.php) is what such a plugin answers
+  to: `label()`, `settingsSummary()`, and the static `isApplicable(ComponentInterface)` that
+  decides whether it is offered at all.
+- [ConfiguredPluginManagerBase](src/ConfiguredPluginManagerBase.php) owns instantiation (each
+  family supplies only its constructor call) and `getFilteredDefinitionsFromComponent()`, the
+  narrowing every add picker is built from. That method existed on the slot manager, was
+  copied to the access manager, and was **missing from the filter manager** — so the filter
+  form listed every definition and a site builder could configure a filter that does nothing.
+  Owning it here is what stops a fourth family shipping without it.
+- [ConfiguredPluginWrapperInterface](src/ConfiguredPluginWrapperInterface.php) is the stored
+  pair — uuid, plugin id, settings — that `ComponentAccess` and `ComponentFilter` both are,
+  with [ConfiguredPluginWrapperTrait](src/ConfiguredPluginWrapperTrait.php) supplying the
+  memoisation rule.
+- [ConfiguredPluginKindInterface](src/ConfiguredPlugin/ConfiguredPluginKindInterface.php)
+  declares what differs between access and filter — the manager, the entity accessors, the
+  form mode, the label, and any fields the family carries of its own. One controller
+  (`ComponentConfiguredPluginController`) and one form (`ComponentConfiguredPluginForm`)
+  serve both, replacing four controllers and two forms. Filter's extra fields (title,
+  description, default value, editable, required) come from `FilterKind::buildForm()`.
+
+**Adding a third kind** is an implementation of `ConfiguredPluginKindInterface`, a service, and
+two route entries carrying `neo_kind` — not four near-identical classes. Slot is a candidate:
+its manager already shares the base, but its form is a staged list rather than a single-item
+add/edit screen, and its Twig-key column is genuinely its own.
+
 ### ComponentValue processing model
 
 A prop's value is built by running its enabled ComponentValue plugins across phases:
@@ -219,19 +249,33 @@ orders plugins by the group's own `weight` (`providers` -5 → `fallback` -3 →
 draggable list), followed by the remaining available plugins in definition order (plugin
 `weight`, then label).
 
-**The prop form** (`ComponentPropForm`) is a list↔edit state machine in the mold of
-`ComponentSlotForm`: one vertical tab per plugin-bearing shape (the prop, then each expanded
-child), the four value groups stacked inside as badged sections, and — for multi-plugin groups —
-only the ACTIVE plugins listed as summary rows (`settingsSummary()` + the processing-mode badge)
-with an *Add provider* select for the rest; one plugin's settings form is open at a time.
-Single-plugin groups (`fallback`'s `default`, `settings`' `widget`) stay inline. All mutations
-run through `validateForm()` and are staged on the form object's own (cached, unsaved) entity via
-`setPropShapeSettings()` — nothing persists until Save, and a status message says so once the
-staged settings diverge. One sharp edge lives in the limited-validation detection:
-`Button::getInfo()` defaults `#limit_validation_errors` to FALSE, so "is this a limited
-submission" must test for an *array* — a presence check classifies every button (Update and Save
-included) as limited and silently skips the commit path
-(`ComponentPropFormUxTest::testUpdateTriggerCommitsTheOpenPane` pins this). So
+**The prop form** (`ComponentPropForm`) is one of the two adapters of the **staged plugin list
+mold** ([StagedPluginListInterface](src/Form/StagedPluginListInterface.php) +
+[StagedPluginListTrait](src/Form/StagedPluginListTrait.php)); `ComponentSlotForm` is the other.
+The mold is: op state in the form state (`OP_LIST`/`OP_ADD`/`OP_EDIT`/`OP_UPDATE`/`OP_REMOVE`/
+`OP_CANCEL` — named once, on the interface), a draggable summary table, an add-plugin select,
+an edit pane with Update and Cancel, mutation performed inside `validateForm()`, staging on the
+form object's own cached unsaved entity, and an AJAX rebuild. The trait owns the elements, so a
+fix to any of them reaches both forms. What each adapter keeps is how it addresses an item: the
+slot form by uuid (a slot may hold two of the same plugin), the prop form by plugin id within a
+shape × group section (a shape holds each provider at most once, and one form carries many
+sections).
+
+For the prop form that means: one vertical tab per plugin-bearing shape (the prop, then each
+expanded child), the four value groups stacked inside as badged sections, and — for multi-plugin
+groups — only the ACTIVE plugins listed as summary rows (`settingsSummary()` + the
+processing-mode badge) with an *Add provider* select for the rest; one plugin's settings form is
+open at a time. Single-plugin groups (`fallback`'s `default`, `settings`' `widget`) stay inline.
+Nothing persists until Save, and a status message says so once the staged settings diverge.
+
+The sharp edge is the limited-validation detection, and it is owned by
+[LimitedSubmissionTrait](src/Form/LimitedSubmissionTrait.php) — one method, inherited by every
+form that asks. `Button::getInfo()` defaults `#limit_validation_errors` to FALSE, so "is this a
+limited submission" must test for an *array*: a presence check classifies every button (Update
+and Save included) as limited and silently skips the commit path
+(`ComponentPropFormUxTest::testUpdateTriggerCommitsTheOpenPane` and `LimitedSubmissionTest` pin
+this). Nine files in the module set that key; the three that *branch* on it — the prop form, the
+slot form and `ComponentConfiguredPluginForm` — all read it through that one method. So
 re-grouping a plugin *does* move it in the pipeline, and `default` — group `fallback`, weight
 1000 — is guaranteed to run after every provider no matter which one the site builder enabled
 first. Ordering the saved plugins flat instead is what let a `fallback` run ahead of a
@@ -380,19 +424,32 @@ Hybrid mechanics:
   the flag). `ComponentFieldConfig::getCustomRegions()` derives the **anchors**
   (`ownerUuid` → flagged slot ids) from the default tree; `isHybrid()` is the predicate
   used by every gate.
-- **Merge on load** (`NeoComponentTreeList::setValue()`): the entity stores only the
-  anchor sections + their descendant closure + props. Loading composes the merged tree:
-  field default structure, with each anchor slot *present in storage* replacing the
-  default seed children (present-but-empty = explicitly emptied; absent = the anchor
-  postdates the last save, seeds render). Inherited instances always render field
-  default props. The merge is idempotent — stored subsets, in-session merged values and
-  stashed drafts all normalize to the same result.
-- **Strip on save** (`preSave()`/`postSave()`): before storage write the item value is
-  replaced by the storage subset (every flagged slot is always written once the entity
-  is customized), and restored in place after. A pristine (`isDefault()`) entity
-  persists nothing. **Orphan sections** — content whose anchor was removed from the
-  default — are stashed on the list and re-emitted on save (render-inert, restored if a
-  config revert brings the anchor back).
+- **Merge on load** (`ComponentTreeStructure::composeHybrid()`, called from
+  `NeoComponentTreeList::setValue()`): the entity stores only the anchor sections +
+  their descendant closure + props. Loading composes the merged tree: field default
+  structure, with each anchor slot *present in storage* replacing the default seed
+  children (present-but-empty = explicitly emptied; absent = the anchor postdates the
+  last save, seeds render). **Both answers survive into the merged tree**: an emptied
+  flagged slot stays present-and-empty rather than being dropped, because "absent" is
+  already spoken for and a merged value that dropped the key re-seeded the region the
+  next time it was composed. Inherited instances always render field default props. The
+  merge is idempotent — stored subsets, in-session merged values and stashed drafts all
+  normalize to the same result — and `HybridRoundTripTest` enforces that rather than
+  leaving it as a claim.
+- **Strip on save** (`ComponentTreeStructure::extractHybridStorage()`, called from
+  `preSave()`/`postSave()`): before storage write the item value is replaced by the
+  storage subset (every flagged slot is always written once the entity is customized),
+  and restored in place after. Extraction is the inverse of the merge and satisfies
+  tree↔props parity as a postcondition. A pristine (`isDefault()`) entity persists
+  nothing. **Orphan sections** — content whose anchor was removed from the default — are
+  detected by the merge, stashed on the list and re-emitted on save (render-inert,
+  restored if a config revert brings the anchor back).
+- **Which module owns what.** The tree algebra is the seam's (see below); the field list
+  keeps only the Field API lifecycle — *when* to merge, *when* to strip, what to persist
+  on insert versus update, the constructor's default seed, the runtime-value stash
+  across save, and the empty-tree contract that lets a pristine entity persist nothing.
+  Anchor resolution stays on `ComponentFieldConfig` because it has to load component
+  config entities to ask which region props are flagged.
 - **Locking** is ops-driven and server-side only:
   `ComponentInstanceBase::checkHybridAccess()` forbids `update`/`delete`/`clone`/`sort`
   on inherited instances (they get an "Inherited layout" badge) and `create` outside a
@@ -401,6 +458,66 @@ Hybrid mechanics:
   per-op access booleans.
 - Since the rendered tree depends on the field config, `ComponentTreeHydrated`
   adds the field config as a cacheable dependency of every entity render.
+
+### The component tree seam
+
+Every subsystem that touches a layout operates on the same decoded pair —
+`['tree' => …, 'props' => …]`. [ComponentTreeStructure](src/Plugin/DataType/ComponentTreeStructure.php)
+is the one module that knows the shape of it. It is a TypedData class but it is pure
+PHP: no container, no entities, constructible in one line, which is why the whole
+algebra is unit-tested at full speed.
+
+**It owns the pair, not just the tree.** `bindProps()` attaches the props companion, and
+every operation that adds or removes an instance then maintains tree↔props parity as a
+postcondition — no props entry outlives its instance, no instance outlives its entry.
+`ComponentTreeItem` binds on every access. Unbound (config scope, read-only callers,
+unit fixtures) it behaves exactly as it always did. The save-time `LogicException` in
+`ComponentTreeItem::preSave()` is retained as belt-and-braces: reaching it now means a
+caller assembled a value by hand instead of going through the seam.
+
+**Reorder is a permutation, never a deletion.** `reorderComponents()` refills only the
+positions the listed UUIDs occupy and leaves everything else at its own index. Its
+destructive predecessor `sortComponents()` rebuilt the section from the supplied list,
+and its callers built that list from `ComponentTreeItem::toOptions()` — a *labelling*
+helper, which can only offer a row for an instance whose `neo_component` config still
+loads. One "move down" next to a broken component deleted it. `getPlacedUuids()` is the
+sibling reorder callers use; `toOptions()` stays a labelling concern.
+
+**One closure walker.** `expandClosure()` replaced four independent descendant walks.
+The collectors — `collectUuids()`, `collectInstanceUuids()`, `collectInstances()`,
+`collectComponentIds()`, `collectChildTuples()`, `collectAnchorClosure()` — are all
+built on a single private section walk, replacing three verbatim copies of the
+root-versus-slot idiom across two classes.
+
+**The empty-section policy is an argument, never a default.**
+[EmptySectionPolicy](src/EmptySectionPolicy.php) is passed to `removeComponent()` and
+`detachComponents()`:
+
+- `Collapse` — drop an emptied slot and a section left with no slot. What config scope
+  needs: `ComponentTreeStructureConstraintValidator` rejects both, and the config
+  dependency system *deletes* any dependent it cannot fix.
+- `Preserve` — keep an emptied slot as `[]`. What hybrid entity storage needs: that
+  empty slot is the marker saying a creator deliberately emptied the region.
+
+Both readings are individually correct, and the divergence is invisible until the two
+subsystems meet — `drush neo:alchemist:integrity --detach` rewrites entity rows, and a
+hybrid row is a storage subset. Collapsing one leaves `{root: []}`, which the next load
+reads as "never customized" and answers with the site builder's seed components. The
+command therefore picks per row via `isStorageSubset()`, the same discriminant the load
+path branches on.
+
+**Who calls what:**
+
+| Caller | Uses |
+|---|---|
+| `ComponentTreeItem` | the bound instance API — add/reorder/remove/clone |
+| `NeoComponentTreeList` | `composeHybrid()` / `extractHybridStorage()` / `decodeValue()` / `isStorageSubset()` |
+| `ComponentUsage`, `InertComponentData`, `AlchemistBlock` | `collectComponentIds()` |
+| `NeoFieldConfig`, `AlchemistBlock` | `detachComponents(…, Collapse)` |
+| `NeoAlchemistIntegrityCommands` | `detachComponents(…, Preserve|Collapse)` per row |
+| `ComponentFieldConfig::getCustomRegions()` | `collectInstances()` |
+| `ComponentTreeItem::cloneComponentChildren()` | `collectChildTuples()` |
+| `neo_alchemist_update_11006()` | `collectInstanceUuids()` / `isStorageSubset()` |
 
 ### Draft model: detached copies
 
@@ -477,9 +594,24 @@ From [neo_alchemist.services.yml](neo_alchemist.services.yml):
 - **`neo_component_page_renderer`** → `ComponentPageRenderer` — scoped bare-page renderer
   (also aliased to `BareHtmlPageRendererInterface`).
 - **`neo_alchemist.preview_builder`** → `ComponentPreviewBuilder` — transient entity builder.
+- **`neo_alchemist.value_panel_builder`** → `ComponentValuePanelBuilder` — the prop panel both
+  value editors present (styles accordion, values container, per-prop shape forms, the hidden
+  refresh button), and the two DOM ids the editor client matches on.
+- **`neo_alchemist.prop_value_harvester`** → `ComponentPropValueHarvester` — reads a submission
+  back out of that panel and returns the props structure. The instance editor feeds the result
+  to the placed instance's stored values, the SDC preview workspace to its preview overrides;
+  everything before that point is shared.
 - **Plugin managers** — `plugin.manager.neo_component_{prop_def,shape,value,value_group,group,size,slot,filter,filter_options,access}`.
 - **Factories** — `neo_component.{slot,filter,access}.factory`.
+- **Configured-plugin kinds** — `neo_alchemist.configured_plugin_kind.{access,filter}` and the
+  `neo_alchemist.configured_plugin_kinds` repository the shared form and controller resolve
+  one through. See "Configured plugins" below.
 - **Access checkers** (tagged `access_check`) — `neo_alchemist.{entity_access,field_access,neo_field_access,neo_component_access,prop_access,slot_access}_checker`.
+  All six extend [ComponentRouteAccessCheckBase](src/Access/ComponentRouteAccessCheckBase.php),
+  which owns the requirement parse, the parameter resolution, the neutral fallback and — by
+  default — the cacheability. A checker declares its requirement key and segment format and
+  implements one decision method. The requirement formats are tabulated in that class's
+  docblock, so a route author reads the contract rather than the implementation.
 - **Event subscribers** — `neo_alchemist.route_subscriber` (dynamic entity/field routes),
   `neo_alchemist.kernel_subscriber`, and two `NeoBuild*EventSubscriber`s (Tailwind scanning).
 

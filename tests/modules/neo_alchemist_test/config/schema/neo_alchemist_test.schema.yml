@@ -29,3 +29,11 @@ neo_alchemist.neo_component_value.na_mode_first:
     processing_mode:
       type: string
       label: 'Processing mode'
+
+neo_alchemist.neo_component_slot.na_note:
+  type: mapping
+  label: 'Test note slot settings'
+  mapping:
+    note:
+      type: string
+      label: Note

@@ -50,7 +50,7 @@ class InstanceComponentManage extends RenderElementBase {
     assert($neoField instanceof ComponentTreeItem);
     $element['#attached']['library'][] = 'neo_alchemist/components.parent';
     $element['#attached']['drupalSettings']['neoAlchemist']['baseUrl'] = $neoField->toUrl()->toString();
-    $element['#attached']['drupalSettings']['neoAlchemist']['hybrid'] = !$neoField->belongsToFieldConfig() && $neoField->getFieldDefinition()->isHybrid();
+    $element['#attached']['drupalSettings']['neoAlchemist']['hybrid'] = $neoField->isHybridScope();
     $element['#id'] = ComponentManageHelper::getId($neoField);
     $element['#iframe_url'] = $neoField->toUrl('preview');
     $element['#iframe_start'] = [

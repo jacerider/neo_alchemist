@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\Tests\neo_alchemist\Kernel;
 
+use Drupal\Core\Access\AccessResultInterface;
 use Drupal\Core\Routing\RouteMatch;
 use Drupal\Core\Session\AccountInterface;
 use Drupal\field\Entity\FieldConfig;
@@ -106,21 +107,26 @@ class EntityComponentRouteAccessTest extends HybridFieldKernelTestBase {
   }
 
   /**
-   * Runs the entity Layout route's access check for an entity.
+   * Runs the entity Layout route's access check, returning the full result.
    */
-  private function layoutRouteAccess(mixed $entity): bool {
+  private function layoutRouteResult(mixed $entity): AccessResultInterface {
     $route = (new Route('/entity_test/{entity_test}/alchemist'))
       ->setRequirement('_neo_entity_component', 'entity_test.update');
     $routeMatch = new RouteMatch('entity.entity_test.alchemist', $route, ['entity_test' => $entity], ['entity_test' => $entity->id()]);
-    return (new EntityComponentAccessCheck())
-      ->access($route, $routeMatch, $this->editor)
-      ->isAllowed();
+    return (new EntityComponentAccessCheck())->access($route, $routeMatch, $this->editor);
   }
 
   /**
-   * Runs the manage route's access check for one of an entity's tree fields.
+   * Runs the entity Layout route's access check for an entity.
    */
-  private function manageRouteAccess(mixed $entity, string $fieldName): bool {
+  private function layoutRouteAccess(mixed $entity): bool {
+    return $this->layoutRouteResult($entity)->isAllowed();
+  }
+
+  /**
+   * Runs the manage route's access check, returning the full result.
+   */
+  private function manageRouteResult(mixed $entity, string $fieldName): AccessResultInterface {
     $item = $entity->get($fieldName)->first();
     $this->assertInstanceOf(ComponentTreeItem::class, $item, sprintf('Premise: %s resolves to a tree item.', $fieldName));
     $route = (new Route('/entity_test/{entity_test}/alchemist/{neo_field}'))
@@ -129,9 +135,14 @@ class EntityComponentRouteAccessTest extends HybridFieldKernelTestBase {
       'entity_test' => $entity,
       'neo_field' => $item,
     ], ['entity_test' => $entity->id(), 'neo_field' => $fieldName]);
-    return (new ComponentFieldAccessCheck())
-      ->access($route, $routeMatch, $this->editor)
-      ->isAllowed();
+    return (new ComponentFieldAccessCheck())->access($route, $routeMatch, $this->editor);
+  }
+
+  /**
+   * Runs the manage route's access check for one of an entity's tree fields.
+   */
+  private function manageRouteAccess(mixed $entity, string $fieldName): bool {
+    return $this->manageRouteResult($entity, $fieldName)->isAllowed();
   }
 
   /**
@@ -212,6 +223,49 @@ class EntityComponentRouteAccessTest extends HybridFieldKernelTestBase {
     $routeMatch = new RouteMatch('entity.entity_test.field_ui.alchemist.manage', $route, ['neo_field' => $item], ['neo_field' => self::LOCKED_FIELD]);
     $result = (new ComponentFieldAccessCheck())->access($route, $routeMatch, $this->editor);
     $this->assertFalse($result->isForbidden(), 'The shared layout editor is not closed by the per-entity narrowing.');
+    $this->assertContains(
+      'config:field.field.entity_test.entity_test.' . self::LOCKED_FIELD,
+      $result->getCacheTags(),
+      'In the field-config scope the decision is about the field, so that is what invalidates it.'
+    );
+  }
+
+  /**
+   * Both checkers attach the entity their decision was made from.
+   *
+   * Neither used to, beyond one forbidden branch — so the results varied by
+   * nothing and were invalidated by nothing. Which fields apply is
+   * entity-specific (the alter hook), so both outcomes have to be
+   * re-evaluated when the entity changes. Asserted on an allowed AND a denied
+   * result, since it is the denial that used to be cached forever.
+   */
+  public function testBothCheckersAttachTheEntity(): void {
+    $entity = $this->createTestEntity();
+    $this->assertFieldIsHybrid($entity);
+    $tag = 'entity_test:' . $entity->id();
+
+    $this->assertContains($tag, $this->layoutRouteResult($entity)->getCacheTags());
+    $this->assertContains($tag, $this->manageRouteResult($entity, static::FIELD_NAME)->getCacheTags());
+    $this->assertContains($tag, $this->manageRouteResult($entity, self::LOCKED_FIELD)->getCacheTags(), 'A refusal is re-evaluated too.');
+
+    TestEntityComponentFieldsAlter::$keep = [self::LOCKED_FIELD];
+    $this->assertContains($tag, $this->layoutRouteResult($entity)->getCacheTags(), 'A closed Layout route is re-evaluated too.');
+  }
+
+  /**
+   * Nothing here becomes uncacheable.
+   *
+   * Attaching a dependency that is not itself cacheable would drop the result
+   * to max-age 0 — the failure mode the base guards against by ignoring
+   * anything that is not a CacheableDependencyInterface. A tree field item is
+   * exactly such a thing, which is why the field checker names its entity
+   * instead.
+   */
+  public function testNoResultBecomesUncacheable(): void {
+    $entity = $this->createTestEntity();
+
+    $this->assertNotSame(0, $this->layoutRouteResult($entity)->getCacheMaxAge());
+    $this->assertNotSame(0, $this->manageRouteResult($entity, static::FIELD_NAME)->getCacheMaxAge());
   }
 
 }

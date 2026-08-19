@@ -9,6 +9,7 @@ use Drupal\Core\Controller\ControllerBase;
 use Drupal\Core\Render\BareHtmlPageRendererInterface;
 use Drupal\neo_alchemist\ComponentPreviewBuilder;
 use Symfony\Component\DependencyInjection\ContainerInterface;
+use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 /**
@@ -38,7 +39,7 @@ final class SdcPreviewController extends ControllerBase {
   /**
    * Builds the response.
    */
-  public function __invoke(string $component) {
+  public function __invoke(Request $request, string $component) {
     $entity = $this->previewBuilder->build($component);
     if (!$entity) {
       throw new NotFoundHttpException();
@@ -66,7 +67,7 @@ final class SdcPreviewController extends ControllerBase {
       $build['component_below'] = $below->toRenderable();
     }
 
-    $size = \Drupal::request()->query->get('size');
+    $size = $request->query->get('size');
     if ($size === 'desktop') {
       neo_alchemist_attach_screenshot($build);
     }

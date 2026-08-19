@@ -25,9 +25,11 @@ use Drupal\neo_alchemist\Plugin\DataType\ComponentTreeStructure;
  * - default layouts: a field config's "settings.defaults.tree".
  * - Alchemist blocks: the neo_alchemist_block config entity's tree.
  *
- * Component ids appear verbatim as "component" keys at every level of a tree,
- * regardless of which storage holds it, so one recursive collector covers all
- * three.
+ * Component ids appear verbatim as "component" keys in a tree's tuples,
+ * regardless of which storage holds it, so one collector on the tree seam
+ * covers all three.
+ *
+ * @see \Drupal\neo_alchemist\Plugin\DataType\ComponentTreeStructure::collectComponentIds()
  */
 final class ComponentUsage {
 
@@ -69,39 +71,6 @@ final class ComponentUsage {
   ) {}
 
   /**
-   * Collects the neo_component config entity ids used in a component tree.
-   *
-   * The tree structure is a map of parent uuid => (slot name =>) list of
-   * ["uuid", "component"] tuples, so the depth varies. Recurse until a
-   * "component" key is found.
-   *
-   * @param array $tree
-   *   A component tree structure.
-   *
-   * @return string[]
-   *   The unique component config entity ids.
-   *
-   * @see \Drupal\neo_alchemist\Plugin\DataType\ComponentTreeStructure
-   */
-  public static function extractComponentIds(array $tree): array {
-    $componentIds = [];
-    $collect = function (array $items) use (&$collect, &$componentIds): void {
-      foreach ($items as $item) {
-        if (is_array($item)) {
-          if (isset($item['component']) && is_string($item['component'])) {
-            $componentIds[$item['component']] = $item['component'];
-          }
-          else {
-            $collect($item);
-          }
-        }
-      }
-    };
-    $collect($tree);
-    return array_values($componentIds);
-  }
-
-  /**
    * Extracts component ids from an onDependencyRemoval() dependency list.
    *
    * @param array $dependencies
@@ -119,127 +88,6 @@ final class ComponentUsage {
       }
     }
     return $componentIds;
-  }
-
-  /**
-   * Removes every instance of the given components from a tree/props pair.
-   *
-   * Used when a component is deleted, so its hosts are *updated* rather than
-   * deleted by the config dependency system. The result must still satisfy
-   * ComponentTreeStructureConstraintValidator, which means:
-   * - the root uuid key stays even when it ends up empty;
-   * - slots left with no instances are omitted, not left as empty arrays;
-   * - subtrees left with no populated slot are omitted;
-   * - no subtree may be keyed by an instance that no longer exists, so a
-   *   removed instance takes its whole descendant subtree with it.
-   *
-   * @param array $values
-   *   The component values, with 'tree' and optionally 'props' keys.
-   * @param string[] $componentIds
-   *   The component config entity ids to remove.
-   *
-   * @return array
-   *   The updated component values.
-   *
-   * @see \Drupal\neo_alchemist\Plugin\Validation\Constraint\ComponentTreeStructureConstraintValidator
-   */
-  public static function detachComponents(array $values, array $componentIds): array {
-    $tree = $values['tree'] ?? [];
-    if (!$tree || !$componentIds) {
-      return $values;
-    }
-    $remove = array_flip($componentIds);
-
-    // Every instance uuid rendered by one of the removed components.
-    $doomed = [];
-    $findDoomed = function (array $items) use (&$findDoomed, &$doomed, $remove): void {
-      foreach ($items as $item) {
-        if (!is_array($item)) {
-          continue;
-        }
-        if (isset($item['component']) && is_string($item['component'])) {
-          if (isset($remove[$item['component']]) && isset($item['uuid'])) {
-            $doomed[$item['uuid']] = $item['uuid'];
-          }
-        }
-        else {
-          $findDoomed($item);
-        }
-      }
-    };
-    $findDoomed($tree);
-    if (!$doomed) {
-      return $values;
-    }
-
-    // Anything nested inside a doomed instance goes with it, transitively —
-    // otherwise its subtree would be left dangling.
-    $childUuids = function (array $items) use (&$childUuids): array {
-      $uuids = [];
-      foreach ($items as $item) {
-        if (!is_array($item)) {
-          continue;
-        }
-        if (isset($item['uuid']) && is_string($item['uuid'])) {
-          $uuids[] = $item['uuid'];
-        }
-        else {
-          $uuids = array_merge($uuids, $childUuids($item));
-        }
-      }
-      return $uuids;
-    };
-    $queue = array_values($doomed);
-    while ($queue) {
-      $uuid = array_pop($queue);
-      foreach ($childUuids($tree[$uuid] ?? []) as $child) {
-        if (!isset($doomed[$child])) {
-          $doomed[$child] = $child;
-          $queue[] = $child;
-        }
-      }
-    }
-
-    // Drop the subtrees owned by removed instances, then the tuples themselves
-    // wherever they sit, collapsing anything left empty on the way back up.
-    $tree = array_diff_key($tree, $doomed);
-    $prune = function (array $items) use (&$prune, $doomed): array {
-      $kept = [];
-      foreach ($items as $key => $item) {
-        if (!is_array($item)) {
-          $kept[$key] = $item;
-          continue;
-        }
-        if (isset($item['uuid']) && is_string($item['uuid'])) {
-          if (!isset($doomed[$item['uuid']])) {
-            $kept[$key] = $item;
-          }
-          continue;
-        }
-        if ($child = $prune($item)) {
-          $kept[$key] = $child;
-        }
-      }
-      // Tuple lists must stay JSON arrays, so re-index after removals.
-      return array_is_list($items) ? array_values($kept) : $kept;
-    };
-    foreach ($tree as $parentUuid => $subtree) {
-      $pruned = $prune($subtree);
-      // The root is required even when empty; every other subtree must be
-      // omitted once it has no populated slot left.
-      if ($pruned || $parentUuid === ComponentTreeStructure::ROOT_UUID) {
-        $tree[$parentUuid] = $pruned;
-      }
-      else {
-        unset($tree[$parentUuid]);
-      }
-    }
-
-    $values['tree'] = $tree;
-    if (!empty($values['props'])) {
-      $values['props'] = array_diff_key($values['props'], $doomed);
-    }
-    return $values;
   }
 
   /**
@@ -421,7 +269,7 @@ final class ComponentUsage {
           }
           $byEntity[$record->entity_id] = array_unique(array_merge(
             $byEntity[$record->entity_id] ?? [],
-            self::extractComponentIds($tree)
+            ComponentTreeStructure::collectComponentIds($tree)
           ));
         }
         if (!$byEntity) {
@@ -476,7 +324,7 @@ final class ComponentUsage {
       if (!is_array($tree) || !$tree) {
         continue;
       }
-      $componentIds = self::extractComponentIds($tree);
+      $componentIds = ComponentTreeStructure::collectComponentIds($tree);
       if (!$componentIds) {
         continue;
       }
@@ -506,7 +354,7 @@ final class ComponentUsage {
     $usages = [];
     /** @var \Drupal\neo_alchemist_block\AlchemistBlockInterface $block */
     foreach ($this->entityTypeManager->getStorage('neo_alchemist_block')->loadMultiple() as $block) {
-      $componentIds = self::extractComponentIds($block->getComponentValues()['tree'] ?? []);
+      $componentIds = ComponentTreeStructure::collectComponentIds($block->getComponentValues()['tree'] ?? []);
       if (!$componentIds) {
         continue;
       }

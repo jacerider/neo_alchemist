@@ -24,6 +24,7 @@ use Drupal\Core\Url;
 use Drupal\neo_alchemist\ComponentInstanceInterface;
 use Drupal\neo_alchemist\ComponentInterface;
 use Drupal\neo_alchemist\ComponentSizesInterface;
+use Drupal\neo_alchemist\EmptySectionPolicy;
 use Drupal\neo_alchemist\Entity\Component;
 use Drupal\neo_alchemist\Entity\ComponentFieldConfig;
 use Drupal\neo_alchemist\Plugin\DataType\ComponentPropsValues;
@@ -88,6 +89,29 @@ class ComponentTreeItem extends FieldItemBase implements RenderableInterface, Co
    * @var \Drupal\neo_alchemist\ComponentInterface[]
    */
   protected array $components = [];
+
+  /**
+   * Entity-owned instance UUIDs as a set, memoised per tree value.
+   *
+   * @var array|null
+   *
+   * @see self::getEntityOwnedUuidSet()
+   */
+  protected ?array $entityOwnedUuids = NULL;
+
+  /**
+   * The raw tree JSON the ownership memo was computed from.
+   *
+   * @var string|null
+   */
+  protected ?string $entityOwnedUuidsFor = NULL;
+
+  /**
+   * The custom-region anchors the ownership memo was computed from.
+   *
+   * @var array|null
+   */
+  protected ?array $entityOwnedUuidsAnchors = NULL;
 
   /**
    * {@inheritdoc}
@@ -404,11 +428,79 @@ class ComponentTreeItem extends FieldItemBase implements RenderableInterface, Co
   }
 
   /**
+   * The component tree structure, paired with its props companion.
+   *
+   * Binding the pair is what makes tree↔props parity a postcondition of every
+   * operation that removes an instance, rather than a rule each call site has
+   * to remember. The properties are memoised by Map::get(), so binding on
+   * every access costs nothing.
+   *
+   * @return \Drupal\neo_alchemist\Plugin\DataType\ComponentTreeStructure
+   *   The bound tree structure.
+   */
+  protected function getTreeStructure(): ComponentTreeStructure {
+    $tree = $this->get('tree');
+    assert($tree instanceof ComponentTreeStructure);
+    $props = $this->get('props');
+    assert($props instanceof ComponentPropsValues);
+    return $tree->bindProps($props);
+  }
+
+  /**
+   * Reads one section's "uuid,component" tuples.
+   *
+   * @param string|null $parentUuid
+   *   The UUID of the parent component. Defaults to the root UUID.
+   * @param string|null $slot
+   *   The slot within the parent component.
+   *
+   * @return array
+   *   The tuples placed in that section.
+   *
+   * @throws \InvalidArgumentException
+   *   Thrown when addressing a non-root parent without naming a slot.
+   */
+  protected function getSectionTuples(?string $parentUuid, ?string $slot): array {
+    if ($parentUuid !== ComponentTreeStructure::ROOT_UUID && $slot === NULL) {
+      throw new \InvalidArgumentException('When addressing a non-root parent, a slot is required.');
+    }
+    if (empty($parentUuid)) {
+      $parentUuid = ComponentTreeStructure::ROOT_UUID;
+    }
+    return $this->getTreeStructure()->getComponentsBySection($parentUuid, $slot);
+  }
+
+  /**
+   * Lists every instance placed in a section, resolvable or not.
+   *
+   * The sibling of ::toOptions(), and the one reorder callers want.
+   * ::toOptions() is a labelling concern: it can only offer a row for an
+   * instance whose `neo_component` config still loads, so it necessarily
+   * omits broken ones. Using it as the source of ordering made a
+   * presentation-layer decision into a data change.
+   *
+   * @param string|null $parentUuid
+   *   The UUID of the parent component. Defaults to the root UUID.
+   * @param string|null $slot
+   *   The slot within the parent component.
+   *
+   * @return string[]
+   *   The placed component instance UUIDs, in section order.
+   */
+  public function getPlacedUuids(?string $parentUuid = ComponentTreeStructure::ROOT_UUID, ?string $slot = NULL): array {
+    return array_column($this->getSectionTuples($parentUuid, $slot), 'uuid');
+  }
+
+  /**
    * Generates an array of options for a given parent UUID.
    *
    * This method retrieves the component tree structure and iterates through the
    * components associated with the specified parent UUID. It loads each
    * component and adds its label to the options array.
+   *
+   * Instances whose component config no longer loads have no label and are
+   * therefore absent from the result. That makes this a labelling helper and
+   * nothing more — use ::getPlacedUuids() when the question is what is placed.
    *
    * @param string|null $parentUuid
    *   The UUID of the parent component. Defaults to the root UUID.
@@ -421,16 +513,8 @@ class ComponentTreeItem extends FieldItemBase implements RenderableInterface, Co
    *   are component labels.
    */
   public function toOptions(?string $parentUuid = ComponentTreeStructure::ROOT_UUID, ?string $slot = NULL) {
-    if ($parentUuid !== ComponentTreeStructure::ROOT_UUID && $slot === NULL) {
-      throw new \InvalidArgumentException('When sorting on a non-root parent, a slot is required.');
-    }
-    if (empty($parentUuid)) {
-      $parentUuid = ComponentTreeStructure::ROOT_UUID;
-    }
     $options = [];
-    $tree = $this->get('tree');
-    assert($tree instanceof ComponentTreeStructure);
-    foreach ($tree->getComponentsBySection($parentUuid, $slot) as $key => $data) {
+    foreach ($this->getSectionTuples($parentUuid, $slot) as $data) {
       $instance = $this->getComponent($data['uuid']);
       if ($instance) {
         $options[$data['uuid']] = $instance->label();
@@ -509,8 +593,7 @@ class ComponentTreeItem extends FieldItemBase implements RenderableInterface, Co
    *   The current instance of the component tree item.
    */
   public function cloneComponent(ComponentInstanceInterface $component): ComponentInstanceInterface {
-    $tree = $this->get('tree');
-    assert($tree instanceof ComponentTreeStructure);
+    $tree = $this->getTreeStructure();
     $parentUuid = $component->getParentUuid();
     $slot = $component->getParentSlot();
     $cloned = $this->createComponent($component, $parentUuid, $slot);
@@ -524,8 +607,7 @@ class ComponentTreeItem extends FieldItemBase implements RenderableInterface, Co
     // slot the source happens to SIT IN) is what keeps each child in its own
     // slot — the old lookup threw whenever the two slot names differed and
     // only ever cloned one level, silently dropping grandchildren.
-    $treeData = Json::decode($tree->getValue() ?? '') ?: [];
-    $this->cloneComponentChildren($treeData, $component->uuid(), $cloned->uuid());
+    $this->cloneComponentChildren($tree->getTree(), $component->uuid(), $cloned->uuid());
 
     return $cloned;
   }
@@ -541,15 +623,15 @@ class ComponentTreeItem extends FieldItemBase implements RenderableInterface, Co
    *   The uuid of the freshly cloned parent receiving the copies.
    */
   protected function cloneComponentChildren(array $treeData, string $sourceUuid, string $targetUuid): void {
-    foreach ((array) ($treeData[$sourceUuid] ?? []) as $slotName => $tuples) {
-      foreach ((array) $tuples as $tuple) {
-        $childUuid = $tuple['uuid'] ?? NULL;
-        $child = $childUuid ? $this->getComponent($childUuid) : NULL;
+    foreach (ComponentTreeStructure::collectChildTuples($treeData, $sourceUuid) as $slotName => $tuples) {
+      foreach ($tuples as $tuple) {
+        $childUuid = $tuple['uuid'];
+        $child = $this->getComponent($childUuid);
         if (!$child) {
           continue;
         }
-        $clonedChild = $this->createComponent($child, $targetUuid, (string) $slotName);
-        $this->addComponent($clonedChild->uuid(), $clonedChild->id(), $child->getValues(), $targetUuid, (string) $slotName);
+        $clonedChild = $this->createComponent($child, $targetUuid, $slotName);
+        $this->addComponent($clonedChild->uuid(), $clonedChild->id(), $child->getValues(), $targetUuid, $slotName);
         $this->cloneComponentChildren($treeData, $childUuid, $clonedChild->uuid());
       }
     }
@@ -572,12 +654,7 @@ class ComponentTreeItem extends FieldItemBase implements RenderableInterface, Co
    * @return $this
    */
   public function addComponent(string $uuid, string $neoComponentId, array $propValues = [], string $parentUuid = ComponentTreeStructure::ROOT_UUID, $slot = NULL): self {
-    $tree = $this->get('tree');
-    assert($tree instanceof ComponentTreeStructure);
-    $props = $this->get('props');
-    assert($props instanceof ComponentPropsValues);
-    $tree->addComponent($uuid, $neoComponentId, $parentUuid, $slot);
-    $props->setComponent($uuid, $propValues);
+    $this->getTreeStructure()->addComponent($uuid, $neoComponentId, $parentUuid, $slot, $propValues);
     return $this;
   }
 
@@ -593,8 +670,7 @@ class ComponentTreeItem extends FieldItemBase implements RenderableInterface, Co
   public function getComponent(string $uuid): ?ComponentInstanceInterface {
     $key = $uuid . ':' . $this->getParent()->getScope();
     if (!isset($this->components[$key])) {
-      $tree = $this->get('tree');
-      assert($tree instanceof ComponentTreeStructure);
+      $tree = $this->getTreeStructure();
       $props = $this->get('props');
       assert($props instanceof ComponentPropsValues);
       $id = $tree->getComponentId($uuid);
@@ -627,9 +703,7 @@ class ComponentTreeItem extends FieldItemBase implements RenderableInterface, Co
    */
   public function getComponents(string $parentUuid = ComponentTreeStructure::ROOT_UUID): array {
     $components = [];
-    $tree = $this->get('tree');
-    assert($tree instanceof ComponentTreeStructure);
-    foreach ($tree->getComponentsBySection($parentUuid) as $data) {
+    foreach ($this->getTreeStructure()->getComponentsBySection($parentUuid) as $data) {
       if ($component = $this->getComponent($data['uuid'])) {
         $components[$data['uuid']] = $component;
       }
@@ -647,29 +721,32 @@ class ComponentTreeItem extends FieldItemBase implements RenderableInterface, Co
    *   TRUE if the component exists in the tree, FALSE otherwise.
    */
   public function hasComponent(string $uuid): bool {
-    $tree = $this->get('tree');
-    assert($tree instanceof ComponentTreeStructure);
-    return in_array($uuid, $tree->getComponentInstanceUuids());
+    return in_array($uuid, $this->getTreeStructure()->getComponentInstanceUuids());
   }
 
   /**
-   * Sorts the components within the tree structure.
+   * Reorders the components within a section of the tree structure.
+   *
+   * Permutes only the UUIDs it is given; anything else placed in the section
+   * keeps its position. Replaces the destructive `sortComponents()`, which
+   * rebuilt the section from the supplied list and so could delete an
+   * instance the caller merely failed to mention.
    *
    * @param array $componentInstanceIds
-   *   An array of component instance UUIDs to be sorted.
+   *   The component instance UUIDs to permute, in their new relative order.
    * @param string $parentUuid
    *   (optional) The UUID of the parent component. Defaults to the root UUID.
    * @param mixed $slot
    *   (optional) The slot within the parent component where the components
-   *   should be sorted.
+   *   should be reordered.
+   *
+   * @see \Drupal\neo_alchemist\Plugin\DataType\ComponentTreeStructure::reorderComponents()
    */
-  public function sortComponents(array $componentInstanceIds, string $parentUuid = ComponentTreeStructure::ROOT_UUID, $slot = NULL): self {
-    $tree = $this->get('tree');
-    assert($tree instanceof ComponentTreeStructure);
+  public function reorderComponents(array $componentInstanceIds, string $parentUuid = ComponentTreeStructure::ROOT_UUID, $slot = NULL): self {
     if (empty($parentUuid)) {
       $parentUuid = ComponentTreeStructure::ROOT_UUID;
     }
-    $tree->sortComponents($componentInstanceIds, $parentUuid, $slot);
+    $this->getTreeStructure()->reorderComponents($componentInstanceIds, $parentUuid, $slot);
     return $this;
   }
 
@@ -692,9 +769,7 @@ class ComponentTreeItem extends FieldItemBase implements RenderableInterface, Co
    *   Returns the current instance for method chaining.
    */
   public function moveComponent(string $uuid, string $positionUuid, string $position = 'after', string $parentUuid = ComponentTreeStructure::ROOT_UUID, $slot = NULL): self {
-    $tree = $this->get('tree');
-    assert($tree instanceof ComponentTreeStructure);
-    $componentInstanceIds = $tree->getComponentInstanceUuids($parentUuid, $slot);
+    $componentInstanceIds = $this->getTreeStructure()->getComponentInstanceUuids($parentUuid, $slot);
     if (in_array($uuid, $componentInstanceIds)) {
       // Remove the UUID from its current position.
       $componentInstanceIds = array_values(array_diff($componentInstanceIds, [$uuid]));
@@ -719,7 +794,7 @@ class ComponentTreeItem extends FieldItemBase implements RenderableInterface, Co
           );
         }
       }
-      $this->sortComponents($componentInstanceIds, $parentUuid, $slot);
+      $this->reorderComponents($componentInstanceIds, $parentUuid, $slot);
     }
     return $this;
   }
@@ -744,24 +819,23 @@ class ComponentTreeItem extends FieldItemBase implements RenderableInterface, Co
   /**
    * Remove a component from the component tree.
    *
+   * The tree owns the pair, so the descendant subtree and every descendant's
+   * prop values go with the instance as a postcondition.
+   *
+   * Preserve is the policy an editing session wants: a creator who empties a
+   * region has made a decision, and hybrid storage reads an empty flagged slot
+   * as exactly that. Collapse belongs to the config-scope paths, where the
+   * structure validator rejects an empty slot outright.
+   *
    * @param string $uuid
    *   The UUID of the component instance.
    *
    * @return $this
+   *
+   * @see \Drupal\neo_alchemist\EmptySectionPolicy
    */
   public function removeComponent(string $uuid): self {
-    $tree = $this->get('tree');
-    assert($tree instanceof ComponentTreeStructure);
-    $props = $this->get('props');
-    assert($props instanceof ComponentPropsValues);
-    // Collect the whole subtree before the tree drops it: props are keyed by
-    // instance UUID with no parent links, so once the sections are gone there
-    // is nothing left to work out which prop values belonged underneath.
-    $removed = $tree->getSubtreeUuids($uuid);
-    $tree->removeComponent($uuid);
-    foreach ($removed as $removedUuid) {
-      $props->removeComponent($removedUuid);
-    }
+    $this->getTreeStructure()->removeComponent($uuid, EmptySectionPolicy::Preserve);
     return $this;
   }
 
@@ -790,8 +864,7 @@ class ComponentTreeItem extends FieldItemBase implements RenderableInterface, Co
    */
   public function saveComponents(): int {
     // Remove non-existing components.
-    $tree = $this->get('tree');
-    assert($tree instanceof ComponentTreeStructure);
+    $tree = $this->getTreeStructure();
 
     foreach ($tree->getComponentInstanceUuids() as $uuid) {
       if (!$this->getComponent($uuid)) {
@@ -819,7 +892,7 @@ class ComponentTreeItem extends FieldItemBase implements RenderableInterface, Co
         // default — its value holds the default layout, which must not be
         // persisted as entity-owned. Everything else syncs the list value
         // (empty after a non-hybrid reset).
-        $empty = $list instanceof NeoComponentTreeList && $list->isHybridScope() && $list->isDefault();
+        $empty = $this->isHybridScope() && $this->isDefault();
         $entity->set($fieldName, $empty ? NULL : $list->getValue(), FALSE);
       }
       if ($entity instanceof EntityChangedInterface) {
@@ -950,7 +1023,7 @@ class ComponentTreeItem extends FieldItemBase implements RenderableInterface, Co
     if ($enforce) {
       if ($draftValue = $this->getDraftValue()) {
         $list = $this->getParent();
-        if ($list instanceof NeoComponentTreeList && $list->isHybridScope()) {
+        if ($this->isHybridScope()) {
           // Normalize the stashed draft against the current field default
           // layout so structural changes made since the draft was stashed
           // (e.g. a header edit or a new footer) are reflected immediately.
@@ -1019,17 +1092,21 @@ class ComponentTreeItem extends FieldItemBase implements RenderableInterface, Co
    * {@inheritdoc}
    */
   public function preSave(): void {
-    $tree = $this->get('tree');
-    assert($tree instanceof ComponentTreeStructure);
+    $tree = $this->getTreeStructure();
     $props = $this->get('props');
     assert($props instanceof ComponentPropsValues);
 
-    // This *internal-only* validation does not need to happen using validation
-    // constraints because it does not validate user input: it only helps ensure
-    // that the logic of this field type is correct.
+    // Belt and braces. Parity is a postcondition of every tree operation that
+    // adds or removes an instance, so reaching this is a bug in a caller that
+    // assembled a value by hand rather than through the seam — which is why it
+    // stays an exception rather than a repair.
+    // @see \Drupal\neo_alchemist\Plugin\DataType\ComponentTreeStructure
     $componentInstanceIds = $tree->getComponentInstanceUuids();
     if (array_intersect($componentInstanceIds, $props->getComponentInstanceUuids()) !== $componentInstanceIds) {
-      throw new \LogicException(sprintf('The component UUIDs in the tree and props values do not match! Put a breakpoint here and figure out why.'));
+      throw new \LogicException(sprintf(
+        'The component UUIDs in the tree and props values do not match. Tree-only UUIDs: %s. This value was assembled without going through ComponentTreeStructure, which maintains the pair.',
+        implode(', ', array_diff($componentInstanceIds, $props->getComponentInstanceUuids())) ?: '(none)',
+      ));
     }
   }
 
@@ -1095,6 +1172,22 @@ class ComponentTreeItem extends FieldItemBase implements RenderableInterface, Co
   }
 
   /**
+   * Checks whether this item is a hybrid field's value on an actual entity.
+   *
+   * The predicate lives on the list, but callers hold an item — which is why
+   * it was hand-rolled as `!belongsToFieldConfig() && …->isHybrid()` in five
+   * places, each of which would fatal on a field definition that is not a
+   * ComponentFieldConfig. Ask instead.
+   *
+   * @return bool
+   *   TRUE when hybrid and entity scope, FALSE otherwise.
+   */
+  public function isHybridScope(): bool {
+    $list = $this->getParent();
+    return $list instanceof NeoComponentTreeList && $list->isHybridScope();
+  }
+
+  /**
    * Gets the UUIDs of the entity-owned component instances (hybrid mode).
    *
    * Entity-owned instances are the components living inside the field's
@@ -1105,12 +1198,40 @@ class ComponentTreeItem extends FieldItemBase implements RenderableInterface, Co
    *   The entity-owned component instance UUIDs.
    */
   public function getEntityOwnedUuids(): array {
+    return array_keys($this->getEntityOwnedUuidSet());
+  }
+
+  /**
+   * The entity-owned UUIDs as a set, memoised per tree value.
+   *
+   * The editor chrome asks several access questions per instance while
+   * rendering a layout, and each one used to re-decode the tree JSON and
+   * re-walk the whole ownership closure. Ownership is a property of the value,
+   * so compute it once per value: the raw JSON is the cache key, which means a
+   * tree written since the last call recomputes without any explicit
+   * invalidation.
+   *
+   * @return array
+   *   TRUE values keyed by entity-owned component instance UUID.
+   */
+  protected function getEntityOwnedUuidSet(): array {
+    // Ownership is a function of both inputs, and the anchors can move
+    // mid-request: a field-scope save rewrites the defaults on the shared,
+    // EntityFieldManager-cached definition and drops its anchor memo. Keying
+    // on the tree alone would keep answering from the layout as it was.
+    $raw = (string) ($this->get('tree')->getValue() ?? '');
     $anchors = $this->getFieldDefinition()->getCustomRegions();
-    if (!$anchors) {
-      return [];
+    if ($this->entityOwnedUuids !== NULL && $this->entityOwnedUuidsFor === $raw && $this->entityOwnedUuidsAnchors === $anchors) {
+      return $this->entityOwnedUuids;
     }
-    $tree = Json::decode($this->get('tree')->getValue() ?? '') ?: [];
-    return NeoComponentTreeList::getSectionClosureUuids($tree, $anchors);
+    $owned = [];
+    if ($anchors) {
+      $tree = Json::decode($raw) ?: [];
+      $owned = array_fill_keys(ComponentTreeStructure::collectAnchorClosure($tree, $anchors), TRUE);
+    }
+    $this->entityOwnedUuidsFor = $raw;
+    $this->entityOwnedUuidsAnchors = $anchors;
+    return $this->entityOwnedUuids = $owned;
   }
 
   /**
@@ -1126,7 +1247,7 @@ class ComponentTreeItem extends FieldItemBase implements RenderableInterface, Co
    *   TRUE when the instance is inherited, FALSE when entity-owned.
    */
   public function isInheritedInstance(string $uuid): bool {
-    return !in_array($uuid, $this->getEntityOwnedUuids(), TRUE);
+    return !isset($this->getEntityOwnedUuidSet()[$uuid]);
   }
 
   /**

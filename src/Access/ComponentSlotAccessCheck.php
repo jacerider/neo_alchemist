@@ -1,48 +1,53 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\neo_alchemist\Access;
 
 use Drupal\Core\Access\AccessResult;
-use Drupal\Core\Routing\Access\AccessInterface;
-use Drupal\Core\Routing\RouteMatchInterface;
+use Drupal\Core\Access\AccessResultInterface;
 use Drupal\Core\Session\AccountInterface;
 use Drupal\neo_alchemist\ComponentInterface;
-use Symfony\Component\Routing\Route;
 
 /**
- * Provides a generic access checker for entities.
+ * Allows a route naming a slot the component actually declares.
+ *
+ * Requirement:
+ * `_neo_component_slot: <component param>.<slot name param>.<operation>`.
+ *
+ * The operation is declared because every route writes one, but this checker
+ * does not read it: a slot the component declares is manageable, and the
+ * component's own access handler decides who may manage it.
  */
-class ComponentSlotAccessCheck implements AccessInterface {
+class ComponentSlotAccessCheck extends ComponentRouteAccessCheckBase {
 
   /**
-   * Checks access to the component slot on the given route.
-   *
-   * @param \Symfony\Component\Routing\Route $route
-   *   The route to check against.
-   * @param \Drupal\Core\Routing\RouteMatchInterface $route_match
-   *   The parametrized route.
-   * @param \Drupal\Core\Session\AccountInterface $account
-   *   The currently logged in account.
-   *
-   * @return \Drupal\Core\Access\AccessResultInterface
-   *   The access result.
-   *
-   * @link https://www.drupal.org/docs/8/api/routing-system/parameters-in-routes
+   * {@inheritdoc}
    */
-  public function access(Route $route, RouteMatchInterface $route_match, AccountInterface $account) {
-    $requirement = $route->getRequirement('_neo_component_slot');
-    [$entity_type, $slot, $op] = explode('.', $requirement);
-    // If $entity_type parameter is a valid entity, call its own access check.
-    $parameters = $route_match->getParameters();
-    if ($parameters->has($entity_type) && $parameters->has($slot)) {
-      $entity = $parameters->get($entity_type);
-      $slot = $parameters->get($slot);
-      if ($entity instanceof ComponentInterface && isset($entity->getComponentSlots()[$slot])) {
-        return AccessResult::allowed();
-      }
+  protected function requirement(): string {
+    return '_neo_component_slot';
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  protected function segments(): array {
+    return [
+      'component' => self::PARAM,
+      'slot' => self::PARAM,
+      'operation' => self::VALUE,
+    ];
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  protected function checkAccess(array $parts, AccountInterface $account): AccessResultInterface {
+    $component = $parts['component'];
+    $slot = $parts['slot'];
+    if ($component instanceof ComponentInterface && is_string($slot) && isset($component->getComponentSlots()[$slot])) {
+      return AccessResult::allowed();
     }
-    // No opinion, so other access checks should decide if access should be
-    // allowed or not.
     return AccessResult::neutral();
   }
 
