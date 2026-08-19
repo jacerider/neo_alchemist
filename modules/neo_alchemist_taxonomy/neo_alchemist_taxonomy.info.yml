@@ -2,7 +2,7 @@ name: 'Neo | Alchemist Taxonomy'
 type: module
 description: 'Renders a different Alchemist component tree per taxonomy term hierarchy level.'
 package: Neo
-version: 1.0.129
+version: 1.0.130
 core_version_requirement: ^10.3 || ^11
 neo: true
 dependencies:
