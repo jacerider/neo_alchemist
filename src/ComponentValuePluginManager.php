@@ -9,6 +9,7 @@ use Drupal\Component\Utility\SortArray;
 use Drupal\Core\Cache\CacheBackendInterface;
 use Drupal\Core\Extension\ModuleHandlerInterface;
 use Drupal\Core\Plugin\DefaultPluginManager;
+use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\neo_alchemist\Attribute\ComponentValue;
 
 /**
@@ -37,7 +38,7 @@ final class ComponentValuePluginManager extends DefaultPluginManager implements 
    * {@inheritDoc}
    */
   public function label() {
-    return t('NOT NEEDED');
+    return new TranslatableMarkup('NOT NEEDED');
   }
 
   /**
@@ -66,6 +67,15 @@ final class ComponentValuePluginManager extends DefaultPluginManager implements 
 
     // If the plugin provides a factory method, pass the container to it.
     if (is_subclass_of($plugin_class, 'Drupal\Core\Plugin\ContainerFactoryPluginInterface')) {
+      // A plugin factory is the one place a container legitimately belongs,
+      // and these managers cannot delegate to ContainerFactory: each family's
+      // plugins take a bespoke constructor (a shape, an access rule, a slot,
+      // a filter) that DefaultFactory cannot produce. Core makes exactly this
+      // call for exactly this reason; injecting the container as a service
+      // instead would be a service locator, and a worse one.
+      //
+      // @see \Drupal\Core\Plugin\Factory\ContainerFactory::createInstance()
+      // phpcs:ignore DrupalPractice.Objects.GlobalDrupal.GlobalDrupal
       return $plugin_class::create(\Drupal::getContainer(), $configuration, $plugin_id, $plugin_definition);
     }
 

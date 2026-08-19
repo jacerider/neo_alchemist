@@ -10,6 +10,7 @@ use Drupal\Core\Form\FormStateInterface;
 use Drupal\neo_alchemist\Ajax\InstanceComponentManageIframeCommand;
 use Drupal\neo_alchemist\ComponentManageHelper;
 use Drupal\neo_icon\IconTrait;
+use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
  * Lets a developer render neighbor components in the SDC preview workspace.
@@ -32,6 +33,28 @@ final class SdcPreviewContextForm extends EntityForm {
    * @var \Drupal\neo_alchemist\ComponentInterface
    */
   protected $entity;
+
+  /**
+   * The SDC plugin manager.
+   *
+   * Not `private readonly`: a form object is serialized into the form cache,
+   * and DependencySerializationTrait::__sleep() swaps services for their IDs
+   * using get_object_vars() from FormBase's scope, which cannot see a private
+   * property declared in a subclass — the manager would be serialized whole,
+   * dragging its cache backend and discovery into every cached form.
+   *
+   * @var \Drupal\Core\Theme\ComponentPluginManager
+   */
+  protected $sdcPluginManager;
+
+  /**
+   * {@inheritdoc}
+   */
+  public static function create(ContainerInterface $container) {
+    $form = parent::create($container);
+    $form->sdcPluginManager = $container->get('plugin.manager.sdc');
+    return $form;
+  }
 
   /**
    * {@inheritdoc}
@@ -96,9 +119,7 @@ final class SdcPreviewContextForm extends EntityForm {
    */
   protected function getComponentOptions(): array {
     $options = ['' => $this->t('- None -')];
-    /** @var \Drupal\Core\Theme\ComponentPluginManager $manager */
-    $manager = \Drupal::service('plugin.manager.sdc');
-    $definitions = array_filter($manager->getDefinitions(), fn ($definition) => !empty($definition['neo']));
+    $definitions = array_filter($this->sdcPluginManager->getDefinitions(), fn ($definition) => !empty($definition['neo']));
     uasort($definitions, fn ($a, $b) => strnatcasecmp($a['name'] ?? '', $b['name'] ?? ''));
     foreach ($definitions as $id => $definition) {
       $options[$id] = $definition['name'] ?? $id;

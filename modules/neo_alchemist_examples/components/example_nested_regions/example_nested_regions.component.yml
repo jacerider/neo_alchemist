@@ -25,4 +25,3 @@ props:
           title:
             type: string
             title: Title
-

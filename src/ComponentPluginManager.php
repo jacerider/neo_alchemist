@@ -101,7 +101,7 @@ class ComponentPluginManager extends ThemeComponentPluginManager {
    * {@inheritdoc}
    */
   protected function alterDefinitions(&$definitions) {
-    foreach ($definitions as $id => &$definition) {
+    foreach ($definitions as &$definition) {
       if (!empty($definition['props']['properties'])) {
         $definition['props']['properties'] = array_map([$this, 'alterProp'], $definition['props']['properties']);
       }

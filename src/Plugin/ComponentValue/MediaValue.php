@@ -229,7 +229,7 @@ final class MediaValue extends ComponentValuePluginBase implements ContainerFact
         '#markup' => '<div class="description">' . $defaultMessage . '</div>',
       ];
     }
-    if ($shape instanceof ComponentShapeMediaPluginInterface && $shape->getScope() === 'field' && ($mediaType = $this->getImageMediaType())) {
+    if ($shape instanceof ComponentShapeMediaPluginInterface && $shape->getScope() === 'field' && $this->getImageMediaType()) {
       // Config-hosted component values (field default layouts and Alchemist
       // blocks) must travel through config sync, so media entities cannot be
       // referenced. Replace the media library widget with a neo_config_file
@@ -532,7 +532,7 @@ final class MediaValue extends ComponentValuePluginBase implements ContainerFact
    * {@inheritdoc}
    */
   public function onRemove(): void {
-    foreach (array_filter($this->configuration['default']) as $type => $default) {
+    foreach (array_filter($this->configuration['default']) as $default) {
       /** @var \Drupal\neo_config_file\ConfigFileInterface $configFile */
       $configFile = $this->entityTypeManager->getStorage('neo_config_file')->load($default);
       if ($configFile) {

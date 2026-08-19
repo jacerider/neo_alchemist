@@ -394,6 +394,9 @@ final class InstanceComponentForm extends ContentEntityForm {
         // one dialog: a plain href would navigate the whole page and
         // data-neo-modal-close would just close the modal. Mirror the
         // library's own component links so cancel swaps the library back in.
+        // $actions is the local array built at the top of this method; the
+        // sniff does not follow it into this branch.
+        // phpcs:ignore DrupalPractice.CodeAnalysis.VariableAnalysis.UndefinedUnsetVariable
         unset($actions['cancel']['#attributes']['data-neo-modal-close']);
         $actions['cancel']['#attributes']['class'][] = 'use-ajax';
         $actions['cancel']['#attributes']['data-dialog-type'] = 'modal';

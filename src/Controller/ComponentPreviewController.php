@@ -10,6 +10,7 @@ use Drupal\Core\Render\BareHtmlPageRendererInterface;
 use Drupal\Core\Theme\ComponentPluginManager;
 use Drupal\neo_alchemist\ComponentInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
+use Symfony\Component\HttpFoundation\Request;
 
 /**
  * Returns responses for Neo | Alchemist routes.
@@ -37,7 +38,7 @@ final class ComponentPreviewController extends ControllerBase {
   /**
    * Builds the response.
    */
-  public function __invoke(ComponentInterface $neo_component) {
+  public function __invoke(Request $request, ComponentInterface $neo_component) {
     $build = [
       '#theme' => 'neo_alchemist_component_preview',
       '#attached' => [
@@ -47,7 +48,7 @@ final class ComponentPreviewController extends ControllerBase {
       ],
     ];
 
-    $size = \Drupal::request()->query->get('size');
+    $size = $request->query->get('size');
     if ($size === 'desktop') {
       neo_alchemist_attach_screenshot($build);
     }

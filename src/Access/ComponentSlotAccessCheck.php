@@ -31,7 +31,7 @@ class ComponentSlotAccessCheck implements AccessInterface {
    */
   public function access(Route $route, RouteMatchInterface $route_match, AccountInterface $account) {
     $requirement = $route->getRequirement('_neo_component_slot');
-    [$entity_type, $slot, $op] = explode('.', $requirement);
+    [$entity_type, $slot] = explode('.', $requirement);
     // If $entity_type parameter is a valid entity, call its own access check.
     $parameters = $route_match->getParameters();
     if ($parameters->has($entity_type) && $parameters->has($slot)) {

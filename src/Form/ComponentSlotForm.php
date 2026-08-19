@@ -258,7 +258,7 @@ final class ComponentSlotForm extends EntityForm {
       ];
       $row['weight'] = [
         '#type' => 'weight',
-        '#title' => t('Weight'),
+        '#title' => $this->t('Weight'),
         '#title_display' => 'invisible',
         '#default_value' => $weight,
         '#attributes' => [

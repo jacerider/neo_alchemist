@@ -8,6 +8,7 @@ use Drupal\Core\Entity\ContentEntityInterface;
 use Drupal\Core\Entity\EntityFieldManagerInterface;
 use Drupal\Core\Entity\EntityTypeBundleInfoInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
+use Drupal\Core\Routing\RouteProviderInterface;
 use Drupal\Core\Extension\ModuleHandlerInterface;
 use Drupal\neo_alchemist\ComponentShapePluginInterface;
 use Drupal\neo_alchemist\MatcherField;
@@ -72,6 +73,7 @@ class EntityProviderAccessGateTest extends UnitTestCase {
       $this->createMock(EntityTypeManagerInterface::class),
       $this->createMock(EntityFieldManagerInterface::class),
       $this->createMock(EntityTypeBundleInfoInterface::class),
+      $this->createMock(RouteProviderInterface::class),
     );
   }
 

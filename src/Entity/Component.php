@@ -1455,7 +1455,7 @@ class Component extends ConfigEntityBase implements ComponentInterface {
     foreach ($entities as $entity) {
       foreach ($entity->getPropShapes() as $shape) {
         $shape->onRemove();
-        foreach ($shape->getPlugins() as $id => $plugins) {
+        foreach ($shape->getPlugins() as $plugins) {
           foreach ($plugins as $pluginType => $plugin) {
             $shape->onPluginRemove($pluginType);
           }
