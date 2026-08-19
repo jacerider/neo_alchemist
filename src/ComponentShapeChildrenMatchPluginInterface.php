@@ -54,57 +54,41 @@ interface ComponentShapeChildrenMatchPluginInterface extends ComponentShapePlugi
   public function getValueResolverShape(string $name): ?ComponentShapePluginInterface;
 
   /**
-   * Hide a child shape.
+   * Check if the schema is a single property.
    *
-   * @param string $shapeId
-   *   The id of the shape. This is not the shape name but the unique id.
-   * @param bool $hide
-   *   Whether to hide the child shape.
-   *
-   * @return \Drupal\neo_alchemist\ComponentShapePluginInterface
-   *   The child shape.
+   * @return bool
+   *   Whether the schema is a single property.
    */
-  public function hideChildShape(string $shapeId, $hide = TRUE): self;
+  public function isSingleProp(): bool;
 
   /**
-   * Default a child shape.
+   * Gets what producers have decided about this shape's individual children.
    *
-   * @param string $shapeId
-   *   The id of the shape. This is not the shape name but the unique id.
-   * @param bool $default
-   *   Whether to default the child shape.
+   * Always the ROOT shape's state, whichever shape in the tree is asked: the
+   * ids a producer records are chained from the root, so only the root can key
+   * them all.
    *
-   * @return \Drupal\neo_alchemist\ComponentShapePluginInterface
-   *   The child shape.
+   * This one accessor replaced seven methods that were each a copy of the same
+   * root-delegation branch.
+   *
+   * @return \Drupal\neo_alchemist\ChildShapeState
+   *   The child shape state.
    */
-  public function defaultChildShape(string $shapeId, $default = TRUE): self;
+  public function getChildShapeState(): ChildShapeState;
 
   /**
-   * Enable a child shape plugin.
+   * Gets the value plugin configuration to attach to one child.
+   *
+   * Not a plain read of ::getChildShapeState(): it also folds in the plugins
+   * the root shape stores against that child id, which an iterable shape needs
+   * because its children carry a delta and so are not found on the base shape.
    *
    * @param string $shapeId
    *   The id of the shape. This is not the shape name but the unique id.
-   * @param string $pluginId
-   *   The ID of the plugin.
-   * @param array $settings
-   *   The settings for the plugin.
    *
-   * @return \Drupal\neo_alchemist\ComponentShapePluginInterface
-   *   The child shape.
+   * @return array
+   *   The child shape plugins.
    */
-  public function enableChildShapePlugin(string $shapeId, string $pluginId, array $settings = []): self;
-
-  /**
-   * Disable a child shape plugin.
-   *
-   * @param string $shapeId
-   *   The id of the shape. This is not the shape name but the unique id.
-   * @param string $pluginId
-   *   The ID of the plugin.
-   *
-   * @return \Drupal\neo_alchemist\ComponentShapePluginInterface
-   *   The child shape.
-   */
-  public function disableChildShapePlugin(string $shapeId, string $pluginId): self;
+  public function getChildShapePlugins(string $shapeId): array;
 
 }

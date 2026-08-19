@@ -4,170 +4,77 @@ declare(strict_types=1);
 
 namespace Drupal\neo_alchemist\Plugin\ComponentShape;
 
+use Drupal\neo_alchemist\ChildOptionPolicy;
+use Drupal\neo_alchemist\ChildShapeState;
 use Drupal\neo_alchemist\ComponentShapeChildrenMatchPluginInterface;
 
 /**
- * Shared state tracking for shapes that expose child shapes.
+ * Gives a shape the two collaborators it needs to build child shapes.
  *
- * Holds the hide/default/lock flags and per-child plugin settings consumed by
- * ComponentValueChildrenMatchTrait, so any shape (not just ChildrenShapeBase
- * subclasses) can opt in to field-to-child matching.
+ * The state records what a producer decided about individual children; the
+ * policy applies those decisions when the children are built. Any shape (not
+ * just ChildrenShapeBase subclasses) can opt in to field-to-child matching by
+ * using this trait and running the policy over each child.
+ *
+ * The state lives on the ROOT shape and every shape beneath it delegates,
+ * because the ids a producer records are chained from the root and only the
+ * root can key them all. That delegation is written once here — it used to be
+ * seven copies of the same branch across nine methods.
  */
 trait ChildShapeStateTrait {
 
   /**
-   * A list of child shapes to hide.
+   * The producer decisions, on the root shape only.
    *
-   * @var bool[]
-   */
-  protected $hideChildShapes = [];
-
-  /**
-   * A list of child shapes to set as default.
+   * Read it through ::getChildShapeState(), never directly: on any shape that
+   * is not the root this stays NULL and the real state is the root's.
    *
-   * @var bool[]
+   * @var \Drupal\neo_alchemist\ChildShapeState|null
    */
-  protected $defaultChildShapes = [];
+  protected ?ChildShapeState $childShapeState = NULL;
 
   /**
-   * A list of child shapes to set as locked.
+   * The policy that applies this shape's constraints to its children.
    *
-   * @var bool[]
+   * @var \Drupal\neo_alchemist\ChildOptionPolicy|null
    */
-  protected $lockChildShapes = [];
+  protected ?ChildOptionPolicy $childOptionPolicy = NULL;
 
   /**
-   * A list of child shape plugins.
-   *
-   * @var array[]
+   * {@inheritdoc}
    */
-  protected $childShapePlugins = [];
-
-  /**
-   * Hide a child shape.
-   */
-  public function hideChildShape(string $shapeId, $hide = TRUE): self {
-    assert(!$this->isInitialized(), 'Shape cannot be initialized before hiding child shapes.');
-    if ($this->isRoot()) {
-      $this->hideChildShapes[$shapeId] = $hide;
+  public function getChildShapeState(): ChildShapeState {
+    if (!$this->isRoot()) {
+      return $this->getChildRootShape()->getChildShapeState();
     }
-    else {
-      return $this->getChildRootShape()->hideChildShape($shapeId, $hide);
-    }
-    return $this;
+    return $this->childShapeState ??= new ChildShapeState();
   }
 
   /**
-   * Check if a child shape is hidden.
-   */
-  public function isHiddenChildShape(string $shapeId): ?bool {
-    if ($this->isRoot()) {
-      return $this->hideChildShapes[$shapeId] ?? NULL;
-    }
-    return $this->getChildRootShape()->isHiddenChildShape($shapeId);
-  }
-
-  /**
-   * Default a child shape.
-   */
-  public function defaultChildShape(string $shapeId, $default = TRUE): self {
-    assert(!$this->isInitialized(), 'Shape cannot be initialized before defaulting child shapes.');
-    if ($this->isRoot()) {
-      $this->defaultChildShapes[$shapeId] = $default;
-    }
-    else {
-      return $this->getChildRootShape()->defaultChildShape($shapeId, $default);
-    }
-    return $this;
-  }
-
-  /**
-   * Check if a child shape is default.
-   */
-  public function isDefaultChildShape(string $shapeId): ?bool {
-    if ($this->isRoot()) {
-      return $this->defaultChildShapes[$shapeId] ?? NULL;
-    }
-    return $this->getChildRootShape()->isDefaultChildShape($shapeId);
-  }
-
-  /**
-   * Lock a child shape.
-   */
-  public function lockChildShape(string $shapeId, $lock = TRUE): self {
-    assert(!$this->isInitialized(), 'Shape cannot be initialized before locking child shapes.');
-    if ($this->isRoot()) {
-      $this->lockChildShapes[$shapeId] = $lock;
-    }
-    else {
-      return $this->getChildRootShape()->lockChildShape($shapeId, $lock);
-    }
-    return $this;
-  }
-
-  /**
-   * Check if a child shape is locked.
-   */
-  public function isLockedChildShape(string $shapeId): ?bool {
-    if ($this->isRoot()) {
-      return $this->lockChildShapes[$shapeId] ?? NULL;
-    }
-    return $this->getChildRootShape()->isLockedChildShape($shapeId);
-  }
-
-  /**
-   * Enable a child shape plugin.
-   */
-  public function enableChildShapePlugin(string $shapeId, string $pluginId, array $settings = []): self {
-    if ($this->isRoot()) {
-      $this->childShapePlugins[$shapeId][$pluginId] = [
-        'status' => TRUE,
-        'settings' => $settings,
-      ];
-    }
-    else {
-      return $this->getChildRootShape()->enableChildShapePlugin($shapeId, $pluginId, $settings);
-    }
-    return $this;
-  }
-
-  /**
-   * Disable a child shape plugin.
-   */
-  public function disableChildShapePlugin(string $shapeId, string $pluginId): self {
-    if ($this->isRoot()) {
-      $this->childShapePlugins[$shapeId][$pluginId]['status'] = FALSE;
-    }
-    else {
-      return $this->getChildRootShape()->disableChildShapePlugin($shapeId, $pluginId);
-    }
-    return $this;
-  }
-
-  /**
-   * Get child shape plugins.
+   * {@inheritdoc}
    */
   public function getChildShapePlugins(string $shapeId): array {
-    if ($this->isRoot()) {
-      $plugins = [];
-      if ($this->isIterable()) {
-        // Merge in plugins stored on root shape. We only need to do this for
-        // iterable shapes as non-iterable shapes will automatically be pulled
-        // from the base shape because they do not have a delta.
-        foreach ($this->getPlugins()[$shapeId] ?? [] as $plugin_id => $plugin) {
-          $plugins[$plugin_id] = [
-            'status' => TRUE,
-            'settings' => $plugin['settings'],
-          ];
-        }
+    $root = $this->getChildRootShape();
+    $plugins = [];
+    // Merge in plugins stored on the root shape. Only iterable shapes need
+    // this: a non-iterable child carries no delta, so its configuration is
+    // already found on the base shape.
+    if ($root->isIterable()) {
+      foreach ($root->getPlugins()[$shapeId] ?? [] as $pluginId => $plugin) {
+        $plugins[$pluginId] = [
+          'status' => TRUE,
+          'settings' => $plugin['settings'],
+        ];
       }
-      return $plugins + ($this->childShapePlugins[$shapeId] ?? []);
     }
-    return $this->getChildRootShape()->getChildShapePlugins($shapeId);
+    return $plugins + $root->getChildShapeState()->getPlugins($shapeId);
   }
 
   /**
-   * Gets the root shape that exposes child-shape state.
+   * Gets the root shape that owns the child-shape state.
+   *
+   * @return \Drupal\neo_alchemist\ComponentShapeChildrenMatchPluginInterface
+   *   The root shape.
    */
   protected function getChildRootShape(): ComponentShapeChildrenMatchPluginInterface {
     if ($this->isRoot()) {
@@ -178,6 +85,19 @@ trait ChildShapeStateTrait {
       return $rootShape;
     }
     throw new \RuntimeException('Root shape does not implement ComponentShapeChildrenMatchPluginInterface.');
+  }
+
+  /**
+   * Gets the policy that applies this shape's constraints to its children.
+   *
+   * Every base that builds child shapes must run this over each child before
+   * initializing it. Stateless, so one instance serves every child.
+   *
+   * @return \Drupal\neo_alchemist\ChildOptionPolicy
+   *   The child option policy.
+   */
+  protected function childOptionPolicy(): ChildOptionPolicy {
+    return $this->childOptionPolicy ??= new ChildOptionPolicy();
   }
 
 }

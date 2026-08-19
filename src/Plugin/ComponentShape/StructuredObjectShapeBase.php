@@ -57,6 +57,13 @@ abstract class StructuredObjectShapeBase extends ComponentShapePluginBase implem
   }
 
   /**
+   * {@inheritdoc}
+   */
+  public function isSingleProp(): bool {
+    return count($this->getChildSchemaProperties()) === 1;
+  }
+
+  /**
    * {@inheritDoc}
    */
   public function getValueResolverShape(string $name): ?ComponentShapePluginInterface {
@@ -116,6 +123,7 @@ abstract class StructuredObjectShapeBase extends ComponentShapePluginBase implem
         'properties' => $this->getChildSchemaProperties(),
       ];
       $instances = $this->shapeManager->getChildInstancesFromSchema($schema, $this->getComponent());
+      $count = count($instances);
       foreach ($instances as $shape) {
         foreach ($this->getParentShapes() as $parentShape) {
           $shape->addParentShape($parentShape);
@@ -124,9 +132,13 @@ abstract class StructuredObjectShapeBase extends ComponentShapePluginBase implem
         if ($delta !== NULL) {
           $shape->setDelta((int) $delta);
         }
-        // Propagate per-child plugin configuration registered via
-        // enableChildShapePlugin() before initializing, so the plugins are
-        // attached before init() collects them.
+        // Apply the parent's constraints before init(), which reads the options
+        // this locks. Skipping it is what made a producer's hide/default/lock
+        // configuration a no-op on this base while it took effect on the other.
+        $this->childOptionPolicy()->apply($this, $shape, $delta, $count);
+        // Propagate per-child plugin configuration a producer recorded in the
+        // child shape state before initializing, so the plugins are attached
+        // before init() collects them.
         if ($plugins = $this->getChildShapePlugins($shape->id(TRUE))) {
           foreach ($plugins as $pluginId => $settings) {
             $shape->allowInitPlugins($pluginId, FALSE);

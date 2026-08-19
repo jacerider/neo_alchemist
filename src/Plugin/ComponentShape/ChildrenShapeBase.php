@@ -6,7 +6,6 @@ namespace Drupal\neo_alchemist\Plugin\ComponentShape;
 
 use Drupal\Core\Field\FieldDefinitionInterface;
 use Drupal\neo_alchemist\ComponentShapeChildrenPluginInterface;
-use Drupal\neo_alchemist\ComponentShapeExpandedPluginInterface;
 use Drupal\neo_alchemist\ComponentShapePluginBase;
 use Drupal\neo_alchemist\ComponentShapePluginInterface;
 
@@ -317,53 +316,7 @@ abstract class ChildrenShapeBase extends ComponentShapePluginBase implements Com
    *   The override value for the child shape.
    */
   protected function initChildShape(ComponentShapePluginInterface $shape, int $count, ?int $delta = NULL, mixed $value = []) {
-    $val = $this->isHiddenChildShape($shape->id(TRUE));
-    if (!is_null($val)) {
-      $shape->getOptionEmpty()->setLockedValue($val, 'Shape is hidden by parent shape.');
-    }
-    $val = $this->isDefaultChildShape($shape->id(TRUE));
-    if (!is_null($val)) {
-      $shape->getOptionDefault()->setLockedValue($val, 'Shape is set as default by parent shape.');
-    }
-    $val = $this->isLockedChildShape($shape->id(TRUE));
-    if (!is_null($val)) {
-      $shape->getOptionAccess()->setLockedValue($val, 'Shape is set as locked by parent shape.');
-    }
-    if ($delta !== NULL && $count === 1) {
-      $shape->getOptionDefault()->setAccess(FALSE, 'Shape has a single prop, so setting as default is not allowed.');
-      $shape->getOptionEmpty()->setAccess(FALSE, 'Shape has a single prop, so setting as default is not allowed.');
-    }
-    elseif ($this->isSingleProp()) {
-      $shape->getOptionEmpty()->setAccess(FALSE, 'Shape has a single prop, so setting as empty is not allowed.');
-    }
-    if ($this->getOptionDefault()->isFormForced()) {
-      $shape->getOptionDefault()->alwaysShowForm(TRUE, 'Parent shape has default form forced.');
-    }
-    if ($this->getOptionEmpty()->isFormForced()) {
-      $shape->getOptionEmpty()->alwaysShowForm(TRUE, 'Parent shape has empty form forced.');
-    }
-    if ($this->getScope() !== 'config') {
-      // This has been removed and now restored. This means it may cause issues
-      // somewhere else. But we need it for things like a heading shape so that
-      // children are hidden.
-      if ($this->getOptionDefault()->isEnabled()) {
-        $shape->getOptionDefault()->setLockedValue(TRUE, 'Parent shape is set as default, so set child shape as default.');
-      }
-      if ($this->getOptionEmpty()->isEnabled()) {
-        $shape->getOptionEmpty()->setLockedValue(TRUE, 'Parent shape is set as empty, so set child shape as empty.');
-      }
-      if ($this->getOptionAccess()->isDisabled()) {
-        $shape->getOptionAccess()->setLockedValue(FALSE, 'Parent shape is disabled.');
-      }
-    }
-    if ($this->getScope() === 'config') {
-      $shape->getOptionAccess()->setAccess(TRUE, 'Scope is config.');
-    }
-    if ($this instanceof ComponentShapeExpandedPluginInterface && !$this->allowExpanded()) {
-      $shape->getOptionDefault()->setAccess(FALSE, 'Parent shape is not expandable.');
-      $shape->getOptionEmpty()->setAccess(FALSE, 'Parent shape is not expandable.');
-      $shape->getOptionAccess()->setAccess(FALSE, 'Parent shape is not expandable.');
-    }
+    $this->childOptionPolicy()->apply($this, $shape, $delta, $count);
     // Set the override value.
     if (!is_null($value)) {
       $shape->setParentValue($value);

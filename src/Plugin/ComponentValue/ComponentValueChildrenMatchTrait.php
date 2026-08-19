@@ -11,6 +11,7 @@ use Drupal\Core\Entity\EntityPublishedInterface;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\media\MediaInterface;
 use Drupal\neo_alchemist\ComponentPropRenderable;
+use Drupal\neo_alchemist\ChildShapeState;
 use Drupal\neo_alchemist\ComponentShapeChildrenMatchPluginInterface;
 use Drupal\neo_alchemist\ComponentShapeMediaPluginInterface;
 use Drupal\neo_alchemist\ComponentShapePluginInterface;
@@ -631,10 +632,10 @@ trait ComponentValueChildrenMatchTrait {
           if (!empty($settings['plugins'])) {
             foreach ($settings['plugins'] as $pluginId => $pluginSettings) {
               if ($pluginSettings['status'] ?? FALSE) {
-                $shape->enableChildShapePlugin($shapeId, $pluginId, $pluginSettings['settings'] ?? []);
+                $shape->getChildShapeState()->enablePlugin($shapeId, $pluginId, $pluginSettings['settings'] ?? []);
               }
               else {
-                $shape->disableChildShapePlugin($shapeId, $pluginId);
+                $shape->getChildShapeState()->disablePlugin($shapeId, $pluginId);
               }
             }
           }
@@ -642,7 +643,8 @@ trait ComponentValueChildrenMatchTrait {
           // @todo Consider handling this another way so that it is optional.
           // @todo We removed this as we have switched all values provides to
           // providing default values.
-          // $shape->defaultChildShape($shapeId, FALSE);
+          // $state = $shape->getChildShapeState();
+          // $state->setFlag($shapeId, ChildShapeState::USE_DEFAULT, FALSE);
           if ($field) {
             if (substr($field, 0, 1) === '_') {
               // Pseudo fields have custom handlers.
@@ -686,7 +688,7 @@ trait ComponentValueChildrenMatchTrait {
           }
           else {
             // Hide the shape if no field is selected.
-            $shape->hideChildShape($shapeId);
+            $shape->getChildShapeState()->setFlag($shapeId, ChildShapeState::HIDDEN);
           }
         }
         // Remove values that are completely empty.
@@ -701,7 +703,7 @@ trait ComponentValueChildrenMatchTrait {
       // the shape will not be shown.
       foreach ($shapeNames as $shapeName) {
         $values[$delta][$shapeName] = [];
-        $shape->hideChildShape($shapeName);
+        $shape->getChildShapeState()->setFlag($shapeName, ChildShapeState::HIDDEN);
       }
     }
     if (!$iterable) {
@@ -714,7 +716,7 @@ trait ComponentValueChildrenMatchTrait {
    * Fetch children match values for expand fields.
    */
   protected function fetchChildrenMatchValuesDefault(string $shapeId, string $shapeName, int $delta, ComponentShapeChildrenMatchPluginInterface $shape, ContentEntityInterface $entity, array $configuration): mixed {
-    $shape->defaultChildShape($shapeId, TRUE);
+    $shape->getChildShapeState()->setFlag($shapeId, ChildShapeState::USE_DEFAULT, TRUE);
     return NULL;
   }
 
