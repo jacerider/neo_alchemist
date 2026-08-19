@@ -149,6 +149,11 @@ during the parent's `init()`. Note the two layers union by top-level key rather 
 merging, so one saved option discards a shape's whole fallback entry; that is
 deliberate and pinned by `NestedOptionMapTest`.
 
+A shape's `init()` **seals** its scope of the map, because its children read their
+options as they are built. Writing a child option afterwards asserts rather than
+silently doing nothing. A shape's *own* options stay writable — a submitted form is
+where most of them come from, and that is long after init.
+
 The `#[ComponentShape]` attribute ([src/Attribute/ComponentShape.php](src/Attribute/ComponentShape.php))
 — id is `prop`:
 

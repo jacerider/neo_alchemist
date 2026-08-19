@@ -511,6 +511,10 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
     if (!is_null($overrideValue)) {
       $this->setFieldItemValue($overrideValue);
     }
+    // This shape's children read their options as they are built, from here
+    // onwards, so a child option written later changes nothing. The map takes
+    // the deadline the two removed setters used to assert.
+    $this->getNestedOptionMap()->seal();
     $this->initialized = TRUE;
 
     return $this;

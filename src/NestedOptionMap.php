@@ -107,6 +107,13 @@ final class NestedOptionMap {
   private array $fallback = [];
 
   /**
+   * The ids of shapes that have initialized, as a set.
+   *
+   * @var array<string, true>
+   */
+  private array $sealed = [];
+
+  /**
    * Constructs a map, or a view onto one.
    *
    * Callers outside this class construct the store — `new NestedOptionMap()` —
@@ -170,6 +177,7 @@ final class NestedOptionMap {
    * @return $this
    */
   public function set(string $child, string $option, bool $value = TRUE): static {
+    $this->assertNotSealed();
     $this->store()->saved[$this->childKey($child)][$option] = $value;
     return $this;
   }
@@ -187,7 +195,34 @@ final class NestedOptionMap {
    * @return $this
    */
   public function setFallback(string $child, string $option, bool $value = TRUE): static {
+    $this->assertNotSealed();
     $this->store()->fallback[$this->childKey($child)][$option] = $value;
+    return $this;
+  }
+
+  /**
+   * Records that this shape has initialized and takes no more child options.
+   *
+   * A shape's children read the options recorded for them as they are built,
+   * which happens from that shape's init() onwards, so a child option written
+   * afterwards changes nothing and is a mistake rather than a late decision.
+   *
+   * Two shape setters used to assert this before the store became an object —
+   * `assert(!$this->isInitialized(), …)`. It is recorded here instead because
+   * the writer is no longer a shape method, so withdrawing it from an
+   * initialised shape's type is not available: the same accessor is read after
+   * init by the form, by initOptions() and by the value harvest. Sealing keeps
+   * the deadline where the old assertions had it, and extends it to any writer
+   * added later rather than to two methods that happened to carry a guard.
+   *
+   * Only the child writers honour it. ::replaceOwn(), ::merge() and
+   * ::mergeFallbacks() never carried an assertion and must not gain one: a
+   * submitted form writes a shape's own options long after init.
+   *
+   * @return $this
+   */
+  public function seal(): static {
+    $this->store()->sealed[$this->shapeId] = TRUE;
     return $this;
   }
 
@@ -299,6 +334,18 @@ final class NestedOptionMap {
     assert($this->shapeId !== '', 'A nested option belongs to a shape; reach the map through ::forShape().');
     $key = $this->shapeId . self::SEPARATOR . $child;
     return $delta === NULL ? $key : $key . self::SEPARATOR . $delta;
+  }
+
+  /**
+   * Fails when this shape has already initialized.
+   *
+   * @see ::seal()
+   */
+  private function assertNotSealed(): void {
+    assert(
+      !isset($this->store()->sealed[$this->shapeId]),
+      "Child options for {$this->shapeId} must be set before it is initialized.",
+    );
   }
 
   /**

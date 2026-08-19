@@ -366,6 +366,94 @@ class NestedOptionMapTest extends UnitTestCase {
   }
 
   /**
+   * A child option written after the shape initialized is a mistake.
+   *
+   * Two shape setters asserted this before the store became an object. The
+   * writer is no longer a shape method, so the deadline cannot be withdrawn
+   * from an initialised shape's type — the same accessor is read after init by
+   * the form and by the value harvest — and is recorded here instead.
+   */
+  public function testWritingChildOptionAfterSealingFails(): void {
+    $options = (new NestedOptionMap())->forShape('heading');
+    $options->seal();
+
+    $this->expectException(\AssertionError::class);
+
+    $options->set('title', NestedOptionMap::OPTION_DEFAULT);
+  }
+
+  /**
+   * The fallback writer honours the seal too.
+   */
+  public function testWritingFallbackAfterSealingFails(): void {
+    $options = (new NestedOptionMap())->forShape('heading');
+    $options->seal();
+
+    $this->expectException(\AssertionError::class);
+
+    $options->setFallback('title', NestedOptionMap::OPTION_DEFAULT);
+  }
+
+  /**
+   * Sealing one shape says nothing about its siblings or its children.
+   *
+   * The deadline is per shape because initialization is: a parent seals while
+   * building children that have not initialized yet, and those children go on
+   * receiving options of their own.
+   */
+  public function testSealingIsPerShape(): void {
+    $map = new NestedOptionMap();
+    $map->forShape('heading')->seal();
+
+    $map->forShape('heading~title')->set('link', NestedOptionMap::OPTION_EMPTY);
+    $map->forShape('other')->set('title', NestedOptionMap::OPTION_EMPTY);
+
+    $this->assertSame(
+      ['heading~title~link', 'other~title'],
+      array_keys($map->toArray()),
+    );
+  }
+
+  /**
+   * A sealed shape still accepts its own options, and still merges.
+   *
+   * None of these carried the old assertion, and they must not gain it: a
+   * submitted form writes a shape's own options long after it initialized, and
+   * that is how a site builder's checkbox reaches the store at all.
+   */
+  public function testSealingLeavesTheWholeMapWritersAlone(): void {
+    $options = (new NestedOptionMap())->forShape('heading');
+    $options->seal();
+
+    $options->replaceOwn([NestedOptionMap::OPTION_DEFAULT => 1]);
+    $options->merge(['heading~title' => [NestedOptionMap::OPTION_EMPTY => 1]]);
+    $options->mergeFallbacks(['heading~size' => [NestedOptionMap::OPTION_DEFAULT => 1]]);
+
+    // Merged keys lead, because NestedArray::mergeDeep() takes the incoming
+    // array first so that what is already there wins.
+    $this->assertSame(
+      [
+        'heading~title' => [NestedOptionMap::OPTION_EMPTY => 1],
+        'heading' => [NestedOptionMap::OPTION_DEFAULT => 1],
+        'heading~size' => [NestedOptionMap::OPTION_DEFAULT => 1],
+      ],
+      $options->toArray(),
+    );
+  }
+
+  /**
+   * Reading a sealed shape's options is what happens next, not a mistake.
+   */
+  public function testSealingDoesNotStopReads(): void {
+    $options = (new NestedOptionMap())->forShape('heading');
+    $options->set('title', NestedOptionMap::OPTION_DEFAULT);
+    $options->seal();
+
+    $this->assertTrue($options->get('title', NestedOptionMap::OPTION_DEFAULT));
+    $this->assertNotSame([], $options->subtree());
+  }
+
+  /**
    * The setters chain.
    */
   public function testTheSettersChain(): void {
