@@ -33,11 +33,20 @@ use PHPUnit\Framework\Attributes\Group;
  * built before any value was offered, which is the whole of the failure it
  * describes.
  *
+ * The form pass is driven through ComponentPropValueHarvester, which is the
+ * production caller. It used to be hand-rolled here, statement for statement,
+ * because the sequence lived inline in a form's validate method and could not
+ * be reached from a test — and a test that restates production code cannot
+ * catch production code drifting away from it.
+ *
  * @see \Drupal\neo_alchemist\Plugin\ComponentShape\ChildrenShapeBase::getChildShapes()
  * @see \Drupal\neo_alchemist\Plugin\ComponentShape\ArrayShape::massageFormValues()
+ * @see \Drupal\neo_alchemist\ComponentPropValueHarvester::harvest()
  */
 #[Group('neo_alchemist')]
 class ChildrenShapeFormValueGuardTest extends KernelTestBase {
+
+  use ValueEditorFixtureTrait;
 
   /**
    * {@inheritdoc}
@@ -45,10 +54,22 @@ class ChildrenShapeFormValueGuardTest extends KernelTestBase {
   protected static $modules = [
     'system',
     'user',
+    'entity_test',
     'neo_settings',
     'neo_alchemist',
     'neo_alchemist_test',
   ];
+
+  /**
+   * {@inheritdoc}
+   */
+  protected function setUp(): void {
+    parent::setUp();
+    $this->installEntitySchema('user');
+    // Only the form pass below needs a host type and a privileged account;
+    // the two direct-call tests would run without either.
+    $this->installValueEditorHost();
+  }
 
   /**
    * The delta under test.
@@ -98,6 +119,10 @@ class ChildrenShapeFormValueGuardTest extends KernelTestBase {
         'description' => 'Array provider fixture',
         'component' => 'neo_alchemist_test:na_array_provider',
         'status' => TRUE,
+        // Only the form pass needs a host type; the direct-call tests never
+        // reach getEntity().
+        'target_entity_type' => 'entity_test_with_bundle',
+        'target_entity_bundle' => 'main',
       ])->save();
     }
     // Shape state is memoised per object, so never share one between passes.
@@ -165,28 +190,34 @@ class ChildrenShapeFormValueGuardTest extends KernelTestBase {
   /**
    * Submitted form values reaching a warmed cache must not trip the guard.
    *
-   * Reproduces the reported failure exactly: warm the per-delta shapes with the
-   * submitted values the way ArrayShape::validateForm() does, then massage them
-   * the way InstanceComponentForm::validateForm() does one statement later.
-   * Before the guard was scoped, the second call raised an AssertionError.
+   * Reproduces the reported failure through the production caller rather than
+   * around it: the harvest warms the per-delta shapes via
+   * ArrayShape::validateForm() and massages them one statement later, which is
+   * the ordering the guard has to tolerate. Before it was scoped, that second
+   * call raised an AssertionError — the 500 behind the editor's AjaxError.
    */
   public function testSubmittedFormValuesDoNotTripTheGuard(): void {
     $component = $this->buildComponent();
-    $shape = $this->itemsShape($component);
+    // Pin the premise the harvest depends on, since it now stands between this
+    // test and the guard: the prop is offered, so the submission reaches it.
+    $this->assertNotNull($this->itemsShape($component));
 
-    // What ArrayShape::validateForm() does: build the child shapes from the
-    // submitted values. This is the call that warms the per-delta cache.
-    $shape->getChildShapes(self::DELTA, self::SUBMITTED[self::DELTA]);
+    $formState = new FormState();
+    $formState->setUserInput([]);
+    $form = ['#parents' => []];
+    $panel = $this->container->get('neo_alchemist.value_panel_builder')
+      ->build($component, $form, $formState);
+    $form['values'] = $panel['values'];
+    $this->assertArrayHasKey('items', $form['values'], 'The array prop has a form to submit against.');
+    $formState->setValues(['values' => ['items' => self::SUBMITTED]]);
 
-    // What InstanceComponentForm::validateForm() does next. An empty $form is
-    // enough: the guard runs before massageFormValues() consults it, so the
-    // child-recursion below that point is not what is under test here.
-    $shape->massageFormValues(self::SUBMITTED, [], [], new FormState());
+    $props = $this->container->get('neo_alchemist.prop_value_harvester')
+      ->harvest($component, $form, $formState, []);
 
     // Reaching here at all is the assertion — an AssertionError would have
-    // aborted the call. Stated explicitly so the test cannot be mistaken for
-    // one that asserts nothing.
-    $this->assertTrue(TRUE, 'Massaging submitted form values did not raise an AssertionError.');
+    // aborted the harvest. Stated explicitly so the test cannot be mistaken
+    // for one that asserts nothing.
+    $this->assertArrayHasKey('items', $props, 'The submission was harvested without raising an AssertionError.');
   }
 
   /**

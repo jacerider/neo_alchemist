@@ -20,7 +20,8 @@ use Drupal\Core\TempStore\PrivateTempStoreFactory;
 use Drupal\neo_alchemist\Ajax\InstanceComponentManageIframeCommand;
 use Drupal\neo_alchemist\Ajax\ComponentAjaxFormHelperTrait;
 use Drupal\neo_alchemist\ComponentManageHelper;
-use Drupal\neo_alchemist\ComponentShapeStylePluginInterface;
+use Drupal\neo_alchemist\ComponentPropValueHarvester;
+use Drupal\neo_alchemist\ComponentValuePanelBuilder;
 use Drupal\neo_icon\IconTrait;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
@@ -68,6 +69,25 @@ final class InstanceComponentForm extends ContentEntityForm {
   protected $after;
 
   /**
+   * The value panel builder.
+   *
+   * Must be protected and non-promoted, like every service held by a form
+   * object here: DependencySerializationTrait swaps services for their ids
+   * from FormBase's scope, where a private property declared on this class
+   * would be invisible and would be serialized whole into the form cache.
+   *
+   * @var \Drupal\neo_alchemist\ComponentValuePanelBuilder
+   */
+  protected $valuePanelBuilder;
+
+  /**
+   * The prop value harvester.
+   *
+   * @var \Drupal\neo_alchemist\ComponentPropValueHarvester
+   */
+  protected $propValueHarvester;
+
+  /**
    * {@inheritdoc}
    */
   public static function create(ContainerInterface $container) {
@@ -76,6 +96,8 @@ final class InstanceComponentForm extends ContentEntityForm {
       $container->get('entity_type.bundle.info'),
       $container->get('datetime.time'),
       $container->get('tempstore.private'),
+      $container->get('neo_alchemist.value_panel_builder'),
+      $container->get('neo_alchemist.prop_value_harvester'),
     );
   }
 
@@ -90,10 +112,16 @@ final class InstanceComponentForm extends ContentEntityForm {
    *   The time service.
    * @param \Drupal\Core\TempStore\PrivateTempStoreFactory $temp_store_factory
    *   The temp storage factory.
+   * @param \Drupal\neo_alchemist\ComponentValuePanelBuilder $value_panel_builder
+   *   The value panel builder.
+   * @param \Drupal\neo_alchemist\ComponentPropValueHarvester $prop_value_harvester
+   *   The prop value harvester.
    */
-  public function __construct(EntityRepositoryInterface $entity_repository, EntityTypeBundleInfoInterface $entity_type_bundle_info, TimeInterface $time, PrivateTempStoreFactory $temp_store_factory) {
+  public function __construct(EntityRepositoryInterface $entity_repository, EntityTypeBundleInfoInterface $entity_type_bundle_info, TimeInterface $time, PrivateTempStoreFactory $temp_store_factory, ComponentValuePanelBuilder $value_panel_builder, ComponentPropValueHarvester $prop_value_harvester) {
     parent::__construct($entity_repository, $entity_type_bundle_info, $time);
     $this->store = $temp_store_factory->get('neo_alchemist');
+    $this->valuePanelBuilder = $value_panel_builder;
+    $this->propValueHarvester = $prop_value_harvester;
   }
 
   /**
@@ -172,19 +200,7 @@ final class InstanceComponentForm extends ContentEntityForm {
       '#default_value' => $this->instance->isPublished(),
     ];
 
-    $form['footer']['refresh'] = [
-      '#type' => 'submit',
-      '#id' => 'neo-alchemist--refresh',
-      '#op' => 'refresh',
-      '#value' => $this->t('Refresh'),
-      '#submit' => ['::submitRefresh'],
-      '#ajax' => [
-        'callback' => '::ajaxRefresh',
-      ],
-      '#weight' => -1000,
-      '#prefix' => '<div class="hidden">',
-      '#suffix' => '</div>',
-    ];
+    $form['footer']['refresh'] = $this->valuePanelBuilder->buildRefresh();
 
     $form['actions']['#weight'] = 1000;
     $form['actions']['#attributes']['class'][] = 'mt-0';
@@ -208,8 +224,8 @@ final class InstanceComponentForm extends ContentEntityForm {
    */
   public function form(array $form, FormStateInterface $form_state): array {
     $form['#parents'] = [];
-    $form['#id'] = 'neo-alchemist--instance-component-form';
-    $form['#attributes']['class'][] = 'neo-alchemist--instance-component-form';
+    $form['#id'] = ComponentValuePanelBuilder::FORM_ID;
+    $form['#attributes']['class'][] = ComponentValuePanelBuilder::FORM_ID;
     $form['#neo_style'] = 'default';
     $form['#neo_size'] = 'sm';
 
@@ -231,12 +247,10 @@ final class InstanceComponentForm extends ContentEntityForm {
       '#default_value' => $this->instance->uuid(),
     ];
 
-    $form['styles'] = [
-      '#type' => 'accordion',
-      '#title' => $this->icon('Styles', 'palette'),
-      '#access' => FALSE,
-      '#neo_size' => 'xs',
-    ];
+    // Assigned in this order because top-level render order is array order and
+    // the Context accordion belongs between the two panel elements.
+    $panel = $this->valuePanelBuilder->build($this->instance, $form, $form_state);
+    $form['styles'] = $panel['styles'];
 
     $form['filters'] = [
       '#type' => 'accordion',
@@ -245,43 +259,7 @@ final class InstanceComponentForm extends ContentEntityForm {
       '#neo_size' => 'xs',
     ];
 
-    $form['values'] = [
-      '#title' => $this->t('Values'),
-      '#type' => 'container',
-      '#access' => FALSE,
-    ];
-
-    $styleElements = [];
-    foreach ($this->instance->getPropShapes() as $propName => $shape) {
-      if (!$shape->access('update')) {
-        continue;
-      }
-      $form['values']['#access'] = TRUE;
-      $subform = [
-        '#type' => 'container',
-        '#parents' => ['values'],
-      ];
-      $subform_state = SubformState::createForSubform($subform, $form, $form_state);
-      $elementForm = $shape->getForm($subform, $subform_state);
-      if ($shape instanceof ComponentShapeStylePluginInterface) {
-        $form['styles']['#access'] = TRUE;
-        $styleElements[$propName] = $elementForm;
-        $styleElements[$propName]['#type'] = 'details';
-        $styleElements[$propName]['#title'] = $shape->getTitle();
-        $styleElements[$propName]['#description'] = $shape->getDescription();
-        $styleElements[$propName]['#group'] = 'styles';
-        $styleElements[$propName]['widget']['widget']['#title'] = '';
-      }
-      else {
-        $form['values'][$propName] = $elementForm;
-      }
-    }
-
-    // I want to sort $form['styles'] by the $title.
-    uasort($styleElements, function ($a, $b) {
-      return strcmp((string) $a['#title'], (string) $b['#title']);
-    });
-    $form['values'] += $styleElements;
+    $form['values'] = $panel['values'];
 
     foreach ($this->instance->getFilters() as $uuid => $filter) {
       if (!$filter->isEditable()) {
@@ -364,33 +342,10 @@ final class InstanceComponentForm extends ContentEntityForm {
       // We do not validate the form when we are just refreshing it.
       $form_state->clearErrors();
     }
-    // Update shapes.
-    foreach ($this->instance->getPropShapes() as $propName => $shape) {
-      if (isset($form['values'][$propName])) {
-        $subform_state = SubformState::createForSubform($form['values'][$propName], $form, $form_state);
-        $originalValue = $original_values['props'][$propName]['value'] ?? [];
-        // A prop stored as a scalar (markup, string, number) cannot travel
-        // through massageFormValues(), which both takes and returns an array —
-        // passing one fatals, and every validation of this form runs through
-        // here, so Save is broken too. Keep it out of that path rather than
-        // wrapping it: wrapping would survive the call but then merge a stray
-        // numeric key into the stored value via the union below.
-        $originalArray = is_array($originalValue) ? $originalValue : [];
-        $shape->validateForm($form['values'][$propName], $subform_state);
-        $value = $subform_state->getValues();
-        $values['props'][$propName]['ref'] = $shape->getRef();
-        $values['props'][$propName]['value'] = $shape->massageFormValues($value, $originalArray, $form['values'][$propName], $subform_state);
-        if (!$shape->isIterable() && !empty($values['props'][$propName]['value'])) {
-          $values['props'][$propName]['value'] += $originalArray;
-        }
-        if (!is_array($originalValue) && $shape->getOptionDefault()->isEnabled()) {
-          // Restoring the previous value is the one thing the original is
-          // threaded through for, so hand the scalar back directly — the array
-          // return type above cannot carry it.
-          $values['props'][$propName]['value'] = $originalValue;
-        }
-        $values['props'][$propName]['options'] = $shape->getNestedOptions();
-      }
+    // Update shapes. Left unset rather than set empty when nothing was
+    // harvested, which is what the loop this replaced did.
+    if ($props = $this->propValueHarvester->harvest($this->instance, $form, $form_state, $original_values)) {
+      $values['props'] = $props;
     }
     // Update filters.
     foreach ($this->instance->getFilters() as $uuid => $filter) {

@@ -477,6 +477,13 @@ From [neo_alchemist.services.yml](neo_alchemist.services.yml):
 - **`neo_component_page_renderer`** → `ComponentPageRenderer` — scoped bare-page renderer
   (also aliased to `BareHtmlPageRendererInterface`).
 - **`neo_alchemist.preview_builder`** → `ComponentPreviewBuilder` — transient entity builder.
+- **`neo_alchemist.value_panel_builder`** → `ComponentValuePanelBuilder` — the prop panel both
+  value editors present (styles accordion, values container, per-prop shape forms, the hidden
+  refresh button), and the two DOM ids the editor client matches on.
+- **`neo_alchemist.prop_value_harvester`** → `ComponentPropValueHarvester` — reads a submission
+  back out of that panel and returns the props structure. The instance editor feeds the result
+  to the placed instance's stored values, the SDC preview workspace to its preview overrides;
+  everything before that point is shared.
 - **Plugin managers** — `plugin.manager.neo_component_{prop_def,shape,value,value_group,group,size,slot,filter,filter_options,access}`.
 - **Factories** — `neo_component.{slot,filter,access}.factory`.
 - **Access checkers** (tagged `access_check`) — `neo_alchemist.{entity_access,field_access,neo_field_access,neo_component_access,prop_access,slot_access}_checker`.

@@ -13,6 +13,16 @@ services:
     class: Drupal\neo_alchemist\ComponentPreviewBuilder
     arguments: ['@entity_type.manager', '@plugin.manager.sdc']
 
+  # The two halves of a component value editor: one builds the prop panel, the
+  # other reads the submission back out of it. Both value editors — the
+  # on-page instance form and the SDC preview workspace — go through these, so
+  # the rules a prop value has to survive are stated once.
+  neo_alchemist.value_panel_builder:
+    class: Drupal\neo_alchemist\ComponentValuePanelBuilder
+
+  neo_alchemist.prop_value_harvester:
+    class: Drupal\neo_alchemist\ComponentPropValueHarvester
+
   # Finds placements whose component no longer exists. A diff over
   # ComponentUsage rather than another sweep of its own.
   neo_alchemist.dangling_component_data:
