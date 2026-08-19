@@ -4,28 +4,16 @@ declare(strict_types=1);
 
 namespace Drupal\neo_alchemist;
 
-use Drupal\Component\Plugin\ConfigurableInterface;
-use Drupal\Component\Plugin\PluginInspectionInterface;
 use Drupal\Core\Form\FormStateInterface;
-use Drupal\Core\Plugin\PluginFormInterface;
 
 /**
  * Interface for neo_component_filter plugins.
+ *
+ * Inheriting ::isApplicable() is what closed the reported defect: the filter
+ * form used to list every definition, because the family had no way to say a
+ * plugin does not apply and its manager had no method to ask.
  */
-interface ComponentFilterPluginInterface extends ConfigurableInterface, PluginFormInterface, PluginInspectionInterface {
-
-  /**
-   * Returns the translated plugin label.
-   */
-  public function label(): string;
-
-  /**
-   * Returns the summarized configuration of the filter plugin.
-   *
-   * @return array
-   *   An array of summarized configuration of the filter plugin.
-   */
-  public function settingsSummary(): array;
+interface ComponentFilterPluginInterface extends ConfiguredPluginInterface {
 
   /**
    * Returns the summarized value of the filter plugin.

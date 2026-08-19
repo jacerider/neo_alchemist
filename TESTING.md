@@ -208,12 +208,15 @@ tests/
 │   ├── src/Plugin/ComponentShape/     # TestProvidedShape, TestRecordedShape
 │   ├── src/Plugin/ComponentValue/     # TestProviderValue + recording/cache-tag plugins
 │   ├── src/Plugin/ComponentAccess/    # TestCacheTagAccess
+│   ├── src/Plugin/ComponentFilter/    # TestEntityBoundFilter (declines a component)
+│   ├── src/Plugin/ComponentSlot/      # TestNoteSlot (one settings field, no deps)
 │   └── neo_alchemist_test.neo_component_prop_defs.yml
 └── src/
     ├── Unit/                          # no container, no database
     └── Kernel/                        # real container, real config entities
-    # Named helpers live beside the tests: TestProcessingModeProvider (Unit)
-    # and HybridFieldKernelTestBase/CheckAccessExposedComponent (Kernel).
+    # Named helpers live beside the tests: TestProcessingModeProvider and
+    # LimitedSubmissionProbe (Unit), HybridFieldKernelTestBase and
+    # CheckAccessExposedComponent (Kernel).
 ```
 
 Namespaces follow Drupal convention: `Drupal\Tests\neo_alchemist\{Unit,Kernel}`.
@@ -375,13 +378,17 @@ resolutions must load two separate instances (`$storage->resetCache()` then
 
 ## What the tests cover
 
-The suite is 45 classes / 283 tests (1,151 assertions). The July 2026 expansion
-added the "falsy values are values" family, the tree-field mode contracts
-(hybrid is **live in production** — `node.project` via `project_full`,
-`taxonomy_term.market` via `hero_s2` — so those are regression pins over
-shipped data), and the entity/render invariants. Every bug fixed in that pass
-carries a regression test proven red against the pre-fix code (or by mutation
-where noted in the class docblock).
+The July 2026 expansion added the "falsy values are values" family, the
+tree-field mode contracts (hybrid is **live in production** — `node.project`
+via `project_full`, `taxonomy_term.market` via `hero_s2` — so those are
+regression pins over shipped data), and the entity/render invariants. The
+component-admin-forms pass gave the slot, access and filter forms their first
+coverage at all. Every bug fixed in either pass carries a regression test
+proven red against the pre-fix code (or by mutation where noted in the class
+docblock).
+
+Run `ddev phpunit` for the current class and test counts rather than trusting a
+number written down here.
 
 | Class | Retires |
 |---|---|
@@ -433,6 +440,11 @@ where noted in the class docblock).
 | `Kernel/WidgetDoesNotWipeTreeTest` | The widget's one-line no-op guard against total field wipe on entity form saves |
 | `Kernel/ComponentPropValueHarvestTest` | The six rules a submitted prop value survives on its way to storage — scalar guard, scalar restore, the union and its iterability scope, the update-access gate, nested options — each mutation-proven |
 | `Kernel/ComponentValueEditorHarvestWiringTest` | The other half of the same seam: the on-page editor writes the harvest to the instance's values, the workspace writes it to its preview overrides, and both publish the DOM ids the editor client reads (it keeps no literal copy, so dropping them breaks refresh silently) |
+| `Unit/LimitedSubmissionTest` | The one rule for reading `#limit_validation_errors` back: core defaults it to FALSE (asserted as a premise), so only an ARRAY is a limited submission — a presence check makes Save skip its commit while reporting success |
+| `Kernel/ComponentConfiguredPluginFormTest` | The shared access/filter form: the reported defect (a filter the component cannot use is not offered) and its access twin, the kind's own fields reaching the shared build, what each kind stages, and Delete committing nothing from its empty value set |
+| `Kernel/ComponentSlotFormUxTest` | The slot form's first coverage: add → edit pane → update/cancel/remove, Twig key validation, the staged-changes message, and a limited trigger never applying row values it did not submit |
+| `Kernel/ComponentRouteAccessCheckTest` | All six route access checkers constructed (two were, before): the shared parse, unresolvable parameters and short requirements falling to neutral instead of fataling, and the cacheability four of them used to attach none of |
+| `Kernel/EntityComponentRouteAccessTest` | The Layout routes offer exactly what the controller can act on — the per-entity narrowing, the field-config scope's immunity to it, and the entity attached as a cacheable dependency on every outcome including the refusals |
 | `Kernel/BootSpikeTest` | The module boots under Kernel with a minimal module set |
 
 Shared Kernel infrastructure: `HybridFieldKernelTestBase` stands up a real

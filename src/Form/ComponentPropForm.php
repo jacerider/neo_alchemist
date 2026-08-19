@@ -34,13 +34,19 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
  *
  * The working state between AJAX interactions is the form object's own entity:
  * every mutation runs through ::validateForm() and is serialized onto the
- * (cached, unsaved) entity via setPropShapeSettings(), exactly the pattern
- * ComponentSlotForm uses. Nothing persists until Save.
+ * (cached, unsaved) entity via setPropShapeSettings(). Nothing persists until
+ * Save. That is the staged plugin list mold, which this form and
+ * ComponentSlotForm are the two adapters of; an item here is addressed by
+ * plugin id within a shape × group section, since a shape holds each provider
+ * at most once and one form carries many sections.
+ *
+ * @see \Drupal\neo_alchemist\Form\StagedPluginListInterface
  */
-final class ComponentPropForm extends EntityForm {
+final class ComponentPropForm extends EntityForm implements StagedPluginListInterface {
 
   use ComponentAjaxFormHelperTrait;
   use IconTrait;
+  use StagedPluginListTrait;
 
   /**
    * The entity type bundle info service.
@@ -390,7 +396,7 @@ final class ComponentPropForm extends EntityForm {
    * Whether the current op targets a shape × group section.
    */
   protected function isOpKey(FormStateInterface $form_state, string $shapeId, string $groupId): bool {
-    return $form_state->get('op') === 'edit'
+    return $form_state->get('op') === self::OP_EDIT
       && $form_state->get('op_shape') === $shapeId
       && $form_state->get('op_group') === $groupId;
   }
@@ -417,7 +423,7 @@ final class ComponentPropForm extends EntityForm {
   protected function buildPluginListForm(array $form, FormStateInterface $form_state, ComponentShapePluginInterface $shape, string $groupId, string $key, array $instances): array {
     $collection = $shape->getValueCollection();
     $shapeId = $shape->id();
-    $wrapperId = $this->formWrapperId();
+    $ajax = $this->refreshFormAjaxDefinition();
 
     // Edit state: one instance's settings form replaces the list.
     if ($this->isOpKey($form_state, $shapeId, $groupId)) {
@@ -461,49 +467,19 @@ final class ComponentPropForm extends EntityForm {
           'lock' => !empty($definition['status_lock']) ? $this->icon($this->t('Locked'), 'lock')->iconOnly() : NULL,
         ],
       ];
+      $meta = [
+        '#op_shape' => $shapeId,
+        '#op_group' => $groupId,
+        '#op_plugin' => $pluginId,
+      ];
       $row['ops'] = [
         '#neo_size' => 'min',
       ];
-      $row['ops']['edit'] = [
-        '#type' => 'submit',
-        '#name' => 'edit-' . $key . '-' . $pluginId,
-        '#value' => $this->t('Edit'),
-        '#op' => 'edit',
-        '#op_shape' => $shapeId,
-        '#op_group' => $groupId,
-        '#op_plugin' => $pluginId,
-        '#limit_validation_errors' => [],
-        '#submit' => ['::submitRebuild'],
-        '#ajax' => [
-          'callback' => '::refreshFormAjax',
-          'wrapper' => $wrapperId,
-        ],
-      ];
-      $row['ops']['remove'] = [
-        '#type' => 'submit',
-        '#name' => 'remove-' . $key . '-' . $pluginId,
-        '#value' => $this->t('Remove'),
-        '#op' => 'remove',
-        '#op_shape' => $shapeId,
-        '#op_group' => $groupId,
-        '#op_plugin' => $pluginId,
+      $row['ops']['edit'] = $this->stagedOpButton(self::OP_EDIT, 'edit-' . $key . '-' . $pluginId, $this->t('Edit'), $meta, $ajax);
+      $row['ops']['remove'] = $this->stagedOpButton(self::OP_REMOVE, 'remove-' . $key . '-' . $pluginId, $this->t('Remove'), $meta, $ajax) + [
         '#access' => empty($definition['status_lock']),
-        '#limit_validation_errors' => [],
-        '#submit' => ['::submitRebuild'],
-        '#ajax' => [
-          'callback' => '::refreshFormAjax',
-          'wrapper' => $wrapperId,
-        ],
       ];
-      $row['weight'] = [
-        '#type' => 'weight',
-        '#title' => $this->t('Weight for @title', ['@title' => $instance->label()]),
-        '#title_display' => 'invisible',
-        '#default_value' => $weight,
-        '#attributes' => [
-          'class' => ['table-sort-weight'],
-        ],
-      ];
+      $row['weight'] = $this->stagedWeightCell($this->t('Weight for @title', ['@title' => $instance->label()]), $weight, 'table-sort-weight');
       $weight++;
       $form['list'][$pluginId] = $row;
     }
@@ -517,22 +493,12 @@ final class ComponentPropForm extends EntityForm {
       $addOptions[$pluginId] = $instance->label();
     }
     if ($addOptions) {
-      asort($addOptions);
-      $form['add'] = [
-        '#type' => 'select',
-        '#title' => $this->t('Add provider'),
-        '#options' => $addOptions,
-        '#empty_option' => $this->t('- Select -'),
-        '#op' => 'add',
+      $form['add'] = $this->stagedAddSelect($this->t('Add provider'), $addOptions, [
         '#op_shape' => $shapeId,
         '#op_group' => $groupId,
         '#parents' => [$key, 'add'],
         '#neo_size' => 'xs',
-        '#ajax' => [
-          'callback' => '::refreshFormAjax',
-          'wrapper' => $wrapperId,
-        ],
-      ];
+      ], $ajax);
     }
     return $form;
   }
@@ -556,7 +522,6 @@ final class ComponentPropForm extends EntityForm {
    */
   protected function buildPluginEditForm(array $form, FormStateInterface $form_state, string $key, ComponentValuePluginInterface $instance, bool $isNew): array {
     $definition = $instance->getPluginDefinition();
-    $wrapperId = $this->formWrapperId();
     $form['edit'] = [
       '#type' => 'fieldset',
       '#title' => $this->t('@op %label', [
@@ -576,38 +541,18 @@ final class ComponentPropForm extends EntityForm {
     $subformState = SubformState::createForSubform($form['edit']['settings'], $form, $form_state);
     $form['edit']['settings'] = $instance->buildConfigurationForm($form['edit']['settings'], $subformState, $form);
 
-    $form['edit']['actions'] = [
-      '#type' => 'actions',
-    ];
-    $form['edit']['actions']['update'] = [
-      '#type' => 'submit',
-      '#name' => 'update-' . $key,
-      '#value' => $this->t('Update'),
-      '#op' => 'update',
+    // Always "Update", never "Create": a provider is added by the select
+    // above, so this pane is never the thing that creates one — which is why
+    // $isNew is FALSE here even when the pane opened on a just-added
+    // provider. What Cancel does about that provider is OP_CANCEL's job.
+    //
+    // Cancel must not commit the pane it is closing, which is why the mold
+    // gives it limited validation and Update none.
+    $form['edit']['actions'] = $this->stagedEditActions($key, FALSE, [
       '#op_shape' => $form_state->get('op_shape'),
       '#op_group' => $form_state->get('op_group'),
       '#op_plugin' => $instance->getPluginId(),
-      '#submit' => ['::submitRebuild'],
-      '#ajax' => [
-        'callback' => '::refreshFormAjax',
-        'wrapper' => $wrapperId,
-      ],
-    ];
-    $form['edit']['actions']['cancel'] = [
-      '#type' => 'submit',
-      '#name' => 'cancel-' . $key,
-      '#value' => $this->t('Cancel'),
-      '#op' => 'cancel',
-      '#op_shape' => $form_state->get('op_shape'),
-      '#op_group' => $form_state->get('op_group'),
-      '#op_plugin' => $instance->getPluginId(),
-      '#limit_validation_errors' => [],
-      '#submit' => ['::submitRebuild'],
-      '#ajax' => [
-        'callback' => '::refreshFormAjax',
-        'wrapper' => $wrapperId,
-      ],
-    ];
+    ], $this->refreshFormAjaxDefinition());
     return $form;
   }
 
@@ -644,10 +589,7 @@ final class ComponentPropForm extends EntityForm {
       '#description' => $definition['description'],
       '#default_value' => $status,
       '#disabled' => !empty($definition['status_lock']),
-      '#ajax' => [
-        'callback' => '::refreshFormAjax',
-        'wrapper' => $this->formWrapperId(),
-      ],
+      '#ajax' => $this->refreshFormAjaxDefinition(),
     ];
     if ($status) {
       $form['settings'] = [
@@ -668,6 +610,19 @@ final class ComponentPropForm extends EntityForm {
   }
 
   /**
+   * The '#ajax' definition every control on this form rebuilds through.
+   *
+   * @return array
+   *   An '#ajax' definition.
+   */
+  protected function refreshFormAjaxDefinition(): array {
+    return [
+      'callback' => '::refreshFormAjax',
+      'wrapper' => $this->formWrapperId(),
+    ];
+  }
+
+  /**
    * {@inheritdoc}
    */
   public function validateForm(array &$form, FormStateInterface $form_state) {
@@ -677,17 +632,14 @@ final class ComponentPropForm extends EntityForm {
 
     $trigger = $form_state->getTriggeringElement();
     // Buttons with limited validation (Edit/Remove/Cancel) submit no usable
-    // values: only run their op transition, never the commit paths below —
-    // committing from an empty value set would wipe the staged settings.
-    // Button::getInfo() defaults the key to FALSE (meaning "no limiting"), so
-    // only an ARRAY value marks a genuinely limited submission.
-    $limited = $trigger !== NULL && is_array($trigger['#limit_validation_errors'] ?? FALSE);
+    // values: only run their op transition, never the commit paths below.
+    $limited = $this->isLimitedSubmission($form_state);
     $pluginShapes = $this->getPluginShapes();
     $shape = $this->shape;
 
     // Where an edit pane was open while this request was built. Captured
     // before any transition so Update/Save know which subform to commit.
-    $openShape = $form_state->get('op') === 'edit' ? $form_state->get('op_shape') : NULL;
+    $openShape = $form_state->get('op') === self::OP_EDIT ? $form_state->get('op_shape') : NULL;
     $openGroup = $form_state->get('op_group');
     $openPlugin = $form_state->get('op_plugin');
 
@@ -698,11 +650,11 @@ final class ComponentPropForm extends EntityForm {
       $opPlugin = $trigger['#op_plugin'] ?? NULL;
       $opCollection = isset($pluginShapes[$opShape]) ? $pluginShapes[$opShape]->getValueCollection() : NULL;
       switch ($op) {
-        case 'edit':
+        case self::OP_EDIT:
           $this->setOpState($form_state, $opShape, $opGroup, $opPlugin, FALSE);
           break;
 
-        case 'add':
+        case self::OP_ADD:
           // The select's chosen plugin id rides in the input directly — the
           // select itself is the trigger.
           $addKey = $opGroup . '_' . $opShape;
@@ -718,7 +670,7 @@ final class ComponentPropForm extends EntityForm {
           }
           break;
 
-        case 'remove':
+        case self::OP_REMOVE:
           if ($opCollection && $opPlugin) {
             $opCollection->setStatus($opPlugin, FALSE);
             if ($openShape === $opShape && $openGroup === $opGroup && $openPlugin === $opPlugin) {
@@ -729,7 +681,7 @@ final class ComponentPropForm extends EntityForm {
           }
           break;
 
-        case 'cancel':
+        case self::OP_CANCEL:
           if ($form_state->get('op_new') && $opCollection && $opPlugin) {
             // A just-added provider reverts on cancel.
             $opCollection->setStatus($opPlugin, FALSE);
@@ -772,7 +724,7 @@ final class ComponentPropForm extends EntityForm {
             $collection->setStatus($openPlugin, TRUE);
             $instance->setConfiguration($settings);
             $form_state->set(['staged_plugin_settings', $openShape, $openPlugin], $settings);
-            if ($op === 'update') {
+            if ($op === self::OP_UPDATE) {
               $this->setOpState($form_state, NULL, NULL, NULL, FALSE);
             }
           }
@@ -913,18 +865,11 @@ final class ComponentPropForm extends EntityForm {
    * Records which section/instance the form is editing.
    */
   protected function setOpState(FormStateInterface $form_state, ?string $shapeId, ?string $groupId, ?string $pluginId, bool $new): void {
-    $form_state->set('op', $shapeId === NULL ? NULL : 'edit');
+    $form_state->set('op', $shapeId === NULL ? NULL : self::OP_EDIT);
     $form_state->set('op_shape', $shapeId);
     $form_state->set('op_group', $groupId);
     $form_state->set('op_plugin', $pluginId);
     $form_state->set('op_new', $new);
-  }
-
-  /**
-   * Submit handler for all op buttons: rebuild with the new op state.
-   */
-  public function submitRebuild(array $form, FormStateInterface $form_state): void {
-    $form_state->setRebuild();
   }
 
   /**

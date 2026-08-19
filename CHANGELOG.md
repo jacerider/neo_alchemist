@@ -1,5 +1,117 @@
 # Changelog
 
+## One mold for the component admin forms
+
+A site builder opened the Filters tab on a component and was offered filter
+plugins that component cannot use. Picking one produced a filter that does
+nothing.
+
+The plugin manager method that narrows the offered list to what a component
+supports existed on the access manager and on the slot manager. It did not
+exist on the filter manager, so the filter form fell back to listing every
+definition. The access manager's own docblock said it "mirrors" the slot
+manager's — a copy that documented that it was a copy.
+
+**The narrowing moved to a manager base all three share.** A family can no
+longer ship without it. Filter plugins gained `isApplicable()` (defaulting to
+TRUE, so no shipped filter changes what it offers), and the slot plugin
+interface now declares the method its manager was already calling.
+
+### Three seams
+
+Everything above that method was owned twice, and the copies were made by
+find-and-replace: the access and filter add controllers were byte-identical
+after a rename, so were the factories, and the edit controllers differed by two
+lines.
+
+**A configured-plugin kind.** `ConfiguredPluginKindInterface` declares what
+actually differs between access rules and filters — the manager, the entity
+accessors, the form mode, the label, and any fields the family carries of its
+own. One controller and one form replace four controllers and two forms.
+`ConfiguredPluginInterface` and `ConfiguredPluginWrapperInterface` name the
+plugin and the stored pair the families share. Adding a third kind is one
+implementation plus a service, not four classes.
+
+**A staged plugin list mold.** The list↔edit state machine the prop form and
+the slot form each re-derived is now `StagedPluginListInterface` (the op
+vocabulary, named once) plus `StagedPluginListTrait` (the op buttons, the
+weight column, the add select, the edit-pane actions). Both forms are its
+adapters. How an item is addressed stays with each form, because the two
+genuinely differ: a slot may hold two of the same plugin, a shape holds each
+provider once.
+
+**A route access checker base.** Six checkers each wrote out the same parse,
+parameter resolution and neutral fallback, with the arity varying between two
+and three segments and one of them padding its requirement string to fit. Each
+is now a single decision method over a declared segment format, and the formats
+are tabulated in one docblock.
+
+### Fixes that fall out
+
+- **The limited-submission rule is stated once.** Drupal's Button element
+  defaults `#limit_validation_errors` to FALSE — meaning "do not limit" — so
+  detecting a genuinely limited submission requires testing for an *array*. A
+  presence check classifies Save as limited and skips the commit while
+  reporting success. `LimitedSubmissionTrait` owns that rule and the three
+  forms that branch on it inherit it. The slot form had no guard at all and
+  survived only because the value set its commit path iterates happens to be
+  empty whenever Cancel is on screen.
+- The slot form's edit pane said "Edit" while adding and "Add" while editing.
+- Its cancel submit handler had no callers, and one of its handlers was wired
+  with different capitalisation from its four siblings. Both are gone.
+- **The slot form says when your changes are staged**, as the prop form
+  already did. Nothing on that screen persists until Save, so a site builder
+  who added a plugin and navigated away lost it with no warning. The message
+  renders inside the AJAX-replaced subtree, since that is the only part of the
+  form an op ever redraws.
+- **Route access checkers attach cacheability by default.** Four of the six
+  attached none, so their results varied by nothing and were invalidated by
+  nothing. They are now correctly varied and invalidated. The field checker
+  names what its decision was made from — the entity per-entity, the field
+  config in the shared-layout scope — rather than the field item, which is not
+  cacheable and would have dropped the result to max-age 0.
+- Two access checker services passed a constructor argument to classes that
+  have no constructor.
+
+### Compatibility
+
+- **Breaking for custom access and filter plugins outside this repository.**
+  `ComponentAccessPluginInterface` and `ComponentFilterPluginInterface` now
+  extend `ConfiguredPluginInterface`; a plugin extending the shipped base
+  classes is unaffected, one implementing the interfaces directly must supply
+  `isApplicable()`. `ComponentSlotPluginBase::isApplicable()` gained a `: bool`
+  return type, which every override must match.
+- **Breaking for custom route access checkers** built on the old per-checker
+  pattern: they still work as `AccessInterface` implementations, but nothing
+  shares the parse with them.
+- `ComponentAccessForm`, `ComponentFilterForm` and the four add/edit
+  controllers are removed. They were referenced only by this module's routing.
+- **A caching change on editor routes**, from the checkers that previously
+  attached nothing. This is a fix, and it can surface as different caching on
+  admin routes.
+- **No stored configuration changes and no update hook.** Access, filter and
+  slot settings keep their shape. An already-configured filter keeps its entry
+  and keeps running even if its plugin later declines the component; only the
+  add list narrows, and the plugin select on that filter's own edit screen
+  still offers the plugin it is configured with, so the screen stays saveable.
+- Audited on the site this landed from: 53 components, 5 configured filters,
+  20 access rules, none of them unsupported — so there is nothing to report or
+  remove. No shipped filter plugin declines a component today; the narrowing
+  is an extension point that had been missing, not a change to what the
+  shipped set offers.
+- Before updating a site, audit for custom `ComponentAccess`/`ComponentFilter`
+  plugins and custom route access checkers following the module's pattern.
+
+### Coverage
+
+The slot, access and filter forms had no test at all. They have one each now
+(`ComponentSlotFormUxTest`, `ComponentConfiguredPluginFormTest`), driven the way
+`ComponentPropFormUxTest` drives the prop form: through form state, asserting
+what was staged and what was persisted. `ComponentRouteAccessCheckTest`
+constructs all six checkers, where two were constructed before, and asserts
+cacheability. `LimitedSubmissionTest` pins the rule itself, including the
+premise that core really does default the key to FALSE.
+
 ## The component tree has one owner, and hybrid layout sits behind it
 
 A site builder reordered components in a layout and one of them silently

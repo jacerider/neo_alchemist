@@ -161,7 +161,7 @@ final class EntityDisplay extends ComponentSlotPluginBase implements ContainerFa
   /**
    * {@inheritdoc}
    */
-  public static function isApplicable(ComponentInterface $component) {
+  public static function isApplicable(ComponentInterface $component): bool {
     return !empty($component->getTargetEntityTypeId());
   }
 

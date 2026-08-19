@@ -4,33 +4,21 @@ declare(strict_types=1);
 
 namespace Drupal\neo_alchemist;
 
-use Drupal\Component\Plugin\ConfigurableInterface;
-use Drupal\Component\Plugin\PluginInspectionInterface;
 use Drupal\Core\Cache\CacheableResponseInterface;
-use Drupal\Core\Plugin\PluginFormInterface;
 use Drupal\Core\Render\RenderableInterface;
 
 /**
  * Interface for neo_component_slot plugins.
+ *
+ * A slot plugin is a configured plugin that also renders. Its manager has
+ * always narrowed the add picker with ::isApplicable(), but the contract was
+ * only ever written on the base class — the shared interface now declares it.
  */
-interface ComponentSlotPluginInterface extends ConfigurableInterface, PluginFormInterface, PluginInspectionInterface, RenderableInterface, CacheableResponseInterface {
-
-  /**
-   * Returns the translated plugin label.
-   */
-  public function label(): string;
+interface ComponentSlotPluginInterface extends ConfiguredPluginInterface, RenderableInterface, CacheableResponseInterface {
 
   /**
    * Returns the plugin instance UUID.
    */
   public function uuid(): ?string;
-
-  /**
-   * Returns the summarized configuration of the slot plugin.
-   *
-   * @return array
-   *   An array of summarized configuration of the slot plugin.
-   */
-  public function settingsSummary(): array;
 
 }

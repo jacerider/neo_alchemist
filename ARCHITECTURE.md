@@ -187,6 +187,36 @@ Supporting managers: `plugin.manager.neo_component_group`, `…_value_group`, `�
 [src/Attribute/](src/Attribute/) and (for slot/filter/access) a small factory service
 (`neo_component.slot.factory`, `.filter.factory`, `.access.factory`).
 
+### Configured plugins: slot, filter and access are one kind of thing
+
+Those three families are the same shape — a plugin picked from a list, configured, and stored
+on a `neo_component` under a uuid — and used to own that shape three times over.
+
+- [ConfiguredPluginInterface](src/ConfiguredPluginInterface.php) is what such a plugin answers
+  to: `label()`, `settingsSummary()`, and the static `isApplicable(ComponentInterface)` that
+  decides whether it is offered at all.
+- [ConfiguredPluginManagerBase](src/ConfiguredPluginManagerBase.php) owns instantiation (each
+  family supplies only its constructor call) and `getFilteredDefinitionsFromComponent()`, the
+  narrowing every add picker is built from. That method existed on the slot manager, was
+  copied to the access manager, and was **missing from the filter manager** — so the filter
+  form listed every definition and a site builder could configure a filter that does nothing.
+  Owning it here is what stops a fourth family shipping without it.
+- [ConfiguredPluginWrapperInterface](src/ConfiguredPluginWrapperInterface.php) is the stored
+  pair — uuid, plugin id, settings — that `ComponentAccess` and `ComponentFilter` both are,
+  with [ConfiguredPluginWrapperTrait](src/ConfiguredPluginWrapperTrait.php) supplying the
+  memoisation rule.
+- [ConfiguredPluginKindInterface](src/ConfiguredPlugin/ConfiguredPluginKindInterface.php)
+  declares what differs between access and filter — the manager, the entity accessors, the
+  form mode, the label, and any fields the family carries of its own. One controller
+  (`ComponentConfiguredPluginController`) and one form (`ComponentConfiguredPluginForm`)
+  serve both, replacing four controllers and two forms. Filter's extra fields (title,
+  description, default value, editable, required) come from `FilterKind::buildForm()`.
+
+**Adding a third kind** is an implementation of `ConfiguredPluginKindInterface`, a service, and
+two route entries carrying `neo_kind` — not four near-identical classes. Slot is a candidate:
+its manager already shares the base, but its form is a staged list rather than a single-item
+add/edit screen, and its Twig-key column is genuinely its own.
+
 ### ComponentValue processing model
 
 A prop's value is built by running its enabled ComponentValue plugins across phases:
@@ -219,19 +249,33 @@ orders plugins by the group's own `weight` (`providers` -5 → `fallback` -3 →
 draggable list), followed by the remaining available plugins in definition order (plugin
 `weight`, then label).
 
-**The prop form** (`ComponentPropForm`) is a list↔edit state machine in the mold of
-`ComponentSlotForm`: one vertical tab per plugin-bearing shape (the prop, then each expanded
-child), the four value groups stacked inside as badged sections, and — for multi-plugin groups —
-only the ACTIVE plugins listed as summary rows (`settingsSummary()` + the processing-mode badge)
-with an *Add provider* select for the rest; one plugin's settings form is open at a time.
-Single-plugin groups (`fallback`'s `default`, `settings`' `widget`) stay inline. All mutations
-run through `validateForm()` and are staged on the form object's own (cached, unsaved) entity via
-`setPropShapeSettings()` — nothing persists until Save, and a status message says so once the
-staged settings diverge. One sharp edge lives in the limited-validation detection:
-`Button::getInfo()` defaults `#limit_validation_errors` to FALSE, so "is this a limited
-submission" must test for an *array* — a presence check classifies every button (Update and Save
-included) as limited and silently skips the commit path
-(`ComponentPropFormUxTest::testUpdateTriggerCommitsTheOpenPane` pins this). So
+**The prop form** (`ComponentPropForm`) is one of the two adapters of the **staged plugin list
+mold** ([StagedPluginListInterface](src/Form/StagedPluginListInterface.php) +
+[StagedPluginListTrait](src/Form/StagedPluginListTrait.php)); `ComponentSlotForm` is the other.
+The mold is: op state in the form state (`OP_LIST`/`OP_ADD`/`OP_EDIT`/`OP_UPDATE`/`OP_REMOVE`/
+`OP_CANCEL` — named once, on the interface), a draggable summary table, an add-plugin select,
+an edit pane with Update and Cancel, mutation performed inside `validateForm()`, staging on the
+form object's own cached unsaved entity, and an AJAX rebuild. The trait owns the elements, so a
+fix to any of them reaches both forms. What each adapter keeps is how it addresses an item: the
+slot form by uuid (a slot may hold two of the same plugin), the prop form by plugin id within a
+shape × group section (a shape holds each provider at most once, and one form carries many
+sections).
+
+For the prop form that means: one vertical tab per plugin-bearing shape (the prop, then each
+expanded child), the four value groups stacked inside as badged sections, and — for multi-plugin
+groups — only the ACTIVE plugins listed as summary rows (`settingsSummary()` + the
+processing-mode badge) with an *Add provider* select for the rest; one plugin's settings form is
+open at a time. Single-plugin groups (`fallback`'s `default`, `settings`' `widget`) stay inline.
+Nothing persists until Save, and a status message says so once the staged settings diverge.
+
+The sharp edge is the limited-validation detection, and it is owned by
+[LimitedSubmissionTrait](src/Form/LimitedSubmissionTrait.php) — one method, inherited by every
+form that asks. `Button::getInfo()` defaults `#limit_validation_errors` to FALSE, so "is this a
+limited submission" must test for an *array*: a presence check classifies every button (Update
+and Save included) as limited and silently skips the commit path
+(`ComponentPropFormUxTest::testUpdateTriggerCommitsTheOpenPane` and `LimitedSubmissionTest` pin
+this). Nine files in the module set that key; the three that *branch* on it — the prop form, the
+slot form and `ComponentConfiguredPluginForm` — all read it through that one method. So
 re-grouping a plugin *does* move it in the pipeline, and `default` — group `fallback`, weight
 1000 — is guaranteed to run after every provider no matter which one the site builder enabled
 first. Ordering the saved plugins flat instead is what let a `fallback` run ahead of a
@@ -559,7 +603,15 @@ From [neo_alchemist.services.yml](neo_alchemist.services.yml):
   everything before that point is shared.
 - **Plugin managers** — `plugin.manager.neo_component_{prop_def,shape,value,value_group,group,size,slot,filter,filter_options,access}`.
 - **Factories** — `neo_component.{slot,filter,access}.factory`.
+- **Configured-plugin kinds** — `neo_alchemist.configured_plugin_kind.{access,filter}` and the
+  `neo_alchemist.configured_plugin_kinds` repository the shared form and controller resolve
+  one through. See "Configured plugins" below.
 - **Access checkers** (tagged `access_check`) — `neo_alchemist.{entity_access,field_access,neo_field_access,neo_component_access,prop_access,slot_access}_checker`.
+  All six extend [ComponentRouteAccessCheckBase](src/Access/ComponentRouteAccessCheckBase.php),
+  which owns the requirement parse, the parameter resolution, the neutral fallback and — by
+  default — the cacheability. A checker declares its requirement key and segment format and
+  implements one decision method. The requirement formats are tabulated in that class's
+  docblock, so a route author reads the contract rather than the implementation.
 - **Event subscribers** — `neo_alchemist.route_subscriber` (dynamic entity/field routes),
   `neo_alchemist.kernel_subscriber`, and two `NeoBuild*EventSubscriber`s (Tailwind scanning).
 

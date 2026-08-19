@@ -1,51 +1,85 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\neo_alchemist\Access;
 
 use Drupal\Core\Access\AccessResult;
+use Drupal\Core\Access\AccessResultInterface;
 use Drupal\Core\Entity\ContentEntityInterface;
-use Drupal\Core\Routing\Access\AccessInterface;
-use Drupal\Core\Routing\RouteMatchInterface;
 use Drupal\Core\Session\AccountInterface;
 use Drupal\neo_alchemist\Plugin\Field\FieldType\ComponentTreeItem;
-use Symfony\Component\Routing\Route;
 
 /**
- * Provides a generic access checker for entities.
+ * Checks an operation on one component tree field item.
+ *
+ * Requirement: `_neo_component_field: <tree field item param>.<operation>`.
  */
-class ComponentFieldAccessCheck implements AccessInterface {
+class ComponentFieldAccessCheck extends ComponentRouteAccessCheckBase {
 
   /**
-   * Checks access to the entity operation on the given route.
+   * {@inheritdoc}
    */
-  public function access(Route $route, RouteMatchInterface $routeMatch, AccountInterface $account) {
-    $requirement = $route->getRequirement('_neo_component_field');
-    [$field, $operation] = explode('.', $requirement);
-    $parameters = $routeMatch->getParameters();
+  protected function requirement(): string {
+    return '_neo_component_field';
+  }
 
-    // A field has been specified, check if it is a valid field.
-    $neoField = $parameters->get($field);
-    if ($neoField instanceof ComponentTreeItem) {
-      // Editing the shared layout itself (the field-config scope) is always
-      // about the field, never about one entity. Per-entity editing is only
-      // offered for the tree fields this entity actually applies: the helper
-      // drops locked fields and then lets
-      // hook_neo_alchemist_entity_component_fields_alter() drop the ones that
-      // do not apply to this entity (e.g. a taxonomy term's non-matching
-      // hierarchy levels), which otherwise authors content that never renders.
-      if (!$neoField->belongsToFieldConfig()) {
-        $entity = $neoField->getEntity();
-        $applicable = $entity instanceof ContentEntityInterface
-          ? neo_alchemist_entity_component_field_definitions($entity, TRUE)
-          : [];
-        if (!isset($applicable[$neoField->getFieldDefinition()->getName()])) {
-          return AccessResult::forbidden()->addCacheableDependency($entity);
-        }
-      }
-      return $neoField->access($operation, $account, TRUE);
+  /**
+   * {@inheritdoc}
+   */
+  protected function segments(): array {
+    return [
+      'field' => self::PARAM,
+      'operation' => self::VALUE,
+    ];
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  protected function checkAccess(array $parts, AccountInterface $account): AccessResultInterface {
+    $item = $parts['field'];
+    if (!$item instanceof ComponentTreeItem) {
+      return AccessResult::neutral();
     }
 
-    return AccessResult::neutral();
+    // Editing the shared layout itself (the field-config scope) is always
+    // about the field, never about one entity. Per-entity editing is only
+    // offered for the tree fields this entity actually applies: the helper
+    // drops locked fields and then lets
+    // hook_neo_alchemist_entity_component_fields_alter() drop the ones that do
+    // not apply to this entity (e.g. a taxonomy term's non-matching hierarchy
+    // levels), which otherwise authors content that never renders.
+    if (!$item->belongsToFieldConfig()) {
+      $entity = $item->getEntity();
+      $applicable = $entity instanceof ContentEntityInterface
+        ? neo_alchemist_entity_component_field_definitions($entity, TRUE)
+        : [];
+      if (!isset($applicable[$item->getFieldDefinition()->getName()])) {
+        return AccessResult::forbidden();
+      }
+    }
+
+    return $item->access($parts['operation'], $account, TRUE);
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  protected function cacheableDependencies(array $parts): iterable {
+    // A field item is not cacheable in its own right, so name what the
+    // decision was actually made from. Editing the shared layout is about the
+    // field — and its prototype entity is unsaved, whose cache tag would be a
+    // junk `<type>:` — while per-entity editing is about the entity: which
+    // fields apply there is entity-specific (the alter hook), so both
+    // outcomes have to be re-evaluated when the entity changes.
+    $item = $parts['field'];
+    if (!$item instanceof ComponentTreeItem) {
+      return [];
+    }
+    return $item->belongsToFieldConfig()
+      ? [$item->getFieldDefinition()]
+      : [$item->getEntity()];
   }
 
 }

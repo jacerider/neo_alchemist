@@ -99,6 +99,14 @@ abstract class ComponentFilterPluginBase extends PluginBase implements Component
   /**
    * {@inheritdoc}
    */
+  public static function isApplicable(ComponentInterface $component): bool {
+    // By default, plugins are available for all components.
+    return TRUE;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
   public function valueSummary(?string $value): ?string {
     return NULL;
   }

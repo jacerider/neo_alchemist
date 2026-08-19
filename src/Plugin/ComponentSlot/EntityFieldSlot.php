@@ -256,7 +256,7 @@ final class EntityFieldSlot extends ComponentSlotPluginBase implements Container
   /**
    * {@inheritdoc}
    */
-  public static function isApplicable(ComponentInterface $component) {
+  public static function isApplicable(ComponentInterface $component): bool {
     return !empty($component->getTargetEntityTypeId());
   }
 

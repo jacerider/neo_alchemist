@@ -1,19 +1,22 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\neo_alchemist\Access;
 
 use Drupal\Core\Access\AccessResult;
+use Drupal\Core\Access\AccessResultInterface;
 use Drupal\Core\Entity\EntityFieldManagerInterface;
 use Drupal\Core\Entity\EntityInterface;
-use Drupal\Core\Routing\Access\AccessInterface;
-use Drupal\Core\Routing\RouteMatchInterface;
 use Drupal\Core\Session\AccountInterface;
-use Symfony\Component\Routing\Route;
 
 /**
- * Provides a generic access checker for entities.
+ * Opens the Field-UI layout route for a bundle carrying a tree field.
+ *
+ * Requirement:
+ * `_neo_field_component: <entity type id param>.<bundle param>.<operation>`.
  */
-class FieldComponentAccessCheck implements AccessInterface {
+class FieldComponentAccessCheck extends ComponentRouteAccessCheckBase {
 
   /**
    * Constructs a FieldComponentAccessCheck object.
@@ -26,25 +29,46 @@ class FieldComponentAccessCheck implements AccessInterface {
   ) {}
 
   /**
-   * Checks access to the entity operation on the given route.
+   * {@inheritdoc}
    */
-  public function access(Route $route, RouteMatchInterface $routeMatch, AccountInterface $account) {
-    $requirement = $route->getRequirement('_neo_field_component');
-    [$entityTypeId, $bundle, $operation] = explode('.', $requirement . '..');
-    $parameters = $routeMatch->getParameters();
-    $entityTypeId = $parameters->get($entityTypeId);
-    $bundle = $parameters->get($bundle);
+  protected function requirement(): string {
+    return '_neo_field_component';
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  protected function segments(): array {
+    return [
+      'entity_type_id' => self::PARAM,
+      'bundle' => self::PARAM,
+      'operation' => self::VALUE,
+    ];
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  protected function checkAccess(array $parts, AccountInterface $account): AccessResultInterface {
+    $entityTypeId = $parts['entity_type_id'];
+    $bundle = $parts['bundle'];
+    // Field UI routes carry the bundle either as its own entity or as a
+    // plain id, depending on whether the entity type has a bundle entity.
     if ($bundle instanceof EntityInterface) {
       $bundle = $bundle->id();
     }
-    if ($entityTypeId && $bundle) {
-      /** @var \Drupal\neo_alchemist\Entity\ComponentFieldConfig[] $fields */
-      $fields = array_filter($this->entityFieldManager->getFieldDefinitions($entityTypeId, $bundle), fn($field) => $field->getType() === 'neo_component_tree');
-      foreach ($fields as $field) {
-        $access = $field->access($operation, $account, TRUE);
-        if ($access->isAllowed()) {
-          return $access;
-        }
+    if (!$entityTypeId || !$bundle) {
+      return AccessResult::neutral();
+    }
+
+    $fields = array_filter(
+      $this->entityFieldManager->getFieldDefinitions($entityTypeId, $bundle),
+      static fn ($field) => $field->getType() === 'neo_component_tree'
+    );
+    foreach ($fields as $field) {
+      $access = $field->access($parts['operation'], $account, TRUE);
+      if ($access->isAllowed()) {
+        return $access;
       }
     }
     return AccessResult::neutral();

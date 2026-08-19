@@ -31,7 +31,7 @@ final class EntityQueryPagerSlot extends ComponentSlotPluginBase {
   /**
    * {@inheritdoc}
    */
-  public static function isApplicable(ComponentInterface $component) {
+  public static function isApplicable(ComponentInterface $component): bool {
     return $component->hasPropShapeWithPlugin('entity_query');
   }
 

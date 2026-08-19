@@ -4,29 +4,16 @@ declare(strict_types=1);
 
 namespace Drupal\neo_alchemist;
 
-use Drupal\Component\Plugin\ConfigurableInterface;
-use Drupal\Component\Plugin\PluginInspectionInterface;
 use Drupal\Core\Access\AccessResultInterface;
-use Drupal\Core\Plugin\PluginFormInterface;
 use Drupal\Core\Session\AccountInterface;
 
 /**
  * Interface for neo_component_access plugins.
+ *
+ * The label, the settings summary and the applicability test are the shared
+ * configured-plugin surface; only the access decision below is this family's.
  */
-interface ComponentAccessPluginInterface extends ConfigurableInterface, PluginFormInterface, PluginInspectionInterface {
-
-  /**
-   * Returns the translated plugin label.
-   */
-  public function label(): string;
-
-  /**
-   * Returns the summarized configuration of the access plugin.
-   *
-   * @return array
-   *   An array of summarized configuration of the access plugin.
-   */
-  public function settingsSummary(): array;
+interface ComponentAccessPluginInterface extends ConfiguredPluginInterface {
 
   /**
    * Check access.
@@ -58,21 +45,5 @@ interface ComponentAccessPluginInterface extends ConfigurableInterface, PluginFo
    *   default), FALSE to enforce the check even for administrators.
    */
   public function bypassAdminAccess(string $op): bool;
-
-  /**
-   * Determines if the plugin is applicable to the given component.
-   *
-   * Non-applicable plugins are not offered when adding an access rule to the
-   * component (mirroring ComponentSlotPluginInterface::isApplicable()). An
-   * already-saved rule whose plugin later becomes non-applicable still
-   * executes — plugins must degrade to neutral in that situation.
-   *
-   * @param \Drupal\neo_alchemist\ComponentInterface $component
-   *   The component the rule would be attached to.
-   *
-   * @return bool
-   *   TRUE when the plugin can act on this component.
-   */
-  public static function isApplicable(ComponentInterface $component): bool;
 
 }

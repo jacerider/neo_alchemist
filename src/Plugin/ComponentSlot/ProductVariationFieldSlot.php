@@ -272,7 +272,7 @@ final class ProductVariationFieldSlot extends ComponentSlotPluginBase implements
   /**
    * {@inheritdoc}
    */
-  public static function isApplicable(ComponentInterface $component) {
+  public static function isApplicable(ComponentInterface $component): bool {
     return $component->getTargetEntityTypeId() === 'commerce_product';
   }
 

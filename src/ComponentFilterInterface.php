@@ -7,33 +7,13 @@ namespace Drupal\neo_alchemist;
 use Drupal\Core\Form\FormStateInterface;
 
 /**
- * Interface for neo_component_shape plugins.
+ * A configured filter stored on a component.
+ *
+ * Everything about being "a plugin id plus settings under a uuid" is inherited;
+ * what is this family's own is the title, description, editability and the
+ * default/override value pair below.
  */
-interface ComponentFilterInterface {
-
-  /**
-   * Gets the label (title) of the component filter.
-   *
-   * @return string
-   *   The label of the filter.
-   */
-  public function label(): string;
-
-  /**
-   * Gets the UUID of the component filter.
-   *
-   * @return string|null
-   *   The UUID or null if not set.
-   */
-  public function uuid(): ?string;
-
-  /**
-   * Returns the summarized configuration of the filter plugin.
-   *
-   * @return array
-   *   An array of summarized configuration of the filter plugin.
-   */
-  public function settingsSummary(): array;
+interface ComponentFilterInterface extends ConfiguredPluginWrapperInterface {
 
   /**
    * Returns the summarized value of the filter plugin.
@@ -42,14 +22,6 @@ interface ComponentFilterInterface {
    *   The summarized value of the filter plugin.
    */
   public function valueSummary(): ?string;
-
-  /**
-   * Gets the component of the component filter.
-   *
-   * @return \Drupal\neo_alchemist\ComponentInterface
-   *   The component.
-   */
-  public function getComponent(): ComponentInterface;
 
   /**
    * Sets the title of the component filter.
@@ -82,63 +54,12 @@ interface ComponentFilterInterface {
   public function setDescription(string $description): self;
 
   /**
-   * Gets the plugin ID of the component filter.
+   * {@inheritdoc}
    *
-   * @return string
-   *   The plugin ID.
-   */
-  public function getPluginId(): string;
-
-  /**
-   * Sets the plugin ID of the component filter.
-   *
-   * @param string $pluginId
-   *   The plugin ID to set.
-   *
-   * @return self
-   *   Returns the instance for method chaining.
-   */
-  public function setPluginId(string $pluginId): self;
-
-  /**
-   * Retrieves the plugin settings.
-   *
-   * @return array
-   *   An array of plugin settings.
-   */
-  public function getPluginSettings(): array;
-
-  /**
-   * Sets the plugin settings.
-   *
-   * @param array $pluginSettings
-   *   An associative array of plugin settings.
-   *
-   * @return self
-   *   The current instance of the class for method chaining.
-   */
-  public function setPluginSettings(array $pluginSettings): self;
-
-  /**
-   * Retrieves the plugin instance.
-   *
-   * This method checks if the plugin instance is already set. If not, it
-   * attempts to create an instance of the plugin using the plugin ID and
-   * component settings. If the plugin ID is valid and the manager has a
-   * definition for it, the plugin instance is created and stored.
-   *
-   * @return \Drupal\neo_alchemist\Plugin\ComponentFilterPluginInterface|null
-   *   The plugin instance if available, or NULL if it could not be created.
+   * @return \Drupal\neo_alchemist\ComponentFilterPluginInterface|null
+   *   The filter plugin instance, or NULL when none is configured.
    */
   public function getPlugin(): ?ComponentFilterPluginInterface;
-
-  /**
-   * Determines if the component filter is new.
-   *
-   * @return bool
-   *   TRUE if the component filter is new, FALSE otherwise.
-   */
-  public function isNew(): bool;
 
   /**
    * Checks if the component filter is editable.
@@ -314,13 +235,5 @@ interface ComponentFilterInterface {
    *   no plugin is available.
    */
   public function getProcessedValue(): ?string;
-
-  /**
-   * Converts the component filter to an array.
-   *
-   * @return array
-   *   An associative array representing the filter.
-   */
-  public function toArray(): array;
 
 }

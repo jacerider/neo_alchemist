@@ -17,11 +17,19 @@ use Drupal\neo_alchemist\ComponentSlotPluginManager;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
- * Component form.
+ * Component slot form.
+ *
+ * A staged plugin list keyed by uuid: a slot may hold two of the same plugin,
+ * and each item carries a Twig key naming it inside the slot's template. Both
+ * of those are this form's own; the rest of the list↔edit machinery comes from
+ * the mold.
+ *
+ * @see \Drupal\neo_alchemist\Form\StagedPluginListInterface
  */
-final class ComponentSlotForm extends EntityForm {
+final class ComponentSlotForm extends EntityForm implements StagedPluginListInterface {
 
   use ComponentAjaxFormHelperTrait;
+  use StagedPluginListTrait;
   use StringTranslationTrait;
 
   /**
@@ -86,6 +94,14 @@ final class ComponentSlotForm extends EntityForm {
     $uuid = $form_state->get('uuid');
     $op = $form_state->get('op');
 
+    if (!$form_state->has('original_slot')) {
+      // Snapshot the untouched slot once, in the same normalized shape every
+      // later setSlotSettings() call produces, so a freshly opened form does
+      // not report changes it has not made.
+      $this->entity->setSlotSettings($this->slot, $this->slot->toArray());
+      $form_state->set('original_slot', $this->stagedSlotSettings());
+    }
+
     $form['plugins'] = [
       '#type' => 'container',
       '#tree' => TRUE,
@@ -95,9 +111,23 @@ final class ComponentSlotForm extends EntityForm {
       ],
     ];
 
+    // Every op below — add, edit, update, remove, reorder, rekey — stages its
+    // change on the unsaved entity and takes effect only on Save. The message
+    // lives INSIDE the plugins container because that is the only subtree
+    // ::refreshAjax() replaces; at the form root it would only ever appear on
+    // a full page load, which is exactly when there is nothing staged.
+    if ($this->stagedSlotSettings() !== $form_state->get('original_slot')) {
+      $form['plugins']['unsaved'] = [
+        '#type' => 'status_message',
+        '#style' => 'warning',
+        '#value' => $this->t('Your changes are staged and take effect when you press %save.', ['%save' => $this->t('Save')]),
+        '#weight' => -5,
+      ];
+    }
+
     switch ($op) {
-      case 'add':
-      case 'edit':
+      case self::OP_ADD:
+      case self::OP_EDIT:
         if ($uuid) {
           $plugin = $this->slot->getPlugin($uuid);
         }
@@ -126,7 +156,7 @@ final class ComponentSlotForm extends EntityForm {
     $form['form'] = [
       '#type' => 'fieldset',
       '#title' => $this->t('@op %label', [
-        '@op' => $isNew ? 'Edit' : 'Add',
+        '@op' => $isNew ? $this->t('Add') : $this->t('Edit'),
         '%label' => $plugin->label(),
       ]),
       '#parents' => ['plugins', 'form'],
@@ -139,33 +169,45 @@ final class ComponentSlotForm extends EntityForm {
     $subform_state = SubformState::createForSubform($form['form']['settings'], $form, $form_state);
     $form['form']['settings'] = $plugin->buildConfigurationForm($form['form']['settings'], $subform_state, $form);
 
-    $form['form']['actions'] = [
-      '#type' => 'actions',
-    ];
-    $form['form']['actions']['submit'] = [
-      '#type' => 'submit',
-      '#value' => $isNew ? $this->t('Create') : $this->t('Update'),
-      '#op' => 'update',
-      '#uuid' => $plugin->uuid(),
-      '#plugin' => $plugin->getPluginId(),
-      '#submit' => ['::submitRebuild'],
-      '#ajax' => [
-        'callback' => [static::class, 'refreshAjax'],
-        'wrapper' => $id,
+    // Cancel on a plugin that was added by this interaction discards it; on an
+    // existing one it only closes the pane.
+    $form['form']['actions'] = $this->stagedEditActions(
+      'slot',
+      $isNew,
+      [
+        '#uuid' => $plugin->uuid(),
+        '#plugin' => $plugin->getPluginId(),
       ],
-    ];
-    $form['form']['actions']['cancel'] = [
-      '#type' => 'submit',
-      '#value' => $this->t('Cancel'),
-      '#op' => $isNew ? 'remove' : 'list',
-      '#submit' => ['::SubmitRebuild'],
-      '#limit_validation_errors' => [],
-      '#ajax' => [
-        'callback' => [static::class, 'refreshAjax'],
-        'wrapper' => $id,
-      ],
-    ];
+      $this->refreshAjaxDefinition($id),
+      $isNew ? self::OP_REMOVE : self::OP_LIST,
+    );
     return $form;
+  }
+
+  /**
+   * This slot's settings as currently staged on the unsaved entity.
+   *
+   * @return array
+   *   The stored representation, or [] when nothing is staged yet.
+   */
+  private function stagedSlotSettings(): array {
+    return $this->entity->getSetting('slots', [])[$this->slot->getName()] ?? [];
+  }
+
+  /**
+   * The '#ajax' definition every control on this form rebuilds through.
+   *
+   * @param string $id
+   *   The plugins wrapper's DOM id.
+   *
+   * @return array
+   *   An '#ajax' definition.
+   */
+  private function refreshAjaxDefinition(string $id): array {
+    return [
+      'callback' => [static::class, 'refreshAjax'],
+      'wrapper' => $id,
+    ];
   }
 
   /**
@@ -175,6 +217,7 @@ final class ComponentSlotForm extends EntityForm {
     $plugins = $this->slot->getPlugins();
 
     $keys = $this->slot->getKeys();
+    $ajax = $this->refreshAjaxDefinition($id);
 
     $form['list'] = [
       '#type' => 'table',
@@ -229,61 +272,21 @@ final class ComponentSlotForm extends EntityForm {
         ];
       }
 
+      // Edit and Remove deliberately submit unlimited: the Twig key typed
+      // into a sibling row is a value, and it is applied on the way through
+      // validateForm() rather than being discarded.
       $row['ops'] = [
         '#neo_size' => 'min',
       ];
-      $row['ops']['edit'] = [
-        '#type' => 'submit',
-        '#name' => 'edit-' . $uuid,
-        '#op' => 'edit',
-        '#uuid' => $uuid,
-        '#value' => $this->t('Edit'),
-        '#submit' => ['::submitRebuild'],
-        '#ajax' => [
-          'callback' => [static::class, 'refreshAjax'],
-          'wrapper' => $id,
-        ],
-      ];
-      $row['ops']['remove'] = [
-        '#type' => 'submit',
-        '#name' => 'remove-' . $uuid,
-        '#op' => 'remove',
-        '#uuid' => $uuid,
-        '#value' => $this->t('Remove'),
-        '#submit' => ['::submitRebuild'],
-        '#ajax' => [
-          'callback' => [static::class, 'refreshAjax'],
-          'wrapper' => $id,
-        ],
-      ];
-      $row['weight'] = [
-        '#type' => 'weight',
-        '#title' => $this->t('Weight'),
-        '#title_display' => 'invisible',
-        '#default_value' => $weight,
-        '#attributes' => [
-          'class' => [
-            'draggable-weight',
-          ],
-        ],
-      ];
+      $row['ops']['edit'] = $this->stagedOpButton(self::OP_EDIT, 'edit-' . $uuid, $this->t('Edit'), ['#uuid' => $uuid], $ajax, FALSE);
+      $row['ops']['remove'] = $this->stagedOpButton(self::OP_REMOVE, 'remove-' . $uuid, $this->t('Remove'), ['#uuid' => $uuid], $ajax, FALSE);
+      $row['weight'] = $this->stagedWeightCell($this->t('Weight'), $weight, 'draggable-weight');
       $weight++;
       $form['list'][$uuid] = $row;
     }
 
     $options = array_map(fn($definition) => $definition['label'], $this->slotManager->getFilteredDefinitionsFromComponent($this->entity));
-    asort($options);
-    $form['add'] = [
-      '#type' => 'select',
-      '#title' => $this->t('Add Plugin'),
-      '#op' => 'add',
-      '#options' => $options,
-      '#empty_option' => $this->t('- Select -'),
-      '#ajax' => [
-        'callback' => [static::class, 'refreshAjax'],
-        'wrapper' => $id,
-      ],
-    ];
+    $form['add'] = $this->stagedAddSelect($this->t('Add Plugin'), $options, [], $ajax);
 
     $form['theming'] = $this->buildThemingHelp($plugins);
 
@@ -477,12 +480,12 @@ final class ComponentSlotForm extends EntityForm {
     $form_state->set('op', $op);
     $form_state->set('uuid', $uuid);
     $form_state->set('plugin_id', $plugin_id);
-    if ($op === 'remove' && $uuid) {
+    if ($op === self::OP_REMOVE && $uuid) {
       $this->slot->removePlugin($uuid);
       $form_state->set('uuid', NULL);
-      $form_state->set('op', 'list');
+      $form_state->set('op', self::OP_LIST);
     }
-    elseif ($op === 'add' || $op === 'edit') {
+    elseif ($op === self::OP_ADD || $op === self::OP_EDIT) {
       $pendingUuid = $form_state->get('uuid');
       if ($pendingUuid) {
         $plugin = $this->slot->getPlugin($pendingUuid);
@@ -501,7 +504,7 @@ final class ComponentSlotForm extends EntityForm {
         $plugin->submitConfigurationForm($form['plugins']['form']['settings'], $subform_state);
       }
     }
-    elseif ($op === 'update') {
+    elseif ($op === self::OP_UPDATE) {
       $plugin = $this->slot->getPlugin($uuid);
       $form_state->set('new', FALSE);
       $subform_state = SubformState::createForSubform($form['plugins']['form']['settings'], $form, $form_state);
@@ -509,15 +512,23 @@ final class ComponentSlotForm extends EntityForm {
       $plugin->setConfiguration($subform_state->getValues());
       $plugin->submitConfigurationForm($form['plugins']['form']['settings'], $subform_state);
       $form_state->set('uuid', NULL);
-      $form_state->set('op', 'list');
+      $form_state->set('op', self::OP_LIST);
     }
 
+    // Cancel submits with validation limited to nothing, so the rows below
+    // arrive empty and the key work would read that as "every Twig key was
+    // cleared". This form used to survive that by accident — Cancel only
+    // exists while the edit pane has replaced the list, so there were never
+    // any rows to misread. Say it instead of relying on it. The op transition
+    // above has already been applied to the slot, so the staging still runs:
+    // Cancel on a just-added plugin is how that plugin is discarded.
+    //
     // An empty slot builds its list table with #access FALSE, and a table is a
     // form input: with no rows to write into it and no user input allowed, it
     // falls back to the '' every input element defaults to. So the key exists
     // and ?? does not catch it — adding the very first plugin to a slot would
     // otherwise hand a string to the array handling below.
-    $rows = $values['plugins']['list'] ?? [];
+    $rows = $this->isLimitedSubmission($form_state) ? [] : ($values['plugins']['list'] ?? []);
     $rows = is_array($rows) ? $rows : [];
 
     // Must run before ::toArray() below. The line that reorders 'plugins' keeps
@@ -601,20 +612,6 @@ final class ComponentSlotForm extends EntityForm {
       $actions['submit']['#ajax']['callback'] = '::ajaxSubmit';
     }
     return $actions;
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function submitRebuild(array $form, FormStateInterface $form_state) {
-    $form_state->setRebuild(TRUE);
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function submitCancel(array $form, FormStateInterface $form_state) {
-    $form_state->set('op', 'list');
   }
 
   /**
