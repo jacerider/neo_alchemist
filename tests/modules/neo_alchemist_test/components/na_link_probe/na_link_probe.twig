@@ -1,0 +1,5 @@
+{#
+  Minimal on purpose. The test reads the resolved prop value rather than
+  markup, so this only has to render without erroring.
+#}
+<a{{ attributes }} href="{{ link.uri }}" target="{{ link.target }}">{{ link.title }}</a>

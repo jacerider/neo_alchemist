@@ -42,6 +42,11 @@ class LinkShape extends StructuredObjectShapeBase {
       if (empty($value['icon']) && !empty($value['options']['attributes']['data-icon'])) {
         $value['icon'] = $value['options']['attributes']['data-icon'];
       }
+      // Lifted here rather than in UrlShapeTrait::preRenderValue() alone:
+      // StructuredObjectShapeBase::buildValue() backfills the schema defaults
+      // between the two, so by pre-render `target` is already '_self' and the
+      // widget's "open in a new window" attribute would never be read.
+      $value = $this->liftTargetFromOptions($value);
     }
     return parent::adaptValue($value);
   }

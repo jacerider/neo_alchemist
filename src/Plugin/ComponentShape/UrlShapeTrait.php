@@ -86,9 +86,7 @@ trait UrlShapeTrait {
       }
 
       // Use target if passed in with the options.
-      if (empty($value['target']) && !empty($value['options']['attributes']['target'])) {
-        $value['target'] = $value['options']['attributes']['target'];
-      }
+      $value = $this->liftTargetFromOptions($value);
       // Guarantee a value in the target enum. A blank or otherwise invalid
       // target (e.g. '0' from a formatter's "no target" option, or a value
       // supplied by a value provider) would fail SDC prop validation and
@@ -97,6 +95,29 @@ trait UrlShapeTrait {
         $value['target'] = '_self';
       }
       unset($value['options']['attributes']);
+    }
+    return $value;
+  }
+
+  /**
+   * Promotes the link widget's target attribute to the shape's target value.
+   *
+   * The Neo Link widget records "open in a new window" as
+   * options.attributes.target, while the shape exposes it to twig as a
+   * top-level `target`. This must run before anything backfills `target` from
+   * the schema default — once that fills in '_self' the attribute is no longer
+   * distinguishable from an authored choice and would be silently discarded.
+   *
+   * @param mixed $value
+   *   The link value.
+   *
+   * @return mixed
+   *   The value, with `target` filled in from the options attributes when the
+   *   widget recorded one and nothing has set `target` yet.
+   */
+  protected function liftTargetFromOptions(mixed $value): mixed {
+    if (is_array($value) && empty($value['target']) && !empty($value['options']['attributes']['target'])) {
+      $value['target'] = $value['options']['attributes']['target'];
     }
     return $value;
   }
