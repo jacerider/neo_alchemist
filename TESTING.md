@@ -16,14 +16,23 @@ coverage percentage.
 Assuming the host site is already set up (see [Host site setup](#host-site-setup)):
 
 ```bash
-ddev phpunit                                                # everything
-ddev phpunit web/modules/contrib/neo_alchemist/tests/src/Unit   # fast loop, ~0.1s
+ddev phpunit web/modules/contrib/neo_alchemist/tests/src/Unit   # fast loop, sub-second
 ddev phpunit --filter=ChildrenShapeDelta                    # one class
+ddev phpunit --order-by=defects --stop-on-defect            # last run's failures first
 ddev phpunit --testdox                                      # readable output
+ddev phpunit                                                # everything, minutes
 ```
 
-Unit tests need no database and run in milliseconds. Kernel tests boot a real
-container per test class and take a few seconds each.
+Unit tests need no database and the whole suite runs in a fraction of a second.
+Kernel tests are the cost: each **test method** boots a real container in its own
+PHP process, on the order of a second apiece, which puts a full sweep of this
+module in the minutes. Switching `SIMPLETEST_DB` to `sqlite://localhost/:memory:`
+only saves about a quarter of that — the container boot dominates, not the
+database — so the way to a fast loop is running fewer Kernel classes, not a faster
+backend. Iterate with `--filter`; run the whole suite once, at the end.
+
+`--order-by=defects` requires `cacheResult="true"` in the site's `phpunit.xml`
+(core's own config disables it).
 
 ---
 

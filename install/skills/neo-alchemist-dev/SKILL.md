@@ -277,8 +277,27 @@ warns about mini pagers / uncacheable cache plugins / dangling quick-search link
 > — host-site setup, the fixture module, and how to write a Kernel test. Read it
 > before adding tests. This is the fast map.
 
-`ddev phpunit` runs everything; `tests/src/Unit` needs no database and runs in
-milliseconds; `--filter=<Class>` for one class.
+**Scope the run — do not point phpunit at the whole `tests` directory while you
+iterate.** `tests/src/Unit` needs no database and the entire suite finishes in a
+fraction of a second. Kernel tests are the cost: each **test method** boots a
+container in its own PHP process, on the order of a second apiece, which puts a
+full-directory sweep in the minutes. The database is not the lever — the same
+Kernel class runs only about a quarter faster on `sqlite://localhost/:memory:`
+than on MySQL — so the only thing that buys time back is **running fewer Kernel
+classes**.
+
+```bash
+ddev phpunit web/modules/contrib/neo_alchemist/tests/src/Unit  # no DB, sub-second
+ddev phpunit --filter=ChildrenShapeDelta                       # one class, seconds
+ddev phpunit --filter='Hybrid.*Test'                           # a related set
+ddev phpunit --order-by=defects --stop-on-defect               # last run's failures first
+ddev phpunit web/modules/contrib/neo_alchemist/tests           # full sweep — minutes
+```
+
+The loop is: Unit suite (free) + `--filter` on the Kernel classes your change
+actually touches. Sweep the whole directory **once**, when the change is
+finished — not after each edit. `--order-by=defects` needs the site's
+`phpunit.xml` to set `cacheResult="true"`; this one does.
 
 - **Kernel `$modules` is short.** `enableModules()` does *not* resolve declared
   dependencies, so despite `neo_alchemist.info.yml`, this is the working baseline:
