@@ -22,6 +22,7 @@ use Drupal\neo_alchemist\ComponentShapePluginInterface;
 use Drupal\neo_alchemist\ComponentValueProcessingModeInterface;
 use Drupal\neo_alchemist\ComponentValuePluginBase;
 use Drupal\neo_alchemist\MatcherField;
+use Drupal\neo_alchemist\MatcherReference;
 use Drupal\views\ViewExecutable;
 use Drupal\views\Views;
 use Symfony\Component\DependencyInjection\ContainerInterface;
@@ -69,6 +70,13 @@ final class ViewsValue extends ComponentValuePluginBase implements ContainerFact
    * @var \Drupal\neo_alchemist\MatcherField
    */
   protected MatcherField $matcherField;
+
+  /**
+   * The reference matcher.
+   *
+   * @var \Drupal\neo_alchemist\MatcherReference
+   */
+  protected MatcherReference $matcherReference;
 
   /**
    * The view executable.
@@ -133,11 +141,13 @@ final class ViewsValue extends ComponentValuePluginBase implements ContainerFact
     EntityTypeManagerInterface $entity_type_manager,
     EntityTypeBundleInfoInterface $entity_type_bundle_info,
     MatcherField $matcher_field,
+    MatcherReference $matcher_reference,
   ) {
     parent::__construct($plugin_id, $plugin_definition, $shape, $configuration);
     $this->entityTypeManager = $entity_type_manager;
     $this->entityTypeBundleInfo = $entity_type_bundle_info;
     $this->matcherField = $matcher_field;
+    $this->matcherReference = $matcher_reference;
   }
 
   /**
@@ -151,7 +161,8 @@ final class ViewsValue extends ComponentValuePluginBase implements ContainerFact
       $configuration['settings'],
       $container->get('entity_type.manager'),
       $container->get('entity_type.bundle.info'),
-      $container->get('neo_alchemist.matcher_field')
+      $container->get('neo_alchemist.matcher_field'),
+      $container->get('neo_alchemist.matcher_reference')
     );
   }
 
