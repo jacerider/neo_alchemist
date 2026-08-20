@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Drupal\neo_alchemist;
+namespace Drupal\neo_alchemist\ChildrenMatch;
 
 /**
  * Handles `_raw:*`: a literal the site builder typed.

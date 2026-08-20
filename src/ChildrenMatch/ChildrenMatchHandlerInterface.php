@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Drupal\neo_alchemist;
+namespace Drupal\neo_alchemist\ChildrenMatch;
 
 /**
  * One pseudo field of a children-match mapping.
@@ -22,12 +22,12 @@ namespace Drupal\neo_alchemist;
  *
  * Most handlers are the mapper's own and constructed by it. A source may
  * contribute its own — the `views` provider adds `_view:` this way — through
- * \Drupal\neo_alchemist\ChildrenMatchFieldSourceInterface, which registers them
+ * \Drupal\neo_alchemist\ChildrenMatch\ChildrenMatchFieldSourceInterface, which registers them
  * into the same map.
  *
- * @see \Drupal\neo_alchemist\ChildrenMatchMapper
- * @see \Drupal\neo_alchemist\ChildrenMatchHandlerBase
- * @see \Drupal\neo_alchemist\ChildrenMatchFieldSourceInterface
+ * @see \Drupal\neo_alchemist\ChildrenMatch\ChildrenMatchMapper
+ * @see \Drupal\neo_alchemist\ChildrenMatch\ChildrenMatchHandlerBase
+ * @see \Drupal\neo_alchemist\ChildrenMatch\ChildrenMatchFieldSourceInterface
  */
 interface ChildrenMatchHandlerInterface {
 
@@ -55,7 +55,7 @@ interface ChildrenMatchHandlerInterface {
    *
    * @param array $options
    *   The grouped options, by reference: `['- Group -' => ['_key' => label]]`.
-   * @param \Drupal\neo_alchemist\ChildrenMatchFormContext $context
+   * @param \Drupal\neo_alchemist\ChildrenMatch\ChildrenMatchFormContext $context
    *   The form-time context — the shape being configured, its scope and the
    *   form state.
    */
@@ -68,7 +68,7 @@ interface ChildrenMatchHandlerInterface {
    *   The child's form element, already carrying the field select.
    * @param array $configuration
    *   The stored settings for this child.
-   * @param \Drupal\neo_alchemist\ChildrenMatchFormContext $context
+   * @param \Drupal\neo_alchemist\ChildrenMatch\ChildrenMatchFormContext $context
    *   The form-time context, including the mapper for any recursion.
    *
    * @return array|null
@@ -82,13 +82,13 @@ interface ChildrenMatchHandlerInterface {
   /**
    * Reads this handler's value for one iterated entity.
    *
-   * @param \Drupal\neo_alchemist\ChildrenMatchField $field
+   * @param \Drupal\neo_alchemist\ChildrenMatch\ChildrenMatchField $field
    *   The child being filled for one entity — shape, entity, delta, chained
    *   shape id and stored settings.
-   * @param \Drupal\neo_alchemist\ChildrenMatchMapper $mapper
+   * @param \Drupal\neo_alchemist\ChildrenMatch\ChildrenMatchMapper $mapper
    *   The mapper, for handlers that recurse (Expand, Reference) or resolve a
    *   child shape (This entity).
-   * @param \Drupal\neo_alchemist\ChildrenMatchSourceInterface $source
+   * @param \Drupal\neo_alchemist\ChildrenMatch\ChildrenMatchSourceInterface $source
    *   The producer, threaded into any recursion so nested levels keep the same
    *   source's own field choices.
    *

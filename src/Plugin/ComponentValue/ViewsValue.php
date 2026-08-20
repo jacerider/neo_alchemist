@@ -16,11 +16,11 @@ use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Plugin\ContainerFactoryPluginInterface;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\neo_alchemist\Attribute\ComponentValue;
-use Drupal\neo_alchemist\ChildrenMatchField;
-use Drupal\neo_alchemist\ChildrenMatchFieldSourceInterface;
-use Drupal\neo_alchemist\ChildrenMatchMapper;
-use Drupal\neo_alchemist\ChildrenMatchResult;
-use Drupal\neo_alchemist\ChildrenMatchScope;
+use Drupal\neo_alchemist\ChildrenMatch\ChildrenMatchField;
+use Drupal\neo_alchemist\ChildrenMatch\ChildrenMatchFieldSourceInterface;
+use Drupal\neo_alchemist\ChildrenMatch\ChildrenMatchMapper;
+use Drupal\neo_alchemist\ChildrenMatch\ChildrenMatchResult;
+use Drupal\neo_alchemist\ChildrenMatch\ChildrenMatchScope;
 use Drupal\neo_alchemist\ComponentShapeChildrenMatchPluginInterface;
 use Drupal\neo_alchemist\ComponentShapeInterablePluginInterface;
 use Drupal\neo_alchemist\ComponentShapePluginInterface;
@@ -69,7 +69,7 @@ final class ViewsValue extends ComponentValuePluginBase implements ContainerFact
   /**
    * The children-match mapper.
    *
-   * @var \Drupal\neo_alchemist\ChildrenMatchMapper
+   * @var \Drupal\neo_alchemist\ChildrenMatch\ChildrenMatchMapper
    */
   protected ChildrenMatchMapper $childrenMatchMapper;
 
@@ -606,7 +606,7 @@ final class ViewsValue extends ComponentValuePluginBase implements ContainerFact
    * registers into the mapper's handler map; it lives here because reading the
    * column needs this provider's executed view and its row index.
    *
-   * @param \Drupal\neo_alchemist\ChildrenMatchField $field
+   * @param \Drupal\neo_alchemist\ChildrenMatch\ChildrenMatchField $field
    *   The child being filled for one entity.
    *
    * @return mixed

@@ -52,7 +52,7 @@ use PHPUnit\Framework\Attributes\Group;
  * throw the initialization Error instead of resolving a value.
  *
  * @see \Drupal\neo_alchemist\Plugin\ComponentValue\ViewsValue
- * @see \Drupal\neo_alchemist\ChildrenMatchMapper::fetchReference()
+ * @see \Drupal\neo_alchemist\ChildrenMatch\ChildrenMatchMapper::fetchReference()
  */
 #[Group('neo_alchemist')]
 class ViewsReferenceMappingFatalTest extends KernelTestBase {

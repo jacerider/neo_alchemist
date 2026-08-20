@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace Drupal\Tests\neo_alchemist\Unit;
 
-use Drupal\neo_alchemist\ChildrenMatchField;
-use Drupal\neo_alchemist\ChildrenMatchFormContext;
-use Drupal\neo_alchemist\ChildrenMatchHandlerBase;
-use Drupal\neo_alchemist\ChildrenMatchMapper;
-use Drupal\neo_alchemist\ChildrenMatchSourceInterface;
+use Drupal\neo_alchemist\ChildrenMatch\ChildrenMatchField;
+use Drupal\neo_alchemist\ChildrenMatch\ChildrenMatchFormContext;
+use Drupal\neo_alchemist\ChildrenMatch\ChildrenMatchHandlerBase;
+use Drupal\neo_alchemist\ChildrenMatch\ChildrenMatchMapper;
+use Drupal\neo_alchemist\ChildrenMatch\ChildrenMatchSourceInterface;
 
 /**
  * A source-contributed handler standing in for the views `_view:` one.

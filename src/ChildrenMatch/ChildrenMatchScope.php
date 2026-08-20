@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Drupal\neo_alchemist;
+namespace Drupal\neo_alchemist\ChildrenMatch;
 
 /**
  * The entity type and bundle a children-match mapping binds against.
@@ -12,7 +12,7 @@ namespace Drupal\neo_alchemist;
  * not: entity_query reads it from its own settings, views from the executed
  * view's base table, entity_reference from the field it follows.
  *
- * @see \Drupal\neo_alchemist\ChildrenMatchSourceInterface::buildChildrenMatchSourceForm()
+ * @see \Drupal\neo_alchemist\ChildrenMatch\ChildrenMatchSourceInterface::buildChildrenMatchSourceForm()
  */
 final class ChildrenMatchScope {
 

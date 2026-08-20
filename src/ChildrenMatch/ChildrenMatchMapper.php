@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Drupal\neo_alchemist;
+namespace Drupal\neo_alchemist\ChildrenMatch;
 
 use Drupal\Component\Utility\NestedArray;
 use Drupal\Core\Entity\EntityPublishedInterface;
@@ -10,6 +10,9 @@ use Drupal\Core\Extension\ModuleHandlerInterface;
 use Drupal\Core\Field\FormatterPluginManager;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\StringTranslation\StringTranslationTrait;
+use Drupal\neo_alchemist\ChildShapeState;
+use Drupal\neo_alchemist\ComponentShapeChildrenMatchPluginInterface;
+use Drupal\neo_alchemist\ComponentShapePluginInterface;
 use Drupal\neo_alchemist\Match\MatcherField;
 use Drupal\neo_alchemist\Match\MatcherReference;
 use Drupal\neo_alchemist\Plugin\ComponentValue\ComponentValuePluginTrait;
@@ -24,7 +27,7 @@ use Symfony\Component\EventDispatcher\EventDispatcherInterface;
  * published-entity policy, and the decision between a delta-keyed list and a
  * flat property map. Producers differ only in which entities they resolve and
  * how that is configured, which is
- * \Drupal\neo_alchemist\ChildrenMatchSourceInterface.
+ * \Drupal\neo_alchemist\ChildrenMatch\ChildrenMatchSourceInterface.
  *
  * It is a service, so its collaborators are constructor arguments. As a trait
  * they were three undeclared properties every consumer had to remember to
@@ -32,8 +35,8 @@ use Symfony\Component\EventDispatcher\EventDispatcherInterface;
  * until a particular mapping path ran — which is exactly how the views
  * reference-mapping fatal reached production.
  *
- * @see \Drupal\neo_alchemist\ChildrenMatchSourceInterface
- * @see \Drupal\neo_alchemist\ChildrenMatchResult
+ * @see \Drupal\neo_alchemist\ChildrenMatch\ChildrenMatchSourceInterface
+ * @see \Drupal\neo_alchemist\ChildrenMatch\ChildrenMatchResult
  */
 class ChildrenMatchMapper {
 
@@ -49,9 +52,9 @@ class ChildrenMatchMapper {
    * source claims is a field-matcher key. The order is the order options are
    * offered in.
    *
-   * @var \Drupal\neo_alchemist\ChildrenMatchHandlerInterface[]
+   * @var \Drupal\neo_alchemist\ChildrenMatch\ChildrenMatchHandlerInterface[]
    *
-   * @see \Drupal\neo_alchemist\ChildrenMatchFieldSourceInterface
+   * @see \Drupal\neo_alchemist\ChildrenMatch\ChildrenMatchFieldSourceInterface
    */
   protected array $handlers;
 
@@ -150,7 +153,7 @@ class ChildrenMatchMapper {
    * The source's own controls go in first and keep their position, then the
    * mapping table and the Advanced group are appended.
    *
-   * @param \Drupal\neo_alchemist\ChildrenMatchSourceInterface $source
+   * @param \Drupal\neo_alchemist\ChildrenMatch\ChildrenMatchSourceInterface $source
    *   The producer.
    * @param \Drupal\neo_alchemist\ComponentShapeChildrenMatchPluginInterface $shape
    *   The shape being configured.
@@ -178,7 +181,7 @@ class ChildrenMatchMapper {
   /**
    * Resolves a producer's value.
    *
-   * @param \Drupal\neo_alchemist\ChildrenMatchSourceInterface $source
+   * @param \Drupal\neo_alchemist\ChildrenMatch\ChildrenMatchSourceInterface $source
    *   The producer.
    * @param \Drupal\neo_alchemist\ComponentShapeChildrenMatchPluginInterface $shape
    *   The shape being filled.
@@ -333,7 +336,7 @@ class ChildrenMatchMapper {
   /**
    * Sibling providers on the same shape whose mapping can be copied.
    *
-   * @param \Drupal\neo_alchemist\ChildrenMatchSourceInterface $source
+   * @param \Drupal\neo_alchemist\ChildrenMatch\ChildrenMatchSourceInterface $source
    *   The producer asking, excluded from its own list.
    * @param \Drupal\neo_alchemist\ComponentShapeChildrenMatchPluginInterface $shape
    *   The shape whose stored plugins to scan.
@@ -582,7 +585,7 @@ class ChildrenMatchMapper {
   /**
    * Recursively fills child shapes from a list of entities.
    *
-   * @param \Drupal\neo_alchemist\ChildrenMatchSourceInterface $source
+   * @param \Drupal\neo_alchemist\ChildrenMatch\ChildrenMatchSourceInterface $source
    *   The producer, consulted for its own field choices.
    * @param array $shapeNames
    *   The child shape names to fill.
@@ -743,10 +746,10 @@ class ChildrenMatchMapper {
   /**
    * The handlers active for a mapping, keyed by name, built-ins winning.
    *
-   * @param \Drupal\neo_alchemist\ChildrenMatchSourceInterface $source
+   * @param \Drupal\neo_alchemist\ChildrenMatch\ChildrenMatchSourceInterface $source
    *   The producer whose contributed handlers to merge in.
    *
-   * @return \Drupal\neo_alchemist\ChildrenMatchHandlerInterface[]
+   * @return \Drupal\neo_alchemist\ChildrenMatch\ChildrenMatchHandlerInterface[]
    *   Handlers keyed by name.
    */
   protected function handlerMap(ChildrenMatchSourceInterface $source): array {
@@ -763,10 +766,10 @@ class ChildrenMatchMapper {
    *
    * @param string $name
    *   The handler name from handlerName().
-   * @param \Drupal\neo_alchemist\ChildrenMatchSourceInterface $source
+   * @param \Drupal\neo_alchemist\ChildrenMatch\ChildrenMatchSourceInterface $source
    *   The producer whose contributed handlers to consider.
    *
-   * @return \Drupal\neo_alchemist\ChildrenMatchHandlerInterface|null
+   * @return \Drupal\neo_alchemist\ChildrenMatch\ChildrenMatchHandlerInterface|null
    *   The handler, or NULL when the key is a field-matcher key.
    */
   protected function resolveHandler(string $name, ChildrenMatchSourceInterface $source): ?ChildrenMatchHandlerInterface {
@@ -776,10 +779,10 @@ class ChildrenMatchMapper {
   /**
    * Every handler, in option order: the mapper's own then the source's.
    *
-   * @param \Drupal\neo_alchemist\ChildrenMatchSourceInterface $source
+   * @param \Drupal\neo_alchemist\ChildrenMatch\ChildrenMatchSourceInterface $source
    *   The producer whose contributed handlers to append.
    *
-   * @return \Drupal\neo_alchemist\ChildrenMatchHandlerInterface[]
+   * @return \Drupal\neo_alchemist\ChildrenMatch\ChildrenMatchHandlerInterface[]
    *   The handlers, in the order their options are offered.
    */
   protected function handlerList(ChildrenMatchSourceInterface $source): array {
@@ -789,10 +792,10 @@ class ChildrenMatchMapper {
   /**
    * The handlers a source contributes, or none.
    *
-   * @param \Drupal\neo_alchemist\ChildrenMatchSourceInterface $source
+   * @param \Drupal\neo_alchemist\ChildrenMatch\ChildrenMatchSourceInterface $source
    *   The producer.
    *
-   * @return \Drupal\neo_alchemist\ChildrenMatchHandlerInterface[]
+   * @return \Drupal\neo_alchemist\ChildrenMatch\ChildrenMatchHandlerInterface[]
    *   The contributed handlers.
    */
   protected function sourceHandlers(ChildrenMatchSourceInterface $source): array {

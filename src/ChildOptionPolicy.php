@@ -40,7 +40,7 @@ namespace Drupal\neo_alchemist;
  * @see \Drupal\neo_alchemist\ComponentShapeOptionsInterface
  * @see \Drupal\neo_alchemist\Plugin\ComponentShape\ChildrenShapeBase::initChildShape()
  * @see \Drupal\neo_alchemist\Plugin\ComponentShape\StructuredObjectShapeBase::getChildShapes()
- * @see \Drupal\neo_alchemist\ChildrenMatchMapper
+ * @see \Drupal\neo_alchemist\ChildrenMatch\ChildrenMatchMapper
  */
 final class ChildOptionPolicy {
 

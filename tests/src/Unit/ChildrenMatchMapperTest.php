@@ -15,8 +15,8 @@ use Drupal\Core\Field\FormatterPluginManager;
 use Drupal\Core\Routing\RouteProviderInterface;
 use Drupal\Tests\UnitTestCase;
 use Drupal\neo_alchemist\ChildShapeState;
-use Drupal\neo_alchemist\ChildrenMatchMapper;
-use Drupal\neo_alchemist\ChildrenMatchResult;
+use Drupal\neo_alchemist\ChildrenMatch\ChildrenMatchMapper;
+use Drupal\neo_alchemist\ChildrenMatch\ChildrenMatchResult;
 use Drupal\neo_alchemist\ComponentShapeChildrenMatchPluginInterface;
 use Drupal\neo_alchemist\Match\MatcherField;
 use Drupal\neo_alchemist\Match\MatcherReference;
@@ -35,7 +35,7 @@ use Symfony\Component\EventDispatcher\EventDispatcherInterface;
  * iterability, delta versus property map, published filtering, the three empty
  * outcomes and the source's own field choices — with neither.
  *
- * @see \Drupal\neo_alchemist\ChildrenMatchMapper
+ * @see \Drupal\neo_alchemist\ChildrenMatch\ChildrenMatchMapper
  * @see \Drupal\Tests\neo_alchemist\Unit\FakeChildrenMatchSource
  */
 #[Group('neo_alchemist')]
@@ -44,7 +44,7 @@ class ChildrenMatchMapperTest extends UnitTestCase {
   /**
    * The mapper under test.
    *
-   * @var \Drupal\neo_alchemist\ChildrenMatchMapper
+   * @var \Drupal\neo_alchemist\ChildrenMatch\ChildrenMatchMapper
    */
   private ChildrenMatchMapper $mapper;
 

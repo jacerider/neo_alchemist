@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace Drupal\Tests\neo_alchemist\Unit;
 
 use Drupal\Core\Form\FormStateInterface;
-use Drupal\neo_alchemist\ChildrenMatchFieldSourceInterface;
-use Drupal\neo_alchemist\ChildrenMatchResult;
-use Drupal\neo_alchemist\ChildrenMatchScope;
+use Drupal\neo_alchemist\ChildrenMatch\ChildrenMatchFieldSourceInterface;
+use Drupal\neo_alchemist\ChildrenMatch\ChildrenMatchResult;
+use Drupal\neo_alchemist\ChildrenMatch\ChildrenMatchScope;
 
 /**
  * A children-match source that returns a fixed list of entities.
@@ -21,7 +21,7 @@ use Drupal\neo_alchemist\ChildrenMatchScope;
  * FakeChildrenMatchHandler per custom field, exactly as ViewsValue registers
  * its `_view:` handler.
  *
- * @see \Drupal\neo_alchemist\ChildrenMatchSourceInterface
+ * @see \Drupal\neo_alchemist\ChildrenMatch\ChildrenMatchSourceInterface
  * @see \Drupal\Tests\neo_alchemist\Unit\FakeChildrenMatchHandler
  */
 final class FakeChildrenMatchSource implements ChildrenMatchFieldSourceInterface {
@@ -36,11 +36,11 @@ final class FakeChildrenMatchSource implements ChildrenMatchFieldSourceInterface
   /**
    * Constructs a FakeChildrenMatchSource.
    *
-   * @param \Drupal\neo_alchemist\ChildrenMatchResult $result
+   * @param \Drupal\neo_alchemist\ChildrenMatch\ChildrenMatchResult $result
    *   What getChildrenMatchEntities() should return.
    * @param array $customFields
    *   Values keyed by the prefix the mapper will ask about, e.g. ['view' => …].
-   * @param \Drupal\neo_alchemist\ChildrenMatchScope|null $scope
+   * @param \Drupal\neo_alchemist\ChildrenMatch\ChildrenMatchScope|null $scope
    *   What the source form should report, or NULL for "not configured".
    */
   public function __construct(

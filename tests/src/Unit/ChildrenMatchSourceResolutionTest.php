@@ -15,7 +15,7 @@ use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Entity\Query\QueryInterface;
 use Drupal\Tests\UnitTestCase;
 use Drupal\Tests\neo_alchemist\Traits\ShapeDoubleTrait;
-use Drupal\neo_alchemist\ChildrenMatchMapper;
+use Drupal\neo_alchemist\ChildrenMatch\ChildrenMatchMapper;
 use Drupal\neo_alchemist\ComponentInterface;
 use Drupal\neo_alchemist\ComponentShapeContextInterface;
 use Drupal\neo_alchemist\ComponentShapePluginInterface;
@@ -46,8 +46,8 @@ use PHPUnit\Framework\MockObject\MockObject;
  * was inverted, because reaching any of this meant executing a view or running
  * a real entity query first.
  *
- * @see \Drupal\neo_alchemist\ChildrenMatchResult
- * @see \Drupal\neo_alchemist\ChildrenMatchSourceInterface::getChildrenMatchEntities()
+ * @see \Drupal\neo_alchemist\ChildrenMatch\ChildrenMatchResult
+ * @see \Drupal\neo_alchemist\ChildrenMatch\ChildrenMatchSourceInterface::getChildrenMatchEntities()
  */
 #[Group('neo_alchemist')]
 class ChildrenMatchSourceResolutionTest extends UnitTestCase {

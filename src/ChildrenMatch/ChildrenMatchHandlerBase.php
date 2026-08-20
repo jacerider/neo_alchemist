@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Drupal\neo_alchemist;
+namespace Drupal\neo_alchemist\ChildrenMatch;
 
 use Drupal\Core\StringTranslation\StringTranslationTrait;
 
@@ -14,7 +14,7 @@ use Drupal\Core\StringTranslation\StringTranslationTrait;
  * fetch(); the base supplies the rest. The mapper injects translation before
  * calling addOptions()/buildForm(), so a subclass may use $this->t().
  *
- * @see \Drupal\neo_alchemist\ChildrenMatchHandlerInterface
+ * @see \Drupal\neo_alchemist\ChildrenMatch\ChildrenMatchHandlerInterface
  */
 abstract class ChildrenMatchHandlerBase implements ChildrenMatchHandlerInterface {
 

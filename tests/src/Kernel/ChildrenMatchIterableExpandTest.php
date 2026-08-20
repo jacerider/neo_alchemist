@@ -29,7 +29,7 @@ use PHPUnit\Framework\Attributes\Group;
  *   component's shapes, including the config form used to fix it and the
  *   component save itself.
  *
- * @see \Drupal\neo_alchemist\ChildrenMatchMapper
+ * @see \Drupal\neo_alchemist\ChildrenMatch\ChildrenMatchMapper
  * @see \Drupal\neo_alchemist\Plugin\ComponentShape\ArrayShape::getDefaultSchemaValue()
  */
 #[Group('neo_alchemist')]

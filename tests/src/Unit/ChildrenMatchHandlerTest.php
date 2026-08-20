@@ -16,8 +16,8 @@ use Drupal\Core\Routing\RouteProviderInterface;
 use Drupal\Tests\UnitTestCase;
 use Drupal\media\MediaInterface;
 use Drupal\neo_alchemist\ChildShapeState;
-use Drupal\neo_alchemist\ChildrenMatchMapper;
-use Drupal\neo_alchemist\ChildrenMatchResult;
+use Drupal\neo_alchemist\ChildrenMatch\ChildrenMatchMapper;
+use Drupal\neo_alchemist\ChildrenMatch\ChildrenMatchResult;
 use Drupal\neo_alchemist\ComponentShapeChildrenMatchPluginInterface;
 use Drupal\neo_alchemist\ComponentShapeMediaPluginInterface;
 use Drupal\neo_alchemist\ComponentShapePluginInterface;
@@ -43,8 +43,8 @@ use Symfony\Component\EventDispatcher\EventDispatcher;
  * drive, the other runs a field through a formatter — so they stay pinned by
  * the children-match kernel tests and ViewsReferenceMappingFatalTest.
  *
- * @see \Drupal\neo_alchemist\ChildrenMatchMapper
- * @see \Drupal\neo_alchemist\ChildrenMatchHandlerInterface
+ * @see \Drupal\neo_alchemist\ChildrenMatch\ChildrenMatchMapper
+ * @see \Drupal\neo_alchemist\ChildrenMatch\ChildrenMatchHandlerInterface
  */
 #[Group('neo_alchemist')]
 class ChildrenMatchHandlerTest extends UnitTestCase {
@@ -52,7 +52,7 @@ class ChildrenMatchHandlerTest extends UnitTestCase {
   /**
    * The mapper under test.
    *
-   * @var \Drupal\neo_alchemist\ChildrenMatchMapper
+   * @var \Drupal\neo_alchemist\ChildrenMatch\ChildrenMatchMapper
    */
   private ChildrenMatchMapper $mapper;
 

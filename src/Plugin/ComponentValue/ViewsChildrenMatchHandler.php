@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace Drupal\neo_alchemist\Plugin\ComponentValue;
 
-use Drupal\neo_alchemist\ChildrenMatchField;
-use Drupal\neo_alchemist\ChildrenMatchFormContext;
-use Drupal\neo_alchemist\ChildrenMatchHandlerBase;
-use Drupal\neo_alchemist\ChildrenMatchMapper;
-use Drupal\neo_alchemist\ChildrenMatchSourceInterface;
+use Drupal\neo_alchemist\ChildrenMatch\ChildrenMatchField;
+use Drupal\neo_alchemist\ChildrenMatch\ChildrenMatchFormContext;
+use Drupal\neo_alchemist\ChildrenMatch\ChildrenMatchHandlerBase;
+use Drupal\neo_alchemist\ChildrenMatch\ChildrenMatchMapper;
+use Drupal\neo_alchemist\ChildrenMatch\ChildrenMatchSourceInterface;
 
 /**
  * Handles `_view:<field>`: a column the view itself renders.
@@ -18,7 +18,7 @@ use Drupal\neo_alchemist\ChildrenMatchSourceInterface;
  * not a field on the row's entity at all — a rendered entity, a computed
  * field, an aggregate — so only the views provider knows the choices and how to
  * read them, and it registers this through
- * \Drupal\neo_alchemist\ChildrenMatchFieldSourceInterface.
+ * \Drupal\neo_alchemist\ChildrenMatch\ChildrenMatchFieldSourceInterface.
  *
  * @see \Drupal\neo_alchemist\Plugin\ComponentValue\ViewsValue
  */

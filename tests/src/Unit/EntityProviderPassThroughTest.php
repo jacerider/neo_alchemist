@@ -13,7 +13,7 @@ use Drupal\Core\Field\FormatterPluginManager;
 use Drupal\Core\Routing\RouteProviderInterface;
 use Drupal\Tests\UnitTestCase;
 use Drupal\Tests\neo_alchemist\Traits\ShapeDoubleTrait;
-use Drupal\neo_alchemist\ChildrenMatchMapper;
+use Drupal\neo_alchemist\ChildrenMatch\ChildrenMatchMapper;
 use Drupal\neo_alchemist\ComponentInterface;
 use Drupal\neo_alchemist\ComponentShapeChildrenMatchPluginInterface;
 use Drupal\neo_alchemist\ComponentShapeContextInterface;

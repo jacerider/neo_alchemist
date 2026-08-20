@@ -2,11 +2,12 @@
 
 declare(strict_types=1);
 
-namespace Drupal\neo_alchemist;
+namespace Drupal\neo_alchemist\ChildrenMatch;
 
 use Drupal\Core\Cache\CacheableMetadata;
 use Drupal\Core\Extension\ModuleHandlerInterface;
 use Drupal\Core\Field\FormatterPluginManager;
+use Drupal\neo_alchemist\ComponentPropRenderable;
 use Drupal\neo_alchemist\Match\FieldFormatterTrait;
 use Drupal\neo_alchemist\Match\MatcherField;
 

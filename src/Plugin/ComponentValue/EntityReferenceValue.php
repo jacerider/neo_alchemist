@@ -11,10 +11,10 @@ use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Plugin\ContainerFactoryPluginInterface;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\neo_alchemist\Attribute\ComponentValue;
-use Drupal\neo_alchemist\ChildrenMatchMapper;
-use Drupal\neo_alchemist\ChildrenMatchResult;
-use Drupal\neo_alchemist\ChildrenMatchScope;
-use Drupal\neo_alchemist\ChildrenMatchSourceInterface;
+use Drupal\neo_alchemist\ChildrenMatch\ChildrenMatchMapper;
+use Drupal\neo_alchemist\ChildrenMatch\ChildrenMatchResult;
+use Drupal\neo_alchemist\ChildrenMatch\ChildrenMatchScope;
+use Drupal\neo_alchemist\ChildrenMatch\ChildrenMatchSourceInterface;
 use Drupal\neo_alchemist\ComponentShapeChildrenMatchPluginInterface;
 use Drupal\neo_alchemist\ComponentShapePluginInterface;
 use Drupal\neo_alchemist\Match\MatcherReference;
@@ -51,7 +51,7 @@ final class EntityReferenceValue extends ComponentValuePluginBase implements Con
   /**
    * The children-match mapper.
    *
-   * @var \Drupal\neo_alchemist\ChildrenMatchMapper
+   * @var \Drupal\neo_alchemist\ChildrenMatch\ChildrenMatchMapper
    */
   protected ChildrenMatchMapper $childrenMatchMapper;
 

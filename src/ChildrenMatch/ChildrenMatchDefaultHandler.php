@@ -2,12 +2,14 @@
 
 declare(strict_types=1);
 
-namespace Drupal\neo_alchemist;
+namespace Drupal\neo_alchemist\ChildrenMatch;
+
+use Drupal\neo_alchemist\ChildShapeState;
 
 /**
  * Handles `_default`: contribute nothing, so the child keeps its SDC example.
  *
- * @see \Drupal\neo_alchemist\ChildrenMatchMapper
+ * @see \Drupal\neo_alchemist\ChildrenMatch\ChildrenMatchMapper
  */
 final class ChildrenMatchDefaultHandler extends ChildrenMatchHandlerBase {
 

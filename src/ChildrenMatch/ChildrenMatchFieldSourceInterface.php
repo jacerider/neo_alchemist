@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Drupal\neo_alchemist;
+namespace Drupal\neo_alchemist\ChildrenMatch;
 
 /**
  * A source that contributes pseudo-field handlers of its own to the mapping.
@@ -19,8 +19,8 @@ namespace Drupal\neo_alchemist;
  * more than a built-in's can. The mapper's own handlers take precedence, so a
  * source cannot shadow `_default` or `_reference`.
  *
- * @see \Drupal\neo_alchemist\ChildrenMatchMapper
- * @see \Drupal\neo_alchemist\ChildrenMatchHandlerInterface
+ * @see \Drupal\neo_alchemist\ChildrenMatch\ChildrenMatchMapper
+ * @see \Drupal\neo_alchemist\ChildrenMatch\ChildrenMatchHandlerInterface
  */
 interface ChildrenMatchFieldSourceInterface extends ChildrenMatchSourceInterface {
 
@@ -33,7 +33,7 @@ interface ChildrenMatchFieldSourceInterface extends ChildrenMatchSourceInterface
    * the field matcher, which is why a views mapping can lean on `_entity:*` on
    * rows of any entity type.
    *
-   * @return \Drupal\neo_alchemist\ChildrenMatchHandlerInterface[]
+   * @return \Drupal\neo_alchemist\ChildrenMatch\ChildrenMatchHandlerInterface[]
    *   The handlers, in the order their options should be offered.
    */
   public function getChildrenMatchHandlers(): array;

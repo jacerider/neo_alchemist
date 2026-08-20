@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Drupal\neo_alchemist;
+namespace Drupal\neo_alchemist\ChildrenMatch;
 
 use Drupal\Core\Entity\ContentEntityInterface;
 
@@ -22,7 +22,7 @@ use Drupal\Core\Entity\ContentEntityInterface;
  *   provider claims it, and a fallback provider is starved while every child is
  *   force-hidden.
  *
- * @see \Drupal\neo_alchemist\ChildrenMatchSourceInterface::getChildrenMatchEntities()
+ * @see \Drupal\neo_alchemist\ChildrenMatch\ChildrenMatchSourceInterface::getChildrenMatchEntities()
  */
 final class ChildrenMatchResult {
 

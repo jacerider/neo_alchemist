@@ -2,7 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Drupal\neo_alchemist;
+namespace Drupal\neo_alchemist\ChildrenMatch;
+
+use Drupal\neo_alchemist\ComponentShapeChildrenMatchPluginInterface;
 
 /**
  * Handles `_expand`: map this same entity onto the child's own children.

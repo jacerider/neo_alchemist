@@ -41,7 +41,7 @@ namespace Drupal\neo_alchemist;
  * @see \Drupal\neo_alchemist\ChildOptionPolicy
  * @see \Drupal\neo_alchemist\NestedOptionMap
  * @see \Drupal\neo_alchemist\Plugin\ComponentShape\ChildShapeStateTrait
- * @see \Drupal\neo_alchemist\ChildrenMatchMapper
+ * @see \Drupal\neo_alchemist\ChildrenMatch\ChildrenMatchMapper
  */
 final class ChildShapeState {
 

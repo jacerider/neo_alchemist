@@ -2,9 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Drupal\neo_alchemist;
+namespace Drupal\neo_alchemist\ChildrenMatch;
 
 use Drupal\Core\Entity\ContentEntityInterface;
+use Drupal\neo_alchemist\ComponentShapeChildrenMatchPluginInterface;
 
 /**
  * One child shape being filled for one iterated entity.
@@ -12,7 +13,7 @@ use Drupal\Core\Entity\ContentEntityInterface;
  * Everything a field handler needs to produce a value, in place of the six
  * positional arguments the trait's handlers took.
  *
- * @see \Drupal\neo_alchemist\ChildrenMatchHandlerInterface::fetch()
+ * @see \Drupal\neo_alchemist\ChildrenMatch\ChildrenMatchHandlerInterface::fetch()
  */
 final class ChildrenMatchField {
 

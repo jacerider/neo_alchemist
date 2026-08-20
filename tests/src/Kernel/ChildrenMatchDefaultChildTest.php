@@ -23,7 +23,7 @@ use PHPUnit\Framework\Attributes\Group;
  * component that should carry `component-spacing` / `neo-section` rendered
  * bare, with nothing in the config to suggest why.
  *
- * @see \Drupal\neo_alchemist\ChildrenMatchMapper
+ * @see \Drupal\neo_alchemist\ChildrenMatch\ChildrenMatchMapper
  */
 #[Group('neo_alchemist')]
 class ChildrenMatchDefaultChildTest extends KernelTestBase {
