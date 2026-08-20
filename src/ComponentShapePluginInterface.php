@@ -18,11 +18,11 @@ use Drupal\Core\Plugin\ObjectWithPluginCollectionInterface;
  * the type new code should reach for.
  *
  * **Accept the smallest role that covers what you use.** A ComponentValue
- * plugin that resolves a value wants ComponentShapeValueInterface — ten
- * signatures, fourteen with the identity it extends — not this, which is a
- * hundred. Narrowing is also what makes a test double honest: mock a role and
- * a misspelled method name fails the test, where on a double this wide it
- * returns NULL and the test passes.
+ * plugin that resolves a value wants ComponentShapeValueInterface — eight
+ * signatures, twelve with the identity it extends — not this, which is
+ * ninety-three. Narrowing is also what makes a test double honest: mock a
+ * role and a misspelled method name fails the test, where on a double this
+ * wide it returns NULL and the test passes.
  *
  * Narrowing bounds what you may call on the shape you were handed; it does not
  * bound the tree. ComponentShapeTreeInterface hands back whole shapes, because

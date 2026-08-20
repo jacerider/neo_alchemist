@@ -136,6 +136,70 @@ Two layers:
    (`plugin.manager.neo_component_shape`); `getInstancesFromSchema()` builds the shape
    tree for a component.
 
+### The shape's roles
+
+`ComponentShapePluginInterface` is a union and declares nothing of its own: an `extends`
+list and an empty body. Behind it are fourteen **role** interfaces, each named for what
+a caller wants from a shape, plus the five Drupal interfaces the shape has always
+extended. Every method lands on exactly one role, so nothing is reachable twice and
+nothing is lost — `ShapeRoleInterfaceTest` pins that, along with a twelve-method ceiling
+no role may grow through.
+
+| Role | Methods | The caller need it answers |
+|---|---|---|
+| [Identity](src/ComponentShapeIdentityInterface.php) | 4 | Name this shape. |
+| [Schema](src/ComponentShapeSchemaInterface.php) | 9 | Read the prop schema. Carries the six JSON-schema constants `getType()` returns. |
+| [Value](src/ComponentShapeValueInterface.php) | 8 | Resolve a value. |
+| [Render](src/ComponentShapeRenderInterface.php) | 2 | Turn a resolved value into a render value. |
+| [Form](src/ComponentShapeFormInterface.php) | 7 | Build and process the prop form. |
+| [FieldMatch](src/ComponentShapeFieldMatchInterface.php) | 5 | Match an entity field to the prop. |
+| [FieldItem](src/ComponentShapeFieldItemInterface.php) | 8 | Treat the prop as a field item. |
+| [Tree](src/ComponentShapeTreeInterface.php) | 7 | Walk the shape tree — parents, the root shape, child shapes. |
+| [Expansion](src/ComponentShapeExpansionInterface.php) | 6 | Ask what is expanded. |
+| [Providers](src/ComponentShapeProvidersInterface.php) | 6 | Read the value providers. |
+| [Context](src/ComponentShapeContextInterface.php) | 8 | Ask what the shape is attached to. |
+| [State](src/ComponentShapeStateInterface.php) | 11 | Ask active / required / editable / locked. |
+| [Options](src/ComponentShapeOptionsInterface.php) | 6 | Read the empty/default/access options, and reach the nested option store. |
+| [Lifecycle](src/ComponentShapeLifecycleInterface.php) | 6 | Say whether it initialised, and receive the component's events. |
+
+Every role extends `Identity`, so a caller that resolves a value can still name the prop
+it was resolving without widening back to the union.
+
+**Accept the smallest role that covers what you use.** The union is 93 shape methods; a
+ComponentValue plugin that resolves a value wants `ComponentShapeValueInterface` — eight
+signatures, twelve with the identity it extends. The boundaries were drawn from the
+measured call sites rather than by grouping the implementation: of the module's 218 shape
+consumers, the median reaches into one role and 82% reach into two or fewer. The two that
+need nearly all of them — the `neo_component` entity and the `DefaultValue` plugin — are
+the orchestrators the union is for.
+
+Narrowing is also what makes a **test double** honest. Mock a role and a misspelled method
+name fails the test; on a double the width of the union it returns NULL and the test
+passes. `ShapeDoubleTrait` is how tests build these — see [TESTING.md](TESTING.md).
+
+Narrowing bounds what you may call on the shape you were handed; it does not bound the
+tree. `Tree` hands back whole shapes, because arriving at a parent or the root shape is
+normally the prelude to asking it something a tree role could not answer. Walking the tree
+therefore widens again, deliberately.
+
+**Roles are not capabilities.** A role is a view any shape can be taken as; a capability is
+something only some shapes have, and a caller tests for it with `instanceof`:
+
+| Capability | Meaning |
+|---|---|
+| [ChildrenMatch](src/ComponentShapeChildrenMatchPluginInterface.php) | Has child shapes a producer can map onto. `StructuredObjectShapeBase` declares it directly; `ChildrenShapeBase` gets it through `Children` below. |
+| [Children](src/ComponentShapeChildrenPluginInterface.php) | Extends `ChildrenMatch`, adding child shape refs and auto-match properties. |
+| [Interable](src/ComponentShapeInterablePluginInterface.php) | Iterability — min/max items. Note the class name is misspelled; grep for `Interable`. |
+| [Expanded](src/ComponentShapeExpandedPluginInterface.php) | May be expanded. |
+| [Media](src/ComponentShapeMediaPluginInterface.php) | Can be filled from a media entity. |
+| [Region](src/ComponentShapeRegionPluginInterface.php) | Marker — the prop is a region. |
+| [Style](src/ComponentShapeStylePluginInterface.php) | Offers style options. |
+
+One role is deliberately **outside** the union — `ComponentShapeSetupInterface`, described
+under the lifecycle below.
+
+### Options, and the two sealed stores
+
 Every shape in that tree carries three options — `empty` (render nothing), `default`
 (sit on its own default value) and `access` (an editor may change it) — as
 [ComponentShapeOption](src/ComponentShapeOption.php) objects. Where they *come from* is
@@ -154,21 +218,51 @@ options as they are built. Writing a child option afterwards asserts rather than
 silently doing nothing. A shape's *own* options stay writable — a submitted form is
 where most of them come from, and that is long after init.
 
-`init()` seals a second store the same way: `ChildShapeState`, which holds what a
-producer decided about individual children (hide / default / lock, plus per-child
-value plugins). Both stores share `ShapeScopedStoreTrait` — one instance on the root
-shape, cheap per-shape views onto it via `forShape()`, and a per-shape deadline.
+`init()` seals a second store the same way: [ChildShapeState](src/ChildShapeState.php),
+which holds what a producer decided about individual children (hide / default / lock, plus
+per-child value plugins). Both stores share `ShapeScopedStoreTrait` — one instance on the
+root shape, cheap per-shape views onto it via `forShape()`, and a per-shape deadline.
 Per shape, not per store: children initialize strictly after their root and go on
 being configured afterwards.
 
+**Who reads those flags is [ChildOptionPolicy](src/ChildOptionPolicy.php), and only it.**
+It takes a parent shape, a child, a delta and a child count, and applies both the per-child
+producer flags and the inherited parent-constrains-child rules. Both children-bearing bases
+reach it the same way — `$this->childOptionPolicy()->apply(…)`, from
+[ChildShapeStateTrait](src/Plugin/ComponentShape/ChildShapeStateTrait.php), which is the
+shared seam and where the instance is memoised — at the equivalent point in child
+construction. Neither base keeps a copy of the branches, so a third one cannot forget the
+rules: it picks them up with the trait. This used to live on `ChildrenShapeBase` alone —
+`StructuredObjectShapeBase` built its children by a different routine and read none of the
+flags, so the same producer configuration behaved differently depending on which base a
+shape happened to extend. `ChildOptionPolicyCrossBaseTest` is the regression.
+
+Its branch **order is load-bearing**, and the code says so at the call site:
+`ComponentShapeOption::setAccess()` is last-write-wins while `::setLockedValue()` is
+first-write-wins, so the "parent cannot expand, withdraw every toggle" branch must outrank
+the access grant the config scope makes. Reorder them and every media prop opens per-child
+access in its configuration form — a media shape being exactly an object shape that refuses
+expansion.
+
 The seals exist because these two deadlines cannot live in the type, which is where
-the rest of the shape lifecycle went. `ComponentShapeSetupInterface` holds the
-setters that must run before `init()` — parents, delta, parent/override value,
-plugin gating — and `ComponentShapePluginInterface` does **not** extend it, so
-calling one on an initialised shape is a compile error. That only works for *shape*
-methods; these two stores are reached through an accessor that is still **read**
-after init, so no interface can withdraw them and the seal carries the deadline
+the rest of the shape lifecycle went. [ComponentShapeSetupInterface](src/ComponentShapeSetupInterface.php)
+holds the seven things that must happen before a shape is initialised — `addParentShape()`,
+`setDelta()`, `setParentValue()`, `setOverrideValue()`, `allowInitPlugins()`, `addPlugin()`
+and `init()` itself — and `ComponentShapePluginInterface` does **not** extend it, so calling
+one on an initialised shape is a compile error rather than an `assert()` that compiles out
+in production.
+
+The direction is the point: **setup extends the union, not the reverse.** A shape under
+construction is a shape with *more* available, so the setters return the setup interface and
+a chain does not widen halfway through, while `init()` returns the union — that return type
+is the handoff to an initialised shape. `ComponentShapePluginManager::getInstance()` returns
+`?ComponentShapeSetupInterface`, being the only source of an uninitialised shape.
+
+That only works for *shape* methods; these two stores are reached through an accessor that is
+still **read** after init, so no interface can withdraw them and the seal carries the deadline
 instead.
+
+### Render mode is threaded, not stashed
 
 Nothing else about a shape is implicit state. Whether a shape is *rendering* — the
 last piece that was — is now the `?Attribute $renderAttributes` argument threaded

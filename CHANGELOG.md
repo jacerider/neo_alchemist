@@ -1,5 +1,196 @@
 # Changelog
 
+## The shape interface is fourteen roles, and a child option means the same on both bases
+
+`ComponentShapePluginInterface` declared 133 methods and one class implemented
+them. A developer writing a ComponentValue plugin accepted a shape and had, in
+principle, to learn all 133 signatures plus a lifecycle written down nowhere. It
+is now 93 methods across **fourteen role interfaces**, each named for what a
+caller wants from a shape, with the big interface redefined as their union — so
+it keeps its name and every existing type hint keeps working.
+
+A caller accepts the smallest role that covers what it uses. Resolving a value
+is `ComponentShapeValueInterface`: eight signatures, twelve with the identity it
+extends. The boundaries came from measuring the call sites, not from grouping
+the implementation — of the module's 218 shape consumers, the median reaches
+into one role and 82% reach into two or fewer.
+
+### Link children now honour the hide, default and lock flags
+
+**This is the one change on a rendered page, and it is worth checking before you
+update.**
+
+Two shape bases build child shapes. Only `ChildrenShapeBase` read the hide,
+default and lock flags a children-match producer sets on a child;
+`StructuredObjectShapeBase` built its children by a different routine and read
+none of them. The same producer configuration therefore behaved differently
+depending on which base a prop's shape happened to extend, and nothing warned.
+`ChildOptionPolicy` is the single owner now, and both bases call it.
+
+In practice this is visible when a producer is attached **directly to a link
+prop** — of the children-match providers only `entity_load` can be, since the
+query, reference and views providers all require an iterable or expandable shape
+and a link prop is neither.
+
+What you may see change:
+
+- **An author's example text stops rendering.** A child left unmapped was
+  flagged hidden, the flag was ignored, the schema examples backfilled the gap,
+  and the component author's placeholder — `EXAMPLE LINK TITLE` and the like —
+  rendered on the page where the site builder had asked for nothing. That gap
+  now renders empty, or renders the child's default where one is configured.
+  This is the correct behaviour and still a visible difference.
+- **A link can stop rendering entirely, and this is the sharper case.** A link's
+  `access`, `target` and `options` children are computed rather than authored,
+  but the children-match form offers them as mappable alongside `uri`, `title`
+  and `icon`. A site that mapped only `uri` now has `access` flagged hidden, and
+  link templates guard on it — `{% if cta_link.uri and cta_link.access %}` is the
+  shipped pattern — so the link disappears. Grep your components for
+  `.access` to find them. That is the consistent reading of "unmapped means
+  hidden", and the
+  form does label those children "Not mapped", but it is sharper than a
+  behaviour change usually gets. If you have a producer on a link prop, map the
+  children you need or check the rendered output.
+
+Audited on the site this landed from: all 39 children-match mappings in `config/`
+are on `array`, `menu` and `object` refs — every one already on the base that
+consumed the flags. No `link`-ref prop carries a mapping, so no rendered output
+there changes.
+
+### Fourteen roles, and a union that keeps its name
+
+Every method lands on exactly one role, so nothing is reachable twice and nothing
+is lost. Every role extends `ComponentShapeIdentityInterface`, so a caller that
+resolves a value can still name the prop it was resolving without widening back
+to the union. `ShapeRoleInterfaceTest` pins the arrangement, including a
+twelve-method ceiling no role may grow through — a role that grows back toward
+thirty has failed even if the implementation behind it shrank.
+
+The tree role deliberately does not narrow: it hands back whole shapes, because
+arriving at a parent or the root shape is normally the prelude to asking it
+something a tree role could not answer.
+
+Narrowing is also what makes a test double honest. Every test that mocked the
+full interface got a hundred-method double of which one to five methods were
+stubbed, so a stub naming the wrong role was accepted and quietly did nothing.
+All 21 of those full-interface mock sites now go through `ShapeDoubleTrait`, where
+a misspelled method fails the test instead of returning NULL and passing.
+
+### The nested-option grid collapses to one map
+
+Fifteen methods — get/set × saved/fallback × three option names — sat over two
+protected arrays, serving 20 call sites of which 13 were in one file. Two had no
+callers at all, and that is the only reason a latent bug stayed invisible: three
+getters took a parameter named `$value`, forwarded it into a key-prefixing slot,
+and disagreed about its default, so a write and a read of the same nested option
+could land on different keys.
+
+`NestedOptionMap` is the store now, and the only place a child key is built. One
+accessor, `getNestedOptionMap()`, replaces the fifteen; the prefixing flag is
+gone rather than renamed, because a view already scoped to the calling shape has
+nothing to prefix twice. The seven "if I am the root, store; otherwise delegate
+to the root" branches become one.
+
+Two sharp edges are preserved deliberately and pinned rather than fixed: reads
+see the saved layer alone, and the two layers union by top-level key, so one
+saved option discards a shape's whole fallback entry.
+
+### The lifecycle is a type, not an assertion
+
+Roughly thirteen setters had to run before `init()`, and only a minority carried
+the `assert(!$this->isInitialized(), …)` that said so — an assertion that compiles
+out in production anyway.
+`ComponentShapeSetupInterface` now holds the seven things that must happen first,
+and the union does **not** extend it, so calling one on an initialised shape is a
+compile error. Setup extends the union rather than the reverse: a shape under
+construction is a shape with more available, and `init()` returns the union,
+which is the handoff.
+
+Two stores could not follow, because they are reached through an accessor that is
+still *read* after init — so `NestedOptionMap` and `ChildShapeState` carry their
+deadline as a **seal** set at `init()` instead. The seal is per shape, not per
+store, since children initialize strictly after their root.
+
+Render mode stops being a hidden flag. `getPropValue()` used to set the
+attributes on `$this` while the predicate that read them read the **root**
+shape's — so called on anything below a root it wrote a flag nobody read, the
+pre-render stage was skipped, and the un-rendered value came back with nothing
+said. The attributes are threaded as an argument now, which also means
+`getPropValue()` works on any shape: a caller can render one prop of a subtree
+without going through `Component`.
+
+### Breaking changes
+
+The shape type went from 133 methods to 100 (93 on the union, 7 on setup).
+Because the union keeps its name, **every existing type hint still compiles**.
+What breaks is code outside this repository that *implements* the interface
+directly, or calls one of the removed methods.
+
+| Removed | Replacement |
+|---|---|
+| `getNestedOption()`, `…Empty()`, `…Default()`, `…Access()`, `getNestedOptions()`, `setNestedOption()`, `…Empty()`, `…Default()`, `…Access()`, `setNestedOptions()`, `setDefaultNestedOption()`, `…Empty()`, `…Default()`, `setDefaultNestedOptions()`, `setDefaultOptions()` | `getNestedOptionMap()` |
+| `hideChildShape()`, `isHiddenChildShape()`, `defaultChildShape()`, `isDefaultChildShape()`, `lockChildShape()`, `isLockedChildShape()`, `enableChildShapePlugin()`, `disableChildShapePlugin()` | `getChildShapeState()`, `getChildShapePlugins()` |
+| `isRendering()`, `getRenderAttributes()` | the threaded `?Attribute $renderAttributes` argument |
+| `ids()`, `belongsToExpanded()`, `setWidgetSetting()`, `getConfigShape()`, `isTraversable()`, `isScalar()` | none — no call site anywhere |
+| `getDelta()`, `getStructure()`, `getNestedPath()`, `isExpanded()`, `isEnforcedRequired()`, `enforceLocked()`, `getFieldStorageSettings()`, `getFieldInstanceSettings()`, `getDefaultFieldItemValue()`, `getParentValue()`, `getWidgetTypeOptions()` | still on `ComponentShapePluginBase`, now `protected` |
+| `addParentShape()`, `setDelta()`, `setParentValue()`, `setOverrideValue()`, `allowInitPlugins()`, `addPlugin()`, `init()` | moved to `ComponentShapeSetupInterface` |
+
+- **A custom shape that overrides `getValue()`, `buildValue()` or
+  `buildDefaultValue()` is a fatal until its signature is updated.** All three
+  take a new optional `?Attribute $renderAttributes` parameter. Shapes that
+  extend `ComponentShapePluginBase` without overriding them need no change.
+- `ComponentShapePluginManager::getInstance()` returns
+  `?ComponentShapeSetupInterface`, being the only source of an uninitialised
+  shape.
+- The six JSON-schema constants moved from `ComponentShapePluginInterface` to
+  `ComponentShapeSchemaInterface`, where `getType()` returns one of them. They
+  resolve through inheritance, so `ComponentShapePluginInterface::STRING` still
+  reads the same.
+- `isSingleProp()` and `getChildShapePlugins()` moved from
+  `ComponentShapeChildrenPluginInterface` up onto
+  `ComponentShapeChildrenMatchPluginInterface`, so `StructuredObjectShapeBase` —
+  which declares only the latter — gets them too. Nothing loses them: the former
+  extends the latter.
+- **No stored configuration changes and no update hook.** Prop settings, nested
+  option storage and plugin keys keep their current format.
+
+### Before updating a site
+
+- **Custom `ComponentShape` plugins that implement `ComponentShapePluginInterface`
+  directly** rather than extending `ComponentShapePluginBase` — these must drop
+  the removed methods. Shapes extending the base are unaffected.
+- **Any use of the removed nested-option methods**, in a custom shape or a custom
+  ComponentValue plugin. Move to `getNestedOptionMap()` — but **read the default
+  before you do**. `setNestedOptionAccess()` defaulted its value to `FALSE`, so a
+  bare `setNestedOptionAccess($name)` *withdrew* access; `NestedOptionMap::set()`
+  defaults to `TRUE`. Translating the call without passing the value explicitly
+  silently flips a denial into a grant. Pass the flag at every migrated call site.
+- **Custom shapes overriding `getValue()`, `buildValue()` or
+  `buildDefaultValue()`** — update the signature.
+- **Any producer mapped directly onto a link prop's children** — see the
+  rendering change above. On this site there are none.
+
+### Coverage
+
+The parent-constrains-child rules were only reachable through kernel round-trips
+before; `ChildOptionPolicyTest` and `ChildShapeStateTest` assert them without a
+container, and `ChildOptionPolicyCrossBaseTest` applies one producer
+configuration to a child of each base and asserts one resolved value — the
+comparison whose absence let the divergence ship. `NestedOptionMapTest` and
+`HeadingValueOptionChoreographyTest` do the same for the option map; the heading
+provider's option choreography needed a kernel boot to assert and no longer does.
+`ShapeRoleInterfaceTest`, `ShapeSetupInterfaceTest` and `ShapeDoubleTest` pin the
+roles, the setup handoff and the doubles. `ShapeRenderAttributeThreadTest` pins
+the threading, including that a container passes the same `Attribute` object
+rather than a copy.
+
+Extraction is only behaviour-preserving if ordering is part of what you preserve:
+`ChildOptionPolicy`'s branch order is load-bearing — `setAccess()` is
+last-write-wins while `setLockedValue()` is first-write-wins — and grouping the
+branches by kind silently opened per-child access on every media prop's
+configuration form while the entire suite passed. The order is restored, the reason
+is written at the call site, and a test now fails when the two are swapped.
+
 ## One mold for the component admin forms
 
 A site builder opened the Filters tab on a component and was offered filter
