@@ -1966,38 +1966,14 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
    */
   private function computeDefaultValue(): mixed {
     $value = $originalValue = $this->resolveValue($this->getDefaultSchemaValue());
-    foreach ($this->getValueCollection()->getAllowedInstances('default') as $instance) {
-      $provided = $instance->provideDefaultValue($value);
-      // Let the configurable processing mode decide whether this provider
-      // claims the value (halting the search) or falls through to the next.
-      if ($instance instanceof ComponentValueProcessingModeInterface) {
-        $instance->applyProcessingMode($provided);
-      }
-      // A producer that found nothing and did not claim contributes nothing:
-      // the search moves on carrying the value that was threaded into it,
-      // instead of that value being destroyed on the way past. "Stop when a
-      // value is found" says what happens when one IS found; when one is not,
-      // enabling the producer must not leave the prop worse off than never
-      // having enabled it. Without this, attaching an Entity Field provider
-      // to a prop whose entity field happens to be empty silently wiped the
-      // schema example the pipeline had just seeded — so a component that
-      // rendered its author's label ("Our Services") before the provider was
-      // attached rendered nothing after, with no way to tell from the config
-      // that a value had been thrown away.
-      //
-      // A claim is the deliberate empty: "Always stop (block if empty)" and
-      // the vetoes (user_has_role, entity_has_value) claim precisely to say
-      // that nothing IS the answer, and their emptiness is kept. That is the
-      // mode to choose for a prop whose examples are editor scaffolding —
-      // placeholder cards, images or menu links that must never reach a
-      // visitor — rather than a usable default.
-      $value = $this->isProvidedValueEmpty($provided) && !$instance->hasClaimedValue()
-        ? $value
-        : $provided;
-      if (!$instance->shouldContinueProcessing()) {
-        break;
-      }
-    }
+    // The provide phase — which provider's value wins — is one collaborator,
+    // handed the ordered, already-reset instances and the seed. Why an empty
+    // non-claiming producer leaves the seed standing is documented there.
+    $value = (new ValueProviderSearch())->search(
+      $this->getValueCollection()->getAllowedInstances('default'),
+      $value,
+      $this,
+    );
     if ($fieldDefaultValue = $this->getFieldDefaultValue()) {
       $value = $fieldDefaultValue;
     }
