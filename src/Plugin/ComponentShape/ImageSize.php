@@ -8,6 +8,7 @@ use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\Core\Template\Attribute;
 use Drupal\neo_alchemist\Attribute\ComponentShape;
+use Drupal\neo_alchemist\ComponentShapePluginInterface;
 
 /**
  * Plugin implementation of the neo_component_shape.
@@ -22,7 +23,7 @@ class ImageSize extends StyleShapeBase {
   /**
    * {@inheritDoc}
    */
-  public function init(): self {
+  public function init(): ComponentShapePluginInterface {
     $this->setRequired(TRUE);
     return parent::init();
   }

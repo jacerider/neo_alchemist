@@ -46,7 +46,17 @@ use Drupal\Core\Plugin\ObjectWithPluginCollectionInterface;
  * - ComponentShapeContextInterface — ask what the shape is attached to.
  * - ComponentShapeStateInterface — ask active/required/editable/locked.
  * - ComponentShapeOptionsInterface — read the empty/default/access options.
- * - ComponentShapeLifecycleInterface — drive initialisation.
+ * - ComponentShapeLifecycleInterface — say whether it initialised, and receive
+ *   the component's events.
+ *
+ * **One role is deliberately missing.** ComponentShapeSetupInterface holds the
+ * setters that must run before init(), and this union does not extend it — so
+ * holding a shape as this type means holding one that has been initialised,
+ * and setting a parent, a delta, a value or a plugin on it will not compile.
+ * That constraint used to live in `assert(!$this->isInitialized(), …)` calls,
+ * which compile out in production. Setup extends this union rather than the
+ * other way round: a shape under construction is a shape with more available,
+ * and ::init() hands back this type.
  *
  * Boundaries were drawn from the measured call sites rather than by grouping
  * the implementation: of the module's 218 shape consumers, the median reaches
@@ -59,6 +69,7 @@ use Drupal\Core\Plugin\ObjectWithPluginCollectionInterface;
  * role is a view a caller takes of any shape; a capability is something only
  * some shapes have.
  *
+ * @see \Drupal\neo_alchemist\ComponentShapeSetupInterface
  * @see \Drupal\neo_alchemist\ComponentShapeChildrenPluginInterface
  * @see \Drupal\neo_alchemist\ComponentShapeMediaPluginInterface
  *

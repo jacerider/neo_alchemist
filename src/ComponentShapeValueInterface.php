@@ -17,6 +17,11 @@ namespace Drupal\neo_alchemist;
  * rendering, so implementations must be idempotent and must not depend on
  * `init()` having run.
  *
+ * Reading only. The two values fed *into* that pipeline — ::setParentValue()
+ * and ::setOverrideValue() — are on ComponentShapeSetupInterface, because
+ * init() consumes both and neither means anything afterwards.
+ *
+ * @see \Drupal\neo_alchemist\ComponentShapeSetupInterface
  * @see \Drupal\neo_alchemist\ComponentShapeRenderInterface
  * @see \Drupal\neo_alchemist\ComponentShapePluginInterface
  */
@@ -78,17 +83,6 @@ interface ComponentShapeValueInterface extends ComponentShapeIdentityInterface {
   public function getDefaultSchemaValue(): mixed;
 
   /**
-   * Sets the override value.
-   *
-   * @param mixed $value
-   *   The value to set as the override.
-   *
-   * @return $this
-   *   The current instance for method chaining.
-   */
-  public function setOverrideValue(mixed $value): ComponentShapePluginInterface;
-
-  /**
    * Retrieves the override value.
    *
    * @return mixed
@@ -96,17 +90,6 @@ interface ComponentShapeValueInterface extends ComponentShapeIdentityInterface {
    *   string, integer, float, or boolean.
    */
   public function getOverrideValue(): mixed;
-
-  /**
-   * Sets the parent value.
-   *
-   * @param mixed $value
-   *   The value to set as the parent override.
-   *
-   * @return $this
-   *   The current instance for method chaining.
-   */
-  public function setParentValue(mixed $value): ComponentShapePluginInterface;
 
   /**
    * Checks if the component shape is empty.

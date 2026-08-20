@@ -8,6 +8,7 @@ use Drupal\Tests\neo_alchemist\Traits\ShapeDoubleTrait;
 use Drupal\Tests\UnitTestCase;
 use Drupal\neo_alchemist\ComponentShapeChildrenMatchPluginInterface;
 use Drupal\neo_alchemist\ComponentShapeContextInterface;
+use Drupal\neo_alchemist\ComponentShapeFieldItemInterface;
 use Drupal\neo_alchemist\ComponentShapeIdentityInterface;
 use Drupal\neo_alchemist\ComponentShapeMediaPluginInterface;
 use Drupal\neo_alchemist\ComponentShapePluginInterface;
@@ -220,12 +221,17 @@ class ShapeDoubleTest extends UnitTestCase {
    * Forwarding would be worthless for the write-side assertions — MediaValue's
    * shape rewiring is asserted entirely with expects() — if the calls landed
    * somewhere PHPUnit does not check.
+   *
+   * The write asserted here is a field-item one because those are the write-
+   * side methods an initialised shape still has. The setters that must run
+   * before init() moved to ComponentShapeSetupInterface, which the union does
+   * not extend, so a double typed as the union cannot be handed one.
    */
   public function testExpectationsOnTheRoleAreVerified(): void {
-    $value = $this->shapeRole(ComponentShapeValueInterface::class);
-    $value->expects($this->once())->method('setOverrideValue')->with('WRITTEN');
+    $fieldItem = $this->shapeRole(ComponentShapeFieldItemInterface::class);
+    $fieldItem->expects($this->once())->method('setFieldItemValue')->with('WRITTEN');
 
-    $this->shapeDouble([$value])->setOverrideValue('WRITTEN');
+    $this->shapeDouble([$fieldItem])->setFieldItemValue('WRITTEN');
   }
 
   /**

@@ -71,8 +71,15 @@ interface ComponentShapeChildrenMatchPluginInterface extends ComponentShapePlugi
    * This one accessor replaced seven methods that were each a copy of the same
    * root-delegation branch.
    *
+   * Scoped to the shape it is asked of, so that recording a decision on a
+   * shape that has already initialized fails. The scope does no keying — the
+   * ids are absolute either way — and reads are never refused, because reading
+   * is what ChildOptionPolicy does while building children.
+   *
    * @return \Drupal\neo_alchemist\ChildShapeState
-   *   The child shape state.
+   *   The root's state, as a view scoped to this shape.
+   *
+   * @see \Drupal\neo_alchemist\ChildShapeState::seal()
    */
   public function getChildShapeState(): ChildShapeState;
 

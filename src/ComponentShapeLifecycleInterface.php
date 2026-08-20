@@ -5,44 +5,21 @@ declare(strict_types=1);
 namespace Drupal\neo_alchemist;
 
 /**
- * Drives the shape through initialisation and component events.
+ * Says whether the shape initialised, and receives the component's events.
  *
- * `init()` is the pipeline that turns a configured shape into one holding a
- * value: schema default, provider chain, parent and override values, field
- * item. It is the line the rest of the shape is ordered around — the setup
+ * `init()` is the line the rest of the shape is ordered around — the setup
  * setters run before it, and the value, form and field-item getters only mean
- * anything after.
+ * anything after. Driving it is not part of this role: init() and the setters
+ * that feed it are on ComponentShapeSetupInterface, which the union does not
+ * extend, so an initialised shape cannot be set up or initialised again.
  *
+ * What is left is what an initialised shape still answers to — whether it got
+ * there, and the events its component fires as it is saved and edited.
+ *
+ * @see \Drupal\neo_alchemist\ComponentShapeSetupInterface
  * @see \Drupal\neo_alchemist\ComponentShapePluginInterface
  */
 interface ComponentShapeLifecycleInterface extends ComponentShapeIdentityInterface {
-
-  /**
-   * Initialize the shape and calculates the value of the field item.
-   *
-   * This method processes the field item value by starting with the schema
-   * defaults, then modifying with value providers, and finally overlaying
-   * the user input if applicable.
-   *
-   * @return $this
-   *   The current instance of the class for method chaining.
-   */
-  public function init(): ComponentShapePluginInterface;
-
-  /**
-   * Allow or disallow initialization of specific plugins.
-   *
-   * If a shape has a default_plugins, this method can be used to prevent it
-   * from being initialized.
-   *
-   * @param string $pluginId
-   *   The ID of the plugin.
-   * @param bool $allow
-   *   Whether to allow initialization. Defaults to TRUE.
-   *
-   * @return $this
-   */
-  public function allowInitPlugins(string $pluginId, bool $allow = TRUE): ComponentShapePluginInterface;
 
   /**
    * Checks if the shape is initialized.

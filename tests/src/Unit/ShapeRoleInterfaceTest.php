@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\Tests\neo_alchemist\Unit;
 
+use Drupal\Tests\neo_alchemist\Traits\InterfaceReflectionTrait;
 use Drupal\Tests\UnitTestCase;
 use Drupal\neo_alchemist\ComponentShapeContextInterface;
 use Drupal\neo_alchemist\ComponentShapeExpansionInterface;
@@ -33,12 +34,19 @@ use PHPUnit\Framework\Attributes\Group;
 #[Group('neo_alchemist')]
 class ShapeRoleInterfaceTest extends UnitTestCase {
 
+  use InterfaceReflectionTrait;
+
   /**
-   * The roles, and the caller need each one answers.
+   * The roles the union is made of, and the caller need each one answers.
    *
    * Kept here rather than derived so that adding a role is a deliberate edit to
    * this list. Why the boundaries fall where they do is recorded once, on
    * ComponentShapePluginInterface.
+   *
+   * ComponentShapeSetupInterface is deliberately absent: it is the one role the
+   * union does NOT extend, and half of what is asserted below would be wrong
+   * for it — its methods return it, by design, so a chain of setters does not
+   * widen halfway through. ShapeSetupInterfaceTest pins it instead.
    */
   private const ROLES = [
     ComponentShapeIdentityInterface::class => 'name this shape',
@@ -54,7 +62,7 @@ class ShapeRoleInterfaceTest extends UnitTestCase {
     ComponentShapeContextInterface::class => 'ask what the shape is attached to',
     ComponentShapeStateInterface::class => 'ask active/required/editable/locked',
     ComponentShapeOptionsInterface::class => 'read the empty/default/access options',
-    ComponentShapeLifecycleInterface::class => 'drive initialisation',
+    ComponentShapeLifecycleInterface::class => 'say whether it initialised, and receive the component events',
   ];
 
   /**
@@ -232,46 +240,6 @@ class ShapeRoleInterfaceTest extends UnitTestCase {
         $this->shortName($role) . ' is not part of the union.',
       );
     }
-  }
-
-  /**
-   * Method names declared by an interface itself, excluding what it inherits.
-   *
-   * @return string[]
-   *   The method names, sorted.
-   */
-  private function ownMethods(string $interface): array {
-    $names = [];
-    foreach ((new \ReflectionClass($interface))->getMethods() as $method) {
-      if ($method->getDeclaringClass()->getName() === $interface) {
-        $names[] = $method->getName();
-      }
-    }
-    sort($names);
-    return $names;
-  }
-
-  /**
-   * Every method name reachable through an interface, inherited included.
-   *
-   * @return string[]
-   *   The method names, sorted.
-   */
-  private function allMethods(string $interface): array {
-    $names = array_map(
-      fn (\ReflectionMethod $method): string => $method->getName(),
-      (new \ReflectionClass($interface))->getMethods(),
-    );
-    $names = array_values(array_unique($names));
-    sort($names);
-    return $names;
-  }
-
-  /**
-   * The unqualified interface name, for readable failure messages.
-   */
-  private function shortName(string $interface): string {
-    return substr(strrchr($interface, '\\') ?: $interface, 1);
   }
 
 }

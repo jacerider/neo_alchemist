@@ -15,35 +15,16 @@ namespace Drupal\neo_alchemist;
  * because arriving somewhere in the tree is normally the prelude to asking
  * that shape something else entirely.
  *
+ * Reading only. Where a shape sits is decided while it is being built —
+ * ::addParentShape() and ::setDelta() are on ComponentShapeSetupInterface,
+ * because both change the shape's id and the options a producer records are
+ * keyed by it.
+ *
+ * @see \Drupal\neo_alchemist\ComponentShapeSetupInterface
  * @see \Drupal\neo_alchemist\ComponentShapeExpansionInterface
  * @see \Drupal\neo_alchemist\ComponentShapePluginInterface
  */
 interface ComponentShapeTreeInterface extends ComponentShapeIdentityInterface {
-
-  /**
-   * Set the nested delta of the shape.
-   *
-   * Stays on the interface because the shape bases set it on a *child* shape
-   * they hold as ComponentShapePluginInterface, so this is the type the call
-   * resolves against. Reading the delta back is internal to the base.
-   *
-   * @param int $delta
-   *   The nested delta.
-   *
-   * @return $this
-   */
-  public function setDelta(int $delta): ComponentShapePluginInterface;
-
-  /**
-   * Adds a parent shape to the current component shape.
-   *
-   * @param \Drupal\neo_alchemist\ComponentShapePluginInterface $parent
-   *   The parent shape to be added.
-   *
-   * @return $this
-   *   The current instance of the component shape plugin.
-   */
-  public function addParentShape(ComponentShapePluginInterface $parent): ComponentShapePluginInterface;
 
   /**
    * Retrieves the immediate parent shape of the current component shape.

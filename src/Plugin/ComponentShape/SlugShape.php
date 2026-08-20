@@ -9,6 +9,7 @@ use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\Core\Template\Attribute;
 use Drupal\neo_alchemist\Attribute\ComponentShape;
 use Drupal\neo_alchemist\ComponentShapePluginBase;
+use Drupal\neo_alchemist\ComponentShapePluginInterface;
 use Drupal\neo_alchemist\Drush\Generators\NeoComponentTwig;
 
 /**
@@ -32,7 +33,7 @@ class SlugShape extends ComponentShapePluginBase {
   /**
    * {@inheritDoc}
    */
-  public function init(): self {
+  public function init(): ComponentShapePluginInterface {
     parent::init();
     $this->getOptionDefault()->setAccess(FALSE);
     $this->getOptionEmpty()->setAccess(FALSE);

@@ -49,7 +49,7 @@ class ArrayShape extends ChildrenShapeBase implements ComponentShapeInterablePlu
   /**
    * {@inheritDoc}
    */
-  public function init(): self {
+  public function init(): ComponentShapePluginInterface {
     $this->getOptionEmpty()->setAccess(FALSE, 'Array shapes cannot be set as empty.');
     return parent::init();
   }

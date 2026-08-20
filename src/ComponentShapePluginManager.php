@@ -37,8 +37,9 @@ final class ComponentShapePluginManager extends DefaultPluginManager {
    * @param \Drupal\neo_alchemist\ComponentInterface $component
    *   The neo component.
    *
-   * @return \Drupal\neo_alchemist\ComponentShapePluginInterface[]
-   *   The instances.
+   * @return \Drupal\neo_alchemist\ComponentShapeSetupInterface[]
+   *   The instances, uninitialised: a caller building children still has to
+   *   give them their parents, their delta and their value before init().
    */
   public function getChildInstancesFromSchema(array $schema, ComponentInterface $component): array {
     $instances = $this->getInstancesFromSchema($schema, $component);
@@ -79,8 +80,9 @@ final class ComponentShapePluginManager extends DefaultPluginManager {
    * @param array $values
    *   The value overrides.
    *
-   * @return \Drupal\neo_alchemist\ComponentShapePluginInterface[]
-   *   The instances.
+   * @return \Drupal\neo_alchemist\ComponentShapeSetupInterface[]
+   *   The instances, uninitialised. Callers that want values out of them call
+   *   ::init() on each, which hands back the initialised shape.
    */
   public function getInstancesFromSchema(array $schema, ComponentInterface $component, array $settings = [], array $values = []): array {
     $instances = [];
@@ -126,10 +128,14 @@ final class ComponentShapePluginManager extends DefaultPluginManager {
   /**
    * {@inheritdoc}
    *
-   * @return \Drupal\neo_alchemist\ComponentShapePluginInterface|null
-   *   The instance.
+   * This manager is the only place a shape under construction comes from. The
+   * return type is narrowed to say so — an initialised shape is never turned
+   * back into one, and nothing else needs to mint one.
+   *
+   * @return \Drupal\neo_alchemist\ComponentShapeSetupInterface|null
+   *   The instance, uninitialised, or NULL when no shape plugin matches.
    */
-  public function getInstance(array $options): ?ComponentShapePluginInterface {
+  public function getInstance(array $options): ?ComponentShapeSetupInterface {
     $options += [
       'schema' => [],
       'settings' => [],

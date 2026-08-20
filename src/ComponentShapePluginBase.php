@@ -42,8 +42,16 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
  * Base class for neo_component_shape plugins.
+ *
+ * Declares ComponentShapeSetupInterface rather than the union it extends: a
+ * shape class is what the plugin manager builds, so it starts out as a shape
+ * under construction and satisfies both. Which of the two a *caller* holds is
+ * what decides whether the setup setters are available to it, and the manager
+ * is the only thing that hands out the wider type.
+ *
+ * @see \Drupal\neo_alchemist\ComponentShapeSetupInterface
  */
-abstract class ComponentShapePluginBase extends PluginBase implements ComponentShapePluginInterface, ContainerFactoryPluginInterface {
+abstract class ComponentShapePluginBase extends PluginBase implements ComponentShapeSetupInterface, ContainerFactoryPluginInterface {
 
   use DependencySerializationTrait;
   use StringTranslationTrait;
@@ -428,8 +436,15 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
 
   /**
    * {@inheritDoc}
+   *
+   * Declared as the union rather than `self` so the handoff survives a
+   * concretely-typed handle: `$shape->init()` gives back an initialised shape
+   * even where $shape is a shape class rather than the setup interface. `self`
+   * here would resolve to the class, which still has the setup setters on it.
+   * The six subclasses that override this declare the union for the same
+   * reason.
    */
-  public function init(): self {
+  public function init(): ComponentShapePluginInterface {
     // Reset the field item list.
     unset($this->fieldItem);
     $this->fieldType = $this->getDefaultFieldType();
@@ -502,13 +517,28 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
     if (!is_null($overrideValue)) {
       $this->setFieldItemValue($overrideValue);
     }
-    // This shape's children read their options as they are built, from here
-    // onwards, so a child option written later changes nothing. The map takes
-    // the deadline the two removed setters used to assert.
+    // This shape's children read their options and the decisions a producer
+    // made about them as they are built, from here onwards, so either written
+    // later changes nothing. Both stores take the deadline that setters on the
+    // shape used to assert; neither writer is a shape method any more, so the
+    // setup interface cannot withdraw them and a seal carries it instead.
     $this->getNestedOptionMap()->seal();
+    $this->sealChildShapeState();
     $this->initialized = TRUE;
 
     return $this;
+  }
+
+  /**
+   * Closes this shape's producer decisions about its children.
+   *
+   * A no-op here because a shape with no children has none. Overridden by
+   * ChildShapeStateTrait, which the two children-bearing bases use.
+   *
+   * @see \Drupal\neo_alchemist\Plugin\ComponentShape\ChildShapeStateTrait::sealChildShapeState()
+   * @see \Drupal\neo_alchemist\ChildShapeState::seal()
+   */
+  protected function sealChildShapeState(): void {
   }
 
   /**
@@ -526,7 +556,10 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
    * {@inheritDoc}
    */
   public function allowInitPlugins(string $pluginId, bool $allow = TRUE): self {
-    assert(!$this->isInitialized(), 'Allowing init plugins must happen before initialization of shape.');
+    // No `assert(!$this->isInitialized())` here, nor on ::setOverrideValue().
+    // Both used to carry one; ComponentShapeSetupInterface carries it now, and
+    // an assertion that duplicates the type is the thing this ticket set out
+    // to remove rather than a second line of defence.
     $this->allowInitPlugins[$pluginId] = $allow;
     return $this;
   }
@@ -1899,76 +1932,123 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
 
   /**
    * {@inheritDoc}
+   *
+   * **This getter runs the provider chain, and it writes.** Both halves of
+   * that are load-bearing and neither is visible from the name, so they are
+   * stated here rather than left to whoever edits ::computeDefaultValue()
+   * next.
+   *
+   * The memo is claimed BEFORE the pipeline runs, not after it returns. The
+   * pipeline can re-enter this method — buildDefaultValue() runs during
+   * child-schema loading — and claiming late made that re-entry re-run the
+   * whole chain, whose mid-chain write to the field item then overwrote
+   * authored values with a recomputed NULL. Claiming first also turns any
+   * accidental first-pass re-entry into "return the not-yet-computed NULL"
+   * rather than infinite recursion.
+   *
+   * The flag exists separately from $defaultValue rather than as an
+   * isset() check on it, because NULL is a legitimate computed default and
+   * must memoise like any other value.
+   *
+   * @see ::computeDefaultValue()
    */
   public function getDefaultValue(): mixed {
     if (!$this->defaultValueResolved) {
-      // Mark resolved up-front (the ArrayShape::$itemValueResolverShapeLoaded
-      // pattern): an isset() guard could not memoise a computed-NULL default,
-      // so every post-init re-entry — buildDefaultValue() runs during
-      // child-schema loading — re-ran this pipeline, and the field-item side
-      // effect below overwrote authored values with the recomputed NULL.
-      // Setting the flag first also turns any accidental first-run
-      // re-entrancy into "return the not-yet-computed NULL" instead of
-      // recursion.
+      // Claim, then compute. The two statements are in this order on purpose
+      // and the split below is what keeps them from being reordered by
+      // accident: nothing between them can re-enter, because there is nothing
+      // between them.
       $this->defaultValueResolved = TRUE;
-      $value = $originalValue = $this->resolveValue($this->getDefaultSchemaValue());
-      foreach ($this->getValueCollection()->getAllowedInstances('default') as $instance) {
-        $provided = $instance->provideDefaultValue($value);
-        // Let the configurable processing mode decide whether this provider
-        // claims the value (halting the search) or falls through to the next.
-        if ($instance instanceof ComponentValueProcessingModeInterface) {
-          $instance->applyProcessingMode($provided);
-        }
-        // A producer that found nothing and did not claim contributes nothing:
-        // the search moves on carrying the value that was threaded into it,
-        // instead of that value being destroyed on the way past. "Stop when a
-        // value is found" says what happens when one IS found; when one is not,
-        // enabling the producer must not leave the prop worse off than never
-        // having enabled it. Without this, attaching an Entity Field provider
-        // to a prop whose entity field happens to be empty silently wiped the
-        // schema example the pipeline had just seeded — so a component that
-        // rendered its author's label ("Our Services") before the provider was
-        // attached rendered nothing after, with no way to tell from the config
-        // that a value had been thrown away.
-        //
-        // A claim is the deliberate empty: "Always stop (block if empty)" and
-        // the vetoes (user_has_role, entity_has_value) claim precisely to say
-        // that nothing IS the answer, and their emptiness is kept. That is the
-        // mode to choose for a prop whose examples are editor scaffolding —
-        // placeholder cards, images or menu links that must never reach a
-        // visitor — rather than a usable default.
-        $value = $this->isProvidedValueEmpty($provided) && !$instance->hasClaimedValue()
-          ? $value
-          : $provided;
-        if (!$instance->shouldContinueProcessing()) {
-          break;
-        }
-      }
-      if ($fieldDefaultValue = $this->getFieldDefaultValue()) {
-        $value = $fieldDefaultValue;
-      }
-      // Set the value so providers can use it.
-      $this->setFieldItemValue($value, FALSE);
-      // Allow providers to modify the final default value. Fetch a fresh list
-      // so a claim from the provide loop above does not truncate this one.
-      foreach ($this->getValueCollection()->getAllowedInstances('default') as $instance) {
-        $value = $instance->alterValue($value, 'default');
-        if (!$instance->shouldContinueProcessing()) {
-          break;
-        }
-      }
-      // A required prop falls back to the schema example rather than resolving
-      // to nothing, so SDC is never handed a missing required prop. The test
-      // is isProvidedValueEmpty(), the pipeline's own emptiness contract, not
-      // PHP truthiness: under `!$value` a provider that legitimately resolved
-      // 0, '0', FALSE or [] had its answer discarded and the component's
-      // placeholder rendered in place of real content.
-      if ($this->isProvidedValueEmpty($value) && $this->isRequired()) {
-        $value = $originalValue;
-      }
-      $this->defaultValue = $value;
+      $this->defaultValue = $this->computeDefaultValue();
     }
     return $this->defaultValue;
+  }
+
+  /**
+   * Runs the value pipeline that produces this shape's default value.
+   *
+   * Schema example, then the provider chain, then any field default, then the
+   * modifier pass — with a required-but-empty result reverting to the schema
+   * example so SDC is never handed a missing required prop.
+   *
+   * **Call this from ::getDefaultValue() and nowhere else, and only once.** It
+   * publishes intermediate values onto the field item mid-chain so that
+   * providers can read back what the ones before them produced, and it can
+   * re-enter ::getDefaultValue() while doing so. Running it a second time
+   * therefore does not just cost time — it republishes over whatever the
+   * shape now holds. The memo claim in ::getDefaultValue() is what stops that,
+   * and this method is separate so the claim cannot drift below the work.
+   *
+   * Private rather than protected for the same reason: protected would let a
+   * shape plugin call it, or override it and have the memo claim silently
+   * guard something else. Shapes customise the parts instead — none needs the
+   * whole: ::getDefaultSchemaValue(), ::resolveValue(),
+   * ::getFieldDefaultValue(), ::isProvidedValueEmpty().
+   *
+   * @return mixed
+   *   The default value.
+   *
+   * @see ::getDefaultValue()
+   */
+  private function computeDefaultValue(): mixed {
+    $value = $originalValue = $this->resolveValue($this->getDefaultSchemaValue());
+    foreach ($this->getValueCollection()->getAllowedInstances('default') as $instance) {
+      $provided = $instance->provideDefaultValue($value);
+      // Let the configurable processing mode decide whether this provider
+      // claims the value (halting the search) or falls through to the next.
+      if ($instance instanceof ComponentValueProcessingModeInterface) {
+        $instance->applyProcessingMode($provided);
+      }
+      // A producer that found nothing and did not claim contributes nothing:
+      // the search moves on carrying the value that was threaded into it,
+      // instead of that value being destroyed on the way past. "Stop when a
+      // value is found" says what happens when one IS found; when one is not,
+      // enabling the producer must not leave the prop worse off than never
+      // having enabled it. Without this, attaching an Entity Field provider
+      // to a prop whose entity field happens to be empty silently wiped the
+      // schema example the pipeline had just seeded — so a component that
+      // rendered its author's label ("Our Services") before the provider was
+      // attached rendered nothing after, with no way to tell from the config
+      // that a value had been thrown away.
+      //
+      // A claim is the deliberate empty: "Always stop (block if empty)" and
+      // the vetoes (user_has_role, entity_has_value) claim precisely to say
+      // that nothing IS the answer, and their emptiness is kept. That is the
+      // mode to choose for a prop whose examples are editor scaffolding —
+      // placeholder cards, images or menu links that must never reach a
+      // visitor — rather than a usable default.
+      $value = $this->isProvidedValueEmpty($provided) && !$instance->hasClaimedValue()
+        ? $value
+        : $provided;
+      if (!$instance->shouldContinueProcessing()) {
+        break;
+      }
+    }
+    if ($fieldDefaultValue = $this->getFieldDefaultValue()) {
+      $value = $fieldDefaultValue;
+    }
+    // The write this method's docblock warns about: publish what the provider
+    // search settled on, so the modifier pass below — and anything a modifier
+    // asks the shape — reads the value rather than what was there before.
+    $this->setFieldItemValue($value, FALSE);
+    // Allow providers to modify the final default value. Fetch a fresh list
+    // so a claim from the provide loop above does not truncate this one.
+    foreach ($this->getValueCollection()->getAllowedInstances('default') as $instance) {
+      $value = $instance->alterValue($value, 'default');
+      if (!$instance->shouldContinueProcessing()) {
+        break;
+      }
+    }
+    // A required prop falls back to the schema example rather than resolving
+    // to nothing, so SDC is never handed a missing required prop. The test
+    // is isProvidedValueEmpty(), the pipeline's own emptiness contract, not
+    // PHP truthiness: under `!$value` a provider that legitimately resolved
+    // 0, '0', FALSE or [] had its answer discarded and the component's
+    // placeholder rendered in place of real content.
+    if ($this->isProvidedValueEmpty($value) && $this->isRequired()) {
+      $value = $originalValue;
+    }
+    return $value;
   }
 
   /**
@@ -2083,7 +2163,8 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
    * {@inheritDoc}
    */
   public function setOverrideValue(mixed $value): self {
-    assert(!$this->isInitialized(), 'Override value should be set before initialization.');
+    // The deadline is ComponentShapeSetupInterface's, not an assertion's.
+    // @see ::allowInitPlugins()
     $this->overrideValue = $value;
     return $this;
   }

@@ -10,18 +10,37 @@ use Drupal\neo_alchemist\Entity\Component;
 use PHPUnit\Framework\Attributes\Group;
 
 /**
- * Pins the initialisation-ordering contract of a component shape.
+ * Pins what is left of the shape's ordering contract after the type took it.
  *
- * ComponentShapePluginBase::init() is one-shot and runs eleven ordered steps,
- * and the class already encodes the resulting constraints as assert()s. Those
- * assertions are the closest thing the module has to a written specification
- * for shape lifecycle, so this test treats them as one: each case violates an
- * invariant and requires it to be caught.
+ * ComponentShapePluginBase::init() is one-shot and runs eleven ordered steps.
+ * Those constraints used to be assert()s alone, and this test existed to treat
+ * them as the specification: each case violated an invariant and required it
+ * to be caught. Assertions compile out in production, which is exactly why
+ * they needed a test — in dev they were the only thing between a mis-ordered
+ * call and silently wrong output.
  *
- * They compile out in production, which is exactly why they need a test — in
- * dev they are the only thing standing between a mis-ordered call and silently
- * wrong output. zend.assertions=1 and assert.exception=On here, so a violation
- * throws AssertionError.
+ * **Most of that moved into the type.** The setters that must run before
+ * init() are on ComponentShapeSetupInterface, which the union does not extend,
+ * so calling one on an initialised shape no longer compiles. There is nothing
+ * left to assert at runtime for those, and the cases that did are gone: what
+ * replaced them is ShapeSetupInterfaceTest, which needs no container.
+ *
+ * What remains here is what a type cannot carry:
+ *
+ * - The three field-item setters. They are called from onShapeInit(), during
+ *   init(), through a shape handle the value plugin holds as the union — a
+ *   type cannot withdraw a method from a handle it does not own. Their
+ *   deadline is also narrower than init(): the field item, not initialisation.
+ * - A getter that must NOT be called too early, which is the opposite
+ *   direction and has no type to express it.
+ * - That the documented order actually works, so the guards are not over-tight.
+ *
+ * zend.assertions=1 and assert.exception=On here, so a violation throws
+ * AssertionError.
+ *
+ * @see \Drupal\Tests\neo_alchemist\Unit\ShapeSetupInterfaceTest
+ * @see \Drupal\Tests\neo_alchemist\Unit\ChildShapeStateTest
+ * @see \Drupal\Tests\neo_alchemist\Unit\NestedOptionMapTest
  */
 #[Group('neo_alchemist')]
 class ShapeInitOrderTest extends KernelTestBase {
@@ -73,32 +92,6 @@ class ShapeInitOrderTest extends KernelTestBase {
   }
 
   /**
-   * An override value cannot be introduced after initialisation.
-   *
-   * Init() reads the override to seed the field item; setting one afterwards
-   * would be silently ignored rather than applied.
-   */
-  public function testOverrideValueCannotBeSetAfterInit(): void {
-    $shape = $this->initialisedShape();
-
-    $this->expectException(\AssertionError::class);
-    $shape->setOverrideValue(['anything']);
-  }
-
-  /**
-   * Value plugins cannot be re-gated after initialisation.
-   *
-   * AllowInitPlugins() decides which plugins init() will run, so changing it
-   * afterwards cannot retroactively affect anything.
-   */
-  public function testAllowInitPluginsCannotBeChangedAfterInit(): void {
-    $shape = $this->initialisedShape();
-
-    $this->expectException(\AssertionError::class);
-    $shape->allowInitPlugins('na_test_provider', FALSE);
-  }
-
-  /**
    * The field type is frozen once the field item exists.
    *
    * The field item is built from the type; changing it afterwards would leave
@@ -143,8 +136,9 @@ class ShapeInitOrderTest extends KernelTestBase {
       ->getStorage('neo_component')
       ->load('na_array_provider');
 
-    // getInstance() deliberately returns an *uninitialised* shape, unlike
-    // getPropShapes() which initialises everything it hands back.
+    // getInstance() deliberately returns an *uninitialised* shape — typed
+    // ComponentShapeSetupInterface to say so — unlike getPropShapes(), which
+    // initialises everything it hands back.
     $shape = $this->container->get('plugin.manager.neo_component_shape')->getInstance([
       'schema' => [
         'name' => 'items',
@@ -165,7 +159,9 @@ class ShapeInitOrderTest extends KernelTestBase {
    * The documented lifecycle order actually succeeds.
    *
    * The counterpart to the rejection cases: doing it in the right order must
-   * not trip any of the same guards, or they would be over-tight.
+   * not trip any of the same guards, or they would be over-tight. It is also
+   * the runtime half of the handoff — the setter chains, and init() hands back
+   * a shape the type will no longer let anyone set up.
    */
   public function testCorrectOrderInitialisesCleanly(): void {
     $component = $this->container->get('entity_type.manager')
@@ -182,12 +178,15 @@ class ShapeInitOrderTest extends KernelTestBase {
       'component' => $component,
     ]);
 
-    // Everything that must happen before init(), in order.
-    $shape->setOverrideValue([['title' => ['value' => 'AUTHORED']]]);
-    $shape->init();
+    // Everything that must happen before init(), then init() itself. The
+    // chain is the point: a setter hands back the shape still under
+    // construction, and init() hands back the initialised one.
+    $initialised = $shape
+      ->setOverrideValue([['title' => ['value' => 'AUTHORED']]])
+      ->init();
 
-    $this->assertTrue($shape->isInitialized());
-    $this->assertNotEmpty($shape->getChildShapes(0), 'Children are reachable once initialised.');
+    $this->assertTrue($initialised->isInitialized());
+    $this->assertNotEmpty($initialised->getChildShapes(0), 'Children are reachable once initialised.');
   }
 
 }

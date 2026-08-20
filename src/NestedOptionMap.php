@@ -49,12 +49,13 @@ use Drupal\Component\Utility\NestedArray;
  *
  * ## Views
  *
- * One map instance holds the store; ::forShape() makes cheap views onto it, one
- * per shape that wants to read or write. This is what replaced the seven "if I
- * am the root, store; otherwise delegate to the root" branches that the shape
- * family used to carry: a non-root shape's view points at the root's store, so
- * the delegation is a property of the object graph rather than a branch written
- * out per accessor.
+ * The store/view/seal machinery is ShapeScopedStoreTrait's, shared with
+ * ChildShapeState. It is what replaced the seven "if I am the root, store;
+ * otherwise delegate to the root" branches that the shape family used to
+ * carry: a non-root shape's view points at the root's store, so the delegation
+ * is a property of the object graph rather than a branch written out per
+ * accessor. Unlike ChildShapeState, this class also keys by its scope — see
+ * Keys above.
  *
  * Three methods are exceptions to the scoping and address the whole map by
  * absolute id: ::merge(), ::mergeFallbacks() and ::toArray(). They are how a
@@ -68,6 +69,8 @@ use Drupal\Component\Utility\NestedArray;
  * @see \Drupal\neo_alchemist\ComponentShapeOption
  */
 final class NestedOptionMap {
+
+  use ShapeScopedStoreTrait;
 
   /**
    * The shape renders nothing.
@@ -107,46 +110,6 @@ final class NestedOptionMap {
   private array $fallback = [];
 
   /**
-   * The ids of shapes that have initialized, as a set.
-   *
-   * @var array<string, true>
-   */
-  private array $sealed = [];
-
-  /**
-   * Constructs a map, or a view onto one.
-   *
-   * Callers outside this class construct the store — `new NestedOptionMap()` —
-   * and reach shapes through ::forShape().
-   *
-   * @param string $shapeId
-   *   The id of the shape this view speaks for. Empty on the store itself,
-   *   which holds the arrays but answers for no particular shape.
-   * @param \Drupal\neo_alchemist\NestedOptionMap|null $store
-   *   The map holding the arrays, or NULL when this instance is that map.
-   */
-  public function __construct(
-    private readonly string $shapeId = '',
-    private readonly ?self $store = NULL,
-  ) {}
-
-  /**
-   * Returns a view onto this store, scoped to one shape.
-   *
-   * Views are made per call rather than cached, because a shape's id changes as
-   * parents are added to it and a stale scope would write to the wrong key.
-   *
-   * @param string $shapeId
-   *   The shape id to scope to.
-   *
-   * @return static
-   *   The view.
-   */
-  public function forShape(string $shapeId): static {
-    return new static($shapeId, $this->store());
-  }
-
-  /**
    * Reads a saved option recorded for one of this shape's children.
    *
    * The fallback layer is deliberately invisible here.
@@ -166,6 +129,10 @@ final class NestedOptionMap {
   /**
    * Records a saved option for one of this shape's children.
    *
+   * Refused once the shape has initialized. Two shape setters used to assert
+   * this before the store became an object; the seal keeps the deadline where
+   * those assertions had it, and extends it to any writer added later.
+   *
    * @param string $child
    *   The child's name, relative to this shape.
    * @param string $option
@@ -177,7 +144,7 @@ final class NestedOptionMap {
    * @return $this
    */
   public function set(string $child, string $option, bool $value = TRUE): static {
-    $this->assertNotSealed();
+    $this->assertNotSealed('Child options');
     $this->store()->saved[$this->childKey($child)][$option] = $value;
     return $this;
   }
@@ -195,34 +162,8 @@ final class NestedOptionMap {
    * @return $this
    */
   public function setFallback(string $child, string $option, bool $value = TRUE): static {
-    $this->assertNotSealed();
+    $this->assertNotSealed('Child options');
     $this->store()->fallback[$this->childKey($child)][$option] = $value;
-    return $this;
-  }
-
-  /**
-   * Records that this shape has initialized and takes no more child options.
-   *
-   * A shape's children read the options recorded for them as they are built,
-   * which happens from that shape's init() onwards, so a child option written
-   * afterwards changes nothing and is a mistake rather than a late decision.
-   *
-   * Two shape setters used to assert this before the store became an object —
-   * `assert(!$this->isInitialized(), …)`. It is recorded here instead because
-   * the writer is no longer a shape method, so withdrawing it from an
-   * initialised shape's type is not available: the same accessor is read after
-   * init by the form, by initOptions() and by the value harvest. Sealing keeps
-   * the deadline where the old assertions had it, and extends it to any writer
-   * added later rather than to two methods that happened to carry a guard.
-   *
-   * Only the child writers honour it. ::replaceOwn(), ::merge() and
-   * ::mergeFallbacks() never carried an assertion and must not gain one: a
-   * submitted form writes a shape's own options long after init.
-   *
-   * @return $this
-   */
-  public function seal(): static {
-    $this->store()->sealed[$this->shapeId] = TRUE;
     return $this;
   }
 
@@ -334,28 +275,6 @@ final class NestedOptionMap {
     assert($this->shapeId !== '', 'A nested option belongs to a shape; reach the map through ::forShape().');
     $key = $this->shapeId . self::SEPARATOR . $child;
     return $delta === NULL ? $key : $key . self::SEPARATOR . $delta;
-  }
-
-  /**
-   * Fails when this shape has already initialized.
-   *
-   * @see ::seal()
-   */
-  private function assertNotSealed(): void {
-    assert(
-      !isset($this->store()->sealed[$this->shapeId]),
-      "Child options for {$this->shapeId} must be set before it is initialized.",
-    );
-  }
-
-  /**
-   * Returns the map holding the arrays.
-   *
-   * @return static
-   *   The store, which is this instance when it is not a view.
-   */
-  private function store(): static {
-    return $this->store ?? $this;
   }
 
 }

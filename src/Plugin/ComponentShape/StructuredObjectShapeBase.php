@@ -31,7 +31,7 @@ abstract class StructuredObjectShapeBase extends ComponentShapePluginBase implem
   /**
    * Uninitialized child shapes used only for value resolution.
    *
-   * @var \Drupal\neo_alchemist\ComponentShapePluginInterface[]|null
+   * @var \Drupal\neo_alchemist\ComponentShapeSetupInterface[]|null
    */
   protected ?array $valueResolverShapes = NULL;
 

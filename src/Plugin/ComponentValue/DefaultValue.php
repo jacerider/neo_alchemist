@@ -33,7 +33,12 @@ final class DefaultValue extends ComponentValuePluginBase implements ContainerFa
   use DependencySerializationTrait;
 
   /**
-   * The default shape plugin.
+   * The default shape plugin, initialised.
+   *
+   * Only assigned from ::init()'s return, so the shape under construction
+   * never outlives ::getDefaultShape() — it is a local there. Holding the
+   * setup type on a property would keep the setters reachable for the life of
+   * this plugin, which is the seam the interface exists to close.
    *
    * @var \Drupal\neo_alchemist\ComponentShapePluginInterface
    */
@@ -103,18 +108,20 @@ final class DefaultValue extends ComponentValuePluginBase implements ContainerFa
   /**
    * Retrieves the default shape for the component.
    *
-   * @return \Drupal\neo_alchemist\Plugin\ComponentShapePluginInterface
-   *   The default shape for the component.
+   * @return \Drupal\neo_alchemist\ComponentShapePluginInterface
+   *   The default shape for the component, initialised.
    */
   protected function getDefaultShape(): ComponentShapePluginInterface {
     if (!isset($this->defaultShape)) {
-      $this->defaultShape = $this->shapeManager->getInstance([
+      // A shape under construction, held locally rather than on the property:
+      // what init() hands back is what this plugin keeps.
+      $shape = $this->shapeManager->getInstance([
         'schema' => $this->shape->getSchema(),
         'component' => $this->shape->getComponent(),
         'settings' => $this->shape->getSettings(),
       ]);
 
-      $valueCollection = $this->defaultShape->getValueCollection();
+      $valueCollection = $shape->getValueCollection();
 
       // Never allow the default shape to have the default plugin enabled.
       $valueCollection->setStatus('default', FALSE);
@@ -128,18 +135,19 @@ final class DefaultValue extends ComponentValuePluginBase implements ContainerFa
       $options = $this->configuration['options'];
       if (isset($options['empty']) || isset($options['default'])) {
         $this->configuration['options'] = [
-          $this->defaultShape->id() => $options,
+          $shape->id() => $options,
         ];
       }
 
-      $this->defaultShape
+      $shape
         ->setParentValue($this->configuration['default'] ?? $this->shape->buildDefaultValue())
         ->setExpanded($this->shape->getExpanded());
       foreach ($this->shape->getParentShapes() as $parentShape) {
-        $this->defaultShape->addParentShape($parentShape);
+        $shape->addParentShape($parentShape);
       }
-      $this->defaultShape->getNestedOptionMap()->mergeFallbacks($this->configuration['options'] ?? []);
-      $this->defaultShape->init();
+      $shape->getNestedOptionMap()->mergeFallbacks($this->configuration['options'] ?? []);
+
+      $this->defaultShape = $shape->init();
       $this->defaultShape->getOptionDefault()->alwaysShowForm(TRUE, 'Always show form when default.');
       if (!$this->defaultShape->isIterable()) {
         $this->defaultShape->getOptionEmpty()->alwaysShowForm(TRUE, 'Always show form when default.');

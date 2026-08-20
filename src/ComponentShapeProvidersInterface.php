@@ -12,6 +12,11 @@ namespace Drupal\neo_alchemist;
  * this chain, so this is the role that says where a value could come from,
  * where ComponentShapeValueInterface says what came out.
  *
+ * Reading only. ::addPlugin() is on ComponentShapeSetupInterface: init() is
+ * what collects and runs the chain, so a plugin added afterwards provides
+ * nothing.
+ *
+ * @see \Drupal\neo_alchemist\ComponentShapeSetupInterface
  * @see \Drupal\neo_alchemist\ComponentValuePluginInterface
  * @see \Drupal\neo_alchemist\ComponentShapeValueInterface
  * @see \Drupal\neo_alchemist\ComponentShapePluginInterface
@@ -36,26 +41,6 @@ interface ComponentShapeProvidersInterface extends ComponentShapeIdentityInterfa
    *   TRUE if the plugin exists, FALSE otherwise.
    */
   public function hasPlugin(string $pluginId): bool;
-
-  /**
-   * Sets the plugin with the given ID and settings.
-   *
-   * This method unsets the current value collection and assigns the provided
-   * settings to the plugin identified by the given plugin ID within the nested
-   * plugin structure.
-   *
-   * @param string $pluginId
-   *   The ID of the plugin to set.
-   * @param array $settings
-   *   (optional) An associative array of settings for the plugin. Defaults to
-   *   an empty array.
-   * @param bool $status
-   *   (optional) Whether the plugin is enabled. Defaults to TRUE.
-   *
-   * @return $this
-   *   The current instance for method chaining.
-   */
-  public function addPlugin(string $pluginId, array $settings = [], bool $status = TRUE): ComponentShapePluginInterface;
 
   /**
    * Gets the default plugins for the component shape.

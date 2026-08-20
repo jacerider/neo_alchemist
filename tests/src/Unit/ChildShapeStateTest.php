@@ -105,4 +105,95 @@ class ChildShapeStateTest extends UnitTestCase {
     $this->assertSame([], (new ChildShapeState())->getPlugins('root~child'));
   }
 
+  /**
+   * A decision recorded after the shape initialized is a mistake.
+   *
+   * This is the assertion ticket 02 dropped when the nine-method trait became
+   * this object: hideChildShape(), defaultChildShape() and lockChildShape()
+   * each asserted `!$this->isInitialized()` before writing. The writer is no
+   * longer a shape method, so withdrawing it from an initialised shape's type
+   * is not available — ChildOptionPolicy still reads the same accessor while
+   * building children. Sealing puts the deadline back where the assertions had
+   * it, and extends it to any writer added later.
+   */
+  public function testRecordingFlagAfterSealingFails(): void {
+    $state = (new ChildShapeState())->forShape('gallery');
+    $state->seal();
+
+    $this->expectException(\AssertionError::class);
+
+    $state->setFlag('gallery~image', ChildShapeState::HIDDEN);
+  }
+
+  /**
+   * The plugin writers honour the seal too.
+   */
+  public function testEnablingPluginAfterSealingFails(): void {
+    $state = (new ChildShapeState())->forShape('gallery');
+    $state->seal();
+
+    $this->expectException(\AssertionError::class);
+
+    $state->enablePlugin('gallery~image', 'media');
+  }
+
+  /**
+   * Disabling a plugin after the deadline is the same mistake.
+   */
+  public function testDisablingPluginAfterSealingFails(): void {
+    $state = (new ChildShapeState())->forShape('gallery');
+    $state->seal();
+
+    $this->expectException(\AssertionError::class);
+
+    $state->disablePlugin('gallery~image', 'media');
+  }
+
+  /**
+   * Sealing one shape says nothing about any other.
+   *
+   * The deadline is per shape because initialization is. The state lives on the
+   * root and every shape below it writes through the same store, so a whole-map
+   * seal would stop an expanded child's own producer the moment the root
+   * finished — and children initialize strictly after the root.
+   */
+  public function testSealingIsPerShape(): void {
+    $state = new ChildShapeState();
+    $state->forShape('gallery')->seal();
+
+    $state->forShape('gallery~image')->setFlag('gallery~image~alt', ChildShapeState::HIDDEN);
+    $state->forShape('other')->setFlag('other~title', ChildShapeState::USE_DEFAULT);
+
+    $this->assertTrue($state->getFlag('gallery~image~alt', ChildShapeState::HIDDEN));
+    $this->assertTrue($state->getFlag('other~title', ChildShapeState::USE_DEFAULT));
+  }
+
+  /**
+   * Reading a sealed shape's decisions is what happens next, not a mistake.
+   *
+   * ChildOptionPolicy reads them as the children are built, which is precisely
+   * the work the seal marks the start of.
+   */
+  public function testSealingDoesNotStopReads(): void {
+    $state = (new ChildShapeState())->forShape('gallery');
+    $state->setFlag('gallery~image', ChildShapeState::HIDDEN);
+    $state->enablePlugin('gallery~image', 'media');
+    $state->seal();
+
+    $this->assertTrue($state->getFlag('gallery~image', ChildShapeState::HIDDEN));
+    $this->assertArrayHasKey('media', $state->getPlugins('gallery~image'));
+  }
+
+  /**
+   * A view writes into the store it was made from, not into a copy of it.
+   */
+  public function testViewsShareOneStore(): void {
+    $state = new ChildShapeState();
+
+    $state->forShape('gallery')->setFlag('gallery~image', ChildShapeState::HIDDEN);
+
+    $this->assertTrue($state->getFlag('gallery~image', ChildShapeState::HIDDEN));
+    $this->assertTrue($state->forShape('other')->getFlag('gallery~image', ChildShapeState::HIDDEN));
+  }
+
 }

@@ -154,6 +154,22 @@ options as they are built. Writing a child option afterwards asserts rather than
 silently doing nothing. A shape's *own* options stay writable — a submitted form is
 where most of them come from, and that is long after init.
 
+`init()` seals a second store the same way: `ChildShapeState`, which holds what a
+producer decided about individual children (hide / default / lock, plus per-child
+value plugins). Both stores share `ShapeScopedStoreTrait` — one instance on the root
+shape, cheap per-shape views onto it via `forShape()`, and a per-shape deadline.
+Per shape, not per store: children initialize strictly after their root and go on
+being configured afterwards.
+
+The seals exist because these two deadlines cannot live in the type, which is where
+the rest of the shape lifecycle went. `ComponentShapeSetupInterface` holds the
+setters that must run before `init()` — parents, delta, parent/override value,
+plugin gating — and `ComponentShapePluginInterface` does **not** extend it, so
+calling one on an initialised shape is a compile error. That only works for *shape*
+methods; these two stores are reached through an accessor that is still **read**
+after init, so no interface can withdraw them and the seal carries the deadline
+instead.
+
 The `#[ComponentShape]` attribute ([src/Attribute/ComponentShape.php](src/Attribute/ComponentShape.php))
 — id is `prop`:
 

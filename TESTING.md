@@ -406,7 +406,8 @@ number written down here.
 | Class | Retires |
 |---|---|
 | `Unit/ComponentShapeOptionTest` | Option precedence (locked > set > default) and first-write-wins locking, so a parent's constraint cannot be escaped by a nested child |
-| `Unit/NestedOptionMapTest` | Where those options come from: the shape-id key format, that a saved option shadows a shape's whole fallback entry, that reads see the saved layer alone, and that merging never overwrites |
+| `Unit/NestedOptionMapTest` | Where those options come from: the shape-id key format, that a saved option shadows a shape's whole fallback entry, that reads see the saved layer alone, that merging never overwrites, and that the seal closes the child writers at `init()` while leaving reads and the whole-map writers alone |
+| `Unit/ChildShapeStateTest` | What a producer decided about individual children: a flag is three-valued and an absent one is not FALSE, a disabled plugin is recorded rather than omitted, and the same per-shape seal — so a decision recorded after the shape initialized fails instead of being ignored |
 | `Unit/HeadingValueOptionChoreographyTest` | What the Heading provider records per sub-prop — source ⇒ fallback, not-editable ⇒ saved + access withdrawn, and the mid-method read that decides whether the anchor follows the title |
 | `Unit/ComponentTreeStructureTest` | Tree algebra; depth-first traversal yielding children before parents, which the hydrated render pass depends on |
 | `Unit/HybridTreeAlgebraTest` | Hybrid closure math — anchors, nested descendants, cycle termination, malformed JSON |
@@ -437,7 +438,7 @@ number written down here.
 | `Kernel/RequiredPropFalsyOverrideTest` | A required prop authored `'0'` keeps it (invariant pin on `init()`'s override checks); an empty one is omitted, not example-filled |
 | `Kernel/ShapeCacheabilityMergeOrderTest` | Provider-added cache tags merge AFTER value computation and survive into `#cache` |
 | `Kernel/ValueGroupTaxonomyTest` | Golden list of every value plugin's group — groups are behavioral contracts (`childHasOwnValueProvider()`, pipeline order) |
-| `Kernel/ShapeInitOrderTest` | Six shape-lifecycle invariants, each proven to fire when violated |
+| `Kernel/ShapeInitOrderTest` | The shape-lifecycle invariants a type cannot carry, each proven to fire when violated: the three field-item setters (called from `onShapeInit()`, through a handle the value plugin holds as the union), a getter that must not run too early, and that the documented order still succeeds. The pre-`init()` setters left when `ComponentShapeSetupInterface` took them |
 | `Kernel/FieldStorageDefinitionPrototypeTest` | The prototype-clone optimisation in `buildFieldItem()` — no state leaks between shapes or into the cached prototype |
 | `Kernel/ComponentPreviewBuilderTest` | The `neo: true` gate and the preview flag |
 | `Kernel/ComponentSaveIdempotenceTest` | A resave is byte-identical; `region_custom` flags survive editor saves |
@@ -461,7 +462,8 @@ number written down here.
 | `Kernel/ComponentRouteAccessCheckTest` | All six route access checkers constructed (two were, before): the shared parse, unresolvable parameters and short requirements falling to neutral instead of fataling, and the cacheability four of them used to attach none of |
 | `Kernel/EntityComponentRouteAccessTest` | The Layout routes offer exactly what the controller can act on — the per-entity narrowing, the field-config scope's immunity to it, and the entity attached as a cacheable dependency on every outcome including the refusals |
 | `Kernel/BootSpikeTest` | The module boots under Kernel with a minimal module set |
-| `Unit/ShapeRoleInterfaceTest` | The shape's fourteen roles: each stays under the twelve-method ceiling, no method is on two of them, `ComponentShapePluginInterface` declares nothing of its own beyond the Drupal interfaces it extends, and every role can still name its shape — so a caller can hold one role and know what it promises |
+| `Unit/ShapeRoleInterfaceTest` | The fourteen roles the union is made of: each stays under the twelve-method ceiling, no method is on two of them, `ComponentShapePluginInterface` declares nothing of its own beyond the Drupal interfaces it extends, and every role can still name its shape — so a caller can hold one role and know what it promises |
+| `Unit/ShapeSetupInterfaceTest` | The fifteenth role, the one the union does NOT extend: `ComponentShapeSetupInterface` holds exactly the seven things that must happen before `init()`, none of them is reachable through the union, and the setters chain within setup while `init()` hands back the union — so setting a value or a parent on an initialised shape is a compile error rather than a silent no-op |
 | `Unit/ShapeDoubleTest` | The other half of the roles: `ShapeDoubleTrait` forwards a role double through a union-typed one, so a stub off the declared role is rejected where the hundred-method double accepted it |
 
 **Doubling a shape.** Use `ShapeDoubleTrait`, never

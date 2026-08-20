@@ -4,11 +4,12 @@ declare(strict_types=1);
 
 namespace Drupal\neo_alchemist\Plugin\ComponentShape;
 
+use DrupalCodeGenerator\InputOutput\Interviewer;
 use Drupal\neo_alchemist\ComponentShapePluginBase;
+use Drupal\neo_alchemist\ComponentShapePluginInterface;
 use Drupal\neo_alchemist\ComponentShapeStylePluginInterface;
 use Drupal\neo_alchemist\Drush\Generators\NeoComponentPropGeneratorInterface;
 use Drupal\neo_alchemist\Drush\Generators\NeoComponentTwig;
-use DrupalCodeGenerator\InputOutput\Interviewer;
 
 /**
  * A base class for style shapes.
@@ -20,7 +21,7 @@ abstract class StyleShapeBase extends ComponentShapePluginBase implements Compon
   /**
    * {@inheritDoc}
    */
-  public function init(): self {
+  public function init(): ComponentShapePluginInterface {
     $this->getOptionEmpty()->setAccess(FALSE, 'Styles cannot be empty.');
     return parent::init();
   }

@@ -42,12 +42,31 @@ trait ChildShapeStateTrait {
 
   /**
    * {@inheritdoc}
+   *
+   * Handed back scoped to this shape rather than raw. The scope does no keying
+   * — the ids a producer records are absolute — it is what lets the state be
+   * sealed per shape when that shape initializes.
+   *
+   * @see \Drupal\neo_alchemist\ChildShapeState::seal()
    */
   public function getChildShapeState(): ChildShapeState {
     if (!$this->isRoot()) {
-      return $this->getChildRootShape()->getChildShapeState();
+      // The root hands back its own view; ::forShape() re-scopes it onto the
+      // same store, which is what makes the delegation a property of the
+      // object graph rather than a branch written out per accessor.
+      return $this->getChildRootShape()->getChildShapeState()->forShape($this->id());
     }
-    return $this->childShapeState ??= new ChildShapeState();
+    return ($this->childShapeState ??= new ChildShapeState())->forShape($this->id());
+  }
+
+  /**
+   * {@inheritdoc}
+   *
+   * Overrides the no-op on ComponentShapePluginBase: this shape has children,
+   * so it has producer decisions with a deadline.
+   */
+  protected function sealChildShapeState(): void {
+    $this->getChildShapeState()->seal();
   }
 
   /**

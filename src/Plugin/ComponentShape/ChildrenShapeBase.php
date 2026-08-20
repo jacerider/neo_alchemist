@@ -8,6 +8,7 @@ use Drupal\Core\Field\FieldDefinitionInterface;
 use Drupal\neo_alchemist\ComponentShapeChildrenPluginInterface;
 use Drupal\neo_alchemist\ComponentShapePluginBase;
 use Drupal\neo_alchemist\ComponentShapePluginInterface;
+use Drupal\neo_alchemist\ComponentShapeSetupInterface;
 
 /**
  * A trait for adding the module handler.
@@ -44,7 +45,7 @@ abstract class ChildrenShapeBase extends ComponentShapePluginBase implements Com
   /**
    * Uninitialized child shapes used only for value resolution.
    *
-   * @var \Drupal\neo_alchemist\ComponentShapePluginInterface[]|null
+   * @var \Drupal\neo_alchemist\ComponentShapeSetupInterface[]|null
    */
   protected ?array $valueResolverShapes = NULL;
 
@@ -306,8 +307,11 @@ abstract class ChildrenShapeBase extends ComponentShapePluginBase implements Com
    * This method initializes a child shape, setting various options and values
    * based on the parent shape's properties and the provided schema.
    *
-   * @param \Drupal\neo_alchemist\ComponentShapePluginInterface $shape
-   *   The child shape to initialize.
+   * @param \Drupal\neo_alchemist\ComponentShapeSetupInterface $shape
+   *   The child shape to initialize. Taken as a shape under construction
+   *   because that is what this method does to it, and because the type then
+   *   refuses an already-initialised shape — everything below would be a
+   *   silent no-op on one.
    * @param int $count
    *   The number of child shapes.
    * @param int|null $delta
@@ -315,7 +319,7 @@ abstract class ChildrenShapeBase extends ComponentShapePluginBase implements Com
    * @param array $value
    *   The override value for the child shape.
    */
-  protected function initChildShape(ComponentShapePluginInterface $shape, int $count, ?int $delta = NULL, mixed $value = []) {
+  protected function initChildShape(ComponentShapeSetupInterface $shape, int $count, ?int $delta = NULL, mixed $value = []) {
     $this->childOptionPolicy()->apply($this, $shape, $delta, $count);
     // Set the override value.
     if (!is_null($value)) {
@@ -350,8 +354,8 @@ abstract class ChildrenShapeBase extends ComponentShapePluginBase implements Com
    * @param int|null $delta
    *   The delta of the field item, if applicable.
    *
-   * @return \Drupal\neo_alchemist\ComponentShapePluginInterface[]
-   *   An array of child shapes generated from the schema.
+   * @return \Drupal\neo_alchemist\ComponentShapeSetupInterface[]
+   *   An array of uninitialised child shapes generated from the schema.
    */
   protected function getChildShapesFromSchema(array $schema, $delta = NULL): array {
     $childShapes = array_map(function ($shape) use ($delta) {
@@ -378,7 +382,7 @@ abstract class ChildrenShapeBase extends ComponentShapePluginBase implements Com
    * since resolveValue() runs while getDefaultValue() is being memoized.
    * These instances are never init()'d; resolveValue() must not need it.
    *
-   * @return \Drupal\neo_alchemist\ComponentShapePluginInterface[]
+   * @return \Drupal\neo_alchemist\ComponentShapeSetupInterface[]
    *   The uninitialized child shapes, keyed by property name.
    */
   protected function getValueResolverShapes(): array {

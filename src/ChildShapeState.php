@@ -22,13 +22,30 @@ namespace Drupal\neo_alchemist;
  * again. That branch is now written once, in
  * ChildShapeStateTrait::getChildShapeState().
  *
+ * ## Views, and the deadline they carry
+ *
+ * The store/view/seal machinery is ShapeScopedStoreTrait's, shared with
+ * NestedOptionMap because both stores hang off the root shape and both close
+ * to writes when a shape initializes. Every method here takes an ABSOLUTE
+ * child id, so unlike the option map this class does not key by its scope —
+ * the scope exists only to carry the deadline, and so that a writer says which
+ * shape it is speaking for.
+ *
+ * ::setFlag(), ::enablePlugin() and ::disablePlugin() honour the seal; the two
+ * readers do not, because reading is exactly what ChildOptionPolicy does once
+ * the children start being built.
+ *
  * Holds no shape and no container, so it is assertable directly.
  *
+ * @see \Drupal\neo_alchemist\ShapeScopedStoreTrait::seal()
  * @see \Drupal\neo_alchemist\ChildOptionPolicy
+ * @see \Drupal\neo_alchemist\NestedOptionMap
  * @see \Drupal\neo_alchemist\Plugin\ComponentShape\ChildShapeStateTrait
  * @see \Drupal\neo_alchemist\Plugin\ComponentValue\ComponentValueChildrenMatchTrait
  */
 final class ChildShapeState {
+
+  use ShapeScopedStoreTrait;
 
   /**
    * The child renders nothing.
@@ -71,6 +88,14 @@ final class ChildShapeState {
   /**
    * Records a producer's decision about one child.
    *
+   * Refused once the shape has initialized. This is the deadline the
+   * nine-method trait carried before this class existed: hideChildShape(),
+   * defaultChildShape() and lockChildShape() each asserted
+   * `!$this->isInitialized()` before writing, and those assertions were
+   * dropped when the writers stopped being shape methods. The seal restores
+   * it, and covers every writer rather than the three that happened to carry
+   * a guard.
+   *
    * @param string $shapeId
    *   The child shape id. Not the child's name — the id chained from the root.
    * @param string $flag
@@ -81,7 +106,8 @@ final class ChildShapeState {
    * @return $this
    */
   public function setFlag(string $shapeId, string $flag, bool $value = TRUE): self {
-    $this->flags[$shapeId][$flag] = $value;
+    $this->assertNotSealed('Child shape decisions');
+    $this->store()->flags[$shapeId][$flag] = $value;
     return $this;
   }
 
@@ -97,7 +123,7 @@ final class ChildShapeState {
    *   The decision, or NULL if no producer spoke for this child.
    */
   public function getFlag(string $shapeId, string $flag): ?bool {
-    return $this->flags[$shapeId][$flag] ?? NULL;
+    return $this->store()->flags[$shapeId][$flag] ?? NULL;
   }
 
   /**
@@ -113,7 +139,8 @@ final class ChildShapeState {
    * @return $this
    */
   public function enablePlugin(string $shapeId, string $pluginId, array $settings = []): self {
-    $this->plugins[$shapeId][$pluginId] = [
+    $this->assertNotSealed('Child shape plugins');
+    $this->store()->plugins[$shapeId][$pluginId] = [
       'status' => TRUE,
       'settings' => $settings,
     ];
@@ -135,7 +162,8 @@ final class ChildShapeState {
    * @return $this
    */
   public function disablePlugin(string $shapeId, string $pluginId): self {
-    $this->plugins[$shapeId][$pluginId]['status'] = FALSE;
+    $this->assertNotSealed('Child shape plugins');
+    $this->store()->plugins[$shapeId][$pluginId]['status'] = FALSE;
     return $this;
   }
 
@@ -149,7 +177,7 @@ final class ChildShapeState {
    *   The plugin configuration, keyed by plugin id.
    */
   public function getPlugins(string $shapeId): array {
-    return $this->plugins[$shapeId] ?? [];
+    return $this->store()->plugins[$shapeId] ?? [];
   }
 
 }
