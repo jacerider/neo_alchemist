@@ -7,8 +7,6 @@ namespace Drupal\neo_alchemist\ConfiguredPlugin;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\neo_alchemist\ComponentInterface;
-use Drupal\neo_alchemist\ConfiguredPluginManagerBase;
-use Drupal\neo_alchemist\ConfiguredPluginWrapperInterface;
 
 /**
  * One family of plugins configured onto a component.
@@ -51,7 +49,7 @@ interface ConfiguredPluginKindInterface {
   /**
    * The plugin manager backing this kind.
    *
-   * @return \Drupal\neo_alchemist\ConfiguredPluginManagerBase
+   * @return \Drupal\neo_alchemist\ConfiguredPlugin\ConfiguredPluginManagerBase
    *   The manager, which is what narrows the offered definitions.
    */
   public function getManager(): ConfiguredPluginManagerBase;
@@ -62,7 +60,7 @@ interface ConfiguredPluginKindInterface {
    * @param \Drupal\neo_alchemist\ComponentInterface $component
    *   The component.
    *
-   * @return \Drupal\neo_alchemist\ConfiguredPluginWrapperInterface
+   * @return \Drupal\neo_alchemist\ConfiguredPlugin\ConfiguredPluginWrapperInterface
    *   The wrapper.
    */
   public function create(ComponentInterface $component): ConfiguredPluginWrapperInterface;
@@ -75,7 +73,7 @@ interface ConfiguredPluginKindInterface {
    * @param string $uuid
    *   The stored uuid.
    *
-   * @return \Drupal\neo_alchemist\ConfiguredPluginWrapperInterface|null
+   * @return \Drupal\neo_alchemist\ConfiguredPlugin\ConfiguredPluginWrapperInterface|null
    *   The wrapper, or NULL when the component has nothing under that uuid.
    */
   public function load(ComponentInterface $component, string $uuid): ?ConfiguredPluginWrapperInterface;
@@ -88,10 +86,10 @@ interface ConfiguredPluginKindInterface {
    *
    * @param \Drupal\neo_alchemist\ComponentInterface $component
    *   The component.
-   * @param \Drupal\neo_alchemist\ConfiguredPluginWrapperInterface $wrapper
+   * @param \Drupal\neo_alchemist\ConfiguredPlugin\ConfiguredPluginWrapperInterface $wrapper
    *   The wrapper to stage.
    *
-   * @return \Drupal\neo_alchemist\ConfiguredPluginWrapperInterface
+   * @return \Drupal\neo_alchemist\ConfiguredPlugin\ConfiguredPluginWrapperInterface
    *   The staged wrapper, which carries a uuid once it has one.
    */
   public function stage(ComponentInterface $component, ConfiguredPluginWrapperInterface $wrapper): ConfiguredPluginWrapperInterface;
@@ -124,7 +122,7 @@ interface ConfiguredPluginKindInterface {
    *   The form.
    * @param \Drupal\Core\Form\FormStateInterface $form_state
    *   The form state.
-   * @param \Drupal\neo_alchemist\ConfiguredPluginWrapperInterface $wrapper
+   * @param \Drupal\neo_alchemist\ConfiguredPlugin\ConfiguredPluginWrapperInterface $wrapper
    *   The wrapper being edited.
    * @param array $ajax
    *   The shared form's own '#ajax' definition, ready to attach to any
@@ -145,7 +143,7 @@ interface ConfiguredPluginKindInterface {
    *   The form.
    * @param \Drupal\Core\Form\FormStateInterface $form_state
    *   The form state.
-   * @param \Drupal\neo_alchemist\ConfiguredPluginWrapperInterface $wrapper
+   * @param \Drupal\neo_alchemist\ConfiguredPlugin\ConfiguredPluginWrapperInterface $wrapper
    *   The wrapper being edited.
    */
   public function submitForm(array &$form, FormStateInterface $form_state, ConfiguredPluginWrapperInterface $wrapper): void;

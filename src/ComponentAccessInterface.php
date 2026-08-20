@@ -6,6 +6,7 @@ namespace Drupal\neo_alchemist;
 
 use Drupal\Core\Access\AccessResultInterface;
 use Drupal\Core\Session\AccountInterface;
+use Drupal\neo_alchemist\ConfiguredPlugin\ConfiguredPluginWrapperInterface;
 
 /**
  * A configured access rule stored on a component.

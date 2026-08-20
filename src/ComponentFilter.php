@@ -7,6 +7,7 @@ namespace Drupal\neo_alchemist;
 use Drupal\Core\DependencyInjection\DependencySerializationTrait;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\StringTranslation\StringTranslationTrait;
+use Drupal\neo_alchemist\ConfiguredPlugin\ConfiguredPluginWrapperTrait;
 
 /**
  * Defines a component filter.

@@ -333,18 +333,18 @@ Supporting managers: `plugin.manager.neo_component_group`, `…_value_group`, `�
 Those three families are the same shape — a plugin picked from a list, configured, and stored
 on a `neo_component` under a uuid — and used to own that shape three times over.
 
-- [ConfiguredPluginInterface](src/ConfiguredPluginInterface.php) is what such a plugin answers
-  to: `label()`, `settingsSummary()`, and the static `isApplicable(ComponentInterface)` that
-  decides whether it is offered at all.
-- [ConfiguredPluginManagerBase](src/ConfiguredPluginManagerBase.php) owns instantiation (each
+- [ConfiguredPluginInterface](src/ConfiguredPlugin/ConfiguredPluginInterface.php) is what such a
+  plugin answers to: `label()`, `settingsSummary()`, and the static
+  `isApplicable(ComponentInterface)` that decides whether it is offered at all.
+- [ConfiguredPluginManagerBase](src/ConfiguredPlugin/ConfiguredPluginManagerBase.php) owns instantiation (each
   family supplies only its constructor call) and `getFilteredDefinitionsFromComponent()`, the
   narrowing every add picker is built from. That method existed on the slot manager, was
   copied to the access manager, and was **missing from the filter manager** — so the filter
   form listed every definition and a site builder could configure a filter that does nothing.
   Owning it here is what stops a fourth family shipping without it.
-- [ConfiguredPluginWrapperInterface](src/ConfiguredPluginWrapperInterface.php) is the stored
+- [ConfiguredPluginWrapperInterface](src/ConfiguredPlugin/ConfiguredPluginWrapperInterface.php) is the stored
   pair — uuid, plugin id, settings — that `ComponentAccess` and `ComponentFilter` both are,
-  with [ConfiguredPluginWrapperTrait](src/ConfiguredPluginWrapperTrait.php) supplying the
+  with [ConfiguredPluginWrapperTrait](src/ConfiguredPlugin/ConfiguredPluginWrapperTrait.php) supplying the
   memoisation rule.
 - [ConfiguredPluginKindInterface](src/ConfiguredPlugin/ConfiguredPluginKindInterface.php)
   declares what differs between access and filter — the manager, the entity accessors, the

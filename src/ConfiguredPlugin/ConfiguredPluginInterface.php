@@ -2,11 +2,12 @@
 
 declare(strict_types=1);
 
-namespace Drupal\neo_alchemist;
+namespace Drupal\neo_alchemist\ConfiguredPlugin;
 
 use Drupal\Component\Plugin\ConfigurableInterface;
 use Drupal\Component\Plugin\PluginInspectionInterface;
 use Drupal\Core\Plugin\PluginFormInterface;
+use Drupal\neo_alchemist\ComponentInterface;
 
 /**
  * A plugin that is picked, configured and stored on a component.
@@ -16,8 +17,8 @@ use Drupal\Core\Plugin\PluginFormInterface;
  * picker calls ::isApplicable() to decide whether to offer a plugin at all,
  * and the list rows call ::label() and ::settingsSummary() to describe one.
  *
- * @see \Drupal\neo_alchemist\ConfiguredPluginManagerBase
- * @see \Drupal\neo_alchemist\ConfiguredPluginWrapperInterface
+ * @see \Drupal\neo_alchemist\ConfiguredPlugin\ConfiguredPluginManagerBase
+ * @see \Drupal\neo_alchemist\ConfiguredPlugin\ConfiguredPluginWrapperInterface
  */
 interface ConfiguredPluginInterface extends ConfigurableInterface, PluginFormInterface, PluginInspectionInterface {
 

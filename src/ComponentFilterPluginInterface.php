@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Drupal\neo_alchemist;
 
 use Drupal\Core\Form\FormStateInterface;
+use Drupal\neo_alchemist\ConfiguredPlugin\ConfiguredPluginInterface;
 
 /**
  * Interface for neo_component_filter plugins.

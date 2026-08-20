@@ -27,7 +27,7 @@ use PHPUnit\Framework\Attributes\Group;
  * doubled anyway. ComponentFilter stands in for both wrappers; the trait
  * supplies the one implementation.
  *
- * @see \Drupal\neo_alchemist\ConfiguredPluginWrapperTrait
+ * @see \Drupal\neo_alchemist\ConfiguredPlugin\ConfiguredPluginWrapperTrait
  */
 #[Group('neo_alchemist')]
 class ConfiguredPluginWrapperTest extends KernelTestBase {

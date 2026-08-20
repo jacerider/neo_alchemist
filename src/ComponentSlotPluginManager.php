@@ -7,6 +7,7 @@ namespace Drupal\neo_alchemist;
 use Drupal\Core\Cache\CacheBackendInterface;
 use Drupal\Core\Extension\ModuleHandlerInterface;
 use Drupal\neo_alchemist\Attribute\ComponentSlot;
+use Drupal\neo_alchemist\ConfiguredPlugin\ConfiguredPluginManagerBase;
 
 /**
  * ComponentSlot plugin manager.

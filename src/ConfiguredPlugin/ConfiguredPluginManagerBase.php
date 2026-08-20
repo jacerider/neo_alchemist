@@ -2,11 +2,12 @@
 
 declare(strict_types=1);
 
-namespace Drupal\neo_alchemist;
+namespace Drupal\neo_alchemist\ConfiguredPlugin;
 
 use Drupal\Component\Plugin\Factory\DefaultFactory;
 use Drupal\Core\Plugin\ContainerFactoryPluginInterface;
 use Drupal\Core\Plugin\DefaultPluginManager;
+use Drupal\neo_alchemist\ComponentInterface;
 
 /**
  * Base for the managers whose plugins are configured onto a component.

@@ -6,6 +6,7 @@ namespace Drupal\neo_alchemist;
 
 use Drupal\Core\Cache\CacheableResponseInterface;
 use Drupal\Core\Render\RenderableInterface;
+use Drupal\neo_alchemist\ConfiguredPlugin\ConfiguredPluginInterface;
 
 /**
  * Interface for neo_component_slot plugins.

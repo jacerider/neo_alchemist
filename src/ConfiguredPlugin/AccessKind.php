@@ -11,8 +11,6 @@ use Drupal\neo_alchemist\ComponentAccessFactory;
 use Drupal\neo_alchemist\ComponentAccessInterface;
 use Drupal\neo_alchemist\ComponentAccessPluginManager;
 use Drupal\neo_alchemist\ComponentInterface;
-use Drupal\neo_alchemist\ConfiguredPluginManagerBase;
-use Drupal\neo_alchemist\ConfiguredPluginWrapperInterface;
 
 /**
  * Access rules as a configured-plugin kind.

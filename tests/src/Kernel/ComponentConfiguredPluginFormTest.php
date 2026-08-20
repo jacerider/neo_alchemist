@@ -6,7 +6,7 @@ namespace Drupal\Tests\neo_alchemist\Kernel;
 
 use Drupal\Core\Form\FormState;
 use Drupal\KernelTests\KernelTestBase;
-use Drupal\neo_alchemist\ConfiguredPluginWrapperInterface;
+use Drupal\neo_alchemist\ConfiguredPlugin\ConfiguredPluginWrapperInterface;
 use Drupal\neo_alchemist\Entity\Component;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Group;
@@ -27,7 +27,7 @@ use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
  * the other.
  *
  * @see \Drupal\neo_alchemist\Form\ComponentConfiguredPluginForm
- * @see \Drupal\neo_alchemist\ConfiguredPluginManagerBase
+ * @see \Drupal\neo_alchemist\ConfiguredPlugin\ConfiguredPluginManagerBase
  */
 #[Group('neo_alchemist')]
 class ComponentConfiguredPluginFormTest extends KernelTestBase {

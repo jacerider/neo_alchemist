@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Drupal\neo_alchemist;
+namespace Drupal\neo_alchemist\ConfiguredPlugin;
 
 /**
  * Resolves a plugin id and settings pair into a memoised plugin instance.

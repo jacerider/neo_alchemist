@@ -2,7 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Drupal\neo_alchemist;
+namespace Drupal\neo_alchemist\ConfiguredPlugin;
+
+use Drupal\neo_alchemist\ComponentInterface;
 
 /**
  * One plugin, picked and configured, stored on a component under a uuid.
@@ -17,7 +19,7 @@ namespace Drupal\neo_alchemist;
  * title, a default value and an editability flag; an access rule answers an
  * operation — and those stay on the sub-interfaces.
  *
- * @see \Drupal\neo_alchemist\ConfiguredPluginWrapperTrait
+ * @see \Drupal\neo_alchemist\ConfiguredPlugin\ConfiguredPluginWrapperTrait
  * @see \Drupal\neo_alchemist\ConfiguredPlugin\ConfiguredPluginKindInterface
  */
 interface ConfiguredPluginWrapperInterface {
@@ -98,7 +100,7 @@ interface ConfiguredPluginWrapperInterface {
   /**
    * Gets the configured plugin instance.
    *
-   * @return \Drupal\neo_alchemist\ConfiguredPluginInterface|null
+   * @return \Drupal\neo_alchemist\ConfiguredPlugin\ConfiguredPluginInterface|null
    *   The instance, or NULL when no plugin id is set or the id names a
    *   definition the manager does not have.
    */

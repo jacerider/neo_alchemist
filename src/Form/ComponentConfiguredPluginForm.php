@@ -13,7 +13,7 @@ use Drupal\Core\StringTranslation\StringTranslationTrait;
 use Drupal\neo_alchemist\Ajax\ComponentAjaxFormHelperTrait;
 use Drupal\neo_alchemist\ConfiguredPlugin\ConfiguredPluginKindInterface;
 use Drupal\neo_alchemist\ConfiguredPlugin\ConfiguredPluginKindRepository;
-use Drupal\neo_alchemist\ConfiguredPluginWrapperInterface;
+use Drupal\neo_alchemist\ConfiguredPlugin\ConfiguredPluginWrapperInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
@@ -60,7 +60,7 @@ final class ComponentConfiguredPluginForm extends EntityForm {
   /**
    * The configured plugin being added or edited.
    *
-   * @var \Drupal\neo_alchemist\ConfiguredPluginWrapperInterface
+   * @var \Drupal\neo_alchemist\ConfiguredPlugin\ConfiguredPluginWrapperInterface
    */
   protected $wrapper;
 

@@ -13,8 +13,6 @@ use Drupal\neo_alchemist\ComponentFilterFactory;
 use Drupal\neo_alchemist\ComponentFilterInterface;
 use Drupal\neo_alchemist\ComponentFilterPluginManager;
 use Drupal\neo_alchemist\ComponentInterface;
-use Drupal\neo_alchemist\ConfiguredPluginManagerBase;
-use Drupal\neo_alchemist\ConfiguredPluginWrapperInterface;
 
 /**
  * Filters as a configured-plugin kind.
