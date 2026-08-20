@@ -593,11 +593,13 @@ examples instead.
     pass-through guards, the presence veto). The matcher subsystem it delegates
     to is now partly covered too — `MatcherFieldPredicateTest` pins the four
     shape predicates that decide a match, and `MatcherFieldOfferTest` pins
-    which fields may be offered at all. What remains untested there is the
-    RESOLUTION half: `getChildrenMatchValues()`, and the `MatcherField` /
-    `MatcherReference` walk that turns a dotted key
-    (`field_ref.user_id.name`, `_entity:label`, `_field:...`) back into a
-    value.
+    which fields may be offered at all. The RESOLUTION half is covered too,
+    since the children-match seam was inverted: `ChildrenMatchMapperTest`
+    drives `ChildrenMatchMapper::getValues()` through a fake source, and
+    `ChildrenMatchSourceResolutionTest` pins each producer's own three-outcome
+    contract. What remains untested is the `MatcherField` / `MatcherReference`
+    walk that turns a dotted key (`field_ref.user_id.name`, `_field:...`) back
+    into a value.
 
     **The match list is broad by design, and that is worth knowing when
     reading it.** Matching keys off data types, so a single string prop is

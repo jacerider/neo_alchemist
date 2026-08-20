@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Drupal\neo_alchemist;
 
 /**
- * Minimum contract consumed by ComponentValueChildrenMatchTrait.
+ * Minimum contract consumed by ChildrenMatchMapper.
  *
  * Shapes that satisfy this interface can be used as the root of a
  * field-to-child mapping configuration (see entity_load, site_settings, etc.

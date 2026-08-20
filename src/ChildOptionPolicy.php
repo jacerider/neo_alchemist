@@ -12,7 +12,7 @@ namespace Drupal\neo_alchemist;
  * The first is per-child and comes from a producer: a children-match provider
  * walks the mapping a site builder configured and flags individual children as
  * hidden, defaulted or locked, keyed by child shape id (see
- * ComponentValueChildrenMatchTrait). The second is inherited: a parent that is
+ * ChildrenMatchMapper). The second is inherited: a parent that is
  * itself empty, defaulted, inaccessible or unexpandable narrows what its
  * children may be.
  *
@@ -40,7 +40,7 @@ namespace Drupal\neo_alchemist;
  * @see \Drupal\neo_alchemist\ComponentShapeOptionsInterface
  * @see \Drupal\neo_alchemist\Plugin\ComponentShape\ChildrenShapeBase::initChildShape()
  * @see \Drupal\neo_alchemist\Plugin\ComponentShape\StructuredObjectShapeBase::getChildShapes()
- * @see \Drupal\neo_alchemist\Plugin\ComponentValue\ComponentValueChildrenMatchTrait
+ * @see \Drupal\neo_alchemist\ChildrenMatchMapper
  */
 final class ChildOptionPolicy {
 

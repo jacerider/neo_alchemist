@@ -367,7 +367,7 @@ function _neo_alchemist_processing_mode_visit(array $instances, array $base, arr
 /**
  * Walk a provider's per-child `shape_fields` configuration.
  *
- * @see \Drupal\neo_alchemist\Plugin\ComponentValue\ComponentValueChildrenMatchTrait
+ * @see \Drupal\neo_alchemist\ChildrenMatchMapper
  */
 function _neo_alchemist_processing_mode_children(array $settings, array $base, array $definitions, string $label, array &$writes, array &$skipped): void {
   foreach ($settings['shape_fields'] ?? [] as $childName => $child) {

@@ -19,12 +19,17 @@ use PHPUnit\Framework\Attributes\Group;
  * A site builder attaches the `views` provider to an iterable prop and maps one
  * of its child shapes through the `_reference~` pseudo-field — an option the
  * configuration form offers for iterable children. At render time the mapping
- * reaches the trait's fetchChildrenMatchValuesReference(), which reads
- * $this->matcherReference. Six of the seven producers that mix in
- * the trait assign that collaborator in their constructor; ViewsValue assigned
- * the field matcher and stopped, so the reference matcher was never
- * initialised and the page died with "Typed property must not be accessed
- * before initialization" — a white screen, not a degraded render.
+ * follows that reference, which needs the reference matcher.
+ *
+ * When this test was written the mapping lived in a trait the producers mixed
+ * in, and its three collaborators were assigned by convention across seven
+ * hand-written constructors. Six of the seven assigned the reference matcher;
+ * ViewsValue assigned the field matcher and stopped, so the reference matcher
+ * was never initialised and the page died with "Typed property must not be
+ * accessed before initialization" — a white screen, not a degraded render.
+ * The mapping is now the container-constructed ChildrenMatchMapper, which is
+ * what makes the omission impossible rather than merely fixed; this test
+ * stays as the check that the inversion kept the fix.
  *
  * The offer/fetch split is what makes it a white screen: the code that OFFERS
  * the option goes through the lazy getMatcherReference() accessor (so the
@@ -47,7 +52,7 @@ use PHPUnit\Framework\Attributes\Group;
  * throw the initialization Error instead of resolving a value.
  *
  * @see \Drupal\neo_alchemist\Plugin\ComponentValue\ViewsValue
- * @see \Drupal\neo_alchemist\Plugin\ComponentValue\ComponentValueChildrenMatchTrait::fetchChildrenMatchValuesReference()
+ * @see \Drupal\neo_alchemist\ChildrenMatchMapper::fetchReference()
  */
 #[Group('neo_alchemist')]
 class ViewsReferenceMappingFatalTest extends KernelTestBase {

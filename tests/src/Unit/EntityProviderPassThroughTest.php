@@ -8,21 +8,24 @@ use Drupal\Core\Entity\EntityFieldManagerInterface;
 use Drupal\Core\Entity\EntityStorageInterface;
 use Drupal\Core\Entity\EntityTypeBundleInfoInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
-use Drupal\Core\Routing\RouteProviderInterface;
 use Drupal\Core\Extension\ModuleHandlerInterface;
+use Drupal\Core\Field\FormatterPluginManager;
+use Drupal\Core\Routing\RouteProviderInterface;
+use Drupal\Tests\UnitTestCase;
 use Drupal\Tests\neo_alchemist\Traits\ShapeDoubleTrait;
+use Drupal\neo_alchemist\ChildrenMatchMapper;
 use Drupal\neo_alchemist\ComponentInterface;
 use Drupal\neo_alchemist\ComponentShapeChildrenMatchPluginInterface;
 use Drupal\neo_alchemist\ComponentShapeContextInterface;
 use Drupal\neo_alchemist\ComponentShapeExpansionInterface;
 use Drupal\neo_alchemist\ComponentShapePluginInterface;
 use Drupal\neo_alchemist\ComponentShapeSchemaInterface;
+use Drupal\neo_alchemist\ComponentValuePluginManagerInterface;
 use Drupal\neo_alchemist\MatcherField;
 use Drupal\neo_alchemist\MatcherReference;
 use Drupal\neo_alchemist\Plugin\ComponentValue\EntityFilterValue;
 use Drupal\neo_alchemist\Plugin\ComponentValue\EntityLoadValue;
 use Drupal\neo_alchemist\Plugin\ComponentValue\EntityReferenceValue;
-use Drupal\Tests\UnitTestCase;
 use PHPUnit\Framework\Attributes\Group;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 
@@ -64,6 +67,24 @@ class EntityProviderPassThroughTest extends UnitTestCase {
   }
 
   /**
+   * A real ChildrenMatchMapper over mocked collaborators.
+   *
+   * These tests only assert pass-through and editability, so nothing reaches
+   * the mapping — but the producers now declare the mapper as a constructor
+   * argument, which is the point of the inversion.
+   */
+  private function childrenMatchMapper(): ChildrenMatchMapper {
+    return new ChildrenMatchMapper(
+      $this->matcherField(),
+      $this->matcherReference(),
+      $this->createMock(EventDispatcherInterface::class),
+      $this->createMock(ComponentValuePluginManagerInterface::class),
+      $this->createMock(FormatterPluginManager::class),
+      $this->createMock(ModuleHandlerInterface::class),
+    );
+  }
+
+  /**
    * A real MatcherReference over mocked services (the class is final).
    */
   private function matcherReference(): MatcherReference {
@@ -88,9 +109,7 @@ class EntityProviderPassThroughTest extends UnitTestCase {
       $shape,
       $configuration,
       $entityTypeManager,
-      $this->createMock(EventDispatcherInterface::class),
-      $this->matcherField(),
-      $this->matcherReference(),
+      $this->childrenMatchMapper(),
     );
   }
 
@@ -164,8 +183,8 @@ class EntityProviderPassThroughTest extends UnitTestCase {
       [],
       $this->unusedShape(),
       ['filter' => 'some-filter'],
-      $this->matcherField(),
       $this->matcherReference(),
+      $this->childrenMatchMapper(),
     );
 
     $this->assertSame('THREADED', $plugin->provideDefaultValue('THREADED'));
@@ -184,8 +203,8 @@ class EntityProviderPassThroughTest extends UnitTestCase {
       [],
       $shape,
       ['filter' => 'deleted-filter'],
-      $this->matcherField(),
       $this->matcherReference(),
+      $this->childrenMatchMapper(),
     );
 
     $this->assertSame('THREADED', $plugin->provideDefaultValue('THREADED'));
@@ -200,8 +219,8 @@ class EntityProviderPassThroughTest extends UnitTestCase {
       [],
       $this->unusedShape(),
       ['entity' => ''],
-      $this->matcherField(),
       $this->matcherReference(),
+      $this->childrenMatchMapper(),
     );
 
     $this->assertSame('THREADED', $plugin->provideDefaultValue('THREADED'));
@@ -234,7 +253,7 @@ class EntityProviderPassThroughTest extends UnitTestCase {
     $shape = $this->unusedShape();
 
     $this->assertFalse($this->loadValue($shape, [])->isEditable());
-    $this->assertFalse((new EntityReferenceValue('entity_reference', [], $shape, [], $this->matcherField(), $this->matcherReference()))->isEditable());
+    $this->assertFalse((new EntityReferenceValue('entity_reference', [], $shape, [], $this->matcherReference(), $this->childrenMatchMapper()))->isEditable());
   }
 
   /**

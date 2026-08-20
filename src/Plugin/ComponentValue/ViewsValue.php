@@ -16,13 +16,16 @@ use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Plugin\ContainerFactoryPluginInterface;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\neo_alchemist\Attribute\ComponentValue;
+use Drupal\neo_alchemist\ChildrenMatchField;
+use Drupal\neo_alchemist\ChildrenMatchFieldSourceInterface;
+use Drupal\neo_alchemist\ChildrenMatchMapper;
+use Drupal\neo_alchemist\ChildrenMatchResult;
+use Drupal\neo_alchemist\ChildrenMatchScope;
 use Drupal\neo_alchemist\ComponentShapeChildrenMatchPluginInterface;
 use Drupal\neo_alchemist\ComponentShapeInterablePluginInterface;
 use Drupal\neo_alchemist\ComponentShapePluginInterface;
 use Drupal\neo_alchemist\ComponentValueProcessingModeInterface;
 use Drupal\neo_alchemist\ComponentValuePluginBase;
-use Drupal\neo_alchemist\MatcherField;
-use Drupal\neo_alchemist\MatcherReference;
 use Drupal\views\ViewExecutable;
 use Drupal\views\Views;
 use Symfony\Component\DependencyInjection\ContainerInterface;
@@ -42,12 +45,11 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
   weight: 5,
   provider: 'views',
 )]
-final class ViewsValue extends ComponentValuePluginBase implements ContainerFactoryPluginInterface, ComponentValueProcessingModeInterface {
+final class ViewsValue extends ComponentValuePluginBase implements ContainerFactoryPluginInterface, ComponentValueProcessingModeInterface, ChildrenMatchFieldSourceInterface {
 
   use DependencySerializationTrait {
     __sleep as traitSleep;
   }
-  use ComponentValueChildrenMatchTrait;
   use ComponentValueProcessingModeTrait;
 
   /**
@@ -65,18 +67,11 @@ final class ViewsValue extends ComponentValuePluginBase implements ContainerFact
   protected EntityTypeBundleInfoInterface $entityTypeBundleInfo;
 
   /**
-   * The field matcher.
+   * The children-match mapper.
    *
-   * @var \Drupal\neo_alchemist\MatcherField
+   * @var \Drupal\neo_alchemist\ChildrenMatchMapper
    */
-  protected MatcherField $matcherField;
-
-  /**
-   * The reference matcher.
-   *
-   * @var \Drupal\neo_alchemist\MatcherReference
-   */
-  protected MatcherReference $matcherReference;
+  protected ChildrenMatchMapper $childrenMatchMapper;
 
   /**
    * The view executable.
@@ -122,9 +117,9 @@ final class ViewsValue extends ComponentValuePluginBase implements ContainerFact
   /**
    * Map of spl_object_id($entity) to the view result row index it came from.
    *
-   * Rebuilt on every provideDefaultValue() pass. Keyed by object id because
-   * the delta the children-match trait hands to a fetch handler counts the
-   * entities that SURVIVED filtering, not the rows.
+   * Rebuilt on every getChildrenMatchEntities() pass. Keyed by object id
+   * because the delta the mapper hands to a field handler counts the entities
+   * that SURVIVED filtering, not the rows.
    *
    * @var array<int, int>
    */
@@ -140,14 +135,12 @@ final class ViewsValue extends ComponentValuePluginBase implements ContainerFact
     array $configuration,
     EntityTypeManagerInterface $entity_type_manager,
     EntityTypeBundleInfoInterface $entity_type_bundle_info,
-    MatcherField $matcher_field,
-    MatcherReference $matcher_reference,
+    ChildrenMatchMapper $children_match_mapper,
   ) {
     parent::__construct($plugin_id, $plugin_definition, $shape, $configuration);
     $this->entityTypeManager = $entity_type_manager;
     $this->entityTypeBundleInfo = $entity_type_bundle_info;
-    $this->matcherField = $matcher_field;
-    $this->matcherReference = $matcher_reference;
+    $this->childrenMatchMapper = $children_match_mapper;
   }
 
   /**
@@ -161,8 +154,7 @@ final class ViewsValue extends ComponentValuePluginBase implements ContainerFact
       $configuration['settings'],
       $container->get('entity_type.manager'),
       $container->get('entity_type.bundle.info'),
-      $container->get('neo_alchemist.matcher_field'),
-      $container->get('neo_alchemist.matcher_reference')
+      $container->get('neo_alchemist.children_match_mapper')
     );
   }
 
@@ -181,7 +173,7 @@ final class ViewsValue extends ComponentValuePluginBase implements ContainerFact
       'view_items_offset' => 0,
       'view_arguments' => [],
       'view_arguments_sort' => FALSE,
-    ] + $this->childrenMatchDefaultConfiguration()
+    ] + ChildrenMatchMapper::defaultConfiguration()
       + $this->processingModeDefaultConfiguration();
   }
 
@@ -199,6 +191,17 @@ final class ViewsValue extends ComponentValuePluginBase implements ContainerFact
     assert($this->shape instanceof ComponentShapeChildrenMatchPluginInterface);
     $wrapperId = Html::getId(implode('-', $form['#parents']) . '-' . $this->getPluginId());
     $form['#id'] = $wrapperId;
+    $form = $this->childrenMatchMapper->buildConfigurationForm($this, $this->shape, $form, $form_state, $this->configuration);
+    $form = $this->buildProcessingModeForm($form, $form_state);
+
+    return $form;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function buildChildrenMatchSourceForm(array &$form, FormStateInterface $form_state): ?ChildrenMatchScope {
+    $wrapperId = $form['#id'];
     $viewId = $this->configuration['view_id'];
 
     $options = [];
@@ -223,7 +226,7 @@ final class ViewsValue extends ComponentValuePluginBase implements ContainerFact
     if ($viewId) {
       $view = Views::getView($viewId);
       if (!$view) {
-        return $form;
+        return NULL;
       }
       $viewEntityTypes = $this->getViewEntityTypes($view);
       if (!$viewEntityTypes) {
@@ -231,7 +234,7 @@ final class ViewsValue extends ComponentValuePluginBase implements ContainerFact
           '#type' => 'markup',
           '#markup' => $this->t('This view does not resolve to an entity type, so its results cannot be mapped to shape fields.'),
         ];
-        return $form;
+        return NULL;
       }
       $viewDisplayId = $this->configuration['view_display_id'];
       $displayOptions = [];
@@ -372,22 +375,20 @@ final class ViewsValue extends ComponentValuePluginBase implements ContainerFact
           }
         }
 
+        // alterChildrenMatchOptions() reads the executed view back off the
+        // form state to list the columns the view itself renders.
         $form_state->set('view', $view);
-        // Add shape fields.
-        $form += $this->buildChildrenMatchConfigurationForm($this->shape, $form, $form_state, $viewEntityTypeId, $viewEntityBundle ?: NULL, $this->configuration);
 
+        return new ChildrenMatchScope($viewEntityTypeId, $viewEntityBundle ?: NULL);
       }
     }
-
-    $form = $this->buildProcessingModeForm($form, $form_state);
-
-    return $form;
+    return NULL;
   }
 
   /**
-   * Alter the available child match options.
+   * {@inheritdoc}
    */
-  protected function alterChildMatchOptions(array &$options, ComponentShapePluginInterface $shape, FormStateInterface $form_state) {
+  public function alterChildrenMatchOptions(array &$options, ComponentShapePluginInterface $shape, FormStateInterface $form_state): void {
     if ($shape->getType() !== 'string') {
       return;
     }
@@ -544,86 +545,96 @@ final class ViewsValue extends ComponentValuePluginBase implements ContainerFact
     if (!$this->shape instanceof ComponentShapeChildrenMatchPluginInterface) {
       return $value;
     }
-    if ($view = $this->getView()) {
-      // Collect the entities behind the rows, remembering which row each came
-      // from. A row can legitimately carry no entity: a Search API index
-      // returns a row per indexed item and only attaches "_entity" when the
-      // item's original object is a loadable EntityAdapter.
-      // @see \Drupal\search_api\Plugin\views\query\SearchApiQuery::addResults()
-      $entities = [];
-      $this->viewRowIndex = [];
-      foreach ($view->result as $key => $row) {
-        $entity = $row->_entity ?? NULL;
-        if (!$entity instanceof ContentEntityInterface) {
-          continue;
-        }
-        // StylePluginBase::renderFields() keys its output by the position of
-        // the row within $view->result; ResultRow::$index mirrors that.
-        $this->viewRowIndex[spl_object_id($entity)] = $row->index ?? $key;
-        $entities[] = $entity;
-      }
-
-      $args = $view->args;
-      if (!empty($this->configuration['view_arguments_sort']) && !empty($args[0])) {
-        $ids = explode('+', $args[0]);
-        if (count($ids) > 1) {
-          $groupedEntities = [];
-          foreach ($entities as $entity) {
-            $groupedEntities[$entity->id()][] = $entity;
-          }
-          $orderedEntities = [];
-          foreach ($ids as $id) {
-            if (isset($groupedEntities[$id])) {
-              $orderedEntities[$id] = $groupedEntities[$id];
-            }
-          }
-          // Reset before re-appending: the ordered groups hold the SAME
-          // objects already collected above, so appending them to the
-          // untouched list emitted every entity twice.
-          $entities = [];
-          foreach ($orderedEntities as $entityGroup) {
-            foreach ($entityGroup as $entity) {
-              $entities[] = $entity;
-            }
-          }
-        }
-      }
-      if (!$entities) {
-        $value = [];
-      }
-      else {
-        $results = $this->getChildrenMatchValues($this->shape, $entities, $this->configuration);
-        // Merge any views-generated values.
-        foreach ($results as $delta => $result) {
-          $results[$delta] = $result;
-        }
-        $value = $results;
-      }
-    }
-    return $value;
+    return $this->childrenMatchMapper->getValues($this, $this->shape, $this->configuration, $value);
   }
 
   /**
-   * Fetches the matching values for child components from a Views result.
+   * {@inheritdoc}
    */
-  protected function fetchChildrenMatchValuesView(string $shapeId, string $shapeName, int $delta, ComponentShapeChildrenMatchPluginInterface $shape, ContentEntityInterface $entity, array $configuration): mixed {
+  public function getChildrenMatchEntities(): ChildrenMatchResult {
+    $view = $this->getView();
+    if (!$view) {
+      return ChildrenMatchResult::unavailable();
+    }
+    // Collect the entities behind the rows, remembering which row each came
+    // from. A row can legitimately carry no entity: a Search API index
+    // returns a row per indexed item and only attaches "_entity" when the
+    // item's original object is a loadable EntityAdapter.
+    // @see \Drupal\search_api\Plugin\views\query\SearchApiQuery::addResults()
+    $entities = [];
+    $this->viewRowIndex = [];
+    foreach ($view->result as $key => $row) {
+      $entity = $row->_entity ?? NULL;
+      if (!$entity instanceof ContentEntityInterface) {
+        continue;
+      }
+      // StylePluginBase::renderFields() keys its output by the position of
+      // the row within $view->result; ResultRow::$index mirrors that.
+      $this->viewRowIndex[spl_object_id($entity)] = $row->index ?? $key;
+      $entities[] = $entity;
+    }
+
+    $args = $view->args;
+    if (!empty($this->configuration['view_arguments_sort']) && !empty($args[0])) {
+      $ids = explode('+', $args[0]);
+      if (count($ids) > 1) {
+        $groupedEntities = [];
+        foreach ($entities as $entity) {
+          $groupedEntities[$entity->id()][] = $entity;
+        }
+        $orderedEntities = [];
+        foreach ($ids as $id) {
+          if (isset($groupedEntities[$id])) {
+            $orderedEntities[$id] = $groupedEntities[$id];
+          }
+        }
+        // Reset before re-appending: the ordered groups hold the SAME
+        // objects already collected above, so appending them to the
+        // untouched list emitted every entity twice.
+        $entities = [];
+        foreach ($orderedEntities as $entityGroup) {
+          foreach ($entityGroup as $entity) {
+            $entities[] = $entity;
+          }
+        }
+      }
+    }
+
+    // A view that executed but returned no mappable row resolves to an empty
+    // value, not to the per-child empty map — see ChildrenMatchResult.
+    return $entities ? ChildrenMatchResult::of($entities) : ChildrenMatchResult::emptyValue();
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function getChildrenMatchFieldPrefixes(): array {
+    return ['view'];
+  }
+
+  /**
+   * {@inheritdoc}
+   *
+   * Handles `_view:<field>` — a column the view itself renders, which may not
+   * be a field on the row's entity at all.
+   */
+  public function fetchChildrenMatchField(string $prefix, ChildrenMatchField $field): mixed {
     $view = $this->getView();
     if (!$view || !isset($view->style_plugin)) {
       return NULL;
     }
-    // $delta counts the entities that SURVIVED filtering, not the rows: rows
-    // carrying no entity are dropped in provideDefaultValue() and unpublished
-    // entities are skipped inside
-    // ComponentValueChildrenMatchTrait::fetchChildrenMatchValues(), either of
-    // which shifts it off the row it is meant to name. Resolve the row from
-    // the entity instance instead, which is the exact object taken off
+    // The delta counts the entities that SURVIVED filtering, not the rows:
+    // rows carrying no entity are dropped in getChildrenMatchEntities() and
+    // unpublished entities are skipped inside the mapper, either of which
+    // shifts it off the row it is meant to name. Resolve the row from the
+    // entity instance instead, which is the exact object taken off
     // $view->result. The positional lookup remains as a fallback for callers
-    // outside provideDefaultValue().
-    $index = $this->viewRowIndex[spl_object_id($entity)] ?? ($view->result[$delta]->index ?? NULL);
+    // outside the mapping pass.
+    $index = $this->viewRowIndex[spl_object_id($field->entity)] ?? ($view->result[$field->delta]->index ?? NULL);
     if ($index === NULL) {
       return NULL;
     }
-    return $view->style_plugin->getField($index, substr($configuration['field'], 6));
+    return $view->style_plugin->getField($index, substr($field->settings['field'], 6));
   }
 
   /**

@@ -11,11 +11,14 @@ use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Plugin\ContainerFactoryPluginInterface;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\neo_alchemist\Attribute\ComponentValue;
+use Drupal\neo_alchemist\ChildrenMatchMapper;
+use Drupal\neo_alchemist\ChildrenMatchResult;
+use Drupal\neo_alchemist\ChildrenMatchScope;
+use Drupal\neo_alchemist\ChildrenMatchSourceInterface;
 use Drupal\neo_alchemist\ComponentShapeChildrenMatchPluginInterface;
 use Drupal\neo_alchemist\ComponentShapePluginInterface;
 use Drupal\neo_alchemist\ComponentValueProcessingModeInterface;
 use Drupal\neo_alchemist\ComponentValuePluginBase;
-use Drupal\neo_alchemist\MatcherField;
 use Drupal\neo_alchemist\MatcherReference;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
@@ -33,18 +36,10 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
   ],
   weight: 4,
 )]
-final class EntityReferenceValue extends ComponentValuePluginBase implements ContainerFactoryPluginInterface, ComponentValueProcessingModeInterface {
+final class EntityReferenceValue extends ComponentValuePluginBase implements ContainerFactoryPluginInterface, ComponentValueProcessingModeInterface, ChildrenMatchSourceInterface {
 
   use DependencySerializationTrait;
-  use ComponentValueChildrenMatchTrait;
   use ComponentValueProcessingModeTrait;
-
-  /**
-   * The field matcher.
-   *
-   * @var \Drupal\neo_alchemist\MatcherField
-   */
-  protected MatcherField $matcherField;
 
   /**
    * The reference matcher.
@@ -54,6 +49,13 @@ final class EntityReferenceValue extends ComponentValuePluginBase implements Con
   protected MatcherReference $matcherReference;
 
   /**
+   * The children-match mapper.
+   *
+   * @var \Drupal\neo_alchemist\ChildrenMatchMapper
+   */
+  protected ChildrenMatchMapper $childrenMatchMapper;
+
+  /**
    * {@inheritdoc}
    */
   public function __construct(
@@ -61,12 +63,12 @@ final class EntityReferenceValue extends ComponentValuePluginBase implements Con
     $plugin_definition,
     ComponentShapePluginInterface $shape,
     array $configuration,
-    MatcherField $matcher_field,
     MatcherReference $matcher_reference,
+    ChildrenMatchMapper $children_match_mapper,
   ) {
     parent::__construct($plugin_id, $plugin_definition, $shape, $configuration);
-    $this->matcherField = $matcher_field;
     $this->matcherReference = $matcher_reference;
+    $this->childrenMatchMapper = $children_match_mapper;
   }
 
   /**
@@ -78,8 +80,8 @@ final class EntityReferenceValue extends ComponentValuePluginBase implements Con
       $plugin_definition,
       $configuration['shape'],
       $configuration['settings'],
-      $container->get('neo_alchemist.matcher_field'),
-      $container->get('neo_alchemist.matcher_reference')
+      $container->get('neo_alchemist.matcher_reference'),
+      $container->get('neo_alchemist.children_match_mapper')
     );
   }
 
@@ -89,7 +91,7 @@ final class EntityReferenceValue extends ComponentValuePluginBase implements Con
   public function defaultConfiguration() {
     return [
       'entity' => '',
-    ] + $this->childrenMatchDefaultConfiguration()
+    ] + ChildrenMatchMapper::defaultConfiguration()
       + $this->processingModeDefaultConfiguration();
   }
 
@@ -123,7 +125,7 @@ final class EntityReferenceValue extends ComponentValuePluginBase implements Con
         '%field' => explode(':', $entityKey)[0],
       ]);
     }
-    return array_merge($summary, $this->childrenMatchSummary());
+    return array_merge($summary, $this->childrenMatchMapper->summary($this->shape, $this->configuration));
   }
 
   /**
@@ -133,6 +135,15 @@ final class EntityReferenceValue extends ComponentValuePluginBase implements Con
     assert($this->shape instanceof ComponentShapeChildrenMatchPluginInterface);
     $wrapperId = Html::getId(implode('-', $form['#parents']) . '-' . $this->getPluginId());
     $form['#id'] = $wrapperId;
+    $form = $this->childrenMatchMapper->buildConfigurationForm($this, $this->shape, $form, $form_state, $this->configuration);
+    return $this->buildProcessingModeForm($form, $form_state);
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function buildChildrenMatchSourceForm(array &$form, FormStateInterface $form_state): ?ChildrenMatchScope {
+    $wrapperId = $form['#id'];
     $component = $this->shape->getComponent();
     $options = $this->matcherReference->getReferencesAsOptions($component->getTargetEntityTypeId(), $component->getTargetEntityBundle());
     $entityKey = $this->configuration['entity'];
@@ -152,20 +163,15 @@ final class EntityReferenceValue extends ComponentValuePluginBase implements Con
     if ($entityKey) {
       $entity = $this->matcherReference->getReferenceEntity($component->getTargetEntity(), $entityKey, TRUE);
       if ($entity) {
-        $form += $this->buildChildrenMatchConfigurationForm($this->shape, $form, $form_state, $entity->getEntityTypeId(), $entity->bundle(), $this->configuration);
+        return new ChildrenMatchScope($entity->getEntityTypeId(), $entity->bundle());
       }
-      else {
-        $form['message'] = [
-          '#markup' => $this->t('The selected entity could not be loaded.'),
-          '#prefix' => '<div class="messages messages--warning">',
-          '#suffix' => '</div>',
-        ];
-      }
+      $form['message'] = [
+        '#markup' => $this->t('The selected entity could not be loaded.'),
+        '#prefix' => '<div class="messages messages--warning">',
+        '#suffix' => '</div>',
+      ];
     }
-
-    $form = $this->buildProcessingModeForm($form, $form_state);
-
-    return $form;
+    return NULL;
   }
 
   /**
@@ -190,34 +196,35 @@ final class EntityReferenceValue extends ComponentValuePluginBase implements Con
     if (!$this->shape instanceof ComponentShapeChildrenMatchPluginInterface) {
       return $value;
     }
+    // Produce the value; the configurable processing mode (applied by the
+    // pipeline) decides whether to claim it or fall through when empty.
+    return $this->childrenMatchMapper->getValues($this, $this->shape, $this->configuration, $value);
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function getChildrenMatchEntities(): ChildrenMatchResult {
     $entityKey = $this->configuration['entity'];
-    if ($entityKey) {
-      $value = [];
-      $component = $this->shape->getComponent();
-      $field = $this->matcherReference->getReferenceField($component->getTargetEntity(), $entityKey, $component->getCacheableMetadata());
-      if ($field) {
-        // Only match when the reference actually resolves to entities. With
-        // zero entities, fetchChildrenMatchValues() on a non-iterable shape
-        // returns a map of per-child empties that isProvidedValueEmpty()
-        // counts as NON-empty — which under stop_when_found would claim,
-        // starving a fallback provider and force-hiding every child. Today
-        // this cannot be reached: MatcherReference::getReferenceField()
-        // returns NULL whenever the first target fails to load, so a dangling
-        // reference never gets this far (pinned by
-        // EntityReferenceAggregateFallbackTest::testDanglingReferenceFallsBack()).
-        // The guard is defense-in-depth so a matcher change cannot silently
-        // resurrect the trap. An empty $value falls through, which is also
-        // what an empty field does.
-        $entities = $field->referencedEntities();
-        if ($entities) {
-          // Produce the value; the configurable processing mode (applied by
-          // the pipeline) decides whether to claim it or fall through when
-          // empty.
-          $value = $this->getChildrenMatchValues($this->shape, $entities, $this->configuration);
-        }
-      }
+    if (!$entityKey) {
+      return ChildrenMatchResult::unavailable();
     }
-    return $value;
+    $component = $this->shape->getComponent();
+    $field = $this->matcherReference->getReferenceField($component->getTargetEntity(), $entityKey, $component->getCacheableMetadata());
+    // Only map when the reference actually resolves to entities, which is why
+    // this returns emptyValue() rather than of([]). With zero entities the
+    // mapper's non-iterable branch returns a map of per-child empties that
+    // isProvidedValueEmpty() counts as NON-empty — which under stop_when_found
+    // would claim, starving a fallback provider and force-hiding every child.
+    // Today that cannot be reached: MatcherReference::getReferenceField()
+    // returns NULL whenever the first target fails to load, so a dangling
+    // reference never gets this far (pinned by
+    // EntityReferenceAggregateFallbackTest::testDanglingReferenceFallsBack()).
+    // The guard is defense-in-depth so a matcher change cannot silently
+    // resurrect the trap. An empty value falls through, which is also what an
+    // empty field does.
+    $entities = $field ? $field->referencedEntities() : [];
+    return $entities ? ChildrenMatchResult::of($entities) : ChildrenMatchResult::emptyValue();
   }
 
   /**

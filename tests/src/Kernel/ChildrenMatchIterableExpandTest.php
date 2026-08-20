@@ -12,7 +12,7 @@ use PHPUnit\Framework\Attributes\Group;
 /**
  * Tests that an "Expand" on an ARRAY child produces a delta-keyed list.
  *
- * ComponentValueChildrenMatchTrait::fetchChildrenMatchValues() builds either a
+ * ChildrenMatchMapper::fetchValues() builds either a
  * delta-keyed LIST or a flat property MAP, and picks between them from the
  * shape it is filling. Every recursion (`_expand`, `_reference`) is handed the
  * ROOT children-match shape — that is what the child-state calls are keyed by —
@@ -29,7 +29,7 @@ use PHPUnit\Framework\Attributes\Group;
  *   component's shapes, including the config form used to fix it and the
  *   component save itself.
  *
- * @see \Drupal\neo_alchemist\Plugin\ComponentValue\ComponentValueChildrenMatchTrait
+ * @see \Drupal\neo_alchemist\ChildrenMatchMapper
  * @see \Drupal\neo_alchemist\Plugin\ComponentShape\ArrayShape::getDefaultSchemaValue()
  */
 #[Group('neo_alchemist')]

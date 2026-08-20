@@ -13,13 +13,14 @@ use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Plugin\ContainerFactoryPluginInterface;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\neo_alchemist\Attribute\ComponentValue;
+use Drupal\neo_alchemist\ChildrenMatchMapper;
+use Drupal\neo_alchemist\ChildrenMatchResult;
+use Drupal\neo_alchemist\ChildrenMatchScope;
+use Drupal\neo_alchemist\ChildrenMatchSourceInterface;
 use Drupal\neo_alchemist\ComponentShapeChildrenMatchPluginInterface;
 use Drupal\neo_alchemist\ComponentShapePluginInterface;
 use Drupal\neo_alchemist\ComponentValueProcessingModeInterface;
 use Drupal\neo_alchemist\ComponentValuePluginBase;
-use Drupal\neo_alchemist\MatcherField;
-use Drupal\neo_alchemist\MatcherReference;
-use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
@@ -35,10 +36,9 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
   ],
   weight: 5,
 )]
-final class EntityLoadValue extends ComponentValuePluginBase implements ContainerFactoryPluginInterface, ComponentValueProcessingModeInterface {
+final class EntityLoadValue extends ComponentValuePluginBase implements ContainerFactoryPluginInterface, ComponentValueProcessingModeInterface, ChildrenMatchSourceInterface {
 
   use DependencySerializationTrait;
-  use ComponentValueChildrenMatchTrait;
   use ComponentValueProcessingModeTrait;
 
   /**
@@ -49,25 +49,11 @@ final class EntityLoadValue extends ComponentValuePluginBase implements Containe
   protected EntityTypeManagerInterface $entityTypeManager;
 
   /**
-   * The event dispatcher.
+   * The children-match mapper.
    *
-   * @var \Symfony\Component\EventDispatcher\EventDispatcherInterface
+   * @var \Drupal\neo_alchemist\ChildrenMatchMapper
    */
-  protected EventDispatcherInterface $eventDispatcher;
-
-  /**
-   * The field matcher.
-   *
-   * @var \Drupal\neo_alchemist\MatcherField
-   */
-  protected MatcherField $matcherField;
-
-  /**
-   * The reference matcher.
-   *
-   * @var \Drupal\neo_alchemist\MatcherReference
-   */
-  protected MatcherReference $matcherReference;
+  protected ChildrenMatchMapper $childrenMatchMapper;
 
   /**
    * {@inheritdoc}
@@ -78,15 +64,11 @@ final class EntityLoadValue extends ComponentValuePluginBase implements Containe
     ComponentShapePluginInterface $shape,
     array $configuration,
     EntityTypeManagerInterface $entity_type_manager,
-    EventDispatcherInterface $event_dispatcher,
-    MatcherField $matcher_field,
-    MatcherReference $matcher_reference,
+    ChildrenMatchMapper $children_match_mapper,
   ) {
     parent::__construct($plugin_id, $plugin_definition, $shape, $configuration);
     $this->entityTypeManager = $entity_type_manager;
-    $this->eventDispatcher = $event_dispatcher;
-    $this->matcherField = $matcher_field;
-    $this->matcherReference = $matcher_reference;
+    $this->childrenMatchMapper = $children_match_mapper;
   }
 
   /**
@@ -99,9 +81,7 @@ final class EntityLoadValue extends ComponentValuePluginBase implements Containe
       $configuration['shape'],
       $configuration['settings'],
       $container->get('entity_type.manager'),
-      $container->get('event_dispatcher'),
-      $container->get('neo_alchemist.matcher_field'),
-      $container->get('neo_alchemist.matcher_reference')
+      $container->get('neo_alchemist.children_match_mapper')
     );
   }
 
@@ -112,7 +92,7 @@ final class EntityLoadValue extends ComponentValuePluginBase implements Containe
     return [
       'entity_type' => '',
       'entity_id' => '',
-    ] + $this->childrenMatchDefaultConfiguration()
+    ] + ChildrenMatchMapper::defaultConfiguration()
       + $this->processingModeDefaultConfiguration();
   }
 
@@ -127,7 +107,7 @@ final class EntityLoadValue extends ComponentValuePluginBase implements Containe
         '@id' => $this->configuration['entity_id'],
       ]);
     }
-    return array_merge($summary, $this->childrenMatchSummary());
+    return array_merge($summary, $this->childrenMatchMapper->summary($this->shape, $this->configuration));
   }
 
   /**
@@ -137,7 +117,15 @@ final class EntityLoadValue extends ComponentValuePluginBase implements Containe
     assert($this->shape instanceof ComponentShapeChildrenMatchPluginInterface);
     $wrapperId = Html::getId(implode('-', $form['#parents']) . '-' . $this->getPluginId());
     $form['#id'] = $wrapperId;
+    $form = $this->childrenMatchMapper->buildConfigurationForm($this, $this->shape, $form, $form_state, $this->configuration);
+    return $this->buildProcessingModeForm($form, $form_state);
+  }
 
+  /**
+   * {@inheritdoc}
+   */
+  public function buildChildrenMatchSourceForm(array &$form, FormStateInterface $form_state): ?ChildrenMatchScope {
+    $wrapperId = $form['#id'];
     $entityTypeId = $this->configuration['entity_type'];
 
     $form['message'] = [
@@ -186,16 +174,11 @@ final class EntityLoadValue extends ComponentValuePluginBase implements Containe
         $entity = $this->entityTypeManager->getStorage($entityTypeId)->load($entityId);
         $form['entity_id']['#default_value'] = $entity;
         if ($entity) {
-          $bundle = $entity->bundle();
-          // Add shape fields.
-          $form += $this->buildChildrenMatchConfigurationForm($this->shape, $form, $form_state, $entityTypeId, $bundle, $this->configuration);
+          return new ChildrenMatchScope($entityTypeId, $entity->bundle());
         }
       }
     }
-
-    $form = $this->buildProcessingModeForm($form, $form_state);
-
-    return $form;
+    return NULL;
   }
 
   /**
@@ -220,19 +203,25 @@ final class EntityLoadValue extends ComponentValuePluginBase implements Containe
     if (!$this->shape instanceof ComponentShapeChildrenMatchPluginInterface) {
       return $value;
     }
+    // Can't act: the mapper passes the threaded value through rather than
+    // wiping it to NULL.
+    return $this->childrenMatchMapper->getValues($this, $this->shape, $this->configuration, $value);
+  }
 
+  /**
+   * {@inheritdoc}
+   */
+  public function getChildrenMatchEntities(): ChildrenMatchResult {
     $entityTypeId = $this->configuration['entity_type'];
     $entityId = $this->configuration['entity_id'];
     if ($entityTypeId && $entityId) {
-      $storage = $this->entityTypeManager->getStorage($entityTypeId);
-      $entity = $storage->load($entityId);
+      $entity = $this->entityTypeManager->getStorage($entityTypeId)->load($entityId);
       if ($entity) {
         $this->shape->addCacheableDependency($entity);
-        return $this->getChildrenMatchValues($this->shape, [$entity], $this->configuration);
+        return ChildrenMatchResult::of([$entity]);
       }
     }
-    // Can't act: pass the threaded value through rather than wiping it to NULL.
-    return $value;
+    return ChildrenMatchResult::unavailable();
   }
 
 }

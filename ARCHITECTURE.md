@@ -487,27 +487,54 @@ are empty the primary's value is returned, so the pipeline sees exactly the empt
 would have without a fallback configured.
 
 **Children-match pseudo-fields** — producers that map entity fields onto child shapes
-(`entity_reference`, `entity_query`, `entity_load`, `entity_filter`, `views`, …) share
-`ComponentValueChildrenMatchTrait`. `entity_reference` serves array **and**
+(`entity_reference`, `entity_query`, `entity_load`, `entity_filter`, `views`, …) share the
+`neo_alchemist.children_match_mapper` service
+([src/ChildrenMatchMapper.php](src/ChildrenMatchMapper.php)) and implement
+[ChildrenMatchSourceInterface](src/ChildrenMatchSourceInterface.php) — two methods:
+`getChildrenMatchEntities()` resolves the entities to iterate, and
+`buildChildrenMatchSourceForm()` builds the controls that configure how they are found and
+returns the [ChildrenMatchScope](src/ChildrenMatchScope.php) the mapping table binds
+against. A source that also contributes field choices of its own (only `views` does, for
+the columns a view renders that are not fields on the row's entity) implements
+[ChildrenMatchFieldSourceInterface](src/ChildrenMatchFieldSourceInterface.php) and
+**declares the prefixes it owns** — anything it does not declare falls through to the field
+matcher, which is what keeps `_entity:*` working on a views mapping.
+`getChildrenMatchEntities()` returns a
+[ChildrenMatchResult](src/ChildrenMatchResult.php), and choosing among its three
+constructors is the whole of a source's render-time contract: `unavailable()` (nothing
+configured — the threaded value stands), `of()` (these entities; an empty list still maps,
+which for a non-iterable shape yields the per-child empty map that hides an unbound child)
+and `emptyValue()` (ran, found nothing, and empty must resolve to `[]` — because that
+per-child map reads as NON-empty to `isProvidedValueEmpty()` and a `stop_when_found`
+producer would claim it and starve the fallback below).
+
+This was a trait until the componentvalue-pipeline work: three collaborators assigned by
+convention in seven hand-written constructors, and forgetting one produced no error until a
+particular mapping path ran. As a service the container supplies them. `entity_reference`
+serves array **and**
 object/aggregate shapes (an object takes the first published referenced entity); with
 that, the canonical **primary-source-with-fallback recipe** works on an aggregated
 component exactly as it long has on list props: `entity_reference` (mode
 `stop_when_found`) ordered above `entity_query` (mode `block`) — a filled reference
 claims, an empty one falls through to the query, and an empty query claims emptiness so
-schema examples never leak. The trait renders the mapping as a table — one Property →
+schema examples never leak. The mapper renders the mapping as a table — one Property →
 Source row per child, explicit `#parents` keeping the stored `shape_fields` tree exactly
 as before the layout — with the rarely-used controls (`shape_published`, the "Copy field
 mapping from" convenience that clones a sibling provider's mapping) behind a collapsed
 **Advanced** section, their `#parents` likewise unmoved. Its per-child source select offers, besides real
-fields, `_`-prefixed pseudo-fields dispatched to `fetchChildrenMatchValues<Name>()`:
+fields, `_`-prefixed pseudo-fields:
 `_default` (use the child's default), `_event` (ComponentValueEvent), `_expand`
 (configure grandchild shapes), `_reference~<key>` (follow a reference and recurse),
 `_render` (render a field with a formatter), `_raw:*` (literal boolean/string), and
 `_self` (use the **iterated entity itself** as a media-shape child's value — offered
 when iterating media entities, e.g. a media reference field as the iteration source;
 bundle support is checked strictly at fetch time and the value comes from the shape's
-`getValueFromMedia()`). The trait honors the "Only use published entities" setting by
-skipping unpublished iterated entities. Handlers resolve child shapes via
+`getValueFromMedia()`). The mapper is the **single** place the "Only use published
+entities" setting is applied, by skipping unpublished iterated entities. A source may
+still narrow its own query with the same flag — `entity_query` does, so unpublished rows
+do not consume slots in the range/pager window — but the mapper's filter is the decision
+that stands, which is what stops one prop including an entity through one producer and
+excluding it through another. Handlers resolve child shapes via
 `getValueResolverShape()` — never `getChildShapes()`, which routes through
 `getDefaultValue()` and recurses when called mid-pipeline.
 
@@ -515,8 +542,8 @@ Each level of that recursion builds either a **delta-keyed list** (an `array` sh
 **flat property map** (anything else), and picks between them from the shape it is
 filling — not from the `$shape` argument, which stays the ROOT children-match shape all
 the way down because the child-state calls are keyed by a chained shape id the root owns.
-`fetchChildrenMatchValues()` therefore takes an explicit `$iterable`, and `_expand` /
-`_reference` pass the *child's* iterability (`isChildMatchShapeIterable()`). Getting this
+`ChildrenMatchMapper::fetchValues()` therefore takes an explicit `$iterable`, and
+`_expand` / `_reference` pass the *child's* iterability (`isChildIterable()`). Getting this
 from the root collapses an array child to the property map of its first item — which
 `ArrayShape` cannot read at all, since it keeps integer deltas only.
 
@@ -742,6 +769,15 @@ From [neo_alchemist.services.yml](neo_alchemist.services.yml):
   back out of that panel and returns the props structure. The instance editor feeds the result
   to the placed instance's stored values, the SDC preview workspace to its preview overrides;
   everything before that point is shared.
+- **`neo_alchemist.children_match_mapper`** → [ChildrenMatchMapper](src/ChildrenMatchMapper.php) —
+  the whole children-match mapping (the Property/Source table, the pseudo fields, the
+  published policy, delta-list versus property-map). Producers supply only the entities to
+  iterate, through [ChildrenMatchSourceInterface](src/ChildrenMatchSourceInterface.php). See
+  "Children-match pseudo-fields" above.
+- **Matchers** — `neo_alchemist.matcher_field` → `MatcherField` (resolves a stored field key
+  against an entity) and `neo_alchemist.matcher_reference` → `MatcherReference` (lists and
+  follows entity reference fields). Both are `final`; unit tests build a real one over mocked
+  services rather than doubling them.
 - **Plugin managers** — `plugin.manager.neo_component_{prop_def,shape,value,value_group,group,size,slot,filter,filter_options,access}`.
 - **Factories** — `neo_component.{slot,filter,access}.factory`.
 - **Configured-plugin kinds** — `neo_alchemist.configured_plugin_kind.{access,filter}` and the

@@ -15,12 +15,15 @@ use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Plugin\ContainerFactoryPluginInterface;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\neo_alchemist\Attribute\ComponentValue;
+use Drupal\neo_alchemist\ChildrenMatchMapper;
+use Drupal\neo_alchemist\ChildrenMatchResult;
+use Drupal\neo_alchemist\ChildrenMatchScope;
+use Drupal\neo_alchemist\ChildrenMatchSourceInterface;
 use Drupal\neo_alchemist\ComponentShapeChildrenMatchPluginInterface;
 use Drupal\neo_alchemist\ComponentShapePluginInterface;
 use Drupal\neo_alchemist\ComponentValueProcessingModeInterface;
 use Drupal\neo_alchemist\ComponentValuePluginBase;
 use Drupal\neo_alchemist\Event\ComponentValueEntityQueryEvent;
-use Drupal\neo_alchemist\MatcherField;
 use Drupal\neo_alchemist\MatcherReference;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
@@ -39,12 +42,11 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
   ],
   weight: 5,
 )]
-final class EntityQueryValue extends ComponentValuePluginBase implements ContainerFactoryPluginInterface, ComponentValueProcessingModeInterface {
+final class EntityQueryValue extends ComponentValuePluginBase implements ContainerFactoryPluginInterface, ComponentValueProcessingModeInterface, ChildrenMatchSourceInterface {
 
   use DependencySerializationTrait {
     __sleep as traitSleep;
   }
-  use ComponentValueChildrenMatchTrait;
   use ComponentValueProcessingModeTrait;
 
   /**
@@ -69,18 +71,18 @@ final class EntityQueryValue extends ComponentValuePluginBase implements Contain
   protected EventDispatcherInterface $eventDispatcher;
 
   /**
-   * The field matcher.
-   *
-   * @var \Drupal\neo_alchemist\MatcherField
-   */
-  protected MatcherField $matcherField;
-
-  /**
    * The reference matcher.
    *
    * @var \Drupal\neo_alchemist\MatcherReference
    */
   protected MatcherReference $matcherReference;
+
+  /**
+   * The children-match mapper.
+   *
+   * @var \Drupal\neo_alchemist\ChildrenMatchMapper
+   */
+  protected ChildrenMatchMapper $childrenMatchMapper;
 
   /**
    * The entity query.
@@ -100,15 +102,15 @@ final class EntityQueryValue extends ComponentValuePluginBase implements Contain
     EntityTypeManagerInterface $entity_type_manager,
     EntityTypeBundleInfoInterface $entity_type_bundle_info,
     EventDispatcherInterface $event_dispatcher,
-    MatcherField $matcher_field,
     MatcherReference $matcher_reference,
+    ChildrenMatchMapper $children_match_mapper,
   ) {
     parent::__construct($plugin_id, $plugin_definition, $shape, $configuration);
     $this->entityTypeManager = $entity_type_manager;
     $this->entityTypeBundleInfo = $entity_type_bundle_info;
     $this->eventDispatcher = $event_dispatcher;
-    $this->matcherField = $matcher_field;
     $this->matcherReference = $matcher_reference;
+    $this->childrenMatchMapper = $children_match_mapper;
   }
 
   /**
@@ -123,8 +125,8 @@ final class EntityQueryValue extends ComponentValuePluginBase implements Contain
       $container->get('entity_type.manager'),
       $container->get('entity_type.bundle.info'),
       $container->get('event_dispatcher'),
-      $container->get('neo_alchemist.matcher_field'),
-      $container->get('neo_alchemist.matcher_reference')
+      $container->get('neo_alchemist.matcher_reference'),
+      $container->get('neo_alchemist.children_match_mapper')
     );
   }
 
@@ -149,7 +151,7 @@ final class EntityQueryValue extends ComponentValuePluginBase implements Contain
       'length' => 10,
       'length_filter' => '',
       'paging' => FALSE,
-    ] + $this->childrenMatchDefaultConfiguration()
+    ] + ChildrenMatchMapper::defaultConfiguration()
       + $this->processingModeDefaultConfiguration();
   }
 
@@ -189,7 +191,7 @@ final class EntityQueryValue extends ComponentValuePluginBase implements Contain
         '@field' => explode(':', $filterEntity)[0],
       ]);
     }
-    return array_merge($summary, $this->childrenMatchSummary());
+    return array_merge($summary, $this->childrenMatchMapper->summary($this->shape, $this->configuration));
   }
 
   /**
@@ -199,7 +201,22 @@ final class EntityQueryValue extends ComponentValuePluginBase implements Contain
     assert($this->shape instanceof ComponentShapeChildrenMatchPluginInterface);
     $wrapperId = Html::getId(implode('-', $form['#parents']) . '-' . $this->getPluginId());
     $form['#id'] = $wrapperId;
+    // The entity type and bundle selects, then the mapping table they scope.
+    $form = $this->childrenMatchMapper->buildConfigurationForm($this, $this->shape, $form, $form_state, $this->configuration);
+    // The rest of the query — sort, filters, range — refines which entities
+    // come back without changing what kind they are, so it does not affect the
+    // scope and stays below the mapping table where it has always been.
+    $form = $this->buildQueryRefinementForm($form, $form_state, $wrapperId);
+    $form = $this->buildProcessingModeForm($form, $form_state);
 
+    return $form;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function buildChildrenMatchSourceForm(array &$form, FormStateInterface $form_state): ?ChildrenMatchScope {
+    $wrapperId = $form['#id'];
     $entityTypeId = $this->configuration['entity_type'];
     $bundle = $this->configuration['bundle'];
 
@@ -247,10 +264,20 @@ final class EntityQueryValue extends ComponentValuePluginBase implements Contain
           ];
         }
       }
+      return new ChildrenMatchScope($entityTypeId, $bundle ?: NULL);
+    }
+    return NULL;
+  }
 
-      // Add shape fields.
-      $form += $this->buildChildrenMatchConfigurationForm($this->shape, $form, $form_state, $entityTypeId, $bundle, $this->configuration);
-
+  /**
+   * The query controls that refine an already-scoped result set.
+   */
+  protected function buildQueryRefinementForm(array $form, FormStateInterface $form_state, string $wrapperId): array {
+    $entityTypeId = $this->configuration['entity_type'];
+    $bundle = $this->configuration['bundle'];
+    $entityTypes = $this->entityTypeManager->getDefinitions();
+    if ($entityTypeId && isset($entityTypes[$entityTypeId])) {
+      $entityType = $entityTypes[$entityTypeId];
       $form['sort_field'] = [
         '#type' => 'neo_field_select',
         '#title' => $this->t('Sort by field'),
@@ -458,10 +485,7 @@ final class EntityQueryValue extends ComponentValuePluginBase implements Contain
           ],
         ];
       }
-
     }
-
-    $form = $this->buildProcessingModeForm($form, $form_state);
 
     return $form;
   }
@@ -634,11 +658,15 @@ final class EntityQueryValue extends ComponentValuePluginBase implements Contain
           }
         }
         if ($this->configuration['shape_published']) {
+          // Pre-scoping the source window with the same flag the mapper
+          // filters on. The mapper is still the authority — this only stops
+          // unpublished entities consuming slots in the range/pager window
+          // before it gets to drop them.
+          //
           // Publishable entity types expose this as the "published" key; only
           // some (e.g. node) also alias it as "status". Taxonomy terms do not,
           // so testing "status" alone silently skipped the condition for them
-          // and let unpublished terms consume slots in the range window before
-          // ComponentValueChildrenMatchTrait dropped them again.
+          // and let unpublished terms consume slots in the range window.
           $statusKey = $entityType->getKey('published') ?: $entityType->getKey('status');
           if ($statusKey) {
             $query->condition($statusKey, 1);
@@ -661,20 +689,27 @@ final class EntityQueryValue extends ComponentValuePluginBase implements Contain
     if (!$this->shape instanceof ComponentShapeChildrenMatchPluginInterface) {
       return $value;
     }
-    if ($query = $this->getEntityQuery()) {
-      $entities = [];
-      if ($ids = $query->execute()) {
-        $storage = $this->entityTypeManager->getStorage($this->configuration['entity_type']);
-        $entities = $ids ? $storage->loadMultiple($ids) : [];
-      }
+    return $this->childrenMatchMapper->getValues($this, $this->shape, $this->configuration, $value);
+  }
 
-      $definition = $this->entityTypeManager->getDefinition($this->configuration['entity_type']);
-      $this->shape->getCacheableMetadata()->addCacheTags($definition->getListCacheTags());
-
-      $results = $this->getChildrenMatchValues($this->shape, $entities, $this->configuration);
-      $value = $results;
+  /**
+   * {@inheritdoc}
+   */
+  public function getChildrenMatchEntities(): ChildrenMatchResult {
+    $query = $this->getEntityQuery();
+    if (!$query) {
+      return ChildrenMatchResult::unavailable();
     }
-    return $value;
+    $entities = [];
+    if ($ids = $query->execute()) {
+      $storage = $this->entityTypeManager->getStorage($this->configuration['entity_type']);
+      $entities = $storage->loadMultiple($ids);
+    }
+
+    $definition = $this->entityTypeManager->getDefinition($this->configuration['entity_type']);
+    $this->shape->getCacheableMetadata()->addCacheTags($definition->getListCacheTags());
+
+    return ChildrenMatchResult::of($entities);
   }
 
   /**
