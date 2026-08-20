@@ -78,16 +78,13 @@ class EntityHasValueTest extends KernelTestBase {
     $cacheable->method('getCacheableMetadata')->willReturn(new CacheableMetadata());
     $shape = $this->shapeDouble([$context, $cacheable]);
 
-    $plugin = new EntityHasValue(
+    return new EntityHasValue(
       'entity_has_value',
       [],
       $shape,
       ['field' => $field],
       $this->container->get('neo_alchemist.matcher_field'),
     );
-    // The pipeline resets every instance before running it.
-    $plugin->allowFurtherProcessing();
-    return $plugin;
   }
 
   /**
@@ -97,11 +94,10 @@ class EntityHasValueTest extends KernelTestBase {
     $entity = EntityTest::create(['name' => 'Has content']);
     $entity->save();
 
-    $plugin = $this->plugin($entity);
-    $result = $plugin->provideDefaultValue(TRUE);
+    $provision = $this->plugin($entity)->provide(TRUE);
 
-    $this->assertTrue($result, 'The incoming value survived untouched.');
-    $this->assertFalse($plugin->hasClaimedValue(), 'Later providers may still run.');
+    $this->assertTrue($provision->getValue(), 'The incoming value survived untouched.');
+    $this->assertFalse($provision->isClaimed(), 'Later providers may still run.');
   }
 
   /**
@@ -111,11 +107,10 @@ class EntityHasValueTest extends KernelTestBase {
     $entity = EntityTest::create(['name' => NULL]);
     $entity->save();
 
-    $plugin = $this->plugin($entity);
-    $result = $plugin->provideDefaultValue(TRUE);
+    $provision = $this->plugin($entity)->provide(TRUE);
 
-    $this->assertFalse($result, 'An absent value resolves the gate to FALSE.');
-    $this->assertTrue($plugin->hasClaimedValue(), 'The claim stops a fallback from revealing the component.');
+    $this->assertFalse($provision->getValue(), 'An absent value resolves the gate to FALSE.');
+    $this->assertTrue($provision->isClaimed(), 'The claim stops a fallback from revealing the component.');
   }
 
   /**
@@ -125,10 +120,10 @@ class EntityHasValueTest extends KernelTestBase {
     $entity = EntityTest::create(['name' => '']);
     $entity->save();
 
-    $plugin = $this->plugin($entity);
+    $provision = $this->plugin($entity)->provide(TRUE);
 
-    $this->assertFalse($plugin->provideDefaultValue(TRUE));
-    $this->assertTrue($plugin->hasClaimedValue());
+    $this->assertFalse($provision->getValue());
+    $this->assertTrue($provision->isClaimed());
   }
 
   /**
@@ -141,10 +136,10 @@ class EntityHasValueTest extends KernelTestBase {
     $entity = EntityTest::create(['name' => 'Has content']);
     $entity->save();
 
-    $plugin = $this->plugin($entity, 'field_that_does_not_exist');
+    $provision = $this->plugin($entity, 'field_that_does_not_exist')->provide(TRUE);
 
-    $this->assertFalse($plugin->provideDefaultValue(TRUE), 'An unresolvable field key fails closed.');
-    $this->assertTrue($plugin->hasClaimedValue());
+    $this->assertFalse($provision->getValue(), 'An unresolvable field key fails closed.');
+    $this->assertTrue($provision->isClaimed());
   }
 
   /**

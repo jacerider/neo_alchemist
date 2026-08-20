@@ -9,18 +9,19 @@ namespace Drupal\neo_alchemist;
  *
  * The provider search is the one pass where "which plugin's value wins" is a
  * decision the site builder gets to make. It threads a seed through the ordered
- * providers, lets each configured processing mode decide whether its provider
- * claims the value (halting the search) or falls through, keeps an empty
- * non-claiming result from destroying the value it was handed, and stops at the
- * first claim.
+ * providers, asks each producer for its outcome, lets each configured
+ * processing mode decide whether an unclaimed value claims (halting the search)
+ * or falls through, keeps an empty non-claiming result from destroying the
+ * value it was handed, and stops at the first claim.
  *
- * It owns that decision and nothing else: it is handed the already-ordered,
- * already-reset instances and the seed, and returns the value the phase settled
- * on. Everything around the phase — resolving the seed from the schema example,
- * a field default override, the modifier pass, the required-but-empty fallback
- * — stays with the shape that calls this. Holding no state and reaching for
- * nothing but the shape's emptiness contract is what makes the phase testable
- * against a handful of providers with no container.
+ * It owns that decision and nothing else: it is handed the already-ordered
+ * instances and the seed, and returns the value the phase settled on.
+ * Everything around the phase — resolving the seed from the schema example, a
+ * field default override, the modifier pass, the required-but-empty fallback —
+ * stays with the shape that calls this. Holding no state and reaching for
+ * nothing but each producer's outcome and the shape's emptiness contract is
+ * what makes the phase testable against a handful of producers with no
+ * container.
  *
  * @see \Drupal\neo_alchemist\ComponentShapePluginBase::computeDefaultValue()
  */
@@ -30,9 +31,8 @@ final class ValueProviderSearch {
    * Threads a seed through the ordered providers and returns the result.
    *
    * @param \Drupal\neo_alchemist\ComponentValuePluginInterface[] $instances
-   *   The ordered providers to consult, already reset to "not yet claimed" by
-   *   the collection that handed them over. The search reads their claim state
-   *   but does not reset it.
+   *   The ordered producers to consult. Each returns an outcome; none holds
+   *   claim state, so the list needs no resetting between passes.
    * @param mixed $seed
    *   The value the search starts from — the shape's resolved schema example.
    * @param \Drupal\neo_alchemist\ComponentShapeValueInterface $shape
@@ -45,11 +45,15 @@ final class ValueProviderSearch {
   public function search(array $instances, mixed $seed, ComponentShapeValueInterface $shape): mixed {
     $value = $seed;
     foreach ($instances as $instance) {
-      $provided = $instance->provideDefaultValue($value);
-      // Let the configurable processing mode decide whether this provider
-      // claims the value (halting the search) or falls through to the next.
-      if ($instance instanceof ComponentValueProcessingModeInterface) {
-        $instance->applyProcessingMode($provided);
+      $provision = $instance->provide($value);
+      $provided = $provision->getValue();
+      // A producer either claims its value itself (a veto) or leaves the claim
+      // to the site builder's configured processing mode. Only ask the mode
+      // when the producer has not already claimed — a self-raised claim (e.g. a
+      // subscriber veto through the event provider) outranks the mode.
+      $claimed = $provision->isClaimed();
+      if (!$claimed && $instance instanceof ComponentValueProcessingModeInterface) {
+        $claimed = $instance->claimsValue($provided);
       }
       // A producer that found nothing and did not claim contributes nothing:
       // the search moves on carrying the value that was threaded into it,
@@ -69,10 +73,10 @@ final class ValueProviderSearch {
       // mode to choose for a prop whose examples are editor scaffolding —
       // placeholder cards, images or menu links that must never reach a
       // visitor — rather than a usable default.
-      $value = $shape->isProvidedValueEmpty($provided) && !$instance->hasClaimedValue()
+      $value = $shape->isProvidedValueEmpty($provided) && !$claimed
         ? $value
         : $provided;
-      if (!$instance->shouldContinueProcessing()) {
+      if ($claimed) {
         break;
       }
     }

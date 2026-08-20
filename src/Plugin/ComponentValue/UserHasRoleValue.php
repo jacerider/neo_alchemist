@@ -13,6 +13,7 @@ use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\neo_alchemist\Attribute\ComponentValue;
 use Drupal\neo_alchemist\ComponentShapePluginInterface;
 use Drupal\neo_alchemist\ComponentValuePluginBase;
+use Drupal\neo_alchemist\ComponentValueProvision;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
@@ -125,24 +126,40 @@ final class UserHasRoleValue extends ComponentValuePluginBase implements Contain
 
   /**
    * {@inheritdoc}
+   *
+   * A denied user vetoes: claim FALSE so the search halts and no fallback can
+   * put a truthy value back and reveal the component. A granted user offers the
+   * threaded value untouched, leaving the pipeline open.
+   */
+  public function provide(mixed $value): ComponentValueProvision {
+    return $this->userHasRoles()
+      ? ComponentValueProvision::offer($value)
+      : ComponentValueProvision::claim(FALSE);
+  }
+
+  /**
+   * {@inheritdoc}
    */
   public function provideDefaultValue(mixed $value): mixed {
-    $roles = $this->account->getRoles();
-    $hasRoles = FALSE;
-    switch ($this->configuration['match']) {
-      case 'any':
-        $hasRoles = !empty(array_intersect($roles, $this->configuration['roles']));
-        break;
+    return $this->provide($value)->getValue();
+  }
 
-      case 'all':
-        $hasRoles = empty(array_diff($this->configuration['roles'], $roles));
-        break;
-    }
-    if (!$hasRoles) {
-      $this->claimValue();
-      return FALSE;
-    }
-    return $value;
+  /**
+   * Whether the current user holds the configured roles for the match mode.
+   *
+   * An unrecognised match mode denies rather than granting — the safe direction
+   * for an access-adjacent gate.
+   *
+   * @return bool
+   *   TRUE if the user satisfies the configured role match, FALSE otherwise.
+   */
+  private function userHasRoles(): bool {
+    $roles = $this->account->getRoles();
+    return match ($this->configuration['match']) {
+      'any' => !empty(array_intersect($roles, $this->configuration['roles'])),
+      'all' => empty(array_diff($this->configuration['roles'], $roles)),
+      default => FALSE,
+    };
   }
 
   /**

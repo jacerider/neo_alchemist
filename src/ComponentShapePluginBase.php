@@ -448,12 +448,10 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
       $this->initPlugins();
     }
 
-    // Allow value providers to act on the shape.
+    // Allow value providers to act on the shape. A broadcast, not a search:
+    // every provider gets a turn at shape init, so there is nothing to claim.
     foreach ($this->getValueCollection()->getAllowedInstances('init') as $instance) {
       $instance->onShapeInit();
-      if (!$instance->shouldContinueProcessing()) {
-        break;
-      }
     }
 
     // Initialize the options.
@@ -489,9 +487,6 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
       $overrideValue = $instance->provideOverrideValue($overrideValue, $defaultValue);
       if (!$this->isProvidedValueEmpty($overrideValue)) {
         $this->setFieldItemValue($overrideValue, FALSE);
-      }
-      if (!$instance->shouldContinueProcessing()) {
-        break;
       }
     }
 
@@ -1469,9 +1464,6 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
         if (!$instance->isEditable()) {
           $this->locked = TRUE;
         }
-        if (!$instance->shouldContinueProcessing()) {
-          break;
-        }
       }
       // If we are still not locked, check to see if root is locked.
       if (!$this->locked) {
@@ -1843,9 +1835,6 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
     $value = $this->preRenderValue($value, $attributes);
     foreach ($this->getValueCollection()->getAllowedInstances('modify') as $instance) {
       $value = $instance->modifyValue($value);
-      if (!$instance->shouldContinueProcessing()) {
-        break;
-      }
     }
     if ($value instanceof Attribute && $value !== $attributes && $this->getComponent()->isEditorPreview()) {
       // Stamped after preRenderValue() so a style shape's merge into the
@@ -1981,13 +1970,12 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
     // search settled on, so the modifier pass below — and anything a modifier
     // asks the shape — reads the value rather than what was there before.
     $this->setFieldItemValue($value, FALSE);
-    // Allow providers to modify the final default value. Fetch a fresh list
-    // so a claim from the provide loop above does not truncate this one.
+    // Allow providers to alter the final default value. A chain, not a search:
+    // every provider gets a turn, and the provide phase above claimed nothing
+    // on the instances (a producer's claim now lives in the outcome it returns,
+    // not on itself), so this loop runs the full list.
     foreach ($this->getValueCollection()->getAllowedInstances('default') as $instance) {
       $value = $instance->alterValue($value, 'default');
-      if (!$instance->shouldContinueProcessing()) {
-        break;
-      }
     }
     // A required prop falls back to the schema example rather than resolving
     // to nothing, so SDC is never handed a missing required prop. The test
@@ -2177,12 +2165,10 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
       // Set the value so providers can use it.
       $this->fieldItem->setValue($value);
       $instances = $this->getValueCollection()->getAllowedInstances('value');
-      // Allow providers to modify the final override value.
+      // Allow providers to alter the final override value. A chain: every
+      // provider gets a turn.
       foreach ($instances as $instance) {
         $value = $instance->alterValue($value, 'override');
-        if (!$instance->shouldContinueProcessing()) {
-          break;
-        }
       }
     }
     if (is_array($value) && !$this->isIterable()) {

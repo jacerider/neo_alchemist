@@ -15,18 +15,19 @@ use PHPUnit\Framework\Attributes\Group;
 /**
  * Tests the `user_has_role` veto provider.
  *
- * This is the one plugin family that claims the value directly rather than
- * letting the processing mode decide — the documented exception to "never call
- * claimValue() yourself". When the current user lacks the configured roles it
- * returns FALSE and halts the pipeline, so no fallback can put a truthy value
- * back and reveal the component.
+ * This is one of the plugin family that claims the value directly rather than
+ * letting the processing mode decide — a veto. When the current user lacks the
+ * configured roles it returns a claimed FALSE, so the search halts and no
+ * fallback can put a truthy value back and reveal the component.
  *
  * Access-adjacent: a wrong verdict here shows role-gated content to the wrong
- * users, or hides it from the right ones. The claim's halting effect on the
- * real pipeline is covered by ComponentValueProcessingModeIntegrationTest;
- * this pins the verdict itself.
+ * users, or hides it from the right ones. Assertions are on the outcome the
+ * search reads — the produced value and whether it is claimed. The claim's
+ * halting effect on the real pipeline is covered by
+ * ComponentValueProcessingModeIntegrationTest; this pins the verdict itself.
  *
  * @see \Drupal\neo_alchemist\Plugin\ComponentValue\UserHasRoleValue
+ * @see \Drupal\neo_alchemist\ValueProviderSearch
  */
 #[Group('neo_alchemist')]
 class UserHasRoleValueTest extends UnitTestCase {
@@ -93,17 +94,16 @@ class UserHasRoleValueTest extends UnitTestCase {
   #[DataProvider('matchCases')]
   public function testRoleMatching(array $accountRoles, string $match, array $roles, bool $granted): void {
     $plugin = $this->plugin($accountRoles, ['match' => $match, 'roles' => $roles]);
-    $plugin->allowFurtherProcessing();
 
-    $result = $plugin->provideDefaultValue(TRUE);
+    $provision = $plugin->provide(TRUE);
 
     if ($granted) {
-      $this->assertTrue($result, 'The incoming value passed through untouched.');
-      $this->assertFalse($plugin->hasClaimedValue(), 'A granted user leaves the pipeline running.');
+      $this->assertTrue($provision->getValue(), 'The incoming value passed through untouched.');
+      $this->assertFalse($provision->isClaimed(), 'A granted user leaves the pipeline running.');
     }
     else {
-      $this->assertFalse($result, 'A denied user resolves to FALSE.');
-      $this->assertTrue($plugin->hasClaimedValue(), 'A denied user halts the pipeline so no fallback can reveal the component.');
+      $this->assertFalse($provision->getValue(), 'A denied user resolves to FALSE.');
+      $this->assertTrue($provision->isClaimed(), 'A denied user halts the pipeline so no fallback can reveal the component.');
     }
   }
 
@@ -112,11 +112,11 @@ class UserHasRoleValueTest extends UnitTestCase {
    */
   public function testGrantedPassesAnyValueThrough(): void {
     $plugin = $this->plugin(['editor'], ['match' => 'any', 'roles' => ['editor']]);
-    $plugin->allowFurtherProcessing();
 
     // FALSE is a legitimate boolean value; the plugin must not "upgrade" it.
-    $this->assertFalse($plugin->provideDefaultValue(FALSE), 'An authored FALSE survives a granted check.');
-    $this->assertFalse($plugin->hasClaimedValue());
+    $provision = $plugin->provide(FALSE);
+    $this->assertFalse($provision->getValue(), 'An authored FALSE survives a granted check.');
+    $this->assertFalse($provision->isClaimed());
   }
 
   /**
@@ -133,15 +133,13 @@ class UserHasRoleValueTest extends UnitTestCase {
    * because the safe-looking one is the deny.
    */
   public function testEmptyRoleListIsModeDependent(): void {
-    $any = $this->plugin(['editor'], ['match' => 'any', 'roles' => []]);
-    $any->allowFurtherProcessing();
-    $this->assertFalse($any->provideDefaultValue(TRUE), 'match=any with no roles denies everyone (fails closed).');
-    $this->assertTrue($any->hasClaimedValue());
+    $any = $this->plugin(['editor'], ['match' => 'any', 'roles' => []])->provide(TRUE);
+    $this->assertFalse($any->getValue(), 'match=any with no roles denies everyone (fails closed).');
+    $this->assertTrue($any->isClaimed());
 
-    $all = $this->plugin(['editor'], ['match' => 'all', 'roles' => []]);
-    $all->allowFurtherProcessing();
-    $this->assertTrue($all->provideDefaultValue(TRUE), 'match=all with no roles grants everyone (fails open).');
-    $this->assertFalse($all->hasClaimedValue());
+    $all = $this->plugin(['editor'], ['match' => 'all', 'roles' => []])->provide(TRUE);
+    $this->assertTrue($all->getValue(), 'match=all with no roles grants everyone (fails open).');
+    $this->assertFalse($all->isClaimed());
   }
 
   /**
@@ -152,11 +150,10 @@ class UserHasRoleValueTest extends UnitTestCase {
    * match() or a new mode cannot silently invert it.
    */
   public function testUnknownMatchModeDenies(): void {
-    $plugin = $this->plugin(['editor'], ['match' => 'sometimes', 'roles' => ['editor']]);
-    $plugin->allowFurtherProcessing();
+    $provision = $this->plugin(['editor'], ['match' => 'sometimes', 'roles' => ['editor']])->provide(TRUE);
 
-    $this->assertFalse($plugin->provideDefaultValue(TRUE), 'An unknown match mode fails closed.');
-    $this->assertTrue($plugin->hasClaimedValue());
+    $this->assertFalse($provision->getValue(), 'An unknown match mode fails closed.');
+    $this->assertTrue($provision->isClaimed());
   }
 
   /**

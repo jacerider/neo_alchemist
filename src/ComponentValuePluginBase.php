@@ -26,13 +26,6 @@ abstract class ComponentValuePluginBase extends PluginBase implements ComponentV
   protected ComponentShapePluginInterface $shape;
 
   /**
-   * Flag to continue processing.
-   *
-   * @var bool
-   */
-  protected $continueProcessing = TRUE;
-
-  /**
    * Creates a toolbar item instance.
    */
   public function __construct(
@@ -217,6 +210,17 @@ abstract class ComponentValuePluginBase extends PluginBase implements ComponentV
 
   /**
    * {@inheritdoc}
+   *
+   * Most producers just produce a value and let the site builder's processing
+   * mode decide its fate, so the base offers whatever provideDefaultValue()
+   * returns. A producer that claims a value itself overrides this.
+   */
+  public function provide(mixed $value): ComponentValueProvision {
+    return ComponentValueProvision::offer($this->provideDefaultValue($value));
+  }
+
+  /**
+   * {@inheritdoc}
    */
   public function provideOverrideValue(mixed $value, mixed $defaultValue): mixed {
     return $value;
@@ -246,43 +250,6 @@ abstract class ComponentValuePluginBase extends PluginBase implements ComponentV
    * {@inheritdoc}
    */
   public function massageValuesAlter(array &$values, array $submitted_values, array $original_values, array $form, FormStateInterface $form_state): void {
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function allowFurtherProcessing(): self {
-    $this->continueProcessing = TRUE;
-    return $this;
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function stopFurtherProcessing(): self {
-    $this->continueProcessing = FALSE;
-    return $this;
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function shouldContinueProcessing(): bool {
-    return $this->continueProcessing === TRUE;
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function claimValue(): self {
-    return $this->stopFurtherProcessing();
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function hasClaimedValue(): bool {
-    return !$this->shouldContinueProcessing();
   }
 
   /**

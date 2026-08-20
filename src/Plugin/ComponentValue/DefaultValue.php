@@ -14,6 +14,7 @@ use Drupal\neo_alchemist\Attribute\ComponentValue;
 use Drupal\neo_alchemist\ComponentShapePluginInterface;
 use Drupal\neo_alchemist\ComponentShapePluginManager;
 use Drupal\neo_alchemist\ComponentValuePluginBase;
+use Drupal\neo_alchemist\ComponentValueProvision;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
@@ -213,7 +214,7 @@ final class DefaultValue extends ComponentValuePluginBase implements ContainerFa
   /**
    * {@inheritdoc}
    */
-  public function provideDefaultValue(mixed $value): mixed {
+  public function provide(mixed $value): ComponentValueProvision {
     // Fallback only: preserve any value an earlier (non-claiming) provider
     // supplied, and never return NULL over a threaded value.
     //
@@ -224,30 +225,35 @@ final class DefaultValue extends ComponentValuePluginBase implements ContainerFa
     // example) is preserved.
     $isUntouchedExample = $value === $this->shape->resolveValue($this->shape->getDefaultSchemaValue());
     if (!$isUntouchedExample && !$this->shape->isProvidedValueEmpty($value)) {
-      return $value;
+      return ComponentValueProvision::offer($value);
     }
 
     // NULL is the "no default configured" sentinel — ::configurationMassage()
     // maps the widget's `_default` choice onto it — so leave the example alone.
     $default = $this->configuration['default'] ?? NULL;
     if ($default === NULL) {
-      return $value;
+      return ComponentValueProvision::offer($value);
     }
 
     // Anything else is an answer the site-builder typed, and emptying the
-    // widget is one of the answers they can type. Claim it: the provide loop
+    // widget is one of the answers they can type. Claim it: the search
     // discards an empty value from a provider that has not claimed, on the
     // grounds that a producer which found nothing should not destroy what was
     // threaded past it — but this plugin is not a producer looking something
     // up, it is the configured default itself, so its empty means "no default"
     // and not "I came up short". Without the claim, clearing every item out of
     // a default put the component author's example back on screen, which reads
-    // as the removal never having saved.
-    //
-    // The claim only halts the loop that is reading it; ::getAllowedInstances()
-    // resets the flag, and at weight 1000 there is nothing after this anyway.
-    $this->claimValue();
-    return $default;
+    // as the removal never having saved. At weight 1000 there is nothing after
+    // this anyway; the claim is what keeps the empty default standing instead
+    // of falling through to the example.
+    return ComponentValueProvision::claim($default);
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function provideDefaultValue(mixed $value): mixed {
+    return $this->provide($value)->getValue();
   }
 
 }

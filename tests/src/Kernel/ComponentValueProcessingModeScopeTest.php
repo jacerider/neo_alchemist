@@ -81,7 +81,7 @@ class ComponentValueProcessingModeScopeTest extends KernelTestBase {
    * mode's scope to "every pass a provider takes part in" would therefore
    * disable modifiers on every prop where a provider found a value, sitewide.
    *
-   * If someone adds applyProcessingMode() to the modifier loop, this goes red.
+   * If someone consults claimsValue() in the modifier loop, this goes red.
    */
   public function testModifiersStillRunAfterProviderClaims(): void {
     $component = $this->buildComponent([

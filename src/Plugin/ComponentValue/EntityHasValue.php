@@ -11,6 +11,7 @@ use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\neo_alchemist\Attribute\ComponentValue;
 use Drupal\neo_alchemist\ComponentShapePluginInterface;
 use Drupal\neo_alchemist\ComponentValuePluginBase;
+use Drupal\neo_alchemist\ComponentValueProvision;
 use Drupal\neo_alchemist\MatcherField;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
@@ -111,8 +112,12 @@ final class EntityHasValue extends ComponentValuePluginBase implements Container
 
   /**
    * {@inheritdoc}
+   *
+   * An empty field vetoes: claim FALSE so the search halts and no fallback can
+   * put a truthy value back and reveal a component that has nothing to show. A
+   * field with content offers the threaded value untouched.
    */
-  public function provideDefaultValue(mixed $value): mixed {
+  public function provide(mixed $value): ComponentValueProvision {
     // Emptiness is the field item list's own isEmpty() — the field type's
     // semantic notion — NOT truthiness of getValue(): an empty text-with-
     // format field still returns a phantom [{value: NULL, format: NULL}]
@@ -131,11 +136,16 @@ final class EntityHasValue extends ComponentValuePluginBase implements Container
       published: TRUE,
       cacheableMetadata: $this->shape->getCacheableMetadata()
     ));
-    if (!$hasValue) {
-      $this->claimValue();
-      return FALSE;
-    }
-    return $value;
+    return $hasValue
+      ? ComponentValueProvision::offer($value)
+      : ComponentValueProvision::claim(FALSE);
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function provideDefaultValue(mixed $value): mixed {
+    return $this->provide($value)->getValue();
   }
 
   /**

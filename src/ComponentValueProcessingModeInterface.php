@@ -40,15 +40,20 @@ interface ComponentValueProcessingModeInterface extends ComponentValuePluginInte
   public function getProcessingMode(): string;
 
   /**
-   * Applies the processing mode after the provider has produced its value.
+   * Whether the configured mode claims the value the provider produced.
    *
-   * Claims the value (halting the provider search) according to the mode and
-   * whether the produced value is empty. Never overrides an explicit claim the
-   * plugin already raised.
+   * A pure question the provider search asks after a producer offers a value:
+   * `continue` never claims, `block` always claims, and the default
+   * `stop_when_found` claims only when the produced value is non-empty. The
+   * search only asks it when the producer did not already claim the value
+   * itself, so this method does not need to account for an explicit claim.
    *
    * @param mixed $value
    *   The value the provider produced this pass.
+   *
+   * @return bool
+   *   TRUE if the mode claims the value (halting the search), FALSE otherwise.
    */
-  public function applyProcessingMode(mixed $value): void;
+  public function claimsValue(mixed $value): bool;
 
 }

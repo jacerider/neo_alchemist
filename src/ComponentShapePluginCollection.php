@@ -232,8 +232,7 @@ class ComponentShapePluginCollection extends DefaultLazyPluginCollection {
     $instances = [];
     foreach ($this->getActiveInstances() as $instance) {
       if ($instance->isAllowed($op)) {
-        // Reset the continue flag.
-        $instances[$instance->getPluginId()] = $instance->allowFurtherProcessing();
+        $instances[$instance->getPluginId()] = $instance;
       }
     }
     return $instances;

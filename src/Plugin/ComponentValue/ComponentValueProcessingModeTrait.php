@@ -14,7 +14,7 @@ use Drupal\neo_alchemist\ComponentValueProcessingModeInterface;
  * extends ComponentValuePluginBase. The provider just produces its value; this
  * trait exposes the mode select and lets the pipeline decide whether to claim.
  *
- * The mode also decides what an EMPTY result means, because getDefaultValue()
+ * The mode also decides what an EMPTY result means, because the provider search
  * keeps the value threaded into a producer that came up empty without claiming.
  * stop_when_found and continue therefore say "I found nothing, carry on with
  * what you had" — for an untouched prop, the component's schema example.
@@ -22,16 +22,15 @@ use Drupal\neo_alchemist\ComponentValueProcessingModeInterface;
  * mode for a prop whose examples are editor scaffolding rather than a default.
  *
  * **Scope: the mode governs the provider search, and nothing else.**
- * applyProcessingMode() is called from exactly one place,
- * ComponentShapePluginBase::getDefaultValue(). That is not a narrow reach that
- * someone forgot to widen — it is the only pass where the mode's question even
- * applies. The shape iterates its value plugins in nine places, and only that
- * one is a SEARCH, where "which plugin wins" is a decision the site builder
- * should get to make. The rest are broadcasts (onShapeInit, isEditable, the
- * form hooks) or chains (modifyValue, both alterValue loops), where every
- * plugin is meant to get a turn. A claim never leaks between them:
- * ComponentShapePluginCollection::getAllowedInstances() resets the flag on
- * every call.
+ * claimsValue() is consulted from exactly one place, ValueProviderSearch. That
+ * is not a narrow reach that someone forgot to widen — it is the only pass
+ * where the mode's question even applies. The shape iterates its value plugins
+ * in several places, and only that one is a SEARCH, where "which plugin wins"
+ * is a decision the site builder should get to make. The rest are broadcasts
+ * (onShapeInit, isEditable, the form hooks) or chains (modifyValue, both
+ * alterValue loops), where every plugin is meant to get a turn. The mode cannot
+ * leak between them: claimsValue() is a pure question that mutates nothing, and
+ * a producer's outcome (ComponentValueProvision) is recomputed on each pass.
  *
  * Two passes look like candidates for widening. Neither is:
  *
@@ -155,23 +154,15 @@ trait ComponentValueProcessingModeTrait {
   /**
    * {@inheritdoc}
    */
-  public function applyProcessingMode(mixed $value): void {
-    // Respect an explicit claim the plugin already raised (e.g. a veto).
-    if ($this->hasClaimedValue()) {
-      return;
-    }
-    $mode = $this->getProcessingMode();
-    if ($mode === ComponentValueProcessingModeInterface::MODE_CONTINUE) {
-      return;
-    }
-    if ($mode === ComponentValueProcessingModeInterface::MODE_BLOCK) {
-      $this->claimValue();
-      return;
-    }
-    // stop_when_found (default): claim only when a value was produced.
-    if (!$this->shape->isProvidedValueEmpty($value)) {
-      $this->claimValue();
-    }
+  public function claimsValue(mixed $value): bool {
+    return match ($this->getProcessingMode()) {
+      // Never claim: a later provider may still change the value.
+      ComponentValueProcessingModeInterface::MODE_CONTINUE => FALSE,
+      // Always claim, even when the produced value is empty.
+      ComponentValueProcessingModeInterface::MODE_BLOCK => TRUE,
+      // stop_when_found (default): claim only when a value was produced.
+      default => !$this->shape->isProvidedValueEmpty($value),
+    };
   }
 
 }

@@ -176,4 +176,30 @@ class ValueProviderSearchTest extends UnitTestCase {
     $this->assertSame('seed', $this->search([], 'seed', $shape), 'Nothing to consult, so the seed stands.');
   }
 
+  /**
+   * A producer carries nothing from one prop's search into the next.
+   *
+   * Producers are memoised on the collection and reused across props, so a
+   * claim raised while resolving one prop must not taint the next. This runs
+   * the SAME instances through the search twice with no reset in between: on
+   * the first prop the first producer claims and halts (its neighbour never
+   * runs); on the second prop the same producer comes up empty, so it must fall
+   * through and let its neighbour fill the value. If a claim were stored on the
+   * instance, the second search would still see the first producer as claimed —
+   * skip the mode, keep the empty value and break — and resolve to '' instead.
+   */
+  public function testProducerCarriesNothingBetweenSearches(): void {
+    $shape = $this->shape();
+    $first = $this->provider($shape, 'X');
+    $second = $this->provider($shape, 'Y');
+    $instances = [$first, $second];
+
+    // First prop: the first producer finds a value, claims it, and halts.
+    $this->assertSame('X', $this->search($instances, 'seed', $shape), 'The first producer claims and stops the search.');
+
+    // Same instances, second prop: the first producer now finds nothing.
+    $first->provided = '';
+    $this->assertSame('Y', $this->search($instances, 'seed', $shape), 'No claim leaked: the empty producer falls through and its neighbour fills the value.');
+  }
+
 }

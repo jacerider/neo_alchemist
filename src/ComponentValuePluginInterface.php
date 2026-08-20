@@ -110,6 +110,26 @@ interface ComponentValuePluginInterface extends ConfigurableInterface, PluginFor
   public function provideDefaultValue(mixed $value): mixed;
 
   /**
+   * Produce this producer's outcome for the provide phase.
+   *
+   * The provider search calls this and interprets the result: a producer no
+   * longer mutates itself to claim a value, it returns one. The default derives
+   * the outcome from provideDefaultValue() — the produced value is offered for
+   * the site builder's processing mode to decide. A producer that must claim a
+   * value itself — a veto, or the configured default fallback — overrides this
+   * to return a claimed provision.
+   *
+   * @param mixed $value
+   *   The value threaded into this producer — the running result of the search.
+   *
+   * @return \Drupal\neo_alchemist\ComponentValueProvision
+   *   The producer's outcome: the value it produced and whether it claims it.
+   *
+   * @see \Drupal\neo_alchemist\ValueProviderSearch::search()
+   */
+  public function provide(mixed $value): ComponentValueProvision;
+
+  /**
    * Provide an override value for the component.
    *
    * An extension point with no implementations in this module — every shipped
@@ -118,9 +138,10 @@ interface ComponentValuePluginInterface extends ConfigurableInterface, PluginFor
    *
    * - This pass carries the value a person AUTHORED, not a provider's answer.
    *   The site-builder-configurable processing mode deliberately does not apply
-   *   here, so a plugin that needs to halt the chain must call claimValue()
-   *   itself — and should be sure that suppressing authored content is what it
-   *   means to do.
+   *   here, and the override pass has no claim of its own — it is a chain, so
+   *   every implementer runs in order. A plugin that needs to suppress authored
+   *   content does so by returning the suppressed value, and should be sure
+   *   that is what it means to do.
    * - Adding an implementation is a conscious decision, pinned by a test that
    *   fails when one appears.
    *
@@ -193,55 +214,6 @@ interface ComponentValuePluginInterface extends ConfigurableInterface, PluginFor
    *   The parent form state.
    */
   public function massageValuesAlter(array &$values, array $submitted_values, array $original_values, array $form, FormStateInterface $form_state): void;
-
-  /**
-   * Allow the processing by setting the continue flag to FALSE.
-   *
-   * This will allow any following value providers to be processed.
-   *
-   * @return self
-   *   The current instance of the class.
-   */
-  public function allowFurtherProcessing(): self;
-
-  /**
-   * Stops the processing by setting the continue flag to FALSE.
-   *
-   * This will prevent any following value providers from being processed.
-   *
-   * @return self
-   *   The current instance of the class.
-   */
-  public function stopFurtherProcessing(): self;
-
-  /**
-   * Determines if following processors should be allowed to process.
-   *
-   * @return bool
-   *   TRUE if processing should continue, FALSE otherwise.
-   */
-  public function shouldContinueProcessing(): bool;
-
-  /**
-   * Claim the value: halt the provider search after this plugin.
-   *
-   * Semantic alias of stopFurtherProcessing() for the value-provision contract:
-   * a plugin "claims" a value to declare it authoritative, so no later provider
-   * overwrites it. Modifiers still run (the modify op is resolved separately).
-   *
-   * @return self
-   *   The current instance of the class.
-   */
-  public function claimValue(): self;
-
-  /**
-   * Determines whether this plugin has claimed the value.
-   *
-   * @return bool
-   *   TRUE if the value has been claimed (the search is halted), FALSE if later
-   *   providers may still run.
-   */
-  public function hasClaimedValue(): bool;
 
   /**
    * Determines if the component value is editable.

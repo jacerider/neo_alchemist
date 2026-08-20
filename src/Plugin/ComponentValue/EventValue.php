@@ -13,6 +13,7 @@ use Drupal\neo_alchemist\Attribute\ComponentValue;
 use Drupal\neo_alchemist\ComponentShapePluginInterface;
 use Drupal\neo_alchemist\ComponentValueProcessingModeInterface;
 use Drupal\neo_alchemist\ComponentValuePluginBase;
+use Drupal\neo_alchemist\ComponentValueProvision;
 use Drupal\neo_alchemist\Event\ComponentValueEvent;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
@@ -265,7 +266,7 @@ final class EventValue extends ComponentValuePluginBase implements ContainerFact
   /**
    * {@inheritdoc}
    */
-  public function provideDefaultValue(mixed $value): mixed {
+  public function provide(mixed $value): ComponentValueProvision {
     $event = new ComponentValueEvent($this->shape, $value);
     $this->eventDispatcher->dispatch($event, ComponentValueEvent::EVENT_NAME);
     $value = $event->getValue();
@@ -273,15 +274,21 @@ final class EventValue extends ComponentValuePluginBase implements ContainerFact
     // A subscriber calling $event->stopFurtherProcessing() is the documented
     // veto case: code that has already inspected the value is stating that
     // nothing further should run, which outranks whatever the site builder
-    // picked in the form. Raising the claim here rather than in the mode is
-    // deliberate — applyProcessingMode() returns early on hasClaimedValue(),
-    // so the veto survives even under "Provide, allow later changes", and an
-    // empty vetoed value is kept as the answer instead of falling back to the
-    // schema example. When the subscriber stays silent the mode decides.
-    if (!$event->shouldContinueProcessing()) {
-      $this->stopFurtherProcessing();
-    }
-    return $value;
+    // picked in the form. Claiming the value here rather than leaving it to the
+    // mode is deliberate — the search skips the mode when the producer already
+    // claimed, so the veto survives even under "Provide, allow later changes",
+    // and an empty vetoed value is kept as the answer instead of falling back
+    // to the schema example. When the subscriber stays silent the mode decides.
+    return $event->shouldContinueProcessing()
+      ? ComponentValueProvision::offer($value)
+      : ComponentValueProvision::claim($value);
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function provideDefaultValue(mixed $value): mixed {
+    return $this->provide($value)->getValue();
   }
 
   /**
