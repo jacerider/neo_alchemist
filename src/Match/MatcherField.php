@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Drupal\neo_alchemist;
+namespace Drupal\neo_alchemist\Match;
 
 use Drupal\Component\Utility\NestedArray;
 use Drupal\Core\Cache\CacheableMetadata;
@@ -25,6 +25,8 @@ use Drupal\Core\StringTranslation\StringTranslationTrait;
 use Drupal\Core\Routing\RouteProviderInterface;
 use Drupal\Core\TypedData\DataReferenceDefinitionInterface;
 use Drupal\Core\Url;
+use Drupal\neo_alchemist\ComponentFieldConfigInterface;
+use Drupal\neo_alchemist\ComponentShapePluginInterface;
 use Drupal\neo_icon\IconTrait;
 
 /**

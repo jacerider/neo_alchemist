@@ -18,7 +18,7 @@ use Drupal\neo_alchemist\Attribute\ComponentAccess;
 use Drupal\neo_alchemist\ComponentAccessInterface;
 use Drupal\neo_alchemist\ComponentAccessPluginBase;
 use Drupal\neo_alchemist\ComponentInterface;
-use Drupal\neo_alchemist\MatcherField;
+use Drupal\neo_alchemist\Match\MatcherField;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
@@ -42,7 +42,7 @@ final class EntityFieldValueAccess extends ComponentAccessPluginBase implements 
   /**
    * The field matcher.
    *
-   * @var \Drupal\neo_alchemist\MatcherField
+   * @var \Drupal\neo_alchemist\Match\MatcherField
    */
   protected MatcherField $matcherField;
 

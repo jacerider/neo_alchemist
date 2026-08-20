@@ -162,11 +162,11 @@ services:
       - '@neo_alchemist.configured_plugin_kind.filter'
 
   neo_alchemist.matcher_field:
-    class: Drupal\neo_alchemist\MatcherField
+    class: Drupal\neo_alchemist\Match\MatcherField
     arguments: ['@module_handler', '@entity_type.manager', '@entity_field.manager', '@entity_type.bundle.info', '@router.route_provider']
 
   neo_alchemist.matcher_reference:
-    class: Drupal\neo_alchemist\MatcherReference
+    class: Drupal\neo_alchemist\Match\MatcherReference
     arguments: ['@module_handler', '@entity_type.manager', '@entity_field.manager', '@entity_type.bundle.info']
 
   neo_alchemist.children_match_mapper:
@@ -246,5 +246,5 @@ services:
       - { name: 'event_subscriber' }
 
   neo_alchemist.field_match_locator:
-    class: '\Drupal\neo_alchemist\FieldMatchLocator'
+    class: '\Drupal\neo_alchemist\Match\FieldMatchLocator'
     arguments: ['@entity_type.manager', '@neo_alchemist.matcher_field', '@cache.data']

@@ -7,6 +7,8 @@ namespace Drupal\neo_alchemist;
 use Drupal\Core\Cache\CacheableMetadata;
 use Drupal\Core\Extension\ModuleHandlerInterface;
 use Drupal\Core\Field\FormatterPluginManager;
+use Drupal\neo_alchemist\Match\FieldFormatterTrait;
+use Drupal\neo_alchemist\Match\MatcherField;
 
 /**
  * Handles `_render`: run a field through a formatter, keep the render array.
@@ -25,7 +27,7 @@ final class ChildrenMatchRenderHandler extends ChildrenMatchHandlerBase {
   /**
    * Constructs a ChildrenMatchRenderHandler.
    *
-   * @param \Drupal\neo_alchemist\MatcherField $matcherField
+   * @param \Drupal\neo_alchemist\Match\MatcherField $matcherField
    *   The field matcher: resolves and reads a field for the render.
    * @param \Drupal\Core\Field\FormatterPluginManager $fieldFormatterManager
    *   The formatter manager, for the formatter form and options.

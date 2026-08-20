@@ -10,6 +10,8 @@ use Drupal\Core\Extension\ModuleHandlerInterface;
 use Drupal\Core\Field\FormatterPluginManager;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\StringTranslation\StringTranslationTrait;
+use Drupal\neo_alchemist\Match\MatcherField;
+use Drupal\neo_alchemist\Match\MatcherReference;
 use Drupal\neo_alchemist\Plugin\ComponentValue\ComponentValuePluginTrait;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 
@@ -55,9 +57,9 @@ class ChildrenMatchMapper {
   /**
    * Constructs a ChildrenMatchMapper.
    *
-   * @param \Drupal\neo_alchemist\MatcherField $matcherField
+   * @param \Drupal\neo_alchemist\Match\MatcherField $matcherField
    *   The field matcher: reads a value off an entity for a stored field key.
-   * @param \Drupal\neo_alchemist\MatcherReference $matcherReference
+   * @param \Drupal\neo_alchemist\Match\MatcherReference $matcherReference
    *   The reference matcher, handed to the `_reference` handler.
    * @param \Symfony\Component\EventDispatcher\EventDispatcherInterface $eventDispatcher
    *   The event dispatcher, handed to the `_event` handler.

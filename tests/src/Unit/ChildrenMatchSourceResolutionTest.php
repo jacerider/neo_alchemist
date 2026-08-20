@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Drupal\Tests\neo_alchemist\Unit;
 
-use Drupal\neo_alchemist\MatcherReference;
-use Drupal\neo_alchemist\MatcherField;
+use Drupal\neo_alchemist\Match\MatcherField;
+use Drupal\neo_alchemist\Match\MatcherReference;
 use Drupal\Core\Cache\Cache;
 use Drupal\Core\Cache\CacheableMetadata;
 use Drupal\Core\Cache\CacheableResponseInterface;

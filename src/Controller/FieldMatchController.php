@@ -6,7 +6,7 @@ namespace Drupal\neo_alchemist\Controller;
 
 use Drupal\Core\Controller\ControllerBase;
 use Drupal\neo_alchemist\ComponentShapePluginInterface;
-use Drupal\neo_alchemist\FieldMatchLocator;
+use Drupal\neo_alchemist\Match\FieldMatchLocator;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -20,7 +20,7 @@ use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
  * answers one Miller column with the fields at a point in the entity tree and
  * the references leading out of it.
  *
- * @see \Drupal\neo_alchemist\FieldMatchLocator
+ * @see \Drupal\neo_alchemist\Match\FieldMatchLocator
  */
 final class FieldMatchController extends ControllerBase {
 

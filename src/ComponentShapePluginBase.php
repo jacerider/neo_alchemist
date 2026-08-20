@@ -2780,7 +2780,7 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
    * @return \Drupal\Core\TypedData\DataDefinitionInterface[]
    *   The properties that carry data of their own.
    *
-   * @see \Drupal\neo_alchemist\MatcherField::matchScalar()
+   * @see \Drupal\neo_alchemist\Match\MatcherField::matchScalar()
    */
   protected function contentBearingFieldProperties(FieldDefinitionInterface $entityFieldDefinition, array $entityFieldProperties): array {
     // Deliberately the same predicate MatcherField::matchScalar() recurses on,

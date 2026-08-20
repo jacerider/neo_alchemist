@@ -10,8 +10,8 @@ use Drupal\Core\Form\FormStateInterface;
 use Drupal\neo_alchemist\ComponentPropRenderable;
 use Drupal\neo_alchemist\ComponentShapeChildrenPluginInterface;
 use Drupal\neo_alchemist\ComponentShapePluginInterface;
-use Drupal\neo_alchemist\FieldFormatterTrait;
-use Drupal\neo_alchemist\MatcherField;
+use Drupal\neo_alchemist\Match\FieldFormatterTrait;
+use Drupal\neo_alchemist\Match\MatcherField;
 
 /**
  * A trait for adding value matching capabilities to component value plugins.
@@ -25,7 +25,7 @@ trait ComponentValueMatchTrait {
   /**
    * The field matcher.
    *
-   * @var \Drupal\neo_alchemist\MatcherField
+   * @var \Drupal\neo_alchemist\Match\MatcherField
    */
   protected MatcherField $matcherField;
 
@@ -341,7 +341,7 @@ trait ComponentValueMatchTrait {
   /**
    * The matcher.
    *
-   * @return \Drupal\neo_alchemist\MatcherField
+   * @return \Drupal\neo_alchemist\Match\MatcherField
    *   The matcher.
    */
   protected function getMatcher(): MatcherField {

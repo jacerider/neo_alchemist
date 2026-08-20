@@ -2,10 +2,12 @@
 
 declare(strict_types=1);
 
-namespace Drupal\neo_alchemist;
+namespace Drupal\neo_alchemist\Match;
 
 use Drupal\Core\Cache\CacheBackendInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
+use Drupal\neo_alchemist\ComponentInterface;
+use Drupal\neo_alchemist\ComponentShapePluginInterface;
 
 /**
  * Addresses a shape by scalars, so a search request can rebuild it.

@@ -12,7 +12,7 @@ use Drupal\neo_alchemist\Attribute\ComponentValue;
 use Drupal\neo_alchemist\ComponentShapePluginInterface;
 use Drupal\neo_alchemist\ComponentValuePluginBase;
 use Drupal\neo_alchemist\ComponentValueProvision;
-use Drupal\neo_alchemist\MatcherField;
+use Drupal\neo_alchemist\Match\MatcherField;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
@@ -36,7 +36,7 @@ final class EntityHasValue extends ComponentValuePluginBase implements Container
   /**
    * The field matcher.
    *
-   * @var \Drupal\neo_alchemist\MatcherField
+   * @var \Drupal\neo_alchemist\Match\MatcherField
    */
   protected MatcherField $matcherField;
 

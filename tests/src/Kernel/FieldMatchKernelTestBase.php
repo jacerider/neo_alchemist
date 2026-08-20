@@ -77,7 +77,7 @@ abstract class FieldMatchKernelTestBase extends KernelTestBase {
   /**
    * The locator under test.
    *
-   * @return \Drupal\neo_alchemist\FieldMatchLocator
+   * @return \Drupal\neo_alchemist\Match\FieldMatchLocator
    *   The locator.
    */
   protected function locator() {

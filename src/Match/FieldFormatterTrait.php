@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Drupal\neo_alchemist;
+namespace Drupal\neo_alchemist\Match;
 
 use Drupal\Component\Plugin\Factory\DefaultFactory;
 use Drupal\Core\Extension\ModuleHandlerInterface;

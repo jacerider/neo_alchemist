@@ -15,7 +15,7 @@ use Drupal\neo_alchemist\ComponentShapeChildrenPluginInterface;
 use Drupal\neo_alchemist\ComponentShapePluginInterface;
 use Drupal\neo_alchemist\ComponentValueProcessingModeInterface;
 use Drupal\neo_alchemist\ComponentValuePluginBase;
-use Drupal\neo_alchemist\MatcherField;
+use Drupal\neo_alchemist\Match\MatcherField;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
@@ -41,7 +41,7 @@ final class EntityValue extends ComponentValuePluginBase implements ContainerFac
   /**
    * The field matcher.
    *
-   * @var \Drupal\neo_alchemist\MatcherField
+   * @var \Drupal\neo_alchemist\Match\MatcherField
    */
   protected MatcherField $matcherField;
 

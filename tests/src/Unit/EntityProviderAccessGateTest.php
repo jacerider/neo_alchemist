@@ -13,7 +13,7 @@ use Drupal\Core\Extension\ModuleHandlerInterface;
 use Drupal\Tests\neo_alchemist\Traits\ShapeDoubleTrait;
 use Drupal\neo_alchemist\ComponentShapeContextInterface;
 use Drupal\neo_alchemist\ComponentShapePluginInterface;
-use Drupal\neo_alchemist\MatcherField;
+use Drupal\neo_alchemist\Match\MatcherField;
 use Drupal\neo_alchemist\Plugin\ComponentValue\EntityHasValue;
 use Drupal\neo_alchemist\Plugin\ComponentValue\EntityValue;
 use Drupal\Tests\UnitTestCase;

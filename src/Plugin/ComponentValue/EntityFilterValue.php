@@ -20,7 +20,7 @@ use Drupal\neo_alchemist\ComponentShapeChildrenMatchPluginInterface;
 use Drupal\neo_alchemist\ComponentShapePluginInterface;
 use Drupal\neo_alchemist\ComponentValueProcessingModeInterface;
 use Drupal\neo_alchemist\ComponentValuePluginBase;
-use Drupal\neo_alchemist\MatcherReference;
+use Drupal\neo_alchemist\Match\MatcherReference;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
@@ -45,7 +45,7 @@ final class EntityFilterValue extends ComponentValuePluginBase implements Contai
   /**
    * The reference matcher.
    *
-   * @var \Drupal\neo_alchemist\MatcherReference
+   * @var \Drupal\neo_alchemist\Match\MatcherReference
    */
   protected MatcherReference $matcherReference;
 

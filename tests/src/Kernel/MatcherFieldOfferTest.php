@@ -31,7 +31,7 @@ use PHPUnit\Framework\Attributes\Group;
  *   an excluded field keeps resolving, so tightening this can never silently
  *   blank existing content — see ::testExcludedFieldStillResolves().
  *
- * @see \Drupal\neo_alchemist\MatcherField::EXCLUDED_FIELD_TYPES
+ * @see \Drupal\neo_alchemist\Match\MatcherField::EXCLUDED_FIELD_TYPES
  * @see \Drupal\Tests\neo_alchemist\Kernel\MatcherFieldPredicateTest
  */
 #[Group('neo_alchemist')]

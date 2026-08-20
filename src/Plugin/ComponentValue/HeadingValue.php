@@ -15,7 +15,7 @@ use Drupal\neo_alchemist\ComponentShapeChildrenPluginInterface;
 use Drupal\neo_alchemist\ComponentShapePluginInterface;
 use Drupal\neo_alchemist\ComponentValueProcessingModeInterface;
 use Drupal\neo_alchemist\ComponentValuePluginBase;
-use Drupal\neo_alchemist\MatcherField;
+use Drupal\neo_alchemist\Match\MatcherField;
 use Drupal\neo_alchemist\NestedOptionMap;
 use Drupal\neo_alchemist\Plugin\ComponentShape\ObjectShape;
 
@@ -46,7 +46,7 @@ final class HeadingValue extends ComponentValuePluginBase implements ContainerFa
   /**
    * The field matcher.
    *
-   * @var \Drupal\neo_alchemist\MatcherField
+   * @var \Drupal\neo_alchemist\Match\MatcherField
    */
   protected MatcherField $matcherField;
 
@@ -104,7 +104,7 @@ final class HeadingValue extends ComponentValuePluginBase implements ContainerFa
    * matcher is only touched when a sub-prop is actually bound to an entity
    * field.
    *
-   * @return \Drupal\neo_alchemist\MatcherField
+   * @return \Drupal\neo_alchemist\Match\MatcherField
    *   The matcher.
    */
   protected function getMatcher(): MatcherField {

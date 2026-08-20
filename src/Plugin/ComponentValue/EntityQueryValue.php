@@ -24,7 +24,7 @@ use Drupal\neo_alchemist\ComponentShapePluginInterface;
 use Drupal\neo_alchemist\ComponentValueProcessingModeInterface;
 use Drupal\neo_alchemist\ComponentValuePluginBase;
 use Drupal\neo_alchemist\Event\ComponentValueEntityQueryEvent;
-use Drupal\neo_alchemist\MatcherReference;
+use Drupal\neo_alchemist\Match\MatcherReference;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
@@ -73,7 +73,7 @@ final class EntityQueryValue extends ComponentValuePluginBase implements Contain
   /**
    * The reference matcher.
    *
-   * @var \Drupal\neo_alchemist\MatcherReference
+   * @var \Drupal\neo_alchemist\Match\MatcherReference
    */
   protected MatcherReference $matcherReference;
 

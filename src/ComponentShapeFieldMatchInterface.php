@@ -17,8 +17,8 @@ use Drupal\Core\TypedData\DataDefinitionInterface;
  *
  * Read by the matcher and the match locator, and by nothing else.
  *
- * @see \Drupal\neo_alchemist\MatcherField
- * @see \Drupal\neo_alchemist\FieldMatchLocator
+ * @see \Drupal\neo_alchemist\Match\MatcherField
+ * @see \Drupal\neo_alchemist\Match\FieldMatchLocator
  * @see \Drupal\neo_alchemist\ComponentShapePluginInterface
  */
 interface ComponentShapeFieldMatchInterface extends ComponentShapeIdentityInterface {

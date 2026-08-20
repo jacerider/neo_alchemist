@@ -11,7 +11,7 @@ use Drupal\Core\Render\Element;
 use Drupal\Core\Render\Element\FormElementBase;
 use Drupal\Core\Url;
 use Drupal\neo_alchemist\ComponentShapePluginInterface;
-use Drupal\neo_alchemist\FieldMatchLocator;
+use Drupal\neo_alchemist\Match\FieldMatchLocator;
 
 /**
  * A searchable picker for an entity field to source a prop value from.
@@ -42,7 +42,7 @@ use Drupal\neo_alchemist\FieldMatchLocator;
  * @endcode
  *
  * @see \Drupal\neo_alchemist\Controller\FieldMatchController
- * @see \Drupal\neo_alchemist\FieldMatchLocator
+ * @see \Drupal\neo_alchemist\Match\FieldMatchLocator
  */
 #[FormElement('neo_field_select')]
 final class FieldSelect extends FormElementBase {
@@ -257,7 +257,7 @@ final class FieldSelect extends FormElementBase {
   /**
    * Looks a stored key up against the element's own match list.
    *
-   * @param \Drupal\neo_alchemist\FieldMatchLocator $locator
+   * @param \Drupal\neo_alchemist\Match\FieldMatchLocator $locator
    *   The locator.
    * @param \Drupal\neo_alchemist\ComponentShapePluginInterface $shape
    *   The resolved shape.

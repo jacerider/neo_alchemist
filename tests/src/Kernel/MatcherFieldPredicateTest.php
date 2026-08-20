@@ -35,7 +35,7 @@ use PHPUnit\Framework\Attributes\Group;
  * read storage settings and property definitions, so mocking them would only
  * restate this test's own assumptions.
  *
- * @see \Drupal\neo_alchemist\MatcherField::matchScalar()
+ * @see \Drupal\neo_alchemist\Match\MatcherField::matchScalar()
  */
 #[Group('neo_alchemist')]
 class MatcherFieldPredicateTest extends KernelTestBase {

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Drupal\neo_alchemist;
 
+use Drupal\neo_alchemist\Match\MatcherReference;
+
 /**
  * Handles `_reference~key`: map the entities that reference field points at.
  *
@@ -15,7 +17,7 @@ final class ChildrenMatchReferenceHandler extends ChildrenMatchHandlerBase {
   /**
    * Constructs a ChildrenMatchReferenceHandler.
    *
-   * @param \Drupal\neo_alchemist\MatcherReference $matcherReference
+   * @param \Drupal\neo_alchemist\Match\MatcherReference $matcherReference
    *   The reference matcher: lists reference fields and follows them.
    */
   public function __construct(

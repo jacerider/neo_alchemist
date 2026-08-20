@@ -21,8 +21,8 @@ use Drupal\field\FieldLabelOptionsTrait;
 use Drupal\neo_alchemist\Attribute\ComponentSlot;
 use Drupal\neo_alchemist\ComponentInterface;
 use Drupal\neo_alchemist\ComponentSlotPluginBase;
-use Drupal\neo_alchemist\FieldFormatterTrait;
-use Drupal\neo_alchemist\MatcherReference;
+use Drupal\neo_alchemist\Match\FieldFormatterTrait;
+use Drupal\neo_alchemist\Match\MatcherReference;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
@@ -63,7 +63,7 @@ final class EntityFieldSlot extends ComponentSlotPluginBase implements Container
   /**
    * The field matcher.
    *
-   * @var \Drupal\neo_alchemist\MatcherReference
+   * @var \Drupal\neo_alchemist\Match\MatcherReference
    */
   protected MatcherReference $matcherReference;
 

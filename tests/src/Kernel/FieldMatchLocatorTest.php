@@ -20,7 +20,7 @@ use PHPUnit\Framework\Attributes\Group;
  * nobody wants), and how the tree is served one pane at a time — search is
  * the only consumer that still pays for the flattened recursive walk.
  *
- * @see \Drupal\neo_alchemist\FieldMatchLocator
+ * @see \Drupal\neo_alchemist\Match\FieldMatchLocator
  */
 #[Group('neo_alchemist')]
 class FieldMatchLocatorTest extends FieldMatchKernelTestBase {
