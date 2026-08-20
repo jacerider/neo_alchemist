@@ -11,6 +11,7 @@ use Drupal\Core\Entity\ContentEntityInterface;
 use Drupal\Core\Entity\EntityTypeInterface;
 use Drupal\Core\Plugin\Component;
 use Drupal\Core\Render\RenderableInterface;
+use Drupal\neo_alchemist\Slot\ComponentSlotInterface;
 
 /**
  * Provides an interface defining a component entity type.
@@ -718,7 +719,7 @@ interface ComponentInterface extends ConfigEntityInterface, RenderableInterface,
    * the component's slot schema. The slots are then stored in the $slots
    * property and returned.
    *
-   * @return \Drupal\neo_alchemist\ComponentSlotInterface[]
+   * @return \Drupal\neo_alchemist\Slot\ComponentSlotInterface[]
    *   An array of slots for the component.
    */
   public function getSlots(): array;
@@ -729,7 +730,7 @@ interface ComponentInterface extends ConfigEntityInterface, RenderableInterface,
    * @param string $slotName
    *   The name of the slot to retrieve.
    *
-   * @return \Drupal\neo_alchemist\ComponentSlotInterface|null
+   * @return \Drupal\neo_alchemist\Slot\ComponentSlotInterface|null
    *   The slot object if found, or NULL if the slot does not exist.
    */
   public function getSlot(string $slotName): ?ComponentSlotInterface;
@@ -737,7 +738,7 @@ interface ComponentInterface extends ConfigEntityInterface, RenderableInterface,
   /**
    * Retrieves the slot settings for a specific slot.
    *
-   * @param \Drupal\neo_alchemist\ComponentSlotInterface $slot
+   * @param \Drupal\neo_alchemist\Slot\ComponentSlotInterface $slot
    *   The slot for which the settings are being retrieved.
    *
    * @return array
@@ -748,7 +749,7 @@ interface ComponentInterface extends ConfigEntityInterface, RenderableInterface,
   /**
    * Sets the settings for a specific slot.
    *
-   * @param \Drupal\neo_alchemist\ComponentSlotInterface $slot
+   * @param \Drupal\neo_alchemist\Slot\ComponentSlotInterface $slot
    *   The slot for which the settings are being set.
    * @param array $settings
    *   An associative array of settings to be applied to the slot.

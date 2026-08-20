@@ -11,9 +11,9 @@ use Drupal\Core\Form\SubformState;
 use Drupal\Core\StringTranslation\StringTranslationTrait;
 use Drupal\neo_alchemist\Ajax\ComponentAjaxFormHelperTrait;
 use Drupal\neo_alchemist\ComponentManageHelper;
-use Drupal\neo_alchemist\ComponentSlot;
-use Drupal\neo_alchemist\ComponentSlotPluginInterface;
-use Drupal\neo_alchemist\ComponentSlotPluginManager;
+use Drupal\neo_alchemist\Slot\ComponentSlot;
+use Drupal\neo_alchemist\Slot\ComponentSlotPluginInterface;
+use Drupal\neo_alchemist\Slot\ComponentSlotPluginManager;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
@@ -42,14 +42,14 @@ final class ComponentSlotForm extends EntityForm implements StagedPluginListInte
   /**
    * The slot manager.
    *
-   * @var \Drupal\neo_alchemist\ComponentSlotPluginManager
+   * @var \Drupal\neo_alchemist\Slot\ComponentSlotPluginManager
    */
   protected $slotManager;
 
   /**
    * The slot.
    *
-   * @var \Drupal\neo_alchemist\ComponentSlotInterface
+   * @var \Drupal\neo_alchemist\Slot\ComponentSlotInterface
    */
   protected $slot;
 
@@ -65,7 +65,7 @@ final class ComponentSlotForm extends EntityForm implements StagedPluginListInte
   /**
    * ComponentSlotForm constructor.
    *
-   * @param \Drupal\neo_alchemist\ComponentSlotPluginManager $slot_manager
+   * @param \Drupal\neo_alchemist\Slot\ComponentSlotPluginManager $slot_manager
    *   The slot manager.
    */
   public function __construct(ComponentSlotPluginManager $slot_manager) {
@@ -302,7 +302,7 @@ final class ComponentSlotForm extends EntityForm implements StagedPluginListInte
    * Without this panel the filenames are only discoverable from
    * `drush neo:alchemist:slot`, which is not where a site builder is looking.
    *
-   * @param \Drupal\neo_alchemist\ComponentSlotPluginInterface[] $plugins
+   * @param \Drupal\neo_alchemist\Slot\ComponentSlotPluginInterface[] $plugins
    *   The slot's plugins, keyed by UUID.
    *
    * @return array

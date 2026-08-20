@@ -24,8 +24,8 @@ use Drupal\neo_alchemist\ComponentInstanceInterface;
 use Drupal\neo_alchemist\ComponentInterface;
 use Drupal\neo_alchemist\ComponentManageHelper;
 use Drupal\neo_alchemist\ComponentShapePluginInterface;
-use Drupal\neo_alchemist\ComponentSlotInterface;
 use Drupal\neo_alchemist\MissingHostEntityException;
+use Drupal\neo_alchemist\Slot\ComponentSlotInterface;
 use Drupal\neo_icon\IconTrait;
 
 /**
@@ -270,7 +270,7 @@ class Component extends ConfigEntityBase implements ComponentInterface {
   /**
    * The slots.
    *
-   * @var \Drupal\neo_alchemist\ComponentSlot[]
+   * @var \Drupal\neo_alchemist\Slot\ComponentSlot[]
    */
   protected array $slots;
 
@@ -1162,7 +1162,7 @@ class Component extends ConfigEntityBase implements ComponentInterface {
   public function getSlots(): array {
     if (!isset($this->slots)) {
       $this->slots = [];
-      /** @var \Drupal\neo_alchemist\ComponentSlotFactory $factory */
+      /** @var \Drupal\neo_alchemist\Slot\ComponentSlotFactory $factory */
       $factory = \Drupal::service('neo_component.slot.factory');
       foreach ($this->getComponentSlots() as $slotName => $schema) {
         $this->slots[$slotName] = $factory->get($this, $slotName, $schema, $this->settings['slots'][$slotName] ?? []);

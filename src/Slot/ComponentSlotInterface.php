@@ -2,9 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Drupal\neo_alchemist;
+namespace Drupal\neo_alchemist\Slot;
 
 use Drupal\Core\Render\RenderableInterface;
+use Drupal\neo_alchemist\ComponentInterface;
 
 /**
  * Interface for neo_component_shape plugins.
@@ -62,7 +63,7 @@ interface ComponentSlotInterface extends RenderableInterface {
   /**
    * Gets the slot plugins.
    *
-   * @return \Drupal\neo_alchemist\ComponentSlotPluginInterface[]
+   * @return \Drupal\neo_alchemist\Slot\ComponentSlotPluginInterface[]
    *   The slot plugins.
    */
   public function getPlugins(): array;
@@ -73,7 +74,7 @@ interface ComponentSlotInterface extends RenderableInterface {
    * @param string $uuid
    *   The UUID of the slot plugin.
    *
-   * @return \Drupal\neo_alchemist\ComponentSlotPluginInterface|null
+   * @return \Drupal\neo_alchemist\Slot\ComponentSlotPluginInterface|null
    *   The slot plugin or NULL if not found.
    */
   public function getPlugin(string $uuid): ?ComponentSlotPluginInterface;
@@ -125,7 +126,7 @@ interface ComponentSlotInterface extends RenderableInterface {
    * @param array $settings
    *   The plugin settings.
    *
-   * @return \Drupal\neo_alchemist\ComponentSlotPluginInterface
+   * @return \Drupal\neo_alchemist\Slot\ComponentSlotPluginInterface
    *   The slot plugin.
    */
   public function addPlugin(string $plugin_id, $settings = []): ComponentSlotPluginInterface;

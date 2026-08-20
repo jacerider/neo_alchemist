@@ -7,7 +7,7 @@ namespace Drupal\neo_alchemist\Plugin\ComponentSlot;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\neo_alchemist\Attribute\ComponentSlot;
 use Drupal\neo_alchemist\ComponentInterface;
-use Drupal\neo_alchemist\ComponentSlotPluginBase;
+use Drupal\neo_alchemist\Slot\ComponentSlotPluginBase;
 
 /**
  * Plugin implementation of the neo_component_slot.

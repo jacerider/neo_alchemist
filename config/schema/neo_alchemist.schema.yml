@@ -797,7 +797,7 @@ neo_alchemist.neo_component_settings.slots:
               constraints:
                 PluginExists:
                   manager: plugin.manager.neo_component_slot
-                  interface: '\Drupal\neo_alchemist\ComponentSlotPluginInterface'
+                  interface: '\Drupal\neo_alchemist\Slot\ComponentSlotPluginInterface'
             # The name a slot template addresses this item by. Absent means
             # "derive it from the plugin id". Deliberately not type
             # machine_name: that permits a leading digit, and `{{ 2col }}` is a

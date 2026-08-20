@@ -8,7 +8,7 @@ use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Plugin\ContainerFactoryPluginInterface;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\neo_alchemist\Attribute\ComponentSlot;
-use Drupal\neo_alchemist\ComponentSlotPluginBase;
+use Drupal\neo_alchemist\Slot\ComponentSlotPluginBase;
 
 /**
  * Plugin implementation of the neo_component_slot.

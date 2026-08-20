@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Drupal\neo_alchemist;
+namespace Drupal\neo_alchemist\Slot;
 
 use Drupal\Core\Cache\CacheableResponseInterface;
 use Drupal\Core\Render\RenderableInterface;

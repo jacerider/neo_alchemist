@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Drupal\neo_alchemist;
+namespace Drupal\neo_alchemist\Slot;
 
 use Drupal\Core\Cache\Cache;
 use Drupal\Core\Cache\CacheBackendInterface;
@@ -33,7 +33,7 @@ use Drupal\neo_build\NeoBuild;
  *
  * @see \Drupal\Core\Theme\ComponentPluginManager::findAsset()
  * @see \Drupal\Core\Template\Loader\FilesystemLoader::__construct()
- * @see \Drupal\neo_alchemist\ComponentSlot::toRenderable()
+ * @see \Drupal\neo_alchemist\Slot\ComponentSlot::toRenderable()
  */
 final class ComponentSlotTemplateLocator {
 

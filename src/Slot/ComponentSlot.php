@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Drupal\neo_alchemist;
+namespace Drupal\neo_alchemist\Slot;
 
 use Drupal\Component\Render\MarkupInterface;
 use Drupal\Component\Utility\Html;
@@ -11,6 +11,7 @@ use Drupal\Core\DependencyInjection\DependencySerializationTrait;
 use Drupal\Core\Render\ElementInfoManagerInterface;
 use Drupal\Core\Render\Markup;
 use Drupal\Core\Theme\Registry;
+use Drupal\neo_alchemist\ComponentInterface;
 
 /**
  * Defines a component slot.
@@ -43,7 +44,7 @@ class ComponentSlot implements ComponentSlotInterface {
   /**
    * The slot manager.
    *
-   * @var \Drupal\neo_alchemist\ComponentSlotPluginManager
+   * @var \Drupal\neo_alchemist\Slot\ComponentSlotPluginManager
    */
   protected $manager;
 
@@ -78,7 +79,7 @@ class ComponentSlot implements ComponentSlotInterface {
   /**
    * The slot plugins.
    *
-   * @var \Drupal\neo_alchemist\ComponentSlotPluginInterface[]
+   * @var \Drupal\neo_alchemist\Slot\ComponentSlotPluginInterface[]
    */
   protected $plugins;
 
@@ -92,7 +93,7 @@ class ComponentSlot implements ComponentSlotInterface {
   /**
    * The slot template locator.
    *
-   * @var \Drupal\neo_alchemist\ComponentSlotTemplateLocator|null
+   * @var \Drupal\neo_alchemist\Slot\ComponentSlotTemplateLocator|null
    */
   protected ?ComponentSlotTemplateLocator $templateLocator;
 

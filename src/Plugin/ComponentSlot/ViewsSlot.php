@@ -10,7 +10,7 @@ use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Security\TrustedCallbackInterface;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\neo_alchemist\Attribute\ComponentSlot;
-use Drupal\neo_alchemist\ComponentSlotPluginBase;
+use Drupal\neo_alchemist\Slot\ComponentSlotPluginBase;
 use Drupal\views\Element\View;
 use Drupal\views\Views;
 

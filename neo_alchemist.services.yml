@@ -62,7 +62,7 @@ services:
   # about which components exist. neo_build is optional for the same reason as
   # above; without it only the dev-mode cache bypass is lost.
   neo_alchemist.slot_template_locator:
-    class: Drupal\neo_alchemist\ComponentSlotTemplateLocator
+    class: Drupal\neo_alchemist\Slot\ComponentSlotTemplateLocator
     arguments:
       - '@plugin.manager.sdc'
       - '@extension.path.resolver'
@@ -109,7 +109,7 @@ services:
     arguments: ['@module_handler', '@cache.discovery']
 
   plugin.manager.neo_component_slot:
-    class: Drupal\neo_alchemist\ComponentSlotPluginManager
+    class: Drupal\neo_alchemist\Slot\ComponentSlotPluginManager
     parent: default_plugin_manager
 
   plugin.manager.neo_component_filter:
@@ -125,7 +125,7 @@ services:
     parent: default_plugin_manager
 
   neo_component.slot.factory:
-    class: Drupal\neo_alchemist\ComponentSlotFactory
+    class: Drupal\neo_alchemist\Slot\ComponentSlotFactory
     arguments:
       - '@plugin.manager.neo_component_slot'
       - '@neo_alchemist.slot_template_locator'

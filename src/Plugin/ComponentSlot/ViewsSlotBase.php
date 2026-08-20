@@ -8,7 +8,7 @@ use Drupal\Component\Utility\Html;
 use Drupal\Component\Utility\NestedArray;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\neo_alchemist\ComponentInterface;
-use Drupal\neo_alchemist\ComponentSlotPluginBase;
+use Drupal\neo_alchemist\Slot\ComponentSlotPluginBase;
 use Drupal\views\ViewExecutable;
 
 /**

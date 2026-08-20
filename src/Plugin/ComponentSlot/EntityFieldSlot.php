@@ -20,9 +20,9 @@ use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\field\FieldLabelOptionsTrait;
 use Drupal\neo_alchemist\Attribute\ComponentSlot;
 use Drupal\neo_alchemist\ComponentInterface;
-use Drupal\neo_alchemist\ComponentSlotPluginBase;
 use Drupal\neo_alchemist\Match\FieldFormatterTrait;
 use Drupal\neo_alchemist\Match\MatcherReference;
+use Drupal\neo_alchemist\Slot\ComponentSlotPluginBase;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**

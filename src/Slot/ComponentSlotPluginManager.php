@@ -2,11 +2,12 @@
 
 declare(strict_types=1);
 
-namespace Drupal\neo_alchemist;
+namespace Drupal\neo_alchemist\Slot;
 
 use Drupal\Core\Cache\CacheBackendInterface;
 use Drupal\Core\Extension\ModuleHandlerInterface;
 use Drupal\neo_alchemist\Attribute\ComponentSlot;
+use Drupal\neo_alchemist\ComponentInterface;
 use Drupal\neo_alchemist\ConfiguredPlugin\ConfiguredPluginManagerBase;
 
 /**

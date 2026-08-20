@@ -2,10 +2,11 @@
 
 declare(strict_types=1);
 
-namespace Drupal\neo_alchemist;
+namespace Drupal\neo_alchemist\Slot;
 
 use Drupal\Core\Render\ElementInfoManagerInterface;
 use Drupal\Core\Theme\Registry;
+use Drupal\neo_alchemist\ComponentInterface;
 
 /**
  * Provides a factory for image objects.
@@ -15,14 +16,14 @@ class ComponentSlotFactory {
   /**
    * The slot manager.
    *
-   * @var \Drupal\neo_alchemist\ComponentSlotPluginManager
+   * @var \Drupal\neo_alchemist\Slot\ComponentSlotPluginManager
    */
   protected $slotManager;
 
   /**
    * The slot template locator.
    *
-   * @var \Drupal\neo_alchemist\ComponentSlotTemplateLocator|null
+   * @var \Drupal\neo_alchemist\Slot\ComponentSlotTemplateLocator|null
    */
   protected ?ComponentSlotTemplateLocator $templateLocator;
 
@@ -43,9 +44,9 @@ class ComponentSlotFactory {
   /**
    * Constructs a new ComponentSlotFactory object.
    *
-   * @param \Drupal\neo_alchemist\ComponentSlotPluginManager $slot_manager
+   * @param \Drupal\neo_alchemist\Slot\ComponentSlotPluginManager $slot_manager
    *   The slot manager.
-   * @param \Drupal\neo_alchemist\ComponentSlotTemplateLocator|null $template_locator
+   * @param \Drupal\neo_alchemist\Slot\ComponentSlotTemplateLocator|null $template_locator
    *   The slot template locator.
    * @param \Drupal\Core\Render\ElementInfoManagerInterface|null $element_info
    *   The element info manager.

@@ -18,7 +18,7 @@ use Drupal\Core\Session\AccountInterface;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\neo_alchemist\Attribute\ComponentSlot;
 use Drupal\neo_alchemist\ComponentInterface;
-use Drupal\neo_alchemist\ComponentSlotPluginBase;
+use Drupal\neo_alchemist\Slot\ComponentSlotPluginBase;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**

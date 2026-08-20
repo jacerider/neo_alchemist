@@ -12,7 +12,7 @@ use Drupal\Core\Theme\ComponentPluginManager;
 use Drupal\neo_alchemist\ComponentPreviewBuilder;
 use Drupal\neo_alchemist\ComponentPropDefPluginManager;
 use Drupal\neo_alchemist\ComponentShapePluginManager;
-use Drupal\neo_alchemist\ComponentSlotTemplateLocator;
+use Drupal\neo_alchemist\Slot\ComponentSlotTemplateLocator;
 use Drupal\neo_alchemist\ThemeComponentInstaller;
 use Drush\Attributes as CLI;
 use Drush\Commands\AutowireTrait;

@@ -7,7 +7,7 @@ namespace Drupal\neo_alchemist_test\Plugin\ComponentSlot;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\neo_alchemist\Attribute\ComponentSlot;
-use Drupal\neo_alchemist\ComponentSlotPluginBase;
+use Drupal\neo_alchemist\Slot\ComponentSlotPluginBase;
 
 /**
  * A slot plugin with one settings field, for driving the slot form.
