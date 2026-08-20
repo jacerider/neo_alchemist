@@ -2,13 +2,14 @@
 
 declare(strict_types=1);
 
-namespace Drupal\neo_alchemist;
+namespace Drupal\neo_alchemist\Access;
 
 use Drupal\Core\Access\AccessResult;
 use Drupal\Core\Access\AccessResultInterface;
 use Drupal\Core\DependencyInjection\DependencySerializationTrait;
 use Drupal\Core\Session\AccountInterface;
 use Drupal\Core\StringTranslation\StringTranslationTrait;
+use Drupal\neo_alchemist\ComponentInterface;
 use Drupal\neo_alchemist\ConfiguredPlugin\ConfiguredPluginWrapperTrait;
 
 /**
@@ -23,7 +24,7 @@ class ComponentAccess implements ComponentAccessInterface {
   /**
    * The access manager.
    *
-   * @var \Drupal\neo_alchemist\ComponentAccessPluginManager
+   * @var \Drupal\neo_alchemist\Access\ComponentAccessPluginManager
    */
   protected $manager;
 
@@ -58,7 +59,7 @@ class ComponentAccess implements ComponentAccessInterface {
   /**
    * The access plugin.
    *
-   * @var \Drupal\neo_alchemist\ComponentAccessPluginInterface
+   * @var \Drupal\neo_alchemist\Access\ComponentAccessPluginInterface
    */
   protected $plugin;
 

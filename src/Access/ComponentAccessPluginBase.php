@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Drupal\neo_alchemist;
+namespace Drupal\neo_alchemist\Access;
 
 use Drupal\Component\Plugin\PluginBase;
 use Drupal\Component\Utility\NestedArray;
@@ -12,6 +12,7 @@ use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Plugin\PluginWithFormsTrait;
 use Drupal\Core\Session\AccountInterface;
 use Drupal\Core\StringTranslation\StringTranslationTrait;
+use Drupal\neo_alchemist\ComponentInterface;
 
 /**
  * Base class for neo_component_slot plugins.
@@ -24,7 +25,7 @@ abstract class ComponentAccessPluginBase extends PluginBase implements Component
   /**
    * The access.
    *
-   * @var \Drupal\neo_alchemist\ComponentAccessInterface
+   * @var \Drupal\neo_alchemist\Access\ComponentAccessInterface
    */
   protected ComponentAccessInterface $access;
 

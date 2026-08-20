@@ -121,7 +121,7 @@ services:
     arguments: ['@module_handler', '@cache.discovery']
 
   plugin.manager.neo_component_access:
-    class: Drupal\neo_alchemist\ComponentAccessPluginManager
+    class: Drupal\neo_alchemist\Access\ComponentAccessPluginManager
     parent: default_plugin_manager
 
   neo_component.slot.factory:
@@ -137,7 +137,7 @@ services:
     arguments: ['@plugin.manager.neo_component_filter']
 
   neo_component.access.factory:
-    class: Drupal\neo_alchemist\ComponentAccessFactory
+    class: Drupal\neo_alchemist\Access\ComponentAccessFactory
     arguments: ['@plugin.manager.neo_component_access']
 
   # The configured-plugin kinds, and the repository the shared controller and

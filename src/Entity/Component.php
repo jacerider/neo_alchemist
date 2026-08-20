@@ -18,7 +18,7 @@ use Drupal\Core\Entity\EntityTypeInterface;
 use Drupal\Core\Plugin\Component as ComponentPlugin;
 use Drupal\Core\Session\AccountInterface;
 use Drupal\Core\Template\Attribute;
-use Drupal\neo_alchemist\ComponentAccessInterface;
+use Drupal\neo_alchemist\Access\ComponentAccessInterface;
 use Drupal\neo_alchemist\ComponentFilterInterface;
 use Drupal\neo_alchemist\ComponentInstanceInterface;
 use Drupal\neo_alchemist\ComponentInterface;

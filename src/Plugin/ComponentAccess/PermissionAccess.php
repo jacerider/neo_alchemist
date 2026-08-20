@@ -10,9 +10,9 @@ use Drupal\Core\Extension\ModuleExtensionList;
 use Drupal\Core\Plugin\ContainerFactoryPluginInterface;
 use Drupal\Core\Session\AccountInterface;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
+use Drupal\neo_alchemist\Access\ComponentAccessInterface;
+use Drupal\neo_alchemist\Access\ComponentAccessOpsMatchPluginBase;
 use Drupal\neo_alchemist\Attribute\ComponentAccess;
-use Drupal\neo_alchemist\ComponentAccessInterface;
-use Drupal\neo_alchemist\ComponentAccessOpsMatchPluginBase;
 use Drupal\user\PermissionHandlerInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 

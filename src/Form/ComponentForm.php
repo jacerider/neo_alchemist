@@ -9,7 +9,7 @@ use Drupal\Core\Entity\EntityForm;
 use Drupal\Core\Entity\EntityTypeBundleInfoInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Form\FormStateInterface;
-use Drupal\neo_alchemist\ComponentAccessFactory;
+use Drupal\neo_alchemist\Access\ComponentAccessFactory;
 use Drupal\neo_alchemist\ComponentGroupPluginManager;
 use Drupal\neo_alchemist\ComponentInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
@@ -50,7 +50,7 @@ class ComponentForm extends EntityForm {
   /**
    * The component access factory.
    *
-   * @var \Drupal\neo_alchemist\ComponentAccessFactory
+   * @var \Drupal\neo_alchemist\Access\ComponentAccessFactory
    */
   protected $accessFactory;
 
@@ -75,7 +75,7 @@ class ComponentForm extends EntityForm {
    *   The entity manager service.
    * @param \Drupal\neo_alchemist\ComponentGroupPluginManager $component_group_manager
    *   The component group plugin manager.
-   * @param \Drupal\neo_alchemist\ComponentAccessFactory $access_factory
+   * @param \Drupal\neo_alchemist\Access\ComponentAccessFactory $access_factory
    *   The component access factory.
    */
   public function __construct(

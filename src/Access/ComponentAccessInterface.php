@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Drupal\neo_alchemist;
+namespace Drupal\neo_alchemist\Access;
 
 use Drupal\Core\Access\AccessResultInterface;
 use Drupal\Core\Session\AccountInterface;
@@ -39,7 +39,7 @@ interface ComponentAccessInterface extends ConfiguredPluginWrapperInterface {
   /**
    * {@inheritdoc}
    *
-   * @return \Drupal\neo_alchemist\ComponentAccessPluginInterface|null
+   * @return \Drupal\neo_alchemist\Access\ComponentAccessPluginInterface|null
    *   The access plugin instance, or NULL when none is configured.
    */
   public function getPlugin(): ?ComponentAccessPluginInterface;

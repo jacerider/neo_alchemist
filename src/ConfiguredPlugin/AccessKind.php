@@ -7,9 +7,9 @@ namespace Drupal\neo_alchemist\ConfiguredPlugin;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\StringTranslation\StringTranslationTrait;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
-use Drupal\neo_alchemist\ComponentAccessFactory;
-use Drupal\neo_alchemist\ComponentAccessInterface;
-use Drupal\neo_alchemist\ComponentAccessPluginManager;
+use Drupal\neo_alchemist\Access\ComponentAccessFactory;
+use Drupal\neo_alchemist\Access\ComponentAccessInterface;
+use Drupal\neo_alchemist\Access\ComponentAccessPluginManager;
 use Drupal\neo_alchemist\ComponentInterface;
 
 /**
@@ -25,9 +25,9 @@ final class AccessKind implements ConfiguredPluginKindInterface {
   /**
    * Constructs the kind.
    *
-   * @param \Drupal\neo_alchemist\ComponentAccessPluginManager $manager
+   * @param \Drupal\neo_alchemist\Access\ComponentAccessPluginManager $manager
    *   The access plugin manager.
-   * @param \Drupal\neo_alchemist\ComponentAccessFactory $factory
+   * @param \Drupal\neo_alchemist\Access\ComponentAccessFactory $factory
    *   The access wrapper factory.
    */
   public function __construct(

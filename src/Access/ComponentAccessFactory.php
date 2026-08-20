@@ -2,7 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Drupal\neo_alchemist;
+namespace Drupal\neo_alchemist\Access;
+
+use Drupal\neo_alchemist\ComponentInterface;
 
 /**
  * Provides a factory for image objects.
@@ -12,14 +14,14 @@ class ComponentAccessFactory {
   /**
    * The access manager.
    *
-   * @var \Drupal\neo_alchemist\ComponentAccessPluginManager
+   * @var \Drupal\neo_alchemist\Access\ComponentAccessPluginManager
    */
   protected $accessManager;
 
   /**
    * Constructs a new ComponentAccessFactory object.
    *
-   * @param \Drupal\neo_alchemist\ComponentAccessPluginManager $access_manager
+   * @param \Drupal\neo_alchemist\Access\ComponentAccessPluginManager $access_manager
    *   The access manager.
    */
   public function __construct(ComponentAccessPluginManager $access_manager) {

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Drupal\neo_alchemist;
+namespace Drupal\neo_alchemist\Access;
 
 use Drupal\Core\Access\AccessResultInterface;
 use Drupal\Core\Session\AccountInterface;

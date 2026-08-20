@@ -9,8 +9,8 @@ use Drupal\Core\Access\AccessResultInterface;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Session\AccountInterface;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
+use Drupal\neo_alchemist\Access\ComponentAccessPluginBase;
 use Drupal\neo_alchemist\Attribute\ComponentAccess;
-use Drupal\neo_alchemist\ComponentAccessPluginBase;
 use Drupal\neo_alchemist\ComponentShapeChildrenPluginInterface;
 
 /**

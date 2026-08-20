@@ -1015,7 +1015,7 @@ neo_alchemist_neo_component_settings.access:
         constraints:
           PluginExists:
             manager: plugin.manager.neo_component_access
-            interface: '\Drupal\neo_alchemist\ComponentAccessPluginInterface'
+            interface: '\Drupal\neo_alchemist\Access\ComponentAccessPluginInterface'
       plugin_settings:
         type: neo_alchemist.neo_component_access.[%parent.plugin_id]
         nullable: true

@@ -11,6 +11,7 @@ use Drupal\Core\Entity\ContentEntityInterface;
 use Drupal\Core\Entity\EntityTypeInterface;
 use Drupal\Core\Plugin\Component;
 use Drupal\Core\Render\RenderableInterface;
+use Drupal\neo_alchemist\Access\ComponentAccessInterface;
 use Drupal\neo_alchemist\Slot\ComponentSlotInterface;
 
 /**
@@ -817,10 +818,10 @@ interface ComponentInterface extends ConfigEntityInterface, RenderableInterface,
    * The access is then converted to an array and stored in the component's
    * settings.
    *
-   * @param \Drupal\neo_alchemist\ComponentAccessInterface $access
+   * @param \Drupal\neo_alchemist\Access\ComponentAccessInterface $access
    *   The access to be set for the component.
    *
-   * @return \Drupal\neo_alchemist\ComponentAccessInterface
+   * @return \Drupal\neo_alchemist\Access\ComponentAccessInterface
    *   The access.
    */
   public function setAccess(ComponentAccessInterface $access): ComponentAccessInterface;
@@ -831,7 +832,7 @@ interface ComponentInterface extends ConfigEntityInterface, RenderableInterface,
    * @param string $uuid
    *   The UUID of the access to retrieve.
    *
-   * @return \Drupal\neo_alchemist\ComponentAccessInterface|null
+   * @return \Drupal\neo_alchemist\Access\ComponentAccessInterface|null
    *   The access associated with the given UUID, or NULL if no access is found.
    */
   public function getAccess(string $uuid): ?ComponentAccessInterface;
@@ -854,7 +855,7 @@ interface ComponentInterface extends ConfigEntityInterface, RenderableInterface,
    * if there are any accesss defined in the settings and uses the neo_component
    * access factory service to create access instances based on the settings.
    *
-   * @return \Drupal\neo_alchemist\ComponentAccessInterface[]
+   * @return \Drupal\neo_alchemist\Access\ComponentAccessInterface[]
    *   An array of accesss for the component.
    */
   public function getAccessInstances(): array;
