@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Drupal\neo_alchemist;
+namespace Drupal\neo_alchemist\Value;
 
 use Drupal\Component\Plugin\Factory\DefaultFactory;
 use Drupal\Component\Utility\SortArray;
@@ -11,6 +11,7 @@ use Drupal\Core\Extension\ModuleHandlerInterface;
 use Drupal\Core\Plugin\DefaultPluginManager;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\neo_alchemist\Attribute\ComponentValue;
+use Drupal\neo_alchemist\ComponentShapePluginInterface;
 
 /**
  * ComponentValue plugin manager.
@@ -20,7 +21,7 @@ final class ComponentValuePluginManager extends DefaultPluginManager implements 
   /**
    * The group manager.
    *
-   * @var \Drupal\neo_alchemist\ComponentValueGroupPluginManager
+   * @var \Drupal\neo_alchemist\Value\ComponentValueGroupPluginManager
    */
   protected ComponentValueGroupPluginManager $groupManager;
 

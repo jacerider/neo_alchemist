@@ -2,12 +2,13 @@
 
 declare(strict_types=1);
 
-namespace Drupal\neo_alchemist;
+namespace Drupal\neo_alchemist\Value;
 
 use Drupal\Component\Plugin\ConfigurableInterface;
 use Drupal\Component\Plugin\PluginInspectionInterface;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Plugin\PluginFormInterface;
+use Drupal\neo_alchemist\ComponentShapePluginInterface;
 
 /**
  * Interface for neo_component_value_modifier plugins.
@@ -122,7 +123,7 @@ interface ComponentValuePluginInterface extends ConfigurableInterface, PluginFor
    * @param mixed $value
    *   The value threaded into this producer — the running result of the search.
    *
-   * @return \Drupal\neo_alchemist\ComponentValueProvision
+   * @return \Drupal\neo_alchemist\Value\ComponentValueProvision
    *   The producer's outcome: the value it produced and whether it claims it.
    *
    * @see \Drupal\neo_alchemist\ValueProviderSearch::search()

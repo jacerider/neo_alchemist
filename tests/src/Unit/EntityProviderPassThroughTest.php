@@ -20,12 +20,12 @@ use Drupal\neo_alchemist\ComponentShapeContextInterface;
 use Drupal\neo_alchemist\ComponentShapeExpansionInterface;
 use Drupal\neo_alchemist\ComponentShapePluginInterface;
 use Drupal\neo_alchemist\ComponentShapeSchemaInterface;
-use Drupal\neo_alchemist\ComponentValuePluginManagerInterface;
 use Drupal\neo_alchemist\Match\MatcherField;
 use Drupal\neo_alchemist\Match\MatcherReference;
 use Drupal\neo_alchemist\Plugin\ComponentValue\EntityFilterValue;
 use Drupal\neo_alchemist\Plugin\ComponentValue\EntityLoadValue;
 use Drupal\neo_alchemist\Plugin\ComponentValue\EntityReferenceValue;
+use Drupal\neo_alchemist\Value\ComponentValuePluginManagerInterface;
 use PHPUnit\Framework\Attributes\Group;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 

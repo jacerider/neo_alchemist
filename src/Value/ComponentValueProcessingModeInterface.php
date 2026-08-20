@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Drupal\neo_alchemist;
+namespace Drupal\neo_alchemist\Value;
 
 /**
  * Marks a value provider whose stop/continue behavior the site builder picks.

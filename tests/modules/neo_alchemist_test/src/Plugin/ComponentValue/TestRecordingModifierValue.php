@@ -7,7 +7,7 @@ namespace Drupal\neo_alchemist_test\Plugin\ComponentValue;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\neo_alchemist\Attribute\ComponentValue;
 use Drupal\neo_alchemist\ComponentShapePluginInterface;
-use Drupal\neo_alchemist\ComponentValuePluginBase;
+use Drupal\neo_alchemist\Value\ComponentValuePluginBase;
 use Drupal\neo_alchemist_test\TestValueCallLog;
 
 /**

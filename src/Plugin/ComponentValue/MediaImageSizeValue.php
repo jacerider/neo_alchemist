@@ -9,7 +9,7 @@ use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\neo\Helpers\NestedArray;
 use Drupal\neo_alchemist\Attribute\ComponentValue;
 use Drupal\neo_alchemist\ComponentShapeStylePluginInterface;
-use Drupal\neo_alchemist\ComponentValuePluginBase;
+use Drupal\neo_alchemist\Value\ComponentValuePluginBase;
 
 /**
  * Plugin implementation of the neo_component_value_provider.

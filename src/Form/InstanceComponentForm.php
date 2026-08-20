@@ -21,7 +21,7 @@ use Drupal\neo_alchemist\Ajax\InstanceComponentManageIframeCommand;
 use Drupal\neo_alchemist\Ajax\ComponentAjaxFormHelperTrait;
 use Drupal\neo_alchemist\ComponentManageHelper;
 use Drupal\neo_alchemist\ComponentPropValueHarvester;
-use Drupal\neo_alchemist\ComponentValuePanelBuilder;
+use Drupal\neo_alchemist\Value\ComponentValuePanelBuilder;
 use Drupal\neo_icon\IconTrait;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
@@ -76,7 +76,7 @@ final class InstanceComponentForm extends ContentEntityForm {
    * from FormBase's scope, where a private property declared on this class
    * would be invisible and would be serialized whole into the form cache.
    *
-   * @var \Drupal\neo_alchemist\ComponentValuePanelBuilder
+   * @var \Drupal\neo_alchemist\Value\ComponentValuePanelBuilder
    */
   protected $valuePanelBuilder;
 
@@ -112,7 +112,7 @@ final class InstanceComponentForm extends ContentEntityForm {
    *   The time service.
    * @param \Drupal\Core\TempStore\PrivateTempStoreFactory $temp_store_factory
    *   The temp storage factory.
-   * @param \Drupal\neo_alchemist\ComponentValuePanelBuilder $value_panel_builder
+   * @param \Drupal\neo_alchemist\Value\ComponentValuePanelBuilder $value_panel_builder
    *   The value panel builder.
    * @param \Drupal\neo_alchemist\ComponentPropValueHarvester $prop_value_harvester
    *   The prop value harvester.

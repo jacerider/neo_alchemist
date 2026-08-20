@@ -17,7 +17,7 @@ namespace Drupal\neo_alchemist;
  * nothing.
  *
  * @see \Drupal\neo_alchemist\ComponentShapeSetupInterface
- * @see \Drupal\neo_alchemist\ComponentValuePluginInterface
+ * @see \Drupal\neo_alchemist\Value\ComponentValuePluginInterface
  * @see \Drupal\neo_alchemist\ComponentShapeValueInterface
  * @see \Drupal\neo_alchemist\ComponentShapePluginInterface
  */

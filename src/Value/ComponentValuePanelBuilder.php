@@ -2,12 +2,14 @@
 
 declare(strict_types=1);
 
-namespace Drupal\neo_alchemist;
+namespace Drupal\neo_alchemist\Value;
 
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Form\SubformState;
 use Drupal\Core\Render\Element;
 use Drupal\Core\StringTranslation\StringTranslationTrait;
+use Drupal\neo_alchemist\ComponentInterface;
+use Drupal\neo_alchemist\ComponentShapeStylePluginInterface;
 use Drupal\neo_icon\IconTrait;
 
 /**
@@ -53,7 +55,7 @@ final class ComponentValuePanelBuilder {
    * The other half of the same contract: component-ajax-form.ts names this id
    * as the AJAX selector it submits the form through on every debounced input.
    *
-   * @see \Drupal\neo_alchemist\ComponentValuePanelBuilder::FORM_ID
+   * @see \Drupal\neo_alchemist\Value\ComponentValuePanelBuilder::FORM_ID
    */
   public const REFRESH_ID = 'neo-alchemist--refresh';
 

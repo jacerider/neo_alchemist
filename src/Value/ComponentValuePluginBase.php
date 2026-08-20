@@ -2,13 +2,14 @@
 
 declare(strict_types=1);
 
-namespace Drupal\neo_alchemist;
+namespace Drupal\neo_alchemist\Value;
 
 use Drupal\Component\Plugin\PluginBase;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Plugin\PluginWithFormsTrait;
 use Drupal\Core\StringTranslation\StringTranslationTrait;
 use Drupal\neo\Helpers\NestedArray;
+use Drupal\neo_alchemist\ComponentShapePluginInterface;
 
 /**
  * Base class for neo_component_value plugins.
@@ -125,7 +126,7 @@ abstract class ComponentValuePluginBase extends PluginBase implements ComponentV
    * ComponentValuePluginBase::configurationForm(). Most plugins should not
    * override this method unless they need to alter the generic form elements.
    *
-   * @see \Drupal\neo_alchemist\ComponentValuePluginBase::configurationForm()
+   * @see \Drupal\neo_alchemist\Value\ComponentValuePluginBase::configurationForm()
    */
   public function buildConfigurationForm(array $form, FormStateInterface $form_state, ?array &$complete_form = NULL) {
     $form += $this->configurationForm($form, $form_state, $complete_form);
@@ -146,7 +147,7 @@ abstract class ComponentValuePluginBase extends PluginBase implements ComponentV
    * specific plugin, override
    * ComponentValuePluginBase::configurationValidate().
    *
-   * @see \Drupal\neo_alchemist\ComponentValuePluginBase::configurationValidate()
+   * @see \Drupal\neo_alchemist\Value\ComponentValuePluginBase::configurationValidate()
    */
   public function validateConfigurationForm(array &$form, FormStateInterface $form_state) {
     $this->configurationValidate($form, $form_state);

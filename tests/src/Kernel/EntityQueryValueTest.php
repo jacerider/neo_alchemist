@@ -6,8 +6,8 @@ namespace Drupal\Tests\neo_alchemist\Kernel;
 
 use Drupal\entity_test\Entity\EntityTest;
 use Drupal\KernelTests\KernelTestBase;
-use Drupal\neo_alchemist\ComponentValueProcessingModeInterface;
 use Drupal\neo_alchemist\Entity\Component;
+use Drupal\neo_alchemist\Value\ComponentValueProcessingModeInterface;
 use PHPUnit\Framework\Attributes\Group;
 
 /**

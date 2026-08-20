@@ -13,8 +13,8 @@ use Drupal\Core\Url;
 use Drupal\neo_alchemist\Ajax\InstanceComponentManageIframeCommand;
 use Drupal\neo_alchemist\ComponentManageHelper;
 use Drupal\neo_alchemist\ComponentPropValueHarvester;
-use Drupal\neo_alchemist\ComponentValuePanelBuilder;
 use Drupal\neo_alchemist\SdcThumbnailWriter;
+use Drupal\neo_alchemist\Value\ComponentValuePanelBuilder;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
@@ -54,7 +54,7 @@ final class SdcPreviewForm extends EntityForm {
    *
    * Protected and non-promoted for the same reason as the writer above.
    *
-   * @var \Drupal\neo_alchemist\ComponentValuePanelBuilder
+   * @var \Drupal\neo_alchemist\Value\ComponentValuePanelBuilder
    */
   protected $valuePanelBuilder;
 

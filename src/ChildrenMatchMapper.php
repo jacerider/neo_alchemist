@@ -13,6 +13,7 @@ use Drupal\Core\StringTranslation\StringTranslationTrait;
 use Drupal\neo_alchemist\Match\MatcherField;
 use Drupal\neo_alchemist\Match\MatcherReference;
 use Drupal\neo_alchemist\Plugin\ComponentValue\ComponentValuePluginTrait;
+use Drupal\neo_alchemist\Value\ComponentValuePluginManagerInterface;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 
 /**
@@ -63,7 +64,7 @@ class ChildrenMatchMapper {
    *   The reference matcher, handed to the `_reference` handler.
    * @param \Symfony\Component\EventDispatcher\EventDispatcherInterface $eventDispatcher
    *   The event dispatcher, handed to the `_event` handler.
-   * @param \Drupal\neo_alchemist\ComponentValuePluginManagerInterface $valuePluginManager
+   * @param \Drupal\neo_alchemist\Value\ComponentValuePluginManagerInterface $valuePluginManager
    *   The value plugin manager, for labelling copy-mapping sources.
    * @param \Drupal\Core\Field\FormatterPluginManager $fieldFormatterManager
    *   The formatter manager, handed to the `_render` handler.

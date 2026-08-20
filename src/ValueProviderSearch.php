@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Drupal\neo_alchemist;
 
+use Drupal\neo_alchemist\Value\ComponentValueProcessingModeInterface;
+
 /**
  * Runs the provide phase of a prop's value pipeline.
  *
@@ -30,7 +32,7 @@ final class ValueProviderSearch {
   /**
    * Threads a seed through the ordered providers and returns the result.
    *
-   * @param \Drupal\neo_alchemist\ComponentValuePluginInterface[] $instances
+   * @param \Drupal\neo_alchemist\Value\ComponentValuePluginInterface[] $instances
    *   The ordered producers to consult. Each returns an outcome; none holds
    *   claim state, so the list needs no resetting between passes.
    * @param mixed $seed

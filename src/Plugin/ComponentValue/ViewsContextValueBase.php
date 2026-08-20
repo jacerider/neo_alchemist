@@ -8,7 +8,7 @@ use Drupal\Component\Utility\Html;
 use Drupal\Component\Utility\NestedArray;
 use Drupal\Core\Cache\CacheableMetadata;
 use Drupal\Core\Form\FormStateInterface;
-use Drupal\neo_alchemist\ComponentValuePluginBase;
+use Drupal\neo_alchemist\Value\ComponentValuePluginBase;
 use Drupal\views\ViewExecutable;
 
 /**

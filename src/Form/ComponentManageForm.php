@@ -16,7 +16,7 @@ use Drupal\Core\Render\Element;
 use Drupal\neo_alchemist\ComponentInterface;
 use Drupal\neo_alchemist\ComponentShapeStylePluginInterface;
 use Drupal\neo_alchemist\ComponentSizePluginManager;
-use Drupal\neo_alchemist\ComponentValueGroupPluginManager;
+use Drupal\neo_alchemist\Value\ComponentValueGroupPluginManager;
 use Drupal\neo_icon\IconTrait;
 use Drupal\user\PermissionHandlerInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
@@ -52,7 +52,7 @@ final class ComponentManageForm extends EntityForm {
   /**
    * The component value group plugin manager.
    *
-   * @var \Drupal\neo_alchemist\ComponentValueGroupPluginManager
+   * @var \Drupal\neo_alchemist\Value\ComponentValueGroupPluginManager
    */
   protected $componentValueGroupManager;
 
@@ -90,7 +90,7 @@ final class ComponentManageForm extends EntityForm {
    *   The entity manager service.
    * @param \Drupal\neo_alchemist\ComponentSizePluginManager $component_value_size_manager
    *   The component value size plugin manager.
-   * @param \Drupal\neo_alchemist\ComponentValueGroupPluginManager $component_value_group_manager
+   * @param \Drupal\neo_alchemist\Value\ComponentValueGroupPluginManager $component_value_group_manager
    *   The component value group plugin manager.
    * @param \Drupal\user\PermissionHandlerInterface $permission_handler
    *   The permission handler.

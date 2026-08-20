@@ -10,9 +10,9 @@ use Drupal\Core\Plugin\ContainerFactoryPluginInterface;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\neo_alchemist\Attribute\ComponentValue;
 use Drupal\neo_alchemist\ComponentShapePluginInterface;
-use Drupal\neo_alchemist\ComponentValuePluginBase;
-use Drupal\neo_alchemist\ComponentValueProvision;
 use Drupal\neo_alchemist\Match\MatcherField;
+use Drupal\neo_alchemist\Value\ComponentValuePluginBase;
+use Drupal\neo_alchemist\Value\ComponentValueProvision;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**

@@ -7,8 +7,8 @@ namespace Drupal\neo_alchemist\Plugin\ComponentValue;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\neo_alchemist\Attribute\ComponentValue;
-use Drupal\neo_alchemist\ComponentValuePluginBase;
 use Drupal\neo_alchemist\Plugin\ComponentShape\RegionShape;
+use Drupal\neo_alchemist\Value\ComponentValuePluginBase;
 
 /**
  * Flags a region as entity-customizable.

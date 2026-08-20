@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace Drupal\Tests\neo_alchemist\Kernel;
 
 use Drupal\Core\Form\FormState;
-use Drupal\neo_alchemist\ComponentValuePanelBuilder;
 use Drupal\neo_alchemist\Entity\Component;
+use Drupal\neo_alchemist\Value\ComponentValuePanelBuilder;
 use PHPUnit\Framework\Attributes\Group;
 
 /**

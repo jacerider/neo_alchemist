@@ -13,11 +13,11 @@ use Drupal\neo\Helpers\Str;
 use Drupal\neo_alchemist\Attribute\ComponentValue;
 use Drupal\neo_alchemist\ComponentShapeChildrenPluginInterface;
 use Drupal\neo_alchemist\ComponentShapePluginInterface;
-use Drupal\neo_alchemist\ComponentValueProcessingModeInterface;
-use Drupal\neo_alchemist\ComponentValuePluginBase;
 use Drupal\neo_alchemist\Match\MatcherField;
 use Drupal\neo_alchemist\NestedOptionMap;
 use Drupal\neo_alchemist\Plugin\ComponentShape\ObjectShape;
+use Drupal\neo_alchemist\Value\ComponentValuePluginBase;
+use Drupal\neo_alchemist\Value\ComponentValueProcessingModeInterface;
 
 /**
  * Plugin implementation of the neo_component_value_provider.

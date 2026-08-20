@@ -484,7 +484,7 @@ function _neo_alchemist_processing_mode_capable(array $definitions, string $plug
   $class = $definitions[$pluginId]['class'] ?? NULL;
   return is_string($class)
     && class_exists($class)
-    && is_subclass_of($class, 'Drupal\neo_alchemist\ComponentValueProcessingModeInterface');
+    && is_subclass_of($class, 'Drupal\neo_alchemist\Value\ComponentValueProcessingModeInterface');
 }
 
 /**

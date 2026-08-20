@@ -133,13 +133,13 @@ class ComponentShapePluginCollection extends DefaultLazyPluginCollection {
   /**
    * Get instances.
    *
-   * @return \Drupal\neo_alchemist\ComponentValuePluginInterface[]
+   * @return \Drupal\neo_alchemist\Value\ComponentValuePluginInterface[]
    *   The active instances.
    */
   public function getInstances(): array {
     $instances = [];
     foreach ($this->instanceIds as $instanceId) {
-      /** @var \Drupal\neo_alchemist\ComponentValuePluginInterface $instance */
+      /** @var \Drupal\neo_alchemist\Value\ComponentValuePluginInterface $instance */
       $instances[$instanceId] = $this->get($instanceId);
     }
     return $instances;
@@ -151,7 +151,7 @@ class ComponentShapePluginCollection extends DefaultLazyPluginCollection {
    * @param string $groupId
    *   The group ID.
    *
-   * @return \Drupal\neo_alchemist\ComponentValuePluginInterface[]
+   * @return \Drupal\neo_alchemist\Value\ComponentValuePluginInterface[]
    *   The active instances.
    */
   public function getInstancesByGroup(string $groupId): array {
@@ -167,7 +167,7 @@ class ComponentShapePluginCollection extends DefaultLazyPluginCollection {
   /**
    * Get instances that support inlining.
    *
-   * @return \Drupal\neo_alchemist\ComponentValuePluginInterface[]
+   * @return \Drupal\neo_alchemist\Value\ComponentValuePluginInterface[]
    *   The active instances.
    */
   public function getInlineInstances(): array {
@@ -189,7 +189,7 @@ class ComponentShapePluginCollection extends DefaultLazyPluginCollection {
    *   behavioral question of a shape — e.g. `getActiveInstances('providers')`
    *   answers "does this shape source its own value?" without naming plugins.
    *
-   * @return \Drupal\neo_alchemist\ComponentValuePluginInterface[]
+   * @return \Drupal\neo_alchemist\Value\ComponentValuePluginInterface[]
    *   The active instances.
    */
   public function getActiveInstances(?string $groupId = NULL): array {
@@ -225,7 +225,7 @@ class ComponentShapePluginCollection extends DefaultLazyPluginCollection {
    *   The operation being performed. Current operations are 'default', 'value',
    *   'edit', 'modify' and 'form'.
    *
-   * @return \Drupal\neo_alchemist\ComponentValuePluginInterface[]
+   * @return \Drupal\neo_alchemist\Value\ComponentValuePluginInterface[]
    *   The active instances.
    */
   public function getAllowedInstances(string $op): array {

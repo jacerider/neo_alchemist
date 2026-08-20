@@ -7,7 +7,7 @@ namespace Drupal\Tests\neo_alchemist\Unit;
 use Drupal\Tests\neo_alchemist\Traits\ShapeDoubleTrait;
 use Drupal\neo_alchemist\ComponentShapePluginInterface;
 use Drupal\neo_alchemist\ComponentShapeValueInterface;
-use Drupal\neo_alchemist\ComponentValueProcessingModeInterface;
+use Drupal\neo_alchemist\Value\ComponentValueProcessingModeInterface;
 use Drupal\neo_alchemist\ValueProviderSearch;
 use Drupal\Tests\UnitTestCase;
 use PHPUnit\Framework\Attributes\Group;
@@ -73,7 +73,7 @@ class ValueProviderSearchTest extends UnitTestCase {
   /**
    * Runs the search over an ordered provider list.
    *
-   * @param \Drupal\neo_alchemist\ComponentValuePluginInterface[] $instances
+   * @param \Drupal\neo_alchemist\Value\ComponentValuePluginInterface[] $instances
    *   The ordered providers.
    * @param mixed $seed
    *   The value the search starts from.

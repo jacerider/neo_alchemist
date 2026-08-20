@@ -8,7 +8,7 @@ use Drupal\Core\Cache\CacheableMetadata;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\neo_alchemist\Attribute\ComponentValue;
 use Drupal\neo_alchemist\ComponentShapePluginInterface;
-use Drupal\neo_alchemist\ComponentValuePluginBase;
+use Drupal\neo_alchemist\Value\ComponentValuePluginBase;
 
 /**
  * A modifiers-group plugin that adds a sentinel cache tag while modifying.

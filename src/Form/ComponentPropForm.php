@@ -17,8 +17,8 @@ use Drupal\neo_alchemist\ComponentInterface;
 use Drupal\neo_alchemist\ComponentManageHelper;
 use Drupal\neo_alchemist\ComponentShapePluginCollection;
 use Drupal\neo_alchemist\ComponentShapePluginInterface;
-use Drupal\neo_alchemist\ComponentValueGroupPluginManager;
-use Drupal\neo_alchemist\ComponentValuePluginInterface;
+use Drupal\neo_alchemist\Value\ComponentValueGroupPluginManager;
+use Drupal\neo_alchemist\Value\ComponentValuePluginInterface;
 use Drupal\neo_icon\IconTrait;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
@@ -65,7 +65,7 @@ final class ComponentPropForm extends EntityForm implements StagedPluginListInte
   /**
    * The group manager.
    *
-   * @var \Drupal\neo_alchemist\ComponentValueGroupPluginManager
+   * @var \Drupal\neo_alchemist\Value\ComponentValueGroupPluginManager
    */
   protected $groupManager;
 
@@ -94,7 +94,7 @@ final class ComponentPropForm extends EntityForm implements StagedPluginListInte
    *   The entity type bundle info service.
    * @param \Drupal\Core\Entity\EntityTypeManagerInterface $entity_type_manager
    *   The entity manager service.
-   * @param \Drupal\neo_alchemist\ComponentValueGroupPluginManager $groupManager
+   * @param \Drupal\neo_alchemist\Value\ComponentValueGroupPluginManager $groupManager
    *   The group manager.
    */
   public function __construct(EntityTypeBundleInfoInterface $entity_type_bundle_info, EntityTypeManagerInterface $entity_type_manager, ComponentValueGroupPluginManager $groupManager) {
@@ -414,7 +414,7 @@ final class ComponentPropForm extends EntityForm implements StagedPluginListInte
    *   The value group id.
    * @param string $key
    *   The section key ("{group}_{shapeId}").
-   * @param \Drupal\neo_alchemist\ComponentValuePluginInterface[] $instances
+   * @param \Drupal\neo_alchemist\Value\ComponentValuePluginInterface[] $instances
    *   The manageable instances in the group.
    *
    * @return array
@@ -512,7 +512,7 @@ final class ComponentPropForm extends EntityForm implements StagedPluginListInte
    *   The form state.
    * @param string $key
    *   The section key.
-   * @param \Drupal\neo_alchemist\ComponentValuePluginInterface $instance
+   * @param \Drupal\neo_alchemist\Value\ComponentValuePluginInterface $instance
    *   The instance being edited.
    * @param bool $isNew
    *   Whether the instance was just added (Cancel then reverts it).
@@ -565,7 +565,7 @@ final class ComponentPropForm extends EntityForm implements StagedPluginListInte
    *   The plugin-bearing shape.
    * @param string $key
    *   The section key.
-   * @param \Drupal\neo_alchemist\ComponentValuePluginInterface $instance
+   * @param \Drupal\neo_alchemist\Value\ComponentValuePluginInterface $instance
    *   The instance.
    * @param bool $status
    *   Whether the instance is active.

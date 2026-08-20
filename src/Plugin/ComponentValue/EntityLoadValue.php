@@ -19,8 +19,8 @@ use Drupal\neo_alchemist\ChildrenMatchScope;
 use Drupal\neo_alchemist\ChildrenMatchSourceInterface;
 use Drupal\neo_alchemist\ComponentShapeChildrenMatchPluginInterface;
 use Drupal\neo_alchemist\ComponentShapePluginInterface;
-use Drupal\neo_alchemist\ComponentValueProcessingModeInterface;
-use Drupal\neo_alchemist\ComponentValuePluginBase;
+use Drupal\neo_alchemist\Value\ComponentValueProcessingModeInterface;
+use Drupal\neo_alchemist\Value\ComponentValuePluginBase;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**

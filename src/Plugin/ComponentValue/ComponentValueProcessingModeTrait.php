@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Drupal\neo_alchemist\Plugin\ComponentValue;
 
 use Drupal\Core\Form\FormStateInterface;
-use Drupal\neo_alchemist\ComponentValueProcessingModeInterface;
+use Drupal\neo_alchemist\Value\ComponentValueProcessingModeInterface;
 
 /**
  * Adds the standard, site-builder-configurable "Processing" mode to a provider.
@@ -47,7 +47,7 @@ use Drupal\neo_alchemist\ComponentValueProcessingModeInterface;
  *   implements that method today; one that does must raise its own claim and
  *   own that decision explicitly.
  *
- * @see \Drupal\neo_alchemist\ComponentValueProcessingModeInterface
+ * @see \Drupal\neo_alchemist\Value\ComponentValueProcessingModeInterface
  * @see \Drupal\Tests\neo_alchemist\Kernel\ComponentValueProcessingModeIntegrationTest
  * @see \Drupal\Tests\neo_alchemist\Kernel\ComponentValueProcessingModeScopeTest
  */

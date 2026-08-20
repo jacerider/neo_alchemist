@@ -163,7 +163,7 @@ class ComponentAggregateForm extends EntityConfirmFormBase {
    * @param \Drupal\neo_alchemist\ComponentShapePluginInterface|null $shape
    *   The root shape, or NULL when it does not resolve.
    *
-   * @return \Drupal\neo_alchemist\ComponentValuePluginInterface[]
+   * @return \Drupal\neo_alchemist\Value\ComponentValuePluginInterface[]
    *   The configured plugin instances, keyed by instance id.
    *
    * @see \Drupal\neo_alchemist\Entity\Component::setPropShapeSettings()

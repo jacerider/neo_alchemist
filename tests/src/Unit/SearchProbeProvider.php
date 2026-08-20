@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace Drupal\Tests\neo_alchemist\Unit;
 
-use Drupal\neo_alchemist\ComponentValuePluginBase;
-use Drupal\neo_alchemist\ComponentValueProcessingModeInterface;
-use Drupal\neo_alchemist\ComponentValueProvision;
 use Drupal\neo_alchemist\Plugin\ComponentValue\ComponentValueProcessingModeTrait;
+use Drupal\neo_alchemist\Value\ComponentValuePluginBase;
+use Drupal\neo_alchemist\Value\ComponentValueProcessingModeInterface;
+use Drupal\neo_alchemist\Value\ComponentValueProvision;
 
 /**
  * A real value provider whose produced value a test presets.

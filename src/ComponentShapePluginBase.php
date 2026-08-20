@@ -37,6 +37,7 @@ use Drupal\Core\TypedData\TypedDataManagerInterface;
 use Drupal\neo_alchemist\Drush\Generators\NeoComponentPropGeneratorInterface;
 use Drupal\neo_alchemist\Drush\Generators\NeoComponentTwig;
 use Drupal\neo_alchemist\PropSource\FieldStorageDefinition;
+use Drupal\neo_alchemist\Value\ComponentValuePluginManagerInterface;
 use DrupalCodeGenerator\InputOutput\Interviewer;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 

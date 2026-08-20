@@ -28,7 +28,7 @@ use Drupal\Core\Form\SubformState;
  *
  * @see \Drupal\neo_alchemist\Form\InstanceComponentForm::validateForm()
  * @see \Drupal\neo_alchemist\Form\SdcPreviewForm::validateForm()
- * @see \Drupal\neo_alchemist\ComponentValuePanelBuilder
+ * @see \Drupal\neo_alchemist\Value\ComponentValuePanelBuilder
  *   Builds the form this reads back; the two are deliberately separate, since
  *   building a form and harvesting its values are different jobs.
  */

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Drupal\neo_alchemist;
+namespace Drupal\neo_alchemist\Value;
 
 /**
  * A producer's answer to the provide phase: a value, and whether it is claimed.
@@ -28,7 +28,7 @@ namespace Drupal\neo_alchemist;
  * from the first into the second.
  *
  * @see \Drupal\neo_alchemist\ValueProviderSearch::search()
- * @see \Drupal\neo_alchemist\ComponentValuePluginInterface::provide()
+ * @see \Drupal\neo_alchemist\Value\ComponentValuePluginInterface::provide()
  */
 final class ComponentValueProvision {
 

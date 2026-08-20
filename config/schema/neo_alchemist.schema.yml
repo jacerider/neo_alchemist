@@ -151,7 +151,7 @@ neo_alchemist.neo_component_settings.props:
                     message: 'The %value machine name is not valid.'
                   PluginExists:
                     manager: plugin.manager.neo_component_value
-                    interface: '\Drupal\neo_alchemist\ComponentValuePluginInterface'
+                    interface: '\Drupal\neo_alchemist\Value\ComponentValuePluginInterface'
               settings:
                 type: neo_alchemist.neo_component_value.[%parent.id]
                 nullable: true
@@ -1083,7 +1083,7 @@ neo_alchemist.neo_component_shape_fields:
               constraints:
                 PluginExists:
                   manager: plugin.manager.neo_component_value
-                  interface: '\Drupal\neo_alchemist\ComponentValuePluginInterface'
+                  interface: '\Drupal\neo_alchemist\Value\ComponentValuePluginInterface'
             status:
               type: boolean
               label: 'Status'
