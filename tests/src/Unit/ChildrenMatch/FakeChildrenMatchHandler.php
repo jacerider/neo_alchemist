@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Drupal\Tests\neo_alchemist\Unit;
+namespace Drupal\Tests\neo_alchemist\Unit\ChildrenMatch;
 
 use Drupal\neo_alchemist\ChildrenMatch\ChildrenMatchField;
 use Drupal\neo_alchemist\ChildrenMatch\ChildrenMatchFormContext;
@@ -18,14 +18,14 @@ use Drupal\neo_alchemist\ChildrenMatch\ChildrenMatchSourceInterface;
  * only when the stored key actually names the handler, never for a
  * field-matcher key like `_entity:label`.
  *
- * @see \Drupal\Tests\neo_alchemist\Unit\FakeChildrenMatchSource
+ * @see \Drupal\Tests\neo_alchemist\Unit\ChildrenMatch\FakeChildrenMatchSource
  */
 final class FakeChildrenMatchHandler extends ChildrenMatchHandlerBase {
 
   /**
    * Constructs a FakeChildrenMatchHandler.
    *
-   * @param \Drupal\Tests\neo_alchemist\Unit\FakeChildrenMatchSource $source
+   * @param \Drupal\Tests\neo_alchemist\Unit\ChildrenMatch\FakeChildrenMatchSource $source
    *   The source to record asks on.
    * @param string $prefix
    *   The name this handler answers to.

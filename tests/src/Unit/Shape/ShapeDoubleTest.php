@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Drupal\Tests\neo_alchemist\Unit;
+namespace Drupal\Tests\neo_alchemist\Unit\Shape;
 
 use Drupal\Tests\neo_alchemist\Traits\ShapeDoubleTrait;
 use Drupal\Tests\UnitTestCase;

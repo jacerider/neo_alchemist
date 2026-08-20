@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Drupal\Tests\neo_alchemist\Unit;
+namespace Drupal\Tests\neo_alchemist\Unit\ChildrenMatch;
 
 use Drupal\Core\Cache\Cache;
 use Drupal\Core\Cache\CacheableMetadata;

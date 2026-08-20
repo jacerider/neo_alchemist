@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Drupal\Tests\neo_alchemist\Unit;
+namespace Drupal\Tests\neo_alchemist\Unit\Shape;
 
 use Drupal\Tests\neo_alchemist\Traits\InterfaceReflectionTrait;
 use Drupal\Tests\UnitTestCase;
@@ -26,7 +26,7 @@ use PHPUnit\Framework\Attributes\Group;
  * reach them, and that chaining does not quietly widen back.
  *
  * @see \Drupal\neo_alchemist\Shape\ComponentShapeSetupInterface
- * @see \Drupal\Tests\neo_alchemist\Unit\ShapeRoleInterfaceTest
+ * @see \Drupal\Tests\neo_alchemist\Unit\Shape\ShapeRoleInterfaceTest
  */
 #[Group('neo_alchemist')]
 class ShapeSetupInterfaceTest extends UnitTestCase {

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Drupal\Tests\neo_alchemist\Unit;
+namespace Drupal\Tests\neo_alchemist\Unit\ChildrenMatch;
 
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\neo_alchemist\ChildrenMatch\ChildrenMatchFieldSourceInterface;
@@ -22,7 +22,7 @@ use Drupal\neo_alchemist\ChildrenMatch\ChildrenMatchScope;
  * its `_view:` handler.
  *
  * @see \Drupal\neo_alchemist\ChildrenMatch\ChildrenMatchSourceInterface
- * @see \Drupal\Tests\neo_alchemist\Unit\FakeChildrenMatchHandler
+ * @see \Drupal\Tests\neo_alchemist\Unit\ChildrenMatch\FakeChildrenMatchHandler
  */
 final class FakeChildrenMatchSource implements ChildrenMatchFieldSourceInterface {
 

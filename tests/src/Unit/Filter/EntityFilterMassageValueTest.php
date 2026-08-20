@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Drupal\Tests\neo_alchemist\Unit;
+namespace Drupal\Tests\neo_alchemist\Unit\Filter;
 
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\neo_alchemist\Plugin\ComponentFilter\EntityFilter;

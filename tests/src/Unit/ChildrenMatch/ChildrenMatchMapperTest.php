@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Drupal\Tests\neo_alchemist\Unit;
+namespace Drupal\Tests\neo_alchemist\Unit\ChildrenMatch;
 
 use Drupal\Core\Cache\Cache;
 use Drupal\Core\Cache\CacheableMetadata;
@@ -36,7 +36,7 @@ use Symfony\Component\EventDispatcher\EventDispatcherInterface;
  * outcomes and the source's own field choices — with neither.
  *
  * @see \Drupal\neo_alchemist\ChildrenMatch\ChildrenMatchMapper
- * @see \Drupal\Tests\neo_alchemist\Unit\FakeChildrenMatchSource
+ * @see \Drupal\Tests\neo_alchemist\Unit\ChildrenMatch\FakeChildrenMatchSource
  */
 #[Group('neo_alchemist')]
 class ChildrenMatchMapperTest extends UnitTestCase {
