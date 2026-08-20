@@ -12,7 +12,7 @@ use Drupal\Core\Entity\ContentEntityInterface;
  * Everything a field handler needs to produce a value, in place of the six
  * positional arguments the trait's handlers took.
  *
- * @see \Drupal\neo_alchemist\ChildrenMatchFieldSourceInterface::fetchChildrenMatchField()
+ * @see \Drupal\neo_alchemist\ChildrenMatchHandlerInterface::fetch()
  */
 final class ChildrenMatchField {
 

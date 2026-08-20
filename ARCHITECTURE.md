@@ -497,8 +497,9 @@ returns the [ChildrenMatchScope](src/ChildrenMatchScope.php) the mapping table b
 against. A source that also contributes field choices of its own (only `views` does, for
 the columns a view renders that are not fields on the row's entity) implements
 [ChildrenMatchFieldSourceInterface](src/ChildrenMatchFieldSourceInterface.php) and
-**declares the prefixes it owns** — anything it does not declare falls through to the field
-matcher, which is what keeps `_entity:*` working on a views mapping.
+**registers its own handler** through `getChildrenMatchHandlers()`. A handler's name is
+the prefix it claims, so anything no handler claims falls through to the field matcher,
+which is what keeps `_entity:*` working on a views mapping.
 `getChildrenMatchEntities()` returns a
 [ChildrenMatchResult](src/ChildrenMatchResult.php), and choosing among its three
 constructors is the whole of a source's render-time contract: `unavailable()` (nothing
@@ -529,7 +530,11 @@ fields, `_`-prefixed pseudo-fields:
 `_self` (use the **iterated entity itself** as a media-shape child's value — offered
 when iterating media entities, e.g. a media reference field as the iteration source;
 bundle support is checked strictly at fetch time and the value comes from the shape's
-`getValueFromMedia()`). The mapper is the **single** place the "Only use published
+`getValueFromMedia()`). Each pseudo-field is **one handler class** implementing
+[ChildrenMatchHandlerInterface](src/ChildrenMatchHandlerInterface.php) — it owns its
+option, its form branch and its fetch together, so the three cannot drift — and the mapper
+finds them through a name-keyed map, never string concatenation or `method_exists()`. A
+name that is in no handler's map is not a pseudo-field. The mapper is the **single** place the "Only use published
 entities" setting is applied, by skipping unpublished iterated entities. A source may
 still narrow its own query with the same flag — `entity_query` does, so unpublished rows
 do not consume slots in the range/pager window — but the mapper's filter is the decision

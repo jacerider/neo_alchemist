@@ -5,14 +5,11 @@ declare(strict_types=1);
 namespace Drupal\neo_alchemist;
 
 use Drupal\Component\Utility\NestedArray;
-use Drupal\Core\Cache\CacheableMetadata;
 use Drupal\Core\Entity\EntityPublishedInterface;
 use Drupal\Core\Extension\ModuleHandlerInterface;
 use Drupal\Core\Field\FormatterPluginManager;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\StringTranslation\StringTranslationTrait;
-use Drupal\media\MediaInterface;
-use Drupal\neo_alchemist\Event\ComponentValueEvent;
 use Drupal\neo_alchemist\Plugin\ComponentValue\ComponentValuePluginTrait;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 
@@ -38,27 +35,22 @@ use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 class ChildrenMatchMapper {
 
   use ComponentValuePluginTrait;
-  use FieldFormatterTrait;
   use StringTranslationTrait;
 
   /**
-   * The underscore choices the mapper resolves itself.
+   * The mapper's own pseudo-field handlers, keyed and ordered by name.
    *
-   * Stored as `_<name>` on a child, optionally with a `:suffix` or a `~key`.
-   * A source may add more through ChildrenMatchFieldSourceInterface; anything
-   * neither this list nor a source claims is a field-matcher key.
+   * A stored `_<name>` child key resolves to the handler named `<name>`. A
+   * source may register more through ChildrenMatchFieldSourceInterface, but not
+   * shadow these — these take precedence — and anything neither these nor a
+   * source claims is a field-matcher key. The order is the order options are
+   * offered in.
+   *
+   * @var \Drupal\neo_alchemist\ChildrenMatchHandlerInterface[]
    *
    * @see \Drupal\neo_alchemist\ChildrenMatchFieldSourceInterface
    */
-  protected const PSEUDO_FIELDS = [
-    'default',
-    'event',
-    'expand',
-    'reference',
-    'self',
-    'render',
-    'raw',
-  ];
+  protected array $handlers;
 
   /**
    * Constructs a ChildrenMatchMapper.
@@ -66,28 +58,39 @@ class ChildrenMatchMapper {
    * @param \Drupal\neo_alchemist\MatcherField $matcherField
    *   The field matcher: reads a value off an entity for a stored field key.
    * @param \Drupal\neo_alchemist\MatcherReference $matcherReference
-   *   The reference matcher: resolves and follows entity reference fields.
+   *   The reference matcher, handed to the `_reference` handler.
    * @param \Symfony\Component\EventDispatcher\EventDispatcherInterface $eventDispatcher
-   *   The event dispatcher, for the `_event` pseudo field.
+   *   The event dispatcher, handed to the `_event` handler.
    * @param \Drupal\neo_alchemist\ComponentValuePluginManagerInterface $valuePluginManager
    *   The value plugin manager, for labelling copy-mapping sources.
    * @param \Drupal\Core\Field\FormatterPluginManager $fieldFormatterManager
-   *   The formatter manager, for the `_render` pseudo field's formatter form.
+   *   The formatter manager, handed to the `_render` handler.
    * @param \Drupal\Core\Extension\ModuleHandlerInterface $moduleHandler
-   *   The module handler, for formatter third-party settings forms.
+   *   The module handler, handed to the `_render` handler.
    */
   public function __construct(
     protected MatcherField $matcherField,
-    protected MatcherReference $matcherReference,
-    protected EventDispatcherInterface $eventDispatcher,
+    MatcherReference $matcherReference,
+    EventDispatcherInterface $eventDispatcher,
     protected ComponentValuePluginManagerInterface $valuePluginManager,
     FormatterPluginManager $fieldFormatterManager,
     ModuleHandlerInterface $moduleHandler,
   ) {
-    // FieldFormatterTrait declares these and would otherwise reach for
-    // \Drupal::service() the first time a formatter form is built.
-    $this->fieldFormatterManager = $fieldFormatterManager;
-    $this->moduleHandler = $moduleHandler;
+    // One handler per pseudo field, in the order their options are offered. The
+    // map is the whole extension protocol: the option, the form branch and the
+    // fetch are one object each, and a name that is not a key here is not a
+    // pseudo field. The collaborators a handler needs are handed to it here,
+    // rather than held by the mapper, so the mapper keeps only what it uses
+    // itself (the field matcher, for a plain field match).
+    $this->handlers = [
+      'default' => new ChildrenMatchDefaultHandler(),
+      'event' => new ChildrenMatchEventHandler($eventDispatcher),
+      'reference' => new ChildrenMatchReferenceHandler($matcherReference),
+      'render' => new ChildrenMatchRenderHandler($this->matcherField, $fieldFormatterManager, $moduleHandler),
+      'self' => new ChildrenMatchSelfHandler(),
+      'raw' => new ChildrenMatchRawHandler(),
+      'expand' => new ChildrenMatchExpandHandler(),
+    ];
   }
 
   /**
@@ -199,7 +202,7 @@ class ChildrenMatchMapper {
   /**
    * The mapping table, plus the Advanced group behind it.
    */
-  protected function buildMappingForm(ChildrenMatchSourceInterface $source, ComponentShapeChildrenMatchPluginInterface $shape, array $form, FormStateInterface $form_state, ChildrenMatchScope $scope, array $configuration): array {
+  public function buildMappingForm(ChildrenMatchSourceInterface $source, ComponentShapeChildrenMatchPluginInterface $shape, array $form, FormStateInterface $form_state, ChildrenMatchScope $scope, array $configuration): array {
     $wrapperId = $form['#id'];
     $childShapes = $shape->getChildShapes();
     if (!$childShapes) {
@@ -428,7 +431,7 @@ class ChildrenMatchMapper {
   /**
    * Builds one child shape's row in the mapping table.
    */
-  protected function buildChildForm(ChildrenMatchSourceInterface $source, ComponentShapePluginInterface $shape, array $form, FormStateInterface $form_state, ChildrenMatchScope $scope, array $configuration): array {
+  public function buildChildForm(ChildrenMatchSourceInterface $source, ComponentShapePluginInterface $shape, array $form, FormStateInterface $form_state, ChildrenMatchScope $scope, array $configuration): array {
     $wrapperId = $form['#id'];
     $form += [
       '#type' => 'fieldset',
@@ -444,53 +447,28 @@ class ChildrenMatchMapper {
       '#description_display' => 'before',
     ];
     $form['#element_validate'][] = [self::class, 'validateChildForm'];
-    // Only the choices the entity's own field tree cannot express. Real field
-    // matches are deliberately absent: for a scalar child shape they come from
-    // the searchable browser below, which is the whole point of using it.
-    $options = [
-      '- Shape -' => [
-        '_default' => $this->t('Use Default'),
-        '_event' => $this->t('Use Event'),
-      ],
-    ];
-
     // An array child shape is filled by *iterating* a reference field rather
-    // than by reading one, so its choices are reference fields and it keeps a
-    // plain select. The browser answers "what can supply this value", which for
-    // an array shape is every scalar field on the entity — a thousand matches,
-    // none of which can fill a list.
+    // than by reading one, so it keeps a plain select; a scalar child uses the
+    // searchable browser below. The reference options for the former are one of
+    // the handlers, gated on the same iterability.
     $iterable = $shape->isIterable();
-    if ($iterable) {
-      $refOptions = $this->matcherReference->getReferencesAsOptions($scope->entityTypeId, $scope->bundle);
-      foreach ($refOptions as $group => $refs) {
-        foreach ($refs as $refKey => $refLabel) {
-          $options[$group]['_reference~' . $refKey] = $refLabel;
-        }
-      }
-    }
-    if (in_array($shape->getRef(), ['markup', 'string'])) {
-      $options['- Shape -']['_render'] = $this->t('Render with field formatter');
-    }
-    if ($shape instanceof ComponentShapeMediaPluginInterface && $scope->entityTypeId === 'media') {
-      // The iterated entity is itself a media entity a media shape can consume
-      // (e.g. a media reference field used as the iteration source). Bundle
-      // support is deliberately not checked here — the placeholder bundle is
-      // unreliable for multi-bundle references — the strict check happens at
-      // fetch time in fetchSelf().
-      $options['- Shape -']['_self'] = $this->t('This entity');
-    }
-    if ($shape->getType() === 'boolean') {
-      $options['- Raw -']['_raw:boolean_true'] = $this->t('Boolean: True');
-      $options['- Raw -']['_raw:boolean_false'] = $this->t('Boolean: False');
-    }
-    if ($shape->getType() === 'string') {
-      $options['- Raw -']['_raw:string'] = $shape->getFieldOptions() ? $this->t('Option') : $this->t('String');
-    }
-    if ($shape->isExpandable()) {
-      $options['- Shape -']['_expand'] = $this->t('Expand to configure child shapes');
-    }
-    if ($source instanceof ChildrenMatchFieldSourceInterface) {
-      $source->alterChildrenMatchOptions($options, $shape, $form_state);
+    $ajax = [
+      'callback' => [self::class, 'refreshChildAjax'],
+      'wrapper' => $wrapperId,
+    ];
+    $context = new ChildrenMatchFormContext($this, $source, $shape, $scope, $form_state, $ajax);
+
+    // Each handler offers only the choices the entity's own field tree cannot
+    // express — Use Default, Expand, a reference to iterate, a raw literal —
+    // in registration order, so the grouped option array is stable. Real field
+    // matches are deliberately absent: for a scalar child they come from the
+    // searchable browser below, which is the whole point of using it. A field
+    // source (views) registers its own handlers into the same list, after the
+    // mapper's own and unable to shadow them.
+    $options = [];
+    foreach ($this->handlerList($source) as $handler) {
+      $handler->setStringTranslation($this->getStringTranslation());
+      $handler->addOptions($options, $context);
     }
 
     $field = $configuration['field'] ?? NULL;
@@ -501,10 +479,6 @@ class ChildrenMatchMapper {
     // group had been picked. Enforcing it now would make every already-saved
     // component with an unbound required child unsavable.
     $emptyOption = $shape->isRequired() ? $this->t('- Select -') : $this->t('- None -');
-    $ajax = [
-      'callback' => [self::class, 'refreshChildAjax'],
-      'wrapper' => $wrapperId,
-    ];
 
     // Inside the mapping table the row already names the child, so the
     // control's own label is for screen readers only.
@@ -557,97 +531,23 @@ class ChildrenMatchMapper {
     }
 
     if ($field) {
-      $find = explode('~', $field)[0];
-      switch ($find) {
-        case '_render':
-          $renderFieldId = $configuration['render_field'] ?? NULL;
-          $form['render_field'] = [
-            '#type' => 'neo_field_select',
-            '#title' => $this->t('Field to render'),
-            '#required' => TRUE,
-            '#component' => $shape->getComponent()->id(),
-            '#prop' => $shape->getRootShape()->getName(),
-            '#shape' => $shape->id(),
-            '#all' => TRUE,
-            '#entity_type' => $scope->entityTypeId,
-            '#bundle' => $scope->bundle,
-            '#empty_option' => $this->t('- Select -'),
-            '#default_value' => $renderFieldId,
-            '#ajax' => $ajax,
-          ];
-          if ($renderFieldId) {
-            $renderField = $this->matcherField->getFieldDefinition($shape, $renderFieldId, $scope->entityTypeId, $scope->bundle, NULL, TRUE);
-            if ($renderField) {
-              $form['render_field_format'] = [
-                '#type' => 'fieldset',
-                '#title' => $this->t('Formatter'),
-              ];
-              $renderFieldFormatConfiguration = $configuration['render_field_format'] ?? [];
-              $form['render_field_format'] = $this->formatterConfigurationForm($form['render_field_format'], $form_state, $renderField, $renderFieldFormatConfiguration, $ajax);
-            }
-          }
-          break;
-
-        case '_event':
-          $form['info'] = [
-            '#type' => 'html_tag',
-            '#tag' => 'div',
-            '#attributes' => ['class' => ['messages', 'messages--warning']],
-            '#value' => $this->t('Will call the <em>\Drupal\neo_alchemist\Event\ComponentValueEvent</em> to get the value.'),
-          ];
-          break;
-
-        case '_expand':
-          if ($shape instanceof ComponentShapeChildrenMatchPluginInterface) {
-            foreach ($shape->getChildShapes() as $childShapeName => $childShape) {
-              $form['shape_fields'][$childShapeName] = [
-                '#id' => $wrapperId . '-' . $childShapeName,
-                '#parents' => array_merge($form['#parents'], [
-                  'shape_fields',
-                  $childShapeName,
-                ]),
-              ];
-              $form['shape_fields'][$childShapeName] = $this->buildChildForm($source, $childShape, $form['shape_fields'][$childShapeName], $form_state, $scope, $configuration['shape_fields'][$childShapeName] ?? []);
-            }
-          }
-          break;
-
-        case '_reference':
-          $parts = explode('~', $field);
-          $entityKey = $parts[1];
-          $referenceEntity = $this->matcherReference->getReferenceEntityByEntityType($scope->entityTypeId, $entityKey);
-          if ($referenceEntity) {
-            // The nested level maps a DIFFERENT entity, so it gets its own
-            // scope. Reusing the outer one offered the wrong entity's fields.
-            $referenceScope = new ChildrenMatchScope($referenceEntity->getEntityTypeId(), $referenceEntity->bundle());
-            $form = $this->buildMappingForm($source, $shape, $form, $form_state, $referenceScope, $configuration);
-          }
-          $form['#type'] = 'details';
-          break;
-
-        case '_raw:string':
-          if ($stringOptions = $shape->getFieldOptions()) {
-            $form['string'] = [
-              '#type' => 'select',
-              '#title' => $this->t('Value'),
-              '#options' => $stringOptions,
-              '#default_value' => $configuration['string'] ?? '',
-            ];
-            break;
-          }
-          else {
-            $form['string'] = [
-              '#type' => 'textfield',
-              '#title' => $this->t('Value'),
-              '#default_value' => $configuration['string'] ?? '',
-            ];
-          }
-          break;
-
-        default:
-          $pluginDefaults = $configuration['plugins'] ?? [];
-          $form = $this->buildPluginConfigurationForm($shape, $pluginDefaults, $form, $form_state);
-          break;
+      // The chosen field's handler owns its configuration branch.
+      $name = $this->handlerName($field);
+      $handler = $name !== NULL ? $this->resolveHandler($name, $source) : NULL;
+      $branch = NULL;
+      if ($handler) {
+        $handler->setStringTranslation($this->getStringTranslation());
+        $branch = $handler->buildForm($form, $configuration, $context);
+      }
+      if ($branch !== NULL) {
+        $form = $branch;
+      }
+      else {
+        // A handler with no branch of its own for this choice — a raw boolean,
+        // "This entity", Use Default — and every plain field match fall through
+        // to the inline value-plugin form.
+        $pluginDefaults = $configuration['plugins'] ?? [];
+        $form = $this->buildPluginConfigurationForm($shape, $pluginDefaults, $form, $form_state);
       }
     }
     return $form;
@@ -708,14 +608,15 @@ class ChildrenMatchMapper {
    * @return mixed
    *   The values.
    */
-  protected function fetchValues(ChildrenMatchSourceInterface $source, array $shapeNames, ComponentShapeChildrenMatchPluginInterface $shape, array $entities, array $configuration = [], ?string $parentId = NULL, ?bool $iterable = NULL): mixed {
+  public function fetchValues(ChildrenMatchSourceInterface $source, array $shapeNames, ComponentShapeChildrenMatchPluginInterface $shape, array $entities, array $configuration = [], ?string $parentId = NULL, ?bool $iterable = NULL): mixed {
     /** @var \Drupal\Core\Entity\ContentEntityInterface[] $entities */
     $values = [];
     $delta = 0;
     $iterable = $iterable ?? $shape->isIterable();
     $published = !empty($configuration['shape_published']);
-    $fieldSource = $source instanceof ChildrenMatchFieldSourceInterface ? $source : NULL;
-    $sourcePrefixes = $fieldSource?->getChildrenMatchFieldPrefixes() ?? [];
+    // The pseudo-field handlers active for this mapping: the mapper's own, plus
+    // any the source registers. A source's cannot shadow a built-in.
+    $handlerMap = $this->handlerMap($source);
     if ($entities) {
       $parentId = $parentId ?? $shape->id();
       foreach (array_filter($entities) as $entity) {
@@ -750,53 +651,36 @@ class ChildrenMatchMapper {
             }
           }
           if ($field) {
-            if (str_starts_with($field, '_')) {
-              $parts = explode(':', $field);
-              $parts = explode('~', $parts[0]);
-              $name = substr($parts[0], 1);
+            $name = $this->handlerName($field);
+            $handler = $name !== NULL ? ($handlerMap[$name] ?? NULL) : NULL;
+            if ($handler) {
               $context = new ChildrenMatchField($shapeId, $shapeName, $delta, $shape, $entity, $settings);
-              // Anything not listed here — most often `_entity:*` — is a key
-              // the field matcher understands, and must fall through to it
-              // rather than be swallowed. A source only gets the prefixes it
-              // declared.
-              $handled = in_array($name, self::PSEUDO_FIELDS, TRUE)
-                || ($fieldSource && in_array($name, $sourcePrefixes, TRUE));
-              if ($handled) {
-                $value = match ($name) {
-                  'default' => $this->fetchDefault($context),
-                  'event' => $this->fetchEvent($context),
-                  'expand' => $this->fetchExpand($source, $context),
-                  'reference' => $this->fetchReference($source, $context),
-                  'self' => $this->fetchSelf($context),
-                  'render' => $this->fetchRender($context),
-                  'raw' => $this->fetchRaw($context),
-                  default => $fieldSource->fetchChildrenMatchField($name, $context),
-                };
-                if (!is_null($value)) {
-                  $values[$delta][$shapeName] = $value;
-                }
-                elseif ($name === 'default') {
-                  // "Use Default" means this provider contributes NOTHING to
-                  // the child, so its key is removed rather than left as the []
-                  // it was seeded with above.
-                  //
-                  // An empty array IS a value to the `??` chain in
-                  // Object/ArrayShape::loadChildSchema(), which distributes
-                  // this value onto the child schemas. Leaving [] therefore
-                  // overwrote the child's own `examples`, and the child then
-                  // dutifully "used the default" — of nothing. Absent, the
-                  // chain falls through to the SDC example, which is precisely
-                  // what the setting names.
-                  //
-                  // Deliberately NOT applied to every NULL-returning handler: a
-                  // child bound to a real field that resolved empty must keep
-                  // its [] so the prop renders nothing, rather than falling
-                  // back to the component's placeholder content.
-                  unset($values[$delta][$shapeName]);
-                }
-                continue;
+              $value = $handler->fetch($context, $this, $source);
+              if (!is_null($value)) {
+                $values[$delta][$shapeName] = $value;
               }
+              elseif ($handler->removeChildWhenAbsent()) {
+                // "Use Default" means this provider contributes NOTHING to the
+                // child, so its key is removed rather than left as the [] it
+                // was seeded with above.
+                //
+                // An empty array IS a value to the `??` chain in
+                // Object/ArrayShape::loadChildSchema(), which distributes this
+                // value onto the child schemas. Leaving [] therefore overwrote
+                // the child's own `examples`, and the child then dutifully
+                // "used the default" — of nothing. Absent, the chain falls
+                // through to the SDC example, which is what the setting names.
+                //
+                // Every other handler keeps its []: a child bound to a real
+                // source that resolved empty must render nothing, rather than
+                // fall back to the component's placeholder content.
+                unset($values[$delta][$shapeName]);
+              }
+              continue;
             }
+            // A key the field matcher understands — most often `_entity:*`, or
+            // a plain field — has no handler and is read straight off the
+            // entity rather than being swallowed.
             $values[$delta][$shapeName] = $this->matcherField->getEntityValue(
               entity: $entity,
               key: $field,
@@ -832,111 +716,84 @@ class ChildrenMatchMapper {
   }
 
   /**
-   * Handles `_default`: contribute nothing, so the child keeps its own example.
-   */
-  protected function fetchDefault(ChildrenMatchField $field): mixed {
-    $field->shape->getChildShapeState()->setFlag($field->shapeId, ChildShapeState::USE_DEFAULT, TRUE);
-    return NULL;
-  }
-
-  /**
-   * Handles `_event`: ask a subscriber for the value.
-   */
-  protected function fetchEvent(ChildrenMatchField $field): mixed {
-    $event = new ComponentValueEvent($field->shape, [], $field->entity, $field->delta, $field->shapeId);
-    $this->eventDispatcher->dispatch($event, ComponentValueEvent::EVENT_NAME);
-    $value = $event->getValue();
-    $field->shape->addCacheableDependency($event);
-    return $value;
-  }
-
-  /**
-   * Handles `_expand`: map this same entity onto the child's own children.
-   */
-  protected function fetchExpand(ChildrenMatchSourceInterface $source, ChildrenMatchField $field): mixed {
-    if ($field->settings['shape_fields'] ?? []) {
-      $childShapeNames = array_keys($field->settings['shape_fields']);
-      return $this->fetchValues($source, $childShapeNames, $field->shape, [$field->entity], $field->settings, $field->shapeId, $this->isChildIterable($field->shape, $field->shapeId));
-    }
-    return NULL;
-  }
-
-  /**
-   * Handles `_reference~key`: map the entities that reference field points at.
-   */
-  protected function fetchReference(ChildrenMatchSourceInterface $source, ChildrenMatchField $field): mixed {
-    if ($field->settings['shape_fields'] ?? []) {
-      $entityKey = explode('~', $field->settings['field'])[1];
-      $referenceField = $this->matcherReference->getReferenceField($field->entity, $entityKey, $field->shape->getCacheableMetadata());
-      if ($referenceField) {
-        $childShapeNames = array_keys($field->settings['shape_fields']);
-        return $this->fetchValues($source, $childShapeNames, $field->shape, $referenceField->referencedEntities(), $field->settings, $field->shapeId, $this->isChildIterable($field->shape, $field->shapeId));
-      }
-    }
-    return NULL;
-  }
-
-  /**
-   * Handles `_self`: the iterated entity IS the media the child wants.
+   * The handler name a stored field key resolves to, or NULL for a real field.
    *
-   * Used when the iteration source yields entities a child shape can consume
-   * directly — a media reference field iterated by entity_reference, a media
-   * entity query, etc. The media shape's own converter builds the value, so
-   * the child receives the same structure a stored media reference would
-   * produce.
+   * Strips a `:suffix` then a `~key` then the leading underscore, so
+   * `_raw:string` and `_reference~field_ref` both name their handler. A key
+   * that is not underscore-prefixed is a plain field and names no handler.
+   *
+   * @param string $field
+   *   The stored field key.
+   *
+   * @return string|null
+   *   The handler name, or NULL.
    */
-  protected function fetchSelf(ChildrenMatchField $field): mixed {
-    if (!$field->entity instanceof MediaInterface) {
+  protected function handlerName(string $field): ?string {
+    if (!str_starts_with($field, '_')) {
       return NULL;
     }
-    $childShape = $this->getChildShapeById($field->shape, $field->shapeId);
-    if (!$childShape instanceof ComponentShapeMediaPluginInterface || !in_array($field->entity->bundle(), $childShape->getSupportedMediaTypes(), TRUE)) {
-      return NULL;
-    }
-    return $childShape->getValueFromMedia($field->entity) ?: NULL;
+    $head = explode(':', $field)[0];
+    $head = explode('~', $head)[0];
+    return substr($head, 1);
   }
 
   /**
-   * Handles `_render`: run a field through a formatter, keep the render array.
+   * The handlers active for a mapping, keyed by name, built-ins winning.
    *
-   * The published flag is read from the CHILD's settings, where it is never
-   * written — `shape_published` lives at the provider root — so this resolves
-   * FALSE every time and the matcher walk does not drop unpublished
-   * intermediate entities. That is what the trait did, bug and all, and it is
-   * preserved deliberately: reading the provider's flag here instead would
-   * quietly change what already-configured `_render` mappings put on a page,
-   * which is a behaviour change this refactor has no mandate to make. Recorded
-   * on ticket 04 for a follow-up that can fix it with its own test.
+   * @param \Drupal\neo_alchemist\ChildrenMatchSourceInterface $source
+   *   The producer whose contributed handlers to merge in.
+   *
+   * @return \Drupal\neo_alchemist\ChildrenMatchHandlerInterface[]
+   *   Handlers keyed by name.
    */
-  protected function fetchRender(ChildrenMatchField $field): mixed {
-    if (!empty($field->settings['render_field'])) {
-      $published = !empty($field->settings['shape_published']);
-      $item = $this->matcherField->getEntityField($field->entity, $field->settings['render_field'], $published, $field->shape->getCacheableMetadata());
-      if ($item && !$item->isEmpty() && !empty($field->settings['render_field_format']['field_plugin'])) {
-        $build = $item->view([
-          'type' => $field->settings['render_field_format']['field_plugin'],
-          'label' => $field->settings['render_field_format']['field_label'] ?? 'hidden',
-          'settings' => $field->settings['render_field_format']['field_settings'] ?? [],
-        ]);
-        $cacheableMetadata = CacheableMetadata::createFromRenderArray($build);
-        $field->shape->addCacheableDependency($cacheableMetadata);
-        return ComponentPropRenderable::create($build);
-      }
+  protected function handlerMap(ChildrenMatchSourceInterface $source): array {
+    $map = $this->handlers;
+    foreach ($this->sourceHandlers($source) as $handler) {
+      // Union keeps a built-in of the same name — a source cannot shadow one.
+      $map += [$handler->getName() => $handler];
     }
-    return NULL;
+    return $map;
   }
 
   /**
-   * Handles `_raw:*`: a literal the site builder typed.
+   * The one handler that owns a field key, built-ins winning, or NULL.
+   *
+   * @param string $name
+   *   The handler name from handlerName().
+   * @param \Drupal\neo_alchemist\ChildrenMatchSourceInterface $source
+   *   The producer whose contributed handlers to consider.
+   *
+   * @return \Drupal\neo_alchemist\ChildrenMatchHandlerInterface|null
+   *   The handler, or NULL when the key is a field-matcher key.
    */
-  protected function fetchRaw(ChildrenMatchField $field): mixed {
-    $fieldName = substr($field->settings['field'], 5);
-    return match ($fieldName) {
-      'boolean_true' => TRUE,
-      'boolean_false' => FALSE,
-      'string' => $field->settings['string'] ?? '',
-      default => NULL,
-    };
+  protected function resolveHandler(string $name, ChildrenMatchSourceInterface $source): ?ChildrenMatchHandlerInterface {
+    return $this->handlerMap($source)[$name] ?? NULL;
+  }
+
+  /**
+   * Every handler, in option order: the mapper's own then the source's.
+   *
+   * @param \Drupal\neo_alchemist\ChildrenMatchSourceInterface $source
+   *   The producer whose contributed handlers to append.
+   *
+   * @return \Drupal\neo_alchemist\ChildrenMatchHandlerInterface[]
+   *   The handlers, in the order their options are offered.
+   */
+  protected function handlerList(ChildrenMatchSourceInterface $source): array {
+    return array_merge(array_values($this->handlers), $this->sourceHandlers($source));
+  }
+
+  /**
+   * The handlers a source contributes, or none.
+   *
+   * @param \Drupal\neo_alchemist\ChildrenMatchSourceInterface $source
+   *   The producer.
+   *
+   * @return \Drupal\neo_alchemist\ChildrenMatchHandlerInterface[]
+   *   The contributed handlers.
+   */
+  protected function sourceHandlers(ChildrenMatchSourceInterface $source): array {
+    return $source instanceof ChildrenMatchFieldSourceInterface ? $source->getChildrenMatchHandlers() : [];
   }
 
   /**
@@ -956,7 +813,7 @@ class ChildrenMatchMapper {
    * @return \Drupal\neo_alchemist\ComponentShapePluginInterface|null
    *   The uninitialized child shape, or NULL if the path does not resolve.
    */
-  protected function getChildShapeById(ComponentShapeChildrenMatchPluginInterface $root, string $shapeId): ?ComponentShapePluginInterface {
+  public function getChildShapeById(ComponentShapeChildrenMatchPluginInterface $root, string $shapeId): ?ComponentShapePluginInterface {
     $path = $shapeId;
     if (str_starts_with($path, $root->id() . '~')) {
       $path = substr($path, strlen($root->id()) + 1);
@@ -981,7 +838,7 @@ class ChildrenMatchMapper {
    * cannot be an array shape, and the flat form is what every non-array child
    * (the common case) wants.
    */
-  protected function isChildIterable(ComponentShapeChildrenMatchPluginInterface $shape, string $shapeId): bool {
+  public function isChildIterable(ComponentShapeChildrenMatchPluginInterface $shape, string $shapeId): bool {
     return (bool) $this->getChildShapeById($shape, $shapeId)?->isIterable();
   }
 

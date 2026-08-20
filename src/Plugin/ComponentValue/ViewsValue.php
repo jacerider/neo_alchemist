@@ -375,8 +375,8 @@ final class ViewsValue extends ComponentValuePluginBase implements ContainerFact
           }
         }
 
-        // alterChildrenMatchOptions() reads the executed view back off the
-        // form state to list the columns the view itself renders.
+        // ViewsChildrenMatchHandler::addOptions() reads the executed view back
+        // off the form state to list the columns the view itself renders.
         $form_state->set('view', $view);
 
         return new ChildrenMatchScope($viewEntityTypeId, $viewEntityBundle ?: NULL);
@@ -388,18 +388,11 @@ final class ViewsValue extends ComponentValuePluginBase implements ContainerFact
   /**
    * {@inheritdoc}
    */
-  public function alterChildrenMatchOptions(array &$options, ComponentShapePluginInterface $shape, FormStateInterface $form_state): void {
-    if ($shape->getType() !== 'string') {
-      return;
-    }
-    $view = $form_state->get('view');
-    $display = $view->getDisplay();
-    // Support fields directly rendered by views.
-    /** @var \Drupal\views\Plugin\views\field\FieldPluginBase[] $fields */
-    $fields = $display->getHandlers('field');
-    foreach ($fields as $fieldName => $field) {
-      $options['- Views -']['_view:' . $fieldName] = $field->adminLabel();
-    }
+  public function getChildrenMatchHandlers(): array {
+    // The `_view:` handler needs this provider's executed view and its row
+    // index to read a column back, so the provider owns it and registers it
+    // into the mapper's handler map.
+    return [new ViewsChildrenMatchHandler($this)];
   }
 
   /**
@@ -606,19 +599,22 @@ final class ViewsValue extends ComponentValuePluginBase implements ContainerFact
   }
 
   /**
-   * {@inheritdoc}
-   */
-  public function getChildrenMatchFieldPrefixes(): array {
-    return ['view'];
-  }
-
-  /**
-   * {@inheritdoc}
+   * Reads a `_view:<field>` column for one iterated row.
    *
-   * Handles `_view:<field>` — a column the view itself renders, which may not
-   * be a field on the row's entity at all.
+   * A column the view itself renders, which may not be a field on the row's
+   * entity at all. Called by ViewsChildrenMatchHandler, which the provider
+   * registers into the mapper's handler map; it lives here because reading the
+   * column needs this provider's executed view and its row index.
+   *
+   * @param \Drupal\neo_alchemist\ChildrenMatchField $field
+   *   The child being filled for one entity.
+   *
+   * @return mixed
+   *   The rendered column value, or NULL when the view or row is unavailable.
+   *
+   * @see \Drupal\neo_alchemist\Plugin\ComponentValue\ViewsChildrenMatchHandler
    */
-  public function fetchChildrenMatchField(string $prefix, ChildrenMatchField $field): mixed {
+  public function getViewRowFieldValue(ChildrenMatchField $field): mixed {
     $view = $this->getView();
     if (!$view || !isset($view->style_plugin)) {
       return NULL;

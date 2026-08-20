@@ -5,11 +5,9 @@ declare(strict_types=1);
 namespace Drupal\Tests\neo_alchemist\Unit;
 
 use Drupal\Core\Form\FormStateInterface;
-use Drupal\neo_alchemist\ChildrenMatchField;
 use Drupal\neo_alchemist\ChildrenMatchFieldSourceInterface;
 use Drupal\neo_alchemist\ChildrenMatchResult;
 use Drupal\neo_alchemist\ChildrenMatchScope;
-use Drupal\neo_alchemist\ComponentShapePluginInterface;
 
 /**
  * A children-match source that returns a fixed list of entities.
@@ -19,9 +17,12 @@ use Drupal\neo_alchemist\ComponentShapePluginInterface;
  * only thing a producer contributes at render time is this list.
  *
  * Implements the optional field-source interface too, so one double covers
- * both the plain sources and the views-shaped one.
+ * both the plain sources and the views-shaped one: it registers a
+ * FakeChildrenMatchHandler per custom field, exactly as ViewsValue registers
+ * its `_view:` handler.
  *
  * @see \Drupal\neo_alchemist\ChildrenMatchSourceInterface
+ * @see \Drupal\Tests\neo_alchemist\Unit\FakeChildrenMatchHandler
  */
 final class FakeChildrenMatchSource implements ChildrenMatchFieldSourceInterface {
 
@@ -66,25 +67,12 @@ final class FakeChildrenMatchSource implements ChildrenMatchFieldSourceInterface
   /**
    * {@inheritdoc}
    */
-  public function alterChildrenMatchOptions(array &$options, ComponentShapePluginInterface $shape, FormStateInterface $form_state): void {
-    foreach (array_keys($this->customFields) as $prefix) {
-      $options['- Fake -']['_' . $prefix . ':column'] = 'Fake ' . $prefix;
+  public function getChildrenMatchHandlers(): array {
+    $handlers = [];
+    foreach ($this->customFields as $prefix => $value) {
+      $handlers[] = new FakeChildrenMatchHandler($this, $prefix, $value);
     }
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function getChildrenMatchFieldPrefixes(): array {
-    return array_keys($this->customFields);
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function fetchChildrenMatchField(string $prefix, ChildrenMatchField $field): mixed {
-    $this->askedFor[] = $prefix;
-    return $this->customFields[$prefix] ?? NULL;
+    return $handlers;
   }
 
   /**
