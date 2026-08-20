@@ -25,11 +25,20 @@ interface ComponentShapeRenderInterface extends ComponentShapeIdentityInterface 
    * This differs from getValue() in that modifications can be done here that
    * are not compatible with SDC.
    *
+   * Works on any shape, root or nested: the attributes are the whole of what
+   * makes this a render, and they are passed in. They used to be stashed on the
+   * shape while the predicate that read them read the *root* shape's, so this
+   * call on a child wrote a flag nobody read and silently did nothing.
+   *
    * @param \Drupal\Core\Template\Attribute $attributes
-   *   The attribute that will be applied to the component wrapper.
+   *   The attribute that will be applied to the component wrapper. Container
+   *   shapes hand this same object to their children, so a nested shape can
+   *   contribute to the wrapper — which is how a style prop applies classes.
    *
    * @return mixed
    *   The prop value.
+   *
+   * @see \Drupal\neo_alchemist\ComponentShapeValueInterface::getValue()
    */
   public function getPropValue(Attribute $attributes): mixed;
 

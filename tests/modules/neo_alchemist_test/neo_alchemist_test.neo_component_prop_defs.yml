@@ -16,3 +16,12 @@ test_provided:
 test_recorded:
   title: 'Test recorded string'
   type: string
+
+# Prop definition backing TestStampedShape.
+#
+# Same rationale again: `type: string` keeps validation and value coercion
+# identical to a plain string prop; the ComponentShape plugin keyed on
+# `test_stamped` is what signs the render attributes it is handed.
+test_stamped:
+  title: 'Test stamped string'
+  type: string

@@ -292,13 +292,6 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
   protected bool $optionDefaultInitAccess = TRUE;
 
   /**
-   * The component attributes used when rendering the value.
-   *
-   * @var \Drupal\Core\Template\Attribute|null
-   */
-  protected ?Attribute $renderAttributes = NULL;
-
-  /**
    * The cacheable metadata.
    *
    * @var \Drupal\Core\Cache\CacheableMetadata
@@ -1711,53 +1704,29 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
   }
 
   /**
-   * Checks if the component shape is about to be rendered.
-   *
-   * This is using the renderAttributes property on the root shape to determine
-   * if the component shape is about to be rendered.
-   *
-   * @return bool
-   *   TRUE if the component shape is about to be rendered, FALSE otherwise.
-   */
-  protected function isRendering(): bool {
-    return $this->getRootShape()->renderAttributes !== NULL;
-  }
-
-  /**
-   * Get the attributes that will be applied to the component wrapper.
-   *
-   * This will only be available when the component is being rendered.
-   *
-   * @return \Drupal\Core\Template\Attribute|null
-   *   The attributes that will be applied to the component wrapper, or NULL if
-   *   not rendering.
-   */
-  protected function getRenderAttributes(): ?Attribute {
-    return $this->getRootShape()->renderAttributes;
-  }
-
-  /**
    * {@inheritDoc}
+   *
+   * A forward to ::getValue(), and deliberately only that. It earns its keep on
+   * the signature rather than the body: this is the render role's entry point,
+   * where the attributes are required, while ::getValue() takes them optionally
+   * because most of its callers are forms that are not rendering at all.
    */
   public function getPropValue(Attribute $attributes): mixed {
-    $this->renderAttributes = $attributes;
-    $value = $this->getValue();
-    $this->renderAttributes = NULL;
-    return $value;
+    return $this->getValue($attributes);
   }
 
   /**
    * {@inheritDoc}
    */
-  public function getValue(): mixed {
+  public function getValue(?Attribute $renderAttributes = NULL): mixed {
     // If the value is set to be empty (which will cause it to be hidden), we
     // don't need to do anything else.
     if ($this->getOptionEmpty()->isEnabled()) {
       return [];
     }
-    $value = $this->buildValue();
-    if ($this->isRendering()) {
-      $value = $this->buildRenderValue($value, $this->getRenderAttributes());
+    $value = $this->buildValue($renderAttributes);
+    if ($renderAttributes !== NULL) {
+      $value = $this->buildRenderValue($value, $renderAttributes);
     }
     return $value;
   }
@@ -1811,10 +1780,15 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
   /**
    * Builds the value for the component shape.
    *
+   * @param \Drupal\Core\Template\Attribute|null $renderAttributes
+   *   The wrapper attributes when this value is being built for rendering, NULL
+   *   when it is not. Shapes that build children pass this straight down, so a
+   *   nested shape renders on the same terms as the one that asked for it.
+   *
    * @return mixed
    *   The built value.
    */
-  protected function buildValue(): mixed {
+  protected function buildValue(?Attribute $renderAttributes = NULL): mixed {
     if ($this->getOptionDefault()->isEnabled()) {
       $value = $this->getDefaultFieldItemValue();
     }
@@ -1829,7 +1803,7 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
     if (!empty($this->schema['properties'])) {
       if (!is_array($value)) {
         // If we do not have an array we assume we have an incorrect value.
-        $value = $this->buildDefaultValue();
+        $value = $this->buildDefaultValue($renderAttributes);
       }
     }
     return $value;
@@ -2054,7 +2028,7 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
   /**
    * {@inheritDoc}
    */
-  public function buildDefaultValue(): mixed {
+  public function buildDefaultValue(?Attribute $renderAttributes = NULL): mixed {
     $value = $this->getDefaultValue();
     if (is_array($value)) {
       $value = $this->denormalizeValue($value);
@@ -2063,8 +2037,8 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
       return [];
     }
     $value = $this->adaptValue($value);
-    if ($this->isRendering()) {
-      $value = $this->buildRenderValue($value, $this->getRenderAttributes());
+    if ($renderAttributes !== NULL) {
+      $value = $this->buildRenderValue($value, $renderAttributes);
     }
     return $value;
   }

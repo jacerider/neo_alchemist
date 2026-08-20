@@ -7,6 +7,7 @@ namespace Drupal\neo_alchemist\Plugin\ComponentShape;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Form\SubformState;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
+use Drupal\Core\Template\Attribute;
 use Drupal\neo_alchemist\Attribute\ComponentShape;
 use Drupal\neo_alchemist\ComponentShapeExpandedPluginInterface;
 use Drupal\neo_alchemist\Drush\Generators\NeoComponentPropGeneratorInterface;
@@ -87,8 +88,8 @@ class ObjectShape extends ChildrenShapeBase implements ComponentShapeExpandedPlu
   /**
    * {@inheritDoc}
    */
-  protected function buildValue(): mixed {
-    $value = parent::buildValue();
+  protected function buildValue(?Attribute $renderAttributes = NULL): mixed {
+    $value = parent::buildValue($renderAttributes);
     if (empty($value) && !$this->allowExpanded()) {
       // When the parent value is empty and this shape cannot be expanded,
       // we return an empty value so none of the children get populted.
@@ -97,10 +98,10 @@ class ObjectShape extends ChildrenShapeBase implements ComponentShapeExpandedPlu
     $forceChildDefaultValue = $this->forceChildDefaultValues();
     foreach ($this->getChildShapes(NULL, $value) as $shapeName => $shape) {
       if ($forceChildDefaultValue) {
-        $value[$shapeName] = $shape->buildDefaultValue();
+        $value[$shapeName] = $shape->buildDefaultValue($renderAttributes);
       }
       else {
-        $value[$shapeName] = $shape->getValue();
+        $value[$shapeName] = $shape->getValue($renderAttributes);
       }
       if ($shape->isProvidedValueEmpty($value[$shapeName])) {
         // Do not include empty values or values that are set to empty. Empty

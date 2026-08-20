@@ -6,6 +6,7 @@ namespace Drupal\neo_alchemist\Plugin\ComponentShape;
 
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
+use Drupal\Core\Template\Attribute;
 use Drupal\neo_alchemist\Attribute\ComponentShape;
 use Drupal\neo_alchemist\ComponentShapePluginBase;
 use Drupal\neo_alchemist\ComponentShapePluginInterface;
@@ -32,8 +33,8 @@ class BooleanShape extends ComponentShapePluginBase {
   /**
    * {@inheritDoc}
    */
-  protected function buildValue(): mixed {
-    return $this->castScalar(parent::buildValue());
+  protected function buildValue(?Attribute $renderAttributes = NULL): mixed {
+    return $this->castScalar(parent::buildValue($renderAttributes));
   }
 
   /**

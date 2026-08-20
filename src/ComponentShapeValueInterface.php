@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Drupal\neo_alchemist;
 
+use Drupal\Core\Template\Attribute;
+
 /**
  * Resolves the prop's value.
  *
@@ -51,10 +53,22 @@ interface ComponentShapeValueInterface extends ComponentShapeIdentityInterface {
    *
    * This value should be able to be passed to the SDC.
    *
+   * Pass the component's wrapper attributes to also run the pre-render stage,
+   * which is what ::getPropValue() does and what container shapes pass down to
+   * their children. Rendering is decided by this argument alone: there is no
+   * mode held anywhere, so the same shape asked twice answers differently only
+   * because it was asked differently.
+   *
+   * @param \Drupal\Core\Template\Attribute|null $renderAttributes
+   *   The attributes that will be applied to the component wrapper when this
+   *   value is being resolved for rendering, NULL when it is not.
+   *
    * @return mixed
    *   The prop value.
+   *
+   * @see \Drupal\neo_alchemist\ComponentShapeRenderInterface::getPropValue()
    */
-  public function getValue(): mixed;
+  public function getValue(?Attribute $renderAttributes = NULL): mixed;
 
   /**
    * Get the default value of the prop.
@@ -69,10 +83,19 @@ interface ComponentShapeValueInterface extends ComponentShapeIdentityInterface {
    *
    * This will return the default value ready for component usage.
    *
+   * Takes the wrapper attributes for the same reason ::getValue() does: a child
+   * whose "default" option is on reaches its value through here rather than
+   * through ::getValue(), and it has to render on the same terms as its
+   * siblings.
+   *
+   * @param \Drupal\Core\Template\Attribute|null $renderAttributes
+   *   The attributes that will be applied to the component wrapper when this
+   *   value is being built for rendering, NULL when it is not.
+   *
    * @return mixed
    *   The built default value.
    */
-  public function buildDefaultValue(): mixed;
+  public function buildDefaultValue(?Attribute $renderAttributes = NULL): mixed;
 
   /**
    * Get the default defined in the schema.

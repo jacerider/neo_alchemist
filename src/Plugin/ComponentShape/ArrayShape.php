@@ -9,6 +9,7 @@ use Drupal\Core\Field\FieldDefinitionInterface;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Form\SubformState;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
+use Drupal\Core\Template\Attribute;
 use Drupal\neo_alchemist\Attribute\ComponentShape;
 use Drupal\neo_alchemist\ComponentShapeExpandedPluginInterface;
 use Drupal\neo_alchemist\ComponentShapeInterablePluginInterface;
@@ -267,18 +268,22 @@ class ArrayShape extends ChildrenShapeBase implements ComponentShapeInterablePlu
   /**
    * Builds the raw array value without per-item child-shape processing.
    *
+   * @param \Drupal\Core\Template\Attribute|null $renderAttributes
+   *   The wrapper attributes when the value is being built for rendering, NULL
+   *   when it is not.
+   *
    * @return mixed
    *   The denormalized field item value, before child shapes are applied.
    */
-  protected function buildRawValue(): mixed {
-    return parent::buildValue();
+  protected function buildRawValue(?Attribute $renderAttributes = NULL): mixed {
+    return parent::buildValue($renderAttributes);
   }
 
   /**
    * {@inheritDoc}
    */
-  protected function buildValue(): mixed {
-    $values = $this->buildRawValue();
+  protected function buildValue(?Attribute $renderAttributes = NULL): mixed {
+    $values = $this->buildRawValue($renderAttributes);
     $forceChildDefaultValue = $this->forceChildDefaultValues();
     foreach ($this->getChildShapeList($values) as $delta => $shapes) {
       // A scalar-items array (`items: {type: string}` — a list of labels, of
@@ -305,7 +310,7 @@ class ArrayShape extends ChildrenShapeBase implements ComponentShapeInterablePlu
           // Compute the default first and only adopt it when it carries a
           // value — an unusable default must not clobber the raw slice, which
           // the branches below still need.
-          $default = $shape->buildDefaultValue();
+          $default = $shape->buildDefaultValue($renderAttributes);
           if (!$shape->isProvidedValueEmpty($default)) {
             $values[$delta][$shapeName] = $default;
             continue;
@@ -329,7 +334,7 @@ class ArrayShape extends ChildrenShapeBase implements ComponentShapeInterablePlu
           unset($values[$delta][$shapeName]);
           continue;
         }
-        $values[$delta][$shapeName] = $shape->getValue();
+        $values[$delta][$shapeName] = $shape->getValue($renderAttributes);
         if ($shape->isProvidedValueEmpty($values[$delta][$shapeName])) {
           if ($shape->isRequired()) {
             // Required value cannot be empty. If allowed to continue, the
@@ -354,7 +359,7 @@ class ArrayShape extends ChildrenShapeBase implements ComponentShapeInterablePlu
         }
       }
     }
-    if ($this->isRendering()) {
+    if ($renderAttributes !== NULL) {
       usort($values, function ($a, $b) {
         $weightA = isset($a['_weight']) ? (int) $a['_weight'] : 0;
         $weightB = isset($b['_weight']) ? (int) $b['_weight'] : 0;

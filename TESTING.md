@@ -206,6 +206,7 @@ tests/
 │   │   ├── na_two_region/             # two region props (partial un-flag, clone geometry)
 │   │   ├── na_leaf/                   # the universal child: one string prop
 │   │   ├── na_recorder/               # example-less prop for pipeline observation
+│   │   ├── na_render_thread/          # object with a child that signs the render attributes
 │   │   └── na_not_neo/                # valid SDC WITHOUT `neo: true`
 │   │   ├── na_menu_host/              # one `menu` prop (MenuValue end to end)
 │   │   ├── na_required_probe/         # a REQUIRED top-level string prop
@@ -214,7 +215,7 @@ tests/
 │   ├── src/TestValueCallLog.php       # static call recorder
 │   ├── src/TestMenuLinkTree.php       # canned menu tree (swap in for menu.link_tree)
 │   ├── src/TestMenuItemAlter.php      # controllable item-alter behaviour
-│   ├── src/Plugin/ComponentShape/     # TestProvidedShape, TestRecordedShape
+│   ├── src/Plugin/ComponentShape/     # TestProvidedShape, TestRecordedShape, TestStampedShape
 │   ├── src/Plugin/ComponentValue/     # TestProviderValue + recording/cache-tag plugins
 │   ├── src/Plugin/ComponentAccess/    # TestCacheTagAccess
 │   ├── src/Plugin/ComponentFilter/    # TestEntityBoundFilter (declines a component)
@@ -439,6 +440,7 @@ number written down here.
 | `Kernel/ShapeCacheabilityMergeOrderTest` | Provider-added cache tags merge AFTER value computation and survive into `#cache` |
 | `Kernel/ValueGroupTaxonomyTest` | Golden list of every value plugin's group — groups are behavioral contracts (`childHasOwnValueProvider()`, pipeline order) |
 | `Kernel/ShapeInitOrderTest` | The shape-lifecycle invariants a type cannot carry, each proven to fire when violated: the three field-item setters (called from `onShapeInit()`, through a handle the value plugin holds as the union), a getter that must not run too early, and that the documented order still succeeds. The pre-`init()` setters left when `ComponentShapeSetupInterface` took them |
+| `Kernel/ShapeRenderAttributeThreadTest` | Render mode is an argument, not a flag: `getPropValue()` renders whatever shape it is called on (it used to be a silent no-op below the root), `getValue()` on the same shape still does not, and a container hands its children the very attributes object the component builds its wrapper from — mutation-proven by dropping the pass-through in `ObjectShape::buildValue()` |
 | `Kernel/FieldStorageDefinitionPrototypeTest` | The prototype-clone optimisation in `buildFieldItem()` — no state leaks between shapes or into the cached prototype |
 | `Kernel/ComponentPreviewBuilderTest` | The `neo: true` gate and the preview flag |
 | `Kernel/ComponentSaveIdempotenceTest` | A resave is byte-identical; `region_custom` flags survive editor saves |

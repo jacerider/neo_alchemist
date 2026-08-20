@@ -1,0 +1,8 @@
+{#
+  Minimal on purpose. The suite asserts against the shape entry points and the
+  attributes object handed to them, not markup.
+#}
+<div{{ attributes }}>
+  <span class="na-box">{{ box.text }}</span>
+  <span class="na-stamp">{{ box.stamp }}</span>
+</div>

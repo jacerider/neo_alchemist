@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\neo_alchemist\Plugin\ComponentShape;
 
+use Drupal\Core\Template\Attribute;
 use Drupal\neo_alchemist\ComponentShapeChildrenMatchPluginInterface;
 use Drupal\neo_alchemist\ComponentShapePluginBase;
 use Drupal\neo_alchemist\ComponentShapePluginInterface;
@@ -86,8 +87,8 @@ abstract class StructuredObjectShapeBase extends ComponentShapePluginBase implem
   /**
    * {@inheritDoc}
    */
-  protected function buildValue(): mixed {
-    $value = parent::buildValue();
+  protected function buildValue(?Attribute $renderAttributes = NULL): mixed {
+    $value = parent::buildValue($renderAttributes);
     if (!$value) {
       return $value;
     }
@@ -107,7 +108,7 @@ abstract class StructuredObjectShapeBase extends ComponentShapePluginBase implem
     $value += $this->getDefaultSchemaValue();
     // Ensure we return cleaned values.
     foreach ($this->getChildShapes(NULL, $value) as $shapeName => $shape) {
-      $value[$shapeName] = $shape->getValue();
+      $value[$shapeName] = $shape->getValue($renderAttributes);
     }
     return $value;
   }

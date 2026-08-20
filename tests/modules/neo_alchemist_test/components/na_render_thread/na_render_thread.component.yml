@@ -1,0 +1,25 @@
+$schema: 'https://git.drupalcode.org/project/drupal/-/raw/10.1.x/core/modules/sdc/src/metadata.schema.json'
+name: 'NA render thread fixture'
+description: >
+  An object prop with two children: a plain string, and a `test_stamped` string
+  whose shape signs the render attributes it is handed. Render mode used to be
+  a flag stashed on the root shape, so a nested prop only rendered by accident
+  of reading its root's flag. Now the attributes are threaded down as an
+  argument, and this fixture is what lets a test see them arrive — both that a
+  nested shape renders at all, and that the object it receives is the one the
+  component builds its wrapper from rather than a copy.
+status: stable
+neo: true
+props:
+  type: object
+  properties:
+    box:
+      type: object
+      title: Box
+      properties:
+        text:
+          type: string
+          title: Text
+        stamp:
+          type: test_stamped
+          title: Stamp

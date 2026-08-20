@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Drupal\neo_alchemist\Plugin\ComponentShape;
 
 use DrupalCodeGenerator\InputOutput\Interviewer;
+use Drupal\Core\Template\Attribute;
 use Drupal\neo_alchemist\ComponentShapePluginBase;
 use Drupal\neo_alchemist\ComponentShapePluginInterface;
 use Drupal\neo_alchemist\ComponentShapeStylePluginInterface;
@@ -81,8 +82,8 @@ abstract class StyleShapeBase extends ComponentShapePluginBase implements Compon
   /**
    * {@inheritDoc}
    */
-  protected function buildValue(): mixed {
-    $value = parent::buildValue();
+  protected function buildValue(?Attribute $renderAttributes = NULL): mixed {
+    $value = parent::buildValue($renderAttributes);
     if ($this->getComponent()->getScope() === 'config') {
       $previewValue = $this->getComponent()->getPreviewStyle($this->id());
       if ($previewValue !== NULL) {

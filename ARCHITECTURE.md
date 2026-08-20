@@ -170,6 +170,19 @@ methods; these two stores are reached through an accessor that is still **read**
 after init, so no interface can withdraw them and the seal carries the deadline
 instead.
 
+Nothing else about a shape is implicit state. Whether a shape is *rendering* — the
+last piece that was — is now the `?Attribute $renderAttributes` argument threaded
+down `getValue()` → `buildValue()` → each child's `getValue()`, non-NULL exactly when
+the pre-render stage should run. It used to be a flag `getPropValue()` set on `$this`
+while the predicate reading it read the **root** shape's. Both halves of that mattered:
+during a full render every nested shape read the root's flag and rendered, which is why
+threading has to reach every container; but `getPropValue()` called on anything *other*
+than a root set a flag nobody read, so it silently skipped the render pass and returned
+the un-rendered value. Two consequences worth knowing: the same `Attribute` object
+reaches every nested shape, which is how a nested style prop merges classes onto the
+component wrapper; and `getPropValue()` now works on any shape, so a caller can render
+one prop of a subtree without going through `Component`.
+
 The `#[ComponentShape]` attribute ([src/Attribute/ComponentShape.php](src/Attribute/ComponentShape.php))
 — id is `prop`:
 

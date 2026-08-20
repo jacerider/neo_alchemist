@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Drupal\neo_alchemist\Plugin\ComponentShape;
 
 use Drupal\Core\StringTranslation\TranslatableMarkup;
+use Drupal\Core\Template\Attribute;
 use Drupal\neo_alchemist\Attribute\ComponentShape;
 use Drupal\neo_alchemist\ComponentShapePluginBase;
 
@@ -23,11 +24,11 @@ class AddressShape extends ComponentShapePluginBase {
   /**
    * {@inheritDoc}
    */
-  protected function buildValue(): mixed {
+  protected function buildValue(?Attribute $renderAttributes = NULL): mixed {
     // Null values are converted to empty strings for JSON Schema compliance.
     return array_map(function ($item) {
       return $item ? (string) $item : '';
-    }, parent::buildValue());
+    }, parent::buildValue($renderAttributes));
   }
 
   /**
