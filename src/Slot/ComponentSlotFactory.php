@@ -9,7 +9,7 @@ use Drupal\Core\Theme\Registry;
 use Drupal\neo_alchemist\ComponentInterface;
 
 /**
- * Provides a factory for image objects.
+ * Provides a factory for component slot objects.
  */
 class ComponentSlotFactory {
 

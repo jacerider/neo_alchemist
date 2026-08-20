@@ -48,7 +48,7 @@ class ComponentShapeQuery {
   protected int $limit = 0;
 
   /**
-   * Constructs a new ComponentSlot object.
+   * Constructs a new ComponentShapeQuery object.
    */
   public function __construct(NeoComponentTreeList $field) {
     $this->field = $field;

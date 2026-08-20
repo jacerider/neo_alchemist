@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Drupal\neo_alchemist;
 
 /**
- * Provides a factory for image objects.
+ * Provides a factory for component filter objects.
  */
 class ComponentFilterFactory {
 

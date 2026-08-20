@@ -7,7 +7,7 @@ namespace Drupal\neo_alchemist\Access;
 use Drupal\neo_alchemist\ComponentInterface;
 
 /**
- * Provides a factory for image objects.
+ * Provides a factory for component access objects.
  */
 class ComponentAccessFactory {
 

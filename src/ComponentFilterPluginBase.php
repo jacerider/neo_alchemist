@@ -11,7 +11,7 @@ use Drupal\Core\Plugin\PluginWithFormsTrait;
 use Drupal\Core\StringTranslation\StringTranslationTrait;
 
 /**
- * Base class for neo_component_slot plugins.
+ * Base class for neo_component_filter plugins.
  */
 abstract class ComponentFilterPluginBase extends PluginBase implements ComponentFilterPluginInterface {
 
@@ -114,13 +114,12 @@ abstract class ComponentFilterPluginBase extends PluginBase implements Component
   /**
    * {@inheritdoc}
    *
-   * Creates a generic configuration form for all provider types. Individual
-   * provider plugins can add elements to this form by overriding
-   * ComponentValuePluginProviderBase::configurationForm(). Most provider
-   * plugins should not override this method unless they need to alter the
-   * generic form elements.
+   * Creates a generic configuration form for all filter plugins. Individual
+   * plugins can add elements to this form by overriding
+   * ComponentFilterPluginBase::configurationForm(). Most plugins should not
+   * override this method unless they need to alter the generic form elements.
    *
-   * @see \Drupal\neo_alchemist\ComponentValuePluginProviderBase::configurationForm()
+   * @see \Drupal\neo_alchemist\ComponentFilterPluginBase::configurationForm()
    */
   public function buildConfigurationForm(array $form, FormStateInterface $form_state, ?array &$complete_form = NULL) {
     $form += $this->configurationForm($form, $form_state, $complete_form);
@@ -137,11 +136,11 @@ abstract class ComponentFilterPluginBase extends PluginBase implements Component
   /**
    * {@inheritdoc}
    *
-   * Most provider plugins should not override this method. To add validation
-   * for specific provider type, override
-   * ComponentValuePluginProviderBase::validateForm().
+   * Most plugins should not override this method. To add validation for a
+   * specific plugin, override
+   * ComponentFilterPluginBase::configurationValidate().
    *
-   * @see \Drupal\neo_alchemist\ComponentValuePluginProviderBase::validateForm()
+   * @see \Drupal\neo_alchemist\ComponentFilterPluginBase::configurationValidate()
    */
   public function validateConfigurationForm(array &$form, FormStateInterface $form_state) {
     $this->configurationValidate($form, $form_state);

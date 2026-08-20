@@ -103,7 +103,7 @@ class ComponentFilter implements ComponentFilterInterface {
   protected $required;
 
   /**
-   * Constructs a new ComponentSlot object.
+   * Constructs a new ComponentFilter object.
    */
   public function __construct(ComponentFilterPluginManager $manager, ComponentInterface $component, $settings = []) {
     $this->manager = $manager;

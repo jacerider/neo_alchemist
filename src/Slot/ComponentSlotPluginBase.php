@@ -117,13 +117,12 @@ abstract class ComponentSlotPluginBase extends PluginBase implements ComponentSl
   /**
    * {@inheritdoc}
    *
-   * Creates a generic configuration form for all provider types. Individual
-   * provider plugins can add elements to this form by overriding
-   * ComponentValuePluginProviderBase::configurationForm(). Most provider
-   * plugins should not override this method unless they need to alter the
-   * generic form elements.
+   * Creates a generic configuration form for all slot plugins. Individual
+   * plugins can add elements to this form by overriding
+   * ComponentSlotPluginBase::configurationForm(). Most plugins should not
+   * override this method unless they need to alter the generic form elements.
    *
-   * @see \Drupal\neo_alchemist\ComponentValuePluginProviderBase::configurationForm()
+   * @see \Drupal\neo_alchemist\Slot\ComponentSlotPluginBase::configurationForm()
    */
   public function buildConfigurationForm(array $form, FormStateInterface $form_state, ?array &$complete_form = NULL) {
     $form += $this->configurationForm($form, $form_state, $complete_form);
@@ -140,11 +139,11 @@ abstract class ComponentSlotPluginBase extends PluginBase implements ComponentSl
   /**
    * {@inheritdoc}
    *
-   * Most provider plugins should not override this method. To add validation
-   * for specific provider type, override
-   * ComponentValuePluginProviderBase::validateForm().
+   * Most plugins should not override this method. To add validation for a
+   * specific plugin, override
+   * ComponentSlotPluginBase::configurationValidate().
    *
-   * @see \Drupal\neo_alchemist\ComponentValuePluginProviderBase::validateForm()
+   * @see \Drupal\neo_alchemist\Slot\ComponentSlotPluginBase::configurationValidate()
    */
   public function validateConfigurationForm(array &$form, FormStateInterface $form_state) {
     $this->configurationValidate($form, $form_state);

@@ -64,7 +64,7 @@ class ComponentAccess implements ComponentAccessInterface {
   protected $plugin;
 
   /**
-   * Constructs a new ComponentSlot object.
+   * Constructs a new ComponentAccess object.
    */
   public function __construct(ComponentAccessPluginManager $manager, ComponentInterface $component, $settings = []) {
     $this->manager = $manager;
