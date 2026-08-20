@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\Tests\neo_alchemist\Unit;
 
-use Drupal\neo_alchemist\ChildShapeState;
+use Drupal\neo_alchemist\Shape\ChildShapeState;
 use Drupal\Tests\UnitTestCase;
 use PHPUnit\Framework\Attributes\Group;
 
@@ -17,7 +17,7 @@ use PHPUnit\Framework\Attributes\Group;
  * object, and the properties that matter — a flag is three-valued, and an
  * absent flag is not FALSE — are pinned here.
  *
- * @see \Drupal\neo_alchemist\ChildShapeState
+ * @see \Drupal\neo_alchemist\Shape\ChildShapeState
  */
 #[Group('neo_alchemist')]
 class ChildShapeStateTest extends UnitTestCase {

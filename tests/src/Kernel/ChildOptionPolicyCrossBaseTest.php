@@ -32,7 +32,7 @@ use PHPUnit\Framework\Attributes\Group;
  * ObjectShape (ChildrenShapeBase), `link` is a LinkShape
  * (StructuredObjectShapeBase) — and the resolved values are asserted to agree.
  *
- * @see \Drupal\neo_alchemist\ChildOptionPolicy
+ * @see \Drupal\neo_alchemist\Shape\ChildOptionPolicy
  */
 #[Group('neo_alchemist')]
 class ChildOptionPolicyCrossBaseTest extends KernelTestBase {

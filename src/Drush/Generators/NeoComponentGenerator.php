@@ -11,7 +11,7 @@ use Drupal\Core\Extension\ModuleHandlerInterface;
 use Drupal\Core\Extension\ThemeHandlerInterface;
 use Drupal\Core\Render\Markup;
 use Drupal\neo_alchemist\ComponentPropDefPluginManager;
-use Drupal\neo_alchemist\ComponentShapePluginManager;
+use Drupal\neo_alchemist\Shape\ComponentShapePluginManager;
 use DrupalCodeGenerator\Attribute\Generator;
 use DrupalCodeGenerator\GeneratorType;
 use DrupalCodeGenerator\Asset\AssetCollection;

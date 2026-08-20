@@ -5,7 +5,7 @@ namespace Drupal\neo_alchemist\Form;
 use Drupal\Component\Render\MarkupInterface;
 use Drupal\Core\Entity\EntityConfirmFormBase;
 use Drupal\Core\Form\FormStateInterface;
-use Drupal\neo_alchemist\ComponentShapePluginInterface;
+use Drupal\neo_alchemist\Shape\ComponentShapePluginInterface;
 
 /**
  * Component form.
@@ -160,7 +160,7 @@ class ComponentAggregateForm extends EntityConfirmFormBase {
    * says "including", not "only", and still leads with the fact that every prop
    * is reset.
    *
-   * @param \Drupal\neo_alchemist\ComponentShapePluginInterface|null $shape
+   * @param \Drupal\neo_alchemist\Shape\ComponentShapePluginInterface|null $shape
    *   The root shape, or NULL when it does not resolve.
    *
    * @return \Drupal\neo_alchemist\Value\ComponentValuePluginInterface[]

@@ -9,7 +9,7 @@ use Drupal\Core\Cache\CacheableResponseInterface;
 use Drupal\Tests\neo_alchemist\Traits\ShapeDoubleTrait;
 use Drupal\entity_test\Entity\EntityTest;
 use Drupal\KernelTests\KernelTestBase;
-use Drupal\neo_alchemist\ComponentShapeContextInterface;
+use Drupal\neo_alchemist\Shape\ComponentShapeContextInterface;
 use Drupal\neo_alchemist\Plugin\ComponentValue\EntityHasValue;
 use PHPUnit\Framework\Attributes\Group;
 

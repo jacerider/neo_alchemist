@@ -8,7 +8,7 @@ use Drupal\Component\EventDispatcher\Event;
 use Drupal\Core\Cache\RefinableCacheableDependencyInterface;
 use Drupal\Core\Cache\RefinableCacheableDependencyTrait;
 use Drupal\Core\Entity\ContentEntityInterface;
-use Drupal\neo_alchemist\ComponentShapePluginInterface;
+use Drupal\neo_alchemist\Shape\ComponentShapePluginInterface;
 
 /**
  * Event that is fired when a component value is generated with an entity query.
@@ -22,7 +22,7 @@ class ComponentValueEvent extends Event implements RefinableCacheableDependencyI
   /**
    * The shape.
    *
-   * @var \Drupal\neo_alchemist\ComponentShapePluginInterface
+   * @var \Drupal\neo_alchemist\Shape\ComponentShapePluginInterface
    */
   public ComponentShapePluginInterface $shape;
 
@@ -64,7 +64,7 @@ class ComponentValueEvent extends Event implements RefinableCacheableDependencyI
   /**
    * Constructs the object.
    *
-   * @param \Drupal\neo_alchemist\ComponentShapePluginInterface $shape
+   * @param \Drupal\neo_alchemist\Shape\ComponentShapePluginInterface $shape
    *   The shape.
    * @param mixed $value
    *   The value.
@@ -116,7 +116,7 @@ class ComponentValueEvent extends Event implements RefinableCacheableDependencyI
   /**
    * Gets the shape.
    *
-   * @return \Drupal\neo_alchemist\ComponentShapePluginInterface
+   * @return \Drupal\neo_alchemist\Shape\ComponentShapePluginInterface
    *   The shape.
    */
   public function getShape() {

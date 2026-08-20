@@ -11,7 +11,7 @@ use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\Core\TypedData\Attribute\DataType;
 use Drupal\Core\TypedData\TypedData;
 use Drupal\neo_alchemist\ComponentFieldConfigInterface;
-use Drupal\neo_alchemist\ComponentShapeRegionPluginInterface;
+use Drupal\neo_alchemist\Shape\ComponentShapeRegionPluginInterface;
 use Drupal\neo_alchemist\Plugin\Field\FieldType\ComponentTreeItem;
 
 /**

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\neo_alchemist;
 
+use Drupal\neo_alchemist\Shape\ComponentShapeValueInterface;
 use Drupal\neo_alchemist\Value\ComponentValueProcessingModeInterface;
 
 /**
@@ -25,7 +26,7 @@ use Drupal\neo_alchemist\Value\ComponentValueProcessingModeInterface;
  * what makes the phase testable against a handful of producers with no
  * container.
  *
- * @see \Drupal\neo_alchemist\ComponentShapePluginBase::computeDefaultValue()
+ * @see \Drupal\neo_alchemist\Shape\ComponentShapePluginBase::computeDefaultValue()
  */
 final class ValueProviderSearch {
 
@@ -37,7 +38,7 @@ final class ValueProviderSearch {
    *   claim state, so the list needs no resetting between passes.
    * @param mixed $seed
    *   The value the search starts from — the shape's resolved schema example.
-   * @param \Drupal\neo_alchemist\ComponentShapeValueInterface $shape
+   * @param \Drupal\neo_alchemist\Shape\ComponentShapeValueInterface $shape
    *   The shape that owns the value, consulted only for its emptiness contract:
    *   a composite discounts whichever keys it reports as presentational.
    *

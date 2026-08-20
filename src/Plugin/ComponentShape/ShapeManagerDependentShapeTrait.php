@@ -8,7 +8,7 @@ use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Field\WidgetPluginManager;
 use Drupal\Core\TypedData\TypedDataManagerInterface;
 use Drupal\neo_alchemist\ComponentInterface;
-use Drupal\neo_alchemist\ComponentShapePluginManager;
+use Drupal\neo_alchemist\Shape\ComponentShapePluginManager;
 use Drupal\neo_alchemist\Value\ComponentValuePluginManagerInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 

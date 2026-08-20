@@ -5,13 +5,13 @@ declare(strict_types=1);
 namespace Drupal\Tests\neo_alchemist\Unit;
 
 use Drupal\Tests\neo_alchemist\Traits\ShapeDoubleTrait;
-use Drupal\neo_alchemist\ChildOptionPolicy;
-use Drupal\neo_alchemist\ChildShapeState;
-use Drupal\neo_alchemist\ComponentShapeChildrenMatchPluginInterface;
-use Drupal\neo_alchemist\ComponentShapeContextInterface;
-use Drupal\neo_alchemist\ComponentShapeExpandedPluginInterface;
-use Drupal\neo_alchemist\ComponentShapeOption;
-use Drupal\neo_alchemist\ComponentShapeOptionsInterface;
+use Drupal\neo_alchemist\Shape\ChildOptionPolicy;
+use Drupal\neo_alchemist\Shape\ChildShapeState;
+use Drupal\neo_alchemist\Shape\ComponentShapeChildrenMatchPluginInterface;
+use Drupal\neo_alchemist\Shape\ComponentShapeContextInterface;
+use Drupal\neo_alchemist\Shape\ComponentShapeExpandedPluginInterface;
+use Drupal\neo_alchemist\Shape\ComponentShapeOption;
+use Drupal\neo_alchemist\Shape\ComponentShapeOptionsInterface;
 use Drupal\Tests\UnitTestCase;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\MockObject\MockObject;
@@ -28,7 +28,7 @@ use PHPUnit\Framework\MockObject\MockObject;
  * The policy takes a parent, a child, a delta and a count and returns a
  * decision — nothing else — so every rule is assertable here.
  *
- * @see \Drupal\neo_alchemist\ChildOptionPolicy
+ * @see \Drupal\neo_alchemist\Shape\ChildOptionPolicy
  */
 #[Group('neo_alchemist')]
 class ChildOptionPolicyTest extends UnitTestCase {
@@ -38,14 +38,14 @@ class ChildOptionPolicyTest extends UnitTestCase {
   /**
    * The policy under test.
    *
-   * @var \Drupal\neo_alchemist\ChildOptionPolicy
+   * @var \Drupal\neo_alchemist\Shape\ChildOptionPolicy
    */
   private ChildOptionPolicy $policy;
 
   /**
    * The child's option objects, keyed as the shape keys them.
    *
-   * @var \Drupal\neo_alchemist\ComponentShapeOption[]
+   * @var \Drupal\neo_alchemist\Shape\ComponentShapeOption[]
    */
   private array $childOptions;
 
@@ -70,7 +70,7 @@ class ChildOptionPolicyTest extends UnitTestCase {
    * methods rather than a hundred, so reaching for anything else here is an
    * error at the point of stubbing.
    *
-   * @return \Drupal\neo_alchemist\ComponentShapeOptionsInterface
+   * @return \Drupal\neo_alchemist\Shape\ComponentShapeOptionsInterface
    *   The child shape double.
    */
   private function child(): ComponentShapeOptionsInterface {
@@ -97,7 +97,7 @@ class ChildOptionPolicyTest extends UnitTestCase {
    * @param bool $singleProp
    *   Whether the parent reports a single property.
    *
-   * @return \Drupal\neo_alchemist\ComponentShapeChildrenMatchPluginInterface
+   * @return \Drupal\neo_alchemist\Shape\ComponentShapeChildrenMatchPluginInterface
    *   The parent shape double.
    */
   private function parentShape(array $flags = [], array $own = [], string $scope = 'entity', bool $singleProp = FALSE): ComponentShapeChildrenMatchPluginInterface {
@@ -301,7 +301,7 @@ class ChildOptionPolicyTest extends UnitTestCase {
    * @param string $scope
    *   The parent's scope.
    *
-   * @return \Drupal\neo_alchemist\ComponentShapeChildrenMatchPluginInterface
+   * @return \Drupal\neo_alchemist\Shape\ComponentShapeChildrenMatchPluginInterface
    *   The parent shape double.
    */
   private function unexpandableParent(string $scope = 'entity'): ComponentShapeChildrenMatchPluginInterface {
@@ -320,7 +320,7 @@ class ChildOptionPolicyTest extends UnitTestCase {
    * child-shape questions, the options role the parent's own three, the
    * context role the scope.
    *
-   * @param \Drupal\neo_alchemist\ChildShapeState $state
+   * @param \Drupal\neo_alchemist\Shape\ChildShapeState $state
    *   The producer flags the parent carries.
    * @param array $own
    *   The parent's own options, keyed `empty`, `default` and `access`.
@@ -331,7 +331,7 @@ class ChildOptionPolicyTest extends UnitTestCase {
    * @param \PHPUnit\Framework\MockObject\MockObject|null $expanded
    *   An expandability double, for a parent that refuses expansion.
    *
-   * @return \Drupal\neo_alchemist\ComponentShapeChildrenMatchPluginInterface
+   * @return \Drupal\neo_alchemist\Shape\ComponentShapeChildrenMatchPluginInterface
    *   The parent shape double.
    */
   private function buildParent(ChildShapeState $state, array $own, string $scope, bool $singleProp, ?MockObject $expanded = NULL): ComponentShapeChildrenMatchPluginInterface {

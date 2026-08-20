@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\Tests\neo_alchemist\Unit;
 
-use Drupal\neo_alchemist\NestedOptionMap;
+use Drupal\neo_alchemist\Shape\NestedOptionMap;
 use Drupal\Tests\UnitTestCase;
 use PHPUnit\Framework\Attributes\Group;
 
@@ -18,7 +18,7 @@ use PHPUnit\Framework\Attributes\Group;
  * key a caller writes, which layer a reader sees, and what the union between
  * the two layers actually discards.
  *
- * @see \Drupal\neo_alchemist\NestedOptionMap
+ * @see \Drupal\neo_alchemist\Shape\NestedOptionMap
  */
 #[Group('neo_alchemist')]
 class NestedOptionMapTest extends UnitTestCase {

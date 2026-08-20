@@ -6,9 +6,9 @@ namespace Drupal\neo_alchemist\Plugin\ComponentShape;
 
 use DrupalCodeGenerator\InputOutput\Interviewer;
 use Drupal\Core\Template\Attribute;
-use Drupal\neo_alchemist\ComponentShapePluginBase;
-use Drupal\neo_alchemist\ComponentShapePluginInterface;
-use Drupal\neo_alchemist\ComponentShapeStylePluginInterface;
+use Drupal\neo_alchemist\Shape\ComponentShapePluginBase;
+use Drupal\neo_alchemist\Shape\ComponentShapePluginInterface;
+use Drupal\neo_alchemist\Shape\ComponentShapeStylePluginInterface;
 use Drupal\neo_alchemist\Drush\Generators\NeoComponentPropGeneratorInterface;
 use Drupal\neo_alchemist\Drush\Generators\NeoComponentTwig;
 

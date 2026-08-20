@@ -7,7 +7,7 @@ namespace Drupal\Tests\neo_alchemist\Kernel;
 use Drupal\KernelTests\KernelTestBase;
 use Drupal\Tests\user\Traits\UserCreationTrait;
 use Drupal\neo_alchemist\Entity\Component;
-use Drupal\neo_alchemist\ComponentShapePluginInterface;
+use Drupal\neo_alchemist\Shape\ComponentShapePluginInterface;
 
 /**
  * Shared fixture for the entity field picker.
@@ -87,7 +87,7 @@ abstract class FieldMatchKernelTestBase extends KernelTestBase {
   /**
    * The heading's title sub-prop shape.
    *
-   * @return \Drupal\neo_alchemist\ComponentShapePluginInterface
+   * @return \Drupal\neo_alchemist\Shape\ComponentShapePluginInterface
    *   The shape.
    */
   protected function titleShape(): ComponentShapePluginInterface {

@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Drupal\neo_alchemist\ChildrenMatch;
 
 use Drupal\Core\Entity\ContentEntityInterface;
-use Drupal\neo_alchemist\ComponentShapeChildrenMatchPluginInterface;
+use Drupal\neo_alchemist\Shape\ComponentShapeChildrenMatchPluginInterface;
 
 /**
  * One child shape being filled for one iterated entity.
@@ -29,7 +29,7 @@ final class ChildrenMatchField {
    * @param int $delta
    *   The position of the iterated entity among those that SURVIVED filtering,
    *   which is not necessarily its position in the source's own result set.
-   * @param \Drupal\neo_alchemist\ComponentShapeChildrenMatchPluginInterface $shape
+   * @param \Drupal\neo_alchemist\Shape\ComponentShapeChildrenMatchPluginInterface $shape
    *   The ROOT children-match shape. It stays the root through every recursion
    *   because the child-state calls are keyed by a chained id the root owns.
    * @param \Drupal\Core\Entity\ContentEntityInterface $entity

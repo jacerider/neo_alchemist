@@ -11,7 +11,7 @@ use Drupal\Core\Render\RendererInterface;
 use Drupal\Core\Theme\ComponentPluginManager;
 use Drupal\neo_alchemist\ComponentPreviewBuilder;
 use Drupal\neo_alchemist\ComponentPropDefPluginManager;
-use Drupal\neo_alchemist\ComponentShapePluginManager;
+use Drupal\neo_alchemist\Shape\ComponentShapePluginManager;
 use Drupal\neo_alchemist\Slot\ComponentSlotTemplateLocator;
 use Drupal\neo_alchemist\ThemeComponentInstaller;
 use Drush\Attributes as CLI;

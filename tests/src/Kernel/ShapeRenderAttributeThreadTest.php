@@ -7,8 +7,8 @@ namespace Drupal\Tests\neo_alchemist\Kernel;
 use Drupal\Component\Render\MarkupInterface;
 use Drupal\Core\Template\Attribute;
 use Drupal\KernelTests\KernelTestBase;
-use Drupal\neo_alchemist\ComponentShapeChildrenMatchPluginInterface;
-use Drupal\neo_alchemist\ComponentShapePluginInterface;
+use Drupal\neo_alchemist\Shape\ComponentShapeChildrenMatchPluginInterface;
+use Drupal\neo_alchemist\Shape\ComponentShapePluginInterface;
 use Drupal\neo_alchemist\Entity\Component;
 use Drupal\neo_alchemist_test\Plugin\ComponentShape\TestStampedShape;
 use PHPUnit\Framework\Attributes\Group;
@@ -37,8 +37,8 @@ use PHPUnit\Framework\Attributes\Group;
  * the stamped child catches the copy — a container passing a *clone* still
  * yields a Markup value and would satisfy every other assertion here.
  *
- * @see \Drupal\neo_alchemist\ComponentShapePluginBase::getValue()
- * @see \Drupal\neo_alchemist\ComponentShapeRenderInterface::getPropValue()
+ * @see \Drupal\neo_alchemist\Shape\ComponentShapePluginBase::getValue()
+ * @see \Drupal\neo_alchemist\Shape\ComponentShapeRenderInterface::getPropValue()
  */
 #[Group('neo_alchemist')]
 class ShapeRenderAttributeThreadTest extends KernelTestBase {

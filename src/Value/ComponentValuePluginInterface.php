@@ -8,7 +8,7 @@ use Drupal\Component\Plugin\ConfigurableInterface;
 use Drupal\Component\Plugin\PluginInspectionInterface;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Plugin\PluginFormInterface;
-use Drupal\neo_alchemist\ComponentShapePluginInterface;
+use Drupal\neo_alchemist\Shape\ComponentShapePluginInterface;
 
 /**
  * Interface for neo_component_value_modifier plugins.
@@ -36,7 +36,7 @@ interface ComponentValuePluginInterface extends ConfigurableInterface, PluginFor
   /**
    * Get the shape which owns this plugin.
    *
-   * @return \Drupal\neo_alchemist\ComponentShapePluginInterface
+   * @return \Drupal\neo_alchemist\Shape\ComponentShapePluginInterface
    *   The shape which owns this plugin.
    */
   public function getShape(): ComponentShapePluginInterface;
@@ -248,7 +248,7 @@ interface ComponentValuePluginInterface extends ConfigurableInterface, PluginFor
   /**
    * Returns if the provider can be used for the provided shape.
    *
-   * @param \Drupal\neo_alchemist\ComponentShapePluginInterface $shape
+   * @param \Drupal\neo_alchemist\Shape\ComponentShapePluginInterface $shape
    *   The shape that should be checked.
    *
    * @return bool

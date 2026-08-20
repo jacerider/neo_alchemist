@@ -28,8 +28,8 @@ use PHPUnit\Framework\Attributes\Group;
  * block mode still ends the search holding nothing, which is the one
  * configuration that exercises the fallback on a component with examples.
  *
- * @see \Drupal\neo_alchemist\ComponentShapePluginBase::getDefaultValue()
- * @see \Drupal\neo_alchemist\ComponentShapePluginBase::isProvidedValueEmpty()
+ * @see \Drupal\neo_alchemist\Shape\ComponentShapePluginBase::getDefaultValue()
+ * @see \Drupal\neo_alchemist\Shape\ComponentShapePluginBase::isProvidedValueEmpty()
  * @see \Drupal\Tests\neo_alchemist\Kernel\RequiredPropFalsyOverrideTest
  */
 #[Group('neo_alchemist')]

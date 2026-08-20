@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace Drupal\neo_alchemist\Plugin\ComponentShape;
 
-use Drupal\neo_alchemist\ChildOptionPolicy;
-use Drupal\neo_alchemist\ChildShapeState;
-use Drupal\neo_alchemist\ComponentShapeChildrenMatchPluginInterface;
+use Drupal\neo_alchemist\Shape\ChildOptionPolicy;
+use Drupal\neo_alchemist\Shape\ChildShapeState;
+use Drupal\neo_alchemist\Shape\ComponentShapeChildrenMatchPluginInterface;
 
 /**
  * Gives a shape the two collaborators it needs to build child shapes.
@@ -29,14 +29,14 @@ trait ChildShapeStateTrait {
    * Read it through ::getChildShapeState(), never directly: on any shape that
    * is not the root this stays NULL and the real state is the root's.
    *
-   * @var \Drupal\neo_alchemist\ChildShapeState|null
+   * @var \Drupal\neo_alchemist\Shape\ChildShapeState|null
    */
   protected ?ChildShapeState $childShapeState = NULL;
 
   /**
    * The policy that applies this shape's constraints to its children.
    *
-   * @var \Drupal\neo_alchemist\ChildOptionPolicy|null
+   * @var \Drupal\neo_alchemist\Shape\ChildOptionPolicy|null
    */
   protected ?ChildOptionPolicy $childOptionPolicy = NULL;
 
@@ -47,7 +47,7 @@ trait ChildShapeStateTrait {
    * — the ids a producer records are absolute — it is what lets the state be
    * sealed per shape when that shape initializes.
    *
-   * @see \Drupal\neo_alchemist\ChildShapeState::seal()
+   * @see \Drupal\neo_alchemist\Shape\ChildShapeState::seal()
    */
   public function getChildShapeState(): ChildShapeState {
     if (!$this->isRoot()) {
@@ -92,7 +92,7 @@ trait ChildShapeStateTrait {
   /**
    * Gets the root shape that owns the child-shape state.
    *
-   * @return \Drupal\neo_alchemist\ComponentShapeChildrenMatchPluginInterface
+   * @return \Drupal\neo_alchemist\Shape\ComponentShapeChildrenMatchPluginInterface
    *   The root shape.
    */
   protected function getChildRootShape(): ComponentShapeChildrenMatchPluginInterface {
@@ -112,7 +112,7 @@ trait ChildShapeStateTrait {
    * Every base that builds child shapes must run this over each child before
    * initializing it. Stateless, so one instance serves every child.
    *
-   * @return \Drupal\neo_alchemist\ChildOptionPolicy
+   * @return \Drupal\neo_alchemist\Shape\ChildOptionPolicy
    *   The child option policy.
    */
   protected function childOptionPolicy(): ChildOptionPolicy {

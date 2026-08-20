@@ -39,7 +39,7 @@ use PHPUnit\Framework\Attributes\Group;
  * hands Twig an empty value when the contract says the heading is empty.
  *
  * @see \Drupal\neo_alchemist\Plugin\ComponentShape\HeadingShape::preRenderValue()
- * @see \Drupal\neo_alchemist\ComponentShapePluginBase::getPresentationalValueKeys()
+ * @see \Drupal\neo_alchemist\Shape\ComponentShapePluginBase::getPresentationalValueKeys()
  */
 #[Group('neo_alchemist')]
 class HeadingEmptyValueTest extends KernelTestBase {

@@ -23,7 +23,7 @@ use PHPUnit\Framework\Attributes\Group;
  * setOverrideValue()/setParentValue(), which is exactly the refactor that
  * would otherwise reintroduce the falsy-drop family quietly.
  *
- * @see \Drupal\neo_alchemist\ComponentShapePluginBase::init()
+ * @see \Drupal\neo_alchemist\Shape\ComponentShapePluginBase::init()
  * @see \Drupal\Tests\neo_alchemist\Unit\IsProvidedValueEmptyTest
  */
 #[Group('neo_alchemist')]

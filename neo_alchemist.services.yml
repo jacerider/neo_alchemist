@@ -77,7 +77,7 @@ services:
     arguments: ['@module_handler', '@cache.discovery']
 
   plugin.manager.neo_component_shape:
-    class: Drupal\neo_alchemist\ComponentShapePluginManager
+    class: Drupal\neo_alchemist\Shape\ComponentShapePluginManager
     parent: default_plugin_manager
 
   plugin.manager.neo_component_value:

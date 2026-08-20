@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Drupal\neo_alchemist_test;
 
 use Drupal\Core\Cache\CacheableMetadata;
-use Drupal\neo_alchemist\ComponentShapePluginInterface;
+use Drupal\neo_alchemist\Shape\ComponentShapePluginInterface;
 
 /**
  * Controllable behaviour for hook_neo_alchemist_menu_value_item_alter().
@@ -79,7 +79,7 @@ final class TestMenuItemAlter {
    *   The entry being altered, by reference. Setting it to NULL drops the item.
    * @param array $item
    *   The built menu tree item the entry came from.
-   * @param \Drupal\neo_alchemist\ComponentShapePluginInterface $shape
+   * @param \Drupal\neo_alchemist\Shape\ComponentShapePluginInterface $shape
    *   The shape resolving the value.
    */
   public static function apply(?array &$entry, array $item, ComponentShapePluginInterface $shape): void {

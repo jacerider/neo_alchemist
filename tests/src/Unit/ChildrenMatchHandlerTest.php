@@ -15,12 +15,12 @@ use Drupal\Core\Field\FormatterPluginManager;
 use Drupal\Core\Routing\RouteProviderInterface;
 use Drupal\Tests\UnitTestCase;
 use Drupal\media\MediaInterface;
-use Drupal\neo_alchemist\ChildShapeState;
+use Drupal\neo_alchemist\Shape\ChildShapeState;
 use Drupal\neo_alchemist\ChildrenMatch\ChildrenMatchMapper;
 use Drupal\neo_alchemist\ChildrenMatch\ChildrenMatchResult;
-use Drupal\neo_alchemist\ComponentShapeChildrenMatchPluginInterface;
-use Drupal\neo_alchemist\ComponentShapeMediaPluginInterface;
-use Drupal\neo_alchemist\ComponentShapePluginInterface;
+use Drupal\neo_alchemist\Shape\ComponentShapeChildrenMatchPluginInterface;
+use Drupal\neo_alchemist\Shape\ComponentShapeMediaPluginInterface;
+use Drupal\neo_alchemist\Shape\ComponentShapePluginInterface;
 use Drupal\neo_alchemist\Event\ComponentValueEvent;
 use Drupal\neo_alchemist\Match\MatcherField;
 use Drupal\neo_alchemist\Match\MatcherReference;
@@ -66,7 +66,7 @@ class ChildrenMatchHandlerTest extends UnitTestCase {
   /**
    * The child shape state the mapper writes its flags onto.
    *
-   * @var \Drupal\neo_alchemist\ChildShapeState
+   * @var \Drupal\neo_alchemist\Shape\ChildShapeState
    */
   private ChildShapeState $state;
 

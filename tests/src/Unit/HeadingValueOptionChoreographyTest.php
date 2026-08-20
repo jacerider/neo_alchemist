@@ -8,11 +8,11 @@ use Drupal\Core\Controller\TitleResolverInterface;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Routing\RouteMatchInterface;
 use Drupal\Tests\neo_alchemist\Traits\ShapeDoubleTrait;
-use Drupal\neo_alchemist\ComponentShapeChildrenPluginInterface;
-use Drupal\neo_alchemist\ComponentShapeOption;
-use Drupal\neo_alchemist\ComponentShapeOptionsInterface;
-use Drupal\neo_alchemist\ComponentShapePluginInterface;
-use Drupal\neo_alchemist\NestedOptionMap;
+use Drupal\neo_alchemist\Shape\ComponentShapeChildrenPluginInterface;
+use Drupal\neo_alchemist\Shape\ComponentShapeOption;
+use Drupal\neo_alchemist\Shape\ComponentShapeOptionsInterface;
+use Drupal\neo_alchemist\Shape\ComponentShapePluginInterface;
+use Drupal\neo_alchemist\Shape\NestedOptionMap;
 use Drupal\neo_alchemist\Plugin\ComponentValue\HeadingValue;
 use Drupal\Tests\UnitTestCase;
 use PHPUnit\Framework\Attributes\Group;
@@ -47,7 +47,7 @@ class HeadingValueOptionChoreographyTest extends UnitTestCase {
   /**
    * The heading shape's own "empty" option.
    *
-   * @var \Drupal\neo_alchemist\ComponentShapeOption
+   * @var \Drupal\neo_alchemist\Shape\ComponentShapeOption
    */
   private ComponentShapeOption $emptyOption;
 
@@ -62,12 +62,12 @@ class HeadingValueOptionChoreographyTest extends UnitTestCase {
   /**
    * A heading shape reading and writing the given option map.
    *
-   * @param \Drupal\neo_alchemist\NestedOptionMap $options
+   * @param \Drupal\neo_alchemist\Shape\NestedOptionMap $options
    *   The map, already scoped to the shape.
    * @param bool $children
    *   Whether the shape reports children.
    *
-   * @return \Drupal\neo_alchemist\ComponentShapePluginInterface
+   * @return \Drupal\neo_alchemist\Shape\ComponentShapePluginInterface
    *   The shape double.
    */
   private function shape(NestedOptionMap $options, bool $children = TRUE): ComponentShapePluginInterface {
@@ -88,7 +88,7 @@ class HeadingValueOptionChoreographyTest extends UnitTestCase {
   /**
    * Builds the provider against a shape.
    *
-   * @param \Drupal\neo_alchemist\ComponentShapePluginInterface $shape
+   * @param \Drupal\neo_alchemist\Shape\ComponentShapePluginInterface $shape
    *   The shape the provider sits on.
    * @param array $settings
    *   Heading provider settings, merged over the plugin's own defaults.
@@ -117,7 +117,7 @@ class HeadingValueOptionChoreographyTest extends UnitTestCase {
    *   Whether the shape reports children. A heading that does not is left
    *   alone entirely.
    *
-   * @return \Drupal\neo_alchemist\NestedOptionMap
+   * @return \Drupal\neo_alchemist\Shape\NestedOptionMap
    *   The map, scoped to the heading shape.
    */
   private function onShapeInit(array $settings, bool $children = TRUE): NestedOptionMap {
@@ -129,7 +129,7 @@ class HeadingValueOptionChoreographyTest extends UnitTestCase {
   /**
    * Runs the provider's form alter over a heading form with an anchor in it.
    *
-   * @param \Drupal\neo_alchemist\NestedOptionMap $options
+   * @param \Drupal\neo_alchemist\Shape\NestedOptionMap $options
    *   The map the form reads, as a previous ::onShapeInit() left it.
    *
    * @return array

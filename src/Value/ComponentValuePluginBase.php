@@ -9,7 +9,7 @@ use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Plugin\PluginWithFormsTrait;
 use Drupal\Core\StringTranslation\StringTranslationTrait;
 use Drupal\neo\Helpers\NestedArray;
-use Drupal\neo_alchemist\ComponentShapePluginInterface;
+use Drupal\neo_alchemist\Shape\ComponentShapePluginInterface;
 
 /**
  * Base class for neo_component_value plugins.
@@ -22,7 +22,7 @@ abstract class ComponentValuePluginBase extends PluginBase implements ComponentV
   /**
    * The shape.
    *
-   * @var \Drupal\neo_alchemist\ComponentShapePluginInterface
+   * @var \Drupal\neo_alchemist\Shape\ComponentShapePluginInterface
    */
   protected ComponentShapePluginInterface $shape;
 

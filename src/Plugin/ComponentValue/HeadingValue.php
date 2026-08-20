@@ -11,10 +11,10 @@ use Drupal\Core\Plugin\ContainerFactoryPluginInterface;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\neo\Helpers\Str;
 use Drupal\neo_alchemist\Attribute\ComponentValue;
-use Drupal\neo_alchemist\ComponentShapeChildrenPluginInterface;
-use Drupal\neo_alchemist\ComponentShapePluginInterface;
+use Drupal\neo_alchemist\Shape\ComponentShapeChildrenPluginInterface;
+use Drupal\neo_alchemist\Shape\ComponentShapePluginInterface;
 use Drupal\neo_alchemist\Match\MatcherField;
-use Drupal\neo_alchemist\NestedOptionMap;
+use Drupal\neo_alchemist\Shape\NestedOptionMap;
 use Drupal\neo_alchemist\Plugin\ComponentShape\ObjectShape;
 use Drupal\neo_alchemist\Value\ComponentValuePluginBase;
 use Drupal\neo_alchemist\Value\ComponentValueProcessingModeInterface;
@@ -290,7 +290,7 @@ final class HeadingValue extends ComponentValuePluginBase implements ContainerFa
    *   The sub-prop fieldset.
    * @param string $key
    *   The sub-prop name.
-   * @param \Drupal\neo_alchemist\ComponentShapePluginInterface $childShape
+   * @param \Drupal\neo_alchemist\Shape\ComponentShapePluginInterface $childShape
    *   The sub-prop's own shape. Matching against the child rather than the
    *   heading object is what limits the list to fields that can supply a
    *   string.

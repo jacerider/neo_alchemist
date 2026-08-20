@@ -9,7 +9,7 @@ use Drupal\Core\Cache\Cache;
 use Drupal\Core\Cache\CacheableMetadata;
 use Drupal\Core\Datetime\DrupalDateTime;
 use Drupal\Core\Entity\ContentEntityInterface;
-use Drupal\neo_alchemist\ComponentShapePluginInterface;
+use Drupal\neo_alchemist\Shape\ComponentShapePluginInterface;
 use Drupal\neo_alchemist\Entity\Component;
 
 /**
@@ -118,7 +118,7 @@ function hook_neo_component_build_BASE_ID_alter(array &$build, CacheableMetadata
  *   The source item from MenuLinkTree::build()'s #items, including
  *   original_link (\Drupal\Core\Menu\MenuLinkInterface) and the
  *   \Drupal\Core\Url object under 'url'. Treat as read-only context.
- * @param \Drupal\neo_alchemist\ComponentShapePluginInterface $shape
+ * @param \Drupal\neo_alchemist\Shape\ComponentShapePluginInterface $shape
  *   The shape the value is being provided for; use it to add cacheable
  *   dependencies.
  *

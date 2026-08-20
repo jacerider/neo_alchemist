@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\neo_alchemist\ChildrenMatch;
 
-use Drupal\neo_alchemist\ChildShapeState;
+use Drupal\neo_alchemist\Shape\ChildShapeState;
 
 /**
  * Handles `_default`: contribute nothing, so the child keeps its SDC example.

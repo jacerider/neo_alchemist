@@ -11,9 +11,9 @@ use Drupal\Core\Form\SubformState;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\Core\Template\Attribute;
 use Drupal\neo_alchemist\Attribute\ComponentShape;
-use Drupal\neo_alchemist\ComponentShapeExpandedPluginInterface;
-use Drupal\neo_alchemist\ComponentShapeInterablePluginInterface;
-use Drupal\neo_alchemist\ComponentShapePluginInterface;
+use Drupal\neo_alchemist\Shape\ComponentShapeExpandedPluginInterface;
+use Drupal\neo_alchemist\Shape\ComponentShapeInterablePluginInterface;
+use Drupal\neo_alchemist\Shape\ComponentShapePluginInterface;
 use Drupal\neo_alchemist\Drush\Generators\NeoComponentPropGeneratorInterface;
 use Drupal\neo_alchemist\Drush\Generators\NeoComponentTwig;
 use DrupalCodeGenerator\InputOutput\Interviewer;
@@ -31,14 +31,14 @@ class ArrayShape extends ChildrenShapeBase implements ComponentShapeInterablePlu
   /**
    * The single prop shape.
    *
-   * @var \Drupal\neo_alchemist\ComponentShapePluginInterface|null
+   * @var \Drupal\neo_alchemist\Shape\ComponentShapePluginInterface|null
    */
   protected ?ComponentShapePluginInterface $singlePropShape;
 
   /**
    * The uninitialized item shape used only for value resolution.
    *
-   * @var \Drupal\neo_alchemist\ComponentShapePluginInterface|null
+   * @var \Drupal\neo_alchemist\Shape\ComponentShapePluginInterface|null
    */
   protected ?ComponentShapePluginInterface $itemValueResolverShape = NULL;
 
@@ -139,7 +139,7 @@ class ArrayShape extends ChildrenShapeBase implements ComponentShapeInterablePlu
    * `type`. Plain object items resolve to an ObjectShape, which recurses
    * into each item property.
    *
-   * @return \Drupal\neo_alchemist\ComponentShapePluginInterface|null
+   * @return \Drupal\neo_alchemist\Shape\ComponentShapePluginInterface|null
    *   The item shape, or NULL when the items schema cannot resolve one.
    */
   protected function getItemValueResolverShape(): ?ComponentShapePluginInterface {
@@ -237,7 +237,7 @@ class ArrayShape extends ChildrenShapeBase implements ComponentShapeInterablePlu
   /**
    * Get the single prop shape.
    *
-   * @return \Drupal\neo_alchemist\ComponentShapePluginInterface|null
+   * @return \Drupal\neo_alchemist\Shape\ComponentShapePluginInterface|null
    *   The single prop shape.
    */
   protected function getSinglePropShape(): ?ComponentShapePluginInterface {
@@ -293,7 +293,7 @@ class ArrayShape extends ChildrenShapeBase implements ComponentShapeInterablePlu
       if (isset($values[$delta]) && !is_array($values[$delta])) {
         continue;
       }
-      /** @var \Drupal\neo_alchemist\ComponentShapePluginInterface[] $shapes */
+      /** @var \Drupal\neo_alchemist\Shape\ComponentShapePluginInterface[] $shapes */
       foreach ($shapes as $shapeName => $shape) {
         $allowUnsetEmpty = $shape->allowUnsetEmpty();
         if (!isset($values[$delta][$shapeName]) && $allowUnsetEmpty) {
@@ -443,7 +443,7 @@ class ArrayShape extends ChildrenShapeBase implements ComponentShapeInterablePlu
       $total = count($shapeList);
       $lastKey = array_key_last($shapeList);
       foreach ($shapeList as $delta => $shapes) {
-        /** @var \Drupal\neo_alchemist\ComponentShapePluginInterface[] $shapes */
+        /** @var \Drupal\neo_alchemist\Shape\ComponentShapePluginInterface[] $shapes */
         $form[$delta] = [
           '#type' => 'details',
           '#neo_size' => 'xs',
@@ -543,7 +543,7 @@ class ArrayShape extends ChildrenShapeBase implements ComponentShapeInterablePlu
   /**
    * Get the form for an array item shape.
    *
-   * @param \Drupal\neo_alchemist\ComponentShapePluginInterface $shape
+   * @param \Drupal\neo_alchemist\Shape\ComponentShapePluginInterface $shape
    *   The shape to get the form for.
    * @param array $form
    *   The form array.

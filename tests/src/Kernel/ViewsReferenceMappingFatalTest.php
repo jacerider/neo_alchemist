@@ -6,7 +6,7 @@ namespace Drupal\Tests\neo_alchemist\Kernel;
 
 use Drupal\Core\Entity\ContentEntityInterface;
 use Drupal\KernelTests\KernelTestBase;
-use Drupal\neo_alchemist\ComponentShapePluginInterface;
+use Drupal\neo_alchemist\Shape\ComponentShapePluginInterface;
 use Drupal\neo_alchemist\Entity\Component;
 use Drupal\neo_alchemist\Plugin\ComponentValue\ViewsValue;
 use Drupal\user\Entity\User;
@@ -130,7 +130,7 @@ class ViewsReferenceMappingFatalTest extends KernelTestBase {
    * reached as a child and is iterable — which is what makes the reference
    * pseudo-field an offered option for it.
    *
-   * @return \Drupal\neo_alchemist\ComponentShapePluginInterface
+   * @return \Drupal\neo_alchemist\Shape\ComponentShapePluginInterface
    *   The aggregate object shape.
    */
   private function buildAggregateShape(): ComponentShapePluginInterface {
@@ -158,7 +158,7 @@ class ViewsReferenceMappingFatalTest extends KernelTestBase {
    * but not the reference matcher, so building through it is what reproduces
    * the missing collaborator.
    *
-   * @param \Drupal\neo_alchemist\ComponentShapePluginInterface $shape
+   * @param \Drupal\neo_alchemist\Shape\ComponentShapePluginInterface $shape
    *   The children-match shape to bind the provider to.
    * @param array $settings
    *   The provider settings, including the reference mapping.

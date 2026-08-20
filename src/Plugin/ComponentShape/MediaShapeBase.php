@@ -10,7 +10,7 @@ use Drupal\Core\Field\FieldDefinitionInterface;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\file\FileInterface;
 use Drupal\media\MediaInterface;
-use Drupal\neo_alchemist\ComponentShapeMediaPluginInterface;
+use Drupal\neo_alchemist\Shape\ComponentShapeMediaPluginInterface;
 
 /**
  * A trait for adding the module handler.

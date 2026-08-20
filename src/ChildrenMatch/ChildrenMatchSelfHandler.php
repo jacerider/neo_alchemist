@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Drupal\neo_alchemist\ChildrenMatch;
 
 use Drupal\media\MediaInterface;
-use Drupal\neo_alchemist\ComponentShapeMediaPluginInterface;
+use Drupal\neo_alchemist\Shape\ComponentShapeMediaPluginInterface;
 
 /**
  * Handles `_self`: the iterated entity IS the media the child wants.

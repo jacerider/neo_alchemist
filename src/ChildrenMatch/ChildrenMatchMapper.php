@@ -10,9 +10,9 @@ use Drupal\Core\Extension\ModuleHandlerInterface;
 use Drupal\Core\Field\FormatterPluginManager;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\StringTranslation\StringTranslationTrait;
-use Drupal\neo_alchemist\ChildShapeState;
-use Drupal\neo_alchemist\ComponentShapeChildrenMatchPluginInterface;
-use Drupal\neo_alchemist\ComponentShapePluginInterface;
+use Drupal\neo_alchemist\Shape\ChildShapeState;
+use Drupal\neo_alchemist\Shape\ComponentShapeChildrenMatchPluginInterface;
+use Drupal\neo_alchemist\Shape\ComponentShapePluginInterface;
 use Drupal\neo_alchemist\Match\MatcherField;
 use Drupal\neo_alchemist\Match\MatcherReference;
 use Drupal\neo_alchemist\Plugin\ComponentValue\ComponentValuePluginTrait;
@@ -119,7 +119,7 @@ class ChildrenMatchMapper {
   /**
    * A settings-summary line for the mapping.
    *
-   * @param \Drupal\neo_alchemist\ComponentShapePluginInterface $shape
+   * @param \Drupal\neo_alchemist\Shape\ComponentShapePluginInterface $shape
    *   The shape the producer is bound to.
    * @param array $configuration
    *   The producer's stored settings.
@@ -155,7 +155,7 @@ class ChildrenMatchMapper {
    *
    * @param \Drupal\neo_alchemist\ChildrenMatch\ChildrenMatchSourceInterface $source
    *   The producer.
-   * @param \Drupal\neo_alchemist\ComponentShapeChildrenMatchPluginInterface $shape
+   * @param \Drupal\neo_alchemist\Shape\ComponentShapeChildrenMatchPluginInterface $shape
    *   The shape being configured.
    * @param array $form
    *   The provider subform. Its '#id' must be set: it is the ajax wrapper.
@@ -183,7 +183,7 @@ class ChildrenMatchMapper {
    *
    * @param \Drupal\neo_alchemist\ChildrenMatch\ChildrenMatchSourceInterface $source
    *   The producer.
-   * @param \Drupal\neo_alchemist\ComponentShapeChildrenMatchPluginInterface $shape
+   * @param \Drupal\neo_alchemist\Shape\ComponentShapeChildrenMatchPluginInterface $shape
    *   The shape being filled.
    * @param array $configuration
    *   The producer's stored settings.
@@ -338,7 +338,7 @@ class ChildrenMatchMapper {
    *
    * @param \Drupal\neo_alchemist\ChildrenMatch\ChildrenMatchSourceInterface $source
    *   The producer asking, excluded from its own list.
-   * @param \Drupal\neo_alchemist\ComponentShapeChildrenMatchPluginInterface $shape
+   * @param \Drupal\neo_alchemist\Shape\ComponentShapeChildrenMatchPluginInterface $shape
    *   The shape whose stored plugins to scan.
    *
    * @return array
@@ -589,7 +589,7 @@ class ChildrenMatchMapper {
    *   The producer, consulted for its own field choices.
    * @param array $shapeNames
    *   The child shape names to fill.
-   * @param \Drupal\neo_alchemist\ComponentShapeChildrenMatchPluginInterface $shape
+   * @param \Drupal\neo_alchemist\Shape\ComponentShapeChildrenMatchPluginInterface $shape
    *   The ROOT children-match shape. It stays the root through every recursion
    *   because the child-state calls below (hide/default/enable-plugin) are all
    *   keyed by a chained shape id the root owns.
@@ -811,12 +811,12 @@ class ChildrenMatchMapper {
    * that is safe while getDefaultValue() is being memoized (getChildShapes()
    * would recurse).
    *
-   * @param \Drupal\neo_alchemist\ComponentShapeChildrenMatchPluginInterface $root
+   * @param \Drupal\neo_alchemist\Shape\ComponentShapeChildrenMatchPluginInterface $root
    *   The root children-match shape.
    * @param string $shapeId
    *   The chained shape id.
    *
-   * @return \Drupal\neo_alchemist\ComponentShapePluginInterface|null
+   * @return \Drupal\neo_alchemist\Shape\ComponentShapePluginInterface|null
    *   The uninitialized child shape, or NULL if the path does not resolve.
    */
   public function getChildShapeById(ComponentShapeChildrenMatchPluginInterface $root, string $shapeId): ?ComponentShapePluginInterface {

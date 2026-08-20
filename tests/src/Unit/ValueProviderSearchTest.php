@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace Drupal\Tests\neo_alchemist\Unit;
 
 use Drupal\Tests\neo_alchemist\Traits\ShapeDoubleTrait;
-use Drupal\neo_alchemist\ComponentShapePluginInterface;
-use Drupal\neo_alchemist\ComponentShapeValueInterface;
+use Drupal\neo_alchemist\Shape\ComponentShapePluginInterface;
+use Drupal\neo_alchemist\Shape\ComponentShapeValueInterface;
 use Drupal\neo_alchemist\Value\ComponentValueProcessingModeInterface;
 use Drupal\neo_alchemist\ValueProviderSearch;
 use Drupal\Tests\UnitTestCase;
@@ -37,7 +37,7 @@ class ValueProviderSearchTest extends UnitTestCase {
    * Only the value role is answered: deciding whether a produced value counts
    * as empty is the one thing the search asks its shape, and the type says so.
    *
-   * @return \Drupal\neo_alchemist\ComponentShapePluginInterface
+   * @return \Drupal\neo_alchemist\Shape\ComponentShapePluginInterface
    *   The shape double.
    */
   private function shape(): ComponentShapePluginInterface {
@@ -51,7 +51,7 @@ class ValueProviderSearchTest extends UnitTestCase {
   /**
    * Builds a provider that produces a preset value.
    *
-   * @param \Drupal\neo_alchemist\ComponentShapePluginInterface $shape
+   * @param \Drupal\neo_alchemist\Shape\ComponentShapePluginInterface $shape
    *   The shape the provider decides a value for — the same one handed to the
    *   search, as it is in production.
    * @param mixed $provided
@@ -77,7 +77,7 @@ class ValueProviderSearchTest extends UnitTestCase {
    *   The ordered providers.
    * @param mixed $seed
    *   The value the search starts from.
-   * @param \Drupal\neo_alchemist\ComponentShapeValueInterface $shape
+   * @param \Drupal\neo_alchemist\Shape\ComponentShapeValueInterface $shape
    *   The shape whose emptiness contract governs the fall-through.
    *
    * @return mixed

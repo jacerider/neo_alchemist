@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace Drupal\neo_alchemist\Plugin\ComponentShape;
 
 use Drupal\Core\Template\Attribute;
-use Drupal\neo_alchemist\ComponentShapeChildrenMatchPluginInterface;
-use Drupal\neo_alchemist\ComponentShapePluginBase;
-use Drupal\neo_alchemist\ComponentShapePluginInterface;
+use Drupal\neo_alchemist\Shape\ComponentShapeChildrenMatchPluginInterface;
+use Drupal\neo_alchemist\Shape\ComponentShapePluginBase;
+use Drupal\neo_alchemist\Shape\ComponentShapePluginInterface;
 
 /**
  * Base for shapes that expose structured subproperties for field matching.
@@ -25,14 +25,14 @@ abstract class StructuredObjectShapeBase extends ComponentShapePluginBase implem
   /**
    * Cached child shapes, keyed by delta.
    *
-   * @var \Drupal\neo_alchemist\ComponentShapePluginInterface[][]
+   * @var \Drupal\neo_alchemist\Shape\ComponentShapePluginInterface[][]
    */
   protected array $structuredChildShapes = [];
 
   /**
    * Uninitialized child shapes used only for value resolution.
    *
-   * @var \Drupal\neo_alchemist\ComponentShapeSetupInterface[]|null
+   * @var \Drupal\neo_alchemist\Shape\ComponentShapeSetupInterface[]|null
    */
   protected ?array $valueResolverShapes = NULL;
 

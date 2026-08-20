@@ -8,7 +8,7 @@ use Drupal\Core\DependencyInjection\ContainerBuilder;
 use Drupal\Core\Entity\ContentEntityInterface;
 use Drupal\Core\Utility\Token;
 use Drupal\Tests\neo_alchemist\Traits\ShapeDoubleTrait;
-use Drupal\neo_alchemist\ComponentShapeContextInterface;
+use Drupal\neo_alchemist\Shape\ComponentShapeContextInterface;
 use Drupal\neo_alchemist\Plugin\ComponentValue\TokenValue;
 use Drupal\Tests\UnitTestCase;
 use PHPUnit\Framework\Attributes\DataProvider;

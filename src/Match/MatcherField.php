@@ -26,7 +26,7 @@ use Drupal\Core\Routing\RouteProviderInterface;
 use Drupal\Core\TypedData\DataReferenceDefinitionInterface;
 use Drupal\Core\Url;
 use Drupal\neo_alchemist\ComponentFieldConfigInterface;
-use Drupal\neo_alchemist\ComponentShapePluginInterface;
+use Drupal\neo_alchemist\Shape\ComponentShapePluginInterface;
 use Drupal\neo_icon\IconTrait;
 
 /**
@@ -86,7 +86,7 @@ final class MatcherField extends MatcherBase {
   /**
    * Retrieves the field definition for a given key from the component shape.
    *
-   * @param \Drupal\neo_alchemist\ComponentShapePluginInterface $shape
+   * @param \Drupal\neo_alchemist\Shape\ComponentShapePluginInterface $shape
    *   The component shape plugin instance.
    * @param string $key
    *   The key for which the field definition is to be retrieved.
@@ -390,7 +390,7 @@ final class MatcherField extends MatcherBase {
    * definition, and then matching it against the shape. The matches are then
    * sorted by weight and title.
    *
-   * @param \Drupal\neo_alchemist\ComponentShapePluginInterface $shape
+   * @param \Drupal\neo_alchemist\Shape\ComponentShapePluginInterface $shape
    *   The component shape plugin interface.
    * @param string|null $entityTypeId
    *   (optional) The entity type ID to match against. Defaults to NULL.
@@ -451,7 +451,7 @@ final class MatcherField extends MatcherBase {
    * takes its bundle from the override only, and with no override the shape's
    * target entity type and bundle decide.
    *
-   * @param \Drupal\neo_alchemist\ComponentShapePluginInterface $shape
+   * @param \Drupal\neo_alchemist\Shape\ComponentShapePluginInterface $shape
    *   The component shape plugin.
    * @param string|null $entityTypeId
    *   (optional) The entity type ID to match against. Defaults to NULL.
@@ -475,7 +475,7 @@ final class MatcherField extends MatcherBase {
    * say — must derive it from here rather than replay the decision, or the two
    * drift and answers get filed under the wrong key.
    *
-   * @param \Drupal\neo_alchemist\ComponentShapePluginInterface $shape
+   * @param \Drupal\neo_alchemist\Shape\ComponentShapePluginInterface $shape
    *   The shape being matched.
    * @param string|null $entityTypeId
    *   (optional) The entity type to match against. Defaults to NULL.
@@ -535,7 +535,7 @@ final class MatcherField extends MatcherBase {
    * had it walked deep enough. In `$all` mode the gates relax exactly as
    * ::matchAll()'s do.
    *
-   * @param \Drupal\neo_alchemist\ComponentShapePluginInterface $shape
+   * @param \Drupal\neo_alchemist\Shape\ComponentShapePluginInterface $shape
    *   The component shape plugin.
    * @param string[] $hops
    *   Reference field names leading to the node, [] for the root entity.
@@ -625,7 +625,7 @@ final class MatcherField extends MatcherBase {
    *
    * @param \Drupal\Core\Field\FieldDefinitionInterface $fieldDefinition
    *   The field definition.
-   * @param \Drupal\neo_alchemist\ComponentShapePluginInterface $shape
+   * @param \Drupal\neo_alchemist\Shape\ComponentShapePluginInterface $shape
    *   The component shape plugin.
    * @param bool $all
    *   Whether every field is on the table rather than only shape-supported
@@ -693,7 +693,7 @@ final class MatcherField extends MatcherBase {
    *
    * @param \Drupal\Core\Entity\TypedData\EntityDataDefinitionInterface $entityDataDefinition
    *   The entity data definition to match.
-   * @param \Drupal\neo_alchemist\ComponentShapePluginInterface $shape
+   * @param \Drupal\neo_alchemist\Shape\ComponentShapePluginInterface $shape
    *   The component shape plugin to match against.
    * @param int $level
    *   The current level of matching.
@@ -721,7 +721,7 @@ final class MatcherField extends MatcherBase {
    *
    * @param \Drupal\Core\Entity\TypedData\EntityDataDefinitionInterface $entityDataDefinition
    *   The entity data definition to match against.
-   * @param \Drupal\neo_alchemist\ComponentShapePluginInterface $shape
+   * @param \Drupal\neo_alchemist\Shape\ComponentShapePluginInterface $shape
    *   The shape plugin to match fields with.
    * @param int $level
    *   The level of recursion allowed for matching nested fields.
@@ -977,7 +977,7 @@ final class MatcherField extends MatcherBase {
    *
    * @param \Drupal\Core\Field\FieldDefinitionInterface[] $fieldDefinitions
    *   An array of field definitions to process.
-   * @param \Drupal\neo_alchemist\ComponentShapePluginInterface $shape
+   * @param \Drupal\neo_alchemist\Shape\ComponentShapePluginInterface $shape
    *   The component shape plugin interface instance.
    *
    * @return \Drupal\Core\Field\FieldDefinitionInterface[]

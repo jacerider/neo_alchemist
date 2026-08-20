@@ -7,8 +7,8 @@ namespace Drupal\neo_alchemist\Form;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Form\ConfigFormBase;
 use Drupal\Core\Form\FormStateInterface;
-use Drupal\neo_alchemist\ComponentShapePluginManager;
-use Drupal\neo_alchemist\ComponentShapeStylePluginInterface;
+use Drupal\neo_alchemist\Shape\ComponentShapePluginManager;
+use Drupal\neo_alchemist\Shape\ComponentShapeStylePluginInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
@@ -26,7 +26,7 @@ final class ComponentStyleSettingsForm extends ConfigFormBase {
   /**
    * The component shape plugin manager.
    *
-   * @var \Drupal\neo_alchemist\ComponentShapePluginManager
+   * @var \Drupal\neo_alchemist\Shape\ComponentShapePluginManager
    */
   protected ComponentShapePluginManager $shapeManager;
 

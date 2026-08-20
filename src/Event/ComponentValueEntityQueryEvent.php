@@ -6,7 +6,7 @@ namespace Drupal\neo_alchemist\Event;
 
 use Drupal\Component\EventDispatcher\Event;
 use Drupal\Core\Entity\Query\QueryInterface;
-use Drupal\neo_alchemist\ComponentShapePluginInterface;
+use Drupal\neo_alchemist\Shape\ComponentShapePluginInterface;
 
 /**
  * Event that is fired when a component value is generated with an entity query.
@@ -18,7 +18,7 @@ class ComponentValueEntityQueryEvent extends Event {
   /**
    * The shape.
    *
-   * @var \Drupal\neo_alchemist\ComponentShapePluginInterface
+   * @var \Drupal\neo_alchemist\Shape\ComponentShapePluginInterface
    */
   public ComponentShapePluginInterface $shape;
 
@@ -32,7 +32,7 @@ class ComponentValueEntityQueryEvent extends Event {
   /**
    * Constructs the object.
    *
-   * @param \Drupal\neo_alchemist\ComponentShapePluginInterface $shape
+   * @param \Drupal\neo_alchemist\Shape\ComponentShapePluginInterface $shape
    *   The shape.
    * @param \Drupal\Core\Entity\Query\QueryInterface $query
    *   The entity query.

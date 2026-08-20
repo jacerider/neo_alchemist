@@ -11,7 +11,7 @@ use Drupal\Core\Session\AccountInterface;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\neo_alchemist\Access\ComponentAccessPluginBase;
 use Drupal\neo_alchemist\Attribute\ComponentAccess;
-use Drupal\neo_alchemist\ComponentShapeChildrenPluginInterface;
+use Drupal\neo_alchemist\Shape\ComponentShapeChildrenPluginInterface;
 
 /**
  * Plugin implementation of the neo_component_access.
@@ -65,7 +65,7 @@ final class PropValueAccess extends ComponentAccessPluginBase {
    * therefore create a rule that can never pass. The children's names are
    * exactly the unwrapped value keys, so they are what a rule must select.
    *
-   * @return \Drupal\neo_alchemist\ComponentShapePluginInterface[]
+   * @return \Drupal\neo_alchemist\Shape\ComponentShapePluginInterface[]
    *   The shapes, keyed by the name ::access() will find in getPropValues().
    */
   private function gateableShapes(): array {

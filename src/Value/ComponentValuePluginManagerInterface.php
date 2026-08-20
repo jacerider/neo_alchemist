@@ -7,7 +7,7 @@ namespace Drupal\neo_alchemist\Value;
 use Drupal\Component\Plugin\Discovery\CachedDiscoveryInterface;
 use Drupal\Component\Plugin\PluginManagerInterface;
 use Drupal\Core\Cache\CacheableDependencyInterface;
-use Drupal\neo_alchemist\ComponentShapePluginInterface;
+use Drupal\neo_alchemist\Shape\ComponentShapePluginInterface;
 
 /**
  * Interface for neo_component_value_modifier plugins.
@@ -41,7 +41,7 @@ interface ComponentValuePluginManagerInterface extends PluginManagerInterface, C
    * the type, entity type, and bundle specified by the given shape. It then
    * sorts the filtered definitions by weight and label.
    *
-   * @param \Drupal\neo_alchemist\ComponentShapePluginInterface $shape
+   * @param \Drupal\neo_alchemist\Shape\ComponentShapePluginInterface $shape
    *   The shape plugin interface which provides the type, entity type, and
    *   bundle.
    *

@@ -13,7 +13,7 @@ use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\Core\Template\Attribute;
 use Drupal\neo_alchemist\Attribute\ComponentShape;
 use Drupal\neo_alchemist\ComponentInstanceInterface;
-use Drupal\neo_alchemist\ComponentShapeRegionPluginInterface;
+use Drupal\neo_alchemist\Shape\ComponentShapeRegionPluginInterface;
 use Drupal\neo_alchemist\ComponentSizesInterface;
 use Drupal\neo_icon\IconTrait;
 

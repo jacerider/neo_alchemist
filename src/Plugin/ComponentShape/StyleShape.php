@@ -8,7 +8,7 @@ use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\Core\Template\Attribute;
 use Drupal\neo_alchemist\Attribute\ComponentShape;
-use Drupal\neo_alchemist\ComponentShapeStyleAttribute;
+use Drupal\neo_alchemist\Shape\ComponentShapeStyleAttribute;
 
 /**
  * Plugin implementation of the neo_component_shape.

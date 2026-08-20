@@ -8,7 +8,7 @@ use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\TypedData\DataDefinitionInterface;
 use Drupal\Core\TypedData\TypedDataInterface;
 use Drupal\neo_alchemist\ComponentFieldConfigInterface;
-use Drupal\neo_alchemist\ComponentShapeQuery;
+use Drupal\neo_alchemist\Shape\ComponentShapeQuery;
 use Drupal\neo_alchemist\Plugin\DataType\ComponentTreeStructure;
 
 /**

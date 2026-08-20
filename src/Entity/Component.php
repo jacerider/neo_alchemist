@@ -22,7 +22,7 @@ use Drupal\neo_alchemist\Access\ComponentAccessInterface;
 use Drupal\neo_alchemist\ComponentInstanceInterface;
 use Drupal\neo_alchemist\ComponentInterface;
 use Drupal\neo_alchemist\ComponentManageHelper;
-use Drupal\neo_alchemist\ComponentShapePluginInterface;
+use Drupal\neo_alchemist\Shape\ComponentShapePluginInterface;
 use Drupal\neo_alchemist\Filter\ComponentFilterInterface;
 use Drupal\neo_alchemist\MissingHostEntityException;
 use Drupal\neo_alchemist\Slot\ComponentSlotInterface;
@@ -246,7 +246,7 @@ class Component extends ConfigEntityBase implements ComponentInterface {
   /**
    * The prop shapes.
    *
-   * @var \Drupal\neo_alchemist\ComponentShapePluginInterface[]
+   * @var \Drupal\neo_alchemist\Shape\ComponentShapePluginInterface[]
    */
   protected array $propShapes;
 
@@ -919,7 +919,7 @@ class Component extends ConfigEntityBase implements ComponentInterface {
    * {@inheritdoc}
    */
   public function loadPropShapes(array $schema): array {
-    /** @var \Drupal\neo_alchemist\ComponentShapePluginManager $manager */
+    /** @var \Drupal\neo_alchemist\Shape\ComponentShapePluginManager $manager */
     $manager = \Drupal::service('plugin.manager.neo_component_shape');
     // Get shapes and initialize them.
     if ($this->isAggregate()) {
@@ -943,7 +943,7 @@ class Component extends ConfigEntityBase implements ComponentInterface {
   /**
    * Get the aggregate schema.
    *
-   * @return \Drupal\neo_alchemist\ComponentShapePluginInterface[]
+   * @return \Drupal\neo_alchemist\Shape\ComponentShapePluginInterface[]
    *   The shapes.
    */
   protected function getAggregateSchema(array $schema): array {

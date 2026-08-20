@@ -11,8 +11,8 @@ use Drupal\Core\Plugin\ContainerFactoryPluginInterface;
 use Drupal\Core\Render\Element;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\neo_alchemist\Attribute\ComponentValue;
-use Drupal\neo_alchemist\ComponentShapePluginInterface;
-use Drupal\neo_alchemist\ComponentShapePluginManager;
+use Drupal\neo_alchemist\Shape\ComponentShapePluginInterface;
+use Drupal\neo_alchemist\Shape\ComponentShapePluginManager;
 use Drupal\neo_alchemist\Value\ComponentValuePluginBase;
 use Drupal\neo_alchemist\Value\ComponentValueProvision;
 use Symfony\Component\DependencyInjection\ContainerInterface;
@@ -41,7 +41,7 @@ final class DefaultValue extends ComponentValuePluginBase implements ContainerFa
    * setup type on a property would keep the setters reachable for the life of
    * this plugin, which is the seam the interface exists to close.
    *
-   * @var \Drupal\neo_alchemist\ComponentShapePluginInterface
+   * @var \Drupal\neo_alchemist\Shape\ComponentShapePluginInterface
    */
   protected ComponentShapePluginInterface $defaultShape;
 
@@ -109,7 +109,7 @@ final class DefaultValue extends ComponentValuePluginBase implements ContainerFa
   /**
    * Retrieves the default shape for the component.
    *
-   * @return \Drupal\neo_alchemist\ComponentShapePluginInterface
+   * @return \Drupal\neo_alchemist\Shape\ComponentShapePluginInterface
    *   The default shape for the component, initialised.
    */
   protected function getDefaultShape(): ComponentShapePluginInterface {

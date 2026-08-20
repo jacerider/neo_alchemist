@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace Drupal\Tests\neo_alchemist\Unit;
 
 use Drupal\Tests\neo_alchemist\Traits\ShapeDoubleTrait;
-use Drupal\neo_alchemist\ComponentShapePluginInterface;
-use Drupal\neo_alchemist\ComponentShapeStylePluginInterface;
-use Drupal\neo_alchemist\ComponentShapeValueInterface;
+use Drupal\neo_alchemist\Shape\ComponentShapePluginInterface;
+use Drupal\neo_alchemist\Shape\ComponentShapeStylePluginInterface;
+use Drupal\neo_alchemist\Shape\ComponentShapeValueInterface;
 use Drupal\neo_alchemist\Plugin\ComponentShape\ImageShape;
 use Drupal\neo_alchemist\Plugin\ComponentValue\MediaImageSizeValue;
 use Drupal\Tests\UnitTestCase;
@@ -26,7 +26,7 @@ use PHPUnit\Framework\Attributes\Group;
  * mapping and that interaction.
  *
  * @see \Drupal\neo_alchemist\Plugin\ComponentValue\MediaImageSizeValue
- * @see \Drupal\neo_alchemist\ComponentShapePluginBase::isProvidedValueEmpty()
+ * @see \Drupal\neo_alchemist\Shape\ComponentShapePluginBase::isProvidedValueEmpty()
  */
 #[Group('neo_alchemist')]
 class MediaImageSizeValueTest extends UnitTestCase {

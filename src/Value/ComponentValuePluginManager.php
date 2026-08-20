@@ -11,7 +11,7 @@ use Drupal\Core\Extension\ModuleHandlerInterface;
 use Drupal\Core\Plugin\DefaultPluginManager;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\neo_alchemist\Attribute\ComponentValue;
-use Drupal\neo_alchemist\ComponentShapePluginInterface;
+use Drupal\neo_alchemist\Shape\ComponentShapePluginInterface;
 
 /**
  * ComponentValue plugin manager.
@@ -99,7 +99,7 @@ final class ComponentValuePluginManager extends DefaultPluginManager implements 
    * the type, entity type, and bundle specified by the given shape. It then
    * sorts the filtered definitions by weight and label.
    *
-   * @param \Drupal\neo_alchemist\ComponentShapePluginInterface $shape
+   * @param \Drupal\neo_alchemist\Shape\ComponentShapePluginInterface $shape
    *   The shape plugin interface which provides the type, entity type, and
    *   bundle.
    *

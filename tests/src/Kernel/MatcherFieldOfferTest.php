@@ -7,7 +7,7 @@ namespace Drupal\Tests\neo_alchemist\Kernel;
 use Drupal\field\Entity\FieldConfig;
 use Drupal\field\Entity\FieldStorageConfig;
 use Drupal\KernelTests\KernelTestBase;
-use Drupal\neo_alchemist\ComponentShapePluginInterface;
+use Drupal\neo_alchemist\Shape\ComponentShapePluginInterface;
 use Drupal\neo_alchemist\Entity\Component;
 use Drupal\user\Entity\User;
 use PHPUnit\Framework\Attributes\Group;
@@ -261,7 +261,7 @@ class MatcherFieldOfferTest extends KernelTestBase {
    * moves on, so the reference was never recursed into and the fields
    * actually wanted on the far side of it were never offered at all.
    *
-   * @see \Drupal\neo_alchemist\ComponentShapePluginBase::contentBearingFieldProperties()
+   * @see \Drupal\neo_alchemist\Shape\ComponentShapePluginBase::contentBearingFieldProperties()
    */
   public function testEntityReferenceIsTraversedForObjectProps(): void {
     $keys = $this->boxPropMatchKeys();

@@ -15,8 +15,8 @@ use Drupal\Core\Form\SubformState;
 use Drupal\neo_alchemist\Ajax\ComponentAjaxFormHelperTrait;
 use Drupal\neo_alchemist\ComponentInterface;
 use Drupal\neo_alchemist\ComponentManageHelper;
-use Drupal\neo_alchemist\ComponentShapePluginCollection;
-use Drupal\neo_alchemist\ComponentShapePluginInterface;
+use Drupal\neo_alchemist\Shape\ComponentShapePluginCollection;
+use Drupal\neo_alchemist\Shape\ComponentShapePluginInterface;
 use Drupal\neo_alchemist\Value\ComponentValueGroupPluginManager;
 use Drupal\neo_alchemist\Value\ComponentValuePluginInterface;
 use Drupal\neo_icon\IconTrait;
@@ -72,7 +72,7 @@ final class ComponentPropForm extends EntityForm implements StagedPluginListInte
   /**
    * The shape.
    *
-   * @var \Drupal\neo_alchemist\ComponentShapePluginInterface
+   * @var \Drupal\neo_alchemist\Shape\ComponentShapePluginInterface
    */
   protected $shape;
 
@@ -121,7 +121,7 @@ final class ComponentPropForm extends EntityForm implements StagedPluginListInte
   /**
    * Get plugin shapes.
    *
-   * @return \Drupal\neo_alchemist\ComponentShapePluginInterface[]
+   * @return \Drupal\neo_alchemist\Shape\ComponentShapePluginInterface[]
    *   The plugin shapes.
    */
   protected function getPluginShapes() {
@@ -280,7 +280,7 @@ final class ComponentPropForm extends EntityForm implements StagedPluginListInte
    *   The form.
    * @param \Drupal\Core\Form\FormStateInterface $form_state
    *   The form state.
-   * @param \Drupal\neo_alchemist\ComponentShapePluginInterface $shape
+   * @param \Drupal\neo_alchemist\Shape\ComponentShapePluginInterface $shape
    *   The plugin-bearing shape.
    * @param array $groups
    *   The value group definitions, sorted.
@@ -408,7 +408,7 @@ final class ComponentPropForm extends EntityForm implements StagedPluginListInte
    *   The section container.
    * @param \Drupal\Core\Form\FormStateInterface $form_state
    *   The form state.
-   * @param \Drupal\neo_alchemist\ComponentShapePluginInterface $shape
+   * @param \Drupal\neo_alchemist\Shape\ComponentShapePluginInterface $shape
    *   The plugin-bearing shape.
    * @param string $groupId
    *   The value group id.
@@ -561,7 +561,7 @@ final class ComponentPropForm extends EntityForm implements StagedPluginListInte
    *
    * @param \Drupal\Core\Form\FormStateInterface $form_state
    *   The form state.
-   * @param \Drupal\neo_alchemist\ComponentShapePluginInterface $shape
+   * @param \Drupal\neo_alchemist\Shape\ComponentShapePluginInterface $shape
    *   The plugin-bearing shape.
    * @param string $key
    *   The section key.
@@ -802,7 +802,7 @@ final class ComponentPropForm extends EntityForm implements StagedPluginListInte
    *   The plugin-bearing shape id.
    * @param string $pluginId
    *   The plugin id.
-   * @param \Drupal\neo_alchemist\ComponentShapePluginCollection $collection
+   * @param \Drupal\neo_alchemist\Shape\ComponentShapePluginCollection $collection
    *   The shape's value collection.
    */
   protected function restorePluginSettings(FormStateInterface $form_state, string $shapeId, string $pluginId, ComponentShapePluginCollection $collection): void {

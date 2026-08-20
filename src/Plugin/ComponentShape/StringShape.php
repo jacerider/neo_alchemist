@@ -8,7 +8,7 @@ use Drupal\Core\Render\Markup;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\Core\Template\Attribute;
 use Drupal\neo_alchemist\Attribute\ComponentShape;
-use Drupal\neo_alchemist\ComponentShapePluginBase;
+use Drupal\neo_alchemist\Shape\ComponentShapePluginBase;
 use Drupal\neo_alchemist\Drush\Generators\NeoComponentTwig;
 
 /**

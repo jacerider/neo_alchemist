@@ -7,7 +7,7 @@ namespace Drupal\neo_alchemist\Match;
 use Drupal\Core\Cache\CacheBackendInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\neo_alchemist\ComponentInterface;
-use Drupal\neo_alchemist\ComponentShapePluginInterface;
+use Drupal\neo_alchemist\Shape\ComponentShapePluginInterface;
 
 /**
  * Addresses a shape by scalars, so a search request can rebuild it.
@@ -60,7 +60,7 @@ final class FieldMatchLocator {
    *   The nested shape id (e.g. "heading~title"), or self::ROOT for the prop's
    *   own shape.
    *
-   * @return \Drupal\neo_alchemist\ComponentShapePluginInterface|null
+   * @return \Drupal\neo_alchemist\Shape\ComponentShapePluginInterface|null
    *   The shape, or NULL when any part of the address does not resolve.
    */
   public function resolveShape(string $componentId, string $prop, string $shapeId): ?ComponentShapePluginInterface {
@@ -98,7 +98,7 @@ final class FieldMatchLocator {
    * flattened tree. ::browse() and ::label() resolve one node at a time via
    * ::getNode(), so nothing pays for the walk until someone types a query.
    *
-   * @param \Drupal\neo_alchemist\ComponentShapePluginInterface $shape
+   * @param \Drupal\neo_alchemist\Shape\ComponentShapePluginInterface $shape
    *   The shape to match against.
    * @param bool $all
    *   Whether to offer every field rather than only those the shape supports.
@@ -145,7 +145,7 @@ final class FieldMatchLocator {
    * entries were filed under a target the match would never actually use, so
    * whichever picker warmed the cache first decided what the other one offered.
    *
-   * @param \Drupal\neo_alchemist\ComponentShapePluginInterface $shape
+   * @param \Drupal\neo_alchemist\Shape\ComponentShapePluginInterface $shape
    *   The shape to match against.
    * @param bool $all
    *   Whether every field is offered.
@@ -171,7 +171,7 @@ final class FieldMatchLocator {
   /**
    * One node of the entity tree, computed lazily and cached.
    *
-   * @param \Drupal\neo_alchemist\ComponentShapePluginInterface $shape
+   * @param \Drupal\neo_alchemist\Shape\ComponentShapePluginInterface $shape
    *   The shape to match against.
    * @param string[] $hops
    *   Reference field names leading to the node, [] for the root.
@@ -234,7 +234,7 @@ final class FieldMatchLocator {
    * then label. Hops first because a field on the entity itself is nearly
    * always what is meant; a two-hop namesake is a fallback, not a rival.
    *
-   * @param \Drupal\neo_alchemist\ComponentShapePluginInterface $shape
+   * @param \Drupal\neo_alchemist\Shape\ComponentShapePluginInterface $shape
    *   The shape to match against.
    * @param string $query
    *   The search string. Whitespace-separated terms are ANDed, and each is
@@ -321,7 +321,7 @@ final class FieldMatchLocator {
    * behavior (an empty folder is still a folder), and the doorway predicate
    * still only opens references the recursive walk would descend.
    *
-   * @param \Drupal\neo_alchemist\ComponentShapePluginInterface $shape
+   * @param \Drupal\neo_alchemist\Shape\ComponentShapePluginInterface $shape
    *   The shape to match against.
    * @param string $path
    *   The dot-separated reference path to open, '' for the target entity.
@@ -406,7 +406,7 @@ final class FieldMatchLocator {
   /**
    * The human label for a single stored match key.
    *
-   * @param \Drupal\neo_alchemist\ComponentShapePluginInterface $shape
+   * @param \Drupal\neo_alchemist\Shape\ComponentShapePluginInterface $shape
    *   The shape the key belongs to.
    * @param string $key
    *   The matcher key.

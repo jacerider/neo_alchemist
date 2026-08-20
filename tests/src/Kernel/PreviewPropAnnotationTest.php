@@ -27,7 +27,7 @@ use PHPUnit\Framework\Attributes\Group;
  * It sits behind the same isEditorPreview() gate this test pins, and the
  * live toRenderable() scenario proves the whole props tree is clean.
  *
- * @see \Drupal\neo_alchemist\ComponentShapePluginBase::buildRenderValue()
+ * @see \Drupal\neo_alchemist\Shape\ComponentShapePluginBase::buildRenderValue()
  * @see \Drupal\neo_alchemist\Entity\Component::isEditorPreview()
  */
 #[Group('neo_alchemist')]

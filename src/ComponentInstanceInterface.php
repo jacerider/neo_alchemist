@@ -7,6 +7,7 @@ namespace Drupal\neo_alchemist;
 use Drupal\Core\Access\AccessResultInterface;
 use Drupal\Core\Session\AccountInterface;
 use Drupal\neo_alchemist\Plugin\Field\FieldType\ComponentTreeItem;
+use Drupal\neo_alchemist\Shape\ComponentShapePluginInterface;
 
 /**
  * Provides an interface defining a component entity type.

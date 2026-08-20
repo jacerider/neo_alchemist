@@ -13,7 +13,7 @@ use Drupal\Core\Extension\ThemeHandlerInterface;
 use Drupal\Core\Render\Markup;
 use Drupal\Core\Theme\ComponentPluginManager;
 use Drupal\neo_alchemist\ComponentPropDefPluginManager;
-use Drupal\neo_alchemist\ComponentShapePluginManager;
+use Drupal\neo_alchemist\Shape\ComponentShapePluginManager;
 use Drupal\neo_alchemist\Drush\Generators\Validator\NeoComponentExists;
 use DrupalCodeGenerator\Attribute\Generator;
 use DrupalCodeGenerator\GeneratorType;

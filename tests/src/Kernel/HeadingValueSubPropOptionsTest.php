@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Drupal\Tests\neo_alchemist\Kernel;
 
 use Drupal\KernelTests\KernelTestBase;
-use Drupal\neo_alchemist\ComponentShapeChildrenPluginInterface;
+use Drupal\neo_alchemist\Shape\ComponentShapeChildrenPluginInterface;
 use Drupal\neo_alchemist\Entity\Component;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Group;

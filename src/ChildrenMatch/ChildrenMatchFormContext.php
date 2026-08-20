@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Drupal\neo_alchemist\ChildrenMatch;
 
 use Drupal\Core\Form\FormStateInterface;
-use Drupal\neo_alchemist\ComponentShapePluginInterface;
+use Drupal\neo_alchemist\Shape\ComponentShapePluginInterface;
 
 /**
  * The form-time context a children-match handler is configured against.
@@ -26,7 +26,7 @@ final class ChildrenMatchFormContext {
    *   The mapper, for handlers that recurse into a nested mapping form.
    * @param \Drupal\neo_alchemist\ChildrenMatch\ChildrenMatchSourceInterface $source
    *   The producer whose form is being built.
-   * @param \Drupal\neo_alchemist\ComponentShapePluginInterface $shape
+   * @param \Drupal\neo_alchemist\Shape\ComponentShapePluginInterface $shape
    *   The child shape being configured.
    * @param \Drupal\neo_alchemist\ChildrenMatch\ChildrenMatchScope $scope
    *   The entity type and bundle the child's fields are read from.

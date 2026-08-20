@@ -3,7 +3,7 @@
 namespace Drupal\neo_alchemist\Drush\Generators;
 
 use Drupal\neo_alchemist\ComponentPropDefPluginManager;
-use Drupal\neo_alchemist\ComponentShapePluginManager;
+use Drupal\neo_alchemist\Shape\ComponentShapePluginManager;
 use DrupalCodeGenerator\InputOutput\Interviewer;
 use DrupalCodeGenerator\Utils;
 use DrupalCodeGenerator\Validator\Required;
@@ -87,7 +87,7 @@ trait NeoComponentPropGeneratorTrait {
   /**
    * Gets the shape manager.
    *
-   * @return \Drupal\neo_alchemist\ComponentShapePluginManager
+   * @return \Drupal\neo_alchemist\Shape\ComponentShapePluginManager
    *   The component shape plugin manager.
    */
   private function shapeManager(): ComponentShapePluginManager {

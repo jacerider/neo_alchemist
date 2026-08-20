@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\Tests\neo_alchemist\Traits;
 
-use Drupal\neo_alchemist\ComponentShapePluginInterface;
+use Drupal\neo_alchemist\Shape\ComponentShapePluginInterface;
 use PHPUnit\Framework\Attributes\After;
 use PHPUnit\Framework\MockObject\MockObject;
 
@@ -40,7 +40,7 @@ use PHPUnit\Framework\MockObject\MockObject;
  * silent NULL came from, and does not turn every unstubbed call into an error.
  *
  * @see \Drupal\Tests\neo_alchemist\Unit\ShapeDoubleTest
- * @see \Drupal\neo_alchemist\ComponentShapePluginInterface
+ * @see \Drupal\neo_alchemist\Shape\ComponentShapePluginInterface
  */
 trait ShapeDoubleTrait {
 
@@ -116,7 +116,7 @@ trait ShapeDoubleTrait {
    *   extends the union replaces it rather than joining it, since PHPUnit
    *   refuses an intersection whose members share a method.
    *
-   * @return \Drupal\neo_alchemist\ComponentShapePluginInterface&\PHPUnit\Framework\MockObject\MockObject
+   * @return \Drupal\neo_alchemist\Shape\ComponentShapePluginInterface&\PHPUnit\Framework\MockObject\MockObject
    *   The double, typed as the union so a value provider will accept it.
    */
   protected function shapeDouble(array $roles = [], array $capabilities = []): ComponentShapePluginInterface&MockObject {
@@ -157,7 +157,7 @@ trait ShapeDoubleTrait {
    * failure lands on the call with the method name in it instead of surfacing
    * at teardown.
    *
-   * @return \Drupal\neo_alchemist\ComponentShapePluginInterface&\PHPUnit\Framework\MockObject\MockObject
+   * @return \Drupal\neo_alchemist\Shape\ComponentShapePluginInterface&\PHPUnit\Framework\MockObject\MockObject
    *   The double.
    */
   protected function unusedShape(): ComponentShapePluginInterface&MockObject {
@@ -177,7 +177,7 @@ trait ShapeDoubleTrait {
    * @param string[] $capabilities
    *   Extra interfaces the double must satisfy.
    *
-   * @return \Drupal\neo_alchemist\ComponentShapePluginInterface&\PHPUnit\Framework\MockObject\MockObject
+   * @return \Drupal\neo_alchemist\Shape\ComponentShapePluginInterface&\PHPUnit\Framework\MockObject\MockObject
    *   The double.
    */
   private function buildShapeDouble(array $capabilities = []): ComponentShapePluginInterface&MockObject {

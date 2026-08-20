@@ -25,7 +25,7 @@ use PHPUnit\Framework\Attributes\Group;
  * indistinguishable from the deletion never having saved.
  *
  * @see \Drupal\neo_alchemist\Plugin\ComponentValue\DefaultValue::provideDefaultValue()
- * @see \Drupal\neo_alchemist\ComponentShapePluginBase::getDefaultValue()
+ * @see \Drupal\neo_alchemist\Shape\ComponentShapePluginBase::getDefaultValue()
  * @see \Drupal\Tests\neo_alchemist\Kernel\GetDefaultValueEmptyProducerTest
  */
 #[Group('neo_alchemist')]

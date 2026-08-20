@@ -26,7 +26,7 @@ use PHPUnit\Framework\Attributes\Group;
  * implementation passes every other test in this file and fails that one.
  *
  * @see neo_alchemist_update_11004()
- * @see \Drupal\neo_alchemist\ComponentShapePluginBase::getValueCollection()
+ * @see \Drupal\neo_alchemist\Shape\ComponentShapePluginBase::getValueCollection()
  */
 #[Group('neo_alchemist')]
 class ProcessingModeBackfillTest extends KernelTestBase {

@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Drupal\Tests\neo_alchemist\Kernel;
 
 use Drupal\KernelTests\KernelTestBase;
-use Drupal\neo_alchemist\ComponentShapePluginInterface;
+use Drupal\neo_alchemist\Shape\ComponentShapePluginInterface;
 use Drupal\neo_alchemist\Entity\Component;
 use Drupal\neo_alchemist_test\TestValueCallLog;
 use PHPUnit\Framework\Attributes\Group;
@@ -32,7 +32,7 @@ use PHPUnit\Framework\Attributes\Group;
  * testDefaultValueComputedOnce and
  * testRecomputeDoesNotClobberAuthoredFieldItemValue go red.
  *
- * @see \Drupal\neo_alchemist\ComponentShapePluginBase::getDefaultValue()
+ * @see \Drupal\neo_alchemist\Shape\ComponentShapePluginBase::getDefaultValue()
  */
 #[Group('neo_alchemist')]
 class GetDefaultValueOrderTest extends KernelTestBase {

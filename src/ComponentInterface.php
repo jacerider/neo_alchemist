@@ -13,6 +13,7 @@ use Drupal\Core\Plugin\Component;
 use Drupal\Core\Render\RenderableInterface;
 use Drupal\neo_alchemist\Access\ComponentAccessInterface;
 use Drupal\neo_alchemist\Filter\ComponentFilterInterface;
+use Drupal\neo_alchemist\Shape\ComponentShapePluginInterface;
 use Drupal\neo_alchemist\Slot\ComponentSlotInterface;
 
 /**
@@ -576,7 +577,7 @@ interface ComponentInterface extends ConfigEntityInterface, RenderableInterface,
    * @param array $schema
    *   The schema.
    *
-   * @return \Drupal\neo_alchemist\ComponentShapePluginInterface[]
+   * @return \Drupal\neo_alchemist\Shape\ComponentShapePluginInterface[]
    *   The shapes.
    */
   public function loadPropShapes(array $schema): array;
@@ -599,7 +600,7 @@ interface ComponentInterface extends ConfigEntityInterface, RenderableInterface,
    *   (optional) The schema to use for loading the property shapes. If not
    *   provided, the default schema will be used.
    *
-   * @return \Drupal\neo_alchemist\ComponentShapePluginInterface[]
+   * @return \Drupal\neo_alchemist\Shape\ComponentShapePluginInterface[]
    *   An array of property shape plugin instances.
    */
   public function getPropShapes(?array $schema = NULL): array;
@@ -610,7 +611,7 @@ interface ComponentInterface extends ConfigEntityInterface, RenderableInterface,
    * @param string $id
    *   The prop shape ID.
    *
-   * @return \Drupal\neo_alchemist\ComponentShapePluginInterface|null
+   * @return \Drupal\neo_alchemist\Shape\ComponentShapePluginInterface|null
    *   The prop shape.
    */
   public function getPropShape(string $id): ?ComponentShapePluginInterface;
@@ -670,12 +671,12 @@ interface ComponentInterface extends ConfigEntityInterface, RenderableInterface,
    * This method iterates through the provided shapes and collects them into an
    * associative array. If a shape has child shapes, it collects those as well.
    *
-   * @param \Drupal\neo_alchemist\ComponentShapePluginInterface[] $shapes
+   * @param \Drupal\neo_alchemist\Shape\ComponentShapePluginInterface[] $shapes
    *   An array of shape objects to process.
    * @param bool $includeDeltas
    *   If TRUE, include shapes with deltas in the result.
    *
-   * @return \Drupal\neo_alchemist\ComponentShapePluginInterface[]
+   * @return \Drupal\neo_alchemist\Shape\ComponentShapePluginInterface[]
    *   An associative array of all shapes, with keys being the shape's nested ID
    *   (and optionally the reference) and values being the shape objects.
    */
@@ -686,7 +687,7 @@ interface ComponentInterface extends ConfigEntityInterface, RenderableInterface,
    *
    * @param string $type
    *   The context type.
-   * @param \Drupal\neo_alchemist\ComponentShapePluginInterface $shape
+   * @param \Drupal\neo_alchemist\Shape\ComponentShapePluginInterface $shape
    *   The shape plugin instance.
    * @param mixed $value
    *   The context value to set.

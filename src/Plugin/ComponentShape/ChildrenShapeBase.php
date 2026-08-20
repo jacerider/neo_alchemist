@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace Drupal\neo_alchemist\Plugin\ComponentShape;
 
 use Drupal\Core\Field\FieldDefinitionInterface;
-use Drupal\neo_alchemist\ComponentShapeChildrenPluginInterface;
-use Drupal\neo_alchemist\ComponentShapePluginBase;
-use Drupal\neo_alchemist\ComponentShapePluginInterface;
-use Drupal\neo_alchemist\ComponentShapeSetupInterface;
+use Drupal\neo_alchemist\Shape\ComponentShapeChildrenPluginInterface;
+use Drupal\neo_alchemist\Shape\ComponentShapePluginBase;
+use Drupal\neo_alchemist\Shape\ComponentShapePluginInterface;
+use Drupal\neo_alchemist\Shape\ComponentShapeSetupInterface;
 
 /**
  * A trait for adding the module handler.
@@ -28,7 +28,7 @@ abstract class ChildrenShapeBase extends ComponentShapePluginBase implements Com
   /**
    * The child shapes.
    *
-   * @var \Drupal\neo_alchemist\ComponentShapePluginInterface[][]
+   * @var \Drupal\neo_alchemist\Shape\ComponentShapePluginInterface[][]
    */
   protected $childShapes;
 
@@ -45,7 +45,7 @@ abstract class ChildrenShapeBase extends ComponentShapePluginBase implements Com
   /**
    * Uninitialized child shapes used only for value resolution.
    *
-   * @var \Drupal\neo_alchemist\ComponentShapeSetupInterface[]|null
+   * @var \Drupal\neo_alchemist\Shape\ComponentShapeSetupInterface[]|null
    */
   protected ?array $valueResolverShapes = NULL;
 
@@ -267,7 +267,7 @@ abstract class ChildrenShapeBase extends ComponentShapePluginBase implements Com
    * @param mixed $value
    *   (optional) The value to set on the child shape.
    *
-   * @return \Drupal\neo_alchemist\ComponentShapePluginInterface[]
+   * @return \Drupal\neo_alchemist\Shape\ComponentShapePluginInterface[]
    *   An array of child shapes.
    */
   protected function loadChildShapes(int|null $delta = NULL, mixed $value = []): array {
@@ -307,7 +307,7 @@ abstract class ChildrenShapeBase extends ComponentShapePluginBase implements Com
    * This method initializes a child shape, setting various options and values
    * based on the parent shape's properties and the provided schema.
    *
-   * @param \Drupal\neo_alchemist\ComponentShapeSetupInterface $shape
+   * @param \Drupal\neo_alchemist\Shape\ComponentShapeSetupInterface $shape
    *   The child shape to initialize. Taken as a shape under construction
    *   because that is what this method does to it, and because the type then
    *   refuses an already-initialised shape — everything below would be a
@@ -354,7 +354,7 @@ abstract class ChildrenShapeBase extends ComponentShapePluginBase implements Com
    * @param int|null $delta
    *   The delta of the field item, if applicable.
    *
-   * @return \Drupal\neo_alchemist\ComponentShapeSetupInterface[]
+   * @return \Drupal\neo_alchemist\Shape\ComponentShapeSetupInterface[]
    *   An array of uninitialised child shapes generated from the schema.
    */
   protected function getChildShapesFromSchema(array $schema, $delta = NULL): array {
@@ -382,7 +382,7 @@ abstract class ChildrenShapeBase extends ComponentShapePluginBase implements Com
    * since resolveValue() runs while getDefaultValue() is being memoized.
    * These instances are never init()'d; resolveValue() must not need it.
    *
-   * @return \Drupal\neo_alchemist\ComponentShapeSetupInterface[]
+   * @return \Drupal\neo_alchemist\Shape\ComponentShapeSetupInterface[]
    *   The uninitialized child shapes, keyed by property name.
    */
   protected function getValueResolverShapes(): array {
@@ -449,13 +449,13 @@ abstract class ChildrenShapeBase extends ComponentShapePluginBase implements Com
    * not. Only children take a value pushed down from a parent, so a top-level
    * prop never shows the symptom.
    *
-   * @param \Drupal\neo_alchemist\ComponentShapePluginInterface $shape
+   * @param \Drupal\neo_alchemist\Shape\ComponentShapePluginInterface $shape
    *   The child shape.
    *
    * @return bool
    *   TRUE if the child has its own active value provider.
    *
-   * @see \Drupal\neo_alchemist\ComponentShapePluginCollection::getActiveInstances()
+   * @see \Drupal\neo_alchemist\Shape\ComponentShapePluginCollection::getActiveInstances()
    */
   protected function childHasOwnValueProvider(ComponentShapePluginInterface $shape): bool {
     return (bool) $shape->getValueCollection()->getActiveInstances('providers');

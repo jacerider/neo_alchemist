@@ -30,7 +30,7 @@ use PHPUnit\Framework\Attributes\Group;
  * whose examples are editor scaffolding (placeholder cards, invented menu
  * links) belongs on, and the default for the producers that fill those props.
  *
- * @see \Drupal\neo_alchemist\ComponentShapePluginBase::getDefaultValue()
+ * @see \Drupal\neo_alchemist\Shape\ComponentShapePluginBase::getDefaultValue()
  * @see \Drupal\Tests\neo_alchemist\Kernel\GetDefaultValueRequiredFallbackTest
  * @see \Drupal\Tests\neo_alchemist\Kernel\ComponentValueProcessingModeIntegrationTest
  */

@@ -6,21 +6,21 @@ namespace Drupal\Tests\neo_alchemist\Unit;
 
 use Drupal\Tests\neo_alchemist\Traits\InterfaceReflectionTrait;
 use Drupal\Tests\UnitTestCase;
-use Drupal\neo_alchemist\ComponentShapeContextInterface;
-use Drupal\neo_alchemist\ComponentShapeExpansionInterface;
-use Drupal\neo_alchemist\ComponentShapeFieldItemInterface;
-use Drupal\neo_alchemist\ComponentShapeFieldMatchInterface;
-use Drupal\neo_alchemist\ComponentShapeFormInterface;
-use Drupal\neo_alchemist\ComponentShapeIdentityInterface;
-use Drupal\neo_alchemist\ComponentShapeLifecycleInterface;
-use Drupal\neo_alchemist\ComponentShapeOptionsInterface;
-use Drupal\neo_alchemist\ComponentShapePluginInterface;
-use Drupal\neo_alchemist\ComponentShapeProvidersInterface;
-use Drupal\neo_alchemist\ComponentShapeRenderInterface;
-use Drupal\neo_alchemist\ComponentShapeSchemaInterface;
-use Drupal\neo_alchemist\ComponentShapeStateInterface;
-use Drupal\neo_alchemist\ComponentShapeTreeInterface;
-use Drupal\neo_alchemist\ComponentShapeValueInterface;
+use Drupal\neo_alchemist\Shape\ComponentShapeContextInterface;
+use Drupal\neo_alchemist\Shape\ComponentShapeExpansionInterface;
+use Drupal\neo_alchemist\Shape\ComponentShapeFieldItemInterface;
+use Drupal\neo_alchemist\Shape\ComponentShapeFieldMatchInterface;
+use Drupal\neo_alchemist\Shape\ComponentShapeFormInterface;
+use Drupal\neo_alchemist\Shape\ComponentShapeIdentityInterface;
+use Drupal\neo_alchemist\Shape\ComponentShapeLifecycleInterface;
+use Drupal\neo_alchemist\Shape\ComponentShapeOptionsInterface;
+use Drupal\neo_alchemist\Shape\ComponentShapePluginInterface;
+use Drupal\neo_alchemist\Shape\ComponentShapeProvidersInterface;
+use Drupal\neo_alchemist\Shape\ComponentShapeRenderInterface;
+use Drupal\neo_alchemist\Shape\ComponentShapeSchemaInterface;
+use Drupal\neo_alchemist\Shape\ComponentShapeStateInterface;
+use Drupal\neo_alchemist\Shape\ComponentShapeTreeInterface;
+use Drupal\neo_alchemist\Shape\ComponentShapeValueInterface;
 use PHPUnit\Framework\Attributes\Group;
 
 /**

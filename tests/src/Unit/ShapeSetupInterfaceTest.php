@@ -6,9 +6,9 @@ namespace Drupal\Tests\neo_alchemist\Unit;
 
 use Drupal\Tests\neo_alchemist\Traits\InterfaceReflectionTrait;
 use Drupal\Tests\UnitTestCase;
-use Drupal\neo_alchemist\ComponentShapePluginBase;
-use Drupal\neo_alchemist\ComponentShapePluginInterface;
-use Drupal\neo_alchemist\ComponentShapeSetupInterface;
+use Drupal\neo_alchemist\Shape\ComponentShapePluginBase;
+use Drupal\neo_alchemist\Shape\ComponentShapePluginInterface;
+use Drupal\neo_alchemist\Shape\ComponentShapeSetupInterface;
 use PHPUnit\Framework\Attributes\Group;
 
 /**
@@ -25,7 +25,7 @@ use PHPUnit\Framework\Attributes\Group;
  * shape of the type itself: which methods are on setup, that the union cannot
  * reach them, and that chaining does not quietly widen back.
  *
- * @see \Drupal\neo_alchemist\ComponentShapeSetupInterface
+ * @see \Drupal\neo_alchemist\Shape\ComponentShapeSetupInterface
  * @see \Drupal\Tests\neo_alchemist\Unit\ShapeRoleInterfaceTest
  */
 #[Group('neo_alchemist')]

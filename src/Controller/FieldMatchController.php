@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Drupal\neo_alchemist\Controller;
 
 use Drupal\Core\Controller\ControllerBase;
-use Drupal\neo_alchemist\ComponentShapePluginInterface;
+use Drupal\neo_alchemist\Shape\ComponentShapePluginInterface;
 use Drupal\neo_alchemist\Match\FieldMatchLocator;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -105,7 +105,7 @@ final class FieldMatchController extends ControllerBase {
    * @param string $shape
    *   The nested shape id.
    *
-   * @return \Drupal\neo_alchemist\ComponentShapePluginInterface
+   * @return \Drupal\neo_alchemist\Shape\ComponentShapePluginInterface
    *   The shape.
    */
   private function shape(string $component, string $prop, string $shape): ComponentShapePluginInterface {

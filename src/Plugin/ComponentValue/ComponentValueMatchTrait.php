@@ -8,8 +8,8 @@ use Drupal\Component\Utility\NestedArray;
 use Drupal\Core\Cache\CacheableMetadata;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\neo_alchemist\ComponentPropRenderable;
-use Drupal\neo_alchemist\ComponentShapeChildrenPluginInterface;
-use Drupal\neo_alchemist\ComponentShapePluginInterface;
+use Drupal\neo_alchemist\Shape\ComponentShapeChildrenPluginInterface;
+use Drupal\neo_alchemist\Shape\ComponentShapePluginInterface;
 use Drupal\neo_alchemist\Match\FieldFormatterTrait;
 use Drupal\neo_alchemist\Match\MatcherField;
 
@@ -45,7 +45,7 @@ trait ComponentValueMatchTrait {
   /**
    * Get the values for the shape matcher.
    *
-   * @param \Drupal\neo_alchemist\ComponentShapePluginInterface $shape
+   * @param \Drupal\neo_alchemist\Shape\ComponentShapePluginInterface $shape
    *   The shape plugin.
    * @param string|null $field
    *   The field to match.
@@ -79,7 +79,7 @@ trait ComponentValueMatchTrait {
   /**
    * Resolve the configured field, falling back to a second field when empty.
    *
-   * @param \Drupal\neo_alchemist\ComponentShapePluginInterface $shape
+   * @param \Drupal\neo_alchemist\Shape\ComponentShapePluginInterface $shape
    *   The shape plugin.
    * @param array|null $properties
    *   Properties to pass to the matcher for the primary field. The fallback
@@ -152,7 +152,7 @@ trait ComponentValueMatchTrait {
   /**
    * Gets the rendered field value for a _render match.
    *
-   * @param \Drupal\neo_alchemist\ComponentShapePluginInterface $shape
+   * @param \Drupal\neo_alchemist\Shape\ComponentShapePluginInterface $shape
    *   The shape plugin.
    * @param bool|null $published
    *   Whether to only return values from published entities.

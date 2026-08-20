@@ -12,7 +12,7 @@ use Drupal\Core\Render\Element;
 use Drupal\Core\Routing\RouteMatchInterface;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\neo_alchemist\Attribute\ComponentValue;
-use Drupal\neo_alchemist\ComponentShapePluginInterface;
+use Drupal\neo_alchemist\Shape\ComponentShapePluginInterface;
 use Drupal\neo_alchemist\Value\ComponentValueProcessingModeInterface;
 use Drupal\neo_alchemist\Value\ComponentValuePluginBase;
 use Symfony\Component\DependencyInjection\ContainerInterface;

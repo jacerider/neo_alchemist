@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\Tests\neo_alchemist\Unit;
 
-use Drupal\neo_alchemist\ComponentShapePluginInterface;
+use Drupal\neo_alchemist\Shape\ComponentShapePluginInterface;
 use Drupal\neo_alchemist\Plugin\ComponentShape\HeadingShape;
 use Drupal\neo_alchemist\Plugin\ComponentShape\ImageShape;
 use Drupal\neo_alchemist\Plugin\ComponentShape\StringShape;
@@ -27,8 +27,8 @@ use PHPUnit\Framework\Attributes\Group;
  * The method touches no instance state, so the shapes are built without their
  * constructors.
  *
- * @see \Drupal\neo_alchemist\ComponentShapePluginBase::isProvidedValueEmpty()
- * @see \Drupal\neo_alchemist\ComponentShapePluginBase::getPresentationalValueKeys()
+ * @see \Drupal\neo_alchemist\Shape\ComponentShapePluginBase::isProvidedValueEmpty()
+ * @see \Drupal\neo_alchemist\Shape\ComponentShapePluginBase::getPresentationalValueKeys()
  */
 #[Group('neo_alchemist')]
 class IsProvidedValueEmptyTest extends UnitTestCase {
@@ -101,11 +101,11 @@ class IsProvidedValueEmptyTest extends UnitTestCase {
    * @param class-string $class
    *   The shape class to build.
    *
-   * @return \Drupal\neo_alchemist\ComponentShapePluginInterface
+   * @return \Drupal\neo_alchemist\Shape\ComponentShapePluginInterface
    *   The bare shape.
    */
   private function shape(string $class): ComponentShapePluginInterface {
-    /** @var \Drupal\neo_alchemist\ComponentShapePluginInterface $shape */
+    /** @var \Drupal\neo_alchemist\Shape\ComponentShapePluginInterface $shape */
     $shape = (new \ReflectionClass($class))->newInstanceWithoutConstructor();
     return $shape;
   }

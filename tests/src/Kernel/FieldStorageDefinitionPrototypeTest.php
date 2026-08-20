@@ -6,7 +6,7 @@ namespace Drupal\Tests\neo_alchemist\Kernel;
 
 use Drupal\Core\Field\TypedData\FieldItemDataDefinition;
 use Drupal\KernelTests\KernelTestBase;
-use Drupal\neo_alchemist\ComponentShapePluginBase;
+use Drupal\neo_alchemist\Shape\ComponentShapePluginBase;
 use Drupal\neo_alchemist\PropSource\FieldStorageDefinition;
 use PHPUnit\Framework\Attributes\Group;
 
@@ -23,7 +23,7 @@ use PHPUnit\Framework\Attributes\Group;
  * same process as well as between shapes in the same request — a corrupted
  * prototype would silently mislabel every subsequent shape of that field type.
  *
- * @see \Drupal\neo_alchemist\ComponentShapePluginBase::createFieldStorageDefinition()
+ * @see \Drupal\neo_alchemist\Shape\ComponentShapePluginBase::createFieldStorageDefinition()
  */
 #[Group('neo_alchemist')]
 class FieldStorageDefinitionPrototypeTest extends KernelTestBase {

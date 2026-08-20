@@ -9,7 +9,7 @@ use Drupal\Core\Form\SubformState;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\Core\Template\Attribute;
 use Drupal\neo_alchemist\Attribute\ComponentShape;
-use Drupal\neo_alchemist\ComponentShapeExpandedPluginInterface;
+use Drupal\neo_alchemist\Shape\ComponentShapeExpandedPluginInterface;
 use Drupal\neo_alchemist\Drush\Generators\NeoComponentPropGeneratorInterface;
 use DrupalCodeGenerator\InputOutput\Interviewer;
 

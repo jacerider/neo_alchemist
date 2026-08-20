@@ -31,8 +31,8 @@ use PHPUnit\Framework\Attributes\Group;
  * - "locked" is a live OVERRIDE, through isLocked(). Stored settings stay
  *   intact and dormant beneath it, and resume the moment the mode changes.
  *
- * @see \Drupal\neo_alchemist\ComponentShapePluginBase::__construct()
- * @see \Drupal\neo_alchemist\ComponentShapePluginBase::isLocked()
+ * @see \Drupal\neo_alchemist\Shape\ComponentShapePluginBase::__construct()
+ * @see \Drupal\neo_alchemist\Shape\ComponentShapePluginBase::isLocked()
  * @see \Drupal\neo_alchemist\Entity\Component::setPropShapeSettings()
  */
 #[Group('neo_alchemist')]
@@ -333,7 +333,7 @@ class PropEditabilityTest extends KernelTestBase {
    * site builder authoring a default is not editing content and the mode has
    * no business applying.
    *
-   * @see \Drupal\neo_alchemist\ComponentShapePluginManager::getChildInstancesFromSchema()
+   * @see \Drupal\neo_alchemist\Shape\ComponentShapePluginManager::getChildInstancesFromSchema()
    */
   public function testGuardedLeavesNestedShapesEditable(): void {
     // Switch an existing component rather than creating one guarded: creating
@@ -443,7 +443,7 @@ class PropEditabilityTest extends KernelTestBase {
    * one a site builder configures value providers on, and only 'update' —
    * per-instance value editing — is what the lock takes away.
    *
-   * @see \Drupal\neo_alchemist\ComponentShapePluginBase::checkAccess()
+   * @see \Drupal\neo_alchemist\Shape\ComponentShapePluginBase::checkAccess()
    */
   public function testLockForbidsUpdateButNotManageValue(): void {
     // Both operations gate on the component's own update access first, so an

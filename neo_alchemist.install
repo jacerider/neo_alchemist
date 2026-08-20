@@ -407,7 +407,7 @@ function _neo_alchemist_processing_mode_claim(array $instances, array $base, arr
   // Within a group the pipeline runs plugins in saved config key order, so the
   // last `providers` entry is the one still holding the value when the search
   // ends — and the only one whose mode decides whether the example survives.
-  // @see \Drupal\neo_alchemist\ComponentShapePluginBase::getValueCollection()
+  // @see \Drupal\neo_alchemist\Shape\ComponentShapePluginBase::getValueCollection()
   $producers = array_keys($groups, 'providers', TRUE);
   if (!$producers) {
     return;

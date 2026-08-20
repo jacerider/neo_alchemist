@@ -10,7 +10,7 @@ use Drupal\Core\Render\Attribute\FormElement;
 use Drupal\Core\Render\Element;
 use Drupal\Core\Render\Element\FormElementBase;
 use Drupal\Core\Url;
-use Drupal\neo_alchemist\ComponentShapePluginInterface;
+use Drupal\neo_alchemist\Shape\ComponentShapePluginInterface;
 use Drupal\neo_alchemist\Match\FieldMatchLocator;
 
 /**
@@ -259,7 +259,7 @@ final class FieldSelect extends FormElementBase {
    *
    * @param \Drupal\neo_alchemist\Match\FieldMatchLocator $locator
    *   The locator.
-   * @param \Drupal\neo_alchemist\ComponentShapePluginInterface $shape
+   * @param \Drupal\neo_alchemist\Shape\ComponentShapePluginInterface $shape
    *   The resolved shape.
    * @param array $element
    *   The element.
