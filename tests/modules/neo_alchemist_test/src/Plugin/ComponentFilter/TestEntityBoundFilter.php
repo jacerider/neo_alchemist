@@ -6,8 +6,8 @@ namespace Drupal\neo_alchemist_test\Plugin\ComponentFilter;
 
 use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\neo_alchemist\Attribute\ComponentFilter;
-use Drupal\neo_alchemist\ComponentFilterPluginBase;
 use Drupal\neo_alchemist\ComponentInterface;
+use Drupal\neo_alchemist\Filter\ComponentFilterPluginBase;
 
 /**
  * A filter plugin that only applies to entity-bound components.

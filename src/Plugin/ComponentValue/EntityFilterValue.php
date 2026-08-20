@@ -11,7 +11,6 @@ use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Plugin\ContainerFactoryPluginInterface;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\neo_alchemist\Attribute\ComponentValue;
-use Drupal\neo_alchemist\ComponentFilterPluginEntityInterface;
 use Drupal\neo_alchemist\ChildrenMatchMapper;
 use Drupal\neo_alchemist\ChildrenMatchResult;
 use Drupal\neo_alchemist\ChildrenMatchScope;
@@ -20,6 +19,7 @@ use Drupal\neo_alchemist\ComponentShapeChildrenMatchPluginInterface;
 use Drupal\neo_alchemist\ComponentShapePluginInterface;
 use Drupal\neo_alchemist\ComponentValueProcessingModeInterface;
 use Drupal\neo_alchemist\ComponentValuePluginBase;
+use Drupal\neo_alchemist\Filter\ComponentFilterPluginEntityInterface;
 use Drupal\neo_alchemist\Match\MatcherReference;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
@@ -151,7 +151,7 @@ final class EntityFilterValue extends ComponentValuePluginBase implements Contai
           $form['message']['#markup'] = $this->t('The selected filter does not exist.');
         }
         else {
-          /** @var \Drupal\neo_alchemist\ComponentFilterPluginEntityInterface $plugin */
+          /** @var \Drupal\neo_alchemist\Filter\ComponentFilterPluginEntityInterface $plugin */
           $plugin = $filter->getPlugin();
           $entityTypeId = $plugin->getEntityTypeId();
           $bundles = $plugin->getEntityBundles();

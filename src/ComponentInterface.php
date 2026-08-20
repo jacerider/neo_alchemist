@@ -12,6 +12,7 @@ use Drupal\Core\Entity\EntityTypeInterface;
 use Drupal\Core\Plugin\Component;
 use Drupal\Core\Render\RenderableInterface;
 use Drupal\neo_alchemist\Access\ComponentAccessInterface;
+use Drupal\neo_alchemist\Filter\ComponentFilterInterface;
 use Drupal\neo_alchemist\Slot\ComponentSlotInterface;
 
 /**
@@ -768,10 +769,10 @@ interface ComponentInterface extends ConfigEntityInterface, RenderableInterface,
    * The filter is then converted to an array and stored in the component's
    * settings.
    *
-   * @param \Drupal\neo_alchemist\ComponentFilterInterface $filter
+   * @param \Drupal\neo_alchemist\Filter\ComponentFilterInterface $filter
    *   The filter to be set for the component.
    *
-   * @return \Drupal\neo_alchemist\ComponentFilterInterface
+   * @return \Drupal\neo_alchemist\Filter\ComponentFilterInterface
    *   The filter.
    */
   public function setFilter(ComponentFilterInterface $filter): ComponentFilterInterface;
@@ -782,7 +783,7 @@ interface ComponentInterface extends ConfigEntityInterface, RenderableInterface,
    * @param string $uuid
    *   The UUID of the filter to retrieve.
    *
-   * @return \Drupal\neo_alchemist\ComponentFilterInterface|null
+   * @return \Drupal\neo_alchemist\Filter\ComponentFilterInterface|null
    *   The filter associated with the given UUID, or NULL if no filter is found.
    */
   public function getFilter(string $uuid): ?ComponentFilterInterface;
@@ -805,7 +806,7 @@ interface ComponentInterface extends ConfigEntityInterface, RenderableInterface,
    * if there are any filters defined in the settings and uses the neo_component
    * filter factory service to create filter instances based on the settings.
    *
-   * @return \Drupal\neo_alchemist\ComponentFilterInterface[]
+   * @return \Drupal\neo_alchemist\Filter\ComponentFilterInterface[]
    *   An array of filters for the component.
    */
   public function getFilters(): array;

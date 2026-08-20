@@ -9,10 +9,10 @@ use Drupal\Core\Form\SubformState;
 use Drupal\Core\Render\Element;
 use Drupal\Core\StringTranslation\StringTranslationTrait;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
-use Drupal\neo_alchemist\ComponentFilterFactory;
-use Drupal\neo_alchemist\ComponentFilterInterface;
-use Drupal\neo_alchemist\ComponentFilterPluginManager;
 use Drupal\neo_alchemist\ComponentInterface;
+use Drupal\neo_alchemist\Filter\ComponentFilterFactory;
+use Drupal\neo_alchemist\Filter\ComponentFilterInterface;
+use Drupal\neo_alchemist\Filter\ComponentFilterPluginManager;
 
 /**
  * Filters as a configured-plugin kind.
@@ -30,9 +30,9 @@ final class FilterKind implements ConfiguredPluginKindInterface {
   /**
    * Constructs the kind.
    *
-   * @param \Drupal\neo_alchemist\ComponentFilterPluginManager $manager
+   * @param \Drupal\neo_alchemist\Filter\ComponentFilterPluginManager $manager
    *   The filter plugin manager.
-   * @param \Drupal\neo_alchemist\ComponentFilterFactory $factory
+   * @param \Drupal\neo_alchemist\Filter\ComponentFilterFactory $factory
    *   The filter wrapper factory.
    */
   public function __construct(

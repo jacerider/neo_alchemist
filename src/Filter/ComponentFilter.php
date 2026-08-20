@@ -2,11 +2,12 @@
 
 declare(strict_types=1);
 
-namespace Drupal\neo_alchemist;
+namespace Drupal\neo_alchemist\Filter;
 
 use Drupal\Core\DependencyInjection\DependencySerializationTrait;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\StringTranslation\StringTranslationTrait;
+use Drupal\neo_alchemist\ComponentInterface;
 use Drupal\neo_alchemist\ConfiguredPlugin\ConfiguredPluginWrapperTrait;
 
 /**
@@ -21,7 +22,7 @@ class ComponentFilter implements ComponentFilterInterface {
   /**
    * The filter manager.
    *
-   * @var \Drupal\neo_alchemist\ComponentFilterPluginManager
+   * @var \Drupal\neo_alchemist\Filter\ComponentFilterPluginManager
    */
   protected $manager;
 
@@ -70,7 +71,7 @@ class ComponentFilter implements ComponentFilterInterface {
   /**
    * The filter plugin.
    *
-   * @var \Drupal\neo_alchemist\ComponentFilterPluginInterface
+   * @var \Drupal\neo_alchemist\Filter\ComponentFilterPluginInterface
    */
   protected $plugin;
 

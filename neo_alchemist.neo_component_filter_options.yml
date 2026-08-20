@@ -20,4 +20,4 @@
 # filter picker. Declare yours in MODULE_NAME.neo_component_filter_options.yml
 # (or uncomment/adapt the example above) and clear caches.
 #
-# @see \Drupal\neo_alchemist\ComponentFilterOptionsPluginManager
+# @see \Drupal\neo_alchemist\Filter\ComponentFilterOptionsPluginManager

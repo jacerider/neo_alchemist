@@ -6,7 +6,7 @@ namespace Drupal\neo_alchemist\Plugin\ComponentFilter;
 
 use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\neo_alchemist\Attribute\ComponentFilter;
-use Drupal\neo_alchemist\ComponentFilterPluginBase;
+use Drupal\neo_alchemist\Filter\ComponentFilterPluginBase;
 
 /**
  * Plugin implementation of the neo_component_filter.

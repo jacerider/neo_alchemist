@@ -19,11 +19,11 @@ use Drupal\Core\Plugin\Component as ComponentPlugin;
 use Drupal\Core\Session\AccountInterface;
 use Drupal\Core\Template\Attribute;
 use Drupal\neo_alchemist\Access\ComponentAccessInterface;
-use Drupal\neo_alchemist\ComponentFilterInterface;
 use Drupal\neo_alchemist\ComponentInstanceInterface;
 use Drupal\neo_alchemist\ComponentInterface;
 use Drupal\neo_alchemist\ComponentManageHelper;
 use Drupal\neo_alchemist\ComponentShapePluginInterface;
+use Drupal\neo_alchemist\Filter\ComponentFilterInterface;
 use Drupal\neo_alchemist\MissingHostEntityException;
 use Drupal\neo_alchemist\Slot\ComponentSlotInterface;
 use Drupal\neo_icon\IconTrait;
@@ -277,7 +277,7 @@ class Component extends ConfigEntityBase implements ComponentInterface {
   /**
    * The filters.
    *
-   * @var \Drupal\neo_alchemist\ComponentFilterInterface[]
+   * @var \Drupal\neo_alchemist\Filter\ComponentFilterInterface[]
    */
   protected array $filters;
 

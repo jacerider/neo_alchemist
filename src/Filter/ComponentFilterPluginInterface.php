@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Drupal\neo_alchemist;
+namespace Drupal\neo_alchemist\Filter;
 
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\neo_alchemist\ConfiguredPlugin\ConfiguredPluginInterface;

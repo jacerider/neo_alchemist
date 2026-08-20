@@ -6,7 +6,7 @@ namespace Drupal\neo_alchemist\Plugin\ComponentFilter;
 
 use Drupal\Core\DependencyInjection\DependencySerializationTrait;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
-use Drupal\neo_alchemist\ComponentFilterInterface;
+use Drupal\neo_alchemist\Filter\ComponentFilterInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Drupal\neo_alchemist;
+namespace Drupal\neo_alchemist\Filter;
 
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\neo_alchemist\ConfiguredPlugin\ConfiguredPluginWrapperInterface;
@@ -57,7 +57,7 @@ interface ComponentFilterInterface extends ConfiguredPluginWrapperInterface {
   /**
    * {@inheritdoc}
    *
-   * @return \Drupal\neo_alchemist\ComponentFilterPluginInterface|null
+   * @return \Drupal\neo_alchemist\Filter\ComponentFilterPluginInterface|null
    *   The filter plugin instance, or NULL when none is configured.
    */
   public function getPlugin(): ?ComponentFilterPluginInterface;

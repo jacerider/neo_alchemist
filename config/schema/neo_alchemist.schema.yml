@@ -719,7 +719,7 @@ neo_alchemist.neo_component_settings.filters:
         constraints:
           PluginExists:
             manager: plugin.manager.neo_component_filter
-            interface: '\Drupal\neo_alchemist\ComponentFilterPluginInterface'
+            interface: '\Drupal\neo_alchemist\Filter\ComponentFilterPluginInterface'
       plugin_settings:
         type: neo_alchemist.neo_component_filter.[%parent.plugin_id]
         nullable: true

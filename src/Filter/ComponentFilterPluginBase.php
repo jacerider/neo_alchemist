@@ -2,13 +2,14 @@
 
 declare(strict_types=1);
 
-namespace Drupal\neo_alchemist;
+namespace Drupal\neo_alchemist\Filter;
 
 use Drupal\Component\Plugin\PluginBase;
 use Drupal\Component\Utility\NestedArray;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Plugin\PluginWithFormsTrait;
 use Drupal\Core\StringTranslation\StringTranslationTrait;
+use Drupal\neo_alchemist\ComponentInterface;
 
 /**
  * Base class for neo_component_filter plugins.
@@ -21,7 +22,7 @@ abstract class ComponentFilterPluginBase extends PluginBase implements Component
   /**
    * The filter.
    *
-   * @var \Drupal\neo_alchemist\ComponentFilterInterface
+   * @var \Drupal\neo_alchemist\Filter\ComponentFilterInterface
    */
   protected ComponentFilterInterface $filter;
 
@@ -119,7 +120,7 @@ abstract class ComponentFilterPluginBase extends PluginBase implements Component
    * ComponentFilterPluginBase::configurationForm(). Most plugins should not
    * override this method unless they need to alter the generic form elements.
    *
-   * @see \Drupal\neo_alchemist\ComponentFilterPluginBase::configurationForm()
+   * @see \Drupal\neo_alchemist\Filter\ComponentFilterPluginBase::configurationForm()
    */
   public function buildConfigurationForm(array $form, FormStateInterface $form_state, ?array &$complete_form = NULL) {
     $form += $this->configurationForm($form, $form_state, $complete_form);
@@ -140,7 +141,7 @@ abstract class ComponentFilterPluginBase extends PluginBase implements Component
    * specific plugin, override
    * ComponentFilterPluginBase::configurationValidate().
    *
-   * @see \Drupal\neo_alchemist\ComponentFilterPluginBase::configurationValidate()
+   * @see \Drupal\neo_alchemist\Filter\ComponentFilterPluginBase::configurationValidate()
    */
   public function validateConfigurationForm(array &$form, FormStateInterface $form_state) {
     $this->configurationValidate($form, $form_state);

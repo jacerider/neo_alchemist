@@ -14,8 +14,8 @@ use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Plugin\ContainerFactoryPluginInterface;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\neo_alchemist\Attribute\ComponentSlot;
-use Drupal\neo_alchemist\ComponentFilterPluginEntityInterface;
 use Drupal\neo_alchemist\ComponentInterface;
+use Drupal\neo_alchemist\Filter\ComponentFilterPluginEntityInterface;
 use Drupal\neo_alchemist\Slot\ComponentSlotPluginBase;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 

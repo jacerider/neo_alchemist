@@ -11,9 +11,9 @@ use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Plugin\ContainerFactoryPluginInterface;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\neo_alchemist\Attribute\ComponentFilter;
-use Drupal\neo_alchemist\ComponentFilterInterface;
-use Drupal\neo_alchemist\ComponentFilterPluginBase;
-use Drupal\neo_alchemist\ComponentFilterPluginEntityInterface;
+use Drupal\neo_alchemist\Filter\ComponentFilterInterface;
+use Drupal\neo_alchemist\Filter\ComponentFilterPluginBase;
+use Drupal\neo_alchemist\Filter\ComponentFilterPluginEntityInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
