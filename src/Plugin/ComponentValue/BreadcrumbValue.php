@@ -5,10 +5,9 @@ declare(strict_types=1);
 namespace Drupal\neo_alchemist\Plugin\ComponentValue;
 
 use Drupal\Core\Breadcrumb\BreadcrumbBuilderInterface;
-use Drupal\Core\DependencyInjection\DependencySerializationTrait;
+use Drupal\Core\Controller\TitleResolverInterface;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Plugin\ContainerFactoryPluginInterface;
-use Drupal\Core\Render\Element;
 use Drupal\Core\Routing\RouteMatchInterface;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\neo_alchemist\Attribute\ComponentValue;
@@ -18,6 +17,7 @@ use Drupal\neo_alchemist\Value\ComponentValueProcessingModeInterface;
 use Drupal\neo_alchemist\Value\ComponentValuePluginBase;
 use Drupal\neo_alchemist\Value\ComponentValueProducerInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
+use Symfony\Component\HttpFoundation\Request;
 
 /**
  * Plugin implementation of the neo_component_value_provider.
@@ -35,7 +35,7 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
 )]
 final class BreadcrumbValue extends ComponentValuePluginBase implements ContainerFactoryPluginInterface, ComponentValueProcessingModeInterface, ComponentValueProducerInterface {
 
-  use DependencySerializationTrait;
+  use ComponentValueTitleResolverTrait;
   use ComponentValueProcessingModeTrait;
 
   /**
@@ -46,13 +46,6 @@ final class BreadcrumbValue extends ComponentValuePluginBase implements Containe
   protected $breadcrumbManager;
 
   /**
-   * The current route match.
-   *
-   * @var \Drupal\Core\Routing\RouteMatchInterface
-   */
-  protected $routeMatch;
-
-  /**
    * {@inheritdoc}
    */
   public function __construct(
@@ -61,11 +54,15 @@ final class BreadcrumbValue extends ComponentValuePluginBase implements Containe
     ComponentShapePluginInterface $shape,
     array $configuration,
     BreadcrumbBuilderInterface $breadcrumb_manager,
+    Request $request,
     RouteMatchInterface $route_match,
+    TitleResolverInterface $title_resolver,
   ) {
     parent::__construct($plugin_id, $plugin_definition, $shape, $configuration);
     $this->breadcrumbManager = $breadcrumb_manager;
+    $this->request = $request;
     $this->routeMatch = $route_match;
+    $this->titleResolver = $title_resolver;
   }
 
   /**
@@ -78,7 +75,9 @@ final class BreadcrumbValue extends ComponentValuePluginBase implements Containe
       $configuration['shape'],
       $configuration['settings'],
       $container->get('breadcrumb'),
+      $container->get('request_stack')->getCurrentRequest(),
       $container->get('current_route_match'),
+      $container->get('title_resolver'),
     );
   }
 
@@ -162,14 +161,16 @@ final class BreadcrumbValue extends ComponentValuePluginBase implements Containe
     }
     if ($links && !isset($links['_current'])) {
       if (!$this->configuration['hide_current']) {
-        $request = \Drupal::request();
-        $routeMatch = \Drupal::routeMatch();
-        $route = $routeMatch->getRouteObject();
-        if ($route) {
-          $title = \Drupal::service('title_resolver')->getTitle($request, $route);
-          if (Element::isRenderArray($title)) {
-            $title = \Drupal::service('renderer')->render($title);
-          }
+        // Resolved through the shared title trait rather than the title
+        // resolver directly. A route title can be a render array, and the
+        // renderer refuses to render one outside a render context — which is
+        // exactly where this runs: default values are computed while the SDC
+        // plugin definitions are being rebuilt (ComponentPluginManager::
+        // setCachedDefinitions() regenerates every component's expression),
+        // and on a cache-cold request that happens during response
+        // processing, long after rendering has finished. The trait flattens
+        // to plain text instead, which is also what a crumb title wants.
+        if ($title = $this->getPageTitle()) {
           $value['_current'] = [
             'title' => $title,
             'url' => [],
