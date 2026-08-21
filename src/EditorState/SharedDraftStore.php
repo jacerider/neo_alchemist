@@ -117,13 +117,29 @@ final class SharedDraftStore {
    * are the mechanism behind presence and conflict detection — one record, no
    * separate presence table or heartbeat.
    *
+   * When $expectedVersion is given, the write is optimistically guarded: if the
+   * stored version is ahead of the one the session loaded, a colleague wrote
+   * the draft in the meantime, so the write is refused rather than allowed to
+   * overwrite their work with a stale copy. Passing NULL (the default) writes
+   * unguarded — the per-user scratch buffer and non-session callers do not
+   * carry a version.
+   *
    * @param \Drupal\neo_alchemist\Plugin\Field\FieldType\ComponentTreeItem $item
    *   The field item the draft belongs to.
    * @param array $value
    *   The draft content to store.
+   * @param int|null $expectedVersion
+   *   The draft version the session loaded, or NULL to write unguarded.
+   *
+   * @throws \Drupal\neo_alchemist\EditorState\DraftConflictException
+   *   When $expectedVersion is behind the stored version.
    */
-  public function set(ComponentTreeItem $item, array $value): void {
+  public function set(ComponentTreeItem $item, array $value, ?int $expectedVersion = NULL): void {
     $record = $this->record($item);
+    if ($conflict = $this->conflictFromRecord($expectedVersion, $record)) {
+      throw $conflict;
+    }
+    $storedVersion = (int) ($record['version'] ?? 0);
     $uid = (int) $this->currentUser->id();
 
     $contributors = $record['contributors'] ?? [];
@@ -133,7 +149,7 @@ final class SharedDraftStore {
 
     $this->store->set($this->key($item), [
       'value' => $value,
-      'version' => ($record['version'] ?? 0) + 1,
+      'version' => $storedVersion + 1,
       'last_editor' => $uid,
       'last_modified' => $this->time->getRequestTime(),
       'contributors' => $contributors,
@@ -147,12 +163,73 @@ final class SharedDraftStore {
    * The whole record goes, so the contributor set and the rest of the metadata
    * are cleared with the content. Publish, discard and revert all reach here.
    *
+   * The publish commit passes $expectedVersion so a stale publish is refused
+   * rather than releasing a version the publisher never saw (someone edited the
+   * draft while they sat on the confirmation). Discard and revert pass NULL:
+   * throwing the draft away is deliberate, on whatever is there.
+   *
    * @param \Drupal\neo_alchemist\Plugin\Field\FieldType\ComponentTreeItem $item
    *   The field item the draft belongs to.
+   * @param int|null $expectedVersion
+   *   The draft version the session loaded, or NULL to delete unguarded.
+   *
+   * @throws \Drupal\neo_alchemist\EditorState\DraftConflictException
+   *   When $expectedVersion is behind the stored version.
    */
-  public function delete(ComponentTreeItem $item): void {
+  public function delete(ComponentTreeItem $item, ?int $expectedVersion = NULL): void {
+    if ($expectedVersion !== NULL && ($conflict = $this->conflictFromRecord($expectedVersion, $this->record($item)))) {
+      throw $conflict;
+    }
     $this->store->delete($this->key($item));
     $this->cacheTagsInvalidator->invalidateTags([$this->cacheTag($item)]);
+  }
+
+  /**
+   * The conflict a write at $expectedVersion would hit, or NULL if it is clear.
+   *
+   * The read-only counterpart of the guard set() and delete() enforce: the
+   * editor and publish forms call this while validating so they can refuse a
+   * stale save with a form-level error, in the phase where an error is legal,
+   * rather than letting the write throw mid-submit. The comparison and the
+   * last-editor attribution live in one place (conflictFromRecord()), so the
+   * pre-check and the write-time throw can never disagree.
+   *
+   * @param \Drupal\neo_alchemist\Plugin\Field\FieldType\ComponentTreeItem $item
+   *   The field item the draft belongs to.
+   * @param int|null $expectedVersion
+   *   The draft version the session loaded, or NULL for no check.
+   *
+   * @return \Drupal\neo_alchemist\EditorState\DraftConflictException|null
+   *   The refusal a write would raise, or NULL when the write would be clear.
+   */
+  public function conflict(ComponentTreeItem $item, ?int $expectedVersion): ?DraftConflictException {
+    return $this->conflictFromRecord($expectedVersion, $this->record($item));
+  }
+
+  /**
+   * Builds the conflict for a carried version against an already-read record.
+   *
+   * The check is strictly-behind: a write at the current stored version is
+   * clear (and goes on to increment it), so the same session re-saving its own
+   * just-written draft is not a conflict against itself; only a version a
+   * colleague has since moved past is refused. A NULL carried version is never
+   * a conflict — the write is unguarded.
+   *
+   * @param int|null $expectedVersion
+   *   The version the session carried, or NULL to skip the check.
+   * @param array|null $record
+   *   The raw record, already read by the caller, for last-editor attribution.
+   *
+   * @return \Drupal\neo_alchemist\EditorState\DraftConflictException|null
+   *   The refusal, or NULL when the carried version is at or ahead of stored.
+   */
+  private function conflictFromRecord(?int $expectedVersion, ?array $record): ?DraftConflictException {
+    $storedVersion = (int) ($record['version'] ?? 0);
+    if ($expectedVersion === NULL || $expectedVersion >= $storedVersion) {
+      return NULL;
+    }
+    $lastEditor = $record['last_editor'] ?? NULL;
+    return new DraftConflictException($expectedVersion, $storedVersion, $lastEditor === NULL ? NULL : (int) $lastEditor);
   }
 
   /**

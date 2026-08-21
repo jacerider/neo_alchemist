@@ -19,6 +19,7 @@ use Drupal\neo_alchemist\Ajax\InstanceComponentManageIframeCommand;
 use Drupal\neo_alchemist\Ajax\ComponentAjaxFormHelperTrait;
 use Drupal\neo_alchemist\ComponentManageHelper;
 use Drupal\neo_alchemist\ComponentPropValueHarvester;
+use Drupal\neo_alchemist\EditorState\DraftConflictException;
 use Drupal\neo_alchemist\EditorState\EditorScratchStore;
 use Drupal\neo_alchemist\Value\ComponentValuePanelBuilder;
 use Drupal\neo_icon\IconTrait;
@@ -30,6 +31,7 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
 final class InstanceComponentForm extends ContentEntityForm {
 
   use ComponentAjaxFormHelperTrait;
+  use DraftConflictMessageTrait;
   use IconTrait;
 
   /**
@@ -251,6 +253,11 @@ final class InstanceComponentForm extends ContentEntityForm {
       '#default_value' => $this->instance->uuid(),
     ];
 
+    // The shared draft's version at the moment this form opened, round-tripped
+    // so a save against a draft a colleague has since moved past is refused —
+    // optimistic conflict detection, caught at edit time.
+    $form['draft_version'] = $this->draftVersionField($this->instance->getFieldItem());
+
     // Assigned in this order because top-level render order is array order and
     // the Context accordion belongs between the two panel elements.
     $panel = $this->valuePanelBuilder->build($this->instance, $form, $form_state);
@@ -364,6 +371,20 @@ final class InstanceComponentForm extends ContentEntityForm {
       }
     }
     $this->instance->setValues($values);
+
+    // Refuse a save against a shared draft a colleague moved past while this
+    // form was open. Only the Save submit writes the shared draft, so only it
+    // is checked: the Refresh submit just buffers this editor's own scratch
+    // values, and a filter-default toggle is an AJAX rebuild, not a write.
+    // Surfaced here, in the validation phase, because a form error cannot be
+    // set once validation has finished.
+    if (($trigger['#type'] ?? NULL) === 'submit' && ($trigger['#op'] ?? NULL) !== 'refresh') {
+      $fieldItem = $this->instance->getFieldItem();
+      if ($conflict = $fieldItem->draftConflict((int) $form_state->getValue('draft_version'))) {
+        $this->surfaceDraftConflict($conflict, $fieldItem, $form, $form_state);
+      }
+    }
+
     return $this->entity;
   }
 
@@ -441,12 +462,14 @@ final class InstanceComponentForm extends ContentEntityForm {
 
     $fieldItem = $this->instance->getFieldItem();
     $fieldDefinition = $fieldItem->getFieldDefinition();
-    $this->messenger()->addStatus($this->t('@op component %name successfully on %label: %field_label.', [
-      '@op' => $this->instance->isNew() ? 'Created' : 'Updated',
-      '%name' => $this->instance->label(),
-      '%label' => $fieldItem->belongsToFieldConfig() ? $this->entityTypeManager->getDefinition($fieldDefinition->getTargetEntityTypeId())->getLabel() : $this->entity->label(),
-      '%field_label' => $fieldDefinition->getLabel(),
-    ]));
+    $isNew = $this->instance->isNew();
+
+    // Carry the loaded version into the write so the store — the authority on
+    // the draft's version — refuses a stale save even in the narrow gap
+    // between validateForm() (which surfaces the common case as a form error)
+    // and here. A refusal that slips through that gap is caught below as a
+    // message, not a silent overwrite of a colleague's work.
+    $fieldItem->carryDraftVersion((int) $form_state->getValue('draft_version'));
 
     // If we have requested a position change, we make it here.
     $position = $this->after ? 'after' : ($this->before ? 'before' : NULL);
@@ -454,7 +477,23 @@ final class InstanceComponentForm extends ContentEntityForm {
       $this->instance->getFieldItem()->moveComponent($this->instance->uuid(), $this->after ?: $this->before, $position, $this->instance->getParentUuid(), $this->instance->getParentSlot());
     }
 
-    return $this->instance->save();
+    try {
+      $result = $this->instance->save();
+    }
+    catch (DraftConflictException $conflict) {
+      $this->messenger()->addError($this->draftConflictMessage($conflict, $fieldItem));
+      $form_state->setRebuild();
+      return SAVED_UPDATED;
+    }
+
+    $this->messenger()->addStatus($this->t('@op component %name successfully on %label: %field_label.', [
+      '@op' => $isNew ? 'Created' : 'Updated',
+      '%name' => $this->instance->label(),
+      '%label' => $fieldItem->belongsToFieldConfig() ? $this->entityTypeManager->getDefinition($fieldDefinition->getTargetEntityTypeId())->getLabel() : $this->entity->label(),
+      '%field_label' => $fieldDefinition->getLabel(),
+    ]));
+
+    return $result;
   }
 
   /**

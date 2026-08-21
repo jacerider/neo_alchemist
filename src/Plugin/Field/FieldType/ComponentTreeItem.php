@@ -23,6 +23,7 @@ use Drupal\Core\Url;
 use Drupal\neo_alchemist\ComponentInstanceInterface;
 use Drupal\neo_alchemist\ComponentInterface;
 use Drupal\neo_alchemist\ComponentSizesInterface;
+use Drupal\neo_alchemist\EditorState\DraftConflictException;
 use Drupal\neo_alchemist\EditorState\SharedDraftStore;
 use Drupal\neo_alchemist\EmptySectionPolicy;
 use Drupal\neo_alchemist\Entity\Component;
@@ -75,6 +76,19 @@ class ComponentTreeItem extends FieldItemBase implements RenderableInterface, Co
    * @var bool
    */
   protected $draft = FALSE;
+
+  /**
+   * The shared-draft version this session loaded, or NULL when unguarded.
+   *
+   * Carried onto the item by the editor and publish forms from the hidden field
+   * they round-trip, and handed to the shared draft store on write so a save
+   * against a version a colleague has moved past is refused rather than
+   * silently winning. NULL means the write is not version-checked — the default
+   * for structural ops and non-session callers that carry no loaded version.
+   *
+   * @var int|null
+   */
+  protected ?int $loadedDraftVersion = NULL;
 
   /**
    * Flag to indicate if the item is in preview mode.
@@ -880,10 +894,10 @@ class ComponentTreeItem extends FieldItemBase implements RenderableInterface, Co
     }
     else {
       if ($this->isDraft()) {
-        $this->getSharedDraftStore()->set($this, $this->getValue());
+        $this->getSharedDraftStore()->set($this, $this->getValue(), $this->loadedDraftVersion);
         return SAVED_UPDATED;
       }
-      $this->getSharedDraftStore()->delete($this);
+      $this->getSharedDraftStore()->delete($this, $this->loadedDraftVersion);
       $entity = $this->getEntity();
       $fieldName = $this->getFieldDefinition()->getName();
       $list = $this->getParent();
@@ -920,6 +934,58 @@ class ComponentTreeItem extends FieldItemBase implements RenderableInterface, Co
    */
   public function hasDraft(): bool {
     return $this->getSharedDraftStore()->has($this);
+  }
+
+  /**
+   * The shared draft's current version.
+   *
+   * A read-through to the store, kept on the item because the editor and
+   * publish forms embed it as the version the session loaded and round-trip it
+   * back on save. The store owns the counter; this is only how the forms reach
+   * it without holding the store themselves.
+   *
+   * @return int
+   *   The current draft version, or 0 when no draft is stored.
+   */
+  public function draftVersion(): int {
+    return $this->getSharedDraftStore()->version($this);
+  }
+
+  /**
+   * The conflict a save carrying $loadedVersion would hit, or NULL if clear.
+   *
+   * The read-only pre-check the editor and publish forms run while validating,
+   * so a stale save is refused with a form-level error rather than throwing
+   * mid-submit. It delegates to the store, which owns the comparison and the
+   * last-editor attribution the write-time guard uses too.
+   *
+   * @param int|null $loadedVersion
+   *   The draft version the session loaded, or NULL for no check.
+   *
+   * @return \Drupal\neo_alchemist\EditorState\DraftConflictException|null
+   *   The refusal a save would raise, or NULL when the save would be clear.
+   */
+  public function draftConflict(?int $loadedVersion): ?DraftConflictException {
+    return $this->getSharedDraftStore()->conflict($this, $loadedVersion);
+  }
+
+  /**
+   * Carries the version this session loaded onto the item for the next write.
+   *
+   * The save path hands this to the shared draft store, which refuses the write
+   * when the stored version has moved past it. Passing NULL leaves the write
+   * unguarded: a structural op with no form round-trip, or a non-session
+   * caller.
+   *
+   * @param int|null $version
+   *   The loaded version, or NULL to leave the next write unguarded.
+   *
+   * @return self
+   *   The current instance for chaining.
+   */
+  public function carryDraftVersion(?int $version): self {
+    $this->loadedDraftVersion = $version;
+    return $this;
   }
 
   /**

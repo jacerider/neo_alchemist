@@ -6,6 +6,7 @@ use Drupal\Core\Entity\EntityConfirmFormBase;
 use Drupal\Core\Entity\SynchronizableInterface;
 use Drupal\Core\Field\WidgetPluginManager;
 use Drupal\Core\Form\FormStateInterface;
+use Drupal\neo_alchemist\EditorState\DraftConflictException;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
@@ -14,6 +15,8 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
  * @internal
  */
 class InstanceComponentPublishForm extends EntityConfirmFormBase {
+
+  use DraftConflictMessageTrait;
 
   /**
    * The entity being edited.
@@ -85,7 +88,27 @@ class InstanceComponentPublishForm extends EntityConfirmFormBase {
         $form['moderation_state']['#weight'] = 100;
       }
     }
+
+    // The shared draft's version when this confirmation opened, round-tripped
+    // on submit so a stale publish — someone edited the draft while the
+    // publisher sat here — is refused rather than releasing a version they
+    // never saw.
+    $form['draft_version'] = $this->draftVersionField($this->fieldItem);
     return $form;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function validateForm(array &$form, FormStateInterface $form_state) {
+    parent::validateForm($form, $form_state);
+    // Refuse a publish against a draft a colleague moved past while the
+    // publisher sat on the confirmation. Checked here, in the validation phase,
+    // because a form error cannot be set once validation has finished.
+    $fieldItem = $form_state->get('fieldItem');
+    if ($fieldItem && ($conflict = $fieldItem->draftConflict((int) $form_state->getValue('draft_version')))) {
+      $this->surfaceDraftConflict($conflict, $fieldItem, $form, $form_state);
+    }
   }
 
   /**
@@ -129,6 +152,11 @@ class InstanceComponentPublishForm extends EntityConfirmFormBase {
    */
   public function submitForm(array &$form, FormStateInterface $form_state) {
     $fieldItem = $this->fieldItem->enforceAsDraft(FALSE);
+    // Carry the loaded version into the publish commit so the store refuses a
+    // stale release even in the gap after validateForm() cleared it. The
+    // commit deletes the draft before persisting, and the delete throws first,
+    // so a refused publish persists nothing.
+    $fieldItem->carryDraftVersion((int) $form_state->getValue('draft_version'));
     $form_state->setRedirectUrl($this->entity->toUrl());
     $moderationState = $form_state->getValue(['moderation_state', 0, 'value']);
     if ($moderationState) {
@@ -140,7 +168,14 @@ class InstanceComponentPublishForm extends EntityConfirmFormBase {
       }
       $this->entity->set('moderation_state', $moderationState);
     }
-    $result = $fieldItem->saveComponents();
+    try {
+      $result = $fieldItem->saveComponents();
+    }
+    catch (DraftConflictException $conflict) {
+      $this->messenger()->addError($this->draftConflictMessage($conflict, $fieldItem));
+      $form_state->setRebuild();
+      return SAVED_UPDATED;
+    }
     // saveComponents() saves $this->entity, so Content Moderation's presave has
     // now flipped isDefaultRevision() to reflect the saved revision. If the
     // save created a non-default (forward) revision, e.g. published -> draft,
