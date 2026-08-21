@@ -895,6 +895,21 @@ From [neo_alchemist.services.yml](neo_alchemist.services.yml):
   applies. `MoveAndLibraryPositionUrlTest` pins the URL each produces in the entity, field-UI
   and block scopes, including under a non-standard base path. (The client still concatenates
   today — reading the URL off the op is phase two.)
+- **The editor's op vocabulary is one table** —
+  [src/Routing/EditorOpInventory.php](src/Routing/EditorOpInventory.php) (records as
+  [src/Routing/EditorOp.php](src/Routing/EditorOp.php)). The eight ops the editor offers on a
+  component instance (edit, sort, clone, delete, add before, add after, move up, move down)
+  are **not** the six routes behind them: add before/after are both the `library` route with
+  a position, move up/down are both the `move` route with a direction. That decomposition
+  lived nowhere but a runtime split of the op identifier on a hyphen in the client. The
+  inventory declares it once — per op the verb, position or direction, the route rel it
+  targets, the label and the icon — so a consumer reads a field instead of re-parsing a
+  string and renaming an op is a one-place change. Each op's `rel` is a member op the route
+  family registers, cross-checked at the kernel level (`EditorOpInventoryUrlTest`), so an op
+  cannot name a route no scope serves. Labels/icons live here, not on the per-component
+  emission, because the chrome is rendered once and reused across selections. (The chrome and
+  client do not read this table yet — the entity emission is phase two, the chrome iterating
+  it is a later phase-two ticket.)
 
 ---
 

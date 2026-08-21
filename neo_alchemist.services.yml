@@ -182,6 +182,9 @@ services:
   neo_alchemist.editor_route_family:
     class: Drupal\neo_alchemist\Routing\EditorRouteFamily
 
+  neo_alchemist.editor_op_inventory:
+    class: Drupal\neo_alchemist\Routing\EditorOpInventory
+
   neo_alchemist.route_subscriber:
     class: Drupal\neo_alchemist\EventSubscriber\RouteSubscriber
     arguments: ['@entity_type.manager', '@entity_field.manager', '@neo_alchemist.editor_route_family']
