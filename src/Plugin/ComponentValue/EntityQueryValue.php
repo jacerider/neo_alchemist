@@ -24,6 +24,7 @@ use Drupal\neo_alchemist\Shape\ComponentShapePluginInterface;
 use Drupal\neo_alchemist\Event\ComponentValueEntityQueryEvent;
 use Drupal\neo_alchemist\Match\MatcherReference;
 use Drupal\neo_alchemist\Value\ComponentValuePluginBase;
+use Drupal\neo_alchemist\Value\ComponentValueProducerInterface;
 use Drupal\neo_alchemist\Value\ComponentValueProcessingModeInterface;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
@@ -42,7 +43,7 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
   ],
   weight: 5,
 )]
-final class EntityQueryValue extends ComponentValuePluginBase implements ContainerFactoryPluginInterface, ComponentValueProcessingModeInterface, ChildrenMatchSourceInterface {
+final class EntityQueryValue extends ComponentValuePluginBase implements ContainerFactoryPluginInterface, ComponentValueProcessingModeInterface, ChildrenMatchSourceInterface, ComponentValueProducerInterface {
 
   use DependencySerializationTrait {
     __sleep as traitSleep;

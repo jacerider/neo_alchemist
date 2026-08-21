@@ -20,6 +20,7 @@ use Drupal\neo_alchemist\Shape\ComponentShapePluginInterface;
 use Drupal\neo_alchemist_taxonomy\TermLevelResolver;
 use Drupal\neo_alchemist\Plugin\ComponentValue\ComponentValueProcessingModeTrait;
 use Drupal\neo_alchemist\Value\ComponentValuePluginBase;
+use Drupal\neo_alchemist\Value\ComponentValueProducerInterface;
 use Drupal\neo_alchemist\Value\ComponentValueProcessingModeInterface;
 use Drupal\taxonomy\TermInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
@@ -44,7 +45,7 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
   ],
   weight: 10,
 )]
-final class TaxonomyMenuValue extends ComponentValuePluginBase implements ContainerFactoryPluginInterface, ComponentValueProcessingModeInterface {
+final class TaxonomyMenuValue extends ComponentValuePluginBase implements ContainerFactoryPluginInterface, ComponentValueProcessingModeInterface, ComponentValueProducerInterface {
 
   use DependencySerializationTrait;
   use ComponentValueProcessingModeTrait;

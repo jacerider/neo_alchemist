@@ -17,6 +17,7 @@ use Drupal\neo_alchemist\Match\MatcherField;
 use Drupal\neo_alchemist\Shape\NestedOptionMap;
 use Drupal\neo_alchemist\Plugin\ComponentShape\ObjectShape;
 use Drupal\neo_alchemist\Value\ComponentValuePluginBase;
+use Drupal\neo_alchemist\Value\ComponentValueProducerInterface;
 use Drupal\neo_alchemist\Value\ComponentValueProcessingModeInterface;
 
 /**
@@ -33,7 +34,7 @@ use Drupal\neo_alchemist\Value\ComponentValueProcessingModeInterface;
   ],
   weight: 900
 )]
-final class HeadingValue extends ComponentValuePluginBase implements ContainerFactoryPluginInterface, ComponentValueProcessingModeInterface {
+final class HeadingValue extends ComponentValuePluginBase implements ContainerFactoryPluginInterface, ComponentValueProcessingModeInterface, ComponentValueProducerInterface {
 
   use ComponentValueTitleResolverTrait;
   use ComponentValueProcessingModeTrait;

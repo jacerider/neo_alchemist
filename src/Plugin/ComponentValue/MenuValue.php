@@ -18,6 +18,7 @@ use Drupal\neo_alchemist\Shape\ComponentShapeChildrenPluginInterface;
 use Drupal\neo_alchemist\Shape\ComponentShapePluginInterface;
 use Drupal\neo_alchemist\Value\ComponentValueProcessingModeInterface;
 use Drupal\neo_alchemist\Value\ComponentValuePluginBase;
+use Drupal\neo_alchemist\Value\ComponentValueProducerInterface;
 use Drupal\system\MenuInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
@@ -33,7 +34,7 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
     'menu',
   ],
 )]
-final class MenuValue extends ComponentValuePluginBase implements ContainerFactoryPluginInterface, ComponentValueProcessingModeInterface {
+final class MenuValue extends ComponentValuePluginBase implements ContainerFactoryPluginInterface, ComponentValueProcessingModeInterface, ComponentValueProducerInterface {
 
   use DependencySerializationTrait;
   use ComponentValueProcessingModeTrait;

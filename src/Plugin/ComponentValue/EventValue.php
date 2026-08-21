@@ -13,6 +13,7 @@ use Drupal\neo_alchemist\Attribute\ComponentValue;
 use Drupal\neo_alchemist\Shape\ComponentShapePluginInterface;
 use Drupal\neo_alchemist\Event\ComponentValueEvent;
 use Drupal\neo_alchemist\Value\ComponentValuePluginBase;
+use Drupal\neo_alchemist\Value\ComponentValueProducerInterface;
 use Drupal\neo_alchemist\Value\ComponentValueProcessingModeInterface;
 use Drupal\neo_alchemist\Value\ComponentValueProvision;
 use Symfony\Component\DependencyInjection\ContainerInterface;
@@ -28,7 +29,7 @@ use Symfony\Component\EventDispatcher\EventDispatcherInterface;
   group: 'providers',
   weight: -5,
 )]
-final class EventValue extends ComponentValuePluginBase implements ContainerFactoryPluginInterface, ComponentValueProcessingModeInterface {
+final class EventValue extends ComponentValuePluginBase implements ContainerFactoryPluginInterface, ComponentValueProcessingModeInterface, ComponentValueProducerInterface {
 
   use DependencySerializationTrait;
   use ComponentValueProcessingModeTrait;

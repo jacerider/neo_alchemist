@@ -15,6 +15,7 @@ use Drupal\neo_alchemist\Shape\ComponentShapeChildrenPluginInterface;
 use Drupal\neo_alchemist\Shape\ComponentShapePluginInterface;
 use Drupal\neo_alchemist\Match\MatcherField;
 use Drupal\neo_alchemist\Value\ComponentValuePluginBase;
+use Drupal\neo_alchemist\Value\ComponentValueProducerInterface;
 use Drupal\neo_alchemist\Value\ComponentValueProcessingModeInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
@@ -32,7 +33,7 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
   entity_types: ['*'],
   weight: 5,
 )]
-final class EntityValue extends ComponentValuePluginBase implements ContainerFactoryPluginInterface, ComponentValueProcessingModeInterface {
+final class EntityValue extends ComponentValuePluginBase implements ContainerFactoryPluginInterface, ComponentValueProcessingModeInterface, ComponentValueProducerInterface {
 
   use DependencySerializationTrait;
   use ComponentValueMatchTrait;

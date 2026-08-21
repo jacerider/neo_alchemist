@@ -106,6 +106,21 @@ abstract class ComponentValuePluginBase extends PluginBase implements ComponentV
 
   /**
    * {@inheritdoc}
+   *
+   * The producer role is declared by the interface, not the group. The group
+   * is honoured only as a compatibility shim for a producer defined in another
+   * package that does not implement the interface (on this site,
+   * neo_site_settings). Every producer shipped by this module declares the
+   * interface, so for a shipped plugin the interface alone decides and this
+   * shim never fires; ComponentValueProducerScopeTest pins that agreement for
+   * the producers the base install discovers.
+   */
+  public function isValueProducer(): bool {
+    return $this instanceof ComponentValueProducerInterface || $this->getGroup() === 'providers';
+  }
+
+  /**
+   * {@inheritdoc}
    */
   public function allowInline(): bool {
     return !empty($this->pluginDefinition['inline']);

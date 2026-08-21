@@ -47,6 +47,23 @@ interface ComponentValuePluginInterface extends ConfigurableInterface, PluginFor
   public function getGroup(): string;
 
   /**
+   * Whether this plugin sources its own value — the producer role.
+   *
+   * Ask this, never the group string, when the answer drives behavior: a
+   * plugin's group is also its sort weight and its form tab, so a plugin filed
+   * under a group for the form's sake must not thereby change whether it is
+   * treated as a value source. A producer declares itself by implementing
+   * ComponentValueProducerInterface; the group is only weight and placement.
+   *
+   * @return bool
+   *   TRUE if the plugin sources its own value, FALSE for the terminal
+   *   fallback, modifiers and settings.
+   *
+   * @see \Drupal\neo_alchemist\Value\ComponentValueProducerInterface
+   */
+  public function isValueProducer(): bool;
+
+  /**
    * Whether the plugin allows inline usage.
    *
    * Inline usage means that a plugin can be configured on child components

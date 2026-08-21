@@ -10,6 +10,7 @@ use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\neo_alchemist\Attribute\ComponentValue;
 use Drupal\neo_alchemist\Value\ComponentValuePluginBase;
+use Drupal\neo_alchemist\Value\ComponentValueProducerInterface;
 use Drupal\neo_alchemist\Value\ComponentValueProcessingModeInterface;
 
 /**
@@ -39,7 +40,7 @@ use Drupal\neo_alchemist\Value\ComponentValueProcessingModeInterface;
   ],
   weight: 6,
 )]
-final class ShareValue extends ComponentValuePluginBase implements ComponentValueProcessingModeInterface {
+final class ShareValue extends ComponentValuePluginBase implements ComponentValueProcessingModeInterface, ComponentValueProducerInterface {
 
   use DependencySerializationTrait;
   use ComponentValueProcessingModeTrait;

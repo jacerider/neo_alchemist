@@ -433,32 +433,41 @@ abstract class ChildrenShapeBase extends ComponentShapePluginBase implements Com
    * pushes that example down and clobbers the child provider's value. The case
    * it was added for is a `media` child inside an expanded object prop.
    *
-   * Membership in the "providers" group IS the declaration that a plugin
-   * sources a value, so this is a plain group check with no plugin ids in it.
-   * Plugins that touch a prop without sourcing anything live in the groups that
-   * describe what they actually do — `fallback` (`default`, which only fills an
-   * empty value), `modifiers` (`formatted_text`, which renders an existing
+   * Sourcing a value is the producer role, and a producer declares it by
+   * implementing ComponentValueProducerInterface — so this asks each active
+   * plugin `isValueProducer()` rather than comparing its group against the
+   * string `providers`. The group is also a plugin's sort weight and its form
+   * tab, and asking the group here made choosing a group for the form's sake
+   * silently change this answer. Plugins that touch a prop without sourcing
+   * anything answer FALSE: the terminal `fallback` (`default`, which only fills
+   * an empty value), `modifiers` (`formatted_text`, which renders an existing
    * value through a text format) and `settings` (`widget`, `region_size`,
    * `region_custom`, which configure the prop and never touch its value).
    *
-   * Getting that taxonomy wrong is silent and destructive: counting a
-   * non-sourcing plugin here makes the child refuse its parent's stored value
-   * and fall back to the schema's `examples`, so authored content — a table
-   * cell, an FAQ answer, a section intro — renders as the component's example
-   * text where an example exists at that index, and as nothing where it does
-   * not. Only children take a value pushed down from a parent, so a top-level
-   * prop never shows the symptom.
+   * Getting that role wrong is silent and destructive: counting a non-sourcing
+   * plugin here makes the child refuse its parent's stored value and fall back
+   * to the schema's `examples`, so authored content — a table cell, an FAQ
+   * answer, a section intro — renders as the component's example text where an
+   * example exists at that index, and as nothing where it does not. Only
+   * children take a value pushed down from a parent, so a top-level prop never
+   * shows the symptom.
    *
    * @param \Drupal\neo_alchemist\Shape\ComponentShapePluginInterface $shape
    *   The child shape.
    *
    * @return bool
-   *   TRUE if the child has its own active value provider.
+   *   TRUE if the child has its own active value producer.
    *
-   * @see \Drupal\neo_alchemist\Shape\ComponentShapePluginCollection::getActiveInstances()
+   * @see \Drupal\neo_alchemist\Value\ComponentValueProducerInterface
+   * @see \Drupal\neo_alchemist\Value\ComponentValuePluginInterface::isValueProducer()
    */
   protected function childHasOwnValueProvider(ComponentShapePluginInterface $shape): bool {
-    return (bool) $shape->getValueCollection()->getActiveInstances('providers');
+    foreach ($shape->getValueCollection()->getActiveInstances() as $instance) {
+      if ($instance->isValueProducer()) {
+        return TRUE;
+      }
+    }
+    return FALSE;
   }
 
 }

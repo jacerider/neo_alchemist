@@ -9,6 +9,7 @@ use Drupal\Component\Utility\NestedArray;
 use Drupal\Core\Cache\CacheableMetadata;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\neo_alchemist\Value\ComponentValuePluginBase;
+use Drupal\neo_alchemist\Value\ComponentValueProducerInterface;
 use Drupal\views\ViewExecutable;
 
 /**
@@ -41,7 +42,7 @@ use Drupal\views\ViewExecutable;
  * @see \Drupal\neo_alchemist\Plugin\ComponentValue\ViewsExposedFilterValueBase
  * @see \Drupal\neo_alchemist\Plugin\ComponentValue\ViewsSummaryValue
  */
-abstract class ViewsContextValueBase extends ComponentValuePluginBase {
+abstract class ViewsContextValueBase extends ComponentValuePluginBase implements ComponentValueProducerInterface {
 
   /**
    * {@inheritdoc}

@@ -19,6 +19,7 @@ use Drupal\neo_alchemist\Shape\ComponentShapeChildrenMatchPluginInterface;
 use Drupal\neo_alchemist\Shape\ComponentShapePluginInterface;
 use Drupal\neo_alchemist\Plugin\ComponentValue\ComponentValueProcessingModeTrait;
 use Drupal\neo_alchemist\Value\ComponentValuePluginBase;
+use Drupal\neo_alchemist\Value\ComponentValueProducerInterface;
 use Drupal\neo_alchemist\Value\ComponentValueProcessingModeInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
@@ -41,7 +42,7 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
   entity_types: ['taxonomy_term.*'],
   weight: 5,
 )]
-final class TaxonomyChildrenValue extends ComponentValuePluginBase implements ContainerFactoryPluginInterface, ComponentValueProcessingModeInterface, ChildrenMatchSourceInterface {
+final class TaxonomyChildrenValue extends ComponentValuePluginBase implements ContainerFactoryPluginInterface, ComponentValueProcessingModeInterface, ChildrenMatchSourceInterface, ComponentValueProducerInterface {
 
   use DependencySerializationTrait;
   use ComponentValueProcessingModeTrait;

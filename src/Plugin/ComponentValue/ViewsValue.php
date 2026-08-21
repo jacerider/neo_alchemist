@@ -26,6 +26,7 @@ use Drupal\neo_alchemist\Shape\ComponentShapeInterablePluginInterface;
 use Drupal\neo_alchemist\Shape\ComponentShapePluginInterface;
 use Drupal\neo_alchemist\Value\ComponentValueProcessingModeInterface;
 use Drupal\neo_alchemist\Value\ComponentValuePluginBase;
+use Drupal\neo_alchemist\Value\ComponentValueProducerInterface;
 use Drupal\views\ViewExecutable;
 use Drupal\views\Views;
 use Symfony\Component\DependencyInjection\ContainerInterface;
@@ -45,7 +46,7 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
   weight: 5,
   provider: 'views',
 )]
-final class ViewsValue extends ComponentValuePluginBase implements ContainerFactoryPluginInterface, ComponentValueProcessingModeInterface, ChildrenMatchFieldSourceInterface {
+final class ViewsValue extends ComponentValuePluginBase implements ContainerFactoryPluginInterface, ComponentValueProcessingModeInterface, ChildrenMatchFieldSourceInterface, ComponentValueProducerInterface {
 
   use DependencySerializationTrait {
     __sleep as traitSleep;

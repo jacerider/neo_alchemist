@@ -184,10 +184,12 @@ class ComponentShapePluginCollection extends DefaultLazyPluginCollection {
    * Get the active instances.
    *
    * @param string|null $groupId
-   *   (optional) Restrict to a single value group. A group states the role a
-   *   plugin plays in producing the prop's value, so this is how callers ask a
-   *   behavioral question of a shape — e.g. `getActiveInstances('providers')`
-   *   answers "does this shape source its own value?" without naming plugins.
+   *   (optional) Restrict to a single value group. A group is a plugin's sort
+   *   weight and its form tab, so this filter is for form placement — e.g.
+   *   listing the plugins that belong under one tab. Do NOT use it to ask
+   *   whether a plugin sources a value: that is the producer role, answered by
+   *   ComponentValuePluginInterface::isValueProducer(), so that choosing a
+   *   group for the form cannot silently change behavior.
    *
    * @return \Drupal\neo_alchemist\Value\ComponentValuePluginInterface[]
    *   The active instances.

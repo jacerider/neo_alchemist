@@ -10,6 +10,7 @@ use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\neo_alchemist\Attribute\ComponentValue;
 use Drupal\neo_alchemist\Shape\ComponentShapePluginInterface;
 use Drupal\neo_alchemist\Value\ComponentValuePluginBase;
+use Drupal\neo_alchemist\Value\ComponentValueProducerInterface;
 
 /**
  * Estimates how long the current page takes to read.
@@ -36,7 +37,7 @@ use Drupal\neo_alchemist\Value\ComponentValuePluginBase;
   ],
   weight: 7,
 )]
-final class ReadTimeValue extends ComponentValuePluginBase {
+final class ReadTimeValue extends ComponentValuePluginBase implements ComponentValueProducerInterface {
 
   /**
    * Minutes shown in the editor preview, where there is no article to count.

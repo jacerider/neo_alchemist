@@ -13,6 +13,7 @@ use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\neo_alchemist\Attribute\ComponentValue;
 use Drupal\neo_alchemist\Shape\ComponentShapePluginInterface;
 use Drupal\neo_alchemist\Value\ComponentValuePluginBase;
+use Drupal\neo_alchemist\Value\ComponentValueProducerInterface;
 use Drupal\neo_alchemist\Value\ComponentValueProvision;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
@@ -30,7 +31,7 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
   entity_types: ['*'],
   weight: -15,
 )]
-final class UserHasRoleValue extends ComponentValuePluginBase implements ContainerFactoryPluginInterface {
+final class UserHasRoleValue extends ComponentValuePluginBase implements ContainerFactoryPluginInterface, ComponentValueProducerInterface {
 
   use DependencySerializationTrait;
 

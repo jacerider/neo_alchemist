@@ -11,6 +11,7 @@ use Drupal\neo_alchemist\Attribute\ComponentValue;
 use Drupal\neo_alchemist\Shape\ComponentShapePluginInterface;
 use Drupal\neo_alchemist\Value\ComponentValueProcessingModeInterface;
 use Drupal\neo_alchemist\Value\ComponentValuePluginBase;
+use Drupal\neo_alchemist\Value\ComponentValueProducerInterface;
 
 /**
  * Plugin implementation of the neo_component_value_provider.
@@ -24,7 +25,7 @@ use Drupal\neo_alchemist\Value\ComponentValuePluginBase;
     ComponentShapePluginInterface::STRING,
   ],
 )]
-final class PageTitleValue extends ComponentValuePluginBase implements ContainerFactoryPluginInterface, ComponentValueProcessingModeInterface {
+final class PageTitleValue extends ComponentValuePluginBase implements ContainerFactoryPluginInterface, ComponentValueProcessingModeInterface, ComponentValueProducerInterface {
 
   use ComponentValueTitleResolverTrait;
   use ComponentValueProcessingModeTrait;
