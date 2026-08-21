@@ -13,6 +13,27 @@ services:
     class: Drupal\neo_alchemist\ComponentPreviewBuilder
     arguments: ['@entity_type.manager', '@plugin.manager.sdc']
 
+  # The editor-state store seam and its two adapters. The seam describes only
+  # read/write/delete of a keyed value; the sharing semantics live in the store
+  # built on top (below), not in the seam. The production adapter is backed by
+  # private tempstore (per-user by construction); the in-memory adapter is the
+  # test injection point, a dumb key/value array reusable by any store.
+  neo_alchemist.editor_state.private_tempstore:
+    class: Drupal\neo_alchemist\EditorState\PrivateTempStoreEditorStateStore
+    arguments: ['@tempstore.private', 'neo_alchemist']
+
+  neo_alchemist.editor_state.memory:
+    class: Drupal\neo_alchemist\EditorState\MemoryEditorStateStore
+
+  # The per-user scratch store: the live form buffer that drives one editor's
+  # preview iframe. Its own key prefix (so it no longer borrows the whole-tree
+  # draft's key derivation), the current user folded into the key (so it stays
+  # private over any adapter), and cache-tag invalidation folded into every
+  # write (so a stale preview cannot be shipped by forgetting a line).
+  neo_alchemist.editor_scratch_store:
+    class: Drupal\neo_alchemist\EditorState\EditorScratchStore
+    arguments: ['@neo_alchemist.editor_state.private_tempstore', '@current_user', '@cache_tags.invalidator']
+
   # The two halves of a component value editor: one builds the prop panel, the
   # other reads the submission back out of it. Both value editors — the
   # on-page instance form and the SDC preview workspace — go through these, so

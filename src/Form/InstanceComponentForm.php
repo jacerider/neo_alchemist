@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Drupal\neo_alchemist\Form;
 
-use Drupal\Core\Cache\Cache;
 use Drupal\Component\Datetime\TimeInterface;
 use Drupal\Component\Serialization\Json;
 use Drupal\Component\Utility\Html;
@@ -16,11 +15,11 @@ use Drupal\Core\Entity\EntityTypeBundleInfoInterface;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Form\SubformState;
 use Drupal\Core\Render\Element;
-use Drupal\Core\TempStore\PrivateTempStoreFactory;
 use Drupal\neo_alchemist\Ajax\InstanceComponentManageIframeCommand;
 use Drupal\neo_alchemist\Ajax\ComponentAjaxFormHelperTrait;
 use Drupal\neo_alchemist\ComponentManageHelper;
 use Drupal\neo_alchemist\ComponentPropValueHarvester;
+use Drupal\neo_alchemist\EditorState\EditorScratchStore;
 use Drupal\neo_alchemist\Value\ComponentValuePanelBuilder;
 use Drupal\neo_icon\IconTrait;
 use Symfony\Component\DependencyInjection\ContainerInterface;
@@ -34,11 +33,16 @@ final class InstanceComponentForm extends ContentEntityForm {
   use IconTrait;
 
   /**
-   * Private temporary storage.
+   * The per-user scratch store holding the live form buffer.
    *
-   * @var \Drupal\Core\TempStore\PrivateTempStore
+   * Must be protected and non-promoted, like every service held by a form
+   * object here: DependencySerializationTrait swaps services for their ids
+   * from FormBase's scope, where a private property declared on this class
+   * would be invisible and would be serialized whole into the form cache.
+   *
+   * @var \Drupal\neo_alchemist\EditorState\EditorScratchStore
    */
-  protected $store;
+  protected $scratchStore;
 
   /**
    * Component.
@@ -95,7 +99,7 @@ final class InstanceComponentForm extends ContentEntityForm {
       $container->get('entity.repository'),
       $container->get('entity_type.bundle.info'),
       $container->get('datetime.time'),
-      $container->get('tempstore.private'),
+      $container->get('neo_alchemist.editor_scratch_store'),
       $container->get('neo_alchemist.value_panel_builder'),
       $container->get('neo_alchemist.prop_value_harvester'),
     );
@@ -110,16 +114,16 @@ final class InstanceComponentForm extends ContentEntityForm {
    *   The entity type bundle service.
    * @param \Drupal\Component\Datetime\TimeInterface $time
    *   The time service.
-   * @param \Drupal\Core\TempStore\PrivateTempStoreFactory $temp_store_factory
-   *   The temp storage factory.
+   * @param \Drupal\neo_alchemist\EditorState\EditorScratchStore $scratch_store
+   *   The per-user scratch store holding the live form buffer.
    * @param \Drupal\neo_alchemist\Value\ComponentValuePanelBuilder $value_panel_builder
    *   The value panel builder.
    * @param \Drupal\neo_alchemist\ComponentPropValueHarvester $prop_value_harvester
    *   The prop value harvester.
    */
-  public function __construct(EntityRepositoryInterface $entity_repository, EntityTypeBundleInfoInterface $entity_type_bundle_info, TimeInterface $time, PrivateTempStoreFactory $temp_store_factory, ComponentValuePanelBuilder $value_panel_builder, ComponentPropValueHarvester $prop_value_harvester) {
+  public function __construct(EntityRepositoryInterface $entity_repository, EntityTypeBundleInfoInterface $entity_type_bundle_info, TimeInterface $time, EditorScratchStore $scratch_store, ComponentValuePanelBuilder $value_panel_builder, ComponentPropValueHarvester $prop_value_harvester) {
     parent::__construct($entity_repository, $entity_type_bundle_info, $time);
-    $this->store = $temp_store_factory->get('neo_alchemist');
+    $this->scratchStore = $scratch_store;
     $this->valuePanelBuilder = $value_panel_builder;
     $this->propValueHarvester = $prop_value_harvester;
   }
@@ -162,8 +166,9 @@ final class InstanceComponentForm extends ContentEntityForm {
 
     $form_state->set('neo_component_manage_id', ComponentManageHelper::getId($this->instance->getFieldItem()));
     $form_state->set('original_values', $this->instance->getValues());
-    $this->store->delete($this->instance->getFieldItem()->getDraftKey($this->instance->uuid()));
-    Cache::invalidateTags([$this->instance->getFieldItem()->getDraftCacheTag($this->instance->uuid())]);
+    // Opening the form clears any stale live buffer for this instance; the
+    // scratch store invalidates the preview's cache tag as part of the delete.
+    $this->scratchStore->delete($this->instance->getFieldItem(), $this->instance->uuid());
     $form_state->set('neo_component_uuid', $this->instance->uuid());
   }
 
@@ -457,8 +462,9 @@ final class InstanceComponentForm extends ContentEntityForm {
    */
   public function submitRefresh(array $form, FormStateInterface $form_state) {
     $form_state->setRebuild();
-    $this->store->set($this->instance->getFieldItem()->getDraftKey($form_state->getValue('uuid')), $this->instance->getValues());
-    Cache::invalidateTags([$this->instance->getFieldItem()->getDraftCacheTag($form_state->getValue('uuid'))]);
+    // Buffer the in-progress values so this editor's preview iframe reflects
+    // them; the scratch store invalidates the preview's cache tag on write.
+    $this->scratchStore->set($this->instance->getFieldItem(), $form_state->getValue('uuid'), $this->instance->getValues());
   }
 
   /**

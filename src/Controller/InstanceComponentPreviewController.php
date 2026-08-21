@@ -7,7 +7,7 @@ namespace Drupal\neo_alchemist\Controller;
 use Drupal\Core\Cache\CacheableMetadata;
 use Drupal\Core\Controller\ControllerBase;
 use Drupal\Core\Render\BareHtmlPageRendererInterface;
-use Drupal\Core\TempStore\PrivateTempStoreFactory;
+use Drupal\neo_alchemist\EditorState\EditorScratchStore;
 use Drupal\neo_alchemist\Plugin\Field\FieldType\ComponentTreeItem;
 use Drupal\neo_alchemist\PreviewPropMapBuilder;
 use Drupal\neo_icon\IconTrait;
@@ -22,21 +22,12 @@ final class InstanceComponentPreviewController extends ControllerBase {
   use IconTrait;
 
   /**
-   * Private temporary storage.
-   *
-   * @var \Drupal\Core\TempStore\PrivateTempStore
-   */
-  protected $store;
-
-  /**
    * The controller constructor.
    */
   public function __construct(
     private readonly BareHtmlPageRendererInterface $bareHtmlPageRenderer,
-    PrivateTempStoreFactory $temp_store_factory,
-  ) {
-    $this->store = $temp_store_factory->get('neo_alchemist');
-  }
+    private readonly EditorScratchStore $scratchStore,
+  ) {}
 
   /**
    * {@inheritdoc}
@@ -44,7 +35,7 @@ final class InstanceComponentPreviewController extends ControllerBase {
   public static function create(ContainerInterface $container): self {
     return new self(
       $container->get('neo_component_page_renderer'),
-      $container->get('tempstore.private')
+      $container->get('neo_alchemist.editor_scratch_store')
     );
   }
 
@@ -59,9 +50,12 @@ final class InstanceComponentPreviewController extends ControllerBase {
     // ordinary cacheable output; only a draft makes it request-specific.
     $hasDraft = FALSE;
     if ($uuid = $request->query->get('uuid')) {
-      $draft = $this->store->get($neo_field->getDraftKey($uuid));
+      // A single component's preview reflects that editor's live form buffer,
+      // held in the per-user scratch store — not the shared whole-tree draft.
+      $draft = $this->scratchStore->get($neo_field, $uuid);
       $hasDraft = !empty($draft);
       $build = $this->single($neo_field, $uuid, $request->query->get('component'), $draft);
+      $draftCacheTag = $this->scratchStore->cacheTag($neo_field, $uuid);
     }
     else {
       $build = $this->all($neo_field);
@@ -69,6 +63,7 @@ final class InstanceComponentPreviewController extends ControllerBase {
         neo_alchemist_attach_screenshot($build);
       }
       $hasDraft = $neo_field->hasDraft();
+      $draftCacheTag = $neo_field->getDraftCacheTag();
     }
 
     // Tag the response with the draft that would change it. Writing or
@@ -77,7 +72,7 @@ final class InstanceComponentPreviewController extends ControllerBase {
     // serves a hit without ever calling us, so the $hasDraft branch below can
     // never demote an entry that already exists.
     $cacheability = new CacheableMetadata();
-    $cacheability->addCacheTags([$neo_field->getDraftCacheTag($uuid ?: NULL)]);
+    $cacheability->addCacheTags([$draftCacheTag]);
     if ($hasDraft) {
       // The draft lives in tempstore/state, which carry no cache tag to
       // invalidate on, so an unsaved preview cannot be cached at all.
