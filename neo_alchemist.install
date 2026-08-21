@@ -57,6 +57,7 @@ use Drupal\Core\Entity\Sql\DefaultTableMapping;
 use Drupal\Core\Entity\Sql\SqlEntityStorageInterface;
 use Drupal\neo_alchemist\Entity\ComponentFieldConfig;
 use Drupal\neo_alchemist\Plugin\DataType\ComponentTreeStructure;
+use Drupal\neo_alchemist\Plugin\Field\FieldType\ComponentTreeItem;
 use Drupal\Component\Utility\NestedArray;
 
 /**
@@ -830,4 +831,148 @@ function neo_alchemist_update_11007() {
     '@count' => count($changed),
     '@list' => implode(', ', $changed),
   ]);
+}
+
+/**
+ * Re-key in-flight whole-tree drafts into the shared draft store's key space.
+ *
+ * The collaborative layout draft used to be keyed
+ * "neo_alchemist.<entity id>.<field name>" in state by a key function on the
+ * field item. That function is gone: the draft now lives behind SharedDraftStore
+ * under its own "neo_alchemist_draft." prefix, and the key derivation folds in
+ * the entity type and langcode the old key omitted — fixing the collision where
+ * drafts collided across entity types that share an id and translations of one
+ * entity shared a single draft.
+ *
+ * Splitting the key space would orphan every draft already sitting in state:
+ * unpublished editor work on a live site, not scratch. So this walks the state
+ * keyvalue collection and moves each old whole-tree draft to its new key,
+ * seeding the version and last-modified stamp a pre-metadata record lacks
+ * (SharedDraftStore::seedMigratedRecord()) so it comes across well-formed. The
+ * re-key goes THROUGH the store rather than reconstructing the private key, so
+ * the entity type and langcode are folded in by one derivation for both the
+ * live path and this migration — and because the entity type is not in the old
+ * key, the entity is resolved by matching the field name back to the entity
+ * types that declare it and loading the id against each.
+ *
+ * Preview values are NOT migrated: they are cache-backed disposable scratch
+ * (SdcPreviewStore), never in state, so this never sees them — and losing them
+ * on update is correct, not data loss.
+ *
+ * Conservative by construction:
+ * - Only an exact three-part "neo_alchemist.<id>.<field>" key whose field is a
+ *   real neo_component_tree field is a draft. Other neo_alchemist state — a
+ *   filter's preview entity (five parts), an archived purge (two) — is left
+ *   alone, and the new "neo_alchemist_draft." prefix does not match, so a
+ *   re-run is a no-op.
+ * - A draft whose entity no longer exists is left under its old key, not
+ *   dropped: the content survives for a maintainer even though the entity that
+ *   would render it is gone.
+ * - A draft whose entity type cannot be told apart (the very collision the new
+ *   key fixes, but unresolvable after the fact — two entity types with a
+ *   like-named field and the same id) is left for a maintainer.
+ * - A draft is never written over an entity that already carries a newer draft.
+ *
+ * @see \Drupal\neo_alchemist\EditorState\SharedDraftStore::seedMigratedRecord()
+ */
+function neo_alchemist_update_11008() {
+  $entityTypeManager = \Drupal::entityTypeManager();
+  $entityFieldManager = \Drupal::service('entity_field.manager');
+  /** @var \Drupal\neo_alchemist\EditorState\SharedDraftStore $store */
+  $store = \Drupal::service('neo_alchemist.shared_draft_store');
+  $state = \Drupal::state();
+
+  // field name => [entity type, ...] for every neo_component_tree field. The
+  // old draft key carried the entity id and field name but never the entity
+  // type, so this reverse index is how a draft is matched back to its entity.
+  $fieldTypes = [];
+  foreach ($entityFieldManager->getFieldMapByFieldType('neo_component_tree') as $entityTypeId => $fields) {
+    foreach (array_keys($fields) as $fieldName) {
+      $fieldTypes[$fieldName][] = $entityTypeId;
+    }
+  }
+
+  $migrated = 0;
+  $unresolved = [];
+  $ambiguous = [];
+  $skipped = [];
+
+  foreach (\Drupal::keyValue('state')->getAll() as $key => $value) {
+    // The old whole-tree draft key was exactly
+    // "neo_alchemist.<entity id>.<field name>" — three dot-parts, no uuid. A
+    // field name carries no dots and a content entity id is an integer, so an
+    // exact three-part split parses it unambiguously and skips everything else.
+    if (!str_starts_with($key, 'neo_alchemist.') || !is_array($value)) {
+      continue;
+    }
+    $parts = explode('.', $key);
+    if (count($parts) !== 3) {
+      continue;
+    }
+    [, $entityId, $fieldName] = $parts;
+    if (!isset($fieldTypes[$fieldName])) {
+      continue;
+    }
+
+    // Resolve the entity the draft belongs to across every entity type that
+    // declares a field of this name. More than one may match the same id — the
+    // collision the new key fixes but that cannot be undone after the fact.
+    $items = [];
+    foreach ($fieldTypes[$fieldName] as $entityTypeId) {
+      $entity = $entityTypeManager->getStorage($entityTypeId)->load($entityId);
+      if (!$entity || !$entity->hasField($fieldName)) {
+        continue;
+      }
+      $list = $entity->get($fieldName);
+      // A drafting entity may have no saved field value yet, so append a
+      // transient item purely to derive the store key from the live entity.
+      $item = $list->first() ?? $list->appendItem();
+      if ($item instanceof ComponentTreeItem) {
+        $items[$entityTypeId] = $item;
+      }
+    }
+
+    if (!$items) {
+      $unresolved[] = $key;
+      continue;
+    }
+    if (count($items) > 1) {
+      $ambiguous[] = $key . ' (' . implode(', ', array_keys($items)) . ')';
+      continue;
+    }
+
+    $item = reset($items);
+    // Never overwrite a newer draft written since the deploy.
+    if ($store->has($item)) {
+      $skipped[] = $key;
+      continue;
+    }
+
+    $store->seedMigratedRecord($item, $value);
+    $state->delete($key);
+    $migrated++;
+  }
+
+  $summary = [(string) t('Re-keyed @count in-flight draft(s) into the shared draft store, seeding each with a version and last-modified stamp.', [
+    '@count' => $migrated,
+  ])];
+  if ($unresolved) {
+    $summary[] = (string) t('Left @count draft(s) whose entity no longer exists under their old key rather than drop them: @list.', [
+      '@count' => count($unresolved),
+      '@list' => implode(', ', $unresolved),
+    ]);
+  }
+  if ($ambiguous) {
+    $summary[] = (string) t('Left @count draft(s) whose entity type could not be told apart from the old key alone, to resolve by hand: @list.', [
+      '@count' => count($ambiguous),
+      '@list' => implode(', ', $ambiguous),
+    ]);
+  }
+  if ($skipped) {
+    $summary[] = (string) t('Left @count draft(s) whose entity already carries a newer draft: @list.', [
+      '@count' => count($skipped),
+      '@list' => implode(', ', $skipped),
+    ]);
+  }
+  return implode(' ', $summary);
 }

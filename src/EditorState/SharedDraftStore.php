@@ -147,14 +147,52 @@ final class SharedDraftStore {
       $contributors[] = $uid;
     }
 
-    $this->store->set($this->key($item), [
+    $this->writeRecord($item, [
       'value' => $value,
       'version' => $storedVersion + 1,
       'last_editor' => $uid,
       'last_modified' => $this->time->getRequestTime(),
       'contributors' => $contributors,
     ]);
-    $this->cacheTagsInvalidator->invalidateTags([$this->cacheTag($item)]);
+  }
+
+  /**
+   * Seeds a re-keyed in-flight draft as a well-formed record at this key.
+   *
+   * The re-key migration (neo_alchemist_update_11008) walks the old draft key
+   * space and moves each existing whole-tree draft here. A pre-migration draft
+   * is a bare content array with none of the metadata 03 introduced, so this
+   * wraps it as a record and seeds the version and last-modified stamp it
+   * lacks; the last editor is left unknown (NULL) and the contributor set
+   * empty, because nothing recorded who wrote a draft before it existed.
+   * Version starts at 1: the content is one draft that was written and
+   * persisted, so the next save increments it to 2 and optimistic conflict
+   * detection behaves from there.
+   *
+   * Unlike set(), a migration is not an edit: it does not increment a version,
+   * attribute the current user (uid 0 during an update) or accumulate a
+   * contributor. It keeps set()'s one postcondition — the write invalidates the
+   * preview cache tag — so a migrated draft's preview notices it at once.
+   *
+   * The key is derived here rather than in the update hook, so the migration
+   * re-keys THROUGH the store: it never reconstructs the key the spec made
+   * private, and folding the entity type and langcode in — the collision fix —
+   * happens in one place (discriminator()) for both the live path and the
+   * migration.
+   *
+   * @param \Drupal\neo_alchemist\Plugin\Field\FieldType\ComponentTreeItem $item
+   *   The field item the migrated draft belongs to.
+   * @param array $value
+   *   The pre-migration draft content, moved across unchanged.
+   */
+  public function seedMigratedRecord(ComponentTreeItem $item, array $value): void {
+    $this->writeRecord($item, [
+      'value' => $value,
+      'version' => 1,
+      'last_editor' => NULL,
+      'last_modified' => $this->time->getRequestTime(),
+      'contributors' => [],
+    ]);
   }
 
   /**
@@ -181,7 +219,7 @@ final class SharedDraftStore {
       throw $conflict;
     }
     $this->store->delete($this->key($item));
-    $this->cacheTagsInvalidator->invalidateTags([$this->cacheTag($item)]);
+    $this->invalidate($item);
   }
 
   /**
@@ -332,6 +370,38 @@ final class SharedDraftStore {
    */
   public function cacheTag(ComponentTreeItem $item): string {
     return self::CACHE_TAG_PREFIX . ':' . $this->discriminator($item);
+  }
+
+  /**
+   * Writes a whole record at this store's key and invalidates the preview.
+   *
+   * The two write paths — the versioning set() and the migration seed — differ
+   * only in the metadata they compute; the write itself and its invalidation
+   * postcondition are the same, and live here so neither path can add a key to
+   * the record and forget to write it, nor write without invalidating.
+   *
+   * @param \Drupal\neo_alchemist\Plugin\Field\FieldType\ComponentTreeItem $item
+   *   The field item the draft belongs to.
+   * @param array $record
+   *   The full record: the draft content under 'value' plus its metadata.
+   */
+  private function writeRecord(ComponentTreeItem $item, array $record): void {
+    $this->store->set($this->key($item), $record);
+    $this->invalidate($item);
+  }
+
+  /**
+   * Invalidates the draft preview's cache tag.
+   *
+   * The single point every write and delete routes its invalidation through, so
+   * the guarantee that a draft change always makes the preview notice is
+   * structural — there is one line to get right, not one per mutation.
+   *
+   * @param \Drupal\neo_alchemist\Plugin\Field\FieldType\ComponentTreeItem $item
+   *   The field item the draft belongs to.
+   */
+  private function invalidate(ComponentTreeItem $item): void {
+    $this->cacheTagsInvalidator->invalidateTags([$this->cacheTag($item)]);
   }
 
   /**
