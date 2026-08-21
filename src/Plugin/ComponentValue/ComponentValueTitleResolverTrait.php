@@ -6,6 +6,7 @@ namespace Drupal\neo_alchemist\Plugin\ComponentValue;
 
 use Drupal\Core\DependencyInjection\DependencySerializationTrait;
 use Drupal\neo_alchemist\Shape\ComponentShapePluginInterface;
+use Drupal\Component\Render\PlainTextOutput;
 use Drupal\Core\Controller\TitleResolverInterface;
 use Drupal\Core\Routing\RouteMatchInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
@@ -108,6 +109,16 @@ trait ComponentValueTitleResolverTrait {
       $title = $this->titleResolver->getTitle($this->request, $route);
       if (is_array($title) && isset($title['#markup']) && is_string($title['#markup'])) {
         $title = $title['#markup'];
+      }
+      // A route title is markup, not a string: the common `$this->t('Edit
+      // %label')` form renders `%label` as `<em class="placeholder">…</em>`,
+      // and a TranslatableMarkup is exempt from Twig's autoescaping, so that
+      // markup reaches the page verbatim. Every consumer of this value is a
+      // plain-string prop — a heading, an anchor slug derived from one — which
+      // then interpolates it into an attribute and breaks the tag. Flatten to
+      // the text a reader would see.
+      if ($title !== NULL) {
+        $title = PlainTextOutput::renderFromHtml((string) $title);
       }
     }
     return $title;

@@ -70,6 +70,16 @@ final class ComponentEntity extends ComponentInstanceBase implements ComponentEn
     if ($this->fieldComponent === NULL) {
       $this->fieldComponent = FALSE;
       $fieldItem = $this->getFieldDefinition()->getFieldItem($this->getTargetEntity());
+      // The item above is built fresh off the field config — it is not the item
+      // this instance hangs from, so it starts with preview off no matter what
+      // the caller is doing. Carry the flag across before any component is
+      // resolved from it: the field-scope component supplies this one's default
+      // values, and a value provider that branches on preview (the page-title
+      // ones ask the route for a title when live) would otherwise answer as if
+      // it were rendering the real page while sitting inside the editor's
+      // preview frame. ::getComponent() stamps the flag onto the instance it
+      // builds and then caches it, so setting it later would be too late.
+      $fieldItem->setPreview($this->isPreview());
       $uuid = $this->uuid();
       if ($fieldItem->hasComponent($uuid)) {
         // We load with $noCache to ensure we get the config version of this
