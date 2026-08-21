@@ -105,6 +105,16 @@ trait UrlShapeTrait {
         $value['uri'] = NonLinkingUri::normalize($value['uri']);
       }
 
+      // A link field with no link text stores `title` as NULL, and every
+      // link-shaped prop-def types it as `string` — SDC prop validation
+      // rejects a NULL outright and white-screens the whole page. This is the
+      // norm rather than the exception: UrlShape disables the widget's title
+      // input entirely, and an entity link field bound through a value
+      // provider only carries a title when the site builder enabled one.
+      if (array_key_exists('title', $value) && is_null($value['title'])) {
+        $value['title'] = '';
+      }
+
       // Use target if passed in with the options.
       $value = $this->liftTargetFromOptions($value);
       // Guarantee a value in the target enum. A blank or otherwise invalid

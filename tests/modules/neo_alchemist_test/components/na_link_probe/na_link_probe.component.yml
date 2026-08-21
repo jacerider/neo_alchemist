@@ -1,10 +1,13 @@
 $schema: 'https://git.drupalcode.org/project/drupal/-/raw/10.1.x/core/modules/sdc/src/metadata.schema.json'
 name: 'NA link fixture'
 description: >
-  A single `link` prop, declared the way any component declares one. The Neo
-  Link widget records "open link in new window" as options.attributes.target,
-  and the shape has to hand Twig that choice as a top-level `target` — the key
-  the generated snippet renders into `target="{{ link.target }}"`.
+  One prop of each link-shaped kind, declared the way any component declares
+  them. The Neo Link widget records "open link in new window" as
+  options.attributes.target, and the shape has to hand Twig that choice as a
+  top-level `target` — the key the generated snippet renders into
+  `target="{{ link.target }}"`. Both props share UrlShapeTrait but reach it
+  through different parents, so a guard that lives in the trait has to be
+  proven on each.
 status: stable
 neo: true
 props:
@@ -16,3 +19,9 @@ props:
       examples:
         uri: 'internal:/'
         title: 'Example link'
+    url:
+      type: url
+      title: Url
+      examples:
+        uri: 'internal:/'
+        title: 'Example url'
