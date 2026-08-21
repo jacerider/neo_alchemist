@@ -867,11 +867,28 @@ From [neo_alchemist.services.yml](neo_alchemist.services.yml):
   entity-only (a per-entity draft); `purge` is a field-UI member the entity and block scopes
   both opt out of — it clears field-wide per-entity data, which an entity never owns alone,
   and the block's null-storage host owns none at all, so purge is a structural no-op there
-  (`AlchemistBlockFieldConfig::toUrl()` refuses the `purge` rel to match). Route names are
-  byte-identical to the previous hand-written registrations (including the deleted
-  `neo_alchemist_block.routing.yml`), because the URL generators
-  (`ComponentFieldConfig::toUrl()`, `ComponentField::toUrl()`) still build those names by
-  interpolating the host entity type.
+  (`AlchemistBlockFieldConfig::toUrl()` refuses the `purge` rel to match). **Adding a host
+  scope is one `build()` call from a route subscriber** (the block submodule is the worked
+  example) plus a `linkTemplates()` call where the host carries an `alchemist` link template —
+  no route family is copied and no naming convention is trusted by hand.
+- **The route-name pattern is an invariant, not a convention.** A route name is looked up in
+  two places besides the builder, and each hand-follows the pattern: the **entity scope**
+  through its link templates (`ComponentEntity::toUrl('alchemist.{op}')`, whose
+  `entity.{id}.alchemist.*` names `linkTemplates()` derives from the same table), and the
+  **field-UI and block scopes** through the URL generators `ComponentField::toUrl()` /
+  `ComponentFieldConfig::toUrl()`, which interpolate the host entity type into
+  `entity.{id}.field_ui.alchemist.*` by hand. A route registered under any other name would be
+  unreachable by that lookup, so the builder reproduces exactly these names — byte-identical to
+  the previous hand-written registrations, including the deleted `neo_alchemist_block.routing.yml`.
+  `EditorRouteFamily::routeName()` is the single producer of the **registered** names; the
+  generators are still a second, independent producer of the same strings on the lookup side
+  (routing them through `routeName()` is later work in this effort), which is exactly why the
+  pattern has to be an invariant rather than a convention. The deleted block YAML carried this
+  rule only as a top-of-file prose comment; it now lives in code, and the kernel tests
+  (`CrossScopeOpParityTest` pins the pattern; `EditorOpInventoryUrlTest` and
+  `MoveAndLibraryPositionUrlTest` generate a real URL for every op in every scope) turn any
+  drift between a registered name and a looked-up one into a red test rather than a user's
+  failed click.
 - **The entity-scope link templates derive from the same table.**
   `neo_alchemist_entity_type_alter()` puts one `alchemist.{op}` link template on a host
   entity type per entity-scope op — so an entity can address any op through
@@ -893,8 +910,8 @@ From [neo_alchemist.services.yml](neo_alchemist.services.yml):
   its options through, so `before`/`after`/`parent` ride as query parameters on the
   generated URL. Both go through `Url::fromRoute()` / `Entity::toUrl()`, so path processing
   applies. `MoveAndLibraryPositionUrlTest` pins the URL each produces in the entity, field-UI
-  and block scopes, including under a non-standard base path. (The client still concatenates
-  today — reading the URL off the op is phase two.)
+  and block scopes, including under a non-standard base path. This is what lets the op carry
+  its own URL — the client reads it off the op rather than concatenating (see below).
 - **The editor's op vocabulary is one table** —
   [src/Routing/EditorOpInventory.php](src/Routing/EditorOpInventory.php) (records as
   [src/Routing/EditorOp.php](src/Routing/EditorOp.php)). The eight ops the editor offers on a
@@ -907,8 +924,9 @@ From [neo_alchemist.services.yml](neo_alchemist.services.yml):
   string and renaming an op is a one-place change. Each op's `rel` is a member op the route
   family registers, cross-checked at the kernel level (`EditorOpInventoryUrlTest`), so an op
   cannot name a route no scope serves. Icons live here, not on the per-component emission,
-  because the chrome is rendered once and reused across selections. (The chrome does not read
-  this table yet — the chrome iterating it is a later phase-two ticket.)
+  because the chrome is rendered once and reused across selections. Both consumers now read
+  this table — the per-component emission (below) copies each op's label/verb/position from
+  it, and the editor chrome iterates it (below).
 - **The component emits each op as a record** — `Component::getEditorOps()`
   ([src/Entity/Component.php](src/Entity/Component.php)), stamped into the `data-component`
   attribute by `prepareRenderableForPreview()`. Where the component used to emit a flat map of
@@ -937,6 +955,17 @@ From [neo_alchemist.services.yml](neo_alchemist.services.yml):
   which builds no URL. This removes the runtime hyphen-split that inferred a verb/position from
   the op id, so a non-standard base path, a language prefix or an alias is now correct by
   construction rather than by base-URL string compatibility.
+- **The editor chrome iterates the inventory.**
+  `template_preprocess_neo_alchemist_overlay()` no longer names the eight ops; it projects
+  `EditorOpInventory::ops()` through `_neo_alchemist_overlay_ops()` into the three surfaces the
+  overlay template loops over — the bottom bar's verb group and positional group, and the two
+  outline edge clusters — deciding verb-vs-positional and top-vs-bottom edge from each record's
+  own `position`/`direction`, never from its id. Adding an op is a single inventory row, with no
+  preprocess or template edit; `EditorChromeIteratesInventoryTest` proves a synthetic row
+  produces a button in the right place. The buttons carry an inert `<current>` placeholder URL
+  (a `#type => link` needs a `#url` to render as an `<a>`, but the static chrome is reused across
+  selections and the client reads the real per-selection URL off the op record); the add/move
+  colour-ramp classes stay in the Twig so the neo build still scans them.
 
 ---
 

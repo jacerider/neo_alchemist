@@ -1,34 +1,24 @@
 # Changelog
 
-## The editor client reads each op's URL instead of building it
+## Editor ops and routes become one table — BREAKING for custom editor JavaScript
 
-The editor's TypeScript (`src/js/components-parent.ts`) no longer constructs its
-nine request URLs by string-concatenation off
-`drupalSettings.neoAlchemist.baseUrl`, and no longer infers a verb/position by
-splitting an op id on a hyphen at runtime. Every per-component op now reads the
-`url` the server already emits on its record (see the breaking-change entry
-below); the toolbar Add/Sort actions read their action link's own
-server-generated `href`; a seam insertion point reads its sibling component's
-add-before/add-after record URL. A genuinely client-side parameter — the
-container an add/move lands in, the region and component a sort is scoped to — is
-appended as a **query** parameter through the URL API, never as a path segment.
+The eight operations the editor offers on a component — edit, delete, sort,
+clone, add before/after, move up/down — and the routes, link templates and op
+vocabulary behind them used to be written four times across PHP, Twig and
+TypeScript, with nothing checking the four derivations still agreed. They are now
+**one table**: a route-family builder each host scope calls, an op inventory the
+chrome and the component both read, and a link-template set derived from the same
+source. Adding an operation is one row; adding a host scope is one call.
 
-Because the paths are now generated server-side, a site with a **non-standard
-base path, a language prefix or a path alias** stops being a source of broken
-editor requests — the case the old concatenation got wrong. `baseUrl` survives
-only as the layers-panel storage key, which builds no URL.
+Almost all of it is an internal refactor with no outward effect. The **one thing
+a site can act on is the editor's `data-component` payload**, so it leads.
 
-**No PHP, route-name, path or stored-data change; no update hook.** This is an
-internal change to the module's own client — it reads what the server already
-emitted after the breaking payload change below, so a site that had no custom
-editor JavaScript sees no difference.
-
-## BREAKING (editor JavaScript): the component emits editor ops as records, not booleans
+### BREAKING (editor JavaScript): the component emits editor ops as records, not booleans
 
 **This concerns only sites with custom JavaScript that reads the editor's
-`data-component` attribute (or builds editor URLs from
-`drupalSettings.neoAlchemist.baseUrl`). A PHP-only consumer is unaffected — no
-PHP signature, route name, path or stored data changes.**
+`data-component` attribute, or that builds editor URLs from
+`drupalSettings.neoAlchemist.baseUrl`. A PHP-only consumer is unaffected — no PHP
+signature, route name, path or stored data changes.**
 
 The component used to stamp the editor's eight ops into `data-component` as a
 flat map of booleans (`{"edit": true, "move-up": false, …}`) and let the client
@@ -40,48 +30,74 @@ infer everything else. Each op now crosses that seam as a **record**:
 ```
 
 The server resolves each op's URL through its own generator (so path processing,
-language prefixes and aliases apply) and copies the op's label/verb/position
-from the one op vocabulary (`EditorOpInventory`). Custom JS that tested
-`ops[op]` for truthiness will now treat **every** op as permitted, because a
-record is always truthy — read `ops[op].permitted` instead. The module's own
-client is updated in step: its show/hide pass and its op-execute gate read
-`permitted`.
+language prefixes and aliases apply) and copies the op's label/verb/position from
+the one op vocabulary (`EditorOpInventory`). Custom JS that tested `ops[op]` for
+truthiness will now treat **every** op as permitted, because a record is always
+truthy — read `ops[op].permitted` instead. The module's own client is updated in
+step: its show/hide pass and its op-execute gate read `permitted`.
 
 **The attribute keeps its name and location**; only the structure inside it
 changes. **Access decisions are identical** — the same access calls in the same
 order — and move up / move down keep their strict position comparison, so an
-unknown position still withholds the op. **No stored-data change, no update
-hook.** Before updating a site, grep its custom modules and themes for
-`data-component` and `drupalSettings.neoAlchemist`; on this site there are none.
+unknown position still withholds the op.
 
-Additive alongside it: the entity-scope `library` and field-UI/block-scope
-`clone` rels gained the server-side URL arms the emission needs to address every
-op in every host scope.
+### Before you update a site
 
-## The `move` and library-position editor paths gain server-side URL generation
+Two things are invisible to PHP static analysis and to every test, so audit them
+by hand before updating:
+
+- **Custom JavaScript reading the `data-component` attribute.** It now finds a map
+  of records where it used to find a map of booleans. A truthiness test
+  (`if (ops[op])`) now passes for every op — read `ops[op].permitted`, and read the
+  op's URL off `ops[op].url` rather than building it.
+- **Anything reading `drupalSettings.neoAlchemist.baseUrl` to build editor URLs.**
+  Each op now carries its own server-generated URL; the base URL is no longer how
+  you construct one.
+
+`grep -r data-component` and `grep -r drupalSettings.neoAlchemist` over a site's
+custom modules and themes surfaces both. On this site there are none.
+
+### The editor client reads each op's URL instead of building it
+
+The editor's TypeScript (`src/js/components-parent.ts`) no longer constructs its
+nine request URLs by string-concatenation off
+`drupalSettings.neoAlchemist.baseUrl`, and no longer infers a verb/position by
+splitting an op id on a hyphen at runtime. Every per-component op now reads the
+`url` the server emits on its record (above); the toolbar Add/Sort actions read
+their action link's own server-generated `href`; a seam insertion point reads its
+sibling component's add-before/add-after record URL. A genuinely client-side
+parameter — the container an add/move lands in, the region and component a sort is
+scoped to — is appended as a **query** parameter through the URL API, never as a
+path segment.
+
+Because the paths are now generated server-side, a site with a **non-standard
+base path, a language prefix or a path alias** stops being a source of broken
+editor requests — the case the old concatenation got wrong. `baseUrl` survives
+only as the layers-panel storage key, which builds no URL.
+
+### The `move` and library-position editor paths gain server-side URL generation
 
 Two of the editor's paths had no server-side URL generator: **move** (append a
 component in a direction) and **library with a position** (add before/after a
 sibling, optionally within a parent). They existed only as client string
-concatenation off a base URL, which bypasses path processing — a site with a
-non-standard base path, a language prefix or an alias got a URL the server would
-not have produced. Both are now addressable through the URL generator in every
-host scope:
+concatenation off a base URL. Both are now addressable through the URL generator
+in every host scope, which is what lets each op carry its own URL for the client
+to read:
 
 - **`move`** is a component-instance rel — `$instance->toUrl('move', ['direction'
   => 'up'])` (`ComponentEntity` in the entity scope; `ComponentField` in the
   field-UI and block scopes) — carrying the direction as a path parameter and an
   optional `parent` through the query.
-- **`library`** now passes its options through, so a `before`/`after` position
-  and an optional `parent` ride as query parameters on the generated URL
+- **`library`** now passes its options through, so a `before`/`after` position and
+  an optional `parent` ride as query parameters on the generated URL
   (`ComponentTreeItem`/`ComponentFieldConfig`, the block scope deferring to the
   latter).
 
-**No stored-data change, no update hook, no route-name change**; this is purely
-additive URL-generation surface. The editor client is unchanged in this release
-and still concatenates today — reading the URL off the op is a later change.
+Additive alongside these: the entity-scope `library` and field-UI/block-scope
+`clone` rels gained the server-side URL arms the emission needs to address every
+op in every host scope.
 
-## The editor's `alchemist.region` link template and rel are removed
+### The editor's `alchemist.region` link template and rel are removed
 
 The entity-scope editor link templates now derive from the same table as the
 routes (`EditorRouteFamily`), so a path lives in one place. Two mismatches that
@@ -91,14 +107,37 @@ table exposed are resolved:
   `ComponentEntity::toUrl('region')` generator arm are gone. No route was ever
   registered for it, so asking an entity for that URL
   (`$entity->toUrl('alchemist.region')`) raised a route-not-found error rather
-  than returning one. Nothing in this repository called that rel; custom code
-  that did was already erroring, and should drop the call.
+  than returning one. Nothing in this repository called that rel; custom code that
+  did was already erroring, and should drop the call.
 - **`alchemist.move` is added** — the move route already existed but had no link
   template, so it was previously only reachable by a hand-built path. It is now a
   first-class rel like every other op.
 
-**No stored-data change, no update hook.** Every other route name, path and link
-template is byte-identical to before.
+### Internal: one table behind the routes, the ops and the chrome
+
+No outward change, but the shape a maintainer edits is different:
+
+- The **route family** (`EditorRouteFamily`) replaces 24 hand-written route
+  registrations in the module's route subscriber and the neo_alchemist_block
+  submodule's 160-line mirrored `neo_alchemist_block.routing.yml` (now deleted).
+  Each host scope — entity, field-UI, block — is one `build()` call.
+- The **block scope's purge opt-out is now a declared decision, not a silent
+  omission.** The field-UI scope has a purge route and the block scope does not —
+  the deleted YAML left that unexplained. The table records it with its reason
+  (purge clears field-wide per-entity layout rows, which a null-storage block host
+  never owns), and a cross-scope parity test (`CrossScopeOpParityTest`) fails if any
+  scope's route set drifts from what the table declares. **No route was added to the
+  block scope**; the decision was to keep the opt-out, now on the record.
+- The **op vocabulary** (`EditorOpInventory`) declares each op's verb, position or
+  direction, route rel, label and icon once. The editor chrome
+  (`template_preprocess_neo_alchemist_overlay()`) and the per-component emission
+  both read it instead of restating the eight ops; the client-side hyphen-split
+  that used to infer a verb/position from an op id is gone.
+
+**Route names, paths and link templates other than those named above are
+byte-identical to before**, so routing, URL generation and any configuration
+referencing a route are unaffected. **No stored data changes meaning; no update
+hook.**
 
 ## "Only use published entities" now reaches every level of a mapping
 

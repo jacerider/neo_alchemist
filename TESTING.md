@@ -536,8 +536,14 @@ examples instead.
 
 ### Not yet covered
 
-- **Functional/browser coverage.** The suite is Unit + Kernel only; the
-  editor routes, forms and JS are untested.
+- **Functional/browser coverage.** The suite is Unit + Kernel only. The editor
+  **route family, op inventory, per-op emission and chrome projection are now
+  covered at Unit/Kernel level** — the `Editor*`/`*RouteFamily`/`CrossScopeOpParity`
+  cluster above asserts which ops each host scope offers, what each resolves to,
+  and how the chrome lays them out, all without a browser. What remains untested is
+  the editor's **JavaScript runtime in a browser** (clicking each op in each scope,
+  drag/drop, and the non-standard-base-path case end to end — the manual pass the
+  editor-op PR lists) and the **admin forms**.
 - **Slot-plugin access.** `EntitySlot`, `EntityDisplay` and `EntityFieldSlot`
   render entities/fields with no view-access check and no cacheability
   (compare `BlockPluginSlot`, which does it right). A security-adjacent
