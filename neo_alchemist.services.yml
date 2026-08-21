@@ -179,9 +179,12 @@ services:
       - '@plugin.manager.field.formatter'
       - '@module_handler'
 
+  neo_alchemist.editor_route_family:
+    class: Drupal\neo_alchemist\Routing\EditorRouteFamily
+
   neo_alchemist.route_subscriber:
     class: Drupal\neo_alchemist\EventSubscriber\RouteSubscriber
-    arguments: ['@entity_type.manager', '@entity_field.manager']
+    arguments: ['@entity_type.manager', '@entity_field.manager', '@neo_alchemist.editor_route_family']
     tags:
       - { name: event_subscriber }
 

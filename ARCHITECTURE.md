@@ -846,6 +846,20 @@ From [neo_alchemist.services.yml](neo_alchemist.services.yml):
   `ComponentPreviewController` (renders a saved component). Component management UI is
   under `/admin/config/neo/alchemist` (see [neo_alchemist.routing.yml](neo_alchemist.routing.yml)
   and `src/Form/` / `src/Controller/`).
+- **The editor's op/route family is one table** —
+  [src/Routing/EditorRouteFamily.php](src/Routing/EditorRouteFamily.php). It owns the
+  op → (path suffix, controller, access requirement, options) mapping once; a host scope
+  is one `build()` call (entity type id, path prefix, base parameters/options, shared
+  defaults, op subset). [src/EventSubscriber/RouteSubscriber.php](src/EventSubscriber/RouteSubscriber.php)
+  calls it twice — the **entity scope** (`entity.{id}.alchemist.*`, off the host's
+  `alchemist` link template, gated on that template) and the **field-UI scope**
+  (`entity.{id}.field_ui.alchemist.*`, off the field-UI base route). The per-field members
+  register only when the host carries a `neo_component_tree` field; the management landing
+  always does. Scopes differ deliberately and the table says how: `publish`/`revert`/`reset`
+  are entity-only (a per-entity draft), `purge` is field-UI-only (field-wide stored data).
+  Route names are byte-identical to the previous hand-written registrations, because the
+  URL generators (`ComponentFieldConfig::toUrl()`, `ComponentField::toUrl()`) still build
+  those names by interpolating the host entity type.
 
 ---
 
