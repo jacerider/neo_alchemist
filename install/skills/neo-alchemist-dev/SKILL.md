@@ -41,6 +41,61 @@ components and **transient previews** built from the SDC's `examples` via
 | Services | `neo_alchemist.services.yml` |
 | Submodules | `modules/` — `neo_alchemist_block` (config-entity trees as blocks), `neo_alchemist_menu` (mega menu component-region items — see the **neo-alchemist-menu** skill), `neo_alchemist_taxonomy` (per-hierarchy-level term layouts via a `level` third-party setting on tree fields), `neo_alchemist_examples`, `neo_alchemist_library` |
 
+## Source layout — where a class goes (`src/` root vs subsystem dirs)
+
+`src/` root holds 31 files; eight **subsystem directories** hold the cohesive clusters that
+used to sit at root. Names are never shortened to match the directory —
+`Access/ComponentAccessCheck`, not `Access/Check`. Full reasoning and the core-convention
+evidence: **ADR-0001** (`docs/adr/0001-neo-alchemist-src-subsystem-directories.md`).
+
+| Subsystem dir | Holds |
+|---|---|
+| `Shape/` (33) | the `ComponentShape*` classes + `ChildShapeState`, `ChildOptionPolicy`, `NestedOptionMap`, `ShapeScopedStoreTrait` — their `Child*` / `*Shape*` names are Shape internals, **not** children-matching |
+| `ChildrenMatch/` (16) | every `ChildrenMatch*` class, interface and handler |
+| `Access/` (14) | the 7 `ComponentAccess*` **plugin** classes + the 7 route-access checks (`*AccessCheck`) that gate them |
+| `Value/` (8) | every `ComponentValue*` — base, interfaces, managers, panel builder, processing-mode interface |
+| `Filter/` (8) | every `ComponentFilter*` |
+| `ConfiguredPlugin/` (8) | the `ConfiguredPlugin*` interface / manager base / wrapper interface / trait + the 4 Kind classes (`AccessKind`, `FilterKind`, `ConfiguredPluginKindInterface`, `ConfiguredPluginKindRepository`) |
+| `Slot/` (7) | every `ComponentSlot*` |
+| `Match/` (5) | `MatcherBase`, `MatcherField`, `MatcherReference`, `FieldMatchLocator`, `FieldFormatterTrait` |
+
+A subsystem's **own plugin manager lives in its directory** (`Shape/ComponentShapePluginManager`,
+`Value/ComponentValuePluginManager`, `Access/ComponentAccessPluginManager`, …). Only the
+cross-cutting managers stay at root: `ComponentPluginManager`, `ComponentPropDefPluginManager`,
+`ComponentGroupPluginManager`, `ComponentSizePluginManager`.
+
+**Root (31) is the entity family Drupal core keeps at root, plus genuine one-offs — not a
+leftover pile:**
+
+- **Entity interfaces** (`ComponentInterface`, `ComponentEntityInterface`,
+  `ComponentFieldInterface`, `ComponentFieldConfigInterface`, `ComponentInstanceInterface`)
+  — their **implementations** live in `Entity/`.
+- **Entity handlers / infra**: `ComponentStorage`, `ComponentListBuilder`,
+  `ComponentAccessControlHandler`, `NeoAlchemistServiceProvider`.
+- the four cross-cutting managers, the three unrelated `ComponentProp*` classes, and
+  one-offs (`ComponentUsage`, `ComponentPreviewBuilder`, `PreviewPropMapBuilder`,
+  `ThemeComponentInstaller`, `SdcThumbnailWriter`, the two `Views*Twig` helpers, …).
+
+### Placing a new class — apply in priority order
+
+1. **Core convention wins.** If Drupal core files this family at root (entity handler,
+   storage, list builder, entity interface, service provider — check `node`/`media`), it
+   stays at root **even when a same-named subsystem dir exists**. This is why
+   `ComponentAccessControlHandler` is at root next to `Access/`, and why the entity
+   interfaces are at root while `Entity/` holds their classes. **Do not "tidy" these in** —
+   ADR-0001 exists to answer the reader who thinks they were forgotten.
+2. **Else the subsystem dir holds the whole subsystem** — interface, base, manager,
+   factory and implementation together. A new `ComponentSlot*` goes in `Slot/`; a new
+   `ChildrenMatch*` handler goes in `ChildrenMatch/` (the rule the ten pipeline handlers
+   missed by defaulting to root).
+3. **Never rename to match the directory.** The name keeps its full prefix.
+4. **A shared prefix is not coupling.** No call graph → stays at root (why the three
+   `ComponentProp*` classes are not a `Prop/` dir).
+
+> ⚠ The `src/Plugin/Component{Shape,Value,Filter,Slot,Access}/` **plugin** namespaces are
+> discovery-relevant and do **not** move — only the bases and interfaces those plugins
+> extend live in the subsystem dirs above.
+
 ## The shape system (the main extension surface)
 
 A prop `type:` in a `.component.yml` (`heading`, `image`, `scheme`, …) is backed by a
