@@ -461,17 +461,40 @@ usable default; it is already the shipped default for the producers that fill th
 `taxonomy_siblings`, `entity_reference`, `breadcrumb`), and
 `neo_alchemist_update_11003()` migrated existing components onto it.
 
-Modifiers always run afterward regardless. Mechanics:
+Modifiers always run afterward regardless.
 
-- **Claim** = halt the producer search. `ComponentValuePluginInterface::claimValue()`
-  (semantic alias of `stopFurtherProcessing()`; check with `hasClaimedValue()`).
-- The claim decision is centralized: a producer `implements
-  ComponentValueProcessingModeInterface` + `use ComponentValueProcessingModeTrait`, and
-  the pipeline calls `applyProcessingMode($value)`, claiming per the chosen mode +
-  `ComponentShapePluginInterface::isProvidedValueEmpty()` (shared "found vs empty" test:
+**The provide phase is one collaborator.**
+[`ValueProviderSearch`](src/ValueProviderSearch.php) is handed the ordered producers, the
+seed and the shape, and returns the value the phase settled on — the seed threading, the
+empty-versus-claimed test and the break all live in its one `search()` method, and it
+holds no state. `ComponentShapePluginBase::computeDefaultValue()` resolves the seed, calls
+it, and keeps none of the branches. Testing the pipeline's central rule no longer needs a
+container: the search takes a list, a seed and a shape, so every ordering, claim, veto,
+fall-through and block case is expressible against a handful of producers built as
+three-line fakes ([`ValueProviderSearchTest`](tests/src/Unit/ValueProviderSearchTest.php)).
+
+**A producer returns an outcome; it holds no claim state.** A producer answers
+`provide($value)` with a [`ComponentValueProvision`](src/Value/ComponentValueProvision.php)
+— `offer($value)` ("here is my value; let the mode decide its fate") or `claim($value)`
+("this value is authoritative; halt the search and keep it, even if empty"). A producer
+that came up empty *abstains* by offering the value it was handed, so the search carries
+the threaded value past instead of destroying it. The provision is immutable and the
+instance carries nothing between passes, so the same producer run across two props cannot
+leak a claim from the first into the second. This replaced a mutable `claimed` boolean on
+the long-lived plugin and the five interface methods that managed it — `claimValue()`,
+`stopFurtherProcessing()`, `hasClaimedValue()` among them — which is why the old
+"re-fetch the instance list to reset the flag" side effect is gone: there is nothing left
+to reset. Mechanics:
+
+- **The mode decides for an unclaimed offer.** For each producer the search reads the
+  provision's value; if the provision did not already claim and the producer `implements
+  ComponentValueProcessingModeInterface` (+ `use ComponentValueProcessingModeTrait`) it
+  asks `claimsValue($value)`, which answers per the chosen mode +
+  `ComponentShapeValueInterface::isProvidedValueEmpty()` (shared "found vs empty" test:
   an array is empty once the `size` sentinel seeded by `media_image_size` is discounted;
   a scalar is empty only when `NULL` or `''`, so a legitimate `0`/`'0'`/`FALSE` still
-  counts as found). Producers no longer hard-code the claim.
+  counts as found). An empty, unclaimed result leaves the threaded value standing; a
+  claim stops the search.
 - **`default`** (weight 1000, group `fallback`) only fills when the value is still
   empty *or is still the untouched schema example*, so a non-claiming producer's value
   survives to render while a site builder's configured default still supersedes the
@@ -479,12 +502,13 @@ Modifiers always run afterward regardless. Mechanics:
   configured Default Value must not put its producer on block, or the default never gets
   a turn.
 - Three kinds of producer claim for themselves, and they are the whole list. **Veto**
-  producers (`user_has_role`, `entity_has_value`) opt out of the mode; they
-  `claimValue()` explicitly and return `FALSE`. **`default`** claims once it has filled,
-  so clearing a configured default cannot fall back to the component author's example.
-  **`event`** does use the mode, and additionally raises the claim when a subscriber
-  called `$event->stopFurtherProcessing()` — a veto from code that has already seen the
-  value outranks the mode a site builder picked in the form.
+  producers (`user_has_role`, `entity_has_value`) opt out of the mode; their `provide()`
+  returns `ComponentValueProvision::claim(FALSE)` when the gate fails and `offer($value)`
+  when it passes. **`default`** claims once it has filled, so clearing a configured
+  default cannot fall back to the component author's example. **`event`** does use the
+  mode, and additionally raises the claim when a subscriber called
+  `$event->stopFurtherProcessing()` — a veto from code that has already seen the value
+  outranks the mode a site builder picked in the form.
 
 **Entity-field matching** — the `entity` producer sources a prop straight from an entity
 field via `ComponentValueMatchTrait`. Its `field` select takes a matcher key (a dotted
@@ -502,19 +526,19 @@ would have without a fallback configured.
 **Children-match pseudo-fields** — producers that map entity fields onto child shapes
 (`entity_reference`, `entity_query`, `entity_load`, `entity_filter`, `views`, …) share the
 `neo_alchemist.children_match_mapper` service
-([src/ChildrenMatchMapper.php](src/ChildrenMatchMapper.php)) and implement
-[ChildrenMatchSourceInterface](src/ChildrenMatchSourceInterface.php) — two methods:
+([src/ChildrenMatch/ChildrenMatchMapper.php](src/ChildrenMatch/ChildrenMatchMapper.php)) and implement
+[ChildrenMatchSourceInterface](src/ChildrenMatch/ChildrenMatchSourceInterface.php) — two methods:
 `getChildrenMatchEntities()` resolves the entities to iterate, and
 `buildChildrenMatchSourceForm()` builds the controls that configure how they are found and
-returns the [ChildrenMatchScope](src/ChildrenMatchScope.php) the mapping table binds
+returns the [ChildrenMatchScope](src/ChildrenMatch/ChildrenMatchScope.php) the mapping table binds
 against. A source that also contributes field choices of its own (only `views` does, for
 the columns a view renders that are not fields on the row's entity) implements
-[ChildrenMatchFieldSourceInterface](src/ChildrenMatchFieldSourceInterface.php) and
+[ChildrenMatchFieldSourceInterface](src/ChildrenMatch/ChildrenMatchFieldSourceInterface.php) and
 **registers its own handler** through `getChildrenMatchHandlers()`. A handler's name is
 the prefix it claims, so anything no handler claims falls through to the field matcher,
 which is what keeps `_entity:*` working on a views mapping.
 `getChildrenMatchEntities()` returns a
-[ChildrenMatchResult](src/ChildrenMatchResult.php), and choosing among its three
+[ChildrenMatchResult](src/ChildrenMatch/ChildrenMatchResult.php), and choosing among its three
 constructors is the whole of a source's render-time contract: `unavailable()` (nothing
 configured — the threaded value stands), `of()` (these entities; an empty list still maps,
 which for a non-iterable shape yields the per-child empty map that hides an unbound child)
@@ -544,7 +568,7 @@ fields, `_`-prefixed pseudo-fields:
 when iterating media entities, e.g. a media reference field as the iteration source;
 bundle support is checked strictly at fetch time and the value comes from the shape's
 `getValueFromMedia()`). Each pseudo-field is **one handler class** implementing
-[ChildrenMatchHandlerInterface](src/ChildrenMatchHandlerInterface.php) — it owns its
+[ChildrenMatchHandlerInterface](src/ChildrenMatch/ChildrenMatchHandlerInterface.php) — it owns its
 option, its form branch and its fetch together, so the three cannot drift — and the mapper
 finds them through a name-keyed map, never string concatenation or `method_exists()`. A
 name that is in no handler's map is not a pseudo-field. The mapper is the **single** place the "Only use published
@@ -787,10 +811,10 @@ From [neo_alchemist.services.yml](neo_alchemist.services.yml):
   back out of that panel and returns the props structure. The instance editor feeds the result
   to the placed instance's stored values, the SDC preview workspace to its preview overrides;
   everything before that point is shared.
-- **`neo_alchemist.children_match_mapper`** → [ChildrenMatchMapper](src/ChildrenMatchMapper.php) —
+- **`neo_alchemist.children_match_mapper`** → [ChildrenMatchMapper](src/ChildrenMatch/ChildrenMatchMapper.php) —
   the whole children-match mapping (the Property/Source table, the pseudo fields, the
   published policy, delta-list versus property-map). Producers supply only the entities to
-  iterate, through [ChildrenMatchSourceInterface](src/ChildrenMatchSourceInterface.php). See
+  iterate, through [ChildrenMatchSourceInterface](src/ChildrenMatch/ChildrenMatchSourceInterface.php). See
   "Children-match pseudo-fields" above.
 - **Matchers** — `neo_alchemist.matcher_field` → `MatcherField` (resolves a stored field key
   against an entity) and `neo_alchemist.matcher_reference` → `MatcherReference` (lists and
@@ -878,19 +902,58 @@ From [neo_alchemist.services.yml](neo_alchemist.services.yml):
   `src/Plugin/Component*/` dir with the matching `#[Component*]` attribute; it's
   auto-discovered by its manager. Slots/filters/access surface in the component edit UI.
 - **A ComponentValue *producer*** (yields a prop value from an entity/query/etc.) — as
-  above, plus `implements ComponentValueProcessingModeInterface; use
-  ComponentValueProcessingModeTrait;`. Declaring the interface is the whole wiring:
-  `ComponentValuePluginBase` merges the mode's default configuration and appends its
-  form select itself, so a producer no longer appends
+  above, plus `implements ComponentValueProducerInterface, ComponentValueProcessingModeInterface;
+  use ComponentValueProcessingModeTrait;`.
+  [`ComponentValueProducerInterface`](src/Value/ComponentValueProducerInterface.php) is the
+  marker that makes the plugin a producer: `childHasOwnValueProvider()` and the provider
+  search select on the *type* rather than the `group` string, so a plugin filed under
+  another group for the form's sake no longer silently drops out of the role (the silent
+  failure the architecture review warned of). `isValueProducer()` keeps a compatibility
+  shim — the marker interface **or** the old `'providers'` group — so an external producer
+  that predates the marker still counts (the shim only ever answers for those). Declaring
+  `ComponentValueProcessingModeInterface` is
+  the whole wiring for the mode: `ComponentValuePluginBase` merges the mode's default
+  configuration and appends its form select itself, so a producer no longer appends
   `processingModeDefaultConfiguration()` to `defaultConfiguration()` or calls
-  `buildProcessingModeForm()` by hand. Then
-  just produce the value (return the incoming `$value` when you can't act — a producer
-  on the mode does not `claimValue()`/`stopFurtherProcessing()` itself; the pipeline
-  claims per the mode). The producers that do claim for themselves are inventoried under
-  "ComponentValue processing model"; adding a fourth means saying why there.
-  Override `processingModeDefault()` to change the default mode. See "ComponentValue
-  processing model". A *modifier* instead implements `modifyValue()`/`alterValue()` and
-  never claims.
+  `buildProcessingModeForm()` by hand. Then just produce the value (return the incoming
+  `$value` when you can't act). A producer does **not** manage a claim: the base's
+  `provide()` offers the produced value into the search and the site builder's mode decides
+  whether it claims. A producer that must claim itself — a veto — overrides `provide()` to
+  return `ComponentValueProvision::claim(…)`; the three that do are inventoried under
+  "ComponentValue processing model", and adding a fourth means saying why there. Override
+  `processingModeDefault()` to change the default mode. A producer that reads more of its
+  shape than the narrow `ComponentValueShapeInterface` handle (schema, tree, form) overrides
+  `getShape(): ComponentShapePluginInterface` — see "The shape's roles" (mind the word
+  order: `ComponentValueShapeInterface` is the producer's *handle*; `ComponentShapeValueInterface`
+  is the *value role* it folds in). A *modifier*
+  instead implements `modifyValue()`/`alterValue()`, carries no producer marker and no mode,
+  and never claims.
+- **A children-match producer** (maps an entity's fields onto a prop's child shapes — list
+  or aggregate props, as `entity_query`, `entity_reference`, `views` do) — the producer
+  above, plus implement
+  [ChildrenMatchSourceInterface](src/ChildrenMatch/ChildrenMatchSourceInterface.php): two
+  methods, `getChildrenMatchEntities()` (return a
+  [ChildrenMatchResult](src/ChildrenMatch/ChildrenMatchResult.php) — the entities to
+  iterate, or `unavailable()` / `emptyValue()`) and `buildChildrenMatchSourceForm()` (the
+  controls that find them, returning a
+  [ChildrenMatchScope](src/ChildrenMatch/ChildrenMatchScope.php) the Property → Source
+  table binds against). Inject and call the `neo_alchemist.children_match_mapper` service
+  for the mapping itself — iterability, list-versus-property-map, the pseudo-field handlers
+  and the single "Only use published entities" filter. It is a container-constructed
+  **service**, not a trait mixed in: the three collaborators it needs are wired once, so a
+  source cannot omit one and fatal on a particular mapping path — the shape of the reported
+  `views` defect this work made structurally impossible. Test a source against a fake
+  returning a fixed entity list; no views execution or entity query needed.
+- **A children-match pseudo-field** (a `_`-prefixed option in the Property → Source table —
+  `_reference`, `_render`, `_expand`, …) — add one class implementing
+  [ChildrenMatchHandlerInterface](src/ChildrenMatch/ChildrenMatchHandlerInterface.php) and
+  register it from the source's `getChildrenMatchHandlers()` (the source then also
+  implements
+  [ChildrenMatchFieldSourceInterface](src/ChildrenMatch/ChildrenMatchFieldSourceInterface.php)).
+  One class owns the option it offers for a shape, its form branch and its fetch together,
+  so the three can no longer drift into a form advertising a mapping the render path cannot
+  service — the drift that produced the reported white screen. The option strings stored in
+  `shape_fields` are unchanged, so a new handler needs no update hook.
 - **Per-item data on the `menu` value provider** — implement
   `hook_neo_alchemist_menu_value_item_alter(&$entry, $item, $shape)` (documented in
   [neo_alchemist.api.php](neo_alchemist.api.php)). Extra `$entry` keys flow through the

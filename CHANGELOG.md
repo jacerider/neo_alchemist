@@ -40,6 +40,121 @@ that maps only plain fields, or that unticked the setting, is unaffected.
 **No update hook, no stored-data change.** The setting already exists at the
 provider root and already defaults to TRUE; only the reach of the value changes.
 
+## Producers return an outcome, and the children-match trait becomes a service
+
+**Breaking — for code outside this module that writes ComponentValue plugins.**
+This is the largest change to the module's published interfaces in its history.
+It touches no stored data except one provider (`read_time`, below). If nothing
+outside `neo_alchemist` implements a ComponentValue plugin, there is nothing to
+change; read "Before you update" for how to be sure.
+
+A prop's value is resolved by running its providers in order and deciding which
+one's value wins. That decision used to be a mutable `claimed` boolean each
+provider flipped on itself — a flag living on a plugin instance that outlives
+the call, exposed as five of the methods on the ComponentValue plugin interface.
+A stale flag from one prop could in principle reach another, and a developer
+writing a provider could get the claim wrong in ways nothing caught.
+
+**A producer now returns an outcome and holds no state between phases.** Its
+contract is `provide(mixed $value): ComponentValueProvision` — `offer($value)`
+("here is my value; let the site builder's Processing mode decide its fate") or
+`claim($value)` ("this is authoritative; stop here, keep it even if empty"). A
+producer that came up empty abstains by offering the value it was handed, so
+enabling an empty provider never leaves a prop worse off than not enabling one.
+A new `ValueProviderSearch` collaborator threads the seed, applies each
+Processing mode, keeps an empty non-claiming result from destroying the threaded
+value, and stops at the first claim — the decision that used to be smeared
+across the provider instances and the shape base now lives in one testable
+place.
+
+**Removed from `ComponentValuePluginInterface`:** `allowFurtherProcessing()`,
+`stopFurtherProcessing()`, `shouldContinueProcessing()`, `claimValue()` and
+`hasClaimedValue()`. A custom plugin that called or implemented any of them will
+not load. Replace a hand-rolled claim with the return value — a veto returns
+`ComponentValueProvision::claim(…)` from `provide()`; a plain source needs
+nothing beyond the base's `provide()`, which offers whatever
+`provideDefaultValue()` produced. On `ComponentValueProcessingModeInterface` the
+mutating `applyProcessingMode(mixed): void` is replaced by the pure
+`claimsValue(mixed): bool`, and the interface now also declares
+`processingModeDefaultConfiguration()` and `buildProcessingModeForm()` (a
+producer using `ComponentValueProcessingModeTrait` gets both for free).
+
+**The children-match trait becomes a service and a source interface.** The
+915-line trait that seven providers mixed in — a *documented extension point*
+the architecture guide told developers to use — no longer exists. In its place:
+`neo_alchemist.children_match_mapper`, a container-constructed service that owns
+the mapping, the pseudo-field handlers and the published-entity filter; and
+`ChildrenMatchSourceInterface`, the two-method seam a provider implements to say
+only "here is how I find my entities". A provider outside this repository that
+mixed in the trait must move to the source interface — there is no trait left to
+mix in. Because the mapper's three collaborators are wired by the container, the
+class of defect behind the reported `views` white screen — a provider that
+forgot to assign one of the trait's undeclared collaborators, so the form
+offered a `_reference~` mapping the render path then fataled on — is now
+impossible to write. Each pseudo-field is one `ChildrenMatchHandlerInterface`
+class owning its option, its form branch and its fetch together, so those three
+can no longer drift apart.
+
+**A producer's role is a type, not a group string.** A provider declares
+`ComponentValueProducerInterface`; the provider search and the nested-value
+pushdown check select on that interface rather than on the literal group
+`'providers'`. A compatibility shim keeps the old rule alive — a plugin still
+counts as a producer if it declares the interface *or* is in the `'providers'`
+group — so an external provider that has not yet adopted the marker keeps
+working; adopt the interface when convenient. Choosing a plugin's `group` for
+where it reads best in the form can no longer silently change whether nested
+props discard authored content — the failure the architecture guide warned was
+silent. `group` keeps sort weight
+and form placement only, and is still never persisted, so re-grouping needs no
+update hook. A new `late` group sits between modifiers and settings so the two
+`views_*` providers can declare that they source their value after the view has
+executed; this is a declaration change and their runtime behaviour is unchanged.
+
+**The shape accessor return type narrowed.**
+`ComponentValuePluginInterface::getShape()` and the base's `$shape` property are
+now typed `ComponentValueShapeInterface` — the Context + Value + cacheability
+handle a producer is entitled to — rather than the full
+`ComponentShapePluginInterface` union. A custom plugin that reached schema, tree
+or form methods through `$this->shape` will not compile until it overrides
+`getShape(): ComponentShapePluginInterface` and reaches through
+`$this->getShape()`. A subclass declaring its own `getShape()` that returns the
+union keeps working; one returning a type wider than the union will not load.
+
+### read_time can now claim its value
+
+**A stored-data change with an update hook — the one item on this list a site
+actually sees.** The `read_time` provider produced a value but had no Processing
+mode, so it could never claim it: any provider ordered after it silently
+overwrote what the site builder had configured. It now carries the mode,
+defaulting to "Use its value and stop", so it claims like every other source.
+
+`neo_alchemist_update_11007()` writes that explicit mode onto existing
+`read_time` provider instances in `neo_alchemist.neo_component.*`, following the
+`neo_alchemist_update_11003()` pattern: walk the config, rewrite in place,
+report what changed. A mode a site builder set by hand (block, continue) is left
+alone, so the hook is idempotent. The new behaviour arrives with the code
+whether or not the hook runs — an unset mode resolves to the plugin default —
+and the hook exists to make the change visible in `git diff config/` rather than
+silent.
+
+**What a site sees:** a prop where a `read_time` provider was ordered above
+another source, expecting `read_time` to win, now behaves as configured —
+`read_time` claims and the later source no longer overwrites it.
+
+### Before you update
+
+Audit for **ComponentValue plugins defined outside this module**, and especially
+for any that mixed in the old children-match trait or called the removed claim
+methods — those are the code that will not load against the new interfaces. **On
+this site there are no such custom plugins:** nothing here mixes in the
+children-match trait or touches the removed methods, so no site-specific code
+needs to change. Sibling `jacerider/*` packages that ship their own providers
+(neo_site_settings) are released together against these interfaces — update them
+in the same pass, not one at a time. The group re-declarations, the `late` group
+and the producer interface are declaration changes that alter nothing a
+currently shipped plugin resolves to; the one intentional behaviour change is
+`read_time`, above.
+
 ## The shape interface is fourteen roles, and a child option means the same on both bases
 
 `ComponentShapePluginInterface` declared 133 methods and one class implemented
