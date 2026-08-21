@@ -924,7 +924,19 @@ From [neo_alchemist.services.yml](neo_alchemist.services.yml):
   `ComponentEmitsOpRecordsTest` pins the emitted records (present, permitted, URL) per scope.
   This is a **breaking change for custom editor JavaScript** reading the attribute (a record
   is always truthy — read `.permitted`, not the value); the attribute keeps its name and
-  location, and the client reads the URL off the op in a later phase-two ticket.
+  location.
+- **The client reads the URL off the op** — `src/js/components-parent.ts` no longer builds
+  editor request URLs by string-concatenation off `drupalSettings.neoAlchemist.baseUrl`. Each
+  per-component op (edit, sort, clone, delete, add-before/after, move-up/down) takes its URL
+  straight from the op record; the toolbar Add/Sort actions take theirs from the action link's
+  own server-generated `href`; a seam insertion point takes its sibling component's
+  add-before/add-after record URL. Where a parameter is genuinely client-side and the server
+  could not know it in advance — the container an add/move lands in, the region and focused
+  component a sort is scoped to — it is appended as a **query** parameter (via the URL API),
+  never as a path segment. The one surviving use of `baseUrl` is the layers-panel storage key,
+  which builds no URL. This removes the runtime hyphen-split that inferred a verb/position from
+  the op id, so a non-standard base path, a language prefix or an alias is now correct by
+  construction rather than by base-URL string compatibility.
 
 ---
 

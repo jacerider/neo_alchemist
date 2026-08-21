@@ -1,5 +1,28 @@
 # Changelog
 
+## The editor client reads each op's URL instead of building it
+
+The editor's TypeScript (`src/js/components-parent.ts`) no longer constructs its
+nine request URLs by string-concatenation off
+`drupalSettings.neoAlchemist.baseUrl`, and no longer infers a verb/position by
+splitting an op id on a hyphen at runtime. Every per-component op now reads the
+`url` the server already emits on its record (see the breaking-change entry
+below); the toolbar Add/Sort actions read their action link's own
+server-generated `href`; a seam insertion point reads its sibling component's
+add-before/add-after record URL. A genuinely client-side parameter — the
+container an add/move lands in, the region and component a sort is scoped to — is
+appended as a **query** parameter through the URL API, never as a path segment.
+
+Because the paths are now generated server-side, a site with a **non-standard
+base path, a language prefix or a path alias** stops being a source of broken
+editor requests — the case the old concatenation got wrong. `baseUrl` survives
+only as the layers-panel storage key, which builds no URL.
+
+**No PHP, route-name, path or stored-data change; no update hook.** This is an
+internal change to the module's own client — it reads what the server already
+emitted after the breaking payload change below, so a site that had no custom
+editor JavaScript sees no difference.
+
 ## BREAKING (editor JavaScript): the component emits editor ops as records, not booleans
 
 **This concerns only sites with custom JavaScript that reads the editor's
