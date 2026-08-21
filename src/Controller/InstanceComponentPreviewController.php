@@ -178,7 +178,7 @@ final class InstanceComponentPreviewController extends ControllerBase {
     if (!$neo_field->getComponents()) {
       $build['components']['empty'] = [
         '#type' => 'inline_template',
-        '#template' => '<div class="text-xs p-3 bg-base-100 text-base-700 border border-dashed text-center">{{ icon("info-circle") }}{{ empty_message }}</div>',
+        '#template' => '<div class="text-xs p-3 bg-base-100 text-base-700 border border-dashed text-center">{{ icon("info-circle") }} {{ empty_message }}</div>',
         '#context' => [
           'empty_message' => $this->t('No components have been added to this layout. Use the <strong>@add</strong> button in the footer to add a component.', [
             '@add' => $this->icon('Add', 'plus'),
