@@ -36,10 +36,18 @@ interface ComponentValuePluginInterface extends ConfigurableInterface, PluginFor
   /**
    * Get the shape which owns this plugin.
    *
-   * @return \Drupal\neo_alchemist\Shape\ComponentShapePluginInterface
-   *   The shape which owns this plugin.
+   * Typed as the narrow producer handle — Context + Value + cacheability — not
+   * the full shape union. A plugin that needs a wider role (schema, tree,
+   * options, form…) overrides this with a covariant union return and reaches
+   * through it; reaching a non-handle method through the `$shape` property is a
+   * static error rather than a runtime fatal.
+   *
+   * @return \Drupal\neo_alchemist\Value\ComponentValueShapeInterface
+   *   The shape which owns this plugin, as the producer handle.
+   *
+   * @see \Drupal\neo_alchemist\Value\ComponentValueShapeInterface
    */
-  public function getShape(): ComponentShapePluginInterface;
+  public function getShape(): ComponentValueShapeInterface;
 
   /**
    * Return the translated plugin group.

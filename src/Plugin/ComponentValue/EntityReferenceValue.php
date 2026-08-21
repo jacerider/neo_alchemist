@@ -124,6 +124,9 @@ final class EntityReferenceValue extends ComponentValuePluginBase implements Con
         '%field' => explode(':', $entityKey)[0],
       ]);
     }
+    // The mapper reads the whole shape; narrow the handle to it here, as the
+    // form and value paths already do before their mapper calls.
+    assert($this->shape instanceof ComponentShapeChildrenMatchPluginInterface);
     return array_merge($summary, $this->childrenMatchMapper->summary($this->shape, $this->configuration));
   }
 

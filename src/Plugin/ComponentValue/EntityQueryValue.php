@@ -156,6 +156,20 @@ final class EntityQueryValue extends ComponentValuePluginBase implements Contain
 
   /**
    * {@inheritdoc}
+   *
+   * Declares the wider handle: this producer reads the root shape (Tree) and
+   * the prop's iterability (Schema), and hands its whole shape to the
+   * ChildrenMatchMapper and the entity-query event — all beyond the
+   * Context + Value + cacheability the base hands producers. Covariant return —
+   * the union is a subtype of the handle, and the runtime shape is the union.
+   */
+  public function getShape(): ComponentShapePluginInterface {
+    assert($this->shape instanceof ComponentShapePluginInterface);
+    return $this->shape;
+  }
+
+  /**
+   * {@inheritdoc}
    */
   protected function processingModeDefault(): string {
     return ComponentValueProcessingModeInterface::MODE_BLOCK;
@@ -190,7 +204,7 @@ final class EntityQueryValue extends ComponentValuePluginBase implements Contain
         '@field' => explode(':', $filterEntity)[0],
       ]);
     }
-    return array_merge($summary, $this->childrenMatchMapper->summary($this->shape, $this->configuration));
+    return array_merge($summary, $this->childrenMatchMapper->summary($this->getShape(), $this->configuration));
   }
 
   /**
@@ -260,7 +274,7 @@ final class EntityQueryValue extends ComponentValuePluginBase implements Contain
         '#type' => 'neo_field_select',
         '#title' => $this->t('Sort by field'),
         '#component' => $this->shape->getComponent()->id(),
-        '#prop' => $this->shape->getRootShape()->getName(),
+        '#prop' => $this->getShape()->getRootShape()->getName(),
         '#shape' => $this->shape->id(),
         '#all' => TRUE,
         // The sort fields belong to the entity type being QUERIED, which is
@@ -291,7 +305,7 @@ final class EntityQueryValue extends ComponentValuePluginBase implements Contain
         '#type' => 'neo_field_select',
         '#title' => $this->t('Sort by field (secondary)'),
         '#component' => $this->shape->getComponent()->id(),
-        '#prop' => $this->shape->getRootShape()->getName(),
+        '#prop' => $this->getShape()->getRootShape()->getName(),
         '#shape' => $this->shape->id(),
         '#all' => TRUE,
         // The sort fields belong to the entity type being QUERIED, which is
@@ -421,7 +435,7 @@ final class EntityQueryValue extends ComponentValuePluginBase implements Contain
         '#step' => 1,
       ];
 
-      if ($this->shape->isIterable()) {
+      if ($this->getShape()->isIterable()) {
         // Paging needs a positive page size (pager(0) is not valid), so the
         // "all results" option is only offered when paging is off.
         $paging = !empty($this->configuration['paging']);
@@ -523,7 +537,7 @@ final class EntityQueryValue extends ComponentValuePluginBase implements Contain
           $sortDirection = $this->configuration['sort_direction_2'] ?? 'ASC';
           $query->sort($sortField, $sortDirection);
         }
-        $length = $this->shape->isIterable() ? (int) $this->configuration['length'] : 1;
+        $length = $this->getShape()->isIterable() ? (int) $this->configuration['length'] : 1;
         if ($lengthFilter = $this->configuration['length_filter']) {
           $filter = $this->shape->getComponent()->getFilter($lengthFilter);
           if ($filter->getPluginId() === 'number') {
@@ -533,7 +547,7 @@ final class EntityQueryValue extends ComponentValuePluginBase implements Contain
           }
         }
         $start = (int) $this->configuration['start'];
-        if ($this->shape->isIterable() && $this->configuration['paging']) {
+        if ($this->getShape()->isIterable() && $this->configuration['paging']) {
           // A pager always needs a positive page size; "all results" is not a
           // meaningful page size, so fall back to the configured default.
           $query->pager($length > 0 ? $length : 10);
@@ -642,11 +656,11 @@ final class EntityQueryValue extends ComponentValuePluginBase implements Contain
             $query->condition($statusKey, 1);
           }
         }
-        $event = new ComponentValueEntityQueryEvent($this->shape, $query);
+        $event = new ComponentValueEntityQueryEvent($this->getShape(), $query);
         $this->eventDispatcher->dispatch($event, ComponentValueEntityQueryEvent::EVENT_NAME);
         $this->entityQuery = $query;
         // Set a context for use by slots.
-        $this->shape->getComponent()->setPropShapeContext('entity_query', $this->shape, $query);
+        $this->shape->getComponent()->setPropShapeContext('entity_query', $this->getShape(), $query);
       }
     }
     return $this->entityQuery;

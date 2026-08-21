@@ -9,6 +9,7 @@ use Drupal\Component\Plugin\PluginInspectionInterface;
 use Drupal\Core\Access\AccessibleInterface;
 use Drupal\Core\Cache\CacheableResponseInterface;
 use Drupal\Core\Plugin\ObjectWithPluginCollectionInterface;
+use Drupal\neo_alchemist\Value\ComponentValueShapeInterface;
 
 /**
  * Interface for neo_component_shape plugins.
@@ -69,6 +70,17 @@ use Drupal\Core\Plugin\ObjectWithPluginCollectionInterface;
  * role is a view a caller takes of any shape; a capability is something only
  * some shapes have.
  *
+ * One named sub-union is extended below rather than listed as loose roles:
+ * ComponentValueShapeInterface (Context + Value + cacheability) is the handle a
+ * ComponentValue plugin inherits. The union extends it so every shape *is* a
+ * valid producer handle — that is what lets the value base type its `$shape`
+ * property to the narrow handle while still holding a full shape, and makes
+ * a producer's covariant `getShape(): ComponentShapePluginInterface` override
+ * legal (the union is a subtype of the handle). It re-includes roles the union
+ * already lists (Identity does the same via Context and Value); the
+ * redundancy is harmless and keeps the role list above readable.
+ *
+ * @see \Drupal\neo_alchemist\Value\ComponentValueShapeInterface
  * @see \Drupal\neo_alchemist\Shape\ComponentShapeSetupInterface
  * @see \Drupal\neo_alchemist\Shape\ComponentShapeChildrenPluginInterface
  * @see \Drupal\neo_alchemist\Shape\ComponentShapeMediaPluginInterface
@@ -81,6 +93,7 @@ interface ComponentShapePluginInterface extends
   ObjectWithPluginCollectionInterface,
   AccessibleInterface,
   CacheableResponseInterface,
+  ComponentValueShapeInterface,
   ComponentShapeIdentityInterface,
   ComponentShapeSchemaInterface,
   ComponentShapeValueInterface,

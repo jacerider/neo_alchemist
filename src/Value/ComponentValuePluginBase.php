@@ -20,11 +20,16 @@ abstract class ComponentValuePluginBase extends PluginBase implements ComponentV
   use StringTranslationTrait;
 
   /**
-   * The shape.
+   * The shape, as the narrow producer handle.
    *
-   * @var \Drupal\neo_alchemist\Shape\ComponentShapePluginInterface
+   * Holds the full shape at runtime but is typed as the producer handle
+   * (Context + Value + cacheability). A plugin reaching a role outside the
+   * handle through `$this->shape` is a static error; it overrides getShape()
+   * to the union and reaches through `$this->getShape()` instead.
+   *
+   * @var \Drupal\neo_alchemist\Value\ComponentValueShapeInterface
    */
-  protected ComponentShapePluginInterface $shape;
+  protected ComponentValueShapeInterface $shape;
 
   /**
    * Creates a toolbar item instance.
@@ -99,7 +104,7 @@ abstract class ComponentValuePluginBase extends PluginBase implements ComponentV
   /**
    * {@inheritdoc}
    */
-  public function getShape(): ComponentShapePluginInterface {
+  public function getShape(): ComponentValueShapeInterface {
     return $this->shape;
   }
 

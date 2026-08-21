@@ -78,6 +78,19 @@ final class EntityHasValue extends ComponentValuePluginBase implements Container
   }
 
   /**
+   * {@inheritdoc}
+   *
+   * Declares the wider handle: this veto reads the root shape's name (Tree),
+   * beyond the Context + Value + cacheability the base hands producers.
+   * Covariant return — the union is a subtype of the handle, and the runtime
+   * shape is always the union.
+   */
+  public function getShape(): ComponentShapePluginInterface {
+    assert($this->shape instanceof ComponentShapePluginInterface);
+    return $this->shape;
+  }
+
+  /**
    * Configuration form for the value provider plugin.
    */
   protected function configurationForm(array $form, FormStateInterface $form_state, array &$complete_form): array {
@@ -86,7 +99,7 @@ final class EntityHasValue extends ComponentValuePluginBase implements Container
       '#title' => $this->t('Field'),
       '#description' => $this->t('Select the field to use as the value.'),
       '#component' => $this->shape->getComponent()->id(),
-      '#prop' => $this->shape->getRootShape()->getName(),
+      '#prop' => $this->getShape()->getRootShape()->getName(),
       '#shape' => $this->shape->id(),
       '#all' => TRUE,
       '#empty_option' => $this->t('- Select -'),

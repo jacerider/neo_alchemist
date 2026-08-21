@@ -88,6 +88,20 @@ final class MediaValue extends ComponentValuePluginBase implements ContainerFact
 
   /**
    * {@inheritdoc}
+   *
+   * Declares the wider handle: this producer reads and writes the prop's option
+   * map (Options) and configures the field/widget (Form), and narrows its shape
+   * to the Media capability at each call site — beyond the Context + Value +
+   * cacheability the base hands producers. Covariant return — the union is a
+   * subtype of the handle, and the runtime shape is always the union.
+   */
+  public function getShape(): ComponentShapePluginInterface {
+    assert($this->shape instanceof ComponentShapePluginInterface);
+    return $this->shape;
+  }
+
+  /**
+   * {@inheritdoc}
    */
   public function defaultConfiguration() {
     return [
@@ -129,7 +143,7 @@ final class MediaValue extends ComponentValuePluginBase implements ContainerFact
    */
   public function onShapeInit() {
     parent::onShapeInit();
-    $shape = $this->shape;
+    $shape = $this->getShape();
     if (!$shape instanceof ComponentShapeMediaPluginInterface) {
       return;
     }
@@ -152,7 +166,7 @@ final class MediaValue extends ComponentValuePluginBase implements ContainerFact
    * Configuration form for the value provider plugin.
    */
   protected function configurationForm(array $form, FormStateInterface $form_state, array &$complete_form): array {
-    $shape = $this->shape;
+    $shape = $this->getShape();
     if (!$shape instanceof ComponentShapeMediaPluginInterface) {
       return $form;
     }
@@ -191,7 +205,7 @@ final class MediaValue extends ComponentValuePluginBase implements ContainerFact
   protected function getMediaTypes(): array {
     if (!isset($this->mediaTypes)) {
       $this->mediaTypes = [];
-      $shape = $this->shape;
+      $shape = $this->getShape();
       if ($shape instanceof ComponentShapeMediaPluginInterface) {
         $this->mediaTypes = $this->entityTypeManager->getStorage('media_type')->loadMultiple($shape->getSupportedMediaTypes());
       }
@@ -204,8 +218,8 @@ final class MediaValue extends ComponentValuePluginBase implements ContainerFact
    */
   public function formAlter(array &$element, FormStateInterface $form_state) {
     $preview = NULL;
-    $shape = $this->shape;
-    if ($this->shape->getOptionDefault()->isEnabled()) {
+    $shape = $this->getShape();
+    if ($shape->getOptionDefault()->isEnabled()) {
       if ($shape instanceof ComponentShapeMediaPluginInterface) {
         $previewBuild = $shape->getDefaultPreview();
         if ($previewBuild) {
@@ -239,7 +253,7 @@ final class MediaValue extends ComponentValuePluginBase implements ContainerFact
       // the whole shape. Clicking it turns the default off (via #neo_override,
       // see ::massageValuesAlter()) and re-renders the shape, revealing the
       // upload — so choosing a custom image automatically unchecks "Default".
-      if ($this->shape->getOptionDefault()->isEnabled()) {
+      if ($shape->getOptionDefault()->isEnabled()) {
         if ($preview) {
           $element['preview'] = $preview;
         }
@@ -394,7 +408,7 @@ final class MediaValue extends ComponentValuePluginBase implements ContainerFact
    * Ajax callback for override.
    */
   public function ajaxOverride(array $form, FormStateInterface $form_state) {
-    $shape = $this->shape;
+    $shape = $this->getShape();
     $trigger = $form_state->getTriggeringElement();
     $parents = array_slice($trigger['#array_parents'], 0, -1);
     $element = NestedArray::getValue($form, $parents);
@@ -428,7 +442,7 @@ final class MediaValue extends ComponentValuePluginBase implements ContainerFact
    * {@inheritdoc}
    */
   public function massageValuesAlter(array &$values, array $submitted_values, array $original_values, array $form, FormStateInterface $form_state): void {
-    $shape = $this->shape;
+    $shape = $this->getShape();
 
     if ($shape instanceof ComponentShapeMediaPluginInterface && $shape->getScope() === 'field' && $this->getImageMediaType()) {
       // Config-hosted values are stored as neo_config_file references.
@@ -544,7 +558,7 @@ final class MediaValue extends ComponentValuePluginBase implements ContainerFact
    * {@inheritdoc}
    */
   public function provideDefaultValue(mixed $value): mixed {
-    $shape = $this->shape;
+    $shape = $this->getShape();
     if (!$shape instanceof ComponentShapeMediaPluginInterface) {
       return $value;
     }
@@ -577,7 +591,7 @@ final class MediaValue extends ComponentValuePluginBase implements ContainerFact
    */
   public function alterValue(mixed $value, string $type): mixed {
     $title = $value['title'] ?? NULL;
-    $shape = $this->shape;
+    $shape = $this->getShape();
     if ($shape instanceof ComponentShapeMediaPluginInterface) {
       if (is_string($value)) {
         $value = [
@@ -618,7 +632,7 @@ final class MediaValue extends ComponentValuePluginBase implements ContainerFact
    *   The media value, or an empty array if the file could not be resolved.
    */
   protected function getValueFromConfigFile(string $configFileId): array {
-    $shape = $this->shape;
+    $shape = $this->getShape();
     if (!$shape instanceof ComponentShapeMediaPluginInterface) {
       return [];
     }

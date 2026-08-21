@@ -106,6 +106,9 @@ final class EntityLoadValue extends ComponentValuePluginBase implements Containe
         '@id' => $this->configuration['entity_id'],
       ]);
     }
+    // The mapper reads the whole shape; narrow the handle to it here, as the
+    // form and value paths already do before their mapper calls.
+    assert($this->shape instanceof ComponentShapeChildrenMatchPluginInterface);
     return array_merge($summary, $this->childrenMatchMapper->summary($this->shape, $this->configuration));
   }
 

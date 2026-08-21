@@ -9,6 +9,7 @@ use Drupal\Core\Form\FormState;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\neo_alchemist\Attribute\ComponentValue;
+use Drupal\neo_alchemist\Shape\ComponentShapePluginInterface;
 use Drupal\neo_alchemist\Value\ComponentValuePluginBase;
 
 /**
@@ -35,13 +36,26 @@ final class WidgetValue extends ComponentValuePluginBase {
   }
 
   /**
+   * {@inheritdoc}
+   *
+   * Declares the wider handle: this settings plugin configures the prop's edit
+   * widget (Form) and reads the value collection (Providers) — beyond the
+   * Context + Value + cacheability the base hands producers. Covariant return —
+   * the union is a subtype of the handle, and the runtime shape is the union.
+   */
+  public function getShape(): ComponentShapePluginInterface {
+    assert($this->shape instanceof ComponentShapePluginInterface);
+    return $this->shape;
+  }
+
+  /**
    * Configuration form for the value provider plugin.
    */
   protected function configurationForm(array $form, FormStateInterface $form_state, array &$complete_form): array {
-    if ($widget = $this->shape->getWidget()) {
+    if ($widget = $this->getShape()->getWidget()) {
       $form['settings'] = $widget->settingsForm($form, $form_state);
     }
-    if (isset($form['#wrapper_id']) && $this->shape->getValueCollection()->getStatus('default')) {
+    if (isset($form['#wrapper_id']) && $this->getShape()->getValueCollection()->getStatus('default')) {
       $form['reload'] = [
         '#type' => 'submit',
         '#value' => $this->t('Reload default value provider'),
@@ -76,7 +90,7 @@ final class WidgetValue extends ComponentValuePluginBase {
    * Form validation for the value provider plugin configuration.
    */
   protected function configurationValidate(array $form, FormStateInterface $form_state): void {
-    $widget = $this->shape->getWidget();
+    $widget = $this->getShape()->getWidget();
     $form_state->unsetValue('reload');
     if ($widget) {
       $value = $form_state->getValues()['settings'] ?? NULL;
@@ -92,7 +106,7 @@ final class WidgetValue extends ComponentValuePluginBase {
    */
   public function onShapeInit() {
     parent::onShapeInit();
-    $this->shape->setWidgetSettings($this->configuration['settings']);
+    $this->getShape()->setWidgetSettings($this->configuration['settings']);
   }
 
   /**
@@ -100,7 +114,7 @@ final class WidgetValue extends ComponentValuePluginBase {
    */
   public function isAllowed(string $op): bool {
     if ($op === 'manage') {
-      $widget = $this->shape->getWidget();
+      $widget = $this->getShape()->getWidget();
       $form_state = new FormState();
       return $widget !== NULL && !empty($widget->settingsForm([], $form_state));
     }

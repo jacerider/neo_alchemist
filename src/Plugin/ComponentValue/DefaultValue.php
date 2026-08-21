@@ -107,6 +107,20 @@ final class DefaultValue extends ComponentValuePluginBase implements ContainerFa
   }
 
   /**
+   * {@inheritdoc}
+   *
+   * Declares the wider handle: DefaultValue reads the schema (Schema), walks
+   * the parent shapes (Tree), reads whether the prop is expanded (Expansion)
+   * and merges the nested option map (Options) — all beyond the producer
+   * handle. The union is a subtype of the handle, so this override narrows the
+   * return type covariantly; the shape held at runtime is always the union.
+   */
+  public function getShape(): ComponentShapePluginInterface {
+    assert($this->shape instanceof ComponentShapePluginInterface);
+    return $this->shape;
+  }
+
+  /**
    * Retrieves the default shape for the component.
    *
    * @return \Drupal\neo_alchemist\Shape\ComponentShapePluginInterface
@@ -117,7 +131,7 @@ final class DefaultValue extends ComponentValuePluginBase implements ContainerFa
       // A shape under construction, held locally rather than on the property:
       // what init() hands back is what this plugin keeps.
       $shape = $this->shapeManager->getInstance([
-        'schema' => $this->shape->getSchema(),
+        'schema' => $this->getShape()->getSchema(),
         'component' => $this->shape->getComponent(),
         'settings' => $this->shape->getSettings(),
       ]);
@@ -142,8 +156,8 @@ final class DefaultValue extends ComponentValuePluginBase implements ContainerFa
 
       $shape
         ->setParentValue($this->configuration['default'] ?? $this->shape->buildDefaultValue())
-        ->setExpanded($this->shape->getExpanded());
-      foreach ($this->shape->getParentShapes() as $parentShape) {
+        ->setExpanded($this->getShape()->getExpanded());
+      foreach ($this->getShape()->getParentShapes() as $parentShape) {
         $shape->addParentShape($parentShape);
       }
       $shape->getNestedOptionMap()->mergeFallbacks($this->configuration['options'] ?? []);
@@ -208,7 +222,7 @@ final class DefaultValue extends ComponentValuePluginBase implements ContainerFa
    */
   public function onShapeInit() {
     parent::onShapeInit();
-    $this->shape->getNestedOptionMap()->mergeFallbacks($this->configuration['options'] ?? []);
+    $this->getShape()->getNestedOptionMap()->mergeFallbacks($this->configuration['options'] ?? []);
   }
 
   /**

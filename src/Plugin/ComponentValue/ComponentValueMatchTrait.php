@@ -184,7 +184,12 @@ trait ComponentValueMatchTrait {
   protected function buildMatchConfigurationForm($form, FormStateInterface $form_state, $entityTypeId = NULL, $bundle = NULL): array {
     $wrapperId = $form['#id'];
     $field = $this->configuration['field'];
+    // The controls below read the prop schema (getRef) and walk to the root
+    // shape — Schema and Tree, beyond the producer handle. Narrow the local to
+    // the full shape, which the runtime object always is, rather than depend on
+    // the host plugin having widened getShape().
     $shape = $this->shape;
+    assert($shape instanceof ComponentShapePluginInterface);
 
     // One searchable, browsable control in place of the group-then-field pair
     // of selects. The group step existed only to keep the option count down —
@@ -290,6 +295,11 @@ trait ComponentValueMatchTrait {
    */
   protected function buildMatchPropertiesConfigurationForm($form, FormStateInterface $form_state, $entityTypeId = NULL, $bundle = NULL): array {
     $field = $this->configuration['field'];
+    // Reached only for a children shape (the caller gates on it), so the
+    // getAutoMatchProperties()/getChildShapes() reaches below — Children and
+    // ChildrenMatch capabilities, off the role axis the handle narrows — are
+    // safe to narrow the property to.
+    assert($this->shape instanceof ComponentShapeChildrenPluginInterface);
     $fieldDefinition = $this->matcherField->getFieldDefinition($this->shape, $field, $entityTypeId, $bundle);
     $fieldProperties = $fieldDefinition->getFieldStorageDefinition()->getPropertyDefinitions();
     // Pre-fill each select with the same mapping AUTOMATIC mode derives, so

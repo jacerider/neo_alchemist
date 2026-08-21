@@ -177,6 +177,19 @@ Narrowing is also what makes a **test double** honest. Mock a role and a misspel
 name fails the test; on a double the width of the union it returns NULL and the test
 passes. `ShapeDoubleTrait` is how tests build these — see [TESTING.md](TESTING.md).
 
+**The handle a ComponentValue plugin inherits is one such narrowing.** The value base's
+`$shape` property and `ComponentValuePluginInterface::getShape()` are typed as
+[`ComponentValueShapeInterface`](src/Value/ComponentValueShapeInterface.php) — `Context` +
+`Value` + cacheability, the roles every producer is owed (which prop, what it is attached
+to, the value it threads, the dependencies it records). The union extends this handle, so a
+full shape satisfies it while the plugin only holds the narrow view; reaching a role outside
+it through `$this->shape` is a static error. A producer that needs more — schema, tree,
+options, form — **declares it** by overriding `getShape(): ComponentShapePluginInterface`
+(the union is a subtype of the handle, so this narrows the return type covariantly) and
+reaching through `$this->getShape()`. Off-role capability reaches (`Interable`, the Media
+setters, `RegionShape`) narrow with an `instanceof` at the call site instead.
+`ComponentValueShapeHandleTest` pins the handle and that no override widens it.
+
 Narrowing bounds what you may call on the shape you were handed; it does not bound the
 tree. `Tree` hands back whole shapes, because arriving at a parent or the root shape is
 normally the prelude to asking it something a tree role could not answer. Walking the tree

@@ -169,11 +169,27 @@ final class ViewsValue extends ComponentValuePluginBase implements ContainerFact
       // Empty means "use whatever getViewEntityTypes() detects".
       'view_entity_type_id' => '',
       'view_entity_bundle' => '',
-      'view_items_per_page' => $this->shape->getType() === ComponentShapePluginInterface::OBJECT ? 1 : NULL,
+      'view_items_per_page' => $this->getShape()->getType() === ComponentShapePluginInterface::OBJECT ? 1 : NULL,
       'view_items_offset' => 0,
       'view_arguments' => [],
       'view_arguments_sort' => FALSE,
     ] + ChildrenMatchMapper::defaultConfiguration();
+  }
+
+  /**
+   * {@inheritdoc}
+   *
+   * Declares the wider handle: this producer reads the prop's JSON type
+   * (Schema) and hands its whole shape to the ChildrenMatchMapper — beyond the
+   * Context + Value + cacheability the base hands producers. (Its min/max-item
+   * reaches use the Iterable capability and are guarded with an explicit
+   * `instanceof` at the call site, since capabilities sit off the role axis.)
+   * Covariant return — the union is a subtype of the handle, and the runtime
+   * shape is the union.
+   */
+  public function getShape(): ComponentShapePluginInterface {
+    assert($this->shape instanceof ComponentShapePluginInterface);
+    return $this->shape;
   }
 
   /**
@@ -307,7 +323,7 @@ final class ViewsValue extends ComponentValuePluginBase implements ContainerFact
           ],
         ];
 
-        if ($this->shape->getType() !== ComponentShapePluginInterface::OBJECT && $view->getDisplay()->usesPager()) {
+        if ($this->getShape()->getType() !== ComponentShapePluginInterface::OBJECT && $view->getDisplay()->usesPager()) {
           $form['view_items_per_page'] = [
             '#type' => 'number',
             '#title' => $this->t('Override items per page'),
@@ -397,7 +413,7 @@ final class ViewsValue extends ComponentValuePluginBase implements ContainerFact
    * Form validation for the value provider plugin configuration.
    */
   protected function configurationValidate(array $form, FormStateInterface $form_state): void {
-    if ($this->shape->getType() !== ComponentShapePluginInterface::OBJECT) {
+    if ($this->getShape()->getType() !== ComponentShapePluginInterface::OBJECT) {
       $itemsPerPage = $form_state->getValue('view_items_per_page');
       $form_state->setValue('view_items_per_page', $itemsPerPage ? (int) $itemsPerPage : NULL);
     }
@@ -517,7 +533,7 @@ final class ViewsValue extends ComponentValuePluginBase implements ContainerFact
       $view->execute();
       $this->view = $view;
       // Set a context for use by slots.
-      $this->shape->getComponent()->setPropShapeContext('views', $this->shape, $view);
+      $this->shape->getComponent()->setPropShapeContext('views', $this->getShape(), $view);
     }
   }
 

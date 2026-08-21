@@ -84,10 +84,23 @@ final class EventValue extends ComponentValuePluginBase implements ContainerFact
   }
 
   /**
+   * {@inheritdoc}
+   *
+   * Declares the wider handle: this producer reads the prop schema (Schema)
+   * and hands its whole shape to the ComponentValueEvent — beyond the
+   * Context + Value + cacheability the base hands producers. Covariant return —
+   * the union is a subtype of the handle, and the runtime shape is the union.
+   */
+  public function getShape(): ComponentShapePluginInterface {
+    assert($this->shape instanceof ComponentShapePluginInterface);
+    return $this->shape;
+  }
+
+  /**
    * Configuration form for the value provider plugin.
    */
   protected function configurationForm(array $form, FormStateInterface $form_state, array &$complete_form): array {
-    $event = new ComponentValueEvent($this->shape, []);
+    $event = new ComponentValueEvent($this->getShape(), []);
     $form['info'] = [
       '#markup' => $this->t('This plugin fires an event (%name) via (%class) to get the value. Match on <code>$event-&gt;id()</code> equal to <code>@id</code> in your subscriber to target this prop.', [
         '%name' => ComponentValueEvent::EVENT_NAME,
@@ -125,7 +138,7 @@ final class EventValue extends ComponentValuePluginBase implements ContainerFact
    *   The structure to display, or NULL if nothing useful can be produced.
    */
   protected function getExpectedStructure(): mixed {
-    return $this->skeletonFromSchema($this->shape->getSchema());
+    return $this->skeletonFromSchema($this->getShape()->getSchema());
   }
 
   /**
@@ -259,7 +272,7 @@ final class EventValue extends ComponentValuePluginBase implements ContainerFact
    * {@inheritdoc}
    */
   public function provide(mixed $value): ComponentValueProvision {
-    $event = new ComponentValueEvent($this->shape, $value);
+    $event = new ComponentValueEvent($this->getShape(), $value);
     $this->eventDispatcher->dispatch($event, ComponentValueEvent::EVENT_NAME);
     $value = $event->getValue();
     $this->shape->addCacheableDependency($event);

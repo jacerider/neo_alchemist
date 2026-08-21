@@ -105,6 +105,20 @@ final class EntityValue extends ComponentValuePluginBase implements ContainerFac
   }
 
   /**
+   * {@inheritdoc}
+   *
+   * Declares the wider handle: this producer reads the prop's default option
+   * (Options) and parent shape (Tree), and hands its whole shape to the field
+   * matcher and the children-match trait — all beyond the Context + Value +
+   * cacheability the base hands producers. Covariant return — the union is a
+   * subtype of the handle, and the runtime shape is the union.
+   */
+  public function getShape(): ComponentShapePluginInterface {
+    assert($this->shape instanceof ComponentShapePluginInterface);
+    return $this->shape;
+  }
+
+  /**
    * Configuration form for the value provider plugin.
    */
   protected function configurationForm(array $form, FormStateInterface $form_state, array &$complete_form): array {
@@ -149,7 +163,7 @@ final class EntityValue extends ComponentValuePluginBase implements ContainerFac
    */
   public function isAllowed(string $op): bool {
     if ($op === 'manage') {
-      return !empty($this->matcherField->getMatchesAsOptions($this->shape));
+      return !empty($this->matcherField->getMatchesAsOptions($this->getShape()));
     }
     return match($this->shape->getScope()) {
       'field' => match($op) {
@@ -171,16 +185,16 @@ final class EntityValue extends ComponentValuePluginBase implements ContainerFac
     $properties = $this->configuration['field_assign']
       ? $this->configuration['field_properties']
       : $this->getDefaultMatchProperties();
-    $entityValue = $this->getMatchValueWithFallback($this->shape, $properties, FALSE);
+    $entityValue = $this->getMatchValueWithFallback($this->getShape(), $properties, FALSE);
 
     if ($this->shape->isNew() && !$this->shape->isRebuilding()) {
       // On a brand new component, we set the option default to true so that
       // it uses the entity value by default.
-      $optionDefault = $this->shape->getOptionDefault();
+      $optionDefault = $this->getShape()->getOptionDefault();
       if ($optionDefault->isAllowed()) {
         $optionDefault->setValue(empty($hasOverrideValue));
       }
-      if ($parentShape = $this->shape->getParentShape()) {
+      if ($parentShape = $this->getShape()->getParentShape()) {
         if ($parentShape instanceof ComponentShapeChildrenPluginInterface && $parentShape->isSingleProp()) {
           $parentOptionDefault = $parentShape->getOptionDefault();
           if ($parentOptionDefault->isAllowed()) {

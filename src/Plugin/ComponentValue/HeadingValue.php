@@ -63,6 +63,19 @@ final class HeadingValue extends ComponentValuePluginBase implements ContainerFa
 
   /**
    * {@inheritdoc}
+   *
+   * Declares the wider handle: this producer reads whether the prop is editable
+   * (State) and its nested option map (Options) — beyond the Context + Value +
+   * cacheability the base hands producers. Covariant return — the union is a
+   * subtype of the handle, and the runtime shape is always the union.
+   */
+  public function getShape(): ComponentShapePluginInterface {
+    assert($this->shape instanceof ComponentShapePluginInterface);
+    return $this->shape;
+  }
+
+  /**
+   * {@inheritdoc}
    */
   public function defaultConfiguration() {
     return [
@@ -184,8 +197,8 @@ final class HeadingValue extends ComponentValuePluginBase implements ContainerFa
           '#type' => 'checkbox',
           '#title' => $this->t('Allow @op', ['@op' => $allowOverride ? 'override' : 'edit']),
           '#neo_size' => 'xs',
-          '#default_value' => $this->shape->isEditable() ? $this->configuration["{$key}_edit"] : FALSE,
-          '#disabled' => !$this->shape->isEditable(),
+          '#default_value' => $this->getShape()->isEditable() ? $this->configuration["{$key}_edit"] : FALSE,
+          '#disabled' => !$this->getShape()->isEditable(),
           '#ajax' => [
             'callback' => [static::class, 'refreshAjax'],
             'wrapper' => $wrapperId,
@@ -199,7 +212,7 @@ final class HeadingValue extends ComponentValuePluginBase implements ContainerFa
           '#neo_size' => 'xs',
           '#description' => $this->t('If checked, the default option will be enabled on component creation.'),
           '#default_value' => $this->configuration["{$key}_default"],
-          '#disabled' => !$this->shape->isEditable() ||empty($this->configuration["{$key}_edit"]) || !empty($this->configuration["{$key}_empty"]),
+          '#disabled' => !$this->getShape()->isEditable() ||empty($this->configuration["{$key}_edit"]) || !empty($this->configuration["{$key}_empty"]),
           '#ajax' => [
             'callback' => [static::class, 'refreshAjax'],
             'wrapper' => $wrapperId,
@@ -398,7 +411,7 @@ final class HeadingValue extends ComponentValuePluginBase implements ContainerFa
       // value provider form.
       $element['title']['_options']['default']['#ajax']['wrapper'] = $element['#id'];
       $element['title']['_options']['default']['#ajax_level'] = -3;
-      if ($this->shape->getNestedOptionMap()->get('title', NestedOptionMap::OPTION_DEFAULT)) {
+      if ($this->getShape()->getNestedOptionMap()->get('title', NestedOptionMap::OPTION_DEFAULT)) {
         // Hide the anchor when no title editing is allowed.
         $element['anchor']['#access'] = FALSE;
       }
