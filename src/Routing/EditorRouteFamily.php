@@ -165,6 +165,47 @@ final class EditorRouteFamily {
   ];
 
   /**
+   * The deliberate cross-scope differences: op → (scope → reason).
+   *
+   * SCOPE_OPS lists what each scope offers; this lists why the scopes are not
+   * all the same. It names, per op, the scopes that deliberately opt out of it
+   * and the reason each does — the same asymmetries the SCOPE_OPS docblock
+   * narrates, promoted to data so the cross-scope parity test can read them
+   * instead of hardcoding a copy. The two declarations are authored by hand and
+   * cross-checked against each other: every op some scope offers but not all
+   * must appear here naming exactly the scopes that lack it, and every entry
+   * here must name a real difference. An op dropped from one scope without a
+   * matching entry — the class of drift that lost the block scope its purge
+   * route — makes the two disagree, which is a red test rather than a silent
+   * hole (@see \Drupal\Tests\neo_alchemist\Kernel\CrossScopeOpParityTest).
+   *
+   * Each reason below is the whole of the rationale — the SCOPE_OPS docblock
+   * narrates the same asymmetries from the op-set side; this is the same story
+   * told once more, as data. Keep the two in step when a scope's ops change.
+   */
+  private const SCOPE_DIVERGENCES = [
+    self::OP_BASE => [
+      self::SCOPE_BLOCK => 'The block reaches its editor through the manage op, so it registers no bare management landing.',
+    ],
+    'publish' => [
+      self::SCOPE_FIELD_UI => 'A shared default layout has no per-entity draft to publish.',
+      self::SCOPE_BLOCK => 'A null-storage block host has no per-entity draft to publish.',
+    ],
+    'revert' => [
+      self::SCOPE_FIELD_UI => 'A shared default layout has no per-entity draft to revert.',
+      self::SCOPE_BLOCK => 'A null-storage block host has no per-entity draft to revert.',
+    ],
+    'reset' => [
+      self::SCOPE_FIELD_UI => 'A shared default layout has no per-entity draft to reset.',
+      self::SCOPE_BLOCK => 'A null-storage block host has no per-entity draft to reset.',
+    ],
+    'purge' => [
+      self::SCOPE_ENTITY => 'Purge clears the field-wide per-entity layout rows a locked field no longer renders — a decision about the field across every entity, never about one entity.',
+      self::SCOPE_BLOCK => 'A null-storage block host persists no per-entity layout rows, so purge is a structural no-op there.',
+    ],
+  ];
+
+  /**
    * The ops a host scope declares.
    *
    * @param string $scope
@@ -175,6 +216,20 @@ final class EditorRouteFamily {
    */
   public function opsForScope(string $scope): array {
     return self::SCOPE_OPS[$scope] ?? throw new \InvalidArgumentException("Unknown host scope: $scope");
+  }
+
+  /**
+   * The deliberate cross-scope differences, as data.
+   *
+   * @return array<string, array<string, string>>
+   *   Op id => (scope constant => reason the scope opts out of the op). Only
+   *   ops that some scope offers and another deliberately withholds appear; an
+   *   op every scope offers is absent.
+   *
+   * @see self::SCOPE_DIVERGENCES
+   */
+  public function divergences(): array {
+    return self::SCOPE_DIVERGENCES;
   }
 
   /**
