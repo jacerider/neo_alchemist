@@ -40,8 +40,14 @@ class ComponentStorage extends ConfigEntityStorage {
     $and->condition('target_entity_bundle', $entityBundle);
     $or->condition($and);
 
-    // Allow components for all entities.
+    // Allow components for all entities. "Unbound" is stored two ways: the
+    // component form submits its empty option as '', while a component created
+    // any other way — config import, programmatic create — never sets the
+    // property at all and exports NULL. The config query matches NULL against
+    // nothing, not even '', so both spellings have to be asked for or an
+    // unbound component silently disappears from every library.
     $or->condition('target_entity_type', '');
+    $or->notExists('target_entity_type');
     $query->condition($or);
 
     $result = $query->execute();
