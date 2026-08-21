@@ -952,6 +952,52 @@ class ComponentTreeItem extends FieldItemBase implements RenderableInterface, Co
   }
 
   /**
+   * The shared draft's last editor, or NULL when no draft is stored.
+   *
+   * A read-through to the store, kept on the item so the layout editor's
+   * presence indicator ("@editor edited this @time ago") reads the shared
+   * artifact through the same item the rest of the editor holds, rather than
+   * reaching for the store itself. The store owns the metadata; this is only
+   * how the surface reaches it.
+   *
+   * @return int|null
+   *   The last editor's user id, or NULL when no draft is stored.
+   */
+  public function draftLastEditor(): ?int {
+    return $this->getSharedDraftStore()->lastEditor($this);
+  }
+
+  /**
+   * The shared draft's last-modified timestamp, or NULL when none is stored.
+   *
+   * A read-through to the store, paired with draftLastEditor() to drive the
+   * layout editor's presence indicator — the "how recently" half of who else
+   * has been in the draft.
+   *
+   * @return int|null
+   *   The last-modified Unix timestamp, or NULL when no draft is stored.
+   */
+  public function draftLastModified(): ?int {
+    return $this->getSharedDraftStore()->lastModified($this);
+  }
+
+  /**
+   * The shared draft's accumulated contributor user ids.
+   *
+   * A read-through to the store, kept on the item so the publish confirmation
+   * can name the other contributors before releasing the draft as a whole. The
+   * set is cleared with the record on publish, discard and revert, so publish
+   * never names a contributor from an already-released cycle.
+   *
+   * @return int[]
+   *   The contributor user ids in first-write order, empty when no draft is
+   *   stored.
+   */
+  public function draftContributors(): array {
+    return $this->getSharedDraftStore()->contributors($this);
+  }
+
+  /**
    * The conflict a save carrying $loadedVersion would hit, or NULL if clear.
    *
    * The read-only pre-check the editor and publish forms run while validating,

@@ -2,10 +2,12 @@
 
 namespace Drupal\neo_alchemist\Form;
 
+use Drupal\Component\Render\FormattableMarkup;
 use Drupal\Core\Entity\EntityConfirmFormBase;
 use Drupal\Core\Entity\SynchronizableInterface;
 use Drupal\Core\Field\WidgetPluginManager;
 use Drupal\Core\Form\FormStateInterface;
+use Drupal\neo_alchemist\ComponentManageHelper;
 use Drupal\neo_alchemist\EditorState\DraftConflictException;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
@@ -142,9 +144,25 @@ class InstanceComponentPublishForm extends EntityConfirmFormBase {
     $note = $this->entity->hasField('moderation_state')
       ? $this->t('Use the workflow state below to control whether these changes go live now or wait for review. You can keep editing afterwards and save again at any time.')
       : $this->t('You can keep editing afterwards and save again at any time.');
-    return $this->t('<p>Saving takes the changes you have been working on and makes them the saved version of this layout.</p><p class="text-xs">Everything you have done since the last save is included: components you added or removed, components you moved around, and any content or settings you edited inside them.</p><p class="text-xs">@note</p>', [
+    $description = $this->t('<p>Saving takes the changes you have been working on and makes them the saved version of this layout.</p><p class="text-xs">Everything you have done since the last save is included: components you added or removed, components you moved around, and any content or settings you edited inside them.</p><p class="text-xs">@note</p>', [
       '@note' => $note,
     ]);
+    // The draft is shared: name the other contributors before releasing their
+    // work, so the publisher does not release a colleague's unfinished
+    // component unaware. The publisher is excluded — they know what they are
+    // publishing — and the whole draft still publishes as one thing, with no
+    // per-contributor granularity. Nothing is added when no one else has
+    // written to the draft.
+    $contributors = ComponentManageHelper::draftContributorNames($this->fieldItem, (int) $this->currentUser()->id());
+    if ($contributors) {
+      $description = new FormattableMarkup('@description@attribution', [
+        '@description' => $description,
+        '@attribution' => $this->t('<p class="text-xs">This draft also includes work from @contributors. Saving releases all of it together.</p>', [
+          '@contributors' => implode(', ', $contributors),
+        ]),
+      ]);
+    }
+    return $description;
   }
 
   /**

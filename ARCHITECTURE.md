@@ -766,6 +766,37 @@ storage/derivation methods left the item: five — `getDraftKey`, `getDraftCache
 `getDraftValue`, `setDraftValue` and `deleteDraft` — moved into the store (private key/tag,
 public value I/O), and `hasDraft` became a thin delegate to `SharedDraftStore::has()`.
 
+### Draft model: the shared record and its collaborators
+
+The draft is shared, so the store makes the sharing **visible** without new infrastructure.
+`SharedDraftStore` wraps the draft content in a record that also carries a **version
+counter**, the **last editor**, a **last-modified** time, and the accumulating set of
+**contributors** who have written to it. All three collaboration features read that one
+record rather than inferring state or standing up a presence table:
+
+- **Optimistic conflict detection.** A write carries the version the session loaded (a
+  hidden `draft_version` field the editor and publish forms round-trip); the store refuses a
+  write whose version is strictly behind the stored one (`DraftConflictException`) so a stale
+  save cannot silently overwrite a colleague's work. A lock was rejected — it turns a rare
+  collision into routine obstruction. `DraftConflictMessageTrait` renders the refusal as a
+  form-level "@editor changed this … Reload" message.
+- **Presence.** The layout editor toolbar shows "who else has been in the draft and how
+  recently" — `ComponentManageHelper::buildDraftPresence()` reads the draft's last editor and
+  last-modified and renders "@editor edited this @time ago". It appears only when a
+  **colleague, not the current editor**, last wrote the draft (presence is about who *else*
+  is here), and it is `max-age 0` because the relative time drifts. No heartbeat, no table.
+- **Publish attribution.** The publish confirmation names the other contributors before
+  releasing their work — `ComponentManageHelper::draftContributorNames()` excludes the
+  publisher. The draft still publishes as a whole; there is no per-contributor granularity,
+  which would reintroduce the fork-and-lose problem the single shared draft avoids.
+
+The store returns **raw uids and timestamps** — loading users and formatting time is the
+surfaces' concern, not the store's — reached through the field item's read-throughs
+(`draftVersion()`, `draftLastEditor()`, `draftLastModified()`, `draftContributors()`). The
+contributor set (and the rest of the metadata) is cleared with the record on publish, discard
+and revert — one blob, one `delete()` — so a fresh draft starts with just its author and
+publish never names a contributor from an already-released cycle.
+
 ### Draft model: detached copies
 
 Editor routes carry `neo_draft => TRUE`, and

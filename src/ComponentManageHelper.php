@@ -294,6 +294,13 @@ class ComponentManageHelper {
         'class' => ['btn', 'btn-xs', 'btn-outline'],
       ],
     ];
+    // Presence: who else has been in this shared layout draft, and how
+    // recently. Read from the draft's own last-editor/last-modified — no
+    // heartbeat, no separate presence table — so it only appears when a
+    // colleague, not the current editor, last wrote the draft.
+    if ($instance instanceof ComponentTreeItem && ($presence = static::buildDraftPresence($instance))) {
+      $build['presence'] = $presence;
+    }
     if ($instance->access('reset')) {
       // Allow reset only for entity-based components.
       $build['reset'] = [
@@ -352,6 +359,98 @@ class ComponentManageHelper {
       }
     }
     return $build;
+  }
+
+  /**
+   * Builds the presence indicator for a shared layout draft.
+   *
+   * The draft is the collaborative artifact two editors build together; this
+   * surfaces who else has been in it and how recently — "Jane edited this 2
+   * minutes ago" — so an editor does not unknowingly build on top of a
+   * colleague mid-edit. It is a thin read of the draft's own last-editor and
+   * last-modified metadata (no heartbeat, no separate presence table), and it
+   * appears only when a colleague, rather than the current editor, last wrote
+   * the draft: presence is about who *else* is here.
+   *
+   * @param \Drupal\neo_alchemist\Plugin\Field\FieldType\ComponentTreeItem $instance
+   *   The field item whose shared draft is being edited.
+   *
+   * @return array
+   *   The presence render element, or an empty array when there is no draft or
+   *   the current editor is the one who last wrote it.
+   */
+  public static function buildDraftPresence(ComponentTreeItem $instance): array {
+    $editorUid = $instance->draftLastEditor();
+    if ($editorUid === NULL || $editorUid === (int) \Drupal::currentUser()->id()) {
+      return [];
+    }
+    $name = static::draftUserName($editorUid);
+    $modified = $instance->draftLastModified();
+    $ago = $modified
+      ? \Drupal::service('date.formatter')->formatTimeDiffSince($modified, ['granularity' => 1])
+      : NULL;
+    $label = $ago
+      ? t('@editor edited this @time ago', ['@editor' => $name, '@time' => $ago])
+      : t('@editor edited this', ['@editor' => $name]);
+    return [
+      '#type' => 'html_tag',
+      '#tag' => 'div',
+      '#value' => $label,
+      '#attributes' => [
+        'class' => ['neo-alchemist--presence', 'flex', 'items-center', 'gap-1', 'text-xs', 'text-base-500'],
+        'title' => t('A colleague has been working in this shared layout draft.'),
+      ],
+      // The relative time drifts by the second, so the indicator can never be
+      // cached — it is recomputed on every render of the editor toolbar.
+      '#cache' => ['max-age' => 0],
+    ];
+  }
+
+  /**
+   * Names the draft's contributors, optionally excluding one user.
+   *
+   * The publish confirmation names whose work is included before releasing the
+   * draft as a whole, so an editor does not release a colleague's unfinished
+   * component unaware. The publisher is excluded — they know what they are
+   * publishing — and the set is cleared with the record on publish, discard and
+   * revert, so a fresh draft never names a contributor from a released cycle.
+   *
+   * @param \Drupal\neo_alchemist\Plugin\Field\FieldType\ComponentTreeItem $instance
+   *   The field item whose shared draft is being published.
+   * @param int|null $excludeUid
+   *   A user id to omit (typically the publisher), or NULL to name everyone.
+   *
+   * @return string[]
+   *   The contributor display names in first-write order.
+   */
+  public static function draftContributorNames(ComponentTreeItem $instance, ?int $excludeUid = NULL): array {
+    $names = [];
+    foreach ($instance->draftContributors() as $uid) {
+      if ($excludeUid !== NULL && $uid === $excludeUid) {
+        continue;
+      }
+      $names[] = static::draftUserName($uid);
+    }
+    return $names;
+  }
+
+  /**
+   * Resolves a draft contributor's display name, or a neutral label.
+   *
+   * The store records raw user ids; loading the user is a presentation concern,
+   * kept here rather than in the store. A user id that no longer resolves — a
+   * deleted account that once wrote the draft — degrades to a neutral label so
+   * presence and attribution never render a broken name or a bare number.
+   *
+   * @param int $uid
+   *   The contributor's user id.
+   *
+   * @return string
+   *   The display name, or a neutral label when the account does not resolve.
+   */
+  protected static function draftUserName(int $uid): string {
+    $user = \Drupal::entityTypeManager()->getStorage('user')->load($uid);
+    return $user ? $user->getDisplayName() : (string) t('Another editor');
   }
 
 }
