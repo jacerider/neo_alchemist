@@ -30,7 +30,9 @@ use Drupal\neo_alchemist\ViewsActiveFiltersTwig;
   id: 'views_active_filters',
   label: new TranslatableMarkup('Views | Active Filters'),
   description: new TranslatableMarkup('Provide the applied exposed filters as removable-chip data.'),
-  group: 'providers',
+  // A late provider: the value is sourced in modifyValue(), after the view has
+  // executed, not during the provider search. @see ViewsContextValueBase.
+  group: 'late',
   ref_types: [
     'views_active_filters',
   ],

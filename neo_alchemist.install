@@ -768,3 +768,66 @@ function neo_alchemist_update_11006(&$sandbox) {
     '@list' => implode(' | ', $parts),
   ]);
 }
+
+/**
+ * Give existing read_time providers an explicit "stop when found" mode.
+ *
+ * `read_time` gained ComponentValueProcessingModeInterface. Before that it
+ * sourced a value but could never claim it, so a later provider on the same
+ * prop silently overwrote what the site builder had configured. Its mode now
+ * defaults to stop_when_found, and because read_time always produces a
+ * non-empty placeholder, that means it claims and the search stops — the
+ * defect is fixed.
+ *
+ * That new behaviour arrives the moment the code ships, whether or not this
+ * hook runs: an unset `processing_mode` key resolves through
+ * ComponentValueProcessingModeTrait::getProcessingMode() to the plugin default.
+ * The hook exists to make the change VISIBLE rather than silent — it writes the
+ * mode into stored config so `git diff config/` shows it, exactly as update
+ * 11004 reasoned about an unset key being a live reference to
+ * processingModeDefault().
+ *
+ * Only read_time is touched, and only where the key is absent: a mode a site
+ * builder set by hand (block, continue) is left alone, which also makes the
+ * hook idempotent. read_time is not an inline plugin, so it never lives inside
+ * a provider's `shape_fields` list — only on a prop's own shape or an expanded
+ * child shape id (`heading~title`), both of which sit directly under
+ * `settings.props.<prop>.plugins.<shape id>` and are walked here.
+ */
+function neo_alchemist_update_11007() {
+  $changed = [];
+
+  foreach (\Drupal::configFactory()->listAll('neo_alchemist.neo_component.') as $name) {
+    $config = \Drupal::configFactory()->getEditable($name);
+    $data = $config->getRawData();
+    $dirty = FALSE;
+
+    foreach ($data['settings']['props'] ?? [] as $propId => $prop) {
+      // $shapeId is the prop's own id OR an expanded child shape id.
+      foreach ($prop['plugins'] ?? [] as $shapeId => $instances) {
+        if (!is_array($instances) || !isset($instances['read_time']) || !is_array($instances['read_time'])) {
+          continue;
+        }
+        $settings = $instances['read_time']['settings'] ?? [];
+        if (is_array($settings) && array_key_exists('processing_mode', $settings)) {
+          continue;
+        }
+        $data['settings']['props'][$propId]['plugins'][$shapeId]['read_time']['settings']['processing_mode'] = 'stop_when_found';
+        $changed[] = ($data['id'] ?? $name) . ' :: ' . $shapeId;
+        $dirty = TRUE;
+      }
+    }
+
+    if ($dirty) {
+      $config->setData($data)->save();
+    }
+  }
+
+  if (!$changed) {
+    return (string) t('No component read_time providers needed a processing mode written.');
+  }
+  return (string) t('Wrote an explicit "Use its value and stop" processing mode onto @count read_time provider(s), pinning in config the behaviour they now take by default so a later provider can no longer overwrite them: @list.', [
+    '@count' => count($changed),
+    '@list' => implode(', ', $changed),
+  ]);
+}

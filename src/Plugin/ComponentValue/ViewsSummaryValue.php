@@ -29,7 +29,9 @@ use Drupal\views\ViewExecutable;
   id: 'views_summary',
   label: new TranslatableMarkup('Views | Result Summary'),
   description: new TranslatableMarkup("Provide a bound view's result counts — total, page window, page count — as data."),
-  group: 'providers',
+  // A late provider: the value is sourced in modifyValue(), after the view has
+  // executed, not during the provider search. @see ViewsContextValueBase.
+  group: 'late',
   ref_types: [
     'views_summary',
   ],

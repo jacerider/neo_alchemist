@@ -9,6 +9,7 @@ use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\neo_alchemist\Attribute\ComponentValue;
 use Drupal\neo_alchemist\Shape\ComponentShapePluginInterface;
+use Drupal\neo_alchemist\Value\ComponentValueProcessingModeInterface;
 use Drupal\neo_alchemist\Value\ComponentValuePluginBase;
 use Drupal\neo_alchemist\Value\ComponentValueProducerInterface;
 
@@ -37,7 +38,9 @@ use Drupal\neo_alchemist\Value\ComponentValueProducerInterface;
   ],
   weight: 7,
 )]
-final class ReadTimeValue extends ComponentValuePluginBase implements ComponentValueProducerInterface {
+final class ReadTimeValue extends ComponentValuePluginBase implements ComponentValueProcessingModeInterface, ComponentValueProducerInterface {
+
+  use ComponentValueProcessingModeTrait;
 
   /**
    * Minutes shown in the editor preview, where there is no article to count.
@@ -55,7 +58,7 @@ final class ReadTimeValue extends ComponentValuePluginBase implements ComponentV
       'selector' => '.region--content',
       'format' => '@count min read',
       'minimum' => 1,
-    ];
+    ] + $this->processingModeDefaultConfiguration();
   }
 
   /**
@@ -99,6 +102,8 @@ final class ReadTimeValue extends ComponentValuePluginBase implements ComponentV
       '#min' => 0,
       '#required' => TRUE,
     ];
+
+    $form = $this->buildProcessingModeForm($form, $form_state);
 
     return $form;
   }

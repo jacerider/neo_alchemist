@@ -414,6 +414,7 @@ class ProcessingModeBackfillTest extends KernelTestBase {
       'menu',
       'na_mode_first',
       'page_title',
+      'read_time',
       'share',
     ], $capable);
   }

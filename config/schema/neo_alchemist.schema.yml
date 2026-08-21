@@ -242,6 +242,9 @@ neo_alchemist.neo_component_value.read_time:
     minimum:
       type: integer
       label: 'Minimum minutes'
+    processing_mode:
+      type: string
+      label: 'Processing mode'
 
 neo_alchemist.neo_component_value.date:
   type: mapping
