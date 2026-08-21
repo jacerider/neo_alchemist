@@ -57,12 +57,13 @@ class SharedDraftStoreTest extends HybridFieldKernelTestBase {
   public function testSharedDraftIsVisibleAcrossUsersButScratchIsNot(): void {
     $item = $this->fieldItem();
     $currentUser = $this->container->get('current_user');
+    $time = $this->container->get('datetime.time');
     $invalidator = $this->container->get('cache_tags.invalidator');
 
     // Both stores share ONE adapter — segmentation is the key space, not the
     // backend.
     $memory = new MemoryEditorStateStore();
-    $shared = new SharedDraftStore($memory, $invalidator);
+    $shared = new SharedDraftStore($memory, $currentUser, $time, $invalidator);
     $scratch = new EditorScratchStore($memory, $currentUser, $invalidator);
 
     $userA = new UserSession(['uid' => 101]);
@@ -111,7 +112,12 @@ class SharedDraftStoreTest extends HybridFieldKernelTestBase {
       },
     );
 
-    $shared = new SharedDraftStore(new MemoryEditorStateStore(), $invalidator);
+    $shared = new SharedDraftStore(
+      new MemoryEditorStateStore(),
+      $this->container->get('current_user'),
+      $this->container->get('datetime.time'),
+      $invalidator,
+    );
     $tag = $shared->cacheTag($item);
 
     $shared->set($item, ['tree' => '{}', 'props' => '[]']);

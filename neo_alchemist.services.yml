@@ -37,10 +37,11 @@ services:
   # by durable state, and published as a whole. Its key and cache-tag
   # derivation are private, and every write invalidates the tag — so no caller
   # can construct a key to bypass the store, nor ship a stale preview by
-  # forgetting a line.
+  # forgetting a line. The current user and time services let every write record
+  # the last editor, last-modified time and contributor set on the record.
   neo_alchemist.shared_draft_store:
     class: Drupal\neo_alchemist\EditorState\SharedDraftStore
-    arguments: ['@neo_alchemist.editor_state.state', '@cache_tags.invalidator']
+    arguments: ['@neo_alchemist.editor_state.state', '@current_user', '@datetime.time', '@cache_tags.invalidator']
 
   # The per-user scratch store: the live form buffer that drives one editor's
   # preview iframe. Its own key prefix (so it no longer borrows the whole-tree
