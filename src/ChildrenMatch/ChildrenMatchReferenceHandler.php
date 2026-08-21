@@ -78,7 +78,7 @@ final class ChildrenMatchReferenceHandler extends ChildrenMatchHandlerBase {
       $referenceField = $this->matcherReference->getReferenceField($field->entity, $entityKey, $field->shape->getCacheableMetadata());
       if ($referenceField) {
         $childShapeNames = array_keys($field->settings['shape_fields']);
-        return $mapper->fetchValues($source, $childShapeNames, $field->shape, $referenceField->referencedEntities(), $field->settings, $field->shapeId, $mapper->isChildIterable($field->shape, $field->shapeId));
+        return $mapper->fetchValues($source, $childShapeNames, $field->shape, $referenceField->referencedEntities(), $field->published, $field->settings, $field->shapeId, $mapper->isChildIterable($field->shape, $field->shapeId));
       }
     }
     return NULL;

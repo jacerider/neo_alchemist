@@ -58,7 +58,7 @@ final class ChildrenMatchExpandHandler extends ChildrenMatchHandlerBase {
   public function fetch(ChildrenMatchField $field, ChildrenMatchMapper $mapper, ChildrenMatchSourceInterface $source): mixed {
     if ($field->settings['shape_fields'] ?? []) {
       $childShapeNames = array_keys($field->settings['shape_fields']);
-      return $mapper->fetchValues($source, $childShapeNames, $field->shape, [$field->entity], $field->settings, $field->shapeId, $mapper->isChildIterable($field->shape, $field->shapeId));
+      return $mapper->fetchValues($source, $childShapeNames, $field->shape, [$field->entity], $field->published, $field->settings, $field->shapeId, $mapper->isChildIterable($field->shape, $field->shapeId));
     }
     return NULL;
   }

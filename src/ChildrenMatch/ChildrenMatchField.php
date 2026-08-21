@@ -37,6 +37,13 @@ final class ChildrenMatchField {
    * @param array $settings
    *   The stored settings for this child — `field`, and whatever the chosen
    *   field kind adds beside it.
+   * @param bool $published
+   *   The resolved published-entity decision for the whole mapping, threaded
+   *   down from the provider root. A handler that walks on to further entities
+   *   (`_reference`, `_expand`) or reads a field through an intermediate entity
+   *   (`_render`) passes THIS on, rather than re-deriving it from `$settings` —
+   *   which never carries `shape_published`, so re-deriving it always resolved
+   *   FALSE and let unpublished content through below the first level.
    */
   public function __construct(
     public readonly string $shapeId,
@@ -45,6 +52,7 @@ final class ChildrenMatchField {
     public readonly ComponentShapeChildrenMatchPluginInterface $shape,
     public readonly ContentEntityInterface $entity,
     public readonly array $settings,
+    public readonly bool $published,
   ) {}
 
 }

@@ -1,5 +1,45 @@
 # Changelog
 
+## "Only use published entities" now reaches every level of a mapping
+
+**This is a content-visibility change. Check it before you update.**
+
+A children-match provider — `entity_query`, `entity_reference`, `views` and the
+rest that map an entity's fields onto a component's child shapes — carries an
+"Only use published entities" setting, ticked by default. It filtered only the
+**first** level of the mapping. A child mapped through one of the pseudo-fields
+that walks on to further entities kept none of that filtering:
+
+- **`_reference`** (follow a reference field and map the entities it points at) —
+  the referenced entities were never filtered.
+- **`_expand`** (map the same entity onto a child's own children) — filtering
+  stopped at its level and below, so any `_reference` nested under it walked on
+  unfiltered too.
+- **`_render`** (run a field through a formatter) — read its field with
+  filtering switched off, so a chained render key that passed over an
+  intermediate entity followed unpublished intermediates.
+
+Unpublished content reached through any of these rendered on the page with the
+box ticked. After this change the setting is resolved once, from where it is
+stored on the provider, and applied at every level the mapping reaches. Unticking
+it still turns filtering off everywhere — the site builder's choice is threaded
+down, not hard-coded on.
+
+**What a site owner sees change:** an unpublished entity that was leaking onto a
+page through a followed reference, an expanded child, or a chained render key
+stops rendering.
+
+**How to find affected components before updating:** look in
+`neo_alchemist.neo_component.*` config for a provider whose stored `shape_fields`
+mapping uses a `_reference~…` or `_expand` child, or a `render_field` (the
+`_render` pseudo-field), on a provider where "Only use published entities" is on
+(it is on by default — the key is `shape_published`, and its absence means the
+default TRUE). Those mappings are the ones whose output can change. A component
+that maps only plain fields, or that unticked the setting, is unaffected.
+
+**No update hook, no stored-data change.** The setting already exists at the
+provider root and already defaults to TRUE; only the reach of the value changes.
+
 ## The shape interface is fourteen roles, and a child option means the same on both bases
 
 `ComponentShapePluginInterface` declared 133 methods and one class implemented

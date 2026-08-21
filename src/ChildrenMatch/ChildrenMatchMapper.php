@@ -202,7 +202,13 @@ class ChildrenMatchMapper {
     if (!$result->entities && !$result->mapsWhenEmpty) {
       return [];
     }
-    return $this->fetchValues($source, $shape->getChildShapeNames(), $shape, $result->entities, $configuration);
+    // The published-entity decision is resolved once, here, from the settings
+    // stored at the provider root — the one place `shape_published` is ever
+    // written — and threaded down as an explicit argument. No mapping level
+    // re-reads it from a settings array, because every level below the first is
+    // handed a CHILD settings array that cannot carry it.
+    $published = !empty($configuration['shape_published']);
+    return $this->fetchValues($source, $shape->getChildShapeNames(), $shape, $result->entities, $published, $configuration);
   }
 
   /**
@@ -595,6 +601,12 @@ class ChildrenMatchMapper {
    *   keyed by a chained shape id the root owns.
    * @param array $entities
    *   The entities to read the values from.
+   * @param bool $published
+   *   The resolved published-entity decision, threaded down from the provider
+   *   root by getValues() and by every recursing handler. It governs the level
+   *   being filled AND is handed on to the handlers so nested levels filter the
+   *   same way. It is never re-derived from $configuration, which below the
+   *   first level is a CHILD settings array that does not carry the flag.
    * @param array $configuration
    *   The configuration for this level.
    * @param string|null $parentId
@@ -614,28 +626,25 @@ class ChildrenMatchMapper {
    * @return mixed
    *   The values.
    */
-  public function fetchValues(ChildrenMatchSourceInterface $source, array $shapeNames, ComponentShapeChildrenMatchPluginInterface $shape, array $entities, array $configuration = [], ?string $parentId = NULL, ?bool $iterable = NULL): mixed {
+  public function fetchValues(ChildrenMatchSourceInterface $source, array $shapeNames, ComponentShapeChildrenMatchPluginInterface $shape, array $entities, bool $published, array $configuration = [], ?string $parentId = NULL, ?bool $iterable = NULL): mixed {
     /** @var \Drupal\Core\Entity\ContentEntityInterface[] $entities */
     $values = [];
     $delta = 0;
     $iterable = $iterable ?? $shape->isIterable();
-    $published = !empty($configuration['shape_published']);
     // The pseudo-field handlers active for this mapping: the mapper's own, plus
     // any the source registers. A source's cannot shadow a built-in.
     $handlerMap = $this->handlerMap($source);
     if ($entities) {
       $parentId = $parentId ?? $shape->id();
       foreach (array_filter($entities) as $entity) {
-        // The one place the published policy is implemented. A source may
-        // narrow its own query with the same flag so unpublished rows do not
-        // consume slots in a range window, but this is the decision that
-        // stands — no producer applies a policy of its own any more.
-        //
-        // It governs the level being filled. Nested _expand/_reference levels
-        // recurse with the CHILD's settings, which never carry
-        // shape_published, so they do not filter — the trait behaved the same
-        // way and changing it would drop content from already-configured
-        // components. Recorded on ticket 04 for a follow-up.
+        // The published policy, applied against the decision threaded in from
+        // the provider root. A source may narrow its own query with the same
+        // flag so unpublished rows do not consume slots in a range window, but
+        // this is the decision that stands — no producer applies a policy of
+        // its own any more. The same $published reaches every nested level,
+        // through the handlers below, so a followed reference or an expanded
+        // child filters exactly as this level does rather than walking on to
+        // unpublished entities unchecked.
         if ($published && $entity instanceof EntityPublishedInterface && !$entity->isPublished()) {
           continue;
         }
@@ -660,7 +669,7 @@ class ChildrenMatchMapper {
             $name = $this->handlerName($field);
             $handler = $name !== NULL ? ($handlerMap[$name] ?? NULL) : NULL;
             if ($handler) {
-              $context = new ChildrenMatchField($shapeId, $shapeName, $delta, $shape, $entity, $settings);
+              $context = new ChildrenMatchField($shapeId, $shapeName, $delta, $shape, $entity, $settings, $published);
               $value = $handler->fetch($context, $this, $source);
               if (!is_null($value)) {
                 $values[$delta][$shapeName] = $value;

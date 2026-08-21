@@ -14,12 +14,11 @@ use Drupal\neo_alchemist\Match\MatcherField;
 /**
  * Handles `_render`: run a field through a formatter, keep the render array.
  *
- * The published flag is read from the CHILD's settings, where it is never
- * written — `shape_published` lives at the provider root — so this resolves
- * FALSE every time and the matcher walk does not drop unpublished intermediate
- * entities. That is what the trait did, bug and all, and it is preserved
- * deliberately: reading the provider's flag here instead would quietly change
- * what already-configured `_render` mappings put on a page. See ticket 11.
+ * The published decision is the one threaded in on the field — resolved once at
+ * the provider root and handed down — so a chained render key that passes over
+ * an intermediate entity drops that entity when it is unpublished and the flag
+ * is set, exactly as a plain field match does. It is not re-derived from the
+ * child's settings, which never carry `shape_published`.
  */
 final class ChildrenMatchRenderHandler extends ChildrenMatchHandlerBase {
 
@@ -101,8 +100,7 @@ final class ChildrenMatchRenderHandler extends ChildrenMatchHandlerBase {
    */
   public function fetch(ChildrenMatchField $field, ChildrenMatchMapper $mapper, ChildrenMatchSourceInterface $source): mixed {
     if (!empty($field->settings['render_field'])) {
-      $published = !empty($field->settings['shape_published']);
-      $item = $this->matcherField->getEntityField($field->entity, $field->settings['render_field'], $published, $field->shape->getCacheableMetadata());
+      $item = $this->matcherField->getEntityField($field->entity, $field->settings['render_field'], $field->published, $field->shape->getCacheableMetadata());
       if ($item && !$item->isEmpty() && !empty($field->settings['render_field_format']['field_plugin'])) {
         $build = $item->view([
           'type' => $field->settings['render_field_format']['field_plugin'],

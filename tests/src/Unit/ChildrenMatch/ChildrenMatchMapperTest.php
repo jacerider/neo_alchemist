@@ -192,6 +192,51 @@ class ChildrenMatchMapperTest extends UnitTestCase {
   }
 
   /**
+   * The published flag reaches a NESTED level and drops unpublished there too.
+   *
+   * A `_reference` or `_expand` child walks on to a further set of entities.
+   * The trait derived the flag from the child's own settings, which never carry
+   * `shape_published`, so every level below the first resolved FALSE and mapped
+   * unpublished content onto the page with the box ticked. The flag is one
+   * resolved decision now, threaded down, so the nested level filters exactly
+   * as the top one does.
+   */
+  public function testPublishedFlagReachesNestedLevel(): void {
+    $shape = $this->shape(['gallery'], FALSE);
+    $source = new FakeRecursingChildrenMatchSource(
+      ChildrenMatchResult::of([$this->entity(TRUE, 'Parent')]),
+      [$this->entity(FALSE, 'Draft'), $this->entity(TRUE, 'Live')],
+    );
+
+    $configuration = $this->mapping('gallery', '_recurse') + ['shape_published' => TRUE];
+    $this->assertSame(
+      ['gallery' => [0 => ['label' => ['Live']]]],
+      $this->mapper->getValues($source, $shape, $configuration, NULL),
+    );
+  }
+
+  /**
+   * With the flag off, the nested level keeps unpublished entities too.
+   *
+   * The counterpart: the fix threads the site builder's choice, it does not
+   * hard-code filtering on. Unticking the box turns it off at every level it
+   * was turned on.
+   */
+  public function testPublishedFlagOffKeepsNestedUnpublished(): void {
+    $shape = $this->shape(['gallery'], FALSE);
+    $source = new FakeRecursingChildrenMatchSource(
+      ChildrenMatchResult::of([$this->entity(TRUE, 'Parent')]),
+      [$this->entity(FALSE, 'Draft'), $this->entity(TRUE, 'Live')],
+    );
+
+    $configuration = $this->mapping('gallery', '_recurse') + ['shape_published' => FALSE];
+    $this->assertSame(
+      ['gallery' => [0 => ['label' => ['Draft']], 1 => ['label' => ['Live']]]],
+      $this->mapper->getValues($source, $shape, $configuration, NULL),
+    );
+  }
+
+  /**
    * An unmapped child is hidden rather than filled.
    */
   public function testUnmappedChildIsHidden(): void {
