@@ -31,6 +31,17 @@ final class ComponentEntity extends ComponentInstanceBase implements ComponentEn
     $fieldName = $this->getFieldItem()->getFieldDefinition()->getName();
     $fieldKey = ComponentFieldConfig::getKeyFromFieldname($fieldName);
     $entity = $this->getTargetEntity();
+    // The move op appends a component in a direction. The direction is a path
+    // parameter, and the client may pass an optional parent through the query;
+    // both go through the generator so path processing applies (this replaces a
+    // hand-concatenated URL that bypassed it).
+    if ($rel === 'move') {
+      $direction = self::takeMoveDirection($options);
+      return $entity->toUrl('alchemist.move', $options)
+        ->setRouteParameter('neo_field', $fieldKey)
+        ->setRouteParameter('neo_component', $this->uuid())
+        ->setRouteParameter('direction', $direction);
+    }
     return match($rel) {
       'edit' => $entity->toUrl('alchemist.edit', $options)->setRouteParameter('neo_field', $fieldKey)->setRouteParameter('neo_component', $this->uuid()),
       'clone' => $entity->toUrl('alchemist.clone', $options)->setRouteParameter('neo_field', $fieldKey)->setRouteParameter('neo_component', $this->uuid()),

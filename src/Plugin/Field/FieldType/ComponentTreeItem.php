@@ -303,7 +303,10 @@ class ComponentTreeItem extends FieldItemBase implements RenderableInterface, Co
     return match($rel) {
       'collection' => $this->getEntity()->toUrl(),
       'preview' => $this->getEntity()->toUrl("alchemist.preview")->setRouteParameter('neo_field', $fieldKey),
-      'library' => $this->getEntity()->toUrl("alchemist.library")->setRouteParameter('neo_field', $fieldKey),
+      // Pass $options through so the positional library contract (before/after,
+      // parent) rides as query parameters on the generated URL. See
+      // ComponentFieldConfig::toUrl() for the field-config/block equivalent.
+      'library' => $this->getEntity()->toUrl("alchemist.library", $options)->setRouteParameter('neo_field', $fieldKey),
       'add' => $this->getEntity()->toUrl("alchemist.add")->setRouteParameter('neo_field', $fieldKey),
       'publish' => $this->getEntity()->toUrl("alchemist.publish")->setRouteParameter('neo_field', $fieldKey),
       'revert' => $this->getEntity()->toUrl("alchemist.revert")->setRouteParameter('neo_field', $fieldKey),

@@ -882,6 +882,19 @@ From [neo_alchemist.services.yml](neo_alchemist.services.yml):
   generator arm but no registered route) nor go missing for a route that exists (this added
   `alchemist.move`). `EditorRouteFamilyTest` asserts both directions. The form classes the
   same alter sets (`InstanceComponent*Form`) are unrelated and unchanged.
+- **The `move` and library-position paths are generated server-side, in every scope.**
+  Two of the editor's paths — `move` (append a component in a direction) and `library` with
+  a position (add before/after a sibling, optionally within a parent) — had no server-side
+  URL generator; the client built them by concatenating suffixes onto a base URL, which
+  bypasses path processing (base path, language prefix, alias). Now `move` is a
+  component-instance rel (`ComponentEntity::toUrl('move', ['direction' => …])` /
+  `ComponentField::toUrl(…)`, the block scope reusing the latter) that carries the direction
+  as a path parameter and an optional parent through the query; and the `library` rel passes
+  its options through, so `before`/`after`/`parent` ride as query parameters on the
+  generated URL. Both go through `Url::fromRoute()` / `Entity::toUrl()`, so path processing
+  applies. `MoveAndLibraryPositionUrlTest` pins the URL each produces in the entity, field-UI
+  and block scopes, including under a non-standard base path. (The client still concatenates
+  today — reading the URL off the op is phase two.)
 
 ---
 

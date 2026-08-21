@@ -145,6 +145,33 @@ abstract class ComponentInstanceBase extends Component implements ComponentInsta
   }
 
   /**
+   * Extracts the move op's direction from a toUrl() options array.
+   *
+   * The move route carries the direction as a path parameter, but toUrl()'s
+   * only channel for extra input is the options array. This pulls it out — so
+   * the caller sets it as a route parameter and it is not forwarded to the URL
+   * generator as a stray option — and requires it: a move with no direction is
+   * a caller bug, and failing here names it rather than letting route
+   * generation raise an opaque "missing parameter direction" later. The value
+   * itself (up/down) is the tree operation's business, not this generator's, so
+   * it is not constrained here.
+   *
+   * @param array $options
+   *   The toUrl() options, passed by reference; the 'direction' key is removed.
+   *
+   * @return string
+   *   The move direction.
+   */
+  protected static function takeMoveDirection(array &$options): string {
+    $direction = $options['direction'] ?? NULL;
+    unset($options['direction']);
+    if (!is_string($direction) || $direction === '') {
+      throw new \InvalidArgumentException("The move op requires a non-empty 'direction' option.");
+    }
+    return $direction;
+  }
+
+  /**
    * {@inheritDoc}
    */
   public function setParent(?string $parentUuid, ?string $slot = NULL): self {

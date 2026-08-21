@@ -26,6 +26,19 @@ final class ComponentField extends ComponentInstanceBase implements ComponentFie
    */
   public function toUrl($rel = NULL, array $options = []) {
     $entityTypeId = $this->getTargetEntity()->getEntityTypeId();
+    // The move op carries the direction as a path parameter and an optional
+    // parent through the query. Generated through Url::fromRoute so path
+    // processing applies — the same server-side generation the entity scope
+    // gets, off the field-UI route family this scope (and the block scope,
+    // which reuses this class) registers.
+    if ($rel === 'move') {
+      $direction = self::takeMoveDirection($options);
+      return Url::fromRoute("entity.{$entityTypeId}.field_ui.alchemist.move", [
+        'neo_field' => ComponentFieldConfig::getKeyFromFieldname($this->getFieldItem()->getFieldDefinition()->getName()),
+        'neo_component' => $this->uuid(),
+        'direction' => $direction,
+      ] + $this->getFieldDefinition()->getUrlParameters(), $options);
+    }
     return match($rel) {
       'edit' => Url::fromRoute("entity.{$entityTypeId}.field_ui.alchemist.edit", [
         'neo_field' => ComponentFieldConfig::getKeyFromFieldname($this->getFieldItem()->getFieldDefinition()->getName()),

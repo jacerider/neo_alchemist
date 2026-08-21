@@ -1,5 +1,28 @@
 # Changelog
 
+## The `move` and library-position editor paths gain server-side URL generation
+
+Two of the editor's paths had no server-side URL generator: **move** (append a
+component in a direction) and **library with a position** (add before/after a
+sibling, optionally within a parent). They existed only as client string
+concatenation off a base URL, which bypasses path processing — a site with a
+non-standard base path, a language prefix or an alias got a URL the server would
+not have produced. Both are now addressable through the URL generator in every
+host scope:
+
+- **`move`** is a component-instance rel — `$instance->toUrl('move', ['direction'
+  => 'up'])` (`ComponentEntity` in the entity scope; `ComponentField` in the
+  field-UI and block scopes) — carrying the direction as a path parameter and an
+  optional `parent` through the query.
+- **`library`** now passes its options through, so a `before`/`after` position
+  and an optional `parent` ride as query parameters on the generated URL
+  (`ComponentTreeItem`/`ComponentFieldConfig`, the block scope deferring to the
+  latter).
+
+**No stored-data change, no update hook, no route-name change**; this is purely
+additive URL-generation surface. The editor client is unchanged in this release
+and still concatenates today — reading the URL off the op is a later change.
+
 ## The editor's `alchemist.region` link template and rel are removed
 
 The entity-scope editor link templates now derive from the same table as the

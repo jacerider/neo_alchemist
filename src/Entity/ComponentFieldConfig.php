@@ -36,7 +36,10 @@ class ComponentFieldConfig extends NeoFieldConfig implements ComponentFieldConfi
     return match($rel) {
       'collection' => Url::fromRoute("entity.{$entityTypeId}.field_ui_fields", $parameters),
       'preview' => Url::fromRoute("entity.{$entityTypeId}.field_ui.alchemist.preview", $parameters),
-      'library' => Url::fromRoute("entity.{$entityTypeId}.field_ui.alchemist.library", $parameters),
+      // Pass $options through so before/after/parent ride as query on the
+      // generated URL. Also serves the block scope, whose
+      // AlchemistBlockFieldConfig defers the library rel here.
+      'library' => Url::fromRoute("entity.{$entityTypeId}.field_ui.alchemist.library", $parameters, $options),
       'add' => Url::fromRoute("entity.{$entityTypeId}.field_ui.alchemist.add", $parameters),
       'sort' => Url::fromRoute("entity.{$entityTypeId}.field_ui.alchemist.sort", $parameters),
       // The mirror image of the three below: purging stored entity data is
