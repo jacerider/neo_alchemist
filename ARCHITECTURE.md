@@ -44,15 +44,21 @@ Config entity type id: **`neo_component`**. Class: [src/Entity/Component.php](sr
 
 | Method | Purpose |
 |---|---|
-| `toRenderable($isFirst, $isLast)` | Build the render array (see [Render pipeline](#render-pipeline)). |
+| `toRenderable($isFirst, $isLast, ?$routeMatch)` | Build the render array (see [Render pipeline](#render-pipeline)). The trailing route match primes the preview flag at the render boundary, replacing an ambient `\Drupal::routeMatch()` read. |
 | `getPropValues()` | Iterate the active shapes, call `getPropValue()` on each, assemble the `#props` array (adds `attributes`). |
 | `getPropShapes()` | The `ComponentShapePluginInterface[]` for every prop, parsed from the SDC schema. |
 | `getComponentDefinition()` | The SDC plugin definition (from `plugin.manager.sdc`) for this component. |
 | `getComponentSchema()` | The `schema` (props) block from the SDC metadata. |
 | `getComponentSlots()` / `getSlots()` | The SDC slots / the resolved `ComponentSlot` instances. |
 | `setPreview(bool)` / `isPreview()` | Toggle/read preview mode — drives `neoIsPreview` and preview-only admin UI. |
-| `getPreviewContext()` / `setPreviewContext($above,$below)` | Neighbor components to render around this one in the preview (cache-backed). |
-| `getPreviewValues()` / `setPreviewValues($v)` | Cache-backed prop overrides used while editing in the preview workspace. |
+| `isComponentPreview(?$routeMatch)` | Whether this render is the editor's component preview. Takes the route as an argument (primed by `toRenderable()`) rather than reading the ambient request; with no route it reads the cached flag. |
+| `invalidateDerivedSettings()` | Drop the memoised shapes/filters. Public since the SDC preview store calls it as the postcondition of a value write. |
+
+The cache-backed preview overrides that used to sit on this interface —
+`getPreviewValues()`/`setPreviewValues()`, the preview style setters and
+`getPreviewContext()`/`setPreviewContext()` — have moved off the entity into the per-user
+`SdcPreviewStore`; the entity keeps only the in-memory preview flags. See the SDC preview
+workspace store under [Draft model](#draft-model-two-stores-two-key-spaces).
 
 **Transient preview entity** — do not `create()` by hand; use the service:
 
@@ -733,11 +739,11 @@ path branches on.
 
 Editor state lives behind the store seam in
 [src/EditorState/](src/EditorState/) — an `EditorStateStoreInterface` (read/write/delete a
-keyed value) with three adapters: `PrivateTempStoreEditorStateStore` (per-user),
-`StateEditorStateStore` (durable), and `MemoryEditorStateStore` (tests). The sharing
-semantics are a property of the **store** built on an adapter, not of the arguments a
-caller passes — so which colleague sees your edit no longer depends on whether a uuid
-happened to reach a shared key function.
+keyed value) with four adapters: `PrivateTempStoreEditorStateStore` (per-user),
+`StateEditorStateStore` (durable), `CacheEditorStateStore` (disposable, short TTL), and
+`MemoryEditorStateStore` (tests). The sharing semantics are a property of the **store**
+built on an adapter, not of the arguments a caller passes — so which colleague sees your
+edit no longer depends on whether a uuid happened to reach a shared key function.
 
 - **The shared draft** (`SharedDraftStore`, `neo_alchemist.shared_draft_store`) is the
   collaborative layout draft: keyed by entity and field with **no user segment**, backed
@@ -745,11 +751,24 @@ happened to reach a shared key function.
   artifact, and either can publish it — per-user drafts would fork the layout and let the
   last publisher silently discard the other's work. The key folds in the entity type and
   langcode (fixing the old key's cross-type and cross-translation collisions) and leaves
-  out the revision (a draft is pre-publish).
+  out the revision (a draft is pre-publish). In-flight drafts written under the old
+  `neo_alchemist.<entity id>.<field>` key are re-keyed into this prefix — and have their
+  missing entity type and langcode recovered — by `neo_alchemist_update_11008()`, so
+  splitting the key space preserves rather than orphans them.
 - **The live form buffer** (`EditorScratchStore`, `neo_alchemist.editor_scratch_store`) is
   one editor's unsaved, in-progress form values driving their own preview iframe: per-user
   by construction (private tempstore, plus the current user folded into its key), its own
   key prefix, disposable. Not a draft in the collaborative sense.
+
+A third store rides the same seam but sits **outside** the collaborative draft model: the
+**SDC preview workspace** (`SdcPreviewStore`, `neo_alchemist.sdc_preview_store`) holds a
+component developer's temporary prop overrides that drive the preview iframe on a transient
+unsaved entity. It is cache-backed with a short expiry, per-user (its own
+`neo_alchemist_preview` key prefix with the current user folded in, so one developer's
+overrides and their Reset are their own), and disposable by design — its form never saves,
+so nothing here is durable, migrated or published. Its value writes drop the component's
+memoised derived settings (`invalidateDerivedSettings()`) so the same request re-derives
+shapes and filters.
 
 Both stores keep their **key and cache-tag derivation private**, and fold cache-tag
 invalidation into every `set()`/`delete()`. That is a structural guarantee: no caller can
@@ -761,10 +780,11 @@ controller, and `enforceAsDraft()`'s hydration read) all go through the store.
 
 The **draft-mode flag stays on the field item** (`enforceAsDraft()` / `isDraft()`), as the
 deliberate meeting point with the `component-tree-seam` work, alongside the thin
-`hasDraft()` read-through predicate the flow and the access checks consult. All six draft
-storage/derivation methods left the item: five — `getDraftKey`, `getDraftCacheTag`,
-`getDraftValue`, `setDraftValue` and `deleteDraft` — moved into the store (private key/tag,
-public value I/O), and `hasDraft` became a thin delegate to `SharedDraftStore::has()`.
+`hasDraft()` read-through predicate the flow and the access checks consult — a delegate to
+`SharedDraftStore::has()` that performs no I/O of its own. Six methods left the item: the
+five draft storage/derivation methods — `getDraftKey`, `getDraftCacheTag`, `getDraftValue`,
+`setDraftValue` and `deleteDraft` — moved into the store (private key/tag, public value
+I/O), and `getState()` went with them (its only callers were those five). `hasDraft` stays.
 
 ### Draft model: the shared record and its collaborators
 

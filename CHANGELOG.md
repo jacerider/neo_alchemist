@@ -1,5 +1,110 @@
 # Changelog
 
+## Editor-session state moves behind stores — BREAKING for external draft and preview-state callers
+
+Editor state — the collaborative layout draft, the per-user live form buffer, and the SDC
+preview workspace's prop overrides — used to be reachable directly through public methods on
+the component tree field item and the `neo_component` config entity. A caller could construct
+a draft key, read or write draft state, and — because invalidating the draft's cache tag was
+a *separate* call the writer had to remember — ship a permanently stale preview by forgetting
+one line: Dynamic Page Cache keeps serving the pre-edit render without re-running the
+controller, with nothing in the logs.
+
+That storage now lives behind stores in `src/EditorState/` — an `EditorStateStoreInterface`
+with per-user, durable, disposable and in-memory adapters — and the public methods that
+exposed it are gone. Each store owns its own key derivation and folds cache-tag invalidation
+into the write, so the sharing semantics of a piece of editor state are now a property of the
+store you reach for rather than of the arguments you pass, and no path can ship a stale
+preview by omitting a line. The collaborative draft also became **visibly** shared: it carries
+a version and a last editor, a stale write is refused rather than silently winning, and
+publish names the other contributors. The [Draft model](ARCHITECTURE.md) section of
+`ARCHITECTURE.md` describes the whole arrangement.
+
+Most of this is internal, but three surfaces are published interfaces that external callers
+could bind to, so they lead. **Anything outside this repository performing its own draft I/O,
+or reading preview state off the component entity, breaks — which is the intent, since doing
+so is how a caller shipped a permanently stale preview.**
+
+### BREAKING (PHP): draft storage methods removed from the component tree field item
+
+`ComponentTreeItem` no longer exposes its draft storage. These methods are **gone**; the
+storage moved to `SharedDraftStore` (service `neo_alchemist.shared_draft_store`):
+
+- `getDraftValue()` → `SharedDraftStore::get($item)`
+- `setDraftValue()` → `SharedDraftStore::set($item, $value)` (invalidates the cache tag inside the write)
+- `deleteDraft()` → `SharedDraftStore::delete($item)` (invalidates inside the write)
+- `getDraftCacheTag()` → `SharedDraftStore::cacheTag($item)`
+- `getDraftKey()` → **removed with no public replacement** — the key derivation is now private to the store (see below)
+- `getState()` → **removed** (its only callers were the draft methods above)
+
+`hasDraft()` **stays** on the item as a thin delegate to `SharedDraftStore::has($item)`, and
+the draft-mode flag (`enforceAsDraft()` / `isDraft()`) is unchanged. A PHP caller that read or
+wrote draft state through the item must call the store instead.
+
+### BREAKING (PHP): the draft key derivation is private to the store
+
+The draft key is no longer constructable by any external caller — `getDraftKey()` is gone and
+`SharedDraftStore` derives the key privately. The key now folds in the **entity type** and
+**langcode** (`<entityTypeId>.<entityId|targetEntityTypeId>.<fieldName>.<langcode>`), fixing a
+latent collision where drafts collided across entity types and translations shared one draft;
+the revision is deliberately excluded (a draft is pre-publish). `cacheTag()` remains public
+(the preview controller must tag its response), but because the key is private there is no way
+to write a draft without invalidating the tag that makes the preview notice — invalidation is
+a postcondition of the store's `set()`/`delete()`, not a line a caller can forget.
+
+### BREAKING (PHP): preview-state methods removed from the `neo_component` entity interface
+
+Twelve cache-backed preview-storage methods left `ComponentInterface` and `Component`; they
+moved to the per-user `SdcPreviewStore` (service `neo_alchemist.sdc_preview_store`), whose key
+folds in the current user so one developer's overrides and their Reset are their own:
+
+- values — `hasPreviewValues()`, `getPreviewValues()`, `setPreviewValues()`, `resetPreviewValues()`
+- styles — `hasPreviewStyles()`, `getPreviewStyles()`, `getPreviewStyle()`, `setPreviewStyle()`, `resetPreviewStyle()`
+- context — `getPreviewContext()`, `setPreviewContext()`, `resetPreviewContext()`
+
+The entity keeps the in-memory flags that say "this render is a preview", but two signatures
+changed so the entity no longer reads the ambient request:
+
+- `isComponentPreview()` now takes an optional route match — `isComponentPreview(?RouteMatchInterface $routeMatch = NULL)` — instead of reading `\Drupal::routeMatch()`. With no route it reads the cached flag.
+- `toRenderable($isFirst, $isLast)` gained a trailing optional route argument — `toRenderable($isFirst, $isLast, ?RouteMatchInterface $routeMatch = NULL)` — which primes that flag at the render boundary.
+
+`invalidateDerivedSettings()` is now **public** and on the interface (additive), because the
+preview store calls it as the postcondition of a value write.
+
+### New: the shared draft's collaboration model
+
+Additive, no interface removed. `SharedDraftStore::set()`/`delete()` accept an optional
+`?int $expectedVersion`; a write whose carried version is strictly behind the stored one is
+refused with a `DraftConflictException` (new, `src/EditorState/`) rather than silently
+overwriting a colleague's work. Presence ("@editor edited this 2 minutes ago") and publish
+attribution (the confirmation names the other contributors) are thin reads of the same draft
+record. A lock was considered and rejected in favour of this optimistic detection.
+
+### In-flight drafts are preserved
+
+**Drafts written under the old key scheme are re-keyed, not dropped.** `neo_alchemist_update_11008()`
+walks the `state` collection, moves each old whole-tree draft entry
+(`neo_alchemist.<entity id>.<field>`) to its new key under the shared draft store's prefix —
+recovering the entity type and langcode the old key lacked, which also resolves the
+cross-entity-type / cross-translation collision — seeds the version counter and the rest of
+the record metadata a pre-migration draft lacks, and reports the migrated count. A draft whose entity no longer
+exists is left in place and reported rather than dropped. **Preview values need no migration:**
+they are cache-backed disposable scratch by design, and losing them on update is correct
+behaviour, not data loss.
+
+### Before you update a site
+
+Two things are invisible to PHP static analysis, so audit them by hand before updating:
+
+- **Custom PHP performing its own draft I/O** through `ComponentTreeItem` — `getDraftValue`,
+  `setDraftValue`, `deleteDraft`, `getDraftKey` or `getDraftCacheTag`. Move it to
+  `SharedDraftStore`. `grep -rn 'getDraftValue\|setDraftValue\|deleteDraft\|getDraftKey\|getDraftCacheTag'`
+  over a site's custom modules and themes surfaces it.
+- **Anything reading preview state off the component entity** — the twelve preview methods
+  listed above. Move it to `SdcPreviewStore`, or pass a route to `isComponentPreview()`.
+
+On this site there are none.
+
 ## Editor ops and routes become one table — BREAKING for custom editor JavaScript
 
 The eight operations the editor offers on a component — edit, delete, sort,
