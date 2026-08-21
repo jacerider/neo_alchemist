@@ -10,10 +10,46 @@
    */
   type OverlayState = 'hover' | 'active' | 'ghost' | 'focus';
 
+  /**
+   * One editor op as it crosses the seam from the server.
+   *
+   * The server emits, for each op, a record of this shape into the
+   * data-component attribute — replacing the flat map of access booleans it
+   * sent before. `url` is generated server-side; the client does not read it
+   * yet (a later change deletes the client's own URL builders and reads it),
+   * but the field is declared so that a value the server adds is visible on
+   * both sides of the seam rather than silently dropped.
+   */
+  interface Op {
+    id: string;
+    permitted: boolean;
+    url: string;
+    label: string;
+    verb: string;
+    position: string | null;
+  }
+
+  /**
+   * The payload the server encodes into the data-component / data-region
+   * attribute. Component nodes carry ops/alerts/warnings/inherited; region
+   * nodes carry id/custom; both share label. This is the type the seam had as
+   * `any` before, which is why a server field the client never read was
+   * invisible to both.
+   */
+  interface ComponentData {
+    label?: string;
+    alerts?: string[];
+    warnings?: string[];
+    inherited?: boolean;
+    custom?: boolean;
+    id?: string;
+    ops?: Record<string, Op>;
+  }
+
   // Define interfaces for better type safety
   interface ElementData {
     type: string;
-    data: any;
+    data: ComponentData;
     parents: string[];
     children: string[];
     events?: Record<string, any>;
@@ -1386,8 +1422,12 @@
       const data = structureData[uuid];
       const ops = data?.data?.ops;
       if (ops) {
-        for (const [opKey, status] of Object.entries(ops)) {
-          if (!status) {
+        for (const [opKey, op] of Object.entries(ops)) {
+          // Read `permitted` off the record, not the record's truthiness: an op
+          // is now an object and every object is truthy, so testing the value
+          // itself would offer every op regardless of permission — move up on
+          // the first component included.
+          if (!op.permitted) {
             continue;
           }
           // Every copy of the op, not just the first found. The positional ops
@@ -2404,7 +2444,11 @@
     if (!layerUuid) return;
     const data = structureData[layerUuid];
     const [op, spec] = opKey.includes('-') ? opKey.split('-', 2) : [opKey, undefined];
-    if (data.data.ops?.[opKey] && operations[op as keyof Operations]) {
+    // Gate on `permitted`, not the record's truthiness — a record is always
+    // truthy, so the old truthiness test would run a forbidden op. The client
+    // still builds the request URL itself here; reading the record's `url`
+    // instead is a later change.
+    if (data.data.ops?.[opKey]?.permitted && operations[op as keyof Operations]) {
       operations[op as keyof Operations](layerUuid, spec as string);
     }
   }

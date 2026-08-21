@@ -47,6 +47,11 @@ final class ComponentEntity extends ComponentInstanceBase implements ComponentEn
       'clone' => $entity->toUrl('alchemist.clone', $options)->setRouteParameter('neo_field', $fieldKey)->setRouteParameter('neo_component', $this->uuid()),
       'delete' => $entity->toUrl('alchemist.delete', $options)->setRouteParameter('neo_field', $fieldKey)->setRouteParameter('neo_component', $this->uuid()),
       'sort' => $entity->toUrl('alchemist.sort', $options)->setRouteParameter('neo_field', $fieldKey),
+      // The add ops address the library route with the before/after sibling
+      // riding in $options['query']. The instance resolves it off its own host,
+      // so the emission's URL grammar is the same call in every scope (the
+      // field-UI and block scopes reach it through the field config instead).
+      'library' => $entity->toUrl('alchemist.library', $options)->setRouteParameter('neo_field', $fieldKey),
       'preview' => $entity->toUrl('alchemist.preview', $options)->setRouteParameter('neo_field', $fieldKey),
       default => $entity->toUrl('alchemist.manage', $options)->setRouteParameter('neo_field', $fieldKey),
     };

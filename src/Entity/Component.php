@@ -18,6 +18,7 @@ use Drupal\Core\Entity\EntityTypeInterface;
 use Drupal\Core\Plugin\Component as ComponentPlugin;
 use Drupal\Core\Session\AccountInterface;
 use Drupal\Core\Template\Attribute;
+use Drupal\Core\Url;
 use Drupal\neo_alchemist\Access\ComponentAccessInterface;
 use Drupal\neo_alchemist\ComponentInstanceInterface;
 use Drupal\neo_alchemist\ComponentInterface;
@@ -25,6 +26,8 @@ use Drupal\neo_alchemist\ComponentManageHelper;
 use Drupal\neo_alchemist\Shape\ComponentShapePluginInterface;
 use Drupal\neo_alchemist\Filter\ComponentFilterInterface;
 use Drupal\neo_alchemist\MissingHostEntityException;
+use Drupal\neo_alchemist\Routing\EditorOp;
+use Drupal\neo_alchemist\Routing\EditorOpInventory;
 use Drupal\neo_alchemist\Slot\ComponentSlotInterface;
 use Drupal\neo_icon\IconTrait;
 
@@ -1631,25 +1634,27 @@ class Component extends ConfigEntityBase implements ComponentInterface {
     if ($this instanceof ComponentInstanceInterface && $this->isInherited()) {
       $warnings[] = $this->adminIcon('Global', 'lock');
     }
+    // Each editor op crosses the seam to the client as a record — permitted,
+    // URL, label, verb, position — rather than a bare access boolean
+    // (getEditorOps()). The URL is resolved by the server's generator and
+    // rendered to a string here, where the component's cacheable metadata is in
+    // reach to carry the generation's dependencies. This is the phase-two seam
+    // change: the client stops inferring what an op means from its identifier.
+    $ops = $this->getEditorOps($isFirst, $isLast);
+    foreach ($ops as &$op) {
+      if ($op['url'] instanceof Url) {
+        $generated = $op['url']->toString(TRUE);
+        $this->getCacheableMetadata()->addCacheableDependency($generated);
+        $op['url'] = $generated->getGeneratedUrl();
+      }
+    }
+    unset($op);
     $data = [
       'label' => $this->label(),
       'alerts' => $alerts,
       'warnings' => $warnings,
       'inherited' => $this instanceof ComponentInstanceInterface && $this->isInherited(),
-      'ops' => [
-        'edit' => $this->access('update'),
-        'delete' => $this->access('delete'),
-        'sort' => $this->access('sort'),
-        'clone' => $this->access('clone'),
-        'add-before' => $this->access('create'),
-        'add-after' => $this->access('create'),
-        // Strict comparison so an unknown position (NULL) withholds the move
-        // rather than offering it. A caller that forgets to say where the
-        // component sits should fail closed: an offered Move Up on the first
-        // component is a button that silently does nothing.
-        'move-up' => $this->access('sort') && $isFirst === FALSE,
-        'move-down' => $this->access('sort') && $isLast === FALSE,
-      ],
+      'ops' => $ops,
     ];
 
     // Normally the component's own attributes prop. When a required prop could
@@ -1663,6 +1668,81 @@ class Component extends ConfigEntityBase implements ComponentInterface {
       $attributes->setAttribute('data-component', Json::encode($data));
     }
     return $build;
+  }
+
+  /**
+   * Builds the editor op records this component emits to the client.
+   *
+   * The editor offers eight ops on a component instance — edit, sort, clone,
+   * delete, add before, add after, move up, move down. Each crosses the seam
+   * to the client as a record carrying its identifier, whether it is permitted,
+   * the URL it targets, and — copied from the op vocabulary so the payload is
+   * self-describing — its label, verb and position. The vocabulary
+   * (label/verb/position/rel) has one source, EditorOpInventory; what a
+   * component contributes is the permission decision and the resolved URL, both
+   * of which it already holds.
+   *
+   * Access decisions are unchanged: the same access() calls run in the same
+   * order they did when this was a flat map of booleans (update, delete, sort,
+   * clone, create, create, sort, sort). Move up and move down keep their strict
+   * position comparison, so an unknown position (NULL) withholds the op rather
+   * than offering a no-op on the first or last component.
+   *
+   * @param bool|null $isFirst
+   *   Whether this is the first component in its list, or NULL if unknown.
+   * @param bool|null $isLast
+   *   Whether this is the last component in its list, or NULL if unknown.
+   *
+   * @return array
+   *   Op records keyed by op id, each with: id, permitted, url (a
+   *   \Drupal\Core\Url the caller renders to a string, or NULL), label, verb,
+   *   position.
+   */
+  public function getEditorOps(?bool $isFirst = NULL, ?bool $isLast = NULL): array {
+    // Evaluated as one literal so the access() call sequence is preserved
+    // exactly. The strict === FALSE fails an unknown position closed.
+    $permitted = [
+      'edit' => $this->access('update'),
+      'delete' => $this->access('delete'),
+      'sort' => $this->access('sort'),
+      'clone' => $this->access('clone'),
+      'add-before' => $this->access('create'),
+      'add-after' => $this->access('create'),
+      'move-up' => $this->access('sort') && $isFirst === FALSE,
+      'move-down' => $this->access('sort') && $isLast === FALSE,
+    ];
+    $inventory = \Drupal::service('neo_alchemist.editor_op_inventory');
+    assert($inventory instanceof EditorOpInventory);
+    $ops = [];
+    foreach ($inventory->ops() as $id => $op) {
+      $ops[$id] = [
+        'id' => $op->id,
+        'permitted' => $permitted[$id],
+        'url' => $this->editorOpUrl($op),
+        'label' => $op->label,
+        'verb' => $op->verb,
+        'position' => $op->position,
+      ];
+    }
+    return $ops;
+  }
+
+  /**
+   * Resolves the URL an editor op targets.
+   *
+   * A bare config-scope component is never reached in the manage preview, so it
+   * has no per-op editor route: only component instances address one, and
+   * ComponentInstanceBase overrides this. Returning NULL here keeps the record
+   * shape whole for the unreachable base case rather than assuming an instance.
+   *
+   * @param \Drupal\neo_alchemist\Routing\EditorOp $op
+   *   The op to resolve.
+   *
+   * @return \Drupal\Core\Url|null
+   *   The op's URL, or NULL when this component is not an instance.
+   */
+  protected function editorOpUrl(EditorOp $op): ?Url {
+    return NULL;
   }
 
   /**

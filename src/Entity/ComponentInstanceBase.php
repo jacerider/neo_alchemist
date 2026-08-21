@@ -7,7 +7,9 @@ namespace Drupal\neo_alchemist\Entity;
 use Drupal\Core\Access\AccessResult;
 use Drupal\Core\Entity\ContentEntityInterface;
 use Drupal\Core\Session\AccountInterface;
+use Drupal\Core\Url;
 use Drupal\neo_alchemist\ComponentFieldConfigInterface;
+use Drupal\neo_alchemist\Routing\EditorOp;
 use Drupal\neo_alchemist\ComponentInstanceInterface;
 use Drupal\neo_alchemist\Shape\ComponentShapePluginInterface;
 use Drupal\neo_alchemist\ComponentSizesInterface;
@@ -142,6 +144,23 @@ abstract class ComponentInstanceBase extends Component implements ComponentInsta
    */
   public function getFieldDefinition(): ComponentFieldConfigInterface {
     return $this->fieldItem->getFieldDefinition();
+  }
+
+  /**
+   * {@inheritdoc}
+   *
+   * An add op targets the field's library route with this instance as the
+   * before/after sibling; a move op carries the direction as a route parameter;
+   * every verb op names its own route. Each instance's toUrl() already resolves
+   * the host scope it belongs to (entity, field-UI or block), so this one
+   * grammar produces the correct URL in every scope.
+   */
+  protected function editorOpUrl(EditorOp $op): ?Url {
+    return match (TRUE) {
+      $op->position !== NULL => $this->toUrl('library', ['query' => [$op->position => $this->uuid()]]),
+      $op->direction !== NULL => $this->toUrl('move', ['direction' => $op->direction]),
+      default => $this->toUrl($op->rel),
+    };
   }
 
   /**

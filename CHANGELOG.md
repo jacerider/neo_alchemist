@@ -1,5 +1,40 @@
 # Changelog
 
+## BREAKING (editor JavaScript): the component emits editor ops as records, not booleans
+
+**This concerns only sites with custom JavaScript that reads the editor's
+`data-component` attribute (or builds editor URLs from
+`drupalSettings.neoAlchemist.baseUrl`). A PHP-only consumer is unaffected — no
+PHP signature, route name, path or stored data changes.**
+
+The component used to stamp the editor's eight ops into `data-component` as a
+flat map of booleans (`{"edit": true, "move-up": false, …}`) and let the client
+infer everything else. Each op now crosses that seam as a **record**:
+
+```json
+{"edit": {"id": "edit", "permitted": true, "url": "/…/edit/…",
+          "label": "Edit", "verb": "edit", "position": null}, …}
+```
+
+The server resolves each op's URL through its own generator (so path processing,
+language prefixes and aliases apply) and copies the op's label/verb/position
+from the one op vocabulary (`EditorOpInventory`). Custom JS that tested
+`ops[op]` for truthiness will now treat **every** op as permitted, because a
+record is always truthy — read `ops[op].permitted` instead. The module's own
+client is updated in step: its show/hide pass and its op-execute gate read
+`permitted`.
+
+**The attribute keeps its name and location**; only the structure inside it
+changes. **Access decisions are identical** — the same access calls in the same
+order — and move up / move down keep their strict position comparison, so an
+unknown position still withholds the op. **No stored-data change, no update
+hook.** Before updating a site, grep its custom modules and themes for
+`data-component` and `drupalSettings.neoAlchemist`; on this site there are none.
+
+Additive alongside it: the entity-scope `library` and field-UI/block-scope
+`clone` rels gained the server-side URL arms the emission needs to address every
+op in every host scope.
+
 ## The `move` and library-position editor paths gain server-side URL generation
 
 Two of the editor's paths had no server-side URL generator: **move** (append a

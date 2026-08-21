@@ -44,6 +44,15 @@ final class ComponentField extends ComponentInstanceBase implements ComponentFie
         'neo_field' => ComponentFieldConfig::getKeyFromFieldname($this->getFieldItem()->getFieldDefinition()->getName()),
         'neo_component' => $this->uuid(),
       ] + $this->getFieldDefinition()->getUrlParameters()),
+      // Clone needs the component in its parameters, like edit and delete. The
+      // field config's toUrl() carries only field-level rels, so a clone left
+      // to the default arm fell through to a link template field_config has
+      // not got and raised — the gap the op emission surfaced for the field-UI
+      // and block scopes, both of which register a clone route.
+      'clone' => Url::fromRoute("entity.{$entityTypeId}.field_ui.alchemist.clone", [
+        'neo_field' => ComponentFieldConfig::getKeyFromFieldname($this->getFieldItem()->getFieldDefinition()->getName()),
+        'neo_component' => $this->uuid(),
+      ] + $this->getFieldDefinition()->getUrlParameters()),
       'delete' => Url::fromRoute("entity.{$entityTypeId}.field_ui.alchemist.delete", [
         'neo_field' => ComponentFieldConfig::getKeyFromFieldname($this->getFieldItem()->getFieldDefinition()->getName()),
         'neo_component' => $this->uuid(),

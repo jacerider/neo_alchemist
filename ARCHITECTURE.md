@@ -906,10 +906,25 @@ From [neo_alchemist.services.yml](neo_alchemist.services.yml):
   targets, the label and the icon — so a consumer reads a field instead of re-parsing a
   string and renaming an op is a one-place change. Each op's `rel` is a member op the route
   family registers, cross-checked at the kernel level (`EditorOpInventoryUrlTest`), so an op
-  cannot name a route no scope serves. Labels/icons live here, not on the per-component
-  emission, because the chrome is rendered once and reused across selections. (The chrome and
-  client do not read this table yet — the entity emission is phase two, the chrome iterating
-  it is a later phase-two ticket.)
+  cannot name a route no scope serves. Icons live here, not on the per-component emission,
+  because the chrome is rendered once and reused across selections. (The chrome does not read
+  this table yet — the chrome iterating it is a later phase-two ticket.)
+- **The component emits each op as a record** — `Component::getEditorOps()`
+  ([src/Entity/Component.php](src/Entity/Component.php)), stamped into the `data-component`
+  attribute by `prepareRenderableForPreview()`. Where the component used to emit a flat map of
+  eight access booleans and let the client infer the rest, each op now crosses the seam as a
+  record: its identifier, whether it is **permitted**, the **URL** it targets, and — copied
+  from `EditorOpInventory` so the payload is self-describing — its label, verb and position.
+  The component contributes only the permission decision (unchanged: the same access() calls
+  in the same order, move up/down keeping their strict position comparison) and the URL, which
+  each instance resolves through its own `editorOpUrl()`
+  ([src/Entity/ComponentInstanceBase.php](src/Entity/ComponentInstanceBase.php)) — add ops off
+  the `library` rel with the sibling as a before/after query, move ops off `move` with the
+  direction, verb ops off their own rel — so the grammar is one call in every host scope.
+  `ComponentEmitsOpRecordsTest` pins the emitted records (present, permitted, URL) per scope.
+  This is a **breaking change for custom editor JavaScript** reading the attribute (a record
+  is always truthy — read `.permitted`, not the value); the attribute keeps its name and
+  location, and the client reads the URL off the op in a later phase-two ticket.
 
 ---
 
