@@ -7,6 +7,7 @@ namespace Drupal\neo_alchemist\Controller;
 use Drupal\Core\Cache\CacheableMetadata;
 use Drupal\Core\Controller\ControllerBase;
 use Drupal\Core\Render\BareHtmlPageRendererInterface;
+use Drupal\Core\Routing\RouteMatchInterface;
 use Drupal\neo_alchemist\ComponentPreviewBuilder;
 use Drupal\neo_alchemist\EditorState\SdcPreviewStore;
 use Symfony\Component\DependencyInjection\ContainerInterface;
@@ -26,6 +27,7 @@ final class SdcPreviewController extends ControllerBase {
     private readonly BareHtmlPageRendererInterface $bareHtmlPageRenderer,
     private readonly ComponentPreviewBuilder $previewBuilder,
     private readonly SdcPreviewStore $sdcPreviewStore,
+    private readonly RouteMatchInterface $routeMatch,
   ) {}
 
   /**
@@ -36,6 +38,7 @@ final class SdcPreviewController extends ControllerBase {
       $container->get('neo_component_page_renderer'),
       $container->get('neo_alchemist.preview_builder'),
       $container->get('neo_alchemist.sdc_preview_store'),
+      $container->get('current_route_match'),
     );
   }
 
@@ -63,11 +66,11 @@ final class SdcPreviewController extends ControllerBase {
     // to bottom: above, main, below.
     $context = $this->sdcPreviewStore->getContext($entity);
     if (!empty($context['above']) && ($above = $this->previewBuilder->build($context['above']))) {
-      $build['component_above'] = $above->toRenderable(routeMatch: $this->routeMatch());
+      $build['component_above'] = $above->toRenderable(routeMatch: $this->routeMatch);
     }
-    $build['component'] = $entity->toRenderable(routeMatch: $this->routeMatch());
+    $build['component'] = $entity->toRenderable(routeMatch: $this->routeMatch);
     if (!empty($context['below']) && ($below = $this->previewBuilder->build($context['below']))) {
-      $build['component_below'] = $below->toRenderable(routeMatch: $this->routeMatch());
+      $build['component_below'] = $below->toRenderable(routeMatch: $this->routeMatch);
     }
 
     $size = $request->query->get('size');

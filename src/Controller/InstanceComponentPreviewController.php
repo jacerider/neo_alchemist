@@ -7,6 +7,7 @@ namespace Drupal\neo_alchemist\Controller;
 use Drupal\Core\Cache\CacheableMetadata;
 use Drupal\Core\Controller\ControllerBase;
 use Drupal\Core\Render\BareHtmlPageRendererInterface;
+use Drupal\Core\Routing\RouteMatchInterface;
 use Drupal\neo_alchemist\EditorState\EditorScratchStore;
 use Drupal\neo_alchemist\EditorState\SharedDraftStore;
 use Drupal\neo_alchemist\Plugin\Field\FieldType\ComponentTreeItem;
@@ -29,6 +30,7 @@ final class InstanceComponentPreviewController extends ControllerBase {
     private readonly BareHtmlPageRendererInterface $bareHtmlPageRenderer,
     private readonly EditorScratchStore $scratchStore,
     private readonly SharedDraftStore $sharedDraftStore,
+    private readonly RouteMatchInterface $routeMatch,
   ) {}
 
   /**
@@ -38,7 +40,8 @@ final class InstanceComponentPreviewController extends ControllerBase {
     return new self(
       $container->get('neo_component_page_renderer'),
       $container->get('neo_alchemist.editor_scratch_store'),
-      $container->get('neo_alchemist.shared_draft_store')
+      $container->get('neo_alchemist.shared_draft_store'),
+      $container->get('current_route_match')
     );
   }
 
@@ -134,7 +137,7 @@ final class InstanceComponentPreviewController extends ControllerBase {
 
     $component = $neo_field->getComponent($uuid);
     $component->setInstancePreview(TRUE);
-    $renderable = $component->toRenderable(routeMatch: $this->routeMatch());
+    $renderable = $component->toRenderable(routeMatch: $this->routeMatch);
     return [
       '#theme' => 'neo_alchemist_component_preview',
       '#attached' => [
