@@ -31,6 +31,7 @@ use Drupal\neo_alchemist\Form\InstanceComponentResetForm;
 use Drupal\neo_alchemist\Form\InstanceComponentRevertForm;
 use Drupal\neo_alchemist\Form\InstanceComponentSortForm;
 use Drupal\neo_alchemist\Plugin\Field\NeoComponentTreeList;
+use Drupal\neo_alchemist\Routing\EditorOpInventory;
 use Drupal\neo_alchemist\Routing\EditorRouteFamily;
 use Drupal\node\NodeInterface;
 
@@ -195,98 +196,124 @@ function template_preprocess_neo_alchemist_overlay(&$variables) {
     ],
   ];
 
-  $variables['ops'] = [];
-  foreach ([
-    'edit' => t('Edit'),
-    'sort' => t('Sort'),
-    'clone' => t('Clone'),
-    'delete' => t('Delete'),
-  ] as $op => $label) {
-    $variables['ops'][$op] = [
+  // The chrome is rendered once and reused across every selection, so it reads
+  // the static op vocabulary and never the per-component op records. Iterating
+  // the inventory here (and looping in the template) is what makes adding an op
+  // a one-row change: no op is named in this function.
+  $inventory = \Drupal::service('neo_alchemist.editor_op_inventory');
+  assert($inventory instanceof EditorOpInventory);
+  $chrome = _neo_alchemist_overlay_ops($inventory->ops());
+  $variables['ops'] = $chrome['ops'];
+  $variables['position_ops'] = $chrome['position_ops'];
+  $variables['outline_ops'] = $chrome['outline_ops'];
+}
+
+/**
+ * Builds the editor chrome's op render structures from the op inventory.
+ *
+ * The overlay chrome is rendered once and reused across every selection, so it
+ * reads the static op vocabulary and never the per-component op records the
+ * entity emits — permission and the resolved URL are decided per selection,
+ * client-side (opsSet()/operationExecute()). This iterates that vocabulary and
+ * names no individual op, so adding a row to EditorOpInventory adds a button
+ * with no edit to this function or neo-alchemist-overlay.html.twig.
+ *
+ * The decomposition the client used to infer by hyphenating an id is read off
+ * each record instead. A verb op (edit/sort/clone/delete) carries neither a
+ * position nor a direction and acts on the component itself. A positional op
+ * carries one and places the component relative to its siblings; it appears
+ * twice — on the outline, split into the two edge clusters, and again in the
+ * fixed bottom bar (the outline copies sit off screen whenever the component
+ * is taller than the viewport, so the bar is the always-visible route to them).
+ * Which edge a positional op acts on is derived from its own fields: before/up
+ * hang off the top, after/down off the bottom.
+ *
+ * Every button's #url is a `<current>` placeholder. A #type link must carry a
+ * #url to render as an <a>, but the client preventDefault()s the click and
+ * dispatches by data-op, reading the real per-selection URL off the op record,
+ * so the static chrome cannot — and need not — carry a real URL.
+ *
+ * @param \Drupal\neo_alchemist\Routing\EditorOp[] $ops
+ *   The op records, in render order.
+ *
+ * @return array
+ *   Render structures for the overlay template: `ops` (verb ops, the bottom
+ *   bar's left group), `position_ops` (positional ops, its right group) and
+ *   `outline_ops` (positional ops split into `top`/`bottom` edge clusters,
+ *   each a list of ['verb' => …, 'link' => …]).
+ */
+function _neo_alchemist_overlay_ops(array $ops): array {
+  $build = [
+    'ops' => [],
+    'position_ops' => [],
+    'outline_ops' => ['top' => [], 'bottom' => []],
+  ];
+  foreach ($ops as $op) {
+    // The op labels are a fixed vocabulary declared once in EditorOpInventory;
+    // translating the stored string at render is the single-source contract
+    // that lets the chrome name no op.
+    // phpcs:ignore Drupal.Semantics.FunctionT.NotLiteralString
+    $label = t($op->label);
+
+    // A verb op carries neither a position nor a direction.
+    if ($op->position === NULL && $op->direction === NULL) {
+      $build['ops'][$op->id] = [
+        '#type' => 'link',
+        '#title' => neo_icon_admin($label, $op->icon)->iconOnly(),
+        '#url' => Url::fromRoute('<current>'),
+        '#tooltip' => $label,
+        '#tooltip_options' => ['placement' => 'top'],
+        '#attributes' => [
+          'class' => ['neo-alchemist--op', 'btn', 'btn-primary', 'btn-xs'],
+          'data-op' => $op->id,
+        ],
+      ];
+      continue;
+    }
+
+    // The edge a positional op acts on, from its own fields: before/up on the
+    // top, after/down on the bottom. This is both the outline cluster it joins
+    // and the side its tooltip sits on.
+    $edge = ($op->position === 'before' || $op->direction === 'up')
+      ? 'top'
+      : 'bottom';
+
+    // On the outline: icon only, anchored to the edge it acts on. The template
+    // adds the rounded corner and the add/move colour ramp per cluster, keyed
+    // off the verb travelling with the record.
+    $build['outline_ops'][$edge][] = [
+      'verb' => $op->verb,
+      'link' => [
+        '#type' => 'link',
+        '#title' => neo_icon_admin($label, $op->icon)->iconOnly(),
+        '#url' => Url::fromRoute('<current>'),
+        '#tooltip' => $label,
+        '#tooltip_options' => ['placement' => $edge],
+        '#attributes' => [
+          'class' => ['neo-alchemist--op'],
+          'data-op' => $op->id,
+        ],
+      ],
+    ];
+
+    // In the bottom bar: labelled, because the bar has no edge context to say
+    // which plus is before and which is after. Add ops show their short label;
+    // the move ops declare none and carry only their icon.
+    // phpcs:ignore Drupal.Semantics.FunctionT.NotLiteralString
+    $short = $op->short !== NULL ? t($op->short) : NULL;
+    $build['position_ops'][$op->id] = [
       '#type' => 'link',
-      '#title' => neo_icon_admin($label)->iconOnly(),
+      '#title' => neo_icon_admin($short, $op->icon),
       '#url' => Url::fromRoute('<current>'),
       '#tooltip' => $label,
-      '#tooltip_options' => [
-        'placement' => 'top',
-      ],
-      '#attributes' => [
-        'class' => ['neo-alchemist--op', 'btn', 'btn-primary', 'btn-xs'],
-        'data-op' => $op,
-      ],
-    ];
-  }
-
-  // Ordered for the bottom bar, which renders them in a row and reads best
-  // grouped by verb. The outline clusters pull each one out by name, so this
-  // order does not affect them.
-  $positionOps = [
-    'add-before' => [
-      'label' => t('Add Component Before'),
-      'short' => t('Before'),
-      'icon' => 'plus',
-      'placement' => 'top',
-    ],
-    'add-after' => [
-      'label' => t('Add Component After'),
-      'short' => t('After'),
-      'icon' => 'plus',
-      'placement' => 'bottom',
-    ],
-    'move-up' => [
-      'label' => t('Move Component Up'),
-      'short' => NULL,
-      'icon' => 'arrow-up',
-      'placement' => 'top',
-    ],
-    'move-down' => [
-      'label' => t('Move Component Down'),
-      'short' => NULL,
-      'icon' => 'arrow-down',
-      'placement' => 'bottom',
-    ],
-  ];
-  $variables['position_ops'] = [];
-  foreach ($positionOps as $op => $config) {
-    $varKey = 'op_' . str_replace('-', '_', $op);
-    $variables[$varKey] = [
-      '#type' => 'link',
-      '#title' => neo_icon_admin($config['label'], $config['icon'])->iconOnly(),
-      '#url' => Url::fromRoute('<current>'),
-      '#tooltip' => $config['label'],
-      '#tooltip_options' => [
-        'placement' => $config['placement'],
-      ],
-      '#attributes' => [
-        'class' => ['neo-alchemist--op'],
-        'data-op' => $op,
-      ],
-    ];
-
-    // The same ops again for the bottom bar. The outline copies sit on the
-    // component's top and bottom edges, which are off screen whenever the
-    // component is taller than the canvas viewport — so the only always-visible
-    // route to them is the fixed bar. Both copies are driven by one access
-    // decision; opsSet() shows every copy of an enabled op.
-    //
-    // Labelled, unlike everywhere else in the bar. Add-before and add-after
-    // share the plus icon, which the outline disambiguates by putting each on
-    // the edge it acts on. The bar has no such context — that is the whole
-    // reason it is needed here — so it has to say which is which.
-    $variables['position_ops'][$op] = [
-      '#type' => 'link',
-      '#title' => neo_icon_admin($config['short'], $config['icon']),
-      '#url' => Url::fromRoute('<current>'),
-      '#tooltip' => $config['label'],
-      '#tooltip_options' => [
-        'placement' => 'top',
-      ],
+      '#tooltip_options' => ['placement' => 'top'],
       '#attributes' => [
         'class' => ['neo-alchemist--op', 'btn', 'btn-secondary', 'btn-xs'],
-        'data-op' => $op,
+        'data-op' => $op->id,
       ],
     ];
   }
+  return $build;
 }
 
 /**

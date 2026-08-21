@@ -74,13 +74,21 @@
   </div>
   {# The op clusters are the only interactive part of an outline, so they are
      what must not start a pan. The outline itself is transparent chrome. #}
+  {#
+    Both clusters loop over the op inventory rather than naming ops: adding a
+    positional op to EditorOpInventory places a button on the edge it acts on
+    with no edit here. Move ops take the darker ramp, add ops the lighter one —
+    keyed off the verb the record carries, not the op's name.
+  #}
   <div class="{{ op_wrapper_classes }} gap-0.5 bottom-full" data-alchemist-nodrag>
-    {{ op_add_before|neo_class(['rounded-t-lg', op_add_classes]) }}
-    {{ op_move_up|neo_class(['rounded-t-lg', op_move_classes]) }}
+    {% for op in outline_ops.top %}
+      {{ op.link|neo_class(['rounded-t-lg', op.verb == 'move' ? op_move_classes : op_add_classes]) }}
+    {% endfor %}
   </div>
   <div class="{{ op_wrapper_classes }} gap-0.5 top-full" data-alchemist-nodrag>
-    {{ op_add_after|neo_class(['rounded-b-lg', op_add_classes]) }}
-    {{ op_move_down|neo_class(['rounded-b-lg', op_move_classes]) }}
+    {% for op in outline_ops.bottom %}
+      {{ op.link|neo_class(['rounded-b-lg', op.verb == 'move' ? op_move_classes : op_add_classes]) }}
+    {% endfor %}
   </div>
 </div>
 <div class="neo-alchemist--element-base {{ element_classes }}" data-alchemist-ignore></div>
