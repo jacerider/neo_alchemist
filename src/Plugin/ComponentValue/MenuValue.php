@@ -14,6 +14,7 @@ use Drupal\Core\Menu\MenuLinkTreeInterface;
 use Drupal\Core\Plugin\ContainerFactoryPluginInterface;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\neo_alchemist\Attribute\ComponentValue;
+use Drupal\neo_alchemist\NonLinkingUri;
 use Drupal\neo_alchemist\Shape\ComponentShapeChildrenPluginInterface;
 use Drupal\neo_alchemist\Shape\ComponentShapePluginInterface;
 use Drupal\neo_alchemist\Value\ComponentValueProcessingModeInterface;
@@ -352,7 +353,11 @@ final class MenuValue extends ComponentValuePluginBase implements ContainerFacto
         'is_collapsed' => !empty($item['is_collapsed']),
         'url' => [
           'title' => $item['title'],
-          'uri' => $url->toUriString(),
+          // A <nolink>/<none>/<button> item is a heading, not a destination.
+          // toUriString() would hand twig the truthy string `route:<nolink>`,
+          // which neo_uri() resolves to '' and the browser reads as a link to
+          // the current page. An empty uri is the signal templates branch on.
+          'uri' => NonLinkingUri::toUriString($url),
           'options' => $options,
         ],
       ];

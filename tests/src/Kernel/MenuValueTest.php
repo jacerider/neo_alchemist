@@ -170,6 +170,86 @@ class MenuValueTest extends KernelTestBase {
   }
 
   /**
+   * A non-linking route leaves the item with no url — but keeps the item.
+   *
+   * `<nolink>`, `<none>` and `<button>` mark a menu item that groups its
+   * children without being a destination. toUriString() would hand twig the
+   * truthy string `route:<nolink>`, which neo_uri() resolves to '' — so the
+   * heading renders as `<a href="">` and the browser follows it back to the
+   * current page. MenuValue blanks the uri instead, and the shape pipeline
+   * then drops the whole empty `url` object, so twig sees no `url` at all and
+   * `{% if item.url.uri %}` is false. That guard is the contract every menu
+   * component branches on.
+   *
+   * The item itself must survive, children included. `url` is deliberately
+   * absent from the menu prop-def's `items.required` list: while it was
+   * required, ArrayShape::buildValue() unset the whole delta the moment the
+   * url resolved empty, and a nolink column heading plus every link under it
+   * silently disappeared from the rendered menu.
+   */
+  public function testNonLinkingRoutesDropTheUrlButKeepTheItem(): void {
+    $this->menuTree->build = [
+      '#items' => [
+        'nolink' => [
+          'title' => 'About',
+          'url' => Url::fromRoute('<nolink>', [], [
+            'attributes' => ['title' => 'Grouping heading', 'data-icon' => 'acorn'],
+          ]),
+          'in_active_trail' => FALSE,
+          'is_expanded' => TRUE,
+          'is_collapsed' => FALSE,
+          'below' => [
+            'child' => [
+              'title' => 'Our Company',
+              'url' => Url::fromUri('internal:/our-company'),
+              'in_active_trail' => FALSE,
+              'is_expanded' => FALSE,
+              'is_collapsed' => FALSE,
+            ],
+            'nested_nolink' => [
+              'title' => 'Nested heading',
+              'url' => Url::fromRoute('<none>'),
+              'in_active_trail' => FALSE,
+              'is_expanded' => FALSE,
+              'is_collapsed' => FALSE,
+            ],
+          ],
+        ],
+        'button' => [
+          'title' => 'Trigger',
+          'url' => Url::fromRoute('<button>'),
+          'in_active_trail' => FALSE,
+          'is_expanded' => FALSE,
+          'is_collapsed' => FALSE,
+        ],
+      ],
+      '#cache' => [
+        'tags' => ['config:system.menu.na-test-menu'],
+        'contexts' => ['route.menu_active_trails:na-test-menu'],
+      ],
+    ];
+    $links = $this->buildComponent()->getPropValues()['links'] ?? [];
+
+    // The guard every menu template writes. Empty for all three routes, at
+    // any depth — never the truthy string `route:<nolink>`.
+    $this->assertEmpty($links[0]['url']['uri'] ?? NULL, '<nolink> leaves no uri to link to.');
+    $this->assertEmpty($links[1]['url']['uri'] ?? NULL, '<button> leaves no uri to link to.');
+    $this->assertEmpty($links[0]['below'][1]['url']['uri'] ?? NULL, '<none> leaves no uri at any depth.');
+    $this->assertArrayNotHasKey('url', $links[0], 'The empty url object is dropped, not passed through half-built.');
+
+    // The item itself survives. This is the regression that made a nolink
+    // column heading and everything under it vanish from the footer.
+    $this->assertCount(2, $links, 'Both root items survived — a non-link is still a menu item.');
+    $this->assertSame('About', $links[0]['title']);
+    $this->assertSame('Grouping heading', $links[0]['description'], 'A non-link keeps its description.');
+    $this->assertSame('acorn', $links[0]['icon'], 'A non-link keeps its icon.');
+    $this->assertCount(2, $links[0]['below'], 'A non-link keeps its children — that is what it groups.');
+
+    // A routed sibling in the same tree is untouched.
+    $this->assertSame('base:our-company', $links[0]['below'][0]['url']['uri']);
+  }
+
+  /**
    * Nested children recurse into a `below` list of the same shape.
    */
   public function testNestedChildrenRecurse(): void {

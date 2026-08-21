@@ -445,9 +445,14 @@ menu:
   items:
     title: Menu Items
     type: object
+    # Only `title` is required, matching `breadcrumb`. A menu item may
+    # legitimately have no destination — a <nolink>/<none>/<button> heading
+    # that groups its children — and such an item resolves to an empty url.
+    # Listing `url` here made ArrayShape::buildValue() drop the whole item
+    # (a required child that resolves empty unsets the delta), so a nolink
+    # column heading and every child under it silently vanished.
     required:
       - title
-      - url
     properties:
       title:
         title: Title
@@ -469,7 +474,6 @@ menu:
           type: object
           required:
             - title
-            - url
           properties:
             title:
               title: Title
@@ -487,7 +491,18 @@ menu:
     prefix: '{% if %name% %}'
     content:
       - '{% for item in %name% %}'
-      - '  <a href="{{ neo_uri(item.url.uri, item.url.options) }}"{% if item.in_active_trail %} class="is-active"{% endif %}>'
+      - '  {# item.url.uri is EMPTY when the item is not a link — a <nolink> /'
+      - '     <none> / <button> menu item, i.e. a heading that groups its'
+      - '     children without being a destination. (Such an item may carry no'
+      - '     item.url at all; guard on item.url.URI, which covers both. Never'
+      - '     on item.url — that is an object, and so always truthy.) Never'
+      - '     print an unguarded <a href="{{ neo_uri(item.url.uri, …) }}">: an'
+      - '     empty uri resolves to the CURRENT page, so the heading silently'
+      - '     becomes a link to wherever the visitor already is. Render a'
+      - '     <span> instead — or a <button type="button"> when the item has'
+      - '     children and opens a dropdown, so it stays keyboard-focusable. #}'
+      - '  {% set tag = item.url.uri ? ''a'' : ''span'' %}'
+      - '  <{{ tag }}{% if item.url.uri %} href="{{ neo_uri(item.url.uri, item.url.options) }}"{% endif %}{% if item.in_active_trail %} class="is-active"{% endif %}>'
       - '    {% if item.icon %}'
       - '      <div>{{ icon(item.icon) }}</div>'
       - '    {% endif %}'
@@ -495,7 +510,7 @@ menu:
       - '    {% if item.description %}'
       - '      <div>{{ item.description }}</div>'
       - '    {% endif %}'
-      - '  </a>'
+      - '  </{{ tag }}>'
       - '  {# Each item also carries Drupal menu-state flags: item.in_active_trail'
       - '     (used above for the active class) plus item.is_expanded /'
       - '     item.is_collapsed. item.below holds nested child items (e.g.'
@@ -507,10 +522,11 @@ menu:
       - '     {{ item.content }} instead of a link). #}'
       - '  {% if item.below %}'
       - '    {% for child in item.below %}'
-      - '      <a href="{{ neo_uri(child.url.uri, child.url.options) }}"{% if child.in_active_trail %} class="is-active"{% endif %}>'
+      - '      {% set child_tag = child.url.uri ? ''a'' : ''span'' %}'
+      - '      <{{ child_tag }}{% if child.url.uri %} href="{{ neo_uri(child.url.uri, child.url.options) }}"{% endif %}{% if child.in_active_trail %} class="is-active"{% endif %}>'
       - '        {% if child.icon %}<div>{{ icon(child.icon) }}</div>{% endif %}'
       - '        <div>{{ child.title }}</div>'
-      - '      </a>'
+      - '      </{{ child_tag }}>'
       - '    {% endfor %}'
       - '  {% endif %}'
       - '{% endfor %}'
@@ -793,10 +809,15 @@ breadcrumb:
     content:
       - '<ol class="flex items-center flex-wrap">'
       - '{% for item in %name% %}'
+      - '  {# Guard on item.url.URI, not item.url: the url wrapper object is'
+      - '     always present and so always truthy. The current page — and any'
+      - '     <nolink> ancestor — arrives with an empty uri and must render as'
+      - '     a <span>, not a link back to where the visitor already is. #}'
+      - '  {% set tag = item.url.uri ? ''a'' : ''span'' %}'
       - '  <li class="whitespace-nowrap mr-2">'
-      - '    <{% if item.url %}a href="{{ neo_uri(item.url.uri, item.url.options) }}"{% else %}span{% endif %}{% if loop.last %} aria-current="page"{% endif %}>'
+      - '    <{{ tag }}{% if item.url.uri %} href="{{ neo_uri(item.url.uri, item.url.options) }}"{% endif %}{% if loop.last %} aria-current="page"{% endif %}>'
       - '      {{ item.title }}'
-      - '    </{% if item.url %}a{% else %}span{% endif %}>'
+      - '    </{{ tag }}>'
       - '  </li>'
       - '  {% if not loop.last %}'
       - '    <li class="mr-2">/</li>'

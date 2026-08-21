@@ -154,7 +154,16 @@ Alchemist extends SDC with custom "shapes" — reusable prop definitions from [n
 - `email`, `telephone`, `uri` — single-value string types (`uri` accepts `internal:/` URIs; render through `neo_uri()`). `telephone` and `icon` ship no usable default (their prop-defs carry a singular `example:` key SDC ignores) — always provide your own `examples:`.
 - `address` — postal address object (needs the contrib `address` module; fields `given_name`/`family_name`/`organization`/`address_line1-3`/`locality`/`administrative_area`/`postal_code`/`country_code`, all strings).
 - `menu` — editable list of nav items `{title, description, icon, url}` (each item's `url` is a full `url` shape, so it keeps `target`/`access`; use `item.title` for the label). Prefer this for navigation over a hand-rolled `array` of links. When fed by the `menu` value provider, items also carry runtime keys the schema doesn't list: `in_active_trail`/`is_expanded`/`is_collapsed`, nested `below` children, and — with `neo_alchemist_menu` enabled — `region: true` + `content` (a render array) on **component region** items: render with `{% if item.region %}{{ item.content }}{% endif %}` instead of a link. Mega menu reference: [web/themes/front/components/header_s1/header_s1.twig](web/themes/front/components/header_s1/header_s1.twig) and the **neo-alchemist-menu** skill.
-- `breadcrumb` — array of `{title, url}`; the real breadcrumb value plugin is attached automatically. The last item conventionally has no `url` — render it as `<span aria-current="page">`.
+  > **An item's `url.uri` is EMPTY when it is not a link.** Drupal's `<nolink>` / `<none>` / `<button>` routes mark a menu item that groups its children without being a destination — a column heading, a dropdown trigger. Alchemist blanks the uri for you (and may drop the whole `url` object with it), so **always branch on `item.url.uri`** — never on `item.url`, which is an object and therefore always truthy:
+  > ```twig
+  > {% if item.url.uri %}
+  >   <a href="{{ neo_uri(item.url.uri, item.url.options) }}" class="…">{{ item.title }}</a>
+  > {% else %}
+  >   <span class="…">{{ item.title }}</span>
+  > {% endif %}
+  > ```
+  > Use `<button type="button">` rather than `<span>` when the non-link has `below` children and opens a dropdown — a `<span>` is not focusable, so keyboard users could never open the panel. Drop hover/underline affordances on the non-link branch; it is not interactive. Same rule for a `url`/`link` prop whose field was saved with no destination.
+- `breadcrumb` — array of `{title, url}`; the real breadcrumb value plugin is attached automatically. The last item — and any `<nolink>` ancestor — comes through with an empty `url.uri`; render those as `<span aria-current="page">`. Guard on `item.url.uri`, not `item.url`.
 - `slug` — anchor/slug string, uniquified per page (`-2`, `-3` appended on collision), so two placements of the same component can't emit duplicate ids.
 - `media` — Drupal media entity reference. Scope the allowed bundles with `media_types: [image]` on the prop (default `image`). Twig receives `{entity_id, src, title, render}` — `{{ media.render }}` renders the media's own view display, which is the point of this shape over `image`: the site's media display config does the rendering. A media prop **cannot carry `examples`** — previews borrow the most recent published media of an allowed type, so an empty media library means an empty preview.
 
@@ -979,6 +988,7 @@ resolved colors — see "Finding this site's real colors"). All tabular commands
 
 - **Forgetting `neo: true`** — component won't appear in Alchemist's picker. (A module source template declaring `neo_install: true` is the one deliberate exception — see "Shipping a component from a module".)
 - **Raw `{{ url }}` instead of `{{ neo_uri(link.uri, link.options) }}`** — breaks internal `internal:/` URIs.
+- **Unguarded `<a href="{{ neo_uri(item.url.uri, …) }}">` on a menu item** — a `<nolink>` column heading has an *empty* uri, which resolves to the **current page**, so the heading silently becomes a link to wherever the visitor already is. Branch on `item.url.uri` and render `<span>` (or `<button type="button">` when it has children and opens a dropdown). Guarding on `item.url` does nothing — the url wrapper object is always truthy.
 - **Missing `examples`** — editor shows empty previews and broken defaults.
 - **Not wrapping in `{% if prop %}`** — component renders empty scaffolding when editor leaves fields blank.
 - **Rendering only `heading.title`** — the editor's supertitle and subtitle fields exist on every heading prop, so text typed into them silently disappears. Render all three parts, each `{% if %}`-guarded. See "Rendering a `heading`: all three parts, always".

@@ -12,6 +12,7 @@ use Drupal\Core\Render\Element;
 use Drupal\Core\Routing\RouteMatchInterface;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\neo_alchemist\Attribute\ComponentValue;
+use Drupal\neo_alchemist\NonLinkingUri;
 use Drupal\neo_alchemist\Shape\ComponentShapePluginInterface;
 use Drupal\neo_alchemist\Value\ComponentValueProcessingModeInterface;
 use Drupal\neo_alchemist\Value\ComponentValuePluginBase;
@@ -149,12 +150,11 @@ final class BreadcrumbValue extends ComponentValuePluginBase implements Containe
       $url = $link->getUrl();
       if ($title && $url) {
         $options = $url->getOptions();
-        $uri = $url->toUriString();
         $value[] = [
           'title' => $link->getText(),
           'url' => [
             'title' => $link->getText(),
-            'uri' => in_array($uri, ['route:<nolink>', 'route:<none>']) ? NULL : $uri,
+            'uri' => NonLinkingUri::toUriString($url),
             'options' => $options,
           ],
         ];
