@@ -315,8 +315,9 @@
     regionAdd: function (data: any) {
       // The empty-region placeholder was clicked in a preview iframe. Open the
       // library scoped to that region (uuid--shape) regardless of focus state.
-      if (data.uuid) {
-        actions.library(data.uuid);
+      const baseUrl = libraryBaseUrl();
+      if (data.uuid && baseUrl !== null) {
+        actions.library(data.uuid, baseUrl);
       }
     },
     positionData: function (data: any) {
@@ -1672,7 +1673,10 @@
       add.addEventListener('click', (e) => {
         e.preventDefault();
         e.stopPropagation();
-        actions.library(uuid);
+        const baseUrl = libraryBaseUrl();
+        if (baseUrl !== null) {
+          actions.library(uuid, baseUrl);
+        }
       });
       row.appendChild(add);
     }
@@ -2442,6 +2446,20 @@
       }
     });
     return url.pathname + url.search + url.hash;
+  }
+
+  /**
+   * The field's bare library URL, for openers that have no button to read.
+   *
+   * The toolbar's Add link is the one server-rendered element carrying it, so
+   * entry points that name their own container — an empty region's placeholder,
+   * a layer row's add — borrow its href rather than assembling a path. It is
+   * absent when the author cannot create, and those openers then do nothing,
+   * which is the same answer the server would give.
+   */
+  function libraryBaseUrl(): string | null {
+    const button = container.querySelector<HTMLElement>('.neo-alchemist--action[data-action="library"]');
+    return button?.getAttribute('href') ?? null;
   }
 
   function actionExecute(
