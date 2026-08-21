@@ -7,6 +7,7 @@ namespace Drupal\Tests\neo_alchemist\Kernel;
 use Drupal\KernelTests\KernelTestBase;
 use Drupal\neo_alchemist\Entity\Component;
 use Drupal\neo_alchemist_test\Plugin\ComponentValue\TestCacheTagValue;
+use Drupal\Tests\neo_alchemist\Traits\SdcPreviewStoreTestTrait;
 use PHPUnit\Framework\Attributes\Group;
 
 /**
@@ -24,6 +25,8 @@ use PHPUnit\Framework\Attributes\Group;
  */
 #[Group('neo_alchemist')]
 class ShapeCacheabilityMergeOrderTest extends KernelTestBase {
+
+  use SdcPreviewStoreTestTrait;
 
   /**
    * {@inheritdoc}
@@ -60,7 +63,7 @@ class ShapeCacheabilityMergeOrderTest extends KernelTestBase {
     /** @var \Drupal\neo_alchemist\Entity\Component $component */
     $component = $storage->load('na_recorder');
     $component->setPreview(TRUE);
-    $component->setPreviewValues([
+    $this->setPreviewValues($component, [
       'props' => [
         'note' => [
           'ref' => 'test_recorded',

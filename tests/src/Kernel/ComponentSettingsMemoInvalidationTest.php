@@ -6,6 +6,7 @@ namespace Drupal\Tests\neo_alchemist\Kernel;
 
 use Drupal\KernelTests\KernelTestBase;
 use Drupal\neo_alchemist\Entity\Component;
+use Drupal\Tests\neo_alchemist\Traits\SdcPreviewStoreTestTrait;
 use PHPUnit\Framework\Attributes\Group;
 
 /**
@@ -26,6 +27,8 @@ use PHPUnit\Framework\Attributes\Group;
  */
 #[Group('neo_alchemist')]
 class ComponentSettingsMemoInvalidationTest extends KernelTestBase {
+
+  use SdcPreviewStoreTestTrait;
 
   /**
    * {@inheritdoc}
@@ -151,7 +154,7 @@ class ComponentSettingsMemoInvalidationTest extends KernelTestBase {
     // getFilters() bakes preview override values into each filter instance, so
     // a memo held across setPreviewValues() serves pre-override filters.
     $component->getFilters();
-    $component->setPreviewValues(['filters' => [$uuid => ['value' => 'OVERRIDDEN']]]);
+    $this->setPreviewValues($component, ['filters' => [$uuid => ['value' => 'OVERRIDDEN']]]);
 
     $filter = $component->getFilter($uuid);
     $this->assertNotNull($filter, 'The filter disappeared after setting preview values.');

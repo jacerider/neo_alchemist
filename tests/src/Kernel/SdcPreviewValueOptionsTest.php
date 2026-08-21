@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Drupal\Tests\neo_alchemist\Kernel;
 
 use Drupal\KernelTests\KernelTestBase;
+use Drupal\Tests\neo_alchemist\Traits\SdcPreviewStoreTestTrait;
 use PHPUnit\Framework\Attributes\Group;
 
 /**
@@ -38,6 +39,8 @@ use PHPUnit\Framework\Attributes\Group;
  */
 #[Group('neo_alchemist')]
 class SdcPreviewValueOptionsTest extends KernelTestBase {
+
+  use SdcPreviewStoreTestTrait;
 
   /**
    * {@inheritdoc}
@@ -92,7 +95,7 @@ class SdcPreviewValueOptionsTest extends KernelTestBase {
       'Premise: the option starts off, so seeing it on below can only come from the override.',
     );
 
-    $component->setPreviewValues([
+    $this->setPreviewValues($component, [
       'props' => [
         self::PROP => [
           'ref' => $shape->getRef(),
@@ -123,7 +126,7 @@ class SdcPreviewValueOptionsTest extends KernelTestBase {
     // Memoize first, the way a form build does before validation runs.
     $before = $component->getPropShapes()[self::PROP];
 
-    $component->setPreviewValues([
+    $this->setPreviewValues($component, [
       'props' => [
         self::PROP => [
           'ref' => $before->getRef(),
@@ -150,7 +153,7 @@ class SdcPreviewValueOptionsTest extends KernelTestBase {
     $component = $this->previewComponent();
     $shape = $component->getPropShapes()[self::PROP];
 
-    $component->setPreviewValues([
+    $this->setPreviewValues($component, [
       'props' => [
         self::PROP => [
           'ref' => $shape->getRef(),
@@ -159,11 +162,11 @@ class SdcPreviewValueOptionsTest extends KernelTestBase {
         ],
       ],
     ]);
-    $this->assertTrue($component->hasPreviewValues(), 'Premise: there is something to reset.');
+    $this->assertTrue($this->hasPreviewValues($component), 'Premise: there is something to reset.');
 
-    $component->resetPreviewValues();
+    $this->resetPreviewValues($component);
 
-    $this->assertFalse($component->hasPreviewValues());
+    $this->assertFalse($this->hasPreviewValues($component));
     $this->assertFalse(
       $component->getPropShapes()[self::PROP]->getOptionDefault()->isEnabled(),
       'The option went back to its pre-override state.',

@@ -6,6 +6,7 @@ namespace Drupal\Tests\neo_alchemist\Kernel;
 
 use Drupal\KernelTests\KernelTestBase;
 use Drupal\neo_alchemist\Entity\Component;
+use Drupal\Tests\neo_alchemist\Traits\SdcPreviewStoreTestTrait;
 use PHPUnit\Framework\Attributes\Group;
 
 /**
@@ -28,6 +29,8 @@ use PHPUnit\Framework\Attributes\Group;
  */
 #[Group('neo_alchemist')]
 class ObjectShapeFalsyValueTest extends KernelTestBase {
+
+  use SdcPreviewStoreTestTrait;
 
   /**
    * {@inheritdoc}
@@ -69,7 +72,7 @@ class ObjectShapeFalsyValueTest extends KernelTestBase {
     $component = $storage->load('na_falsy_object');
 
     $component->setPreview(TRUE);
-    $component->setPreviewValues(['props' => $props]);
+    $this->setPreviewValues($component, ['props' => $props]);
 
     return $component;
   }

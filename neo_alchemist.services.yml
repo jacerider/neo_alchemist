@@ -32,6 +32,14 @@ services:
     class: Drupal\neo_alchemist\EditorState\StateEditorStateStore
     arguments: ['@state']
 
+  # The disposable adapter, backed by a cache bin with a short (1-hour) expiry.
+  # It is the backend behind the SDC preview workspace store — a developer's
+  # temporary prop overrides are scratch, so losing them on expiry is correct,
+  # not data loss. The expiry lives here; the per-user key lives in the store.
+  neo_alchemist.editor_state.cache:
+    class: Drupal\neo_alchemist\EditorState\CacheEditorStateStore
+    arguments: ['@cache.default', '@datetime.time', 3600]
+
   # The shared draft store: the collaborative layout draft, keyed by entity and
   # field with no user segment (so a write is visible to every editor), backed
   # by durable state, and published as a whole. Its key and cache-tag
@@ -42,6 +50,16 @@ services:
   neo_alchemist.shared_draft_store:
     class: Drupal\neo_alchemist\EditorState\SharedDraftStore
     arguments: ['@neo_alchemist.editor_state.state', '@current_user', '@datetime.time', '@cache_tags.invalidator']
+
+  # The SDC preview workspace store: a developer's disposable prop-value, style
+  # and neighbor-context overrides, off the component entity's interface and
+  # onto the seam. Cache-backed with a short expiry (disposable by design), with
+  # the current user folded into its key so overrides are per-user. It writes no
+  # cache tag (the iframe reloads on the edit's AJAX response); its value writes
+  # drop the component's derived-settings memo so the same request re-derives.
+  neo_alchemist.sdc_preview_store:
+    class: Drupal\neo_alchemist\EditorState\SdcPreviewStore
+    arguments: ['@neo_alchemist.editor_state.cache', '@current_user']
 
   # The per-user scratch store: the live form buffer that drives one editor's
   # preview iframe. Its own key prefix (so it no longer borrows the whole-tree

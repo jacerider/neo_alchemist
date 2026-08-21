@@ -6,6 +6,7 @@ namespace Drupal\Tests\neo_alchemist\Kernel;
 
 use Drupal\KernelTests\KernelTestBase;
 use Drupal\neo_alchemist\Entity\Component;
+use Drupal\Tests\neo_alchemist\Traits\SdcPreviewStoreTestTrait;
 use PHPUnit\Framework\Attributes\Group;
 
 /**
@@ -34,6 +35,8 @@ use PHPUnit\Framework\Attributes\Group;
  */
 #[Group('neo_alchemist')]
 class ChildrenShapeFalsyValueDistributionTest extends KernelTestBase {
+
+  use SdcPreviewStoreTestTrait;
 
   /**
    * {@inheritdoc}
@@ -86,7 +89,7 @@ class ChildrenShapeFalsyValueDistributionTest extends KernelTestBase {
     }
 
     $component->setPreview(TRUE);
-    $component->setPreviewValues([
+    $this->setPreviewValues($component, [
       'props' => [
         'items' => [
           'ref' => 'array',

@@ -11,6 +11,7 @@ use Drupal\Core\Entity\ContentEntityInterface;
 use Drupal\Core\Entity\EntityTypeInterface;
 use Drupal\Core\Plugin\Component;
 use Drupal\Core\Render\RenderableInterface;
+use Drupal\Core\Routing\RouteMatchInterface;
 use Drupal\neo_alchemist\Access\ComponentAccessInterface;
 use Drupal\neo_alchemist\Filter\ComponentFilterInterface;
 use Drupal\neo_alchemist\Shape\ComponentShapePluginInterface;
@@ -285,10 +286,18 @@ interface ComponentInterface extends ConfigEntityInterface, RenderableInterface,
    * management mode within the Alchemist interface. This is typically true
    * when the component is being previewed or edited in the Alchemist UI.
    *
+   * Route-derived, but the entity does not read the ambient request: a route
+   * handed in — at the render boundary — resolves the answer and caches it as
+   * an in-memory flag; a call with no route reads that cached flag, which is
+   * FALSE until a route has resolved it.
+   *
+   * @param \Drupal\Core\Routing\RouteMatchInterface|null $routeMatch
+   *   The route to resolve the flag from, or NULL to read the cached flag.
+   *
    * @return bool
    *   TRUE if the component is in Alchemist preview mode, FALSE otherwise.
    */
-  public function isComponentPreview(): bool;
+  public function isComponentPreview(?RouteMatchInterface $routeMatch = NULL): bool;
 
   /**
    * Checks if the component is in management preview mode.
@@ -451,125 +460,15 @@ interface ComponentInterface extends ConfigEntityInterface, RenderableInterface,
   public function getTargetPreviewEntity(): ?ContentEntityInterface;
 
   /**
-   * Check if the component has preview styles.
+   * Drops every cached value derived from the component's settings.
    *
-   * @return bool
-   *   TRUE if the component has preview styles, FALSE otherwise.
+   * Prop shapes, slots, filters and access instances are built lazily from the
+   * settings and memoised, so a change to what feeds them leaves the memo
+   * describing the previous state. The SDC preview store calls this after
+   * writing a prop-value override so the same request re-derives against the
+   * new overrides.
    */
-  public function hasPreviewStyles(): bool;
-
-  /**
-   * Get the preview styles for the component.
-   *
-   * @return array
-   *   An associative array of preview styles.
-   */
-  public function getPreviewStyles(): array;
-
-  /**
-   * Set the preview style for a specific shape ID.
-   *
-   * @param string $shapeId
-   *   The shape ID.
-   * @param string $shapeValue
-   *   The shape value.
-   *
-   * @return $this
-   *   The current object for method chaining.
-   */
-  public function setPreviewStyle(string $shapeId, string $shapeValue): self;
-
-  /**
-   * Get the preview style for a specific shape ID.
-   *
-   * @param string $shapeId
-   *   The shape ID.
-   *
-   * @return string|null
-   *   The preview style for the shape ID, or NULL if not set.
-   */
-  public function getPreviewStyle(string $shapeId): ?string;
-
-  /**
-   * Delete the preview style for this component.
-   *
-   * @return $this
-   *   The current object for method chaining.
-   */
-  public function resetPreviewStyle(): self;
-
-  /**
-   * Check if the component has preview value overrides.
-   *
-   * @return bool
-   *   TRUE if the component has preview values, FALSE otherwise.
-   */
-  public function hasPreviewValues(): bool;
-
-  /**
-   * Get the preview value overrides for the component.
-   *
-   * The returned array mirrors the structure produced when editing a placed
-   * component instance, e.g. ['props' => [propName => ['ref' => ..., 'value' =>
-   * ..., 'options' => ...]]]. It is used to seed prop shapes during preview
-   * rendering and never persists to configuration.
-   *
-   * @return array
-   *   The preview value overrides.
-   */
-  public function getPreviewValues(): array;
-
-  /**
-   * Set the preview value overrides for the component.
-   *
-   * @param array $values
-   *   The value overrides, structured like the values of a placed component
-   *   instance (see ::getPreviewValues()).
-   *
-   * @return $this
-   *   The current object for method chaining.
-   */
-  public function setPreviewValues(array $values): self;
-
-  /**
-   * Delete the preview value overrides for this component.
-   *
-   * @return $this
-   *   The current object for method chaining.
-   */
-  public function resetPreviewValues(): self;
-
-  /**
-   * Get the preview context (neighbor components) for the component.
-   *
-   * Used by the SDC preview workspace to render sibling components above and/or
-   * below the previewed one for spacing tests. Never persists to configuration.
-   *
-   * @return array
-   *   ['above' => string|null, 'below' => string|null] of SDC ids, or [].
-   */
-  public function getPreviewContext(): array;
-
-  /**
-   * Set the preview context (neighbor components) for the component.
-   *
-   * @param string|null $above
-   *   The SDC id to render above the component, or NULL.
-   * @param string|null $below
-   *   The SDC id to render below the component, or NULL.
-   *
-   * @return $this
-   *   The current object for method chaining.
-   */
-  public function setPreviewContext(?string $above, ?string $below): self;
-
-  /**
-   * Delete the preview context for this component.
-   *
-   * @return $this
-   *   The current object for method chaining.
-   */
-  public function resetPreviewContext(): self;
+  public function invalidateDerivedSettings(): void;
 
   /**
    * Load prop shapes.

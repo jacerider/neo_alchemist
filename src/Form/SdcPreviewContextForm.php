@@ -18,8 +18,9 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
  * Two selects (Above / Below) choose Alchemist SDCs to render as siblings
  * around the previewed component so spacing — including the same-background
  * `component-bg` collapse — can be tested against real neighbors. The selection
- * is stored as a cache-backed preview context on the (transient) component and
- * the preview iframes are reloaded to reflect it.
+ * is stored as disposable preview context on the SDC preview store (keyed by
+ * the transient component and the current user) and the preview iframes are
+ * reloaded to reflect it.
  *
  * @see \Drupal\neo_alchemist\Form\ComponentStyleForm
  */
@@ -48,11 +49,22 @@ final class SdcPreviewContextForm extends EntityForm {
   protected $sdcPluginManager;
 
   /**
+   * The SDC preview workspace store.
+   *
+   * Not `private readonly`, for the same form-serialization reason as the SDC
+   * plugin manager above.
+   *
+   * @var \Drupal\neo_alchemist\EditorState\SdcPreviewStore
+   */
+  protected $sdcPreviewStore;
+
+  /**
    * {@inheritdoc}
    */
   public static function create(ContainerInterface $container) {
     $form = parent::create($container);
     $form->sdcPluginManager = $container->get('plugin.manager.sdc');
+    $form->sdcPreviewStore = $container->get('neo_alchemist.sdc_preview_store');
     return $form;
   }
 
@@ -76,7 +88,7 @@ final class SdcPreviewContextForm extends EntityForm {
     $form['#id'] = 'neo-component-context-form';
     $form['#neo_entity_form'] = FALSE;
 
-    $context = $this->entity->getPreviewContext();
+    $context = $this->sdcPreviewStore->getContext($this->entity);
     $options = $this->getComponentOptions();
 
     $form['context'] = [
@@ -134,7 +146,7 @@ final class SdcPreviewContextForm extends EntityForm {
     $response = new AjaxResponse();
     $above = $form_state->getValue(['context', 'above']) ?: NULL;
     $below = $form_state->getValue(['context', 'below']) ?: NULL;
-    $this->entity->setPreviewContext($above, $below);
+    $this->sdcPreviewStore->setContext($this->entity, $above, $below);
     if ($manageId = $form_state->get('neo_component_manage_id')) {
       $response->addCommand(new InstanceComponentManageIframeCommand('#' . $manageId . ' iframe'));
     }

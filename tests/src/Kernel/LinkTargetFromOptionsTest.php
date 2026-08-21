@@ -7,6 +7,7 @@ namespace Drupal\Tests\neo_alchemist\Kernel;
 use Drupal\Core\Template\Attribute;
 use Drupal\KernelTests\KernelTestBase;
 use Drupal\neo_alchemist\Entity\Component;
+use Drupal\Tests\neo_alchemist\Traits\SdcPreviewStoreTestTrait;
 use PHPUnit\Framework\Attributes\Group;
 
 /**
@@ -44,6 +45,8 @@ use PHPUnit\Framework\Attributes\Group;
 #[Group('neo_alchemist')]
 class LinkTargetFromOptionsTest extends KernelTestBase {
 
+  use SdcPreviewStoreTestTrait;
+
   /**
    * {@inheritdoc}
    */
@@ -64,6 +67,19 @@ class LinkTargetFromOptionsTest extends KernelTestBase {
   /**
    * Resolves the fixture's link prop with the given authored link options.
    *
+   * @param array $options
+   *   The link item's `options`, as the widget would have stored them.
+   *
+   * @return array
+   *   The resolved link value.
+   */
+  private function resolveLink(array $options): array {
+    return $this->resolveProp('link', ['options' => $options]);
+  }
+
+  /**
+   * Resolves one of the fixture's props from an authored field-item value.
+   *
    * The value is staged as a preview override, which is the config-scope way to
    * author a value with no host entity behind it. It is shaped like a real
    * `link` field item — uri/title/options — because that is what the widget
@@ -72,13 +88,16 @@ class LinkTargetFromOptionsTest extends KernelTestBase {
    * ::getPropValue() rather than ::getValue(): it is the only entry point that
    * runs the pre-render stage, which is where the enum guard lives.
    *
-   * @param array $options
-   *   The link item's `options`, as the widget would have stored them.
+   * @param string $prop
+   *   The fixture prop to resolve — 'link' or 'url'. Both share UrlShapeTrait
+   *   but reach it through different parent classes.
+   * @param array $value
+   *   The authored field-item value, merged over a valid uri/title baseline.
    *
    * @return array
-   *   The resolved link value.
+   *   The resolved value.
    */
-  private function resolveLink(array $options): array {
+  private function resolveProp(string $prop, array $value): array {
     $storage = $this->container->get('entity_type.manager')->getStorage('neo_component');
     if (!$storage->load('na_link_probe')) {
       Component::create([
@@ -94,21 +113,21 @@ class LinkTargetFromOptionsTest extends KernelTestBase {
     $component = $storage->load('na_link_probe');
 
     $component->setPreview(TRUE);
-    $component->setPreviewValues([
+    $this->setPreviewValues($component, [
       'props' => [
-        'link' => [
-          'ref' => 'link',
-          'value' => [
+        $prop => [
+          'ref' => $prop,
+          'value' => $value + [
             'uri' => 'internal:/',
             'title' => 'Authored',
-            'options' => $options,
+            'options' => [],
           ],
-          'options' => ['link' => ['default' => 0]],
+          'options' => [$prop => ['default' => 0]],
         ],
       ],
     ]);
 
-    return $component->getPropShapes()['link']->getPropValue(new Attribute());
+    return $component->getPropShapes()[$prop]->getPropValue(new Attribute());
   }
 
   /**
@@ -162,6 +181,51 @@ class LinkTargetFromOptionsTest extends KernelTestBase {
     $value = $this->resolveLink(['attributes' => ['target' => '_blank']]);
 
     $this->assertArrayNotHasKey('attributes', $value['options'] ?? [], 'Widget storage attributes are not render data.');
+  }
+
+  /**
+   * A `url` with no link text resolves to '', not to NULL.
+   *
+   * A `link` field's title column is nullable and every link-shaped prop-def
+   * types `title` as `string`, so a title-less link handed straight to SDC
+   * fails prop validation and white-screens the whole page. That is the common
+   * case, not an edge one: UrlShape disables the widget's title input outright,
+   * so a `url` prop bound to an entity's link field arrives with a NULL title
+   * unless the site builder went out of their way to enable one — and a value
+   * provider that reads many entities at once takes the page down for every row
+   * at once, not just the offending one.
+   *
+   * This is the exact mirror of the target regression above. There, `link` was
+   * the affected shape because StructuredObjectShapeBase::buildValue() backfills
+   * the schema examples and `url` gets no such treatment. Here that same
+   * backfill is what saves `link`: it array_filter()s the NULL away and puts the
+   * component author's example title in its place, so the NULL never reaches
+   * validation. `url` has nothing between the field item and SDC but the
+   * pre-render stage, which is why the guard has to live there.
+   *
+   * @see \Drupal\neo_alchemist\Plugin\ComponentShape\UrlShapeTrait::preRenderValue()
+   * @see \Drupal\neo_alchemist\Plugin\ComponentShape\StructuredObjectShapeBase::buildValue()
+   */
+  public function testTitlelessUrlResolvesToAnEmptyString(): void {
+    $value = $this->resolveProp('url', ['title' => NULL]);
+
+    $this->assertSame('', $value['title'] ?? NULL, "A title-less `url` must resolve to '' — a NULL fails SDC prop validation.");
+  }
+
+  /**
+   * An authored title is left alone by that normalisation.
+   *
+   * The guard has to be narrow: blanking a real title would silently strip the
+   * link text off every link on the site, which is a worse failure than the one
+   * it fixes because nothing would error. Asserted on both shapes because the
+   * guard sits in the trait they share.
+   */
+  public function testAuthoredTitleSurvives(): void {
+    foreach (['link', 'url'] as $prop) {
+      $value = $this->resolveProp($prop, ['title' => 'Directions']);
+
+      $this->assertSame('Directions', $value['title'] ?? NULL, "An authored `$prop` title must reach the template unchanged.");
+    }
   }
 
 }

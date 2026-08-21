@@ -6,6 +6,7 @@ namespace Drupal\Tests\neo_alchemist\Kernel;
 
 use Drupal\KernelTests\KernelTestBase;
 use Drupal\neo_alchemist\Entity\Component;
+use Drupal\Tests\neo_alchemist\Traits\SdcPreviewStoreTestTrait;
 use PHPUnit\Framework\Attributes\Group;
 
 /**
@@ -28,6 +29,8 @@ use PHPUnit\Framework\Attributes\Group;
  */
 #[Group('neo_alchemist')]
 class ArrayShapeBuildValueBranchTest extends KernelTestBase {
+
+  use SdcPreviewStoreTestTrait;
 
   /**
    * {@inheritdoc}
@@ -79,7 +82,7 @@ class ArrayShapeBuildValueBranchTest extends KernelTestBase {
     $options = $optionOverrides + $options;
 
     $component->setPreview(TRUE);
-    $component->setPreviewValues([
+    $this->setPreviewValues($component, [
       'props' => [
         'items' => [
           'ref' => 'array',

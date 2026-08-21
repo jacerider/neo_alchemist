@@ -6,6 +6,7 @@ namespace Drupal\Tests\neo_alchemist\Kernel;
 
 use Drupal\KernelTests\KernelTestBase;
 use Drupal\neo_alchemist\Entity\Component;
+use Drupal\Tests\neo_alchemist\Traits\SdcPreviewStoreTestTrait;
 use PHPUnit\Framework\Attributes\Group;
 
 /**
@@ -28,6 +29,8 @@ use PHPUnit\Framework\Attributes\Group;
  */
 #[Group('neo_alchemist')]
 class RequiredPropFalsyOverrideTest extends KernelTestBase {
+
+  use SdcPreviewStoreTestTrait;
 
   /**
    * {@inheritdoc}
@@ -61,7 +64,7 @@ class RequiredPropFalsyOverrideTest extends KernelTestBase {
     /** @var \Drupal\neo_alchemist\Entity\Component $component */
     $component = $storage->load('na_required_probe');
     $component->setPreview(TRUE);
-    $component->setPreviewValues([
+    $this->setPreviewValues($component, [
       'props' => [
         'label' => [
           'ref' => 'string',

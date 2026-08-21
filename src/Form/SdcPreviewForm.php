@@ -13,6 +13,7 @@ use Drupal\Core\Url;
 use Drupal\neo_alchemist\Ajax\InstanceComponentManageIframeCommand;
 use Drupal\neo_alchemist\ComponentManageHelper;
 use Drupal\neo_alchemist\ComponentPropValueHarvester;
+use Drupal\neo_alchemist\EditorState\SdcPreviewStore;
 use Drupal\neo_alchemist\SdcThumbnailWriter;
 use Drupal\neo_alchemist\Value\ComponentValuePanelBuilder;
 use Symfony\Component\DependencyInjection\ContainerInterface;
@@ -23,9 +24,9 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
  * This mirrors the live prop/style editor used when a component is placed on a
  * page (@see InstanceComponentForm) but operates on the transient
  * (unsaved) neo_component entity built for an SDC preview. Instead of saving,
- * changes are written as cache-backed preview-value overrides
- * (Component::setPreviewValues()) and the preview iframe is reloaded so the
- * developer sees them immediately. Nothing is persisted to configuration.
+ * changes are written as disposable preview-value overrides on the SDC preview
+ * store (SdcPreviewStore::setValues()) and the preview iframe is reloaded so
+ * the developer sees them immediately. Nothing is persisted to configuration.
  */
 final class SdcPreviewForm extends EntityForm {
 
@@ -65,10 +66,21 @@ final class SdcPreviewForm extends EntityForm {
    */
   protected $propValueHarvester;
 
-  public function __construct(SdcThumbnailWriter $thumbnail_writer, ComponentValuePanelBuilder $value_panel_builder, ComponentPropValueHarvester $prop_value_harvester) {
+  /**
+   * The SDC preview workspace store.
+   *
+   * Protected and non-promoted for the same serialization reason as the writer
+   * above.
+   *
+   * @var \Drupal\neo_alchemist\EditorState\SdcPreviewStore
+   */
+  protected $sdcPreviewStore;
+
+  public function __construct(SdcThumbnailWriter $thumbnail_writer, ComponentValuePanelBuilder $value_panel_builder, ComponentPropValueHarvester $prop_value_harvester, SdcPreviewStore $sdc_preview_store) {
     $this->thumbnailWriter = $thumbnail_writer;
     $this->valuePanelBuilder = $value_panel_builder;
     $this->propValueHarvester = $prop_value_harvester;
+    $this->sdcPreviewStore = $sdc_preview_store;
   }
 
   /**
@@ -79,6 +91,7 @@ final class SdcPreviewForm extends EntityForm {
       $container->get('neo_alchemist.sdc_thumbnail_writer'),
       $container->get('neo_alchemist.value_panel_builder'),
       $container->get('neo_alchemist.prop_value_harvester'),
+      $container->get('neo_alchemist.sdc_preview_store'),
     );
   }
 
@@ -97,7 +110,7 @@ final class SdcPreviewForm extends EntityForm {
     $form_state->set('neo_component_form', TRUE);
     // Capture the value overrides present when the workspace first loaded so
     // that non-iterable shape values can be merged correctly on refresh.
-    $form_state->set('original_values', $this->entity->getPreviewValues());
+    $form_state->set('original_values', $this->sdcPreviewStore->getValues($this->entity));
   }
 
   /**
@@ -155,7 +168,7 @@ final class SdcPreviewForm extends EntityForm {
       '#value' => $this->t('Reset'),
       '#limit_validation_errors' => [],
       '#submit' => ['::submitReset'],
-      '#access' => $this->entity->hasPreviewValues(),
+      '#access' => $this->sdcPreviewStore->hasValues($this->entity),
       '#attributes' => [
         'class' => ['btn', 'btn-xs'],
       ],
@@ -279,8 +292,8 @@ final class SdcPreviewForm extends EntityForm {
     $values = [];
     $original_values = $form_state->get('original_values') ?? [];
     // Left unset rather than set empty when nothing was harvested: an empty
-    // 'props' key would make hasPreviewValues() true and light up the Reset
-    // button for a workspace with nothing to reset.
+    // 'props' key would make the store's hasValues() true and light up the
+    // Reset button for a workspace with nothing to reset.
     if ($props = $this->propValueHarvester->harvest($this->entity, $form, $form_state, $original_values)) {
       $values['props'] = $props;
     }
@@ -288,17 +301,17 @@ final class SdcPreviewForm extends EntityForm {
     // Apply the harvest to the entity here, mirroring InstanceComponentForm's
     // $this->instance->setValues(). Every AJAX rebuild of this form has to see
     // the values and per-prop options the user just produced — not only the
-    // debounced refresh — because setPreviewValues() is what drops the memoized
+    // debounced refresh — because the store's setValues() drops the memoized
     // prop shapes so the next getPropShapes() re-reads them. Deferring it to a
     // submit handler leaves any other rebuild (the media override button, which
     // has to turn the "default" option off to reveal its widget) reconstructing
-    // shapes from the previous cache entry, where nothing it just did exists.
+    // shapes from the previous store entry, where nothing it just did exists.
     //
     // Writing during validation is not a phase violation for this form: it has
     // no commit step, it already wrote on every debounced keystroke, and the
     // overrides are a cache entry with a 1-hour TTL behind a Reset button.
     // ::submitReset() still wins, because it runs after this.
-    $this->entity->setPreviewValues($values);
+    $this->sdcPreviewStore->setValues($this->entity, $values);
     // Stash for the submit handler.
     $form_state->set('preview_values', $values);
     return $this->entity;
@@ -326,7 +339,7 @@ final class SdcPreviewForm extends EntityForm {
    * Submit handler for the reset button: clear all preview overrides.
    */
   public function submitReset(array $form, FormStateInterface $form_state) {
-    $this->entity->resetPreviewValues();
+    $this->sdcPreviewStore->resetValues($this->entity);
     $form_state->setRedirectUrl(Url::fromRoute('<current>'));
   }
 

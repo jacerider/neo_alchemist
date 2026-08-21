@@ -12,6 +12,7 @@ use Drupal\neo_alchemist\Ajax\InstanceComponentManageIframeCommand;
 use Drupal\neo_alchemist\ComponentManageHelper;
 use Drupal\neo_alchemist\Shape\ComponentShapeStylePluginInterface;
 use Drupal\neo_icon\IconTrait;
+use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
  * Component form.
@@ -26,6 +27,27 @@ final class ComponentStyleForm extends EntityForm {
    * @var \Drupal\neo_alchemist\ComponentInterface
    */
   protected $entity;
+
+  /**
+   * The SDC preview workspace store.
+   *
+   * Not `private readonly`: a form object is serialized into the form cache,
+   * and DependencySerializationTrait::__sleep() swaps services for their IDs
+   * using get_object_vars() from FormBase's scope, which cannot see a private
+   * property declared in a subclass.
+   *
+   * @var \Drupal\neo_alchemist\EditorState\SdcPreviewStore
+   */
+  protected $sdcPreviewStore;
+
+  /**
+   * {@inheritdoc}
+   */
+  public static function create(ContainerInterface $container) {
+    $form = parent::create($container);
+    $form->sdcPreviewStore = $container->get('neo_alchemist.sdc_preview_store');
+    return $form;
+  }
 
   /**
    * {@inheritdoc}
@@ -114,7 +136,7 @@ final class ComponentStyleForm extends EntityForm {
       ],
     ];
 
-    if (!$this->entity->hasPreviewStyles()) {
+    if (!$this->sdcPreviewStore->hasStyles($this->entity)) {
       $form['styles']['reset']['#attributes']['style'] = 'display: none;';
     }
     elseif (!$form_state->get('neo_component_style_changed')) {
@@ -138,7 +160,7 @@ final class ComponentStyleForm extends EntityForm {
       $shapeId = $trigger['#shape_id'] ?? NULL;
       $shapeValue = $form_state->getValue($trigger['#parents'], NULL);
       if ($shapeId && $shapeValue !== NULL) {
-        $this->entity->setPreviewStyle($shapeId, $shapeValue);
+        $this->sdcPreviewStore->setStyle($this->entity, $shapeId, $shapeValue);
         $response->addCommand(new InstanceComponentManageIframeCommand('#' . $manageId . ' iframe'));
       }
     }
@@ -154,7 +176,7 @@ final class ComponentStyleForm extends EntityForm {
    * Ajax callback for the style form.
    */
   public function submitReset(array $form, FormStateInterface $form_state) {
-    $this->entity->resetPreviewStyle();
+    $this->sdcPreviewStore->resetStyles($this->entity);
     $form_state->setRedirectUrl($this->entity->toUrl());
   }
 

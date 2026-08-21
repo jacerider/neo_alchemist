@@ -9,6 +9,7 @@ use Drupal\KernelTests\KernelTestBase;
 use Drupal\neo_alchemist\Entity\Component;
 use Drupal\neo_alchemist\Plugin\ComponentShape\HeadingShape;
 use PHPUnit\Framework\Attributes\DataProvider;
+use Drupal\Tests\neo_alchemist\Traits\SdcPreviewStoreTestTrait;
 use PHPUnit\Framework\Attributes\Group;
 
 /**
@@ -43,6 +44,8 @@ use PHPUnit\Framework\Attributes\Group;
  */
 #[Group('neo_alchemist')]
 class HeadingEmptyValueTest extends KernelTestBase {
+
+  use SdcPreviewStoreTestTrait;
 
   /**
    * {@inheritdoc}
@@ -129,7 +132,7 @@ class HeadingEmptyValueTest extends KernelTestBase {
           $value[$key] = ['value' => $children[$key]];
         }
       }
-      $component->setPreviewValues([
+      $this->setPreviewValues($component, [
         'props' => [
           'heading' => [
             'ref' => 'heading',
@@ -140,7 +143,7 @@ class HeadingEmptyValueTest extends KernelTestBase {
       ]);
     }
     else {
-      $component->resetPreviewValues();
+      $this->resetPreviewValues($component);
     }
 
     return $component;

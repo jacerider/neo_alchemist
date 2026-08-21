@@ -7,6 +7,7 @@ namespace Drupal\Tests\neo_alchemist\Kernel;
 use Drupal\Core\Form\FormState;
 use Drupal\neo_alchemist\Entity\Component;
 use Drupal\neo_alchemist\Value\ComponentValuePanelBuilder;
+use Drupal\Tests\neo_alchemist\Traits\SdcPreviewStoreTestTrait;
 use PHPUnit\Framework\Attributes\Group;
 
 /**
@@ -25,6 +26,8 @@ use PHPUnit\Framework\Attributes\Group;
  */
 #[Group('neo_alchemist')]
 class ComponentValueEditorHarvestWiringTest extends HybridFieldKernelTestBase {
+
+  use SdcPreviewStoreTestTrait;
 
   use ValueEditorFixtureTrait;
 
@@ -67,7 +70,7 @@ class ComponentValueEditorHarvestWiringTest extends HybridFieldKernelTestBase {
     ]);
     $component->save();
     $component->setPreview(TRUE);
-    $component->resetPreviewValues();
+    $this->resetPreviewValues($component);
 
     $formObject = $this->container->get('entity_type.manager')
       ->getFormObject('neo_component', 'preview_value');
@@ -111,13 +114,13 @@ class ComponentValueEditorHarvestWiringTest extends HybridFieldKernelTestBase {
    */
   public function testPreviewEditorWritesHarvestToPreviewValues(): void {
     $form = $this->buildPreviewEditor($formState, $formObject, $component);
-    $this->assertFalse($component->hasPreviewValues(), 'Premise: nothing is overridden yet.');
+    $this->assertFalse($this->hasPreviewValues($component), 'Premise: nothing is overridden yet.');
     $this->assertArrayHasKey('text', $form['values'], 'Premise: the workspace offers the prop.');
 
     $formState->setValues(['values' => $this->stringSubmission('text', 'TYPED IN WORKSPACE')]);
     $formObject->validateForm($form, $formState);
 
-    $overrides = $component->getPreviewValues();
+    $overrides = $this->getPreviewValues($component);
     $this->assertSame(
       'TYPED IN WORKSPACE',
       $overrides['props']['text']['value']['value'] ?? NULL,

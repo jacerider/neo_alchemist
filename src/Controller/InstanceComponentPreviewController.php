@@ -134,7 +134,7 @@ final class InstanceComponentPreviewController extends ControllerBase {
 
     $component = $neo_field->getComponent($uuid);
     $component->setInstancePreview(TRUE);
-    $renderable = $component->toRenderable();
+    $renderable = $component->toRenderable(routeMatch: $this->routeMatch());
     return [
       '#theme' => 'neo_alchemist_component_preview',
       '#attached' => [

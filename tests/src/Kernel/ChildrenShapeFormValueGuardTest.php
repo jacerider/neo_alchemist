@@ -7,6 +7,7 @@ namespace Drupal\Tests\neo_alchemist\Kernel;
 use Drupal\Core\Form\FormState;
 use Drupal\KernelTests\KernelTestBase;
 use Drupal\neo_alchemist\Entity\Component;
+use Drupal\Tests\neo_alchemist\Traits\SdcPreviewStoreTestTrait;
 use PHPUnit\Framework\Attributes\Group;
 
 /**
@@ -45,6 +46,8 @@ use PHPUnit\Framework\Attributes\Group;
  */
 #[Group('neo_alchemist')]
 class ChildrenShapeFormValueGuardTest extends KernelTestBase {
+
+  use SdcPreviewStoreTestTrait;
 
   use ValueEditorFixtureTrait;
 
@@ -131,7 +134,7 @@ class ChildrenShapeFormValueGuardTest extends KernelTestBase {
     $component = $storage->load('na_array_provider');
 
     $component->setPreview(TRUE);
-    $component->setPreviewValues([
+    $this->setPreviewValues($component, [
       'props' => [
         'items' => [
           'ref' => 'array',

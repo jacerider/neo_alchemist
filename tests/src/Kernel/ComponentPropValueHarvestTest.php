@@ -8,6 +8,7 @@ use Drupal\Core\Form\FormState;
 use Drupal\KernelTests\KernelTestBase;
 use Drupal\neo_alchemist\ComponentInterface;
 use Drupal\neo_alchemist\Entity\Component;
+use Drupal\Tests\neo_alchemist\Traits\SdcPreviewStoreTestTrait;
 use PHPUnit\Framework\Attributes\Group;
 
 /**
@@ -30,6 +31,8 @@ use PHPUnit\Framework\Attributes\Group;
  */
 #[Group('neo_alchemist')]
 class ComponentPropValueHarvestTest extends KernelTestBase {
+
+  use SdcPreviewStoreTestTrait;
 
   use ValueEditorFixtureTrait;
 
@@ -93,7 +96,7 @@ class ComponentPropValueHarvestTest extends KernelTestBase {
     /** @var \Drupal\neo_alchemist\ComponentInterface $component */
     $component = $storage->load($id);
     $component->setPreview(TRUE);
-    $component->resetPreviewValues();
+    $this->resetPreviewValues($component);
     return $component;
   }
 
@@ -211,7 +214,7 @@ class ComponentPropValueHarvestTest extends KernelTestBase {
 
     // Turning the option on is what an author does with the Default checkbox;
     // going through the override is how that reaches a rebuilt shape.
-    $component->setPreviewValues([
+    $this->setPreviewValues($component, [
       'props' => [
         'text' => [
           'ref' => $shape->getRef(),
@@ -312,7 +315,7 @@ class ComponentPropValueHarvestTest extends KernelTestBase {
   public function testNestedOptionsAccompanyTheValue(): void {
     $component = $this->component(self::LEAF_SDC);
     $shape = $component->getPropShapes()['text'];
-    $component->setPreviewValues([
+    $this->setPreviewValues($component, [
       'props' => [
         'text' => [
           'ref' => $shape->getRef(),

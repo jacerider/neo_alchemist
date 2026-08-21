@@ -16,6 +16,7 @@ use Drupal\Core\Entity\ContentEntityInterface;
 use Drupal\Core\Entity\EntityStorageInterface;
 use Drupal\Core\Entity\EntityTypeInterface;
 use Drupal\Core\Plugin\Component as ComponentPlugin;
+use Drupal\Core\Routing\RouteMatchInterface;
 use Drupal\Core\Session\AccountInterface;
 use Drupal\Core\Template\Attribute;
 use Drupal\Core\Url;
@@ -23,6 +24,7 @@ use Drupal\neo_alchemist\Access\ComponentAccessInterface;
 use Drupal\neo_alchemist\ComponentInstanceInterface;
 use Drupal\neo_alchemist\ComponentInterface;
 use Drupal\neo_alchemist\ComponentManageHelper;
+use Drupal\neo_alchemist\EditorState\SdcPreviewStore;
 use Drupal\neo_alchemist\Shape\ComponentShapePluginInterface;
 use Drupal\neo_alchemist\Filter\ComponentFilterInterface;
 use Drupal\neo_alchemist\MissingHostEntityException;
@@ -229,6 +231,18 @@ class Component extends ConfigEntityBase implements ComponentInterface {
    * @var bool
    */
   protected bool $instancePreview = FALSE;
+
+  /**
+   * Whether this render is the standalone component-preview frame.
+   *
+   * Once route-derived on every read, now an in-memory flag resolved from a
+   * route handed to isComponentPreview() at the render boundary and cached
+   * here — so the entity's behaviour no longer depends on the ambient request.
+   * NULL until a route has resolved it, which reads as FALSE.
+   *
+   * @var bool|null
+   */
+  protected ?bool $componentPreview = NULL;
 
   /**
    * The rebuilding status of the component.
@@ -538,12 +552,19 @@ class Component extends ConfigEntityBase implements ComponentInterface {
   /**
    * {@inheritdoc}
    */
-  public function isComponentPreview(): bool {
-    $routeName = \Drupal::routeMatch()->getRouteName();
-    return in_array($routeName, [
-      'entity.neo_component.preview',
-      'neo_alchemist.sdc_preview_frame',
-    ], TRUE);
+  public function isComponentPreview(?RouteMatchInterface $routeMatch = NULL): bool {
+    // Resolve from the route when one is handed in — at the render boundary —
+    // and cache the answer as an in-memory flag. The entity never reaches for
+    // \Drupal::routeMatch() itself, so a call with no route (the render
+    // pipeline's own reads, and tests) consults the cached flag rather than the
+    // ambient request. NULL, before any route has resolved it, reads as FALSE.
+    if ($routeMatch !== NULL) {
+      $this->componentPreview = in_array($routeMatch->getRouteName(), [
+        'entity.neo_component.preview',
+        'neo_alchemist.sdc_preview_frame',
+      ], TRUE);
+    }
+    return $this->componentPreview ?? FALSE;
   }
 
   /**
@@ -612,8 +633,12 @@ class Component extends ConfigEntityBase implements ComponentInterface {
    *
    * Callers that hold a shape, slot or filter in a local keep their object;
    * only the entity's cache of them is dropped.
+   *
+   * Public because the SDC preview store calls it as the postcondition of a
+   * prop-value override write: the overrides seed the shapes and filters, so
+   * the memo has to go for the same request to re-derive against them.
    */
-  protected function invalidateDerivedSettings(): void {
+  public function invalidateDerivedSettings(): void {
     unset($this->propShapes, $this->slots, $this->filters, $this->access);
   }
 
@@ -763,116 +788,20 @@ class Component extends ConfigEntityBase implements ComponentInterface {
   }
 
   /**
-   * {@inheritdoc}
+   * The SDC preview workspace store.
+   *
+   * The disposable prop-value, style and neighbor-context overrides that used
+   * to be cache-and-key mechanics inline on this entity now live behind this
+   * store on the editor-state seam, so the entity describes components rather
+   * than editor sessions. The entity is a config object, not a service, so it
+   * reaches the store through the container — as it does for every other
+   * service it consumes.
+   *
+   * @return \Drupal\neo_alchemist\EditorState\SdcPreviewStore
+   *   The SDC preview workspace store.
    */
-  public function hasPreviewStyles(): bool {
-    return !empty($this->getPreviewStyles());
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function getPreviewStyles(): array {
-    $cache = \Drupal::cache();
-    if ($data = $cache->get('neo_alchemist.' . $this->id() . '.preview_style')) {
-      return $data->data;
-    }
-    return [];
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function setPreviewStyle(string $shapeId, string $shapeValue): self {
-    $cache = \Drupal::cache();
-    $styles = $this->getPreviewStyles();
-    $styles[$shapeId] = $shapeValue;
-    $cache->set('neo_alchemist.' . $this->id() . '.preview_style', $styles, strtotime('+10 minutes'));
-    return $this;
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function getPreviewStyle(string $shapeId): ?string {
-    return $this->getPreviewStyles()[$shapeId] ?? NULL;
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function resetPreviewStyle(): self {
-    \Drupal::cache()->delete('neo_alchemist.' . $this->id() . '.preview_style');
-    return $this;
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function hasPreviewValues(): bool {
-    return !empty($this->getPreviewValues());
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function getPreviewValues(): array {
-    $cache = \Drupal::cache();
-    if ($data = $cache->get('neo_alchemist.' . $this->id() . '.preview_values')) {
-      return $data->data;
-    }
-    return [];
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function setPreviewValues(array $values): self {
-    // Reflect the new overrides immediately within the current request (e.g.
-    // form rebuilds). getFilters() bakes these values into each filter it
-    // builds, so the filter memo has to go as well as the shapes.
-    $this->invalidateDerivedSettings();
-    \Drupal::cache()->set('neo_alchemist.' . $this->id() . '.preview_values', $values, strtotime('+1 hour'));
-    return $this;
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function resetPreviewValues(): self {
-    $this->invalidateDerivedSettings();
-    \Drupal::cache()->delete('neo_alchemist.' . $this->id() . '.preview_values');
-    return $this;
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function getPreviewContext(): array {
-    $cache = \Drupal::cache();
-    if ($data = $cache->get('neo_alchemist.' . $this->id() . '.preview_context')) {
-      return $data->data;
-    }
-    return [];
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function setPreviewContext(?string $above, ?string $below): self {
-    \Drupal::cache()->set('neo_alchemist.' . $this->id() . '.preview_context', [
-      'above' => $above ?: NULL,
-      'below' => $below ?: NULL,
-    ], strtotime('+1 hour'));
-    return $this;
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function resetPreviewContext(): self {
-    \Drupal::cache()->delete('neo_alchemist.' . $this->id() . '.preview_context');
-    return $this;
+  protected function getSdcPreviewStore(): SdcPreviewStore {
+    return \Drupal::service('neo_alchemist.sdc_preview_store');
   }
 
   /**
@@ -880,11 +809,11 @@ class Component extends ConfigEntityBase implements ComponentInterface {
    */
   public function getValues(): array {
     // When previewing a config-scope component (e.g. the SDC preview
-    // workspace), return any cache-backed preview-value overrides so the shapes
-    // are seeded with the values a developer is editing. These overrides never
-    // persist to configuration.
+    // workspace), return the developer's prop-value overrides so the shapes are
+    // seeded with the values they are editing. These overrides live in the SDC
+    // preview store and never persist to configuration.
     if ($this->isPreview() && $this->getScope() === 'config') {
-      return $this->getPreviewValues();
+      return $this->getSdcPreviewStore()->getValues($this);
     }
     return [];
   }
@@ -1480,13 +1409,21 @@ class Component extends ConfigEntityBase implements ComponentInterface {
   /**
    * {@inheritdoc}
    */
-  public function toRenderable($isFirst = NULL, $isLast = NULL): array {
-    if ($this->isPreview()) {
+  public function toRenderable($isFirst = NULL, $isLast = NULL, ?RouteMatchInterface $routeMatch = NULL): array {
+    // Resolve and cache the route-derived component-preview flag here, at the
+    // render boundary, from the route the caller handed in — so the pipeline's
+    // isManagePreview()/isEditorPreview() reads below (and in the shapes and
+    // filters getPropValues() reaches) consult the cached flag rather than the
+    // ambient request. A caller with no route leaves the flag as it was.
+    if ($routeMatch !== NULL) {
+      $this->isComponentPreview($routeMatch);
+    }
+    if ($this->isPreview() && $routeMatch !== NULL) {
       // When rendering as preview, we need to set the target entity so that
       // shapes and slots that utilize route parameters will have something
       // to work with.
       $entity = $this->getTargetEntity();
-      $parameters = \Drupal::routeMatch()->getParameters();
+      $parameters = $routeMatch->getParameters();
       if (!$parameters->has($entity->getEntityTypeId())) {
         $parameters->set($entity->getEntityTypeId(), $entity);
       }

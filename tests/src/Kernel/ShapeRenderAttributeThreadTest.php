@@ -11,6 +11,7 @@ use Drupal\neo_alchemist\Shape\ComponentShapeChildrenMatchPluginInterface;
 use Drupal\neo_alchemist\Shape\ComponentShapePluginInterface;
 use Drupal\neo_alchemist\Entity\Component;
 use Drupal\neo_alchemist_test\Plugin\ComponentShape\TestStampedShape;
+use Drupal\Tests\neo_alchemist\Traits\SdcPreviewStoreTestTrait;
 use PHPUnit\Framework\Attributes\Group;
 
 /**
@@ -42,6 +43,8 @@ use PHPUnit\Framework\Attributes\Group;
  */
 #[Group('neo_alchemist')]
 class ShapeRenderAttributeThreadTest extends KernelTestBase {
+
+  use SdcPreviewStoreTestTrait;
 
   /**
    * {@inheritdoc}
@@ -82,7 +85,7 @@ class ShapeRenderAttributeThreadTest extends KernelTestBase {
     $component = $storage->load('na_render_thread');
 
     $component->setPreview(TRUE);
-    $component->setPreviewValues([
+    $this->setPreviewValues($component, [
       'props' => [
         'box' => [
           'ref' => 'object',

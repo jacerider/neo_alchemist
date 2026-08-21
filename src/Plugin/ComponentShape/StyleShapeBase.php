@@ -85,7 +85,7 @@ abstract class StyleShapeBase extends ComponentShapePluginBase implements Compon
   protected function buildValue(?Attribute $renderAttributes = NULL): mixed {
     $value = parent::buildValue($renderAttributes);
     if ($this->getComponent()->getScope() === 'config') {
-      $previewValue = $this->getComponent()->getPreviewStyle($this->id());
+      $previewValue = \Drupal::service('neo_alchemist.sdc_preview_store')->getStyle($this->getComponent(), $this->id());
       if ($previewValue !== NULL) {
         $value = $previewValue;
       }
