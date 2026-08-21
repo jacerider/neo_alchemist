@@ -283,6 +283,55 @@ final class EditorRouteFamily {
   }
 
   /**
+   * The entity-scope link templates, derived from the same member table.
+   *
+   * The module's entity_type_alter (neo_alchemist_entity_type_alter) puts one
+   * link template on the host entity type per entity-scope op, so an entity can
+   * address any op through $entity->toUrl('alchemist.{op}'). Deriving them here
+   * from the member table the routes come from keeps a template from naming a
+   * path no route serves (the phantom `alchemist.region` this replaced) and a
+   * route from going un-addressable for want of a template (the `move` route,
+   * which the hand-written list omitted). A template and a route can no longer
+   * disagree, because neither is written by hand.
+   *
+   * The key is the string routeName() produces with the `entity.{id}.` prefix
+   * stripped — `alchemist` for the management landing, `alchemist.{op}` for a
+   * member op — because an entity's `alchemist.{op}` rel resolves to the
+   * `entity.{id}.alchemist.{op}` route. Only SCOPE_ENTITY carries link
+   * templates; the field-UI and block scopes address routes by name, not rel.
+   *
+   * @param string $scope
+   *   One of the SCOPE_* constants (SCOPE_ENTITY in practice — see above).
+   * @param string $pathPrefix
+   *   The alchemist base path: the host's `alchemist` link template value
+   *   ("{canonical}/alchemist"), which is also the entity scope's route path
+   *   prefix, so the base op's template is exactly this string.
+   * @param string[]|null $ops
+   *   The subset of ops to template, in order. NULL templates the scope's full
+   *   declared set.
+   *
+   * @return string[]
+   *   Link-template key => path template, keyed the same way build() keys its
+   *   route names below the `entity.{id}.` prefix.
+   */
+  public function linkTemplates(string $scope, string $pathPrefix, ?array $ops = NULL): array {
+    $ops ??= $this->opsForScope($scope);
+    $memberSpecs = self::memberSpecs();
+    $templates = [];
+    foreach ($ops as $op) {
+      // The base op's empty path mirrors baseSpec()'s — the landing lives at
+      // the alchemist root — so its template is $pathPrefix itself. The
+      // bidirectional kernel test pins this key set against build()'s names.
+      $path = $op === self::OP_BASE
+        ? ''
+        : ($memberSpecs[$op]['path'] ?? throw new \InvalidArgumentException("Unknown editor op: $op"));
+      $key = $op === self::OP_BASE ? self::OP_BASE : self::OP_BASE . '.' . $op;
+      $templates[$key] = $pathPrefix . $path;
+    }
+    return $templates;
+  }
+
+  /**
    * The scope-specific spec for the management-landing (base) op.
    *
    * The base op is the one op whose controller and access requirement

@@ -1,5 +1,24 @@
 # Changelog
 
+## The editor's `alchemist.region` link template and rel are removed
+
+The entity-scope editor link templates now derive from the same table as the
+routes (`EditorRouteFamily`), so a path lives in one place. Two mismatches that
+table exposed are resolved:
+
+- **`alchemist.region` is removed** — both the link template and the
+  `ComponentEntity::toUrl('region')` generator arm are gone. No route was ever
+  registered for it, so asking an entity for that URL
+  (`$entity->toUrl('alchemist.region')`) raised a route-not-found error rather
+  than returning one. Nothing in this repository called that rel; custom code
+  that did was already erroring, and should drop the call.
+- **`alchemist.move` is added** — the move route already existed but had no link
+  template, so it was previously only reachable by a hand-built path. It is now a
+  first-class rel like every other op.
+
+**No stored-data change, no update hook.** Every other route name, path and link
+template is byte-identical to before.
+
 ## "Only use published entities" now reaches every level of a mapping
 
 **This is a content-visibility change. Check it before you update.**

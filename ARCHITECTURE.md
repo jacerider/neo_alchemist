@@ -872,6 +872,16 @@ From [neo_alchemist.services.yml](neo_alchemist.services.yml):
   `neo_alchemist_block.routing.yml`), because the URL generators
   (`ComponentFieldConfig::toUrl()`, `ComponentField::toUrl()`) still build those names by
   interpolating the host entity type.
+- **The entity-scope link templates derive from the same table.**
+  `neo_alchemist_entity_type_alter()` puts one `alchemist.{op}` link template on a host
+  entity type per entity-scope op — so an entity can address any op through
+  `$entity->toUrl('alchemist.{op}')` (`ComponentEntity::toUrl()`) — by calling
+  `EditorRouteFamily::linkTemplates()` rather than hand-writing the list. Path and route
+  therefore live in one place: a template can no longer name a path no route serves (this
+  removed the phantom `alchemist.region`, which had a template and a `ComponentEntity`
+  generator arm but no registered route) nor go missing for a route that exists (this added
+  `alchemist.move`). `EditorRouteFamilyTest` asserts both directions. The form classes the
+  same alter sets (`InstanceComponent*Form`) are unrelated and unchanged.
 
 ---
 

@@ -204,4 +204,93 @@ class EditorRouteFamilyTest extends HybridFieldKernelTestBase {
     $this->assertSame($expected, $found, 'Both scope families register, and nothing beyond them.');
   }
 
+  /**
+   * The link templates and the entity-scope routes name the same ops.
+   *
+   * The two derive from one member table, so this is the invariant that was
+   * only prose before: every link template backs a registered route (the old
+   * phantom `alchemist.region` could not survive it) and every entity-scope
+   * route is addressable through a template (the omitted `move` route could
+   * not either).
+   */
+  public function testLinkTemplatesAndRoutesNameTheSameOps(): void {
+    $prefix = '/node/{node}/alchemist';
+    $routeNames = array_keys($this->family()->build(
+      EditorRouteFamily::SCOPE_ENTITY,
+      'node',
+      $prefix,
+      ['node' => ['type' => 'entity:node']],
+    ));
+    $templateKeys = array_keys($this->family()->linkTemplates(
+      EditorRouteFamily::SCOPE_ENTITY,
+      $prefix,
+    ));
+
+    // Every derived template has a registered route.
+    foreach ($templateKeys as $key) {
+      $this->assertContains("entity.node.$key", $routeNames, "Template $key backs a route.");
+    }
+    // Every entity-scope route is addressable through a template.
+    foreach ($routeNames as $name) {
+      $key = substr($name, strlen('entity.node.'));
+      $this->assertContains($key, $templateKeys, "Route $name has a template.");
+    }
+    // The correspondence is exact — no phantom on either side.
+    $this->assertCount(count($routeNames), $templateKeys);
+  }
+
+  /**
+   * The two mismatches the ticket names are resolved.
+   *
+   * `region` had a template and a generator arm but no route; it is gone.
+   * `move` had a route but no template; it gains one, pointing at the move
+   * route's own path. The unchanged paths stay byte-identical.
+   */
+  public function testLinkTemplatesResolveRegionAndGainMove(): void {
+    $prefix = '/node/{node}/alchemist';
+    $templates = $this->family()->linkTemplates(EditorRouteFamily::SCOPE_ENTITY, $prefix);
+
+    // region: the phantom whose path no route served is gone.
+    $this->assertArrayNotHasKey('alchemist.region', $templates);
+    // move: gains a template pointing at the move route's path.
+    $this->assertSame(
+      '/node/{node}/alchemist/{neo_field}/move/{neo_component}/{direction}',
+      $templates['alchemist.move'],
+    );
+    // The base op's template is the bare alchemist prefix (and the route path
+    // prefix RouteSubscriber builds the entity scope off).
+    $this->assertSame($prefix, $templates['alchemist']);
+    // Unchanged members keep their exact paths.
+    $this->assertSame('/node/{node}/alchemist/{neo_field}', $templates['alchemist.manage']);
+    $this->assertSame('/node/{node}/alchemist/{neo_field}/edit/{neo_component}', $templates['alchemist.edit']);
+  }
+
+  /**
+   * The module's entity_type_alter sets exactly the derived templates.
+   *
+   * Drives the real alter — clearing cached definitions re-runs it — and
+   * asserts the host's alchemist link templates are the table's, with `region`
+   * gone and `move` present. This is what proves the alter derives from the
+   * table rather than hand-writing a list beside it.
+   */
+  public function testEntityTypeAlterDerivesLinkTemplatesFromTable(): void {
+    $entityTypeManager = $this->container->get('entity_type.manager');
+    $entityTypeManager->clearCachedDefinitions();
+    $definition = $entityTypeManager->getDefinition('entity_test');
+
+    // The alchemist landing template is the prefix the family derives from.
+    $prefix = $definition->getLinkTemplate('alchemist');
+    $expected = $this->family()->linkTemplates(EditorRouteFamily::SCOPE_ENTITY, $prefix);
+
+    $actual = array_filter(
+      $definition->getLinkTemplates(),
+      static fn (string $key) => $key === 'alchemist' || str_starts_with($key, 'alchemist.'),
+      ARRAY_FILTER_USE_KEY,
+    );
+
+    $this->assertEquals($expected, $actual, 'The alter sets exactly the derived templates.');
+    $this->assertArrayNotHasKey('alchemist.region', $actual);
+    $this->assertArrayHasKey('alchemist.move', $actual);
+  }
+
 }
