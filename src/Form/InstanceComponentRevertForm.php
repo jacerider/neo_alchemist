@@ -4,6 +4,7 @@ namespace Drupal\neo_alchemist\Form;
 
 use Drupal\Core\Entity\EntityConfirmFormBase;
 use Drupal\Core\Form\FormStateInterface;
+use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
  * Component form.
@@ -25,6 +26,26 @@ class InstanceComponentRevertForm extends EntityConfirmFormBase {
    * @var \Drupal\neo_alchemist\Plugin\Field\FieldType\ComponentTreeItem
    */
   protected $fieldItem;
+
+  /**
+   * The shared draft store.
+   *
+   * Not promoted, and protected rather than private: form objects are
+   * serialized into the form cache, and DependencySerializationTrait can only
+   * swap a service for its id when it can see the property.
+   *
+   * @var \Drupal\neo_alchemist\EditorState\SharedDraftStore
+   */
+  protected $sharedDraftStore;
+
+  /**
+   * {@inheritdoc}
+   */
+  public static function create(ContainerInterface $container) {
+    $form = parent::create($container);
+    $form->sharedDraftStore = $container->get('neo_alchemist.shared_draft_store');
+    return $form;
+  }
 
   /**
    * Gets the actual form array to be built.
@@ -72,7 +93,8 @@ class InstanceComponentRevertForm extends EntityConfirmFormBase {
    * {@inheritdoc}
    */
   public function submitForm(array &$form, FormStateInterface $form_state) {
-    $fieldItem = $this->fieldItem->deleteDraft();
+    $fieldItem = $this->fieldItem;
+    $this->sharedDraftStore->delete($fieldItem);
     $form_state->setRedirectUrl($this->entity->toUrl());
     $this->messenger()->addStatus($this->t('Components have been reverted successfully on %label: %field_label.', [
       '%label' => $this->entity->label(),

@@ -7,7 +7,6 @@ namespace Drupal\neo_alchemist\Plugin\Field\FieldType;
 use Drupal\Component\Render\FormattableMarkup;
 use Drupal\Component\Serialization\Json;
 use Drupal\Core\Access\AccessResult;
-use Drupal\Core\Cache\Cache;
 use Drupal\Core\Entity\EntityChangedInterface;
 use Drupal\Core\Entity\RevisionableInterface;
 use Drupal\Core\Field\Attribute\FieldType;
@@ -24,6 +23,7 @@ use Drupal\Core\Url;
 use Drupal\neo_alchemist\ComponentInstanceInterface;
 use Drupal\neo_alchemist\ComponentInterface;
 use Drupal\neo_alchemist\ComponentSizesInterface;
+use Drupal\neo_alchemist\EditorState\SharedDraftStore;
 use Drupal\neo_alchemist\EmptySectionPolicy;
 use Drupal\neo_alchemist\Entity\Component;
 use Drupal\neo_alchemist\Entity\ComponentFieldConfig;
@@ -880,10 +880,10 @@ class ComponentTreeItem extends FieldItemBase implements RenderableInterface, Co
     }
     else {
       if ($this->isDraft()) {
-        $this->setDraftValue($this->getValue());
+        $this->getSharedDraftStore()->set($this, $this->getValue());
         return SAVED_UPDATED;
       }
-      $this->deleteDraft();
+      $this->getSharedDraftStore()->delete($this);
       $entity = $this->getEntity();
       $fieldName = $this->getFieldDefinition()->getName();
       $list = $this->getParent();
@@ -908,108 +908,18 @@ class ComponentTreeItem extends FieldItemBase implements RenderableInterface, Co
   }
 
   /**
-   * Generates a draft key for the current entity and field definition.
-   *
-   * The draft key is a string composed of the 'neo_alchemist' prefix, the
-   * entity ID, and the field name, concatenated with dots.
-   *
-   * @param string|null $uuid
-   *   (optional) The UUID of the component instance.
-   *
-   * @return string
-   *   The generated draft key.
-   *
-   * @throws \AssertionError
-   *   Thrown if the field does not belong to a field configuration.
-   */
-  public function getDraftKey(?string $uuid = NULL): string {
-    $props = [
-      'neo_alchemist',
-      $this->belongsToFieldConfig() ? $this->getFieldDefinition()->getTargetEntityTypeId() : $this->getEntity()->id(),
-      $this->getFieldDefinition()->getName(),
-    ];
-    if ($uuid) {
-      $props[] = $uuid;
-    }
-    return implode('.', $props);
-  }
-
-  /**
-   * The cache tag that tracks whether a draft exists for this item.
-   *
-   * A preview renders the stored layout until someone starts editing, at which
-   * point it has to reflect the draft instead. That cannot be decided inside
-   * the preview controller alone: once Dynamic Page Cache holds an entry it
-   * serves it without running the controller again, so the controller never
-   * gets the chance to declare itself uncacheable. Tagging the response and
-   * invalidating the tag whenever a draft is written or cleared is what lets
-   * the cache find out.
-   *
-   * @param string|null $uuid
-   *   (optional) The UUID of the component instance.
-   *
-   * @return string
-   *   The cache tag.
-   */
-  public function getDraftCacheTag(?string $uuid = NULL): string {
-    return 'neo_alchemist_draft:' . $this->getDraftKey($uuid);
-  }
-
-  /**
-   * Retrieves the draft value of the component tree item.
-   *
-   * @return array|null
-   *   The draft value as an array, or NULL if no draft value is set.
-   */
-  public function getDraftValue(): ?array {
-    return $this->getState()->get($this->getDraftKey());
-  }
-
-  /**
-   * Sets the draft value for the component tree item.
-   *
-   * @param array $value
-   *   The draft value to be set.
-   *
-   * @return self
-   *   The current instance of the component tree item.
-   */
-  public function setDraftValue(array $value): self {
-    $this->getState()->set($this->getDraftKey(), $value);
-    Cache::invalidateTags([$this->getDraftCacheTag()]);
-    return $this;
-  }
-
-  /**
-   * Deletes the draft state of the current component tree item.
-   *
-   * This method removes the draft state associated with the current component
-   * tree item by using the draft key to identify the state to be deleted.
-   *
-   * @return self
-   *   Returns the current instance of the component tree item.
-   */
-  public function deleteDraft(): self {
-    $this->getState()->delete($this->getDraftKey());
-    Cache::invalidateTags([$this->getDraftCacheTag()]);
-    return $this;
-  }
-
-  /**
    * Checks if the current item has a draft version.
    *
-   * This method first checks if the item belongs to a field configuration.
-   * If it does, it returns FALSE, indicating that there is no draft.
-   * Otherwise, it retrieves the draft value and returns it as a boolean.
+   * Draft existence is owned by the shared draft store: this is a thin
+   * read-through predicate over it, kept on the item because the draft-mode
+   * flow and the access checks consult it. Whether a draft is stored — and the
+   * rule that a config-scope item never has one — lives in the store, not here.
    *
    * @return bool
    *   TRUE if the item has a draft version, FALSE otherwise.
    */
   public function hasDraft(): bool {
-    if ($this->belongsToFieldConfig()) {
-      return FALSE;
-    }
-    return (bool) $this->getDraftValue();
+    return $this->getSharedDraftStore()->has($this);
   }
 
   /**
@@ -1024,7 +934,7 @@ class ComponentTreeItem extends FieldItemBase implements RenderableInterface, Co
   public function enforceAsDraft(bool $enforce = TRUE): self {
     $this->draft = $enforce;
     if ($enforce) {
-      if ($draftValue = $this->getDraftValue()) {
+      if ($draftValue = $this->getSharedDraftStore()->get($this)) {
         $list = $this->getParent();
         if ($this->isHybridScope()) {
           // Normalize the stashed draft against the current field default
@@ -1138,13 +1048,18 @@ class ComponentTreeItem extends FieldItemBase implements RenderableInterface, Co
   }
 
   /**
-   * Gets the state service.
+   * Gets the shared draft store.
    *
-   * @return \Drupal\Core\State\StateInterface
-   *   The state service.
+   * The field item is not a service — it is created by the field system — so it
+   * reaches the store the way it reaches state: through the container. All
+   * draft storage, key derivation and cache-tag invalidation live behind the
+   * store, so the item never constructs a key or invalidates a tag by hand.
+   *
+   * @return \Drupal\neo_alchemist\EditorState\SharedDraftStore
+   *   The shared draft store.
    */
-  protected function getState() {
-    return \Drupal::state();
+  protected function getSharedDraftStore(): SharedDraftStore {
+    return \Drupal::service('neo_alchemist.shared_draft_store');
   }
 
   /**

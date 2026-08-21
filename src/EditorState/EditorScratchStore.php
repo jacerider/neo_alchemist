@@ -134,7 +134,13 @@ final class EditorScratchStore {
   }
 
   /**
-   * The entity/field scope discriminator, mirroring the draft key's.
+   * The entity/field scope discriminator for the scratch key.
+   *
+   * The shared draft's discriminator (SharedDraftStore) additionally folds in
+   * the entity type and langcode, to avoid drafts colliding across entity types
+   * and translations sharing one draft. Scratch does not need to: its key also
+   * carries the globally-unique component instance uuid, which already
+   * disambiguates, so those collisions are unreachable here.
    */
   protected function scope(ComponentTreeItem $item): string {
     return $item->belongsToFieldConfig()

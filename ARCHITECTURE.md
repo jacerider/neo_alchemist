@@ -729,6 +729,43 @@ path branches on.
 | `ComponentTreeItem::cloneComponentChildren()` | `collectChildTuples()` |
 | `neo_alchemist_update_11006()` | `collectInstanceUuids()` / `isStorageSubset()` |
 
+### Draft model: two stores, two key spaces
+
+Editor state lives behind the store seam in
+[src/EditorState/](src/EditorState/) — an `EditorStateStoreInterface` (read/write/delete a
+keyed value) with three adapters: `PrivateTempStoreEditorStateStore` (per-user),
+`StateEditorStateStore` (durable), and `MemoryEditorStateStore` (tests). The sharing
+semantics are a property of the **store** built on an adapter, not of the arguments a
+caller passes — so which colleague sees your edit no longer depends on whether a uuid
+happened to reach a shared key function.
+
+- **The shared draft** (`SharedDraftStore`, `neo_alchemist.shared_draft_store`) is the
+  collaborative layout draft: keyed by entity and field with **no user segment**, backed
+  by durable state, published as a whole. Two editors building one page work on one
+  artifact, and either can publish it — per-user drafts would fork the layout and let the
+  last publisher silently discard the other's work. The key folds in the entity type and
+  langcode (fixing the old key's cross-type and cross-translation collisions) and leaves
+  out the revision (a draft is pre-publish).
+- **The live form buffer** (`EditorScratchStore`, `neo_alchemist.editor_scratch_store`) is
+  one editor's unsaved, in-progress form values driving their own preview iframe: per-user
+  by construction (private tempstore, plus the current user folded into its key), its own
+  key prefix, disposable. Not a draft in the collaborative sense.
+
+Both stores keep their **key and cache-tag derivation private**, and fold cache-tag
+invalidation into every `set()`/`delete()`. That is a structural guarantee: no caller can
+construct a key to perform its own draft I/O behind the store's back, and none can ship a
+stale preview by forgetting to invalidate — the failure the field item documented at
+length, because Dynamic Page Cache serves the pre-edit preview without re-running the
+controller. The whole-tree callers (`saveComponents()`, the revert form, the preview
+controller, and `enforceAsDraft()`'s hydration read) all go through the store.
+
+The **draft-mode flag stays on the field item** (`enforceAsDraft()` / `isDraft()`), as the
+deliberate meeting point with the `component-tree-seam` work, alongside the thin
+`hasDraft()` read-through predicate the flow and the access checks consult. All six draft
+storage/derivation methods left the item: five — `getDraftKey`, `getDraftCacheTag`,
+`getDraftValue`, `setDraftValue` and `deleteDraft` — moved into the store (private key/tag,
+public value I/O), and `hasDraft` became a thin delegate to `SharedDraftStore::has()`.
+
 ### Draft model: detached copies
 
 Editor routes carry `neo_draft => TRUE`, and

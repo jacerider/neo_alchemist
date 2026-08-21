@@ -25,6 +25,23 @@ services:
   neo_alchemist.editor_state.memory:
     class: Drupal\neo_alchemist\EditorState\MemoryEditorStateStore
 
+  # The durable adapter, backed by state: what is written survives the request
+  # and every user. It is the backend behind the shared draft store — the
+  # collaborative layout draft has to outlive one editor's session.
+  neo_alchemist.editor_state.state:
+    class: Drupal\neo_alchemist\EditorState\StateEditorStateStore
+    arguments: ['@state']
+
+  # The shared draft store: the collaborative layout draft, keyed by entity and
+  # field with no user segment (so a write is visible to every editor), backed
+  # by durable state, and published as a whole. Its key and cache-tag
+  # derivation are private, and every write invalidates the tag — so no caller
+  # can construct a key to bypass the store, nor ship a stale preview by
+  # forgetting a line.
+  neo_alchemist.shared_draft_store:
+    class: Drupal\neo_alchemist\EditorState\SharedDraftStore
+    arguments: ['@neo_alchemist.editor_state.state', '@cache_tags.invalidator']
+
   # The per-user scratch store: the live form buffer that drives one editor's
   # preview iframe. Its own key prefix (so it no longer borrows the whole-tree
   # draft's key derivation), the current user folded into the key (so it stays

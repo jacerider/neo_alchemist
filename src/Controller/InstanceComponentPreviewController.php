@@ -8,6 +8,7 @@ use Drupal\Core\Cache\CacheableMetadata;
 use Drupal\Core\Controller\ControllerBase;
 use Drupal\Core\Render\BareHtmlPageRendererInterface;
 use Drupal\neo_alchemist\EditorState\EditorScratchStore;
+use Drupal\neo_alchemist\EditorState\SharedDraftStore;
 use Drupal\neo_alchemist\Plugin\Field\FieldType\ComponentTreeItem;
 use Drupal\neo_alchemist\PreviewPropMapBuilder;
 use Drupal\neo_icon\IconTrait;
@@ -27,6 +28,7 @@ final class InstanceComponentPreviewController extends ControllerBase {
   public function __construct(
     private readonly BareHtmlPageRendererInterface $bareHtmlPageRenderer,
     private readonly EditorScratchStore $scratchStore,
+    private readonly SharedDraftStore $sharedDraftStore,
   ) {}
 
   /**
@@ -35,7 +37,8 @@ final class InstanceComponentPreviewController extends ControllerBase {
   public static function create(ContainerInterface $container): self {
     return new self(
       $container->get('neo_component_page_renderer'),
-      $container->get('neo_alchemist.editor_scratch_store')
+      $container->get('neo_alchemist.editor_scratch_store'),
+      $container->get('neo_alchemist.shared_draft_store')
     );
   }
 
@@ -62,8 +65,11 @@ final class InstanceComponentPreviewController extends ControllerBase {
       if ($request->query->get('size') === 'desktop') {
         neo_alchemist_attach_screenshot($build);
       }
-      $hasDraft = $neo_field->hasDraft();
-      $draftCacheTag = $neo_field->getDraftCacheTag();
+      // The whole-layout preview reflects the shared draft — read through the
+      // store, which owns both the existence check and the cache-tag string it
+      // invalidates on write.
+      $hasDraft = $this->sharedDraftStore->has($neo_field);
+      $draftCacheTag = $this->sharedDraftStore->cacheTag($neo_field);
     }
 
     // Tag the response with the draft that would change it. Writing or
