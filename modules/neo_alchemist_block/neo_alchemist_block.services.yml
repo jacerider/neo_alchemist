@@ -1,0 +1,6 @@
+services:
+  neo_alchemist_block.route_subscriber:
+    class: Drupal\neo_alchemist_block\EventSubscriber\RouteSubscriber
+    arguments: ['@neo_alchemist.editor_route_family']
+    tags:
+      - { name: event_subscriber }

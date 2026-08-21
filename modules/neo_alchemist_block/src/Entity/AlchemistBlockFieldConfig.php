@@ -20,9 +20,10 @@ use Drupal\neo_alchemist_block\AlchemistBlockInterface;
  * neo_alchemist_block config entity itself. Everything else — building the
  * ComponentTreeItem, URL generation, access — is inherited from
  * ComponentFieldConfig, whose route names resolve because the submodule
- * defines matching entity.neo_alchemist_block_host.field_ui.alchemist.*
- * routes. The one member it does not define is purge, which has nothing to
- * act on here; ::toUrl() refuses that relationship explicitly.
+ * registers the matching entity.neo_alchemist_block_host.field_ui.alchemist.*
+ * family through the shared builder (EditorRouteFamily::SCOPE_BLOCK) from its
+ * own RouteSubscriber. The one member that family omits is purge, which has
+ * nothing to act on here; ::toUrl() refuses that relationship explicitly.
  */
 final class AlchemistBlockFieldConfig extends ComponentFieldConfig {
 
@@ -142,10 +143,12 @@ final class AlchemistBlockFieldConfig extends ComponentFieldConfig {
     }
     if ($rel === 'purge') {
       // Purging removes per-entity layouts that a locked field no longer
-      // renders. The block host uses null storage, so no entity ever holds
-      // one and there is nothing to purge — this module's route family
-      // deliberately omits the member the generated one has. Say so rather
-      // than let the parent build a route name that does not exist.
+      // renders. The block host uses null storage, so no entity ever holds one
+      // and there is nothing to purge. EditorRouteFamily::SCOPE_BLOCK declares
+      // this opt-out and registers no purge route for the block scope; this
+      // throw enforces that declaration rather than papering over a gap —
+      // building the name would resolve to a route that deliberately does not
+      // exist.
       throw new EntityMalformedException('Purging stored data is not supported for Alchemist blocks.');
     }
     return parent::toUrl($rel, $options);

@@ -850,16 +850,28 @@ From [neo_alchemist.services.yml](neo_alchemist.services.yml):
   [src/Routing/EditorRouteFamily.php](src/Routing/EditorRouteFamily.php). It owns the
   op → (path suffix, controller, access requirement, options) mapping once; a host scope
   is one `build()` call (entity type id, path prefix, base parameters/options, shared
-  defaults, op subset). [src/EventSubscriber/RouteSubscriber.php](src/EventSubscriber/RouteSubscriber.php)
+  defaults, op subset). Three scopes register from it:
+  [src/EventSubscriber/RouteSubscriber.php](src/EventSubscriber/RouteSubscriber.php)
   calls it twice — the **entity scope** (`entity.{id}.alchemist.*`, off the host's
   `alchemist` link template, gated on that template) and the **field-UI scope**
-  (`entity.{id}.field_ui.alchemist.*`, off the field-UI base route). The per-field members
-  register only when the host carries a `neo_component_tree` field; the management landing
-  always does. Scopes differ deliberately and the table says how: `publish`/`revert`/`reset`
-  are entity-only (a per-entity draft), `purge` is field-UI-only (field-wide stored data).
-  Route names are byte-identical to the previous hand-written registrations, because the
-  URL generators (`ComponentFieldConfig::toUrl()`, `ComponentField::toUrl()`) still build
-  those names by interpolating the host entity type.
+  (`entity.{id}.field_ui.alchemist.*`, off the field-UI base route) — and the
+  neo_alchemist_block submodule calls it once more for the **block scope** from a subscriber
+  of its own (`modules/neo_alchemist_block/src/EventSubscriber/RouteSubscriber.php`), because
+  its null-storage host carries neither an `alchemist` link template nor a field-UI base
+  route and the main subscriber therefore skips it. The block scope shares the field-UI name
+  pattern (its `AlchemistBlockFieldConfig::toUrl()` builds `field_ui.alchemist.*` names), so
+  `EditorRouteFamily::SCOPE_BLOCK` maps to that prefix. The per-field members register only
+  when the host carries a `neo_component_tree` field; the management landing always does
+  (the block scope has no landing — it reaches its editor through `manage`). Scopes differ
+  deliberately and the table (`SCOPE_OPS`) says how: `publish`/`revert`/`reset` are
+  entity-only (a per-entity draft); `purge` is a field-UI member the entity and block scopes
+  both opt out of — it clears field-wide per-entity data, which an entity never owns alone,
+  and the block's null-storage host owns none at all, so purge is a structural no-op there
+  (`AlchemistBlockFieldConfig::toUrl()` refuses the `purge` rel to match). Route names are
+  byte-identical to the previous hand-written registrations (including the deleted
+  `neo_alchemist_block.routing.yml`), because the URL generators
+  (`ComponentFieldConfig::toUrl()`, `ComponentField::toUrl()`) still build those names by
+  interpolating the host entity type.
 
 ---
 

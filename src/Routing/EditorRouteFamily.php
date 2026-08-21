@@ -59,11 +59,24 @@ final class EditorRouteFamily {
 
   /**
    * The field-UI scope: the shared layout editor under Manage fields.
-   *
-   * The block submodule's host also registers through this scope, because its
-   * URL generators build the same `entity.{id}.field_ui.alchemist.*` names.
    */
   public const SCOPE_FIELD_UI = 'field_ui';
+
+  /**
+   * The block scope: a null-storage host offered as a placeable block.
+   *
+   * The neo_alchemist_block submodule registers this family from a subscriber
+   * of its own. Its route names follow the field-UI pattern because the block's
+   * field config (AlchemistBlockFieldConfig, a ComponentFieldConfig subclass)
+   * builds them by interpolating the host entity type, so routeName() maps it
+   * to the same `entity.{id}.field_ui.alchemist.*` prefix. It is a scope in its
+   * own right rather than a subset passed through SCOPE_FIELD_UI so its op set
+   * — and its deliberate purge opt-out — are declared here, in the table, where
+   * the cross-scope parity test reads them.
+   *
+   * @see \Drupal\neo_alchemist_block\EventSubscriber\RouteSubscriber
+   */
+  public const SCOPE_BLOCK = 'block';
 
   /**
    * The management landing op, whose route name is the bare scope prefix.
@@ -83,21 +96,29 @@ final class EditorRouteFamily {
   /**
    * The ops each host scope declares, in registration order.
    *
-   * The two scopes differ, and the differences are declarations rather than
+   * The scopes differ, and the differences are declarations rather than
    * accidents:
    *
    * - `publish`, `revert` and `reset` are entity-scope only. They act on a
    *   single entity's stored draft/published pair; a field's shared default
    *   layout has no per-entity draft to publish, revert or reset, so the ops
    *   are meaningless in the field-UI scope.
-   * - `purge` is field-UI scope only. Purging stored layout data is a decision
-   *   about the field across every entity that uses it, never about one entity
-   *   (@see \Drupal\neo_alchemist\Entity\ComponentFieldConfig::toUrl()), so it
-   *   has no place in the entity scope.
-   *
-   * The block scope (neo_alchemist_block) registers through SCOPE_FIELD_UI with
-   * its own explicit op subset; whether it offers purge is decided in its own
-   * subscriber, not here.
+   * - `purge` is a field-UI-scope member the entity and block scopes both opt
+   *   out of. Purging removes the per-entity layout rows a now-locked field no
+   *   longer renders (@see \Drupal\neo_alchemist\Form\PurgeInertDataForm), so
+   *   it is a decision about the field across every entity, never about one
+   *   entity, which is why the entity scope has no purge. The block scope opts
+   *   out for a second reason: its host (neo_alchemist_block_host) uses
+   *   ContentEntityNullStorage, so no entity ever persists a layout row behind
+   *   a block and purge is a structural no-op there. Offering it would present
+   *   a "Purge stored layout data" action that can only ever report "Nothing
+   *   to purge". The opt-out is deliberate, and
+   *   AlchemistBlockFieldConfig::toUrl() refuses the `purge` rel to match this
+   *   declaration.
+   * - The management landing (OP_BASE) is entity- and field-UI-scope only. The
+   *   block scope reaches its editor straight through the `manage` op (its
+   *   entity_operation "Layout" link and local tasks target that route), so it
+   *   registers no bare landing.
    */
   private const SCOPE_OPS = [
     self::SCOPE_ENTITY => [
@@ -122,6 +143,19 @@ final class EditorRouteFamily {
       'library',
       'sort',
       'purge',
+      'add',
+      'edit',
+      'clone',
+      'delete',
+      'move',
+    ],
+    // The field-UI set minus the two members declared above: no management
+    // landing, and no purge (a structural no-op for a null-storage host).
+    self::SCOPE_BLOCK => [
+      'manage',
+      'preview',
+      'library',
+      'sort',
       'add',
       'edit',
       'clone',
@@ -163,7 +197,10 @@ final class EditorRouteFamily {
   public function routeName(string $scope, string $entityTypeId, string $op): string {
     $prefix = match ($scope) {
       self::SCOPE_ENTITY => "entity.$entityTypeId.alchemist",
-      self::SCOPE_FIELD_UI => "entity.$entityTypeId.field_ui.alchemist",
+      // The block scope shares the field-UI name pattern deliberately: its URL
+      // generator (AlchemistBlockFieldConfig) builds field_ui.alchemist names.
+      self::SCOPE_FIELD_UI,
+      self::SCOPE_BLOCK => "entity.$entityTypeId.field_ui.alchemist",
       default => throw new \InvalidArgumentException("Unknown host scope: $scope"),
     };
     return $op === self::OP_BASE ? $prefix : "$prefix.$op";
