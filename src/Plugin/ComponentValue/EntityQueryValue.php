@@ -5,9 +5,7 @@ declare(strict_types=1);
 namespace Drupal\neo_alchemist\Plugin\ComponentValue;
 
 use Drupal\Component\Utility\Html;
-use Drupal\Component\Utility\NestedArray;
 use Drupal\Core\DependencyInjection\DependencySerializationTrait;
-use Drupal\Core\Entity\ContentEntityTypeInterface;
 use Drupal\Core\Entity\EntityTypeBundleInfoInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Entity\Query\QueryInterface;
@@ -19,6 +17,7 @@ use Drupal\neo_alchemist\ChildrenMatch\ChildrenMatchMapper;
 use Drupal\neo_alchemist\ChildrenMatch\ChildrenMatchResult;
 use Drupal\neo_alchemist\ChildrenMatch\ChildrenMatchScope;
 use Drupal\neo_alchemist\ChildrenMatch\ChildrenMatchSourceInterface;
+use Drupal\neo_alchemist\EntityTypeSelectBuilder;
 use Drupal\neo_alchemist\Shape\ComponentShapeChildrenMatchPluginInterface;
 use Drupal\neo_alchemist\Shape\ComponentShapePluginInterface;
 use Drupal\neo_alchemist\Event\ComponentValueEntityQueryEvent;
@@ -152,8 +151,7 @@ final class EntityQueryValue extends ComponentValuePluginBase implements Contain
       'length' => 10,
       'length_filter' => '',
       'paging' => FALSE,
-    ] + ChildrenMatchMapper::defaultConfiguration()
-      + $this->processingModeDefaultConfiguration();
+    ] + ChildrenMatchMapper::defaultConfiguration();
   }
 
   /**
@@ -208,7 +206,6 @@ final class EntityQueryValue extends ComponentValuePluginBase implements Contain
     // come back without changing what kind they are, so it does not affect the
     // scope and stays below the mapping table where it has always been.
     $form = $this->buildQueryRefinementForm($form, $form_state, $wrapperId);
-    $form = $this->buildProcessingModeForm($form, $form_state);
 
     return $form;
   }
@@ -221,49 +218,29 @@ final class EntityQueryValue extends ComponentValuePluginBase implements Contain
     $entityTypeId = $this->configuration['entity_type'];
     $bundle = $this->configuration['bundle'];
 
+    $ajax = ['callback' => [static::class, 'refreshAjax'], 'wrapper' => $wrapperId];
     $entityTypes = $this->entityTypeManager->getDefinitions();
-    $options = [];
-    foreach ($entityTypes as $type) {
-      if ($type instanceof ContentEntityTypeInterface) {
-        $options[$type->id()] = $type->getLabel();
-      }
-    }
-    asort($options);
-    $form['entity_type'] = [
-      '#type' => 'select',
-      '#title' => $this->t('Entity Type'),
-      '#description' => $this->t('Scope this component to a specific entity type.'),
-      '#default_value' => $entityTypeId,
-      '#options' => $options,
-      '#required' => TRUE,
-      '#empty_option' => $this->t('- Select -'),
-      '#ajax' => [
-        'callback' => [static::class, 'refreshAjax'],
-        'wrapper' => $wrapperId,
-      ],
-    ];
+    $form['entity_type'] = EntityTypeSelectBuilder::entityTypeSelect(
+      $this->entityTypeManager,
+      $entityTypeId,
+      $ajax,
+      TRUE,
+      ['#description' => $this->t('Scope this component to a specific entity type.')],
+    );
 
     if ($entityTypeId && isset($entityTypes[$entityTypeId])) {
       $entityType = $entityTypes[$entityTypeId];
-      if ($entityType->hasKey('bundle')) {
-        if ($bundles = $this->entityTypeBundleInfo->getBundleInfo($entityTypeId)) {
-          $options = array_map(
-            fn ($bundle) => $bundle['label'],
-            $bundles
-          );
-          asort($options);
-          $form['bundle'] = [
-            '#type' => 'select',
+      if ($entityType->hasKey('bundle') && $this->entityTypeBundleInfo->getBundleInfo($entityTypeId)) {
+        $form['bundle'] = EntityTypeSelectBuilder::bundleSelect(
+          $this->entityTypeBundleInfo,
+          $entityTypeId,
+          $bundle,
+          $ajax,
+          [
             '#title' => $this->t('Entity Bundle'),
-            '#default_value' => $bundle,
-            '#options' => $options,
             '#empty_option' => $this->t('- All -'),
-            '#ajax' => [
-              'callback' => [static::class, 'refreshAjax'],
-              'wrapper' => $wrapperId,
-            ],
-          ];
-        }
+          ],
+        );
       }
       return new ChildrenMatchScope($entityTypeId, $bundle ?: NULL);
     }
@@ -489,14 +466,6 @@ final class EntityQueryValue extends ComponentValuePluginBase implements Contain
     }
 
     return $form;
-  }
-
-  /**
-   * Ajax callback.
-   */
-  public static function refreshAjax(array $form, FormStateInterface $form_state) {
-    $trigger = $form_state->getTriggeringElement();
-    return NestedArray::getValue($form, array_slice($trigger['#array_parents'], 0, -1));
   }
 
   /**

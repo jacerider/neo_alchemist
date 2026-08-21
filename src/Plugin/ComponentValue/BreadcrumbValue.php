@@ -95,7 +95,7 @@ final class BreadcrumbValue extends ComponentValuePluginBase implements Containe
     return [
       'hide_home' => FALSE,
       'hide_current' => TRUE,
-    ] + $this->processingModeDefaultConfiguration();
+    ];
   }
 
   /**
@@ -129,8 +129,6 @@ final class BreadcrumbValue extends ComponentValuePluginBase implements Containe
       '#description' => $this->t('If checked, the current page will not be included in the breadcrumb.'),
       '#default_value' => $this->configuration['hide_current'],
     ];
-
-    $form = $this->buildProcessingModeForm($form, $form_state);
 
     return $form;
   }

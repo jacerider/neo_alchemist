@@ -94,7 +94,7 @@ final class HeadingValue extends ComponentValuePluginBase implements ContainerFa
       'size_edit' => TRUE,
       'size_default' => FALSE,
       'size_value' => '',
-    ] + $this->processingModeDefaultConfiguration();
+    ];
   }
 
   /**
@@ -271,8 +271,6 @@ final class HeadingValue extends ComponentValuePluginBase implements ContainerFa
       $form["{$key}"]['value']['#access'] = !$this->hasSource($key);
     }
 
-    $form = $this->buildProcessingModeForm($form, $form_state);
-
     return $form;
   }
 
@@ -359,7 +357,14 @@ final class HeadingValue extends ComponentValuePluginBase implements ContainerFa
   }
 
   /**
-   * Ajax callback.
+   * Ajax callback: overrides the base to return the grandparent subtree.
+   *
+   * The base ComponentValuePluginBase::refreshAjax() returns the element one
+   * level above the trigger. Heading's per-sub-prop source controls are nested
+   * one level deeper than the other producers' triggers, so this slices two
+   * levels off #array_parents rather than one to reach the same form wrapper.
+   * That deeper trigger is the legitimate reason this copy is not folded into
+   * the base with the others.
    */
   public static function refreshAjax(array $form, FormStateInterface $form_state) {
     $trigger = $form_state->getTriggeringElement();

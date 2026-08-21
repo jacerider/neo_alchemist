@@ -36,7 +36,7 @@ final class PageTitleValue extends ComponentValuePluginBase implements Container
   public function defaultConfiguration() {
     return [
       'override' => TRUE,
-    ] + $this->processingModeDefaultConfiguration();
+    ];
   }
 
   /**
@@ -49,8 +49,6 @@ final class PageTitleValue extends ComponentValuePluginBase implements Container
       '#description' => $this->t('Will allow this value to be changed from the page title. If not checked, the page title will be used and will not be able to be changed.'),
       '#default_value' => $this->configuration['override'],
     ];
-
-    $form = $this->buildProcessingModeForm($form, $form_state);
 
     return $form;
   }

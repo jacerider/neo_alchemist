@@ -5,9 +5,7 @@ declare(strict_types=1);
 namespace Drupal\neo_alchemist\Plugin\ComponentValue;
 
 use Drupal\Component\Utility\Html;
-use Drupal\Component\Utility\NestedArray;
 use Drupal\Core\DependencyInjection\DependencySerializationTrait;
-use Drupal\Core\Entity\ContentEntityTypeInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Plugin\ContainerFactoryPluginInterface;
@@ -17,6 +15,7 @@ use Drupal\neo_alchemist\ChildrenMatch\ChildrenMatchMapper;
 use Drupal\neo_alchemist\ChildrenMatch\ChildrenMatchResult;
 use Drupal\neo_alchemist\ChildrenMatch\ChildrenMatchScope;
 use Drupal\neo_alchemist\ChildrenMatch\ChildrenMatchSourceInterface;
+use Drupal\neo_alchemist\EntityTypeSelectBuilder;
 use Drupal\neo_alchemist\Shape\ComponentShapeChildrenMatchPluginInterface;
 use Drupal\neo_alchemist\Shape\ComponentShapePluginInterface;
 use Drupal\neo_alchemist\Value\ComponentValueProcessingModeInterface;
@@ -93,8 +92,7 @@ final class EntityLoadValue extends ComponentValuePluginBase implements Containe
     return [
       'entity_type' => '',
       'entity_id' => '',
-    ] + ChildrenMatchMapper::defaultConfiguration()
-      + $this->processingModeDefaultConfiguration();
+    ] + ChildrenMatchMapper::defaultConfiguration();
   }
 
   /**
@@ -118,8 +116,7 @@ final class EntityLoadValue extends ComponentValuePluginBase implements Containe
     assert($this->shape instanceof ComponentShapeChildrenMatchPluginInterface);
     $wrapperId = Html::getId(implode('-', $form['#parents']) . '-' . $this->getPluginId());
     $form['#id'] = $wrapperId;
-    $form = $this->childrenMatchMapper->buildConfigurationForm($this, $this->shape, $form, $form_state, $this->configuration);
-    return $this->buildProcessingModeForm($form, $form_state);
+    return $this->childrenMatchMapper->buildConfigurationForm($this, $this->shape, $form, $form_state, $this->configuration);
   }
 
   /**
@@ -136,26 +133,13 @@ final class EntityLoadValue extends ComponentValuePluginBase implements Containe
     ];
 
     $entityTypes = $this->entityTypeManager->getDefinitions();
-    $options = [];
-    foreach ($entityTypes as $type) {
-      if ($type instanceof ContentEntityTypeInterface) {
-        $options[$type->id()] = $type->getLabel();
-      }
-    }
-    asort($options);
-    $form['entity_type'] = [
-      '#type' => 'select',
-      '#title' => $this->t('Entity Type'),
-      '#description' => $this->t('Scope this component to a specific entity type.'),
-      '#default_value' => $entityTypeId,
-      '#options' => $options,
-      '#required' => TRUE,
-      '#empty_option' => $this->t('- Select -'),
-      '#ajax' => [
-        'callback' => [static::class, 'refreshAjax'],
-        'wrapper' => $wrapperId,
-      ],
-    ];
+    $form['entity_type'] = EntityTypeSelectBuilder::entityTypeSelect(
+      $this->entityTypeManager,
+      $entityTypeId,
+      ['callback' => [static::class, 'refreshAjax'], 'wrapper' => $wrapperId],
+      TRUE,
+      ['#description' => $this->t('Scope this component to a specific entity type.')],
+    );
 
     if ($entityTypeId && isset($entityTypes[$entityTypeId])) {
       $entityId = $this->configuration['entity_id'];
@@ -180,14 +164,6 @@ final class EntityLoadValue extends ComponentValuePluginBase implements Containe
       }
     }
     return NULL;
-  }
-
-  /**
-   * Ajax callback.
-   */
-  public static function refreshAjax(array $form, FormStateInterface $form_state) {
-    $trigger = $form_state->getTriggeringElement();
-    return NestedArray::getValue($form, array_slice($trigger['#array_parents'], 0, -1));
   }
 
   /**

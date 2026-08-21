@@ -160,6 +160,19 @@ abstract class ComponentSlotPluginBase extends PluginBase implements ComponentSl
   public function submitConfigurationForm(array &$form, FormStateInterface $form_state) {}
 
   /**
+   * Ajax callback: re-renders the subtree the triggering element lives in.
+   *
+   * The single refresh callback every slot plugin's #ajax points at. A control
+   * that rebuilds the slot form (an entity-type or bundle select) points its
+   * callback here with a wrapper of the form's own `#id`. It returns the
+   * element one level up from the trigger, so the whole slot form re-renders.
+   */
+  public static function refreshAjax(array $form, FormStateInterface $form_state) {
+    $trigger = $form_state->getTriggeringElement();
+    return NestedArray::getValue($form, array_slice($trigger['#array_parents'], 0, -1));
+  }
+
+  /**
    * {@inheritdoc}
    */
   public function getCacheableMetadata(): CacheableMetadata {

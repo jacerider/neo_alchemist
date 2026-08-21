@@ -54,6 +54,12 @@ abstract class ComponentValuePluginBase extends PluginBase implements ComponentV
     $this->configuration = NestedArray::mergeDeepStrict(
       $this->baseConfigurationDefaults(),
       $this->defaultConfiguration(),
+      // Declaring ComponentValueProcessingModeInterface is enough: the base
+      // merges the mode's default configuration, so a producer no longer
+      // appends processingModeDefaultConfiguration() to its own defaults and
+      // cannot forget to. The method is on the interface, so the instanceof
+      // guarantees it exists.
+      $this instanceof ComponentValueProcessingModeInterface ? $this->processingModeDefaultConfiguration() : [],
       $configuration
     );
   }
@@ -145,6 +151,14 @@ abstract class ComponentValuePluginBase extends PluginBase implements ComponentV
    */
   public function buildConfigurationForm(array $form, FormStateInterface $form_state, ?array &$complete_form = NULL) {
     $form += $this->configurationForm($form, $form_state, $complete_form);
+    // Declaring ComponentValueProcessingModeInterface is enough: the base wires
+    // the "Processing" mode select so a producer no longer calls
+    // buildProcessingModeForm() from its own form and cannot forget to. The
+    // select carries #weight -10, so it sorts above the plugin's own settings
+    // however late the base appends it.
+    if ($this instanceof ComponentValueProcessingModeInterface) {
+      $form = $this->buildProcessingModeForm($form, $form_state);
+    }
     return $form;
   }
 
@@ -191,6 +205,22 @@ abstract class ComponentValuePluginBase extends PluginBase implements ComponentV
    * {@inheritdoc}
    */
   public function submitConfigurationForm(array &$form, FormStateInterface $form_state) {}
+
+  /**
+   * Ajax callback: re-renders the subtree the triggering element lives in.
+   *
+   * The single refresh callback every value plugin's #ajax points at. A control
+   * that rebuilds the provider form (an entity-type select, a bundle select…)
+   * wires `'callback' => [static::class, 'refreshAjax']` with a `'wrapper'` of
+   * the form's own `#id`, and this returns the element one level up from the
+   * trigger so the whole provider form re-renders in place. A plugin whose
+   * trigger sits at a different depth overrides this — HeadingValue does, and
+   * its docblock says why.
+   */
+  public static function refreshAjax(array $form, FormStateInterface $form_state) {
+    $trigger = $form_state->getTriggeringElement();
+    return NestedArray::getValue($form, array_slice($trigger['#array_parents'], 0, -1));
+  }
 
   /**
    * {@inheritdoc}

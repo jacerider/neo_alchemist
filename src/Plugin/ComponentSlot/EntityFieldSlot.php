@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Drupal\neo_alchemist\Plugin\ComponentSlot;
 
 use Drupal\Component\Utility\Html;
-use Drupal\Component\Utility\NestedArray;
 use Drupal\Core\DependencyInjection\DependencySerializationTrait;
 use Drupal\Core\Entity\ContentEntityInterface;
 use Drupal\Core\Entity\EntityFieldManagerInterface;
@@ -189,14 +188,6 @@ final class EntityFieldSlot extends ComponentSlotPluginBase implements Container
       ]);
     }
     return $form;
-  }
-
-  /**
-   * Ajax callback.
-   */
-  public static function refreshAjax(array $form, FormStateInterface $form_state) {
-    $trigger = $form_state->getTriggeringElement();
-    return NestedArray::getValue($form, array_slice($trigger['#array_parents'], 0, -1));
   }
 
   /**

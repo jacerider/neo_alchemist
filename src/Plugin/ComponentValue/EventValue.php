@@ -36,13 +36,6 @@ final class EventValue extends ComponentValuePluginBase implements ContainerFact
 
   /**
    * {@inheritdoc}
-   */
-  public function defaultConfiguration() {
-    return $this->processingModeDefaultConfiguration();
-  }
-
-  /**
-   * {@inheritdoc}
    *
    * Before this plugin gained a mode, it never claimed on its own: it returned
    * whatever the subscriber set and let the search continue unless the
@@ -117,8 +110,6 @@ final class EventValue extends ComponentValuePluginBase implements ContainerFact
         ],
       ];
     }
-
-    $form = $this->buildProcessingModeForm($form, $form_state);
 
     return $form;
   }

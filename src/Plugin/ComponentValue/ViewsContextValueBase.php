@@ -5,9 +5,7 @@ declare(strict_types=1);
 namespace Drupal\neo_alchemist\Plugin\ComponentValue;
 
 use Drupal\Component\Utility\Html;
-use Drupal\Component\Utility\NestedArray;
 use Drupal\Core\Cache\CacheableMetadata;
-use Drupal\Core\Form\FormStateInterface;
 use Drupal\neo_alchemist\Value\ComponentValuePluginBase;
 use Drupal\neo_alchemist\Value\ComponentValueProducerInterface;
 use Drupal\views\ViewExecutable;
@@ -49,15 +47,6 @@ abstract class ViewsContextValueBase extends ComponentValuePluginBase implements
    */
   public function isEditable(): bool {
     return FALSE;
-  }
-
-  /**
-   * Ajax callback.
-   */
-  public static function refreshAjax(array $form, FormStateInterface $form_state) {
-    $trigger = $form_state->getTriggeringElement();
-    $parents = array_slice($trigger['#array_parents'], 0, -1);
-    return NestedArray::getValue($form, $parents);
   }
 
   /**

@@ -92,7 +92,7 @@ final class MediaValue extends ComponentValuePluginBase implements ContainerFact
   public function defaultConfiguration() {
     return [
       'default' => [],
-    ] + $this->processingModeDefaultConfiguration();
+    ];
   }
 
   /**
@@ -178,8 +178,6 @@ final class MediaValue extends ComponentValuePluginBase implements ContainerFact
           break;
       }
     }
-
-    $form = $this->buildProcessingModeForm($form, $form_state);
 
     return $form;
   }

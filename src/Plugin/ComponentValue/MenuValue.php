@@ -107,7 +107,7 @@ final class MenuValue extends ComponentValuePluginBase implements ContainerFacto
       // structurally (headers, footers, mega menus), not by the current page's
       // active trail. This preserves the provider's original behaviour.
       'expand_all_items' => TRUE,
-    ] + $this->processingModeDefaultConfiguration();
+    ];
   }
 
   /**
@@ -219,8 +219,6 @@ final class MenuValue extends ComponentValuePluginBase implements ContainerFacto
       '#default_value' => !empty($this->configuration['expand_all_items']),
       '#description' => $this->t('Render the whole menu tree expanded rather than only the current page’s trail. Recommended for structural placements such as headers and footers.'),
     ];
-
-    $form = $this->buildProcessingModeForm($form, $form_state);
 
     return $form;
   }

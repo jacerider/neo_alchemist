@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Drupal\neo_alchemist\Plugin\ComponentSlot;
 
 use Drupal\Component\Utility\Html;
-use Drupal\Component\Utility\NestedArray;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Security\TrustedCallbackInterface;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
@@ -180,14 +179,6 @@ final class ViewsSlot extends ComponentSlotPluginBase implements TrustedCallback
     $offset = $form_state->getValue('view_items_offset');
     $form_state->setValue('view_items_offset', $offset ? (int) $offset : NULL);
     $form_state->setValue('view_arguments', array_filter($form_state->getValue('view_arguments', [])));
-  }
-
-  /**
-   * Ajax callback.
-   */
-  public static function refreshAjax(array $form, FormStateInterface $form_state) {
-    $trigger = $form_state->getTriggeringElement();
-    return NestedArray::getValue($form, array_slice($trigger['#array_parents'], 0, -1));
   }
 
   /**

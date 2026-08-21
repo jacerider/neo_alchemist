@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Drupal\neo_alchemist\Plugin\ComponentSlot;
 
 use Drupal\Component\Utility\Html;
-use Drupal\Component\Utility\NestedArray;
 use Drupal\Core\Block\BlockManagerInterface;
 use Drupal\Core\Cache\CacheableMetadata;
 use Drupal\Core\DependencyInjection\DependencySerializationTrait;
@@ -208,14 +207,6 @@ final class BlockPluginSlot extends ComponentSlotPluginBase implements Container
       $plugin->submitConfigurationForm($form['block_settings'], $subform_state);
     }
     $this->configuration['block_settings'] = $plugin->getConfiguration();
-  }
-
-  /**
-   * Ajax callback.
-   */
-  public static function refreshAjax(array $form, FormStateInterface $form_state) {
-    $trigger = $form_state->getTriggeringElement();
-    return NestedArray::getValue($form, array_slice($trigger['#array_parents'], 0, -1));
   }
 
   /**

@@ -123,7 +123,7 @@ final class ShareValue extends ComponentValuePluginBase implements ComponentValu
       'networks' => ['linkedin', 'facebook', 'email'],
       'icons' => [],
       'new_window' => TRUE,
-    ] + $this->processingModeDefaultConfiguration();
+    ];
   }
 
   /**
@@ -184,8 +184,6 @@ final class ShareValue extends ComponentValuePluginBase implements ComponentValu
       '#description' => $this->t('Applies to the network links. Email always opens in the same window so the mail client can take over.'),
       '#default_value' => !empty($this->configuration['new_window']),
     ];
-
-    $form = $this->buildProcessingModeForm($form, $form_state);
 
     return $form;
   }

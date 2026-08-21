@@ -58,7 +58,7 @@ final class ReadTimeValue extends ComponentValuePluginBase implements ComponentV
       'selector' => '.region--content',
       'format' => '@count min read',
       'minimum' => 1,
-    ] + $this->processingModeDefaultConfiguration();
+    ];
   }
 
   /**
@@ -102,8 +102,6 @@ final class ReadTimeValue extends ComponentValuePluginBase implements ComponentV
       '#min' => 0,
       '#required' => TRUE,
     ];
-
-    $form = $this->buildProcessingModeForm($form, $form_state);
 
     return $form;
   }

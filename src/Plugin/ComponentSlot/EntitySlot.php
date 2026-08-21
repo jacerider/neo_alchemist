@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Drupal\neo_alchemist\Plugin\ComponentSlot;
 
 use Drupal\Component\Utility\Html;
-use Drupal\Component\Utility\NestedArray;
 use Drupal\Core\DependencyInjection\DependencySerializationTrait;
 use Drupal\Core\Entity\EntityDisplayRepositoryInterface;
 use Drupal\Core\Entity\EntityTypeBundleInfoInterface;
@@ -15,6 +14,7 @@ use Drupal\Core\Plugin\ContainerFactoryPluginInterface;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\neo_alchemist\Attribute\ComponentSlot;
 use Drupal\neo_alchemist\ComponentInterface;
+use Drupal\neo_alchemist\EntityTypeSelectBuilder;
 use Drupal\neo_alchemist\Filter\ComponentFilterPluginEntityInterface;
 use Drupal\neo_alchemist\Slot\ComponentSlotPluginBase;
 use Symfony\Component\DependencyInjection\ContainerInterface;
@@ -148,22 +148,13 @@ final class EntitySlot extends ComponentSlotPluginBase implements ContainerFacto
       '#suffix' => '</div>',
     ];
 
-    $options = array_map(function ($definition) {
-      return $definition->getLabel();
-    }, $this->entityTypeManager->getDefinitions());
-    asort($options);
-    $form['entity_type'] = [
-      '#type' => 'select',
-      '#title' => $this->t('Entity type'),
-      '#options' => $options,
-      '#empty_option' => $this->t('- Select -'),
-      '#default_value' => $entityTypeId,
-      '#ajax' => [
-        'callback' => [static::class, 'refreshAjax'],
-        'wrapper' => $wrapperId,
-      ],
-      '#required' => TRUE,
-    ];
+    $ajax = ['callback' => [static::class, 'refreshAjax'], 'wrapper' => $wrapperId];
+    $form['entity_type'] = EntityTypeSelectBuilder::entityTypeSelect(
+      $this->entityTypeManager,
+      $entityTypeId,
+      $ajax,
+      FALSE,
+    );
 
     if (!$entityTypeId) {
       return $form;
@@ -173,23 +164,18 @@ final class EntitySlot extends ComponentSlotPluginBase implements ContainerFacto
     $hasBundles = !empty($entityType->getBundleEntityType());
     $bundles = [];
     if ($hasBundles) {
-      $options = $this->entityTypeBundleInfo->getBundleInfo($entityTypeId);
-      $options = array_map(fn ($bundle) => $bundle['label'], $options);
-      asort($options);
       $bundles = $this->configuration['bundles'];
-      $form['bundles'] = [
-        '#type' => 'select',
-        '#title' => $this->t('Bundles'),
-        '#multiple' => TRUE,
-        '#options' => $options,
-        '#empty_option' => $this->t('- Select -'),
-        '#default_value' => $bundles,
-        '#ajax' => [
-          'callback' => [static::class, 'refreshAjax'],
-          'wrapper' => $wrapperId,
+      $form['bundles'] = EntityTypeSelectBuilder::bundleSelect(
+        $this->entityTypeBundleInfo,
+        $entityTypeId,
+        $bundles,
+        $ajax,
+        [
+          '#title' => $this->t('Bundles'),
+          '#multiple' => TRUE,
+          '#required' => TRUE,
         ],
-        '#required' => TRUE,
-      ];
+      );
     }
 
     if (!$bundles && $hasBundles) {
@@ -243,14 +229,6 @@ final class EntitySlot extends ComponentSlotPluginBase implements ContainerFacto
     }
 
     return $form;
-  }
-
-  /**
-   * Ajax callback.
-   */
-  public static function refreshAjax(array $form, FormStateInterface $form_state) {
-    $trigger = $form_state->getTriggeringElement();
-    return NestedArray::getValue($form, array_slice($trigger['#array_parents'], 0, -1));
   }
 
   /**

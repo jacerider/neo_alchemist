@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Drupal\neo_alchemist\Plugin\ComponentValue;
 
 use Drupal\Component\Utility\Html;
-use Drupal\Component\Utility\NestedArray;
 use Drupal\Core\DependencyInjection\DependencySerializationTrait;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Plugin\ContainerFactoryPluginInterface;
@@ -79,7 +78,7 @@ final class EntityValue extends ComponentValuePluginBase implements ContainerFac
   public function defaultConfiguration() {
     return $this->defaultMatchConfiguration() + [
       'field_assign' => FALSE,
-    ] + $this->processingModeDefaultConfiguration();
+    ];
   }
 
   /**
@@ -140,17 +139,7 @@ final class EntityValue extends ComponentValuePluginBase implements ContainerFac
       }
     }
 
-    $form = $this->buildProcessingModeForm($form, $form_state);
-
     return $form;
-  }
-
-  /**
-   * Ajax callback.
-   */
-  public static function refreshAjax(array $form, FormStateInterface $form_state) {
-    $trigger = $form_state->getTriggeringElement();
-    return NestedArray::getValue($form, array_slice($trigger['#array_parents'], 0, -1));
   }
 
   /**

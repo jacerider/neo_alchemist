@@ -866,8 +866,11 @@ From [neo_alchemist.services.yml](neo_alchemist.services.yml):
   auto-discovered by its manager. Slots/filters/access surface in the component edit UI.
 - **A ComponentValue *producer*** (yields a prop value from an entity/query/etc.) — as
   above, plus `implements ComponentValueProcessingModeInterface; use
-  ComponentValueProcessingModeTrait;`, append `processingModeDefaultConfiguration()` to
-  `defaultConfiguration()`, and call `buildProcessingModeForm()` in the config form. Then
+  ComponentValueProcessingModeTrait;`. Declaring the interface is the whole wiring:
+  `ComponentValuePluginBase` merges the mode's default configuration and appends its
+  form select itself, so a producer no longer appends
+  `processingModeDefaultConfiguration()` to `defaultConfiguration()` or calls
+  `buildProcessingModeForm()` by hand. Then
   just produce the value (return the incoming `$value` when you can't act — a producer
   on the mode does not `claimValue()`/`stopFurtherProcessing()` itself; the pipeline
   claims per the mode). The producers that do claim for themselves are inventoried under

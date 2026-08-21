@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Drupal\neo_alchemist_test\Plugin\ComponentValue;
 
-use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\neo_alchemist\Attribute\ComponentValue;
 use Drupal\neo_alchemist\Shape\ComponentShapePluginInterface;
@@ -42,15 +41,7 @@ final class TestModeFirstValue extends ComponentValuePluginBase implements Compo
    * {@inheritdoc}
    */
   public function defaultConfiguration() {
-    return ['produce' => '', 'produce_empty' => FALSE] + $this->processingModeDefaultConfiguration();
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function buildConfigurationForm(array $form, FormStateInterface $form_state, ?array &$complete_form = NULL) {
-    $form = parent::buildConfigurationForm($form, $form_state, $complete_form);
-    return $this->buildProcessingModeForm($form, $form_state);
+    return ['produce' => '', 'produce_empty' => FALSE];
   }
 
   /**

@@ -54,14 +54,12 @@ use Drupal\neo_alchemist\Value\ComponentValueProcessingModeInterface;
 trait ComponentValueProcessingModeTrait {
 
   /**
-   * The default configuration for the processing mode.
+   * {@inheritdoc}
    *
-   * Merge into the plugin's defaultConfiguration().
-   *
-   * @return array
-   *   The processing mode default configuration.
+   * ComponentValuePluginBase merges this in when the plugin implements the
+   * interface, so a producer never appends it to its own defaults.
    */
-  protected function processingModeDefaultConfiguration(): array {
+  public function processingModeDefaultConfiguration(): array {
     return ['processing_mode' => $this->processingModeDefault()];
   }
 
@@ -130,7 +128,7 @@ trait ComponentValueProcessingModeTrait {
    * @return array
    *   The form array with the processing mode radios added.
    */
-  protected function buildProcessingModeForm(array $form, FormStateInterface $form_state): array {
+  public function buildProcessingModeForm(array $form, FormStateInterface $form_state): array {
     $form['processing_mode'] = [
       '#type' => 'select',
       '#title' => $this->t('When this provider runs'),

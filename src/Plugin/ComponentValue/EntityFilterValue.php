@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Drupal\neo_alchemist\Plugin\ComponentValue;
 
 use Drupal\Component\Utility\Html;
-use Drupal\Component\Utility\NestedArray;
 use Drupal\Core\DependencyInjection\DependencySerializationTrait;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Plugin\ContainerFactoryPluginInterface;
@@ -94,8 +93,7 @@ final class EntityFilterValue extends ComponentValuePluginBase implements Contai
     return [
       'filter' => '',
       'entity' => '',
-    ] + ChildrenMatchMapper::defaultConfiguration()
-      + $this->processingModeDefaultConfiguration();
+    ] + ChildrenMatchMapper::defaultConfiguration();
   }
 
   /**
@@ -119,8 +117,7 @@ final class EntityFilterValue extends ComponentValuePluginBase implements Contai
     assert($this->shape instanceof ComponentShapeChildrenMatchPluginInterface);
     $wrapperId = Html::getId(implode('-', $form['#parents']) . '-' . $this->getPluginId());
     $form['#id'] = $wrapperId;
-    $form = $this->childrenMatchMapper->buildConfigurationForm($this, $this->shape, $form, $form_state, $this->configuration);
-    return $this->buildProcessingModeForm($form, $form_state);
+    return $this->childrenMatchMapper->buildConfigurationForm($this, $this->shape, $form, $form_state, $this->configuration);
   }
 
   /**
@@ -183,14 +180,6 @@ final class EntityFilterValue extends ComponentValuePluginBase implements Contai
       }
     }
     return NULL;
-  }
-
-  /**
-   * Ajax callback.
-   */
-  public static function refreshAjax(array $form, FormStateInterface $form_state) {
-    $trigger = $form_state->getTriggeringElement();
-    return NestedArray::getValue($form, array_slice($trigger['#array_parents'], 0, -1));
   }
 
   /**

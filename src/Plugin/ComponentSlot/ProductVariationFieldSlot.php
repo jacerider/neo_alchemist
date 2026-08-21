@@ -7,7 +7,6 @@ namespace Drupal\neo_alchemist\Plugin\ComponentSlot;
 use Drupal\commerce_product\Entity\ProductInterface;
 use Drupal\commerce_product\ProductVariationFieldRendererInterface;
 use Drupal\Component\Utility\Html;
-use Drupal\Component\Utility\NestedArray;
 use Drupal\Core\DependencyInjection\DependencySerializationTrait;
 use Drupal\Core\Entity\EntityDisplayRepositoryInterface;
 use Drupal\Core\Entity\EntityFieldManagerInterface;
@@ -207,14 +206,6 @@ final class ProductVariationFieldSlot extends ComponentSlotPluginBase implements
     ];
 
     return $form;
-  }
-
-  /**
-   * Ajax callback.
-   */
-  public static function refreshAjax(array $form, FormStateInterface $form_state) {
-    $trigger = $form_state->getTriggeringElement();
-    return NestedArray::getValue($form, array_slice($trigger['#array_parents'], 0, -1));
   }
 
   /**
