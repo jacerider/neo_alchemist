@@ -2,9 +2,11 @@
 
 namespace Drupal\neo_alchemist;
 
+use Drupal\Component\Render\MarkupInterface;
 use Drupal\Component\Utility\Html;
 use Drupal\Core\Plugin\Component as ComponentPlugin;
 use Drupal\neo_alchemist\Plugin\Field\FieldType\ComponentTreeItem;
+use Drupal\neo_tooltip\Tooltip;
 
 /**
  * Helper for build manage panes.
@@ -410,9 +412,11 @@ class ComponentManageHelper {
         'class' => [
           'neo-alchemist--presence',
           'flex', 'items-center', 'gap-2', 'ml-1', 'pl-3', 'border-l',
-          'text-xs', 'text-base-500', 'cursor-default',
+          'text-xs', 'text-base-500', 'cursor-help',
         ],
-        'title' => $label,
+        // Focusable, so the detail is reachable without a mouse: the tooltip
+        // opens on focus as well as hover.
+        'tabindex' => '0',
       ],
       // The avatar carries the "who" at button height, so the chip sits on the
       // toolbar's baseline without adding a row of text to it.
@@ -451,7 +455,90 @@ class ComponentManageHelper {
       '#value' => $label,
       '#attributes' => ['class' => ['sr-only']],
     ];
+    // Everything the chip had to drop to stay glyph-sized lives in the
+    // tooltip, which is where an editor goes once the chip has caught their
+    // eye.
+    $tooltip = new Tooltip(static::buildDraftPresenceDetail($instance, $editorUid, $label, $modified), [
+      'placement' => 'bottom-start',
+      'delay' => '[200, 0]',
+    ]);
+    $tooltip->applyTo($build);
     return $build;
+  }
+
+  /**
+   * Builds the detail behind the presence chip.
+   *
+   * The chip answers "someone else, recently"; this answers the questions that
+   * follow — exactly when, what the draft is, and who else is in it — so an
+   * editor can decide whether to keep building or go ask. Publishing is called
+   * out because it releases the draft whole: a colleague's unfinished work
+   * goes out with yours, which is the one consequence worth knowing before
+   * pressing Save.
+   *
+   * @param \Drupal\neo_alchemist\Plugin\Field\FieldType\ComponentTreeItem $instance
+   *   The field item whose shared draft is being edited.
+   * @param int $editorUid
+   *   The uid of the colleague who last wrote the draft.
+   * @param \Drupal\Component\Render\MarkupInterface|string $label
+   *   The presence sentence the chip abbreviates.
+   * @param int|null $modified
+   *   The draft's last-modified timestamp, when it has one.
+   *
+   * @return \Drupal\Component\Render\MarkupInterface
+   *   The rendered tooltip content.
+   */
+  protected static function buildDraftPresenceDetail(ComponentTreeItem $instance, int $editorUid, MarkupInterface|string $label, ?int $modified): MarkupInterface {
+    $detail = [
+      '#type' => 'html_tag',
+      '#tag' => 'div',
+      '#attributes' => [
+        'class' => ['flex', 'flex-col', 'gap-1', 'text-left'],
+        // Tippy would otherwise let these lines run to 600px, which reads as a
+        // banner rather than a note. Inline because a max-width utility is not
+        // in the compiled admin CSS, and one tooltip is not worth making every
+        // site rebuild its assets.
+        'style' => 'max-width:20rem',
+      ],
+      'headline' => [
+        '#type' => 'html_tag',
+        '#tag' => 'div',
+        '#value' => $label,
+        '#attributes' => ['class' => ['font-bold']],
+      ],
+    ];
+    // Who first, then when, then what it means: the headline already names one
+    // colleague, so the rest of the room belongs directly under it. The last
+    // editor is not repeated, and nobody needs to be told they are in the
+    // draft they are looking at.
+    $others = array_diff($instance->draftContributors(), [$editorUid, (int) \Drupal::currentUser()->id()]);
+    if ($others) {
+      $detail['others'] = [
+        '#type' => 'html_tag',
+        '#tag' => 'div',
+        '#value' => t('Also in this draft: @editors', [
+          '@editors' => implode(', ', array_map(static::draftUserName(...), $others)),
+        ]),
+        '#attributes' => ['class' => ['font-bold', 'opacity-75']],
+      ];
+    }
+    if ($modified) {
+      // The chip rounds to one unit; the tooltip is where "3d" becomes a date
+      // someone can line up against their own week.
+      $detail['when'] = [
+        '#type' => 'html_tag',
+        '#tag' => 'div',
+        '#value' => \Drupal::service('date.formatter')->format($modified, 'short'),
+        '#attributes' => ['class' => ['opacity-75']],
+      ];
+    }
+    $detail['what'] = [
+      '#type' => 'html_tag',
+      '#tag' => 'div',
+      '#value' => t('This is a shared layout draft. Saving publishes their work along with yours.'),
+      '#attributes' => ['class' => ['opacity-75']],
+    ];
+    return \Drupal::service('renderer')->renderInIsolation($detail);
   }
 
   /**

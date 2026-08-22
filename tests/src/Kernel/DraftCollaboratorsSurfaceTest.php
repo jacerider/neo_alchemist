@@ -31,6 +31,25 @@ use PHPUnit\Framework\Attributes\Group;
 class DraftCollaboratorsSurfaceTest extends HybridFieldKernelTestBase {
 
   /**
+   * {@inheritdoc}
+   *
+   * Presence hangs its detail off a neo_tooltip tooltip, which reads that
+   * module's settings as it builds the trigger attributes.
+   */
+  protected static $modules = ['neo_tooltip'];
+
+  /**
+   * {@inheritdoc}
+   */
+  protected function setUp(): void {
+    parent::setUp();
+    // The tooltip states the absolute edit time in the site's short date
+    // format, and reads neo_tooltip's own default placement and animation.
+    // Neither has a fallback when its config is missing.
+    $this->installConfig(['system', 'neo_tooltip']);
+  }
+
+  /**
    * The item read-throughs report the store metadata the surfaces read.
    *
    * The layout editor and publish confirmation reach the draft's last editor,
@@ -93,6 +112,48 @@ class DraftCollaboratorsSurfaceTest extends HybridFieldKernelTestBase {
     $rendered = (string) $this->container->get('renderer')->renderInIsolation($presence);
     $this->assertStringContainsString('Jane', $rendered, 'Presence names the other editor.');
     $this->assertStringContainsString('ago', $rendered, 'Presence says how recently.');
+  }
+
+  /**
+   * The presence detail carries what the chip itself had to drop.
+   *
+   * The chip is two glyphs — an avatar and an abbreviated age — so the things
+   * an editor asks next ride in its tooltip: when exactly, and who else is in
+   * the draft. neo_tooltip keeps that content in attached settings rather than
+   * inline markup, which is where this reads it from.
+   */
+  public function testPresenceDetailCarriesTheExactTimeAndOtherContributors(): void {
+    $item = $this->fieldItem();
+    $store = $this->sharedDraftStore();
+    $currentUser = $this->container->get('current_user');
+
+    $jane = $this->createEditor('Jane');
+    $carol = $this->createEditor('Carol');
+    $bob = $this->createEditor('Bob');
+
+    // Three writers, Bob last. Carol is one of them, and is also the viewer.
+    foreach ([$jane, $carol, $bob] as $index => $editor) {
+      $currentUser->setAccount($editor);
+      $store->set($item, ['tree' => '{"n":' . $index . '}', 'props' => '[]']);
+    }
+    $currentUser->setAccount($carol);
+
+    $presence = ComponentManageHelper::buildDraftPresence($item);
+    $templates = $presence['#attached']['drupalSettings']['neoTooltipTemplates'] ?? [];
+    $this->assertCount(1, $templates, 'The chip carries exactly one tooltip.');
+    $detail = (string) reset($templates);
+
+    $this->assertStringContainsString('Bob', $detail, 'The detail headlines the last editor.');
+    $this->assertStringContainsString('Jane', $detail, 'The detail names the other contributor.');
+    $this->assertStringNotContainsString('Carol', $detail, 'The viewer is not listed as someone else in the draft.');
+
+    $modified = $item->draftLastModified();
+    $this->assertNotNull($modified, 'Premise: the write recorded a last-modified time.');
+    $this->assertStringContainsString(
+      (string) $this->container->get('date.formatter')->format($modified, 'short'),
+      $detail,
+      'The detail states the exact time the abbreviated age rounds off.',
+    );
   }
 
   /**
