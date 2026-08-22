@@ -294,13 +294,6 @@ class ComponentManageHelper {
         'class' => ['btn', 'btn-xs', 'btn-outline'],
       ],
     ];
-    // Presence: who else has been in this shared layout draft, and how
-    // recently. Read from the draft's own last-editor/last-modified — no
-    // heartbeat, no separate presence table — so it only appears when a
-    // colleague, not the current editor, last wrote the draft.
-    if ($instance instanceof ComponentTreeItem && ($presence = static::buildDraftPresence($instance))) {
-      $build['presence'] = $presence;
-    }
     if ($instance->access('reset')) {
       // Allow reset only for entity-based components.
       $build['reset'] = [
@@ -358,6 +351,15 @@ class ComponentManageHelper {
         ];
       }
     }
+    // Presence: who else has been in this shared layout draft, and how
+    // recently. Read from the draft's own last-editor/last-modified — no
+    // heartbeat, no separate presence table — so it only appears when a
+    // colleague, not the current editor, last wrote the draft. It trails the
+    // actions rather than sitting among them: it is something to know, not
+    // something to press.
+    if ($instance instanceof ComponentTreeItem && ($presence = static::buildDraftPresence($instance))) {
+      $build['presence'] = $presence;
+    }
     return $build;
   }
 
@@ -371,6 +373,13 @@ class ComponentManageHelper {
    * last-modified metadata (no heartbeat, no separate presence table), and it
    * appears only when a colleague, rather than the current editor, last wrote
    * the draft: presence is about who *else* is here.
+   *
+   * The sentence is worth reading once, not worth a strip of toolbar forever,
+   * so it renders as a chip barely wider than a button: the colleague's
+   * initials in an avatar, and the age abbreviated to "now" / "6m" / "3h".
+   * Together those answer "is someone else in here, and just now?" at a
+   * glance; the full sentence stays one hover away in the tooltip, and is what
+   * a screen reader announces.
    *
    * @param \Drupal\neo_alchemist\Plugin\Field\FieldType\ComponentTreeItem $instance
    *   The field item whose shared draft is being edited.
@@ -392,18 +401,105 @@ class ComponentManageHelper {
     $label = $ago
       ? t('@editor edited this @time ago', ['@editor' => $name, '@time' => $ago])
       : t('@editor edited this', ['@editor' => $name]);
-    return [
+    $build = [
       '#type' => 'html_tag',
       '#tag' => 'div',
-      '#value' => $label,
       '#attributes' => [
-        'class' => ['neo-alchemist--presence', 'flex', 'items-center', 'gap-1', 'text-xs', 'text-base-500'],
-        'title' => t('A colleague has been working in this shared layout draft.'),
+        // The rule and left margin keep the chip from reading as one more
+        // button hung off the end of Save.
+        'class' => [
+          'neo-alchemist--presence',
+          'flex', 'items-center', 'gap-2', 'ml-1', 'pl-3', 'border-l',
+          'text-xs', 'text-base-500', 'cursor-default',
+        ],
+        'title' => $label,
+      ],
+      // The avatar carries the "who" at button height, so the chip sits on the
+      // toolbar's baseline without adding a row of text to it.
+      'avatar' => [
+        '#type' => 'html_tag',
+        '#tag' => 'span',
+        '#value' => static::draftUserInitials($name),
+        '#attributes' => [
+          'class' => [
+            'flex', 'items-center', 'justify-center', 'w-6', 'h-6',
+            'rounded-full', 'border', 'bg-base-200', 'text-base-700',
+            'text-2xs', 'font-bold', 'leading-none', 'uppercase',
+          ],
+          'aria-hidden' => 'true',
+        ],
       ],
       // The relative time drifts by the second, so the indicator can never be
       // cached — it is recomputed on every render of the editor toolbar.
       '#cache' => ['max-age' => 0],
     ];
+    if ($modified) {
+      $build['age'] = [
+        '#type' => 'html_tag',
+        '#tag' => 'span',
+        '#value' => static::draftAgeAbbreviated($modified),
+        '#attributes' => [
+          'class' => ['tabular-nums'],
+          'aria-hidden' => 'true',
+        ],
+      ];
+    }
+    // The glyphs above are decoration; this is what the sentence sounds like.
+    $build['label'] = [
+      '#type' => 'html_tag',
+      '#tag' => 'span',
+      '#value' => $label,
+      '#attributes' => ['class' => ['sr-only']],
+    ];
+    return $build;
+  }
+
+  /**
+   * Abbreviates how long ago the draft was last written.
+   *
+   * The chip is glyph-sized, so the age is a token — "now", "6m", "3h", "2d",
+   * "5w" — rather than a phrase. Only the coarsest unit is kept: presence
+   * answers "just now or a while ago", and a second unit would buy precision
+   * nobody acts on at the cost of the width the chip exists to save. The unit
+   * letters stay untranslated on purpose; the translated sentence is what the
+   * tooltip and the screen-reader label carry.
+   *
+   * @param int $modified
+   *   The draft's last-modified timestamp.
+   *
+   * @return string
+   *   The abbreviated age.
+   */
+  protected static function draftAgeAbbreviated(int $modified): string {
+    $seconds = max(0, \Drupal::time()->getRequestTime() - $modified);
+    foreach (['w' => 604800, 'd' => 86400, 'h' => 3600, 'm' => 60] as $unit => $size) {
+      if ($seconds >= $size) {
+        return intdiv($seconds, $size) . $unit;
+      }
+    }
+    return (string) t('now');
+  }
+
+  /**
+   * Reduces a contributor's display name to avatar initials.
+   *
+   * One or two letters, from the first two words of the name — enough for a
+   * colleague to recognise who is in the draft, with the whole name a hover
+   * away. A name that yields no letters at all (a purely symbolic username)
+   * falls back to a dot, so the avatar is never an empty circle.
+   *
+   * @param string $name
+   *   The contributor's display name.
+   *
+   * @return string
+   *   The initials.
+   */
+  protected static function draftUserInitials(string $name): string {
+    $initials = '';
+    foreach (array_slice(preg_split('/[\s._-]+/u', trim($name), -1, PREG_SPLIT_NO_EMPTY) ?: [], 0, 2) as $word) {
+      $initials .= mb_substr($word, 0, 1);
+    }
+    return $initials === '' ? '·' : mb_strtoupper($initials);
   }
 
   /**
