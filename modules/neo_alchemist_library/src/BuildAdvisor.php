@@ -26,22 +26,26 @@ final class BuildAdvisor {
    *   The module handler (used to detect the optional neo_build integration).
    * @param string $appRoot
    *   The Drupal docroot; the npm build runs from its parent (project root).
+   * @param \Drupal\neo_build\NeoBuild|null $neoBuild
+   *   The Neo build service, or NULL in a project without neo_build. The same
+   *   optional-service reference SdcThumbnailWriter and
+   *   ComponentSlotTemplateLocator already use: one module, one pattern for one
+   *   optional dependency.
    */
   public function __construct(
     protected readonly ModuleHandlerInterface $moduleHandler,
     protected readonly string $appRoot,
+    protected readonly ?NeoBuild $neoBuild = NULL,
   ) {}
 
   /**
    * Returns TRUE when the Neo dev watcher (npm start) is active.
    *
-   * Guarded so the module works in projects without neo_build.
+   * A null service is the "neo_build is not installed" answer, which reports
+   * not-in-dev-mode exactly as the moduleExists()/method_exists() pair did.
    */
   public function isWatching(): bool {
-    if (!$this->moduleHandler->moduleExists('neo_build') || !method_exists('\Drupal\neo_build\NeoBuild', 'getNeoState')) {
-      return FALSE;
-    }
-    return (bool) NeoBuild::getNeoState('dev', FALSE);
+    return (bool) $this->neoBuild?->isDevMode();
   }
 
   /**

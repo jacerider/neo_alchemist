@@ -28,3 +28,4 @@ services:
     arguments:
       - '@module_handler'
       - '%app.root%'
+      - '@?neo_build'
