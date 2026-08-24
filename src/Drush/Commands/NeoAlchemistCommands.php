@@ -309,6 +309,15 @@ final class NeoAlchemistCommands extends DrushCommands {
       if ($hasSchemeProp && ($rawShades = $this->numberedRoleShadeClasses($twig))) {
         $warnings[] = sprintf('Twig uses numbered role shade(s) `%s` — these never adapt to the component\'s scheme(s). Adaptive alternatives: bare tokens (`text-primary`), hover steps (`hover:text-primary-hover`), link tokens (`text-link` / `hover:text-link-hover`), or `.btn*` classes. Keep a numbered shade only for deliberate raw-brand marks (decor).', implode('`, `', $rawShades));
       }
+      // "Open in a new window" reaches Twig as a top-level `target`, never
+      // through the options handed to neo_uri(): the url shapes' pre-render
+      // lifts the widget's options.attributes.target up and then unsets
+      // options.attributes outright. An <a> that only builds the href is
+      // therefore silently same-window — the editor's choice is stored,
+      // resolved, and then dropped by the template with nothing logged.
+      foreach ($this->hrefsWithoutTarget($twig) as $expr) {
+        $warnings[] = sprintf('Twig builds an href from `%1$s.uri` but the `<a>` prints no `target` — a link set to "open in a new window" renders same-window. Add `target="{{ %1$s.target }}"`; neo_uri() cannot supply it, because the shape strips `options.attributes` before rendering.', $expr);
+      }
     }
 
     // Report.
@@ -744,6 +753,50 @@ final class NeoAlchemistCommands extends DrushCommands {
     $utils = 'bg|text|border(?:-[trblxyse])?|from|via|to|fill|stroke|ring|shadow|divide|outline|decoration|accent|caret|placeholder';
     preg_match_all('/(?:[a-z][a-z0-9-]*:)*(?:' . $utils . ')-(?:primary|secondary|accent)-\d{1,3}(?:-content)?\b/', $twig, $matches);
     return array_values(array_unique($matches[0]));
+  }
+
+  /**
+   * Best-effort: link expressions whose <a> builds an href but sets no target.
+   *
+   * Deliberately advisory and deliberately narrow:
+   * - A tag that carries any `target=` attribute is left alone. Hardcoding
+   *   `target="_blank"`, or forcing same-window on an in-page anchor, is a
+   *   choice the template is entitled to make.
+   * - Only the component's own template is read, so a link rendered from a
+   *   theme partial (`templates/includes/*.html.twig`) or an {% include %}d
+   *   file is out of reach and will not be flagged.
+   * - The tag match skips `>` inside {{ }} / {% %} so a comparison in an
+   *   attribute does not truncate it, but it remains a regex over Twig
+   *   source rather than a parse.
+   *
+   * @param string $twig
+   *   The Twig source.
+   *
+   * @return string[]
+   *   Distinct link expressions (`link`, `item.link`, `item.url`, …) whose
+   *   href is built without a target, in source order.
+   *
+   * @see \Drupal\neo_alchemist\Plugin\ComponentShape\UrlShapeTrait::preRenderValue()
+   */
+  private function hrefsWithoutTarget(string $twig): array {
+    // A commented-out anchor renders nothing, and docs that show the idiom
+    // must not trip the check.
+    $twig = (string) preg_replace('/\{#.*?#\}/s', '', $twig);
+    if (!preg_match_all('/<a\b(?:\{\{.*?\}\}|\{%.*?%\}|[^>])*>/s', $twig, $tags)) {
+      return [];
+    }
+    $found = [];
+    foreach ($tags[0] as $tag) {
+      if (preg_match('/\btarget\s*=/', $tag)) {
+        continue;
+      }
+      if (preg_match_all('/neo_uri\(\s*([a-zA-Z_][\w.]*)\.uri\b/', $tag, $uris)) {
+        foreach ($uris[1] as $expr) {
+          $found[$expr] = TRUE;
+        }
+      }
+    }
+    return array_keys($found);
   }
 
 }
