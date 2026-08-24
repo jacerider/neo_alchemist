@@ -2,7 +2,7 @@ name: 'Neo | Alchemist Menu'
 type: module
 description: 'Allows menu items to act as Alchemist component regions for building mega menus.'
 package: Neo
-version: 1.1.0
+version: 1.1.1
 core_version_requirement: ^10.3 || ^11
 neo: true
 dependencies:
