@@ -62,6 +62,20 @@ This applies to every `ComponentShapeStylePluginInterface` implementation — `S
 `SchemeShape` and `ImageSize`. The annotation seam itself is unchanged for any other
 `Attribute`-carrying shape.
 
+### A prop claims one element
+
+Those hints are positional — four cards whose links are all `/` are told apart only by pairing
+the map's order against the document's — so a prop taking a second element is not highlighting
+itself twice, it is consuming the element the next prop was going to match, and every claim
+after it shifts by one. A button whose own title text had already claimed it went on to claim
+the first card's anchor through its href: clicking the button outlined the card too, and each
+card's link pointed at the row before it. Whether it happened at all depended on whether the
+button's prop sorted before the cards' in the component's schema.
+
+A prop now claims at most one element, across all three hint kinds. Where a prop is genuinely
+rendered twice only the first is highlighted, which is the same as before — the second was
+never reached.
+
 ### The SDC preview workspace gets a prop map
 
 `/admin/config/neo/alchemist/preview/{component}` never attached one, so it had no content

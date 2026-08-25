@@ -39,6 +39,9 @@
   // The subtree the form edits; targets outside it are ignored. Reassigned by
   // every initPropTargets() run, so an in-place refresh re-scopes with it.
   let propScope: HTMLElement | null = null;
+  // Props that have claimed an element, so none claims a second. Rebuilt by
+  // every initPropTargets() run alongside the scope it indexed.
+  let claimedProps = new Set<string>();
   let activeTargets: HTMLElement[] = [];
   let hoverOverlay: HTMLElement | null = null;
   let hoverOverlayLabel: HTMLElement | null = null;
@@ -156,6 +159,7 @@
   const initPropTargets = (element: HTMLElement): void => {
     const scope = propComponentScope(element);
     propScope = scope;
+    claimedProps = new Set<string>();
 
     // Authoritative targets stamped server-side.
     scope.querySelectorAll<HTMLElement>('[data-neo-prop]').forEach(el => {
@@ -371,14 +375,28 @@
   };
 
   /**
-   * Claim an element for a prop; the first claim wins.
+   * Claim an element for a prop; the first claim wins, one element per prop.
+   *
+   * One element per prop is the half that is easy to get wrong. These are
+   * positional heuristics — five cards whose links are all `/` are told apart
+   * only by pairing the map's order against the document's — so a prop that
+   * takes a second element is not highlighting itself twice, it is consuming
+   * the element the next prop was going to match, and every claim after it
+   * shifts by one. That is how a button whose own title text had already
+   * claimed it went on to claim the first card's anchor through its href, so
+   * clicking the button outlined the card too and each card's link pointed at
+   * the row before it.
+   *
+   * @return TRUE if the claim was taken.
    */
-  const claimTarget = (el: HTMLElement, propId: string): void => {
-    if (el.dataset.neoPropTarget) {
-      return;
+  const claimTarget = (el: HTMLElement, propId: string): boolean => {
+    if (el.dataset.neoPropTarget || claimedProps.has(propId)) {
+      return false;
     }
     el.dataset.neoPropTarget = propId;
     el.classList.add('neo-alchemist--prop-target');
+    claimedProps.add(propId);
+    return true;
   };
 
   /**
@@ -408,7 +426,15 @@
       if (!queue || !queue.length || !parent) {
         continue;
       }
-      claimTarget(parent, queue.shift() as string);
+      // Drop props another hint already placed rather than letting them hold
+      // the queue: the pairing is positional, so a prop that cannot claim
+      // must step aside for the next one rather than consume this text node.
+      while (queue.length && claimedProps.has(queue[0])) {
+        queue.shift();
+      }
+      if (queue.length) {
+        claimTarget(parent, queue.shift() as string);
+      }
     }
   };
 
@@ -423,6 +449,9 @@
     const imgs = Array.from(scope.querySelectorAll<HTMLImageElement>('img[src]'));
     Object.keys(map.props).forEach(propId => {
       (map.props[propId].hints?.src || []).forEach(basename => {
+        if (claimedProps.has(propId)) {
+          return;
+        }
         for (const img of imgs) {
           if (img.dataset.neoPropTarget) {
             continue;
@@ -454,6 +483,9 @@
     const anchors = Array.from(scope.querySelectorAll<HTMLAnchorElement>('a[href]'));
     Object.keys(map.props).forEach(propId => {
       (map.props[propId].hints?.href || []).forEach(href => {
+        if (claimedProps.has(propId)) {
+          return;
+        }
         for (const anchor of anchors) {
           if (anchor.dataset.neoPropTarget) {
             continue;
