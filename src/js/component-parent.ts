@@ -874,8 +874,10 @@
           }
           return;
         }
-        // Accordion items toggle through their Alpine-bound summary button;
-        // aria-expanded is server-rendered, so this is truthful pre-init too.
+        // Accordion items toggle through their Alpine-bound summary button.
+        // The template writes `:aria-expanded` — an Alpine bind — so the plain
+        // attribute this matches on only exists once Alpine has initialised.
+        // Before that the group is left alone rather than opened blindly.
         const summary = group.querySelector<HTMLElement>(':scope > button[aria-expanded]');
         if (summary && summary.getAttribute('aria-expanded') !== 'true') {
           summary.click();
@@ -883,6 +885,31 @@
         }
       });
       return opened;
+    }
+
+    /**
+     * Restores a contracted form pane so a focused field is actually visible.
+     *
+     * Contract mode sets the form wrapper to `height: 0%` and fades it out, so
+     * scrolling and focusing inside it would land somewhere the editor cannot
+     * see. Clicking the split button rather than setting the styles directly
+     * keeps the active-state classes and the remembered size in step with a
+     * manual click.
+     *
+     * @return TRUE if the pane had to reopen (the caller then waits for the
+     *   500ms height transition before measuring).
+     */
+    function reopenFormPane(): boolean {
+      const contracted = container.querySelector<HTMLElement>('.neo-alchemist-manage--size-contract.is-active');
+      if (!contracted) {
+        return false;
+      }
+      const split = container.querySelector<HTMLElement>('.neo-alchemist-manage--size-split');
+      if (!split) {
+        return false;
+      }
+      split.click();
+      return true;
     }
 
     /**
@@ -896,11 +923,18 @@
       activePropId = propId;
       postPropFocus();
       const opened = openPropGroups(wrapper);
-      // A freshly opened accordion item is still mid x-collapse transition;
-      // measure once it has its height.
+      const reopened = reopenFormPane();
+      // A freshly opened accordion item is still mid x-collapse transition,
+      // and a reopened form pane is mid height transition; measure once
+      // whichever ran has settled.
       setTimeout(() => {
-        if (scroll) {
-          Drupal.behaviors.neoAlchemistComponentParent.scrollElementIntoView(wrapper, scroll, { top: 16, bottom: 16 });
+        // The side layout scrolls an inner pane, the footer layout scrolls the
+        // form wrapper itself. Falling back keeps this working on the SDC
+        // preview and component manage pages, which render the footer layout
+        // and so have no --form-scroll element at all.
+        const scroller = scroll || formWrapper;
+        if (scroller) {
+          Drupal.behaviors.neoAlchemistComponentParent.scrollElementIntoView(wrapper, scroller, { top: 16, bottom: 16 });
         }
         const input = wrapper.querySelector<HTMLElement>('input:not([type="hidden"]):not([disabled]), select, textarea, [contenteditable="true"], .ck-editor__editable');
         if (input) {
@@ -917,7 +951,7 @@
         wrapper.addEventListener('animationend', () => {
           wrapper.classList.remove('neo-alchemist--prop-flash');
         }, { once: true });
-      }, opened ? 350 : 0);
+      }, Math.max(opened ? 350 : 0, reopened ? 550 : 0));
     }
 
     /**
