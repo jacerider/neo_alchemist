@@ -80,6 +80,12 @@ services:
   neo_alchemist.prop_value_harvester:
     class: Drupal\neo_alchemist\ComponentPropValueHarvester
 
+  # The static checks behind `drush neo:alchemist:validate`. Deliberately
+  # dependency-free: they are regexes over Twig, and keeping them out of the
+  # command is what lets a unit test call them directly.
+  neo_alchemist.twig_linter:
+    class: Drupal\neo_alchemist\ComponentTwigLinter
+
   # Finds placements whose component no longer exists. A diff over
   # ComponentUsage rather than another sweep of its own.
   neo_alchemist.dangling_component_data:

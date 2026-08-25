@@ -383,6 +383,8 @@ props:
     #             title: Max
     spacing:
       type: spacing
+    gap:
+      type: gap
     image_size:
       type: image_size
       styles:

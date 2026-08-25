@@ -32,6 +32,7 @@
           {% set has_panel = item.below is not empty %}
           <div>
             <a href="{{ neo_uri(item.url.uri, item.url.options) }}"
+               {% if item.url.target %}target="{{ item.url.target }}"{% endif %}
                class="group/link relative flex items-center py-6 text-sm font-semibold uppercase tracking-wide no-underline"
                {%- if has_panel %}
                @click.prevent="open = open === {{ loop.index }} ? null : {{ loop.index }}"
@@ -72,12 +73,12 @@
                       {# A link column: the child is the heading, its children
                          are the links. #}
                       <div class="w-48 shrink-0">
-                        <a href="{{ neo_uri(child.url.uri, child.url.options|default({})) }}" class="font-bold no-underline">{{ child.title }}</a>
+                        <a href="{{ neo_uri(child.url.uri, child.url.options|default({})) }}"{% if child.url.target %} target="{{ child.url.target }}"{% endif %} class="font-bold no-underline">{{ child.title }}</a>
                         {% if child.below %}
                           <ul class="mt-4 flex flex-col">
                             {% for sub in child.below %}
                               <li class="border-b last:border-b-0">
-                                <a href="{{ neo_uri(sub.url.uri, sub.url.options|default({})) }}" class="block py-2 text-sm no-underline{{ sub.in_active_trail ? ' font-bold' : '' }}">{{ sub.title }}</a>
+                                <a href="{{ neo_uri(sub.url.uri, sub.url.options|default({})) }}"{% if sub.url.target %} target="{{ sub.url.target }}"{% endif %} class="block py-2 text-sm no-underline{{ sub.in_active_trail ? ' font-bold' : '' }}">{{ sub.title }}</a>
                               </li>
                             {% endfor %}
                           </ul>

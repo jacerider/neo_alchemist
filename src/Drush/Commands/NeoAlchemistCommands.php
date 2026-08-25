@@ -11,6 +11,7 @@ use Drupal\Core\Render\RendererInterface;
 use Drupal\Core\Theme\ComponentPluginManager;
 use Drupal\neo_alchemist\ComponentPreviewBuilder;
 use Drupal\neo_alchemist\ComponentPropDefPluginManager;
+use Drupal\neo_alchemist\ComponentTwigLinter;
 use Drupal\neo_alchemist\Shape\ComponentShapePluginManager;
 use Drupal\neo_alchemist\Slot\ComponentSlotTemplateLocator;
 use Drupal\neo_alchemist\ThemeComponentInstaller;
@@ -37,11 +38,6 @@ final class NeoAlchemistCommands extends DrushCommands {
    */
   private const NATIVE_TYPES = ['object', 'array', 'string', 'boolean', 'integer', 'number', 'null'];
 
-  /**
-   * Twig identifiers that are always available and never a prop reference.
-   */
-  private const TWIG_GLOBALS = ['attributes', 'neoIsPreview', 'loop', '_self', '_context', '_charset'];
-
   public function __construct(
     #[Autowire(service: 'plugin.manager.sdc')]
     private readonly ComponentPluginManager $componentPluginManager,
@@ -59,6 +55,8 @@ final class NeoAlchemistCommands extends DrushCommands {
     private readonly ComponentSlotTemplateLocator $slotTemplateLocator,
     #[Autowire(service: 'neo_alchemist.theme_component_installer')]
     private readonly ThemeComponentInstaller $themeComponentInstaller,
+    #[Autowire(service: 'neo_alchemist.twig_linter')]
+    private readonly ComponentTwigLinter $twigLinter,
   ) {
     parent::__construct();
   }
@@ -172,15 +170,114 @@ final class NeoAlchemistCommands extends DrushCommands {
    * Statically lint a component's .component.yml and .twig for common mistakes.
    */
   #[CLI\Command(name: 'neo:alchemist:validate', aliases: ['neoa-validate'])]
-  #[CLI\Argument(name: 'component', description: 'The SDC component id, e.g. front:cards_test.')]
+  #[CLI\Argument(name: 'component', description: 'The SDC component id, e.g. front:cards_test. Omit with --all.')]
+  #[CLI\Option(name: 'all', description: 'Lint every Neo component instead of one. A site-wide sweep in a single bootstrap.')]
+  #[CLI\Option(name: 'theme', description: 'With --all, only components provided by this theme/module machine name.')]
   #[CLI\Usage(name: 'drush neo:alchemist:validate front:cards_test', description: 'Lint the component and report problems.')]
-  public function validate(string $component): int {
+  #[CLI\Usage(name: 'drush neo:alchemist:validate --all', description: 'Sweep every component; exits non-zero if any has an error.')]
+  #[CLI\Usage(name: 'drush neo:alchemist:validate --all --theme=front', description: 'Sweep just the front theme\'s components.')]
+  public function validate(?string $component = NULL, array $options = ['all' => FALSE, 'theme' => NULL]): int {
+    if (!empty($options['all'])) {
+      return $this->validateAll($options['theme'] ?: NULL);
+    }
+    if ($component === NULL) {
+      $this->io()->error('Pass a component id, or --all to sweep every component.');
+      return self::EXIT_FAILURE;
+    }
     if (!$this->componentPluginManager->hasDefinition($component)) {
       $this->io()->error(sprintf('Unknown component "%s". Run `drush neo:alchemist:components`.', $component));
       return self::EXIT_FAILURE;
     }
-    $def = $this->componentPluginManager->getDefinition($component);
+    [$errors, $warnings, $oks] = $this->lintComponent($component);
 
+    return $this->report($component, $errors, $warnings, $oks);
+  }
+
+  /**
+   * Lints every Neo component and prints one line each.
+   *
+   * A sweep in a single bootstrap: on a site with three dozen components,
+   * calling the single-component form once each costs a Drupal bootstrap per
+   * component and several minutes of wall clock.
+   *
+   * @param string|null $theme
+   *   Restrict to one provider, or NULL for every component.
+   *
+   * @return int
+   *   Non-zero when any component has a hard error, so it gates a deploy.
+   */
+  private function validateAll(?string $theme): int {
+    $ids = [];
+    foreach ($this->componentPluginManager->getDefinitions() as $id => $def) {
+      // Source templates (`neo: false` + `neo_install: true`) are the module's
+      // copy, linted through the theme copy that ejecting produces.
+      if (empty($def['neo'])) {
+        continue;
+      }
+      if ($theme && ($def['provider'] ?? NULL) !== $theme) {
+        continue;
+      }
+      $ids[] = $id;
+    }
+    sort($ids);
+    if (!$ids) {
+      $this->io()->warning($theme
+        ? sprintf('No Neo components provided by "%s".', $theme)
+        : 'No Neo components found.');
+      return self::EXIT_SUCCESS;
+    }
+
+    $totalErrors = 0;
+    $totalWarnings = 0;
+    $clean = 0;
+    foreach ($ids as $id) {
+      [$errors, $warnings] = $this->lintComponent($id);
+      $totalErrors += count($errors);
+      $totalWarnings += count($warnings);
+      if (!$errors && !$warnings) {
+        $clean++;
+        $this->io()->writeln(sprintf('  <info>✓</info> %s', $id));
+        continue;
+      }
+      $this->io()->writeln(sprintf(
+        '  %s <options=bold>%s</> — %d error(s), %d warning(s)',
+        $errors ? '<error>✗</error>' : '<comment>⚠</comment>',
+        $id,
+        count($errors),
+        count($warnings),
+      ));
+      foreach ($errors as $line) {
+        $this->io()->writeln('      <error>✗</error> ' . $line);
+      }
+      foreach ($warnings as $line) {
+        $this->io()->writeln('      <comment>⚠</comment> ' . $line);
+      }
+    }
+    $this->io()->newLine();
+
+    $summary = sprintf(
+      '%d component(s): %d clean, %d error(s), %d warning(s).',
+      count($ids), $clean, $totalErrors, $totalWarnings,
+    );
+    if ($totalErrors) {
+      $this->io()->error($summary);
+      return self::EXIT_FAILURE;
+    }
+    $this->io()->success($summary);
+    return self::EXIT_SUCCESS;
+  }
+
+  /**
+   * Collects the lint result for one component.
+   *
+   * @param string $component
+   *   The SDC component id. Must exist.
+   *
+   * @return array
+   *   A [errors, warnings, oks] tuple of message strings.
+   */
+  private function lintComponent(string $component): array {
+    $def = $this->componentPluginManager->getDefinition($component);
     $errors = [];
     $warnings = [];
     $oks = [];
@@ -291,36 +388,40 @@ final class NeoAlchemistCommands extends DrushCommands {
       }
     }
 
-    // Twig checks (best effort, advisory).
+    // Twig checks (best effort, advisory). They live in a service because
+    // they are regexes over Twig source — subtle enough that the only way to
+    // keep them honest is a unit test able to call them directly.
     if ($twig !== NULL) {
-      foreach ($this->undeclaredTwigVars($twig, $declared) as $var) {
-        $warnings[] = sprintf('Twig references `%s` in an {%% if/for %%} but no such prop is declared (typo, or an intentional local?).', $var);
-      }
-      if ($this->hasDynamicClasses($twig)) {
-        $warnings[] = 'Twig appears to build Tailwind class names dynamically (e.g. `bg-{{ x }}-500` or `\'text-\' ~ x`). Those never compile — enumerate full class names or use CSS variables.';
-      }
-      // Numbered role shades never adapt to color schemes: text-primary-500
-      // is the raw brand ramp under every scheme, so on colorized or dark
-      // schemes it can sit on — or be — the surface. Only components that
-      // declare a scheme prop are flagged (they are explicitly designed to
-      // be recolored), and only as a warning: decor marks that must stay
-      // raw-brand are a legitimate use of numbered shades.
-      $hasSchemeProp = (bool) array_filter($rawProps, fn($p) => is_array($p) && (($p['type'] ?? NULL) === 'scheme'));
-      if ($hasSchemeProp && ($rawShades = $this->numberedRoleShadeClasses($twig))) {
-        $warnings[] = sprintf('Twig uses numbered role shade(s) `%s` — these never adapt to the component\'s scheme(s). Adaptive alternatives: bare tokens (`text-primary`), hover steps (`hover:text-primary-hover`), link tokens (`text-link` / `hover:text-link-hover`), or `.btn*` classes. Keep a numbered shade only for deliberate raw-brand marks (decor).', implode('`, `', $rawShades));
-      }
-      // "Open in a new window" reaches Twig as a top-level `target`, never
-      // through the options handed to neo_uri(): the url shapes' pre-render
-      // lifts the widget's options.attributes.target up and then unsets
-      // options.attributes outright. An <a> that only builds the href is
-      // therefore silently same-window — the editor's choice is stored,
-      // resolved, and then dropped by the template with nothing logged.
-      foreach ($this->hrefsWithoutTarget($twig) as $expr) {
-        $warnings[] = sprintf('Twig builds an href from `%1$s.uri` but the `<a>` prints no `target` — a link set to "open in a new window" renders same-window. Add `target="{{ %1$s.target }}"`; neo_uri() cannot supply it, because the shape strips `options.attributes` before rendering.', $expr);
+      $findings = $this->twigLinter->lint(
+        $twig,
+        is_array($rawYml) ? $rawYml : NULL,
+        $declared,
+        array_keys($def['slots'] ?? []),
+      );
+      foreach ($findings as $finding) {
+        $warnings[] = $finding['message'];
       }
     }
 
-    // Report.
+    return [$errors, $warnings, $oks];
+  }
+
+  /**
+   * Prints one component's full lint result.
+   *
+   * @param string $component
+   *   The component id.
+   * @param string[] $errors
+   *   Hard errors.
+   * @param string[] $warnings
+   *   Advisory findings.
+   * @param string[] $oks
+   *   Checks that passed.
+   *
+   * @return int
+   *   The command exit code.
+   */
+  private function report(string $component, array $errors, array $warnings, array $oks): int {
     foreach ($oks as $line) {
       $this->io()->writeln('  <info>✓</info> ' . $line);
     }
@@ -679,124 +780,6 @@ final class NeoAlchemistCommands extends DrushCommands {
     return in_array($type, self::NATIVE_TYPES, TRUE)
       || $this->propDefManager->hasDefinition($type)
       || $this->shapeManager->hasDefinition($type);
-  }
-
-  /**
-   * Best-effort: prop-like identifiers referenced in Twig but not declared.
-   */
-  private function undeclaredTwigVars(string $twig, array $declared): array {
-    // Local variables introduced by {% for %} and {% set %} are not props.
-    $local = [];
-    if (preg_match_all('/\{%-?\s*for\s+([a-zA-Z_][\w]*(?:\s*,\s*[a-zA-Z_][\w]*)?)\s+in\s+/', $twig, $lm)) {
-      foreach ($lm[1] as $decl) {
-        foreach (preg_split('/\s*,\s*/', $decl) as $v) {
-          $local[] = $v;
-        }
-      }
-    }
-    if (preg_match_all('/\{%-?\s*set\s+([a-zA-Z_][\w]*)/', $twig, $sm)) {
-      $local = array_merge($local, $sm[1]);
-    }
-
-    $referenced = [];
-    if (preg_match_all('/\{%-?\s*if\s+(?:not\s+)?([a-zA-Z_][\w]*)/', $twig, $ifm)) {
-      $referenced = array_merge($referenced, $ifm[1]);
-    }
-    if (preg_match_all('/\{%-?\s*for\s+[a-zA-Z_][\w]*(?:\s*,\s*[a-zA-Z_][\w]*)?\s+in\s+([a-zA-Z_][\w]*)/', $twig, $fm)) {
-      $referenced = array_merge($referenced, $fm[1]);
-    }
-
-    $safe = array_merge($declared, $local, self::TWIG_GLOBALS);
-    $undeclared = array_diff(array_unique($referenced), $safe);
-    // Ignore obvious literals.
-    return array_values(array_filter($undeclared, fn($v) => !in_array(strtolower($v), ['true', 'false', 'null'], TRUE)));
-  }
-
-  /**
-   * Detects Tailwind class names assembled dynamically in Twig.
-   */
-  private function hasDynamicClasses(string $twig): bool {
-    $utils = 'bg|text|border|from|via|to|fill|stroke|ring|shadow|divide|outline|decoration|accent|caret|placeholder';
-    // e.g. class="bg-{{ color }}-500" or 'text-{{ tone }}'.
-    if (preg_match('/\b(?:' . $utils . ')-[a-z0-9-]*\{\{/', $twig)) {
-      return TRUE;
-    }
-    // e.g. 'text-' ~ tone  or  tone ~ '-500'.
-    if (preg_match('/[\'"](?:' . $utils . ')-[a-z0-9-]*[\'"]\s*~/', $twig) || preg_match('/~\s*[\'"]-?[a-z0-9]+[\'"]/', $twig)) {
-      return TRUE;
-    }
-    return FALSE;
-  }
-
-  /**
-   * Collects numbered primary/secondary/accent shade utilities from Twig.
-   *
-   * Numbered role shades (text-primary-500, hover:bg-accent-600, …) are the
-   * raw brand ramp in every scheme — only the bare tokens, their -hover
-   * steps, the link tokens and the .btn* classes are contrast-managed. Base
-   * is deliberately not matched: the base ramp is scheme-scoped, so
-   * bg-base-100 and friends DO adapt.
-   *
-   * @param string $twig
-   *   The Twig source.
-   *
-   * @return string[]
-   *   Distinct offending class strings (variant prefixes included), in
-   *   source order.
-   */
-  private function numberedRoleShadeClasses(string $twig): array {
-    // Twig comments cannot apply a class to an element, and docs that *name*
-    // these classes (to explain why they are avoided) must not trip the
-    // check — unlike the dynamic-class check, whose subject is compilation,
-    // where comments do count.
-    $twig = (string) preg_replace('/\{#.*?#\}/s', '', $twig);
-    $utils = 'bg|text|border(?:-[trblxyse])?|from|via|to|fill|stroke|ring|shadow|divide|outline|decoration|accent|caret|placeholder';
-    preg_match_all('/(?:[a-z][a-z0-9-]*:)*(?:' . $utils . ')-(?:primary|secondary|accent)-\d{1,3}(?:-content)?\b/', $twig, $matches);
-    return array_values(array_unique($matches[0]));
-  }
-
-  /**
-   * Best-effort: link expressions whose <a> builds an href but sets no target.
-   *
-   * Deliberately advisory and deliberately narrow:
-   * - A tag that carries any `target=` attribute is left alone. Hardcoding
-   *   `target="_blank"`, or forcing same-window on an in-page anchor, is a
-   *   choice the template is entitled to make.
-   * - Only the component's own template is read, so a link rendered from a
-   *   theme partial (`templates/includes/*.html.twig`) or an {% include %}d
-   *   file is out of reach and will not be flagged.
-   * - The tag match skips `>` inside {{ }} / {% %} so a comparison in an
-   *   attribute does not truncate it, but it remains a regex over Twig
-   *   source rather than a parse.
-   *
-   * @param string $twig
-   *   The Twig source.
-   *
-   * @return string[]
-   *   Distinct link expressions (`link`, `item.link`, `item.url`, …) whose
-   *   href is built without a target, in source order.
-   *
-   * @see \Drupal\neo_alchemist\Plugin\ComponentShape\UrlShapeTrait::preRenderValue()
-   */
-  private function hrefsWithoutTarget(string $twig): array {
-    // A commented-out anchor renders nothing, and docs that show the idiom
-    // must not trip the check.
-    $twig = (string) preg_replace('/\{#.*?#\}/s', '', $twig);
-    if (!preg_match_all('/<a\b(?:\{\{.*?\}\}|\{%.*?%\}|[^>])*>/s', $twig, $tags)) {
-      return [];
-    }
-    $found = [];
-    foreach ($tags[0] as $tag) {
-      if (preg_match('/\btarget\s*=/', $tag)) {
-        continue;
-      }
-      if (preg_match_all('/neo_uri\(\s*([a-zA-Z_][\w.]*)\.uri\b/', $tag, $uris)) {
-        foreach ($uris[1] as $expr) {
-          $found[$expr] = TRUE;
-        }
-      }
-    }
-    return array_keys($found);
   }
 
 }

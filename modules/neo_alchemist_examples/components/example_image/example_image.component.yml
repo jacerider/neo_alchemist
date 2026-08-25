@@ -35,6 +35,8 @@ props:
       apply: true
     spacing:
       type: spacing
+    gap:
+      type: gap
     image_size:
       type: image_size
       styles:

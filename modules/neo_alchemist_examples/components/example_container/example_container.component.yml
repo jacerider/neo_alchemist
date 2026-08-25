@@ -38,6 +38,8 @@ props:
       apply: true
     spacing:
       type: spacing
+    gap:
+      type: gap
     text_align:
       type: text_align
       title: Text Align

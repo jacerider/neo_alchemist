@@ -10,6 +10,8 @@ The site uses the `neo_alchemist` module (Drupal contrib) to provide page-buildi
 
 > **Modifying the neo_alchemist module itself** (its PHP — shapes, plugins, services, the render pipeline)? That's a different job — use the `neo-alchemist-dev` skill and [web/modules/contrib/neo_alchemist/ARCHITECTURE.md](web/modules/contrib/neo_alchemist/ARCHITECTURE.md). This skill is for authoring components in a theme.
 
+> **Auditing components that already exist** — sweeping a site for drift after a module upgrade, migrating pre-`gap` section carriers, triaging what `validate` reports? That's the **neo-component-audit** skill. This skill is for writing and changing one component.
+
 ## Directory layout
 
 Every component is a folder. Required files:
@@ -958,7 +960,9 @@ ramps — the reference for what your component's colors will resolve to per sch
 
 ## Verify from the CLI
 
-You don't need a browser to confirm a component works. Two commands close the loop:
+You don't need a browser to confirm a component works. Two commands close the loop.
+(Sweeping every component on a site, rather than checking the one you just
+wrote? `validate --all` — and see the **neo-component-audit** skill.)
 
 - **`drush neo:alchemist:validate <provider>:<name>`** — static lint. Flags missing
   `neo: true`, props with no `examples`, unknown prop types, `{% if/for %}` references
