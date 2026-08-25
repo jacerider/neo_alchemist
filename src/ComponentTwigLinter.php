@@ -120,6 +120,13 @@ final class ComponentTwigLinter {
       ];
     }
 
+    foreach ($this->unguardedLinkAccess($twig, $rawProps) as $expr) {
+      $findings[] = [
+        'check' => 'unguarded_link_access',
+        'message' => sprintf('Twig builds an href from `%1$s.uri` without checking `%1$s.access` — a visitor who may not reach the target is linked into a 403. Widen the enclosing guard to `{%% if %1$s and %1$s.access %%}` (or fall back to a non-link wrapper); do not drop the link, `access` FALSE still carries a title worth rendering.', $expr),
+      ];
+    }
+
     foreach ($this->hrefsWithoutTarget($twig) as $expr) {
       $findings[] = [
         'check' => 'href_without_target',
@@ -416,6 +423,174 @@ final class ComponentTwigLinter {
       }
     }
     return array_keys($found);
+  }
+
+  /**
+   * Link expressions turned into an href with no `.access` guard above them.
+   *
+   * A `link`/`url` value carries `access` — whether this visitor may follow
+   * the URI. It is FALSE for an unpublished node, a user profile an anonymous
+   * visitor may not see, a media entity with standalone URLs off. A template
+   * that builds an href without consulting it links the visitor into a 403.
+   *
+   * The guard is looked for on the stack of {% if %} conditions open at the
+   * point the href is built, not anywhere in the file. A file-wide search
+   * gives a template credit for guarding one loop while another goes bare —
+   * which is exactly the shape this check exists to catch.
+   *
+   * Narrow in the same ways ::hrefsWithoutTarget() is: a regex over Twig
+   * source, the component's own template only, comments stripped. An
+   * {% else %} invalidates the condition it belongs to, so an href in the
+   * unguarded branch is still reported. Both the inline `<a href="{{ neo_uri(…)
+   * }}">` form and the `{% set href = neo_uri(…) %}` form are read.
+   *
+   * Menu-derived links are exempt. MenuValue runs the tree through
+   * `menu.default_tree_manipulators:checkAccess` before building, so an item
+   * the visitor may not reach never arrives in the template at all and its
+   * `access` is TRUE by construction — a guard there is dead code, and asking
+   * for one is the kind of noise that trains people to skim the whole report.
+   *
+   * @param string $twig
+   *   The Twig source.
+   * @param array $rawProps
+   *   (optional) The raw `props.properties` map, used to find the `menu`-typed
+   *   props whose loop variables are exempt. Omit it and nothing is exempt.
+   *
+   * @return string[]
+   *   Distinct link expressions (`link`, `item.link`, …) whose href is built
+   *   unguarded, in source order.
+   *
+   * @see \Drupal\neo_alchemist\Match\MatcherField::getEntityDefinitionLink()
+   * @see \Drupal\neo_alchemist\Plugin\ComponentShape\UrlShapeTrait::getFieldItemValue()
+   * @see \Drupal\neo_alchemist\Plugin\ComponentValue\MenuValue::getMenuValue()
+   */
+  public function unguardedLinkAccess(string $twig, array $rawProps = []): array {
+    $twig = $this->stripComments($twig);
+    $exempt = $this->menuDerivedVariables($twig, $rawProps);
+    // One pass in source order over the three things that matter: the if/else
+    // tags that open and close a guard, the {% set %}s that build an href out
+    // of band, and the anchors that build one inline.
+    $pattern = '/\{%-?\s*(if|elseif|else|endif)\b((?:(?!%\}).)*)%\}'
+      . '|\{%-?\s*set\b((?:(?!%\}).)*)%\}'
+      . '|<a\b(?:\{\{.*?\}\}|\{%.*?%\}|[^>])*>/s';
+    if (!preg_match_all($pattern, $twig, $tokens, PREG_SET_ORDER)) {
+      return [];
+    }
+    $stack = [];
+    $found = [];
+    foreach ($tokens as $token) {
+      $keyword = $token[1] ?? '';
+      if ($keyword === 'if') {
+        $stack[] = $token[2];
+        continue;
+      }
+      if ($keyword === 'elseif' || $keyword === 'else') {
+        // The branch that just opened is reached precisely when the condition
+        // above did NOT hold, so that condition guards nothing here.
+        array_pop($stack);
+        $stack[] = $keyword === 'elseif' ? $token[2] : '';
+        continue;
+      }
+      if ($keyword === 'endif') {
+        array_pop($stack);
+        continue;
+      }
+      // A {% set %} or an <a> tag: whichever matched, the whole token text
+      // holds any neo_uri() call it makes.
+      //
+      // The token counts as its own guard alongside the open conditions: a
+      // ternary in the same expression — `{% set href = (x.access and x.uri)
+      // ? neo_uri(x.uri) : null %}` — guards just as well as an {% if %}
+      // wrapped around it, and is the natural way to write the `set` form.
+      $guards = implode(' ', $stack) . ' ' . $token[0];
+      if (!preg_match_all('/neo_uri\(\s*([a-zA-Z_][\w.]*)\.uri\b/', $token[0], $uris)) {
+        continue;
+      }
+      foreach ($uris[1] as $expr) {
+        if (in_array(explode('.', $expr)[0], $exempt, TRUE)) {
+          continue;
+        }
+        $quoted = preg_quote($expr, '/');
+        if (!preg_match('/\b' . $quoted . '\.access\b/', $guards)) {
+          $found[$expr] = TRUE;
+        }
+      }
+    }
+    return array_keys($found);
+  }
+
+  /**
+   * Variable names that hold menu items, and so need no access guard.
+   *
+   * Seeded with the `menu`-typed prop names and grown until stable, so the
+   * three ways a menu reaches the point of use are all covered:
+   * - `{% for item in <menuProp> %}` — the direct loop.
+   * - `{% for link in col.below %}` — a nested level of an already-menu var.
+   * - `{% macro nav(items, level) %}` called as `menus.nav(<menuVar>, 0)` —
+   *   the recursive-macro shape a multi-level menu template takes. Matched
+   *   positionally on the call, which is why the loop below repeats: the
+   *   recursive call `menus.nav(item.below, level + 1)` only resolves once
+   *   `item` is known to be menu-derived.
+   *
+   * @param string $twig
+   *   The Twig source, comments already stripped.
+   * @param array $rawProps
+   *   The raw `props.properties` map.
+   *
+   * @return string[]
+   *   Variable names to exempt.
+   */
+  private function menuDerivedVariables(string $twig, array $rawProps): array {
+    $vars = [];
+    foreach ($rawProps as $name => $prop) {
+      if (is_array($prop) && ($prop['type'] ?? NULL) === 'menu') {
+        $vars[(string) $name] = TRUE;
+      }
+    }
+    if (!$vars) {
+      return [];
+    }
+    preg_match_all(
+      '/\{%-?\s*for\s+(?:\w+\s*,\s*)?(\w+)\s+in\s+([\w.]+)/',
+      $twig,
+      $loops,
+      PREG_SET_ORDER,
+    );
+    preg_match_all(
+      '/\{%-?\s*macro\s+(\w+)\s*\(([^)]*)\)/',
+      $twig,
+      $macros,
+      PREG_SET_ORDER,
+    );
+    // Bounded by the number of facts that can be learned: every pass either
+    // adds a variable or stops.
+    do {
+      $before = count($vars);
+      foreach ($loops as $loop) {
+        if (isset($vars[explode('.', $loop[2])[0]])) {
+          $vars[$loop[1]] = TRUE;
+        }
+      }
+      foreach ($macros as $macro) {
+        $params = array_values(array_filter(array_map(
+          static fn (string $p): string => trim(explode('=', $p)[0]),
+          explode(',', $macro[2]),
+        )));
+        if (!$params) {
+          continue;
+        }
+        $call = '/\.' . preg_quote($macro[1], '/') . '\s*\(\s*([\w.]+)/';
+        if (!preg_match_all($call, $twig, $args)) {
+          continue;
+        }
+        foreach ($args[1] as $arg) {
+          if (isset($vars[explode('.', $arg)[0]])) {
+            $vars[$params[0]] = TRUE;
+          }
+        }
+      }
+    } while (count($vars) > $before);
+    return array_keys($vars);
   }
 
   /**

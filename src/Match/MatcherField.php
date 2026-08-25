@@ -153,7 +153,12 @@ final class MatcherField extends MatcherBase {
       // Get the final entity.
       $finalEntity = $this->getEntity($entity, $key, $published, $cacheableMetadata);
       if ($finalEntity) {
-        return $this->getDynamicEntityValues($finalEntity, $property, $subProperty);
+        return $this->getDynamicEntityValues(
+          $finalEntity,
+          $property,
+          $subProperty,
+          $cacheableMetadata,
+        );
       }
       return NULL;
     }
@@ -341,7 +346,7 @@ final class MatcherField extends MatcherBase {
    * in a select input or similar UI component. The options are grouped by
    * their respective group names, with each group's name capitalized.
    *
-   * @param ComponentShapePluginInterface $shape
+   * @param \Drupal\neo_alchemist\Shape\ComponentShapePluginInterface $shape
    *   The component shape plugin interface instance for which matches are to be
    *   retrieved.
    * @param string|null $entityTypeId
@@ -894,7 +899,7 @@ final class MatcherField extends MatcherBase {
    *
    * @param \Drupal\Core\Entity\TypedData\EntityDataDefinitionInterface $entityDataDefinition
    *   The entity data definition.
-   * @param ComponentShapePluginInterface $shape
+   * @param \Drupal\neo_alchemist\Shape\ComponentShapePluginInterface $shape
    *   The component shape plugin.
    *
    * @return \Drupal\Core\Field\FieldDefinitionInterface[]
@@ -1026,6 +1031,8 @@ final class MatcherField extends MatcherBase {
    *   The property to retrieve.
    * @param string|null $subProperty
    *   (optional) The sub-property to retrieve.
+   * @param \Drupal\Core\Cache\CacheableMetadata|null $cacheableMetadata
+   *   (optional) Cacheable metadata to attach to the value.
    *
    * @return array
    *   The value of the specified entity definition property.
@@ -1034,6 +1041,7 @@ final class MatcherField extends MatcherBase {
     EntityInterface $entity,
     string $property,
     ?string $subProperty = NULL,
+    ?CacheableMetadata $cacheableMetadata = NULL,
   ): array {
     return match ($property) {
       'label' => [$entity->label()],
@@ -1049,7 +1057,11 @@ final class MatcherField extends MatcherBase {
         $icon = neo_icon_entity($entity, $labelOverride)->getIcon();
         return [$icon?->getName() ?? ''];
       })(),
-      'link' => $this->getEntityDefinitionLink($entity, $subProperty),
+      'link' => $this->getEntityDefinitionLink(
+        $entity,
+        $subProperty,
+        $cacheableMetadata,
+      ),
       default => [],
     };
   }
@@ -1114,24 +1126,47 @@ final class MatcherField extends MatcherBase {
    * checks if the URL is accessible, and then constructs a link definition
    * array containing the title and URI.
    *
+   * A denied `canonical` is reported rather than erased: the value comes back
+   * with `access` FALSE so a component can still render the item, unlinked —
+   * the same contract UrlShapeTrait::getFieldItemValue() gives every link
+   * field, and the one every `{% if x and x.access %}` template is written
+   * for. Erasing it instead removed the item wholesale, because
+   * ChildrenMatchMapper drops a row whose every mapped shape came back empty.
+   *
+   * Every other link template still erases on denial. Their URI names an admin
+   * route the visitor may not act on, so putting it in the markup would leak a
+   * path and the entity's existence for nothing anyone could use.
+   *
    * @param \Drupal\Core\Entity\ContentEntityInterface $entity
    *   The content entity for which the link is being generated.
    * @param string $property
    *   The property of the entity for which the URL is generated
    *   (e.g., 'canonical').
+   * @param \Drupal\Core\Cache\CacheableMetadata|null $cacheableMetadata
+   *   (optional) Cacheable metadata to attach the access result to. Without
+   *   it the decision below is baked into a render cache with no context to
+   *   vary on, and one audience's answer is served to another.
    *
    * @return array
    *   An associative array containing:
    *   - 'title': The title of the link.
    *   - 'uri': The URI string of the link.
    *   - 'options': An empty array for additional options (currently unused).
+   *   - 'access': Whether the visitor may follow the link.
+   *   Empty when there is no URL, or when a non-canonical link is denied.
    */
   private function getEntityDefinitionLink(
     ContentEntityInterface $entity,
     string $property,
+    ?CacheableMetadata $cacheableMetadata = NULL,
   ): array {
     $url = $entity->isNew() ? Url::fromRoute('<front>') : $entity->toUrl($property);
-    if (!$url || !$url->access()) {
+    if (!$url) {
+      return [];
+    }
+    $access = $url->access(NULL, TRUE);
+    $cacheableMetadata?->addCacheableDependency($access);
+    if ($property !== 'canonical' && !$access->isAllowed()) {
       return [];
     }
     $titleReplacements = ['-', '_', '.'];
@@ -1147,10 +1182,14 @@ final class MatcherField extends MatcherBase {
     if ($icon = $this->adminIcon($title)->getIcon()) {
       $options['attributes']['data-icon'] = $icon->getName();
     }
+    // `title` stays first. HeadingValue::getEntityFieldValue() collapses a
+    // match with `while (is_array($value)) $value = reset($value)`, so an
+    // `access` key ahead of it would resolve every bound heading to ''.
     return [
       'title' => $title,
       'uri' => $url->toUriString(),
       'options' => $options,
+      'access' => $access->isAllowed(),
     ];
   }
 

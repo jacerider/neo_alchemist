@@ -384,6 +384,104 @@ final class ComponentTwigLinterTest extends UnitTestCase {
   }
 
   /**
+   * An href built with no `.access` guard open above it is reported.
+   */
+  public function testUnguardedLinkAccessIsReported(): void {
+    $twig = '{% if item.link %}<a href="{{ neo_uri(item.link.uri) }}">x</a>{% endif %}';
+    $this->assertSame(['item.link'], $this->linter->unguardedLinkAccess($twig));
+  }
+
+  /**
+   * The guard clears the check whichever branch of the condition builds it.
+   */
+  public function testGuardedLinkAccessIsNotReported(): void {
+    $twig = '{% if item.link and item.link.access %}<a href="{{ neo_uri(item.link.uri) }}">x</a>{% endif %}';
+    $this->assertSame([], $this->linter->unguardedLinkAccess($twig));
+  }
+
+  /**
+   * The `{% set href = … %}` idiom is read like an inline anchor.
+   */
+  public function testUnguardedLinkAccessReadsSetExpressions(): void {
+    $twig = '{% set href = item.link.uri ? neo_uri(item.link.uri) : null %}{% if href %}<a href="{{ href }}">x</a>{% endif %}';
+    $this->assertSame(['item.link'], $this->linter->unguardedLinkAccess($twig));
+
+    $guarded = '{% set href = (item.link.access and item.link.uri) ? neo_uri(item.link.uri) : null %}';
+    $this->assertSame([], $this->linter->unguardedLinkAccess($guarded));
+  }
+
+  /**
+   * Guarding one loop does not excuse another that goes bare.
+   *
+   * The shape a file-wide search would clear, and the reason the check walks
+   * the open-condition stack instead.
+   */
+  public function testUnguardedLinkAccessIsScopedToTheOpenGuards(): void {
+    $twig = <<<'TWIG'
+      {% for item in links %}
+        {% if item.link %}<a href="{{ neo_uri(item.link.uri) }}">x</a>{% endif %}
+      {% endfor %}
+      {% for item in items %}
+        {% if item.link and item.link.access %}<a href="{{ neo_uri(item.link.uri) }}">y</a>{% endif %}
+      {% endfor %}
+      TWIG;
+    $this->assertSame(['item.link'], $this->linter->unguardedLinkAccess($twig));
+  }
+
+  /**
+   * An {% else %} branch is not covered by the condition it hangs off.
+   */
+  public function testUnguardedLinkAccessIgnoresTheElseBranch(): void {
+    $twig = '{% if item.link.access %}<span>x</span>{% else %}<a href="{{ neo_uri(item.link.uri) }}">x</a>{% endif %}';
+    $this->assertSame(['item.link'], $this->linter->unguardedLinkAccess($twig));
+  }
+
+  /**
+   * A guard opened further out still counts once nested conditions intervene.
+   */
+  public function testUnguardedLinkAccessSeesOuterGuards(): void {
+    $twig = '{% if item.link.access %}{% if item.icon %}<a href="{{ neo_uri(item.link.uri) }}">x</a>{% endif %}{% endif %}';
+    $this->assertSame([], $this->linter->unguardedLinkAccess($twig));
+  }
+
+  /**
+   * Menu items are access-filtered before render, so they need no guard.
+   */
+  public function testMenuLinksAreExemptFromTheAccessGuard(): void {
+    $twig = '{% for item in nav %}<a href="{{ neo_uri(item.url.uri) }}">x</a>{% endfor %}';
+    $props = ['nav' => ['type' => 'menu']];
+    // Without the prop map there is nothing to exempt against.
+    $this->assertSame(['item.url'], $this->linter->unguardedLinkAccess($twig));
+    $this->assertSame([], $this->linter->unguardedLinkAccess($twig, $props));
+  }
+
+  /**
+   * The exemption follows a menu into nested levels and recursive macros.
+   */
+  public function testMenuExemptionFollowsNestingAndMacros(): void {
+    $nested = '{% for col in links %}{% for link in col.below %}<a href="{{ neo_uri(link.url.uri) }}">x</a>{% endfor %}{% endfor %}';
+    $macro = '{% macro nav(items, level) %}{% for item in items %}<a href="{{ neo_uri(item.url.uri) }}">x</a>{{ menus.nav(item.below, level + 1) }}{% endfor %}{% endmacro %}{{ menus.nav(links, 0) }}';
+    $props = ['links' => ['type' => 'menu']];
+    $this->assertSame([], $this->linter->unguardedLinkAccess($nested, $props));
+    $this->assertSame([], $this->linter->unguardedLinkAccess($macro, $props));
+  }
+
+  /**
+   * A menu prop does not excuse an unrelated link prop in the same template.
+   */
+  public function testMenuExemptionDoesNotCoverSiblingLinkProps(): void {
+    $twig = '{% for item in nav %}<a href="{{ neo_uri(item.url.uri) }}">x</a>{% endfor %}'
+      . '{% if card.link %}<a href="{{ neo_uri(card.link.uri) }}">y</a>{% endif %}';
+    $this->assertSame(
+      ['card.link'],
+      $this->linter->unguardedLinkAccess($twig, [
+        'nav' => ['type' => 'menu'],
+        'card' => ['type' => 'object'],
+      ]),
+    );
+  }
+
+  /**
    * Returns the findings matching a check id.
    *
    * @param array $findings

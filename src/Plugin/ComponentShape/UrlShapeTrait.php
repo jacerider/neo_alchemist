@@ -70,7 +70,13 @@ trait UrlShapeTrait {
       $item = $this->fieldItem;
       $value = $item->getValue();
       try {
-        $value['access'] = $item->getUrl()->access();
+        // As an object, so the decision carries its cache contexts. This is
+        // the authoritative access check for every link on the site, and it
+        // chooses between an <a> and a plain wrapper — cached with no context
+        // to vary on, an editor's answer is served to anonymous.
+        $access = $item->getUrl()->access(NULL, TRUE);
+        $this->addCacheableDependency($access);
+        $value['access'] = $access->isAllowed();
       }
       catch (\Throwable $e) {
         // Url::fromUri() may TypeError when the underlying uri is not a string

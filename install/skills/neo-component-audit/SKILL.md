@@ -132,10 +132,10 @@ judge the result.
 **Everything else the lint reports is a defect** and should be fixed:
 `legacy_section_carrier`, `channel_aware_inner_spacing`, `unguarded_heading_title`,
 `mismatched_tag_condition`, `addclass_multi_arg`, `non_collapsing_surface`,
-`orphan_content_token`, `href_without_target`, `dynamic_classes`,
-`undeclared_var`.
+`orphan_content_token`, `href_without_target`, `unguarded_link_access`,
+`dynamic_classes`, `undeclared_var`.
 
-Two worth expanding, because the fix is not obvious from the message:
+Three worth expanding, because the fix is not obvious from the message:
 
 - **`orphan_content_token`** — a `-content` token is the contrast-picked
   foreground for *its own* surface. `text-base-900-content` over `bg-accent-900`
@@ -145,6 +145,17 @@ Two worth expanding, because the fix is not obvious from the message:
   pixels as `bg-default` but are deliberately excluded from seam collapsing, so
   two adjacent sections keep a doubled gap that looks like a spacing bug. Use
   `bg-default`.
+- **`unguarded_link_access`** — a `link`/`url` value carries `access`: whether
+  *this* visitor may follow the URI. It is FALSE for an unpublished node, a user
+  profile an anonymous visitor may not see, a media entity with standalone URLs
+  off. A dynamic entity link (`_entity:link:canonical`) **reports** that denial
+  rather than resolving to nothing, so a template that builds an href on `.uri`
+  alone links the visitor into a 403 where it once rendered nothing at all.
+  The fix widens the guard — `{% if x and x.access %}`, with a non-link wrapper
+  in the `{% else %}` — it is never to drop the link, because `access` FALSE
+  still carries a title worth rendering. That is the whole point: the item
+  shows, the anchor does not. Menu-fed props are exempt and not reported;
+  `MenuValue` access-filters the tree before it reaches Twig.
 
 ## Step 4 — migrate pre-`gap` carriers
 
