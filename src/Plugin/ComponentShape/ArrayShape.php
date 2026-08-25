@@ -620,8 +620,18 @@ class ArrayShape extends ChildrenShapeBase implements ComponentShapeInterablePlu
         $newValue[$newDelta] = $value;
         foreach ($value as $name => $val) {
           $from = $options->childKey($name, $delta);
-          if (isset($values['options'][$from])) {
-            $newOptions[$options->childKey($name, $newDelta)] = $values['options'][$from];
+          $to = $options->childKey($name, $newDelta);
+          if (isset($originalOptions[$from])) {
+            $newOptions[$to] = $originalOptions[$from];
+          }
+          // A row's descendants are keyed beneath it, so their options move
+          // with it too. Without this a heading's per-sub-prop options stay
+          // pinned to the position the row was dragged away from.
+          $prefix = $from . '~';
+          foreach ($originalOptions as $key => $option) {
+            if (str_starts_with((string) $key, $prefix)) {
+              $newOptions[$to . '~' . substr((string) $key, strlen($prefix))] = $option;
+            }
           }
         }
       }

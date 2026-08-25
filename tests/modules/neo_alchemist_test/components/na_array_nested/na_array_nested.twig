@@ -1,0 +1,10 @@
+{#
+  Minimal on purpose. The suite asserts against shape ids and resolved values,
+  not markup — this template only exists so the component can be rendered end
+  to end when a test wants to prove a row's value survives into Twig.
+#}
+<div{{ attributes }}>
+  {% for item in items %}
+    <span class="na-item" data-label="{{ item.label }}">{{ item.heading.title }}</span>
+  {% endfor %}
+</div>

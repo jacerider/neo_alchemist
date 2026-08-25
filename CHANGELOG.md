@@ -1,5 +1,43 @@
 # Changelog
 
+## A row's delta reaches every shape beneath it
+
+Shape ids joined the flat name path and appended only the shape's *own* delta. A shape two
+levels under an iterable holds none — an object builds its children without one — so the title
+inside every row of a list was the same `items~heading~title`. Everything keyed by id collapsed
+with it: `getAllShapes()` merges with `+=` and kept row 0 alone, `prepForm()` gave every row one
+`previous_value` slot, and the editor stamped one `data-neo-prop` across every row's field, so
+hovering the third card in the preview focused the first card's input.
+
+Ids are now composed from the parent's, which leaves each ancestor's delta at its own depth —
+`items~heading~1~title`. That is the key `NestedOptionMap::childKey()` has always written, so the
+read side finally agrees with the write side; it is also what keeps a shape's id a prefix of its
+descendants', which the preview's coarse-to-fine highlight depends on.
+
+`getNestedTitle()` walks the ancestors the same way, so a sub-prop of a row is labelled
+"Items 3 …: Title: Title" rather than being one of five identical "Items: Title: Title".
+
+**The delta-free id — `id(TRUE)` — is byte-identical to before.** That is what addresses the
+config side: the `expression` string, `settings.props.*.plugins` and `.expanded`, the prop form's
+tabs, `FieldSelect`'s `#shape`. No component config moves. Three lookups that compared the
+*full* id against those delta-free keys now compare the delta-free one, which they always meant:
+`isExpanded()`, `allowConfigurablePlugins()`, and the stored plugin list in
+`getValueCollection()` — the last of which, as a consequence, also lets a shape rendering one of
+an iterable's rows find the value plugins configured for it, which it silently missed before.
+
+### Options saved under the old key still apply
+
+Per-shape empty/default/access options live in content (the component tree field's `props`
+column) and in config (field defaults, the `default` value provider), keyed by shape id. Anything
+saved for a sub-prop inside a row landed on the delta-free key. `initOptions()` reads that key as
+a fallback whenever a delta is in play, so every row resolves to the value it had when they
+shared one — no update hook, and nothing to migrate. The next save writes per-row keys and leaves
+the old one behind as an orphan; that is expected rather than a bug.
+
+Row reordering now carries a row's descendants with it. `ArrayShape::massageFinalValues()`
+remapped option keys for direct children only, so a heading's per-sub-prop options would have
+stayed pinned to the position a dragged row left behind.
+
 ## Preview hover targets follow content, not style
 
 Hovering the preview highlights the form field behind what you are pointing at. Style props

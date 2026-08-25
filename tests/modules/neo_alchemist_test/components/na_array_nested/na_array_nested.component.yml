@@ -1,0 +1,39 @@
+$schema: 'https://git.drupalcode.org/project/drupal/-/raw/10.1.x/core/modules/sdc/src/metadata.schema.json'
+name: 'NA array nested fixture'
+description: >
+  An array of objects whose child is itself a structured object (a heading),
+  so a shape sits two levels below the iterable. That is the depth at which a
+  row's delta used to be lost: `items~heading~title` was the same id for every
+  row, collapsing them onto one entry in getAllShapes(), one form_state slot
+  and one form field.
+
+  The per-row titles are distinct sentinels so a test can tell which row an id
+  or a label belongs to.
+status: stable
+neo: true
+props:
+  type: object
+  properties:
+    items:
+      type: array
+      title: Items
+      examples:
+        -
+          label: 'ROW LABEL 0'
+          heading:
+            title: 'ROW TITLE 0'
+        -
+          label: 'ROW LABEL 1'
+          heading:
+            title: 'ROW TITLE 1'
+      items:
+        type: object
+        title: Item
+        properties:
+          label:
+            type: string
+            title: Label
+            examples: 'EXAMPLE LABEL'
+          heading:
+            type: heading
+            title: Heading

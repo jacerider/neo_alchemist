@@ -378,7 +378,22 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
    * {@inheritDoc}
    */
   public function id(bool $ignoreDelta = FALSE): string {
-    $id = implode('~', $this->getNestedPath());
+    // Composed from the parent's id rather than from the flat name path, so
+    // an ancestor's delta stays where it belongs — mid-path — instead of
+    // being lost. Only the shape holding the delta used to contribute one,
+    // and a shape nested below one of an iterable's rows holds none: every
+    // row's `items~title~title` was the same string, so five rows collided
+    // onto one id in getAllShapes(), one form_state slot and one form field.
+    //
+    // This is the key NestedOptionMap::childKey() has always built, so the
+    // read side now agrees with the write side. It also keeps the id a
+    // prefix of its descendants' — `items~title~0` prefixes
+    // `items~title~0~title` — which the preview's coarse-to-fine highlight
+    // relies on.
+    $parent = $this->getParentShape();
+    $id = $parent
+      ? $parent->id($ignoreDelta) . '~' . $this->getName()
+      : $this->getName();
     if (!$ignoreDelta) {
       $delta = $this->getDelta();
       if ($delta !== NULL) {
@@ -569,9 +584,12 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
   protected function initOptions(): self {
     $logMessage = 'Set by initOptions() in shape.';
     $options = $this->getOptions($this->id());
-    if (!$options && $this->getDelta() !== NULL) {
-      // When a delta is set, we also check for options stored without the
-      // delta.
+    if (!$options && $this->id() !== $this->id(TRUE)) {
+      // Whenever a delta is in play — this shape's own, or an ancestor's —
+      // also check for options stored without one. That covers rows sharing a
+      // configured option, and it is what reads options saved before ids
+      // carried an ancestor's delta: those landed on the delta-free key, so
+      // every row still resolves to the value it had.
       $options = $this->getOptions($this->id(TRUE)) + $options;
     }
     if ($options) {
@@ -1050,21 +1068,27 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
    * {@inheritDoc}
    */
   public function getNestedTitle($includeRoot = TRUE): string {
-    $titles = array_map(fn($parent) => (string) $parent->getTitle(), $this->parents);
-    $delta = $this->getDelta();
-    if ($delta !== NULL && $titles) {
-      // The delta is stored on this shape but identifies a row of the iterable
-      // that owns it, so the index belongs on the parent's segment. Without it
-      // every region in an array prop renders the same label ("Items: Region")
-      // in the layout editor's breadcrumb and overlay, leaving sibling regions
-      // indistinguishable.
-      $index = array_key_last($titles);
-      $titles[$index] .= ' ' . ($delta + 1);
-      if ($label = $this->getDeltaLabel($delta)) {
-        $titles[$index] .= ' "' . $label . '"';
+    // Walked ancestor by ancestor rather than read off this shape alone. A
+    // delta is stored on the shape that is one of the iterable's rows, but it
+    // identifies the row, so the index belongs on the segment *before* it —
+    // and the shape carrying it may be an ancestor rather than this one.
+    // Without the walk every sub-prop of a row renders the same label
+    // ("Items: Title: Title") in the layout editor's breadcrumb, the overlay
+    // and the preview's hover label, leaving sibling rows indistinguishable.
+    $titles = [];
+    foreach (array_merge($this->parents, [$this]) as $shape) {
+      $delta = $shape instanceof self ? $shape->getDelta() : NULL;
+      if ($delta !== NULL && $titles) {
+        $index = array_key_last($titles);
+        $titles[$index] .= ' ' . ($delta + 1);
+        // Asked of the shape holding the delta: its own parent is the
+        // iterable, which is the assumption getDeltaLabel() is written to.
+        if ($label = $shape->getDeltaLabel($delta)) {
+          $titles[$index] .= ' "' . $label . '"';
+        }
       }
+      $titles[] = (string) $shape->getTitle();
     }
-    $titles[] = (string) $this->getTitle();
     if (!$includeRoot) {
       array_shift($titles);
     }
@@ -1197,14 +1221,14 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
       if ($this->isIterable()) {
         return TRUE;
       }
-      return !in_array($this->id(), $expanded);
+      return !in_array($this->id(TRUE), $expanded);
     }
     // If the shape is expanded, it does not allow plugins.
     if ($this->isExpanded() || $this->isExpandable()) {
       return FALSE;
     }
     $parentShapes = $this->getParentShapes();
-    foreach ($parentShapes as $id => $shape) {
+    foreach ($parentShapes as $shape) {
       // If shape belongs to a parent that support expansion but does not allow
       // it, we do not allow plugins.
       if ($shape->supportsExpansion() && !$shape->isExpandable()) {
@@ -1213,9 +1237,10 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
     }
     // After we have searched parent shapes for expandable support, we now
     // can assume that any shape that has a parent in the expanded list is
-    // expanded.
-    foreach ($parentShapes as $id => $shape) {
-      if (in_array($id, $expanded)) {
+    // expanded. Matched on the delta-free id, since that is what the expanded
+    // list holds — the array keys carry each parent's delta.
+    foreach ($parentShapes as $shape) {
+      if (in_array($shape->id(TRUE), $expanded)) {
         return TRUE;
       }
     }
@@ -1236,7 +1261,11 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
     if (!isset($this->valueCollection)) {
       $configurations = [];
       $plugins = $this->getPlugins();
-      $stored = $plugins[$this->id()] ?? [];
+      // Plugin config is authored against the delta-free tree, so a shape
+      // rendering one of an iterable's rows finds it under the delta-free id.
+      // Both are tried: the exact id first, in case a caller ever configures
+      // one row on its own.
+      $stored = $plugins[$this->id()] ?? $plugins[$this->id(TRUE)] ?? [];
       $definitions = $this->valueManager->getFilteredDefinitionsFromShape($this);
       // Order the plugins by group first, then within each group. The group
       // states the role a plugin plays, and the processing loops walk this one
@@ -1332,7 +1361,10 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
    *   TRUE if the component shape is expanded, FALSE otherwise.
    */
   protected function isExpanded(): bool {
-    return $this->isExpandable() && in_array($this->id(), $this->getExpanded());
+    // The expanded list is authored against the delta-free tree, so it is
+    // matched with the delta-free id — a shape does not stop being expanded
+    // because it is rendering one of an iterable's rows.
+    return $this->isExpandable() && in_array($this->id(TRUE), $this->getExpanded());
   }
 
   /**

@@ -24,15 +24,23 @@ interface ComponentShapeIdentityInterface {
   public function label(): string;
 
   /**
-   * Retrieves the nested ID by concatenating the elements of the parent path.
+   * The shape's address: its parent's id, its own name, and its delta.
    *
-   * Each parent ID is separated by a period (.).
+   * Segments are joined with a tilde, and a delta follows the name of the
+   * shape that is one of an iterable's rows — so a heading in the second row
+   * of `items` is `items~heading~1` and its own title is
+   * `items~heading~1~title`. Each ancestor's delta therefore sits at its own
+   * depth rather than all of them collecting at the end, which keeps a
+   * shape's id a prefix of every descendant's.
    *
    * @param bool $ignoreDelta
-   *   Whether to ignore the delta when generating the ID.
+   *   Drop every delta, this shape's and its ancestors' alike, leaving the
+   *   pure name path (`items~heading~title`). This is the structural address
+   *   the config side uses — the `expression` string, the saved plugin and
+   *   expansion settings, the prop form's tabs — none of which vary by row.
    *
    * @return string
-   *   The concatenated parent ID.
+   *   The shape id.
    */
   public function id(bool $ignoreDelta = FALSE): string;
 

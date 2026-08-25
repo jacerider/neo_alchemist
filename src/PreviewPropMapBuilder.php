@@ -17,11 +17,11 @@ use Drupal\Core\Template\Attribute;
  * links) is matched heuristically in the iframe against the hints collected
  * here — nothing is ever injected into the rendered markup itself.
  *
- * Hint paths are joined with `~` to shape ids (nested path with the owning
- * row's delta appended last, matching ComponentShapePluginBase::id()), so a
- * hint that has no shape of its own attaches to its closest owning shape —
- * a link's `title` text lands on the link prop, an image's `alt` on the
- * image prop.
+ * Hint paths are joined with `~` to shape ids (the nested path with each
+ * owning row's delta at its own depth, matching
+ * ComponentShapePluginBase::id()), so a hint that has no shape of its own
+ * attaches to its closest owning shape — a link's `title` text lands on the
+ * link prop, an image's `alt` on the image prop.
  */
 final class PreviewPropMapBuilder {
 
@@ -85,14 +85,19 @@ final class PreviewPropMapBuilder {
    *   The non-numeric key path from the prop root.
    * @param int|null $delta
    *   The nearest enclosing iterable row index, if any.
+   * @param int|null $deltaDepth
+   *   Where that delta sits in a shape id: the number of path segments before
+   *   it. A row's delta follows the array child's own segment, so the shape
+   *   holding it is `items~title~0` and its own children are
+   *   `items~title~0~title` — a depth of 2 for a path rooted at `items`.
    */
-  private static function walk(array &$shapes, mixed $value, array $namePath, ?int $delta): void {
+  private static function walk(array &$shapes, mixed $value, array $namePath, ?int $delta, ?int $deltaDepth = NULL): void {
     if ($value instanceof Attribute) {
       // Presentational; already stamped server-side.
       return;
     }
     if (is_string($value) || $value instanceof MarkupInterface) {
-      static::addHint($shapes, $namePath, $delta, 'text', trim(strip_tags((string) $value)));
+      static::addHint($shapes, $namePath, $delta, $deltaDepth, 'text', trim(strip_tags((string) $value)));
       return;
     }
     if (!is_array($value)) {
@@ -110,20 +115,23 @@ final class PreviewPropMapBuilder {
     // Keys that identify the composite value itself rather than a child.
     if (isset($value['src']) && is_string($value['src'])) {
       $basename = basename(parse_url($value['src'], PHP_URL_PATH) ?: '');
-      static::addHint($shapes, $namePath, $delta, 'src', $basename);
+      static::addHint($shapes, $namePath, $delta, $deltaDepth, 'src', $basename);
     }
     foreach (['uri', 'url'] as $key) {
       if (isset($value[$key]) && is_string($value[$key])) {
-        static::addHint($shapes, $namePath, $delta, 'href', static::normalizeHref($value[$key]));
+        static::addHint($shapes, $namePath, $delta, $deltaDepth, 'href', static::normalizeHref($value[$key]));
       }
     }
 
     foreach ($value as $key => $item) {
       if (is_int($key)) {
-        static::walk($shapes, $item, $namePath, $key);
+        // Descending into a row: the delta belongs one segment further in
+        // than the path reached here, since the shape that holds it is the
+        // array's child rather than the array itself.
+        static::walk($shapes, $item, $namePath, $key, count($namePath) + 1);
       }
       else {
-        static::walk($shapes, $item, array_merge($namePath, [(string) $key]), $delta);
+        static::walk($shapes, $item, array_merge($namePath, [(string) $key]), $delta, $deltaDepth);
       }
     }
   }
@@ -131,11 +139,12 @@ final class PreviewPropMapBuilder {
   /**
    * Attaches a hint to the closest shape owning the walked path.
    *
-   * Tries the delta-suffixed id first (deltas sit last on shape ids), then
-   * the bare id, then strips trailing path segments — so hints for value
-   * keys that are not shapes of their own climb to their owning shape.
+   * Tries the id with the row's delta woven in at its own depth first, then
+   * with it appended, then the bare id, then strips trailing path segments —
+   * so hints for value keys that are not shapes of their own climb to their
+   * owning shape.
    */
-  private static function addHint(array &$shapes, array $namePath, ?int $delta, string $type, ?string $hint): void {
+  private static function addHint(array &$shapes, array $namePath, ?int $delta, ?int $deltaDepth, string $type, ?string $hint): void {
     if ($hint === NULL || $hint === '' || mb_strlen($hint) > self::MAX_TEXT_HINT_LENGTH) {
       return;
     }
@@ -143,6 +152,15 @@ final class PreviewPropMapBuilder {
     while ($path) {
       $candidates = [];
       if ($delta !== NULL) {
+        if ($deltaDepth !== NULL && count($path) > $deltaDepth) {
+          // Deeper than the row itself, so the delta sits mid-path:
+          // `items~title~0~title`, not `items~title~title~0`.
+          $spliced = $path;
+          array_splice($spliced, $deltaDepth, 0, [(string) $delta]);
+          $candidates[] = implode('~', $spliced);
+        }
+        // At or above the row's own depth, weaving in and appending are the
+        // same string — and this is what the row's own shape id looks like.
         $candidates[] = implode('~', $path) . '~' . $delta;
       }
       $candidates[] = implode('~', $path);

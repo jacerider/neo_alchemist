@@ -832,9 +832,10 @@
      * The form wrapper for a prop id, one trailing ~segment coarser on miss.
      *
      * Preview and form both carry the shape id verbatim in data-neo-prop, so
-     * an exact hit covers deltas (items~heading~0); stripping handles
-     * hint-only ids whose child has no wrapper of its own (heading~title →
-     * heading).
+     * an exact hit covers rows, whose delta sits at its own depth in the id
+     * (items~heading~1~title reaches that row's field and no other);
+     * stripping handles hint-only ids whose child has no wrapper of its own
+     * (heading~title → heading).
      */
     function resolvePropWrapper(propId: string): HTMLElement | null {
       if (!form) {
