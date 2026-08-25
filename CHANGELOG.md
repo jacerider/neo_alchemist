@@ -1,6 +1,41 @@
 # Changelog
 
-## Editor-session state moves behind stores — BREAKING for external draft and preview-state callers
+## Preview hover targets follow content, not style
+
+Hovering the preview highlights the form field behind what you are pointing at. Style props
+used to take part in that, and on any component that merges its reveal onto a content
+wrapper — the documented `apply: false` animation pattern — the result was that one wrapper
+swallowed the whole component: every hover landed on an animation field rather than the
+heading, image or link under the cursor. Worse, it landed on the *wrong* animation field.
+`Attribute::merge()` deep-merges `toArray()` and the annotation is a scalar, so a chained
+`animate.merge(animate_speed).merge(animate_delay).merge(animate_stagger)` kept only the last
+id, leaving the other three unreachable from the preview in either direction.
+
+**Style shapes are no longer annotated.** A style attribute decorates an element rather than
+owning it, and Twig prints it wherever the classes are needed, so it is not a reliable
+statement about what that element *is*. Preview DOM now maps to fields through
+`PreviewPropMapBuilder`'s content hints — an element's text, an image's source, a link's href
+— which point at the prop an editor actually means. Hovering a card selects its Image, Title
+or Link; hovering section padding or a grid gutter selects nothing, and the animation fields
+stay where they belong, in the form.
+
+This applies to every `ComponentShapeStylePluginInterface` implementation — `StyleShape`
+(the `animate*`, `spacing`, `gap`, `button_style` and heading `size` props among them),
+`SchemeShape` and `ImageSize`. The annotation seam itself is unchanged for any other
+`Attribute`-carrying shape.
+
+### The SDC preview workspace gets a prop map
+
+`/admin/config/neo/alchemist/preview/{component}` never attached one, so it had no content
+hints and no hover labels at all — only the server-annotated elements were targets, which is
+why a wrapper annotation dominated it so completely. `SdcPreviewController` now attaches the
+same `drupalSettings.neoAlchemist.propMap` the field-editor preview has always had.
+
+That workspace can also render neighbor components above and below the previewed one, and the
+iframe's index was document-wide: it scoped hints to the *first* `[data-neo-component]` it
+found, which is the neighbor above, and marked annotated elements without scoping at all. It
+now scopes both to the uuid the prop map names, so neighbors are inert and cannot claim a
+hint from the component the form is editing.
 
 Editor state — the collaborative layout draft, the per-user live form buffer, and the SDC
 preview workspace's prop overrides — used to be reachable directly through public methods on

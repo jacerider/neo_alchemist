@@ -12,14 +12,16 @@ use PHPUnit\Framework\Attributes\Group;
 /**
  * Editor-preview prop annotation never reaches live markup.
  *
- * The single-component editor stamps `data-neo-prop="<shape id>"` on every
- * Attribute-carrying prop render value so the preview iframe can map its DOM
+ * The single-component editor stamps `data-neo-prop="<shape id>"` on
+ * Attribute-carrying prop render values so the preview iframe can map its DOM
  * back to the form's fields (which carry the same id from
- * ComponentShapePluginBase::getForm()). The stamp is gated on
- * Component::isEditorPreview() — instance or component preview only. The
- * regression that matters is the gate leaking: an editor-only annotation in
- * production markup, or in the page-builder canvas whose overlay system has
- * its own vocabulary.
+ * ComponentShapePluginBase::getForm()). Style shapes are excluded — see
+ * testInstancePreviewDoesNotStampStyleValues() — so in practice the fixture
+ * here, whose only Attribute value is the heading's `size`, carries no stamp
+ * at all. The stamp is gated on Component::isEditorPreview() — instance or
+ * component preview only. The regression that matters is the gate leaking: an
+ * editor-only annotation in production markup, or in the page-builder canvas
+ * whose overlay system has its own vocabulary.
  *
  * The companion `data-neo-component` root stamp lives in toRenderable(),
  * which in preview mode stands up a placeholder target entity the minimal
@@ -105,15 +107,23 @@ class PreviewPropAnnotationTest extends KernelTestBase {
   }
 
   /**
-   * Instance preview stamps the shape id on Attribute render values.
+   * Style shapes are never stamped, even in the editor preview.
+   *
+   * A style attribute decorates an element rather than owning it, and Twig
+   * prints it wherever the classes are needed — often a full-width content
+   * wrapper carrying the reveal, which would then shadow every content prop
+   * inside it. Chained merges make it worse: Attribute::merge() deep-merges
+   * toArray() and this attribute is a scalar, so `animate.merge(animate_speed)`
+   * would keep only the last id. Style DOM is mapped through
+   * PreviewPropMapBuilder's content hints instead.
    */
-  public function testInstancePreviewStampsAttributeValues(): void {
+  public function testInstancePreviewDoesNotStampStyleValues(): void {
     $component = $this->buildComponent(preview: TRUE, instancePreview: TRUE);
     $values = $component->getPropValues();
 
     $size = $values['heading']['size'] ?? NULL;
     $this->assertInstanceOf(Attribute::class, $size, 'Premise: the heading examples resolved and size is an attribute object.');
-    $this->assertStringContainsString('data-neo-prop="heading~size"', (string) $size, 'The attribute value carries its shape id for the preview target index.');
+    $this->assertNoAnnotations($values, 'props');
   }
 
   /**

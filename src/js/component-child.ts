@@ -36,6 +36,9 @@
   // markup, so a swap that changed the markup invalidates it.
   let propMap: PropMap | undefined = drupalSettings.neoAlchemist?.propMap;
   let hoverTarget: HTMLElement | null = null;
+  // The subtree the form edits; targets outside it are ignored. Reassigned by
+  // every initPropTargets() run, so an in-place refresh re-scopes with it.
+  let propScope: HTMLElement | null = null;
   let activeTargets: HTMLElement[] = [];
   let hoverOverlay: HTMLElement | null = null;
   let hoverOverlayLabel: HTMLElement | null = null;
@@ -131,13 +134,31 @@
   };
 
   /**
+   * The subtree belonging to the component the form is editing.
+   *
+   * The SDC preview can render neighbor components above and below the one
+   * being previewed, so the first [data-neo-component] in the document is not
+   * necessarily the right one — and a neighbor's markup must claim nothing,
+   * or its text steals a hint from the component the form actually edits.
+   * The prop map names the uuid; without one, fall back to the old behavior.
+   */
+  const propComponentScope = (element: HTMLElement): HTMLElement => {
+    const uuid = propMap?.component;
+    const owned = uuid
+      ? element.querySelector<HTMLElement>('[data-neo-component="' + CSS.escape(uuid) + '"]')
+      : null;
+    return owned || element.querySelector<HTMLElement>('[data-neo-component]') || element;
+  };
+
+  /**
    * Index clickable prop targets and wire the pointer delegation.
    */
   const initPropTargets = (element: HTMLElement): void => {
-    const scope = element.querySelector<HTMLElement>('[data-neo-component]') || element;
+    const scope = propComponentScope(element);
+    propScope = scope;
 
     // Authoritative targets stamped server-side.
-    element.querySelectorAll<HTMLElement>('[data-neo-prop]').forEach(el => {
+    scope.querySelectorAll<HTMLElement>('[data-neo-prop]').forEach(el => {
       el.classList.add('neo-alchemist--prop-target');
     });
 
@@ -190,17 +211,24 @@
   const resolveFromPoint = (x: number, y: number): HTMLElement | null => {
     const stack = document.elementsFromPoint(x, y) as HTMLElement[];
     for (const el of stack) {
-      if (el.matches && el.matches(targetSelector)) {
+      if (el.matches && el.matches(targetSelector) && inPropScope(el)) {
         return el;
       }
     }
     for (const el of stack) {
       const target = el.closest && el.closest<HTMLElement>(targetSelector);
-      if (target) {
+      if (target && inPropScope(target)) {
         return target;
       }
     }
     return null;
+  };
+
+  /**
+   * Whether an element belongs to the component the form edits.
+   */
+  const inPropScope = (el: HTMLElement): boolean => {
+    return !propScope || propScope === el || propScope.contains(el);
   };
 
   /**
@@ -593,7 +621,8 @@
    */
   const findPropElements = (propId: string): HTMLElement[] => {
     const matches: HTMLElement[] = [];
-    document.querySelectorAll<HTMLElement>(targetSelector).forEach(el => {
+    const root: ParentNode = propScope || document;
+    root.querySelectorAll<HTMLElement>(targetSelector).forEach(el => {
       const ids = [el.dataset.neoPropTarget, el.dataset.neoProp];
       if (ids.some(target => target && (target === propId || target.startsWith(propId + '~')))) {
         matches.push(el);

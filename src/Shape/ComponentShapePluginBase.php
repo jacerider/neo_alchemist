@@ -1840,9 +1840,22 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
     foreach ($this->getValueCollection()->getAllowedInstances('modify') as $instance) {
       $value = $instance->modifyValue($value);
     }
-    if ($value instanceof Attribute && $value !== $attributes && $this->getComponent()->isEditorPreview()) {
-      // Stamped after preRenderValue() so a style shape's merge into the
-      // shared component attributes cannot carry a child's id onto the root.
+    if ($value instanceof Attribute
+      && $value !== $attributes
+      && !$this instanceof ComponentShapeStylePluginInterface
+      && $this->getComponent()->isEditorPreview()) {
+      // Stamped after preRenderValue() so nothing a shape merged into the
+      // shared component attributes can carry a child's id onto the root.
+      //
+      // Style shapes are excluded outright: they decorate an element rather
+      // than own it. Twig prints them on whatever wrapper needs the classes —
+      // often a full-width content wrapper carrying the reveal — so stamping
+      // one turns the entire component into a hover target for a presentation
+      // prop, shadowing the content inside it. Attribute::merge() makes that
+      // worse still: it deep-merges toArray(), and this attribute is a scalar,
+      // so a chained `animate.merge(animate_speed)…` keeps only the last id.
+      // The preview maps such DOM through PreviewPropMapBuilder's content
+      // hints instead.
       $value->setAttribute('data-neo-prop', $this->id());
     }
     return $value;

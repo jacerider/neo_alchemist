@@ -10,6 +10,7 @@ use Drupal\Core\Render\BareHtmlPageRendererInterface;
 use Drupal\Core\Routing\RouteMatchInterface;
 use Drupal\neo_alchemist\ComponentPreviewBuilder;
 use Drupal\neo_alchemist\EditorState\SdcPreviewStore;
+use Drupal\neo_alchemist\PreviewPropMapBuilder;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
@@ -68,10 +69,18 @@ final class SdcPreviewController extends ControllerBase {
     if (!empty($context['above']) && ($above = $this->previewBuilder->build($context['above']))) {
       $build['component_above'] = $above->toRenderable(routeMatch: $this->routeMatch);
     }
-    $build['component'] = $entity->toRenderable(routeMatch: $this->routeMatch);
+    $renderable = $entity->toRenderable(routeMatch: $this->routeMatch);
+    $build['component'] = $renderable;
     if (!empty($context['below']) && ($below = $this->previewBuilder->build($context['below']))) {
       $build['component_below'] = $below->toRenderable(routeMatch: $this->routeMatch);
     }
+
+    // Lets the iframe map its DOM back to the workspace form's fields. Built
+    // for the previewed component only — the neighbors are context, not
+    // something this page can edit, and the iframe scopes its index to the
+    // uuid named here so their markup cannot claim a hint.
+    $build['#attached']['drupalSettings']['neoAlchemist']['propMap'] =
+      PreviewPropMapBuilder::build($entity, $renderable);
 
     $size = $request->query->get('size');
     if ($size === 'desktop') {
