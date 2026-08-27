@@ -20,6 +20,8 @@ use Drupal\neo_alchemist\Shape\ComponentShapePluginBase;
   supports_field_types: ['string_long'],
   supports_field_props: ['string_long'],
   default_plugins: ['formatted_text'],
+  text_keys: TRUE,
+  text_markup: TRUE,
 )]
 class MarkupShape extends ComponentShapePluginBase {
 

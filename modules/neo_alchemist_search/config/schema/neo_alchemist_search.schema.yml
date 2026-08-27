@@ -1,0 +1,7 @@
+neo_alchemist_search.settings:
+  type: config_object
+  label: 'Alchemist search settings'
+  mapping:
+    reindex_on_config_change:
+      type: boolean
+      label: 'Mark affected search indexes for reindexing when a component or default layout changes'

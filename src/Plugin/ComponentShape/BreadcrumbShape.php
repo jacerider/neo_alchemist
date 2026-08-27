@@ -14,6 +14,9 @@ use Drupal\neo_alchemist\Attribute\ComponentShape;
   prop: 'breadcrumb',
   label: new TranslatableMarkup('Breadcrumb'),
   default_plugins: ['breadcrumb'],
+  // Route chrome: the same trail on every entity in a section, and rebuilt
+  // from the route at render time rather than authored.
+  text_keys: FALSE,
 )]
 class BreadcrumbShape extends ArrayShape {
 

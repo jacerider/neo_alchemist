@@ -8,6 +8,7 @@ use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\neo_alchemist\Attribute\ComponentValue;
 use Drupal\neo_alchemist\Shape\ComponentShapePluginInterface;
+use Drupal\neo_alchemist\Value\ComponentValueFieldSourceInterface;
 use Drupal\neo_alchemist\Value\ComponentValuePluginBase;
 
 /**
@@ -29,7 +30,7 @@ use Drupal\neo_alchemist\Value\ComponentValuePluginBase;
   ],
   weight: 11,
 )]
-final class TokenValue extends ComponentValuePluginBase {
+final class TokenValue extends ComponentValuePluginBase implements ComponentValueFieldSourceInterface {
 
   use ComponentValueTokenTrait;
 
@@ -40,6 +41,34 @@ final class TokenValue extends ComponentValuePluginBase {
     return [
       'value' => '',
     ];
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public static function getSourceFieldKeys(array $settings): array {
+    $value = $settings['value'] ?? NULL;
+    if (!is_string($value) || $value === '') {
+      return [];
+    }
+    if (!preg_match_all('/\[([a-z0-9_]+):([a-z0-9_:-]+)\]/i', $value, $matches, PREG_SET_ORDER)) {
+      return [];
+    }
+    $keys = [];
+    foreach ($matches as $match) {
+      // The first segment after the token type names the field; anything
+      // after it is a property chain, which the matcher grammar spells with
+      // the same colon separator the token already uses.
+      $parts = explode(':', $match[2]);
+      $field = array_shift($parts);
+      // Tokens for entity metadata — title, url, author — read no field, and
+      // their values are already available to a caller by other means.
+      if (!str_starts_with($field, 'field_')) {
+        continue;
+      }
+      $keys[] = $parts === [] ? $field : $field . ':' . implode(':', $parts);
+    }
+    return array_values(array_unique($keys));
   }
 
   /**

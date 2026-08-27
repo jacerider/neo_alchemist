@@ -26,6 +26,9 @@ use Drupal\neo_alchemist\ViewsFilterTwig;
 #[ComponentShape(
   prop: 'views_filter',
   label: new TranslatableMarkup('Views filter'),
+  // Filter widgets are built from the view at render time; a stored value is
+  // an exposed filter's state, not something anyone wrote.
+  text_keys: FALSE,
 )]
 class ViewsFilterShape extends ObjectShape {
 

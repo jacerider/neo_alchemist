@@ -261,5 +261,52 @@ function hook_neo_alchemist_page_background_alter(string &$pageBg): void {
 }
 
 /**
+ * Alter the discovered component shape definitions.
+ *
+ * The standard plugin-definition alter for `neo_component_shape`, listed here
+ * because one of its uses is not obvious: the `text_keys` and `text_markup`
+ * properties of the ComponentShape attribute say which parts of a shape's
+ * value are human-readable text, and this is how a site corrects that for a
+ * shape it does not own.
+ *
+ * A shape ordinarily declares this itself, on the attribute, because which of
+ * its value keys carry words is a fact about that shape's schema. Reach for
+ * the alter when a shape from another module gets it wrong for how this site
+ * uses it.
+ *
+ * @param array $definitions
+ *   The shape definitions, keyed by shape id.
+ *
+ * @see \Drupal\neo_alchemist\Attribute\ComponentShape::$text_keys
+ */
+function hook_neo_component_shape_info_alter(array &$definitions): void {
+  // Example: this site's icon shape stores a label worth searching for,
+  // where the shipped shape treats the whole value as a machine name.
+  if (isset($definitions['icon'])) {
+    $definitions['icon']['text_keys'] = ['label'];
+  }
+}
+
+/**
+ * Alter the discovered component value definitions.
+ *
+ * The standard plugin-definition alter for `neo_component_value`.
+ *
+ * Note that which entity fields a value plugin reads is *not* set here — that
+ * is declared by the plugin class implementing
+ * ComponentValueFieldSourceInterface, because only the plugin knows what its
+ * own settings keys mean.
+ *
+ * @param array $definitions
+ *   The value plugin definitions, keyed by plugin id.
+ *
+ * @see \Drupal\neo_alchemist\Value\ComponentValueFieldSourceInterface
+ */
+function hook_neo_component_value_info_alter(array &$definitions): void {
+  // Example: hide a provider this site has no use for.
+  unset($definitions['read_time']);
+}
+
+/**
  * @} End of "addtogroup hooks".
  */

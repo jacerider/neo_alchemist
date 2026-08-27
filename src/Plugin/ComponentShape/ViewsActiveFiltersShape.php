@@ -22,6 +22,8 @@ use Drupal\neo_alchemist\ViewsActiveFiltersTwig;
 #[ComponentShape(
   prop: 'views_active_filters',
   label: new TranslatableMarkup('Views active filters'),
+  // The summary of which filters are applied — interface furniture.
+  text_keys: FALSE,
 )]
 class ViewsActiveFiltersShape extends ObjectShape {
 

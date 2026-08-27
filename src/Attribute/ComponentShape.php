@@ -43,6 +43,36 @@ final class ComponentShape extends AttributeBase {
    * @param array|null $formats
    *   (optional) The supported formats. For example:
    *   - ['textarea' => ['default_field_type' => 'string_long']].
+   * @param bool|array|null $text_keys
+   *   (optional) Which parts of this shape's value are human-readable text,
+   *   for callers that collect what a page says without rendering it — search
+   *   indexing, excerpts, summaries.
+   *
+   *   Four settings:
+   *   - NULL (the default): this shape holds no text of its own. A shape with
+   *     children still has them read, since the children answer for
+   *     themselves — that is how a plain object prop works. Style tokens,
+   *     media references, slugs, URIs, numbers and machine names all leave
+   *     this alone.
+   *   - TRUE: the whole value is text. For example: string, markup.
+   *   - An array: only these value keys are text, everything else being
+   *     structure or presentation. For example: ['title'] on a link, whose
+   *     uri and options are neither.
+   *   - FALSE: nothing here, and nothing below here either. For a shape whose
+   *     children are real enough to render but say nothing about the entity —
+   *     a breadcrumb, a views filter. Without it such a shape would be
+   *     descended into and its children, being strings and links, would
+   *     answer that they are text.
+   *
+   *   Declared here rather than inferred, because a shape's value keys are the
+   *   shape's own business and no caller can tell prose from a machine name by
+   *   looking: a heading's title and a button style are both a string under a
+   *   `value` key. Reachable from the cached plugin definition, so a caller
+   *   pays nothing to ask, and alterable through
+   *   hook_neo_component_shape_info_alter().
+   * @param bool $text_markup
+   *   (optional) Whether that text carries HTML a caller must strip before
+   *   treating it as words. Defaults to FALSE.
    * @param string|null $provider
    *   (optional) The provider.
    * @param class-string|null $deriver
@@ -59,6 +89,8 @@ final class ComponentShape extends AttributeBase {
     public readonly ?array $supports_field_types = NULL,
     public readonly ?array $supports_field_props = NULL,
     public readonly ?array $formats = NULL,
+    public readonly bool|array|null $text_keys = NULL,
+    public readonly bool $text_markup = FALSE,
     public ?string $provider = NULL,
     public readonly ?string $deriver = NULL,
   ) {}

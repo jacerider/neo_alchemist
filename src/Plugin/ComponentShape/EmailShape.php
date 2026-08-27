@@ -16,6 +16,7 @@ use Drupal\neo_alchemist\Shape\ComponentShapePluginBase;
   label: new TranslatableMarkup('Email'),
   default_field_type: 'email',
   default_field_widget: 'email_default',
+  text_keys: TRUE,
 )]
 class EmailShape extends ComponentShapePluginBase {
 

@@ -16,6 +16,7 @@ use Drupal\neo_alchemist\Attribute\ComponentShape;
 #[ComponentShape(
   prop: 'heading',
   label: new TranslatableMarkup('Heading'),
+  text_keys: ['supertitle', 'title', 'subtitle'],
 )]
 class HeadingShape extends ObjectShape {
 

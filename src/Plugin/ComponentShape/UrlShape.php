@@ -17,6 +17,7 @@ use DrupalCodeGenerator\InputOutput\Interviewer;
   label: new TranslatableMarkup('Url'),
   default_field_type: 'link',
   default_field_widget: 'neo_link',
+  text_keys: ['title'],
 )]
 class UrlShape extends UrlShapeBase {
 

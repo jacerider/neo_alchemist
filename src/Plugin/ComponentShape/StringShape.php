@@ -34,7 +34,8 @@ use Drupal\neo_alchemist\Drush\Generators\NeoComponentTwig;
       'default_field_type' => 'string_long',
       'default_field_widget' => 'string_textarea',
     ],
-  ]
+  ],
+  text_keys: TRUE,
 )]
 class StringShape extends ComponentShapePluginBase {
 

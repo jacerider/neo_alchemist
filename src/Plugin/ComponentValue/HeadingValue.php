@@ -16,6 +16,7 @@ use Drupal\neo_alchemist\Shape\ComponentShapePluginInterface;
 use Drupal\neo_alchemist\Match\MatcherField;
 use Drupal\neo_alchemist\Shape\NestedOptionMap;
 use Drupal\neo_alchemist\Plugin\ComponentShape\ObjectShape;
+use Drupal\neo_alchemist\Value\ComponentValueFieldSourceInterface;
 use Drupal\neo_alchemist\Value\ComponentValuePluginBase;
 use Drupal\neo_alchemist\Value\ComponentValueProducerInterface;
 use Drupal\neo_alchemist\Value\ComponentValueProcessingModeInterface;
@@ -34,7 +35,7 @@ use Drupal\neo_alchemist\Value\ComponentValueProcessingModeInterface;
   ],
   weight: 900
 )]
-final class HeadingValue extends ComponentValuePluginBase implements ContainerFactoryPluginInterface, ComponentValueProcessingModeInterface, ComponentValueProducerInterface {
+final class HeadingValue extends ComponentValuePluginBase implements ContainerFactoryPluginInterface, ComponentValueProcessingModeInterface, ComponentValueProducerInterface, ComponentValueFieldSourceInterface {
 
   use ComponentValueTitleResolverTrait;
   use ComponentValueProcessingModeTrait;
@@ -108,6 +109,32 @@ final class HeadingValue extends ComponentValuePluginBase implements ContainerFa
       'size_default' => FALSE,
       'size_value' => '',
     ];
+  }
+
+  /**
+   * The heading parts that can be fed from a field.
+   */
+  private const SOURCEABLE_PARTS = ['supertitle', 'title', 'subtitle'];
+
+  /**
+   * {@inheritdoc}
+   */
+  public static function getSourceFieldKeys(array $settings): array {
+    $keys = [];
+    foreach (self::SOURCEABLE_PARTS as $part) {
+      // A part configured to render nothing reads nothing, whatever field it
+      // still names — the setting survives the toggle being turned off.
+      if (!empty($settings[$part . '_empty'])) {
+        continue;
+      }
+      $field = $settings[$part . '_field'] ?? NULL;
+      if (is_string($field) && trim($field) !== '') {
+        $keys[] = trim($field);
+      }
+    }
+    // `*_page` takes the page title and `*_value` is a literal typed into the
+    // component, so neither reads a field. `size` is presentational.
+    return array_values(array_unique($keys));
   }
 
   /**

@@ -1,0 +1,45 @@
+services:
+  logger.channel.neo_alchemist_search:
+    parent: logger.channel_base
+    arguments: ['neo_alchemist_search']
+
+  neo_alchemist_search.ownership_gate:
+    class: Drupal\neo_alchemist_search\Authored\OwnershipGate
+
+  neo_alchemist_search.shape_text_policy:
+    class: Drupal\neo_alchemist_search\Authored\ShapeTextPolicy
+    arguments:
+      - '@plugin.manager.neo_component_shape'
+
+  neo_alchemist_search.authored_text_extractor:
+    class: Drupal\neo_alchemist_search\Authored\AuthoredTextExtractor
+    arguments:
+      - '@neo_alchemist_search.ownership_gate'
+      - '@neo_alchemist_search.shape_text_policy'
+      - '@entity_type.manager'
+      - '@logger.channel.neo_alchemist_search'
+
+  neo_alchemist_search.field_text_policy:
+    class: Drupal\neo_alchemist_search\Binding\FieldTextPolicy
+    arguments:
+      - '@module_handler'
+
+  neo_alchemist_search.binding_resolver:
+    class: Drupal\neo_alchemist_search\Binding\BindingResolver
+    arguments:
+      - '@entity_type.manager'
+      - '@plugin.manager.neo_component_value'
+      - '@cache.data'
+
+  neo_alchemist_search.binding_text_reader:
+    class: Drupal\neo_alchemist_search\Binding\BindingTextReader
+    arguments:
+      - '@neo_alchemist.matcher_field'
+      - '@neo_alchemist_search.field_text_policy'
+
+  neo_alchemist_search.text_extractor:
+    class: Drupal\neo_alchemist_search\ComponentTextExtractor
+    arguments:
+      - '@neo_alchemist_search.authored_text_extractor'
+      - '@neo_alchemist_search.binding_resolver'
+      - '@neo_alchemist_search.binding_text_reader'

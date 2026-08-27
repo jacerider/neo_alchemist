@@ -17,6 +17,7 @@ use Drupal\neo_alchemist\ChildrenMatch\ChildrenMatchSourceInterface;
 use Drupal\neo_alchemist\Shape\ComponentShapeChildrenMatchPluginInterface;
 use Drupal\neo_alchemist\Shape\ComponentShapePluginInterface;
 use Drupal\neo_alchemist\Match\MatcherReference;
+use Drupal\neo_alchemist\Value\ComponentValueFieldSourceInterface;
 use Drupal\neo_alchemist\Value\ComponentValuePluginBase;
 use Drupal\neo_alchemist\Value\ComponentValueProducerInterface;
 use Drupal\neo_alchemist\Value\ComponentValueProcessingModeInterface;
@@ -36,7 +37,7 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
   ],
   weight: 4,
 )]
-final class EntityReferenceValue extends ComponentValuePluginBase implements ContainerFactoryPluginInterface, ComponentValueProcessingModeInterface, ChildrenMatchSourceInterface, ComponentValueProducerInterface {
+final class EntityReferenceValue extends ComponentValuePluginBase implements ContainerFactoryPluginInterface, ComponentValueProcessingModeInterface, ChildrenMatchSourceInterface, ComponentValueProducerInterface, ComponentValueFieldSourceInterface {
 
   use DependencySerializationTrait;
   use ComponentValueProcessingModeTrait;
@@ -92,6 +93,28 @@ final class EntityReferenceValue extends ComponentValuePluginBase implements Con
     return [
       'entity' => '',
     ] + ChildrenMatchMapper::defaultConfiguration();
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public static function getSourceFieldKeys(array $settings): array {
+    $base = $settings['entity'] ?? NULL;
+    if (!is_string($base) || trim($base) === '') {
+      return [];
+    }
+    $base = trim($base);
+    $keys = [];
+    // Each mapped child names a field on the *referenced* entity, so the key
+    // a caller needs is the reference path with that field appended.
+    foreach (($settings['shape_fields'] ?? []) as $child) {
+      $field = is_array($child) ? ($child['field'] ?? NULL) : NULL;
+      if (!is_string($field) || trim($field) === '') {
+        continue;
+      }
+      $keys[] = $base . '.' . trim($field);
+    }
+    return array_values(array_unique($keys));
   }
 
   /**

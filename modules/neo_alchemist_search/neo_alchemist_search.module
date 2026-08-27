@@ -1,0 +1,137 @@
+<?php
+
+/**
+ * @file
+ * Exposes Alchemist component text to search indexing as a computed field.
+ */
+
+declare(strict_types=1);
+
+use Drupal\Core\Entity\EntityInterface;
+use Drupal\Core\Entity\EntityTypeInterface;
+use Drupal\Core\Field\BaseFieldDefinition;
+use Drupal\Core\Field\FieldDefinitionInterface;
+use Drupal\Core\StringTranslation\TranslatableMarkup;
+use Drupal\field\FieldConfigInterface;
+use Drupal\neo_alchemist_search\Field\ComponentSearchTextItemList;
+
+/**
+ * The computed field name, on every bundle carrying a component tree.
+ */
+const NEO_ALCHEMIST_SEARCH_FIELD = 'neo_component_search_text';
+
+/**
+ * Implements hook_entity_bundle_field_info_alter().
+ *
+ * Deliberately the alter rather than hook_entity_bundle_field_info(). Deciding
+ * whether a bundle carries a component tree means looking at the field
+ * definitions other modules contribute, and those only exist by alter time —
+ * asking the entity field manager for them from inside the earlier hook is
+ * re-entrant and yields a partially built map.
+ */
+function neo_alchemist_search_entity_bundle_field_info_alter(array &$fields, EntityTypeInterface $entity_type, string $bundle): void {
+  if (!$entity_type->entityClassImplements(Drupal\Core\Entity\FieldableEntityInterface::class)) {
+    return;
+  }
+  $hasTree = FALSE;
+  foreach ($fields as $field) {
+    if ($field instanceof FieldDefinitionInterface && $field->getType() === 'neo_component_tree') {
+      $hasTree = TRUE;
+      break;
+    }
+  }
+  if (!$hasTree) {
+    return;
+  }
+
+  // A definition added in the alter misses the name, target and provider that
+  // the entity field manager stamps onto definitions from the earlier hook, so
+  // all four have to be set here. Without the provider, anything calculating
+  // dependencies on this field gets a NULL module name.
+  $fields[NEO_ALCHEMIST_SEARCH_FIELD] = BaseFieldDefinition::create('string_long')
+    ->setName(NEO_ALCHEMIST_SEARCH_FIELD)
+    ->setTargetEntityTypeId($entity_type->id())
+    ->setTargetBundle($bundle)
+    ->setProvider('neo_alchemist_search')
+    ->setLabel(new TranslatableMarkup('Component text'))
+    ->setDescription(new TranslatableMarkup('The text this entity’s Alchemist layouts put on the page, for search indexing.'))
+    ->setComputed(TRUE)
+    ->setClass(ComponentSearchTextItemList::class)
+    ->setCardinality(BaseFieldDefinition::CARDINALITY_UNLIMITED)
+    // Without this, a translation of the entity would hand back the default
+    // language's list and index the wrong text against every other language.
+    ->setTranslatable(TRUE)
+    ->setReadOnly(TRUE)
+    ->setDisplayConfigurable('view', FALSE)
+    ->setDisplayConfigurable('form', FALSE);
+}
+
+/**
+ * Implements hook_ENTITY_TYPE_update() for neo_component.
+ */
+function neo_alchemist_search_neo_component_update(EntityInterface $entity): void {
+  neo_alchemist_search_component_config_changed();
+}
+
+/**
+ * Implements hook_ENTITY_TYPE_delete() for neo_component.
+ */
+function neo_alchemist_search_neo_component_delete(EntityInterface $entity): void {
+  neo_alchemist_search_component_config_changed();
+}
+
+/**
+ * Implements hook_ENTITY_TYPE_update() for field_config.
+ */
+function neo_alchemist_search_field_config_update(EntityInterface $entity): void {
+  if ($entity instanceof FieldConfigInterface && $entity->getType() === 'neo_component_tree') {
+    neo_alchemist_search_component_config_changed();
+  }
+}
+
+/**
+ * Reacts to a change in what the layouts put on the page.
+ *
+ * Editing a component or a field's default layout changes what every entity of
+ * a bundle contributes, and no entity is saved in the process — so nothing
+ * would otherwise tell either the resolver or the index that what they hold is
+ * stale.
+ *
+ * Marking whole indexes is coarse: it reindexes everything rather than working
+ * out which entities are affected. On a site with a lot of content that is a
+ * real cost, so it can be switched off with the `reindex_on_config_change`
+ * setting and driven by hand instead. Resetting the resolver is not optional
+ * and happens either way.
+ */
+function neo_alchemist_search_component_config_changed(): void {
+  // The persistent binding cache is tag-invalidated, but the resolver's
+  // in-request memo is not. Without this, a component edit followed by
+  // immediate indexing in the same request would index the old bindings.
+  \Drupal::service('neo_alchemist_search.binding_resolver')->reset();
+
+  // Defaults to on when the setting is absent. A missing config object should
+  // not quietly stop indexes being refreshed — that failure would only show up
+  // as search results going stale, which nobody attributes to a config import.
+  if (\Drupal::config('neo_alchemist_search.settings')->get('reindex_on_config_change') === FALSE) {
+    return;
+  }
+  $entityTypeManager = \Drupal::entityTypeManager();
+  if (!$entityTypeManager->hasDefinition('search_api_index')) {
+    return;
+  }
+  foreach ($entityTypeManager->getStorage('search_api_index')->loadMultiple() as $index) {
+    // Fully qualified rather than imported: search_api is an optional
+    // dependency, and this file has to parse without it.
+    if (!$index instanceof \Drupal\search_api\IndexInterface) {
+      continue;
+    }
+    foreach ($index->getFields() as $field) {
+      if ($field->getPropertyPath() === NEO_ALCHEMIST_SEARCH_FIELD) {
+        // Marks items stale without dropping what the server already holds, so
+        // search keeps working while the queue drains.
+        $index->reindex();
+        break;
+      }
+    }
+  }
+}

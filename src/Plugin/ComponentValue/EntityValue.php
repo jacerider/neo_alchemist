@@ -13,6 +13,7 @@ use Drupal\neo_alchemist\Attribute\ComponentValue;
 use Drupal\neo_alchemist\Shape\ComponentShapeChildrenPluginInterface;
 use Drupal\neo_alchemist\Shape\ComponentShapePluginInterface;
 use Drupal\neo_alchemist\Match\MatcherField;
+use Drupal\neo_alchemist\Value\ComponentValueFieldSourceInterface;
 use Drupal\neo_alchemist\Value\ComponentValuePluginBase;
 use Drupal\neo_alchemist\Value\ComponentValueProducerInterface;
 use Drupal\neo_alchemist\Value\ComponentValueProcessingModeInterface;
@@ -32,7 +33,7 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
   entity_types: ['*'],
   weight: 5,
 )]
-final class EntityValue extends ComponentValuePluginBase implements ContainerFactoryPluginInterface, ComponentValueProcessingModeInterface, ComponentValueProducerInterface {
+final class EntityValue extends ComponentValuePluginBase implements ContainerFactoryPluginInterface, ComponentValueProcessingModeInterface, ComponentValueProducerInterface, ComponentValueFieldSourceInterface {
 
   use DependencySerializationTrait;
   use ComponentValueMatchTrait;
@@ -79,6 +80,21 @@ final class EntityValue extends ComponentValuePluginBase implements ContainerFac
     return $this->defaultMatchConfiguration() + [
       'field_assign' => FALSE,
     ];
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public static function getSourceFieldKeys(array $settings): array {
+    // Both are read for their value: the fallback is what shows when the
+    // primary is empty, so it is on the page just as legitimately.
+    //
+    // `render_field` is deliberately absent. It names a field *formatter* to
+    // run, not a value to read, and running one is rendering.
+    return array_values(array_filter([
+      $settings['field'] ?? NULL,
+      $settings['field_fallback'] ?? NULL,
+    ], static fn ($key): bool => is_string($key) && $key !== ''));
   }
 
   /**

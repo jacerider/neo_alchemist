@@ -18,6 +18,11 @@ use Drupal\neo_alchemist\Shape\ComponentShapePluginBase;
   default_field_type: 'address',
   default_field_widget: 'address_default',
   provider: 'address',
+  text_keys: [
+    'organization', 'given_name', 'additional_name', 'family_name',
+    'address_line1', 'address_line2', 'address_line3',
+    'locality', 'dependent_locality', 'administrative_area', 'postal_code',
+  ],
 )]
 class AddressShape extends ComponentShapePluginBase {
 
