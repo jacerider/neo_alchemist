@@ -35,9 +35,19 @@ class ThemeComponentInstallerTest extends KernelTestBase {
   const THEME = 'na_eject_target';
 
   /**
-   * The fixture component's plugin id.
+   * The fixture component's plugin id, and a claim's shipped default.
    */
   const COMPONENT = 'neo_alchemist_test:na_ejectable';
+
+  /**
+   * The fixture settings object a claim is pointed at.
+   */
+  const SETTINGS = 'neo_alchemist_test.settings';
+
+  /**
+   * The key in that settings object holding a component plugin id.
+   */
+  const SETTINGS_KEY = 'component';
 
   /**
    * The absolute path the test writes to.
@@ -49,6 +59,7 @@ class ThemeComponentInstallerTest extends KernelTestBase {
    */
   protected function setUp(): void {
     parent::setUp();
+    $this->installConfig(['neo_alchemist_test']);
     $this->container->get('theme_installer')->install([self::THEME]);
     $this->target = $this->container->getParameter('app.root') . '/'
       . $this->container->get('extension.list.theme')->getPath(self::THEME)
@@ -78,6 +89,13 @@ class ThemeComponentInstallerTest extends KernelTestBase {
    */
   protected function installer() {
     return $this->container->get('neo_alchemist.theme_component_installer');
+  }
+
+  /**
+   * Gets the fixture settings object.
+   */
+  protected function settings() {
+    return $this->config(self::SETTINGS);
   }
 
   /**
@@ -162,6 +180,80 @@ class ThemeComponentInstallerTest extends KernelTestBase {
   public function testUnknownComponentRejected(): void {
     $this->expectException(\InvalidArgumentException::class);
     $this->installer()->install('neo_alchemist_test:na_leaf', self::THEME);
+  }
+
+  /**
+   * Tests that a claim repoints the shipped default at the theme copy.
+   */
+  public function testClaimRepointsTheShippedDefault(): void {
+    $this->assertSame(self::COMPONENT, $this->settings()->get(self::SETTINGS_KEY));
+
+    $status = $this->installer()->claimComponent(self::COMPONENT, self::SETTINGS, self::SETTINGS_KEY, self::THEME);
+
+    $this->assertSame('claimed', $status);
+    $this->assertSame(self::THEME . ':na_ejectable', $this->settings()->get(self::SETTINGS_KEY));
+  }
+
+  /**
+   * Tests that a site builder's own choice is left alone.
+   *
+   * This is the check that makes a claim safe to run from more than one hook
+   * and on every install: anything other than the shipped default is a
+   * decision someone made, and a claim never reverts one.
+   */
+  public function testClaimKeepsAnExistingChoice(): void {
+    $this->settings()->set(self::SETTINGS_KEY, 'na_eject_target:something_else')->save();
+
+    $status = $this->installer()->claimComponent(self::COMPONENT, self::SETTINGS, self::SETTINGS_KEY, self::THEME);
+
+    $this->assertSame('kept', $status);
+    $this->assertSame('na_eject_target:something_else', $this->settings()->get(self::SETTINGS_KEY));
+  }
+
+  /**
+   * Tests that a second claim reports 'kept' rather than reclaiming.
+   *
+   * Both hooks a consumer claims from can fire on the same request, so the
+   * second pass over an already-claimed key is the normal case, not an edge.
+   */
+  public function testSecondClaimIsKept(): void {
+    $this->assertSame('claimed', $this->installer()->claimComponent(self::COMPONENT, self::SETTINGS, self::SETTINGS_KEY, self::THEME));
+
+    $status = $this->installer()->claimComponent(self::COMPONENT, self::SETTINGS, self::SETTINGS_KEY, self::THEME);
+
+    $this->assertSame('kept', $status);
+    $this->assertSame(self::THEME . ':na_ejectable', $this->settings()->get(self::SETTINGS_KEY));
+  }
+
+  /**
+   * Tests that a claim with no resolvable theme writes nothing.
+   *
+   * Modules install before any theme on a fresh site, so this path runs for
+   * real on every install; the consumer's other hook claims once a theme
+   * arrives.
+   */
+  public function testClaimWithNoThemeIsUnavailable(): void {
+    $status = $this->installer()->claimComponent(self::COMPONENT, self::SETTINGS, self::SETTINGS_KEY, 'does_not_exist');
+
+    $this->assertSame('unavailable', $status);
+    $this->assertSame(self::COMPONENT, $this->settings()->get(self::SETTINGS_KEY));
+  }
+
+  /**
+   * Tests that a component the theme has no copy of is never claimed.
+   *
+   * The na_leaf fixture does not declare neo_install, so the sweep does not
+   * write it into the theme and there is nothing for the key to point at.
+   * Writing the id anyway would name a component that does not exist.
+   */
+  public function testClaimWithNoThemeCopyIsUnavailable(): void {
+    $default = 'neo_alchemist_test:na_leaf';
+    $this->settings()->set(self::SETTINGS_KEY, $default)->save();
+
+    $status = $this->installer()->claimComponent($default, self::SETTINGS, self::SETTINGS_KEY, self::THEME);
+
+    $this->assertSame('unavailable', $status);
+    $this->assertSame($default, $this->settings()->get(self::SETTINGS_KEY));
   }
 
 }

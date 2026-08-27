@@ -1,0 +1,6 @@
+# The settings object ThemeComponentInstallerTest claims against.
+#
+# `component` ships naming the fixture module's own copy, exactly as
+# neo_commerce's `cart_component` and neo_search's `component` do, so a claim
+# has a shipped default to recognise and a key to repoint.
+component: 'neo_alchemist_test:na_ejectable'

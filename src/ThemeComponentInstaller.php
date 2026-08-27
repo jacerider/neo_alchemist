@@ -105,6 +105,62 @@ final class ThemeComponentInstaller {
   }
 
   /**
+   * Points a settings key at the theme's own copy of a component.
+   *
+   * The step after the sweep, and the one every module shipping an ejectable
+   * component needs: once the theme has a copy, the module's settings should
+   * name that copy rather than the module's own, so the site is editing
+   * markup it owns.
+   *
+   * Only ever upgrades the shipped default. Once a site builder has chosen a
+   * component their choice stands, which is what makes this safe to call from
+   * more than one hook and on every install. A settings object that does not
+   * carry the key at all reads the same way — the value is not the shipped
+   * default, so nothing is written.
+   *
+   * The sweep runs first, deliberately: the outcome must not depend on which
+   * module's hook implementation happens to run before which.
+   *
+   * This writes a config object belonging to the calling module, which is the
+   * one thing an installer is not otherwise expected to do. See
+   * docs/adr/0002-component-claim-writes-consumer-config.md.
+   *
+   * @param string $default
+   *   The plugin id the module ships in that key, e.g. "my_module:my_thing".
+   *   The component's machine name is read from it, after the colon.
+   * @param string $configName
+   *   The config object to claim in, e.g. "my_module.settings".
+   * @param string $key
+   *   The key in that object holding a component plugin id.
+   * @param string|null $theme
+   *   (optional) The target theme; defaults to the site's default theme.
+   *
+   * @return string
+   *   'claimed' when the key was repointed at the theme copy, 'kept' when the
+   *   key no longer holds the shipped default, 'unavailable' when there is no
+   *   theme copy to claim yet.
+   */
+  public function claimComponent(string $default, string $configName, string $key, ?string $theme = NULL): string {
+    // Idempotent, and cheap when there is nothing to copy.
+    $this->installAll($theme);
+
+    $theme = $this->resolveTheme($theme);
+    if (!$theme) {
+      return 'unavailable';
+    }
+    $config = $this->configFactory->getEditable($configName);
+    if ($config->get($key) !== $default) {
+      return 'kept';
+    }
+    $id = $theme . ':' . (explode(':', $default)[1] ?? '');
+    if (!$this->componentManager->hasDefinition($id)) {
+      return 'unavailable';
+    }
+    $config->set($key, $id)->save();
+    return 'claimed';
+  }
+
+  /**
    * Gets the module components that opt into theme installation.
    *
    * Theme-provided components are skipped even when they declare the key —

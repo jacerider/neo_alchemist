@@ -37,3 +37,13 @@ neo_alchemist.neo_component_slot.na_note:
     note:
       type: string
       label: Note
+
+# The settings object the claim tests point at. Kernel tests run the strict
+# schema checker, so the claim cannot be aimed at an ad-hoc config object.
+neo_alchemist_test.settings:
+  type: config_object
+  label: 'Test fixture settings'
+  mapping:
+    component:
+      type: string
+      label: 'Component'
