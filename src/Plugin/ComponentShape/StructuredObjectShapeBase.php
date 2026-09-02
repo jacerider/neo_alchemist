@@ -51,17 +51,47 @@ abstract class StructuredObjectShapeBase extends ComponentShapePluginBase implem
   }
 
   /**
+   * The children this shape computes rather than accepting from a producer.
+   *
+   * A children-match producer maps the children a site builder can author, and
+   * ChildrenMatchMapper::fetchValues() flags every child it was told nothing
+   * about as hidden. That reading is right for an authored child and wrong for
+   * a computed one: there is no field to point a computed child at, so leaving
+   * it unmapped is the only honest answer a site builder can give, and it
+   * would hide the child for saying so. LinkShape::$access is the case that
+   * proved it — a boolean derived from the URL, offered in the mapping form,
+   * and load-bearing in every `{% if link.access %}` guard a component ships.
+   *
+   * Names returned here are withheld from ::getChildShapeNames(), so no
+   * producer sees them and none can flag them. They still resolve normally:
+   * ::getChildSchemaProperties(), ::getChildShapes() and
+   * ::getValueResolverShape() all keep them.
+   *
+   * @return string[]
+   *   Child names, a subset of ::getChildSchemaProperties()'s keys.
+   */
+  protected function getComputedChildShapeNames(): array {
+    return [];
+  }
+
+  /**
    * {@inheritdoc}
    */
   public function getChildShapeNames(): array {
-    return array_keys($this->getChildSchemaProperties());
+    return array_values(array_diff(
+      array_keys($this->getChildSchemaProperties()),
+      $this->getComputedChildShapeNames(),
+    ));
   }
 
   /**
    * {@inheritdoc}
    */
   public function isSingleProp(): bool {
-    return count($this->getChildSchemaProperties()) === 1;
+    // Counted over the producer-facing list, the same one
+    // ::getChildShapeNames() reports, so "a single prop" means a single child
+    // a producer can map.
+    return count($this->getChildShapeNames()) === 1;
   }
 
   /**
@@ -108,7 +138,22 @@ abstract class StructuredObjectShapeBase extends ComponentShapePluginBase implem
     $value += $this->getDefaultSchemaValue();
     // Ensure we return cleaned values.
     foreach ($this->getChildShapes(NULL, $value) as $shapeName => $shape) {
-      $value[$shapeName] = $shape->getValue($renderAttributes);
+      $childValue = $shape->getValue($renderAttributes);
+      if ($shape->isProvidedValueEmpty($childValue)) {
+        // Drop the key rather than write the empty over the slot, matching
+        // ObjectShape::buildValue(). A hidden child resolves to a bare [] —
+        // ComponentShapePluginBase::getValue() returns it before
+        // ::buildRenderValue() can shape it, so StringShape and BooleanShape
+        // never get to coerce — and these slots are typed by the prop-def:
+        // a link's `icon` is a string and its `access` a boolean. An [] there
+        // fails SDC prop validation and white-screens the whole page.
+        //
+        // Emptiness is the shape's contract, never empty(): 0, '0' and FALSE
+        // are values an authored child can legitimately hold.
+        unset($value[$shapeName]);
+        continue;
+      }
+      $value[$shapeName] = $childValue;
     }
     return $value;
   }

@@ -1,5 +1,66 @@
 # Changelog
 
+## A link's computed children are no longer a producer's to hide
+
+Amends [Link children now honour the hide, default and lock
+flags](#link-children-now-honour-the-hide-default-and-lock-flags), which was
+right about the flags and wrong about who they apply to. **This is a fix for a
+white screen, so it is worth taking before the next page load.**
+
+That change made `StructuredObjectShapeBase` read a producer's hide flag, which
+`ChildrenShapeBase` had always read. Its own note anticipated the consequence —
+a link whose `access` was left unmapped is flagged hidden, and templates guard
+on `access`, so the link disappears — and audited the site it landed from,
+where no `link`-ref prop carried a mapping. On a site where one does, the
+outcome was worse than a missing link:
+
+```
+[front:product_variation_full_end/pw_link.icon]   Array value found, but a string is required.
+[front:product_variation_full_end/pw_link.access] Array value found, but a boolean is required.
+```
+
+A hidden child resolves through `ComponentShapePluginBase::getValue()`, which
+returns a bare `[]` before `::buildRenderValue()` runs — so neither
+`StringShape` nor `BooleanShape` gets to coerce it — and `::buildValue()` wrote
+that `[]` into a slot the prop-def types as `string` or `boolean`. SDC's
+`ComponentValidator` rejects both and replaces the page with a stack trace.
+
+Two things change.
+
+**`access` and `options` are computed, and are no longer offered for mapping.**
+Both are derived from the URL rather than authored — there is no field to point
+`access` at, and the only mapping the form could offer is `_raw:boolean_true`,
+which hardcodes an answer the access system is there to give. Leaving them
+unmapped was the only honest thing a site builder could do, and it hid them for
+saying so. `LinkShape::getComputedChildShapeNames()` withholds them from
+`::getChildShapeNames()`, so no producer sees them and none can flag them; they
+still resolve exactly as before. `uri`, `title`, `icon` and `target` are
+authorable and keep honouring the flag, so the behaviour that entry describes is
+intact — an unmapped `title` still renders nothing rather than the component
+author's `EXAMPLE LINK TITLE`.
+
+**And a hidden child can no longer white-screen a page.**
+`StructuredObjectShapeBase::buildValue()` now drops an empty child's key instead
+of writing the empty over a typed slot, which is what `ObjectShape::buildValue()`
+has always done — the two bases disagreeing here is the same class of divergence
+that entry set out to close. Emptiness is asked of the shape, never of
+`empty()`, so `0`, `'0'` and `FALSE` still survive. `UrlShapeTrait::preRenderValue()`
+carries a matching guard for `icon` and `access`, alongside the ones `title` and
+`target` already had, so a value provider handing back the wrong type degrades
+instead of taking the page down.
+
+**What you may see change.** A link prop with a producer that mapped only `uri`
+renders again. Its `access` reads TRUE unless something computed otherwise —
+which for a link the matcher resolved means the real check, since
+`UrlShapeTrait::getFieldItemValue()` re-derives access from the flattened uri.
+An unmapped `icon` now resolves absent rather than `[]`; templates print
+nothing either way.
+
+`LinkComputedChildRenderTest` is the coverage that was missing.
+`ChildOptionPolicyCrossBaseTest` asserts on `getPropValues()` and never renders,
+and `[]` reads as empty — every assertion in it passed while the page was down.
+The new class renders the component, so prop validation actually runs.
+
 ## A row's delta reaches every shape beneath it
 
 Shape ids joined the flat name path and appended only the shape's *own* delta. A shape two

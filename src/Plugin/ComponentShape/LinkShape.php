@@ -25,11 +25,31 @@ class LinkShape extends StructuredObjectShapeBase {
 
   /**
    * {@inheritdoc}
+   *
+   * `access` and `options` are computed from the URL, never authored — the
+   * first by the route's access check, the second by whatever produced the
+   * link. Offering them for mapping meant leaving them unmapped hid them, and
+   * a hidden `access` takes every `{% if link.access %}` guard down with it.
+   */
+  protected function getComputedChildShapeNames(): array {
+    return ['access', 'options'];
+  }
+
+  /**
+   * {@inheritdoc}
    */
   protected function alterFieldItemValue(mixed &$value): void {
     if (isset($value['uri']) && is_array($value['uri'])) {
       // When using the matcher, the value may come in as a nested array with
       // the URI under 'uri' and URI options under 'options'.
+      //
+      // The nested array also carries the matcher's own `access` decision, and
+      // dropping it here is deliberate rather than an oversight: the uri is
+      // what survives onto the field item, and
+      // UrlShapeTrait::getFieldItemValue() re-derives access from that uri —
+      // the authoritative check, and the one that carries its cache contexts.
+      // Lifting the stale copy over it would add nothing, and would put an
+      // unknown property on a LinkItem.
       $value['options'] = $value['uri']['options'] ?? $value['options'] ?? [];
       $value['uri'] = $value['uri']['uri'] ?? '';
     }

@@ -121,6 +121,23 @@ trait UrlShapeTrait {
         $value['title'] = '';
       }
 
+      // The same guard as `title` above, for the two children that carry no
+      // coercion of their own. A link's `icon` is typed `string` and `access`
+      // `boolean`, and either can arrive as an array — from a value provider,
+      // or from a child the parent resolved empty — which SDC rejects on
+      // sight, white-screening the page over a link.
+      if (array_key_exists('icon', $value) && !is_string($value['icon'])) {
+        $value['icon'] = is_scalar($value['icon']) ? (string) $value['icon'] : '';
+      }
+      if (array_key_exists('access', $value) && !is_bool($value['access'])) {
+        // A scalar carries a real decision — `'0'` from a raw mapping is
+        // FALSE. Anything else is malformed, and TRUE is the fallback the rest
+        // of this trait already uses (::getDefaultSchemaValue(), and the catch
+        // in ::getFieldItemValue()): a type glitch must not silently swallow a
+        // link a site builder placed.
+        $value['access'] = is_scalar($value['access']) ? (bool) $value['access'] : TRUE;
+      }
+
       // Use target if passed in with the options.
       $value = $this->liftTargetFromOptions($value);
       // Guarantee a value in the target enum. A blank or otherwise invalid
