@@ -120,12 +120,19 @@ final class ChildOptionPolicy {
    *   How many children the parent is building in this pass.
    */
   private function applyOptionToggles(ComponentShapeChildrenMatchPluginInterface $parent, ComponentShapeOptionsInterface $child, ?int $delta, int $count): void {
-    if ($delta !== NULL && $count === 1) {
-      $child->getOptionDefault()->setAccess(FALSE, 'Shape has a single prop, so setting as default is not allowed.');
-      $child->getOptionEmpty()->setAccess(FALSE, 'Shape has a single prop, so setting as default is not allowed.');
-    }
-    elseif ($parent->isSingleProp()) {
-      $child->getOptionEmpty()->setAccess(FALSE, 'Shape has a single prop, so setting as empty is not allowed.');
+    // A media child is exempt: on a single-prop media row (`items: {type:
+    // image}`) the row's one child IS the picture, so withdrawing these would
+    // leave an editor no way to say "this row has no image" — the very
+    // choices the media widget exists to offer. The rule was written for a
+    // scalar single-prop array, where the toggles really are meaningless.
+    if (!$child instanceof ComponentShapeMediaPluginInterface) {
+      if ($delta !== NULL && $count === 1) {
+        $child->getOptionDefault()->setAccess(FALSE, 'Shape has a single prop, so setting as default is not allowed.');
+        $child->getOptionEmpty()->setAccess(FALSE, 'Shape has a single prop, so setting as default is not allowed.');
+      }
+      elseif ($parent->isSingleProp()) {
+        $child->getOptionEmpty()->setAccess(FALSE, 'Shape has a single prop, so setting as empty is not allowed.');
+      }
     }
 
     // A parent showing its own toggle unconditionally means its children have

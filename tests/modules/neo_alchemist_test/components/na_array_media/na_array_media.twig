@@ -1,0 +1,10 @@
+{#
+  Minimal on purpose. The suite asserts against Component::getPropValues()
+  and the built shape tree, not markup. The accessor is the point though:
+  `img.src`, not `img.value.src` — the collapse has to keep the row bare.
+#}
+<div{{ attributes }}>
+  {% for img in images %}
+    <img class="na-media-item" src="{{ img.src }}" alt="{{ img.alt }}" />
+  {% endfor %}
+</div>

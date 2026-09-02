@@ -161,11 +161,26 @@ class ArrayShape extends ChildrenShapeBase implements ComponentShapeInterablePlu
   /**
    * Check if the schema is a single property.
    *
+   * A bare prop-def item type — `items: {type: image}`, and likewise for
+   * every other object-typed def (link, heading, address, file, media,
+   * video…) — is single-prop even though it has properties. alterProp()
+   * inlines the def's own sub-properties into `items` and records the def on
+   * `items.ref`, so the row IS that one shape rather than a set of columns.
+   * Without the `ref` test those defs read as ordinary object rows: the row's
+   * `src`/`alt`/`width`/`height` become loose scalar children, no ImageShape
+   * is ever built, and so the `media` plugin it declares never attaches and
+   * the prop cannot hold a media reference.
+   *
+   * An author-written object row (`items: {type: object, properties: …}`)
+   * carries no `ref`, because `object` is not a prop def — so it keeps the
+   * multi-column behaviour.
+   *
    * @return bool
    *   Whether the schema is a single property.
    */
   public function isSingleProp(): bool {
-    return empty($this->getSchema()['items']['properties']);
+    $items = $this->getSchema()['items'] ?? [];
+    return empty($items['properties']) || !empty($items['ref']);
   }
 
   /**
@@ -198,6 +213,12 @@ class ArrayShape extends ChildrenShapeBase implements ComponentShapeInterablePlu
    * {@inheritDoc}
    */
   protected function getChildSchemaProperties(): array {
+    // A single-prop row is one shape, not a set of mappable columns. Saying
+    // otherwise would offer children-match four names (src/alt/width/height)
+    // that no shape is ever built for — a silent mis-mapping surface.
+    if ($this->isSingleProp()) {
+      return [];
+    }
     $schema = $this->getSchema();
     return $schema['items']['properties'] ?? [];
   }
@@ -213,9 +234,13 @@ class ArrayShape extends ChildrenShapeBase implements ComponentShapeInterablePlu
       return [];
     }
     if ($this->isSingleProp()) {
-      $schema['items']['properties']['value'] = [
-        'type' => [$schema['items']['type']],
-      ];
+      // Carry the WHOLE items schema onto the synthesized child, exactly as
+      // getItemValueResolverShape() does, so `ref` picks the right shape
+      // plugin (and with it the media plugin) instead of degrading to a
+      // plain object. Copy first: the assignment replaces `properties`, and
+      // a media def's own src/alt/width/height live in there.
+      $items = $schema['items'] + ['type' => 'object'];
+      $schema['items']['properties'] = ['value' => $items];
     }
     elseif (count($schema['items']['properties']) === 1) {
       // When we only have a single property, we make that property required

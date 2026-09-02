@@ -1,0 +1,33 @@
+$schema: 'https://git.drupalcode.org/project/drupal/-/raw/10.1.x/core/modules/sdc/src/metadata.schema.json'
+name: 'NA array media fixture'
+description: >
+  An array whose items are a media-capable prop def (`items: {type: image}`).
+  alterProp() inlines the image's own sub-properties into `items.properties`
+  AND records the def on `items.ref`, so the row IS one ImageShape rather than
+  four loose scalar columns — which is what isSingleProp() reads `ref` for.
+  Pins that the synthesized child resolves to an ImageShape (and so attaches
+  the `media` plugin it declares, giving the prop a media-library picker), and
+  that buildValue() still collapses the wrapper so twig sees a bare
+  {src, alt, …} row rather than {value: {…}}.
+status: stable
+neo: true
+props:
+  type: object
+  properties:
+    images:
+      type: array
+      title: Images
+      examples:
+        -
+          src: 'https://placehold.co/400x300.png'
+          alt: 'EXAMPLE ALT 0'
+          width: 400
+          height: 300
+        -
+          src: 'https://placehold.co/400x300/000000/FFF.png'
+          alt: 'EXAMPLE ALT 1'
+          width: 400
+          height: 300
+      items:
+        type: image
+        title: Image

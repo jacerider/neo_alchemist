@@ -976,3 +976,206 @@ function neo_alchemist_update_11008() {
   }
   return implode(' ', $summary);
 }
+
+/**
+ * Re-wrap array rows whose item type is a media prop def.
+ *
+ * `items: {type: image}` (and the other media-capable defs) used to build
+ * four loose scalar children — src/alt/width/height — because alterProp()
+ * inlines the def's own sub-properties. ArrayShape::isSingleProp() now reads
+ * `items.ref` and treats the row as the one shape it names, so the row is
+ * stored under the synthesized `value` child instead.
+ *
+ * Without this, authored rows are handed to a shape tree whose only child is
+ * `value`, the lookup misses, and the row silently renders the schema example
+ * or nothing at all. Idempotent: a row already carrying `value` is left
+ * alone, so re-running is free.
+ */
+function neo_alchemist_update_11009(&$sandbox) {
+  $entityTypeManager = \Drupal::entityTypeManager();
+  $entityFieldManager = \Drupal::service('entity_field.manager');
+  $database = \Drupal::database();
+  $schema = $database->schema();
+
+  // The defs whose shape carries the media plugin. A row typed as one of
+  // these is a single row-shape now, not a set of columns.
+  $mediaRefs = ['image', 'media', 'file', 'video', 'remote_video'];
+
+  if (!isset($sandbox['targets'])) {
+    // Which props actually moved, per component. Read from the component's
+    // stored schema rather than by sniffing row keys: `items.ref` is present
+    // in both the old and new schema, so this is stable whether or not the
+    // component has already been re-saved.
+    $sandbox['props'] = [];
+    $storage = $entityTypeManager->getStorage('neo_component');
+    foreach ($storage->loadMultiple() as $componentId => $component) {
+      $componentSchema = json_decode((string) $component->get('schema'), TRUE);
+      $properties = $componentSchema['properties'] ?? [];
+      foreach ($properties as $propName => $propSchema) {
+        $ref = $propSchema['items']['ref'] ?? NULL;
+        if ($ref && in_array($ref, $mediaRefs, TRUE)) {
+          $sandbox['props'][$componentId][] = $propName;
+        }
+      }
+    }
+
+    $sandbox['targets'] = [];
+    $sandbox['migrated'] = 0;
+    $sandbox['rows'] = 0;
+    if ($sandbox['props']) {
+      foreach ($entityFieldManager->getFieldMapByFieldType('neo_component_tree') as $entityTypeId => $fields) {
+        $entityStorage = $entityTypeManager->getStorage($entityTypeId);
+        if (!$entityStorage instanceof SqlEntityStorageInterface) {
+          continue;
+        }
+        $tableMapping = $entityStorage->getTableMapping();
+        $definitions = $entityFieldManager->getFieldStorageDefinitions($entityTypeId);
+        foreach (array_keys($fields) as $fieldName) {
+          if (!isset($definitions[$fieldName])) {
+            continue;
+          }
+          $treeColumn = $tableMapping->getFieldColumnName($definitions[$fieldName], 'tree');
+          $propsColumn = $tableMapping->getFieldColumnName($definitions[$fieldName], 'props');
+          $tables = [$tableMapping->getFieldTableName($fieldName)];
+          if ($tableMapping instanceof DefaultTableMapping) {
+            $tables[] = $tableMapping->getDedicatedRevisionTableName($definitions[$fieldName]);
+          }
+          foreach (array_unique(array_filter($tables)) as $table) {
+            if (!$schema->tableExists($table) || !$schema->fieldExists($table, $propsColumn)) {
+              continue;
+            }
+            $idColumn = $schema->fieldExists($table, 'entity_id')
+              ? 'entity_id'
+              : $entityTypeManager->getDefinition($entityTypeId)->getKey('id');
+            $sandbox['targets'][] = [
+              'table' => $table,
+              'tree' => $treeColumn,
+              'props' => $propsColumn,
+              'id' => $idColumn,
+            ];
+          }
+        }
+      }
+    }
+    $sandbox['total'] = count($sandbox['targets']);
+    $sandbox['done'] = 0;
+    $sandbox['offset'] = 0;
+  }
+
+  if (!$sandbox['targets']) {
+    $sandbox['#finished'] = 1;
+    return (string) t('No component declares a media prop def as an array item type; nothing to migrate.');
+  }
+
+  $target = $sandbox['targets'][0];
+  $records = $database->select($target['table'], 't')
+    ->fields('t', [$target['id'], $target['tree'], $target['props']])
+    ->orderBy('t.' . $target['id'])
+    ->range($sandbox['offset'], 200)
+    ->execute()
+    ->fetchAll(\PDO::FETCH_ASSOC);
+
+  foreach ($records as $record) {
+    $props = !empty($record[$target['props']])
+      ? json_decode($record[$target['props']], TRUE)
+      : NULL;
+    $tree = !empty($record[$target['tree']])
+      ? json_decode($record[$target['tree']], TRUE)
+      : NULL;
+    if (!is_array($props) || !is_array($tree)) {
+      continue;
+    }
+
+    // uuid => component id, so each instance is matched to the right props.
+    $componentByUuid = [];
+    foreach ($tree as $sectionItems) {
+      if (!is_array($sectionItems)) {
+        continue;
+      }
+      foreach ($sectionItems as $item) {
+        if (isset($item['uuid'], $item['component'])) {
+          $componentByUuid[$item['uuid']] = $item['component'];
+        }
+      }
+    }
+
+    $changed = FALSE;
+    foreach ($props as $uuid => &$instance) {
+      $componentId = $componentByUuid[$uuid] ?? NULL;
+      if (!$componentId || empty($sandbox['props'][$componentId])) {
+        continue;
+      }
+      foreach ($sandbox['props'][$componentId] as $propName) {
+        if (!isset($instance['props'][$propName]['value'])) {
+          continue;
+        }
+        $prop = &$instance['props'][$propName];
+        if (!is_array($prop['value'])) {
+          unset($prop);
+          continue;
+        }
+        $options = $prop['options'] ?? [];
+        $newOptions = [];
+        // Keep any option that already addresses the array itself.
+        if (isset($options[$propName])) {
+          $newOptions[$propName] = $options[$propName];
+        }
+        foreach ($prop['value'] as $delta => $row) {
+          if (!is_array($row) || array_key_exists('value', $row)) {
+            // Already migrated, or not a property map.
+            if (isset($options[$propName . '~value~' . $delta])) {
+              $newOptions[$propName . '~value~' . $delta] = $options[$propName . '~value~' . $delta];
+            }
+            continue;
+          }
+          $prop['value'][$delta] = ['value' => $row];
+          $changed = TRUE;
+          $sandbox['rows']++;
+          // Collapse the old per-column flags into the single row flag: the
+          // row counts as authored if any of its columns did.
+          $default = 1;
+          foreach ($options as $key => $flags) {
+            if (str_starts_with($key, $propName . '~') && str_ends_with($key, '~' . $delta)) {
+              if (($flags['default'] ?? 1) === 0) {
+                $default = 0;
+              }
+            }
+          }
+          $newOptions[$propName . '~value~' . $delta] = ['default' => $default];
+        }
+        if ($changed) {
+          $prop['options'] = $newOptions;
+        }
+        unset($prop);
+      }
+    }
+    unset($instance);
+
+    if ($changed) {
+      $database->update($target['table'])
+        ->fields([$target['props'] => json_encode($props)])
+        ->condition($target['id'], $record[$target['id']])
+        ->execute();
+      $sandbox['migrated']++;
+    }
+  }
+
+  if (count($records) < 200) {
+    array_shift($sandbox['targets']);
+    $sandbox['offset'] = 0;
+    $sandbox['done']++;
+  }
+  else {
+    $sandbox['offset'] += 200;
+  }
+
+  $sandbox['#finished'] = $sandbox['targets'] ? $sandbox['done'] / max(1, $sandbox['total']) : 1;
+  if ($sandbox['targets']) {
+    return NULL;
+  }
+
+  return (string) t('Re-wrapped @rows media array row(s) across @count stored tree(s).', [
+    '@rows' => $sandbox['rows'],
+    '@count' => $sandbox['migrated'],
+  ]);
+}
