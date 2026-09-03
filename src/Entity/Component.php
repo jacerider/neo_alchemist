@@ -1262,6 +1262,26 @@ class Component extends ConfigEntityBase implements ComponentInterface {
    * {@inheritdoc}
    */
   public function preSave(EntityStorageInterface $storage) {
+    // A config import writes an authoritative, complete record: expression,
+    // schema and settings all arrive from the exporting site. Re-deriving them
+    // here would throw that away and substitute whatever this site's SDC
+    // discovery happens to hold — which is stale until the next cache rebuild,
+    // because nothing invalidates it when a *.component.yml changes on disk.
+    // The import then reports success while quietly rewriting the file it just
+    // read, and the next export pushes that local answer back out: two
+    // developers ping-pong the same component between them forever, neither
+    // able to make an import stick.
+    //
+    // Deriving is deferred, not skipped. Once the sync is over,
+    // ComponentPluginManager::setCachedDefinitions() re-derives every component
+    // from the settled definitions — it already declines to do so mid-sync for
+    // this same reason, and that guard is defeated unless this one matches it.
+    //
+    // @see \Drupal\neo_alchemist\ComponentPluginManager::setCachedDefinitions()
+    if ($this->isSyncing()) {
+      parent::preSave($storage);
+      return;
+    }
     if (!isset($this->original)) {
       $newExpression = $this->generateExpression();
       $this->set('schema', Json::encode($this->getComponentSchema()));

@@ -103,4 +103,61 @@ class ComponentSaveIdempotenceTest extends KernelTestBase {
     $this->assertSame($before, $after, 'The resave round-tripped the stored plugin configuration byte-identically.');
   }
 
+  /**
+   * A config import stores the expression it was given, not a derived one.
+   *
+   * The exporting site's *.component.yml is ahead of this site's SDC discovery
+   * cache — the ordinary state of affairs right after a colleague's commit is
+   * pulled, because nothing invalidates that cache when a component file
+   * changes. Deriving during the sync would replace the imported record with
+   * the stale local answer, and the next export would push it back out.
+   */
+  public function testSyncingSaveKeepsTheImportedExpression(): void {
+    $this->createComponent('na_array_required');
+
+    $storage = $this->container->get('entity_type.manager')->getStorage('neo_component');
+    $storage->resetCache(['na_array_required']);
+    $entity = $storage->load('na_array_required');
+
+    // A prop this site's definitions cannot produce: it exists only in the
+    // exporting site's component file.
+    $imported = $entity->get('expression') . '~zz_imported.string';
+    $entity->setSyncing(TRUE);
+    $entity->set('expression', $imported);
+    $entity->save();
+
+    $storage->resetCache(['na_array_required']);
+    $this->assertSame(
+      $imported,
+      $storage->load('na_array_required')->get('expression'),
+      'The import was overwritten by a locally derived expression.',
+    );
+  }
+
+  /**
+   * Outside a sync the expression is still derived from the local SDC.
+   *
+   * The guard above must be narrow: an editor save has no authoritative record
+   * to trust, so a stored expression that has drifted from the component file
+   * still has to be corrected.
+   */
+  public function testNonSyncingSaveStillDerives(): void {
+    $this->createComponent('na_array_required');
+
+    $storage = $this->container->get('entity_type.manager')->getStorage('neo_component');
+    $storage->resetCache(['na_array_required']);
+    $entity = $storage->load('na_array_required');
+    $derived = $entity->get('expression');
+
+    $entity->set('expression', $derived . '~zz_drifted.string');
+    $entity->save();
+
+    $storage->resetCache(['na_array_required']);
+    $this->assertSame(
+      $derived,
+      $storage->load('na_array_required')->get('expression'),
+      'A normal save stopped re-deriving the expression from the component.',
+    );
+  }
+
 }
