@@ -1048,13 +1048,22 @@ final class MatcherField extends MatcherBase {
       'label_page' => [$entity->id() === 'system' ? 'Page' : $entity->label()],
       'bundle_label' => [$this->getEntityBundleLabel($entity)],
       'bundle_label_page' => [$this->entityIsSystemPage($entity) ? 'Page' : $this->getEntityBundleLabel($entity)],
+      // The icon element factory is reached through the container rather than
+      // injected. neo_icon is a runtime dependency of neo (so always present on
+      // a real site) but is not declared by neo_alchemist, and Kernel tests
+      // enable a minimal module list — a constructor argument would stop the
+      // container compiling in every one of them. Same reasoning as the '@?'
+      // references in neo_alchemist.services.yml, and as
+      // EntityReferenceIconFormatter::buildEntityIcon().
       'icon' => (function () use ($entity) {
-        $icon = neo_icon_entity($entity)->getIcon();
+        // phpcs:ignore DrupalPractice.Objects.GlobalDrupal
+        $icon = \Drupal::service('neo_icon.element_factory')->build($entity)->getIcon();
         return [$icon?->getName() ?? ''];
       })(),
       'icon_page' => (function () use ($entity) {
         $labelOverride = $entity->id() === 'system' || $this->entityIsSystemPage($entity) ? 'Page' : NULL;
-        $icon = neo_icon_entity($entity, $labelOverride)->getIcon();
+        // phpcs:ignore DrupalPractice.Objects.GlobalDrupal
+        $icon = \Drupal::service('neo_icon.element_factory')->build($entity, $labelOverride)->getIcon();
         return [$icon?->getName() ?? ''];
       })(),
       'link' => $this->getEntityDefinitionLink(
