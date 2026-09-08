@@ -63,9 +63,12 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
   /**
    * The field item.
    *
-   * @var \Drupal\Core\Field\FieldItemInterface
+   * NULL until init() builds it, and again after a clone. Read through
+   * isset(), which answers the same for NULL as for an unset property.
+   *
+   * @var \Drupal\Core\Field\FieldItemInterface|null
    */
-  protected FieldItemInterface $fieldItem;
+  protected ?FieldItemInterface $fieldItem = NULL;
 
   /**
    * Whether the prop is active.
@@ -156,9 +159,11 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
   /**
    * The field item list.
    *
-   * @var \Drupal\Core\Field\FieldItemListInterface
+   * NULL until getFieldItemList() memoises it, and again after a clone.
+   *
+   * @var \Drupal\Core\Field\FieldItemListInterface|null
    */
-  protected FieldItemListInterface $fieldItemList;
+  protected ?FieldItemListInterface $fieldItemList = NULL;
 
   /**
    * The default value.
@@ -231,9 +236,11 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
   /**
    * The widget.
    *
+   * NULL until getWidget() memoises it, and again after a clone.
+   *
    * @var \Drupal\Core\Field\WidgetInterface|null
    */
-  protected WidgetInterface|null $widget;
+  protected WidgetInterface|null $widget = NULL;
 
   /**
    * A cached collection of all child shapes.
@@ -457,8 +464,9 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
    * reason.
    */
   public function init(): ComponentShapePluginInterface {
-    // Reset the field item list.
-    unset($this->fieldItem);
+    // Reset the field item list. The setters called below assert on isset(),
+    // so this has to clear before they run; it is rebuilt further down.
+    $this->fieldItem = NULL;
     $this->fieldType = $this->getDefaultFieldType();
     $this->fieldStorageSettings = $this->getDefaultFieldStorageSettings();
     $this->fieldInstanceSettings = $this->getDefaultFieldInstaceSettings();
@@ -2947,9 +2955,10 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
    * {@inheritDoc}
    */
   public function __clone() {
-    unset($this->fieldItem);
-    unset($this->fieldItemList);
-    unset($this->widget);
+    // Back to "not yet built" — the clone re-derives all three on demand.
+    $this->fieldItem = NULL;
+    $this->fieldItemList = NULL;
+    $this->widget = NULL;
     // The option store was two arrays before it was an object, so a clone used
     // to get its own copy for free. Copying it keeps that: a cloned root shape
     // is a separate tree and must not write into the original's options.

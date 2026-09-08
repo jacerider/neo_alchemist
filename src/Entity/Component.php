@@ -263,9 +263,11 @@ class Component extends ConfigEntityBase implements ComponentInterface {
   /**
    * The prop shapes.
    *
-   * @var \Drupal\neo_alchemist\Shape\ComponentShapePluginInterface[]
+   * NULL means "not yet derived" — invalidateDerivedSettings() puts it back.
+   *
+   * @var \Drupal\neo_alchemist\Shape\ComponentShapePluginInterface[]|null
    */
-  protected array $propShapes;
+  protected ?array $propShapes = NULL;
 
   /**
    * The shape contexts.
@@ -287,23 +289,29 @@ class Component extends ConfigEntityBase implements ComponentInterface {
   /**
    * The slots.
    *
-   * @var \Drupal\neo_alchemist\Slot\ComponentSlot[]
+   * NULL means "not yet derived" — invalidateDerivedSettings() puts it back.
+   *
+   * @var \Drupal\neo_alchemist\Slot\ComponentSlot[]|null
    */
-  protected array $slots;
+  protected ?array $slots = NULL;
 
   /**
    * The filters.
    *
-   * @var \Drupal\neo_alchemist\Filter\ComponentFilterInterface[]
+   * NULL means "not yet derived" — invalidateDerivedSettings() puts it back.
+   *
+   * @var \Drupal\neo_alchemist\Filter\ComponentFilterInterface[]|null
    */
-  protected array $filters;
+  protected ?array $filters = NULL;
 
   /**
    * The component access.
    *
-   * @var array
+   * NULL means "not yet derived" — invalidateDerivedSettings() puts it back.
+   *
+   * @var array|null
    */
-  protected array $access;
+  protected ?array $access = NULL;
 
   /**
    * The cacheable metadata.
@@ -637,9 +645,17 @@ class Component extends ConfigEntityBase implements ComponentInterface {
    * Public because the SDC preview store calls it as the postcondition of a
    * prop-value override write: the overrides seed the shapes and filters, so
    * the memo has to go for the same request to re-derive against them.
+   *
+   * NULL rather than unset() is what marks a memo empty: the four properties
+   * read through isset(), which answers the same for both, and unsetting a
+   * non-private property of a non-final class is an error once a subclass can
+   * give it hooks.
    */
   public function invalidateDerivedSettings(): void {
-    unset($this->propShapes, $this->slots, $this->filters, $this->access);
+    $this->propShapes = NULL;
+    $this->slots = NULL;
+    $this->filters = NULL;
+    $this->access = NULL;
   }
 
   /**

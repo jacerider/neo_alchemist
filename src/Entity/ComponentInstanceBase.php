@@ -265,8 +265,10 @@ abstract class ComponentInstanceBase extends Component implements ComponentInsta
    * {@inheritDoc}
    */
   public function setValues(array $values): self {
-    unset($this->propShapes);
-    unset($this->filters);
+    // Deliberately narrower than invalidateDerivedSettings(): slots and access
+    // do not derive from the values being written here.
+    $this->propShapes = NULL;
+    $this->filters = NULL;
     $this->values = $values;
     $fieldItem = $this->getFieldItem();
     if ($this->isNew()) {

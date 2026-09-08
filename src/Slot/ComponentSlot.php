@@ -86,7 +86,10 @@ class ComponentSlot implements ComponentSlotInterface {
   /**
    * The resolved Twig keys, keyed by plugin UUID.
    *
-   * @var string[]
+   * NULL means "not yet resolved" — getKeys() reads it through isset(), and
+   * every mutator that changes what the keys derive from puts it back.
+   *
+   * @var string[]|null
    */
   protected $keys;
 
@@ -247,7 +250,7 @@ class ComponentSlot implements ComponentSlotInterface {
     else {
       $this->settings['plugins'][$uuid]['key'] = $key;
     }
-    unset($this->keys);
+    $this->keys = NULL;
     return $this;
   }
 
@@ -264,7 +267,7 @@ class ComponentSlot implements ComponentSlotInterface {
     $this->plugins = $plugins + [
       $plugin->uuid() => $plugin,
     ];
-    unset($this->keys);
+    $this->keys = NULL;
     return $plugin;
   }
 
@@ -273,7 +276,7 @@ class ComponentSlot implements ComponentSlotInterface {
    */
   public function removePlugin(string $uuid): self {
     unset($this->plugins[$uuid]);
-    unset($this->keys);
+    $this->keys = NULL;
     return $this;
   }
 
