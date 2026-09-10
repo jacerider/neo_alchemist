@@ -1,5 +1,55 @@
 # Changelog
 
+## A pager slot renders its own query's pager, or nothing
+
+`EntityQueryPagerSlot` emitted a bare `['#type' => 'pager']`, which renders pager
+element **0** — whoever created it. **The observed symptom is a *wrong* pager, not
+a missing one**, so this is worth taking on any site that pages a listing.
+
+Two things were only ever accidentally true.
+
+**The element was assumed to be 0.** `QueryBase::pager($limit, $element = NULL)`
+assigns `getMaxPagerElementId() + 1`, so a listing is on element 0 only when
+nothing else on the page paginated first. Put a view above it and the query moves
+to element 1 while the slot keeps rendering element 0 — a pager whose links do
+nothing to the list beneath it.
+
+**A slot was assumed to still have a query behind it.** `isApplicable()` narrows
+the *add* picker; nothing re-checks it against saved config. So when a prop's
+value provider is swapped for one that does not page, the slot survives the swap
+and keeps rendering. Found in the wild on a listing whose `items` had moved from
+`entity_query` to `event`: the page showed a two-page pager that paged nothing,
+and only on a cold cache — once the foreign pager's own render was cached, the
+slot fell to its other failure mode and emitted an empty `<nav>` wrapper. That
+wrapper is not nothing: a non-empty return counts as a filled slot, so it also
+suppressed the component's own `{% block %}` fallback.
+
+A paging provider now publishes an `entity_query_pager` prop-shape context
+carrying the `int` element it claimed, and the slot renders that element or
+returns `[]`. `EntityQueryValue` publishes it when `paging` is on; an `event`
+subscriber that ran its own paged query publishes it by calling
+`ComponentValueEvent::setPagerElement($element)`. The `entity_query` context is
+untouched — still a bare `QueryInterface`, still registered exactly when it was —
+so anything already reading it is unaffected.
+
+The slot gains an optional `context` select for components with more than one
+paging prop. It is deliberately **not** required: existing config carries no
+`context` at all and is read as "the component's single query", so slots that
+work today keep working. A `context` that no longer resolves renders nothing
+rather than falling back to another prop's pager.
+
+Also fixed, and independent of whether a pager is rendered anywhere: a paging
+`entity_query` now declares `url.query_args.pagers:<element>` on its own
+cacheability. The rows vary by page, so without it a render-cached listing serves
+page 1's rows on page 2.
+
+**One visible change to check.** A listing that was rendering a *foreign* pager
+starts rendering its own, and its links change accordingly (`?page=1` becomes
+`?page=0,1` when it is not on element 0). A component whose slot has no paging
+prop behind it stops rendering a pager entirely — if its `{% block %}` for that
+slot has non-empty default markup, that markup reappears. Both are the corrected
+behaviour, but they are visible.
+
 ## A link's computed children are no longer a producer's to hide
 
 Amends [Link children now honour the hide, default and lock

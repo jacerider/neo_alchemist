@@ -5,11 +5,13 @@ declare(strict_types=1);
 namespace Drupal\neo_alchemist\Plugin\ComponentValue;
 
 use Drupal\Component\Utility\Html;
+use Drupal\Core\Cache\CacheableMetadata;
 use Drupal\Core\DependencyInjection\DependencySerializationTrait;
 use Drupal\Core\Entity\EntityTypeBundleInfoInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Entity\Query\QueryInterface;
 use Drupal\Core\Form\FormStateInterface;
+use Drupal\Core\Pager\PagerManagerInterface;
 use Drupal\Core\Plugin\ContainerFactoryPluginInterface;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\neo_alchemist\Attribute\ComponentValue;
@@ -85,11 +87,25 @@ final class EntityQueryValue extends ComponentValuePluginBase implements Contain
   protected ChildrenMatchMapper $childrenMatchMapper;
 
   /**
+   * The pager manager.
+   *
+   * @var \Drupal\Core\Pager\PagerManagerInterface
+   */
+  protected PagerManagerInterface $pagerManager;
+
+  /**
    * The entity query.
    *
    * @var \Drupal\Core\Entity\Query\QueryInterface|null
    */
   protected ?QueryInterface $entityQuery = NULL;
+
+  /**
+   * The pager element this query claimed, or NULL when paging is off.
+   *
+   * @var int|null
+   */
+  protected ?int $pagerElement = NULL;
 
   /**
    * {@inheritdoc}
@@ -104,6 +120,7 @@ final class EntityQueryValue extends ComponentValuePluginBase implements Contain
     EventDispatcherInterface $event_dispatcher,
     MatcherReference $matcher_reference,
     ChildrenMatchMapper $children_match_mapper,
+    PagerManagerInterface $pager_manager,
   ) {
     parent::__construct($plugin_id, $plugin_definition, $shape, $configuration);
     $this->entityTypeManager = $entity_type_manager;
@@ -111,6 +128,7 @@ final class EntityQueryValue extends ComponentValuePluginBase implements Contain
     $this->eventDispatcher = $event_dispatcher;
     $this->matcherReference = $matcher_reference;
     $this->childrenMatchMapper = $children_match_mapper;
+    $this->pagerManager = $pager_manager;
   }
 
   /**
@@ -126,7 +144,8 @@ final class EntityQueryValue extends ComponentValuePluginBase implements Contain
       $container->get('entity_type.bundle.info'),
       $container->get('event_dispatcher'),
       $container->get('neo_alchemist.matcher_reference'),
-      $container->get('neo_alchemist.children_match_mapper')
+      $container->get('neo_alchemist.children_match_mapper'),
+      $container->get('pager.manager')
     );
   }
 
@@ -550,7 +569,23 @@ final class EntityQueryValue extends ComponentValuePluginBase implements Contain
         if ($this->getShape()->isIterable() && $this->configuration['paging']) {
           // A pager always needs a positive page size; "all results" is not a
           // meaningful page size, so fall back to the configured default.
-          $query->pager($length > 0 ? $length : 10);
+          //
+          // The element is chosen here rather than left to QueryBase::pager(),
+          // which assigns the same getMaxPagerElementId() + 1 into a protected
+          // property with no getter. A pager slot has to render THIS query's
+          // element — a bare ['#type' => 'pager'] renders element 0, whoever
+          // created it — so the id has to be knowable, and it is only 0 when
+          // nothing else on the page paginated first.
+          $element = $this->pagerManager->getMaxPagerElementId() + 1;
+          $query->pager($length > 0 ? $length : 10, $element);
+          $this->pagerElement = $element;
+          // The rows themselves vary by page, whether or not a pager slot is
+          // placed. Without this a render-cached listing serves page 1's rows
+          // on page 2. '#type' => 'pager' bubbles the same context, but only
+          // when a slot renders one — the rows must declare it on their own.
+          $this->shape->addCacheableDependency(
+            (new CacheableMetadata())->addCacheContexts(['url.query_args.pagers:' . $element])
+          );
         }
         elseif ($length > 0) {
           $query->range($start, $length);
@@ -659,8 +694,18 @@ final class EntityQueryValue extends ComponentValuePluginBase implements Contain
         $event = new ComponentValueEntityQueryEvent($this->getShape(), $query);
         $this->eventDispatcher->dispatch($event, ComponentValueEntityQueryEvent::EVENT_NAME);
         $this->entityQuery = $query;
-        // Set a context for use by slots.
+        // Set a context for use by slots. The value stays a bare
+        // QueryInterface — anything already reading this context is untouched.
         $this->shape->getComponent()->setPropShapeContext('entity_query', $this->getShape(), $query);
+        if ($this->pagerElement !== NULL) {
+          // A separate context, deliberately: it exists only when paging is
+          // actually on, so a pager slot's option list is exactly the set of
+          // props it can page, and a slot stranded by a provider swap finds
+          // nothing to render instead of borrowing a foreign pager.
+          //
+          // @see \Drupal\neo_alchemist\Plugin\ComponentSlot\EntityQueryPagerSlot
+          $this->shape->getComponent()->setPropShapeContext('entity_query_pager', $this->getShape(), $this->pagerElement);
+        }
       }
     }
     return $this->entityQuery;
@@ -712,6 +757,10 @@ final class EntityQueryValue extends ComponentValuePluginBase implements Contain
   public function __sleep(): array {
     return array_diff($this->traitSleep(), [
       'entityQuery',
+      // Pager element ids are request-scoped: PagerManager hands them out in
+      // the order queries ask, so a woken plugin must recompute rather than
+      // trust an id assigned during some earlier request.
+      'pagerElement',
     ]);
   }
 

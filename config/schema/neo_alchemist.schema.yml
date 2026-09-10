@@ -982,6 +982,20 @@ neo_alchemist.neo_component_slot.views_pager:
       type: string
       label: Context
 
+neo_alchemist.neo_component_slot.entity_query_pager:
+  type: mapping
+  label: Entity query pager slot provider
+  mapping:
+    context:
+      type: string
+      label: Context
+      # Slots saved before this key existed carry no context at all, and are
+      # read as "the first paging query on the component". Without
+      # requiredKey the plugin would validate more strictly than the bare
+      # mapping it used to fall through to.
+      requiredKey: false
+      nullable: true
+
 neo_alchemist.neo_component_slot.views:
   type: mapping
   label: Views pager slot provider

@@ -62,6 +62,13 @@ class ComponentValueEvent extends Event implements RefinableCacheableDependencyI
   public bool $continueProcessing = TRUE;
 
   /**
+   * The pager element a subscriber claimed, or NULL when none paginated.
+   *
+   * @var int|null
+   */
+  public ?int $pagerElement = NULL;
+
+  /**
    * Constructs the object.
    *
    * @param \Drupal\neo_alchemist\Shape\ComponentShapePluginInterface $shape
@@ -141,6 +148,45 @@ class ComponentValueEvent extends Event implements RefinableCacheableDependencyI
    */
   public function setValue(mixed $value) {
     $this->value = $value;
+  }
+
+  /**
+   * Declares that this subscriber paginated its own query.
+   *
+   * A subscriber that builds a paged query — $query->pager($limit, $element),
+   * or any other call that reaches PagerManager::createPager() — must say so
+   * here for a pager slot on the same component to render. Without it the slot
+   * finds no pager context and stays empty, because a slot that renders a bare
+   * ['#type' => 'pager'] would render pager element 0 no matter who created
+   * it, which is how a stranded slot ends up showing some other list's pager.
+   *
+   * Pass the element explicitly to $query->pager() rather than letting it
+   * default to NULL: core then assigns getMaxPagerElementId() + 1, which is
+   * only 0 when nothing else on the page paginated first.
+   *
+   * The caller is still responsible for the matching cache context —
+   * $event->addCacheContexts(['url.query_args.pagers:' . $element]) — since
+   * the rows themselves vary by page whether or not a pager is rendered.
+   *
+   * @param int $element
+   *   The pager element the query claimed.
+   *
+   * @return self
+   *   The current instance of the class.
+   */
+  public function setPagerElement(int $element): self {
+    $this->pagerElement = $element;
+    return $this;
+  }
+
+  /**
+   * Gets the pager element this subscriber claimed, if any.
+   *
+   * @return int|null
+   *   The pager element, or NULL when no subscriber paginated.
+   */
+  public function getPagerElement(): ?int {
+    return $this->pagerElement;
   }
 
   /**

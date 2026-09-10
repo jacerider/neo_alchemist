@@ -276,6 +276,15 @@ final class EventValue extends ComponentValuePluginBase implements ContainerFact
     $this->eventDispatcher->dispatch($event, ComponentValueEvent::EVENT_NAME);
     $value = $event->getValue();
     $this->shape->addCacheableDependency($event);
+    if (($pagerElement = $event->getPagerElement()) !== NULL) {
+      // A subscriber that paginated its own query publishes the same context
+      // the entity-query provider does, so a pager slot on this component can
+      // render that pager — and only that pager.
+      //
+      // @see \Drupal\neo_alchemist\Event\ComponentValueEvent::setPagerElement()
+      // @see \Drupal\neo_alchemist\Plugin\ComponentSlot\EntityQueryPagerSlot
+      $this->shape->getComponent()->setPropShapeContext('entity_query_pager', $this->getShape(), $pagerElement);
+    }
     // A subscriber calling $event->stopFurtherProcessing() is the documented
     // veto case: code that has already inspected the value is stating that
     // nothing further should run, which outranks whatever the site builder

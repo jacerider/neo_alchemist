@@ -205,11 +205,24 @@ Mechanics the "Where to add X" bullet doesn't cover:
 `settings.slots.<slot>.plugins.<uuid> = {plugin, key?, settings}`. Availability is
 PHP-side only (the info.yml declares none of views/block/commerce): static
 `isApplicable(ComponentInterface)` gates `entity_display`/`entity_field` (needs a target
-entity type), `entity_query_pager` (`hasPropShapeWithPlugin('entity_query')`), the
+entity type), `entity_query_pager` (`hasPropShapeWithPlugin('entity_query')`, or any prop
+already registering a pager), the
 `ViewsSlotBase` three (`hasPropShapeWithPlugin('views')` — they consume the executed-view
 context the `views` **value** provider registers, via `getPropShapeContexts('views')`),
 and `product_variation_field` (`commerce_product` target; the class simply fails to load
-without commerce). Cacheability trap: `getCacheableMetadata()` returns the component's
+without commerce). `isApplicable()` narrows the *add* picker only — nothing re-checks it
+against saved config, so a slot outlives the prop it was placed for and must guard itself
+at render time. `entity_query_pager` does: it renders only the pager named by the
+`entity_query_pager` prop-shape context (an `int` element id, published by
+`EntityQueryValue` when `paging` is on, or by an `event` subscriber calling
+`ComponentValueEvent::setPagerElement()`), and returns `[]` otherwise. Never emit a bare
+`['#type' => 'pager']` from a slot: that renders pager element **0** whoever created it,
+so a stranded slot shows some other list's pager, and the non-empty return counts as a
+filled slot that suppresses the component's own `{% block %}` fallback. The element is not
+reliably 0 either — `QueryBase::pager()` assigns `getMaxPagerElementId() + 1`, so pass it
+explicitly and publish it. A paging provider also owes
+`url.query_args.pagers:<element>` on its own cacheability: the rows vary by page whether
+or not a pager slot is placed. Cacheability trap: `getCacheableMetadata()` returns the component's
 **shared** metadata object — always `mergeCacheMaxAge()`, never set (a permissive view
 would raise a max-age someone else lowered to 0), and call
 `addViewAsCacheableDependency()` once per render, not per item (it walks Search API
