@@ -172,7 +172,78 @@ final class ComponentValuePanelBuilder {
       $panel['values'] += $styleElements;
     }
 
+    $this->groupPropForms($component, $panel['values']);
+
     return $panel;
+  }
+
+  /**
+   * Renders props declaring `form_group` inside the named prop's fieldset.
+   *
+   * Some props belong to another prop in the author's head but cannot be a
+   * child of it in the schema — a shared object prop-def such as `heading` is
+   * fixed, so a component wanting an optional link on its heading title has to
+   * declare that link as a sibling. This puts the two back together on the
+   * form without touching the schema.
+   *
+   * Grouping is Drupal's `#group`, NOT a move of the built form. The element
+   * stays exactly where it is in `$values`, because
+   * ComponentPropValueHarvester::harvest() looks each prop up as
+   * `$form['values'][$propName]` and skips what it cannot find there — nesting
+   * the array would drop the prop's value on save with no error. `#group`
+   * relocates at pre-render only, so `#parents`, `#tree` and the harvest are
+   * all untouched.
+   *
+   * Runs after the build loop rather than inside it so a prop may name a host
+   * declared after it; in-loop, the host's element would not exist yet.
+   *
+   * @param \Drupal\neo_alchemist\ComponentInterface $component
+   *   The component whose prop shapes are being edited.
+   * @param array $values
+   *   The values container, by reference.
+   *
+   * @see \Drupal\Core\Render\Element\RenderElementBase::preRenderGroup()
+   */
+  private function groupPropForms(ComponentInterface $component, array &$values): void {
+    foreach ($component->getPropShapes() as $propName => $shape) {
+      $host = $shape->getFormGroup();
+      // A style prop is already grouped into the styles accordion, and core
+      // keeps only the last #group, so honouring both would silently drop it
+      // out of the accordion.
+      if (!$host || $shape instanceof ComponentShapeStylePluginInterface) {
+        continue;
+      }
+      // An absent host is not fatal: core renders an orphaned group member at
+      // its original location. `neo:alchemist:validate` reports the typo.
+      if ($host === $propName || !isset($values[$propName], $values[$host]['#parents'])) {
+        continue;
+      }
+
+      // Give the host's children explicit, evenly spaced weights in their
+      // current order. Without this, placement rides on the decimal
+      // placeholders FormBuilder assigns from array order, which shift as soon
+      // as the host gains a child — so "after the title" would quietly become
+      // "after the subtitle". `_options` is left alone: it carries its own
+      // weight to sit in the fieldset legend.
+      $weights = [];
+      $weight = 0;
+      foreach (Element::children($values[$host]) as $child) {
+        if ($child === '_options') {
+          continue;
+        }
+        $weights[$child] = $weight += 10;
+        $values[$host][$child]['#weight'] = $weights[$child];
+      }
+
+      $after = $shape->getFormGroupAfter();
+      // Half a step lands it between the named child and the next one. An
+      // unknown name falls through to the end, which is also where a prop
+      // naming no sibling goes.
+      $values[$propName]['#weight'] = isset($weights[$after])
+        ? $weights[$after] + 5
+        : $weight + 10;
+      $values[$propName]['#group'] = implode('][', $values[$host]['#parents']);
+    }
   }
 
   /**

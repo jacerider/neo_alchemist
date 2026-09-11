@@ -346,6 +346,29 @@ final class NeoAlchemistCommands extends DrushCommands {
       $oks[] = sprintf('%d prop(s) declared with known types.', count($declared));
     }
 
+    // `form_group` renders a root prop's form inside another prop's fieldset.
+    // Core renders an orphaned group member at its original location rather
+    // than erroring, so a bad target looks exactly like the key having no
+    // effect — which is worth saying out loud.
+    foreach ($props as $name => $prop) {
+      $host = $prop['form_group'] ?? NULL;
+      if (!$host) {
+        continue;
+      }
+      if ($host === $name) {
+        $warnings[] = sprintf('Prop `%s` sets `form_group` to itself. The field will render ungrouped.', $name);
+      }
+      elseif (!isset($props[$host])) {
+        $warnings[] = sprintf('Prop `%s` sets `form_group: %s`, which is not a declared prop. The field will render ungrouped.', $name, $host);
+      }
+      elseif (empty($props[$host]['properties'])) {
+        $warnings[] = sprintf('Prop `%s` sets `form_group: %s`, which is not an object prop and so has no fieldset to host it. The field will render ungrouped.', $name, $host);
+      }
+      elseif (($after = $prop['form_group_after'] ?? NULL) && !isset($props[$host]['properties'][$after])) {
+        $warnings[] = sprintf('Prop `%s` sets `form_group_after: %s`, which is not a child of `%s`. The field will render last in the group.', $name, $after, $host);
+      }
+    }
+
     // Views-context prop ordering. The views_exposed_filter,
     // views_active_filters and views_summary providers read the `views`
     // context, which the views value provider registers while its own prop

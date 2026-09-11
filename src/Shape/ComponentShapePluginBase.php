@@ -866,6 +866,20 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
   /**
    * {@inheritDoc}
    */
+  public function getFormGroup(): ?string {
+    return $this->schema['form_group'] ?? NULL;
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  public function getFormGroupAfter(): ?string {
+    return $this->schema['form_group_after'] ?? NULL;
+  }
+
+  /**
+   * {@inheritDoc}
+   */
   public function getTitle(): string|MarkupInterface {
     return $this->schema['title'] ?? 'Unnamed Prop';
   }

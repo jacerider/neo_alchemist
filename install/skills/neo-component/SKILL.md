@@ -435,6 +435,38 @@ The prop passed to Twig is an **`Attribute` that already carries the selected op
 ### `maxItems`
 Set on an `array` prop to cap editor input (e.g. `maxItems: 1` for a single optional CTA).
 
+### `form_group` / `form_group_after`
+Render a **root-level** prop's form inside another prop's fieldset on the editor panel.
+
+Reach for this when a prop belongs to another prop in the author's head but cannot be a child
+of it in the schema — the common case being a shared object prop-def such as `heading`, which
+is fixed, so a component wanting an optional link on its heading title has to declare that
+link as a sibling:
+
+```yaml
+    heading:
+      type: heading
+      title: 'Heading'
+    heading_link:
+      type: url
+      title: 'Heading link'
+      form_group: heading         # render inside the Heading fieldset
+      form_group_after: title     # …directly after its Title field
+```
+
+- `form_group` names the **object** prop whose fieldset hosts the form.
+- `form_group_after` is optional and names one of that prop's **children**. Omit it to append
+  after the host's own fields. Name a sibling rather than juggling weights — placement then
+  survives the host gaining a field.
+
+**This is presentation only.** The prop stays root-level in the schema, and its value still
+submits, harvests and renders exactly as before — Twig still reads `heading_link`, not
+`heading.link`. Nothing about the prop's data changes.
+
+A bad target degrades quietly (the field just renders ungrouped), so
+`drush neo:alchemist:validate` warns when the host is missing, isn't an object prop, or when
+`form_group_after` names a non-child.
+
 ## Slots
 
 Slots are named regions in the Twig template that editors fill with other components (block-level composition, not prop data). Declare in yml:

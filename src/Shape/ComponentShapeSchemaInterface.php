@@ -68,6 +68,30 @@ interface ComponentShapeSchemaInterface extends ComponentShapeIdentityInterface 
   public function getFormat(): string;
 
   /**
+   * Get the name of the prop this prop's form renders inside.
+   *
+   * A prop stays a root-level prop in the schema — this only relocates its
+   * form on the editor panel, into the named object prop's fieldset, so two
+   * props an author thinks of as one thing are edited together. The value
+   * still submits and harvests as its own root prop.
+   *
+   * @return string|null
+   *   The host prop name, or NULL when the form is not grouped.
+   */
+  public function getFormGroup(): ?string;
+
+  /**
+   * Get the host child this prop's form is placed after.
+   *
+   * Only meaningful alongside ::getFormGroup(). Naming a sibling rather than a
+   * weight keeps placement stable when the host object gains a child.
+   *
+   * @return string|null
+   *   The host child name, or NULL to append after the host's own children.
+   */
+  public function getFormGroupAfter(): ?string;
+
+  /**
    * Get the prop description.
    *
    * This is the user-facing description of the prop.
