@@ -527,19 +527,19 @@ value) → **fallback** (the `default` plugin — the site builder's configured 
 The per-prop Customize form lists only the **active** plugins per group, as summary rows
 with an *Add provider* select for the rest; Edit opens one plugin's settings at a time,
 and everything stages on the form until Save. Every provider's chain behavior is the
-**"When this provider runs"** radios at the top of its settings: *Use its value and stop*
-(non-empty wins, empty falls through), *Add its value and continue* (never final — a
-later provider can overwrite), *Always use its value — final* (always claims: empty
-renders **nothing**; the shipped default for list-like providers whose `examples` are
-scaffolding). Two rules of thumb: a provider that finds nothing (and isn't on the final
+**"When this provider runs"** select at the top of its settings: *Stop when it finds a
+value* (non-empty wins, empty falls through), *Add its value and continue* (never final —
+a later provider can overwrite), *Always claim — final, even when empty* (always claims:
+empty renders **nothing**; the shipped default for list-like providers whose `examples`
+are scaffolding). Two rules of thumb: a provider that finds nothing (and isn't on the final
 mode) leaves the previous value standing, so attaching one can't make a prop worse; and a
 provider on the final mode starves the Default Value plugin — never combine it with a
 configured default.
 
 **Primary source with a fallback** — the ordering + modes recipe, and it works on list
 props and on an aggregated component's `_aggregate` alike: `entity_reference` (mode
-*Use its value and stop*) dragged **above** `entity_query` (mode *Always use its value —
-final*). A filled reference claims and the query never runs; an empty (or dangling)
+*Stop when it finds a value*) dragged **above** `entity_query` (mode *Always claim —
+final, even when empty*). A filled reference claims and the query never runs; an empty (or dangling)
 reference falls through to the query; an empty query claims emptiness so schema examples
 never leak. Map the fields once — under **Advanced**, the second provider's form offers
 "Copy field mapping from" to clone a sibling's mapping. Editor previews on an unsaved host always show the query
@@ -1019,7 +1019,7 @@ resolved colors — see "Finding this site's real colors"). All tabular commands
 - **SVG (e.g. a logo) rendered via `neo_image_style` collapses to 0×0 / a tiny square** — image styles are raster ops (GD), so an SVG can't be transformed: the original file is emitted and the size op only sets HTML `width`/`height` attributes. The theme's base reset (`img{height:auto}` in `@layer base`) overrides those attributes, and a viewBox-only SVG has no intrinsic size, so it renders at 0×0 (or a fabricated square if a single-axis op is used). Fix by sizing with a **CSS class** via the 5th `attributes` arg — utilities beat the base layer: `{{ neo_image_style(logo.src, {scale: {height: 30}}, logo.alt, '', {class: ['h-7', 'w-auto']}) }}`. (`w-auto` lets the browser derive width from the SVG's `viewBox` aspect ratio.)
 - **Fixed/floating component blank in the Alchemist preview** — a `position: fixed`/`absolute` root has no flow height, so the preview iframe collapses. Render it in-flow (`relative`) behind `{% if neoIsPreview %}`, with a solid background if it's normally transparent. See "Fixed / floating roots and the preview iframe".
 - **Fixed/sticky component hidden behind the admin toolbar** — pinning a `fixed`/`sticky` root to `top-0` puts it under the Drupal toolbar for logged-in users. Use `top-displace-t` instead (offsets by the toolbar height, `0px` when absent). See "Fixed / floating roots and the preview iframe".
-- **A provider on the final mode plus a configured Default Value** — *Always use its value — final* claims unconditionally, so the fallback `default` plugin never gets a turn and the site builder's Default Value silently never renders. Use *Use its value and stop* when a default is configured.
+- **A provider on the final mode plus a configured Default Value** — *Always claim — final, even when empty* claims unconditionally, so the fallback `default` plugin never gets a turn and the site builder's Default Value silently never renders. Use *Stop when it finds a value* when a default is configured.
 - **`examples:` on a `media` prop** — media props can't carry examples; previews borrow the most recent published media of an allowed type instead. Don't fight it with placeholder URLs — that's what `image` (with `component://` art) is for.
 - **Clearing cache** — after editing `.component.yml`, run `drush cr` or the prop changes won't reflect.
 - **Renaming or deleting a component that is placed** — a `neo_component` entity id is a plain string in every tree that places it, so renaming or deleting one leaves those placements resolving to NULL. They are then skipped at render: the page returns 200 with a hole in it. Do not do this by hand — use the command, which moves the entity and every tree together:

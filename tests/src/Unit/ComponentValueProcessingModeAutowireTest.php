@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Drupal\Tests\neo_alchemist\Unit;
 
 use Drupal\Core\Form\FormState;
+use Drupal\Core\Render\Element;
 use Drupal\Tests\UnitTestCase;
 use Drupal\Tests\neo_alchemist\Traits\ShapeDoubleTrait;
 use Drupal\neo_alchemist\Value\ComponentValueProcessingModeInterface;
@@ -61,6 +62,23 @@ class ComponentValueProcessingModeAutowireTest extends UnitTestCase {
     $this->assertArrayHasKey('processing_mode', $form, 'The base wired the mode form; the plugin never called buildProcessingModeForm().');
     $this->assertSame('select', $form['processing_mode']['#type']);
     $this->assertSame(-10, $form['processing_mode']['#weight'], 'The mode select sorts above the plugin settings.');
+  }
+
+  /**
+   * The mode select hangs nothing off itself that a select would drop.
+   *
+   * Per-mode child elements are the radios idiom. This select used to carry
+   * one per mode, each holding a #description explaining that mode: core's
+   * select renders only #options, so all three explanations were dropped and
+   * the site builder saw three bare labels. A child keyed by a mode name is
+   * therefore not extra help, it is invisible help — the labels have to carry
+   * the meaning themselves.
+   */
+  public function testModeSelectCarriesNoDroppedChildren(): void {
+    $complete = [];
+    $form = $this->bareProvider()->buildConfigurationForm([], new FormState(), $complete);
+
+    $this->assertSame([], Element::children($form['processing_mode']), 'A select renders no child elements; put the explanation in the option labels.');
   }
 
 }

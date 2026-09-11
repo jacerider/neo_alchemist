@@ -89,9 +89,14 @@ trait ComponentValueProcessingModeTrait {
    *   Mode labels keyed by mode machine name.
    */
   protected function processingModeOptions(): array {
+    // Each label has to carry its own meaning: a select renders nothing but
+    // these strings, and what separates the first two is only what an EMPTY
+    // result means, so every label says so. The wording tracks
+    // processingModeSummary(), which labels the same choice in the provider
+    // list.
     return [
-      ComponentValueProcessingModeInterface::MODE_STOP_WHEN_FOUND => $this->t('Use its value and stop'),
-      ComponentValueProcessingModeInterface::MODE_BLOCK => $this->t('Always use its value — final'),
+      ComponentValueProcessingModeInterface::MODE_STOP_WHEN_FOUND => $this->t('Stop when it finds a value'),
+      ComponentValueProcessingModeInterface::MODE_BLOCK => $this->t('Always claim — final, even when empty'),
       ComponentValueProcessingModeInterface::MODE_CONTINUE => $this->t('Add its value and continue'),
     ];
   }
@@ -114,7 +119,7 @@ trait ComponentValueProcessingModeTrait {
   }
 
   /**
-   * Adds the standard "Processing" radios to the provider's config form.
+   * Adds the standard "Processing" select to the provider's config form.
    *
    * Rendered first in the provider's form (weight -10): the chain behavior is
    * the one setting that decides how this provider interacts with the others
@@ -126,9 +131,15 @@ trait ComponentValueProcessingModeTrait {
    *   The form state.
    *
    * @return array
-   *   The form array with the processing mode radios added.
+   *   The form array with the processing mode select added.
    */
   public function buildProcessingModeForm(array $form, FormStateInterface $form_state): array {
+    // Do not hang per-mode child elements off this select to explain the
+    // options. That is the radios idiom, and it used to sit here carrying a
+    // #description per mode: core's select renders nothing but #options, so
+    // every one of those explanations was silently dropped and a site builder
+    // saw three bare labels. processingModeOptions() carries the meaning
+    // instead.
     $form['processing_mode'] = [
       '#type' => 'select',
       '#title' => $this->t('When this provider runs'),
@@ -136,15 +147,6 @@ trait ComponentValueProcessingModeTrait {
       '#default_value' => $this->getProcessingMode(),
       '#neo_size' => 'sm',
       '#weight' => -10,
-      ComponentValueProcessingModeInterface::MODE_STOP_WHEN_FOUND => [
-        '#description' => $this->t('If it finds nothing, later providers may still fill in.'),
-      ],
-      ComponentValueProcessingModeInterface::MODE_BLOCK => [
-        '#description' => $this->t('Halts the search even when empty — an empty source renders nothing instead of the example.'),
-      ],
-      ComponentValueProcessingModeInterface::MODE_CONTINUE => [
-        '#description' => $this->t('Later providers may still change the value.'),
-      ],
     ];
     return $form;
   }
