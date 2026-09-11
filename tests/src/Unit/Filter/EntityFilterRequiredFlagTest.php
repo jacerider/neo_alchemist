@@ -68,6 +68,7 @@ class EntityFilterRequiredFlagTest extends UnitTestCase {
     $filter->method('isEditable')->willReturn($editable);
     $filter->method('getValue')->willReturn(NULL);
     $filter->method('getDescription')->willReturn('');
+    $filter->method('label')->willReturn('Insights');
 
     $filterProperty = $reflection->getProperty('filter');
     $filterProperty->setValue($plugin, $filter);
@@ -103,6 +104,40 @@ class EntityFilterRequiredFlagTest extends UnitTestCase {
     $plugin->setStringTranslation($this->getStringTranslationStub());
 
     $this->assertSame($expected, $this->isValueRequired($plugin, $is_default_form));
+  }
+
+  /**
+   * Every widget carries a title, so a required error can be worded.
+   *
+   * Core can only produce "@name field is required." from an element's
+   * #title; an element without one raises an error carrying no message, which
+   * surfaced as an empty red box in the editor. The title is invisible
+   * because both consuming forms already label the wrapper around it.
+   */
+  #[DataProvider('providerTitledWidgets')]
+  public function testValueElementCarriesAnInvisibleTitle(string $fieldType): void {
+    $plugin = $this->buildFilter(['field_type' => $fieldType], TRUE, TRUE);
+    $this->attachEmptyEntityStorage($plugin);
+    $plugin->setStringTranslation($this->getStringTranslationStub());
+
+    $form = $plugin->buildForm([], $this->createMock(FormStateInterface::class), FALSE);
+
+    $this->assertSame('Insights', (string) $form['value']['#title']);
+    $this->assertSame('invisible', $form['value']['#title_display']);
+  }
+
+  /**
+   * The widget types buildForm() can produce.
+   *
+   * @return array
+   *   Sets of [field_type].
+   */
+  public static function providerTitledWidgets(): array {
+    return [
+      'autocomplete' => ['autocomplete'],
+      'select' => ['select'],
+      'options' => ['options'],
+    ];
   }
 
   /**

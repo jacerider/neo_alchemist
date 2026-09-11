@@ -333,6 +333,16 @@ final class EntityFilter extends ComponentFilterPluginBase implements ContainerF
     // mirrors ComponentFilterPluginBase::buildForm(); hardcoding either half of
     // it here let a required autocomplete save empty from a placement.
     $required = $this->filter->isRequired() && (!$is_default_form || !$this->filter->isEditable());
+    // Both consuming forms already show the filter's name on the wrapper around
+    // this element - a details in the placement's Context accordion, the
+    // "Default Value" fieldset on the component's own form - so the title is
+    // carried invisibly. It is not decorative: core can only word a #required
+    // error as "@name field is required." when the element has a #title, and
+    // without one it raises an error carrying no message at all, which reaches
+    // the editor as an empty red box.
+    //
+    // @see \Drupal\Core\Form\FormValidator::doValidateForm()
+    $title = $this->filter->label();
     switch ($this->configuration['field_type']) {
       case 'autocomplete':
         $default = NULL;
@@ -348,6 +358,8 @@ final class EntityFilter extends ComponentFilterPluginBase implements ContainerF
         }
         $form['value'] = [
           '#type' => 'entity_autocomplete',
+          '#title' => $title,
+          '#title_display' => 'invisible',
           '#description' => $this->filter->getDescription(),
           '#default_value' => $default,
           '#tags' => $allowMultiple,
@@ -393,6 +405,8 @@ final class EntityFilter extends ComponentFilterPluginBase implements ContainerF
         }
         $form['value'] = [
           '#type' => $fieldType,
+          '#title' => $title,
+          '#title_display' => 'invisible',
           '#description' => $this->filter->getDescription(),
           '#default_value' => $defaultValue,
           '#options' => $options,
