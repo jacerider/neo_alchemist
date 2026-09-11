@@ -21,8 +21,12 @@ use Drupal\neo_alchemist\Value\ComponentValuePluginBase;
   description: new TranslatableMarkup('Override a link URL value.'),
   group: 'modifiers',
   inline: TRUE,
+  // Both link shapes carry a uri: `link` lets an editor author the text too,
+  // `url` is the destination-only shape every "optional link" prop uses. The
+  // modifier sets the uri alone, so it applies equally to both.
   ref_types: [
     'link',
+    'url',
   ],
   weight: 10,
 )]
