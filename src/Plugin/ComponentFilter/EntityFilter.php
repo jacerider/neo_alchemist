@@ -327,6 +327,12 @@ final class EntityFilter extends ComponentFilterPluginBase implements ContainerF
     }
     $value = $this->filter->getValue();
     $allowMultiple = !empty($this->configuration['multiple']);
+    // A required filter is required wherever it is filled in - except on the
+    // component's own default-value form, where an editable filter is supplied
+    // per placement instead, so leaving the default empty is legitimate. This
+    // mirrors ComponentFilterPluginBase::buildForm(); hardcoding either half of
+    // it here let a required autocomplete save empty from a placement.
+    $required = $this->filter->isRequired() && (!$is_default_form || !$this->filter->isEditable());
     switch ($this->configuration['field_type']) {
       case 'autocomplete':
         $default = NULL;
@@ -346,7 +352,7 @@ final class EntityFilter extends ComponentFilterPluginBase implements ContainerF
           '#default_value' => $default,
           '#tags' => $allowMultiple,
           '#target_type' => $this->configuration['entity_type'],
-          '#required' => $this->filter->isRequired() && !$this->filter->isEditable(),
+          '#required' => $required,
         ];
         if ($bundles = array_values(array_filter($this->configuration['bundles']))) {
           $form['value']['#selection_settings']['target_bundles'] = $bundles;
@@ -393,7 +399,7 @@ final class EntityFilter extends ComponentFilterPluginBase implements ContainerF
           '#empty_option' => $this->t('- Select -'),
           '#multiple' => $allowMultiple,
           '#target_type' => $this->configuration['entity_type'],
-          '#required' => $this->filter->isRequired(),
+          '#required' => $required,
         ];
         break;
     }
