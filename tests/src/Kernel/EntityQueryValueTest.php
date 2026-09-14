@@ -61,8 +61,8 @@ class EntityQueryValueTest extends KernelTestBase {
     $this->installEntitySchema('entity_test_rev');
     $this->installEntitySchema('user');
 
-    // Two multi-value reference fields, standing in for the "related markets"
-    // and "related services" pair the filter exists to serve.
+    // Two multi-value reference fields, standing in for the pair of taxonomy
+    // fields a related-content listing typically matches on.
     foreach (['field_topics', 'field_tags'] as $fieldName) {
       FieldStorageConfig::create([
         'field_name' => $fieldName,
@@ -462,9 +462,9 @@ class EntityQueryValueTest extends KernelTestBase {
   /**
    * Ranking prefers matching more pairs over sharing more targets.
    *
-   * "Shares a market AND a service" beats "shares two markets", which beats
-   * "shares one market" — regardless of the configured sort, which only breaks
-   * ties.
+   * Matching both configured pairs beats sharing two targets within a single
+   * pair, which beats sharing one — regardless of the configured sort, which
+   * only breaks ties.
    */
   public function testRankingPrefersBreadthOverDepth(): void {
     $targets = $this->targets('T1', 'T2', 'G1');
@@ -606,10 +606,17 @@ class EntityQueryValueTest extends KernelTestBase {
 
     $this->assertArrayHasKey('filter_shared', $form, 'The shared-reference filter renders.');
     $hostOptions = [];
-    foreach ($form['filter_shared'][0]['host']['#options'] as $group) {
+    foreach ($form['filter_shared']['pairs'][0]['host']['#options'] as $group) {
       $hostOptions += is_array($group) ? $group : [];
     }
     $this->assertArrayHasKey('field_topics:entity', $hostOptions, 'The host side lists the host entity’s reference fields.');
+    // Narrowed to direct references. A multi-hop option is labelled by its last
+    // field alone, so several render identically and cannot be told apart; a
+    // language reference is never a shared tag.
+    foreach (array_keys($hostOptions) as $key) {
+      $this->assertStringNotContainsString('.', $key, 'Multi-hop paths are not offered — they render indistinguishably.');
+      $this->assertStringNotContainsString(':language', $key, 'Language references are not shared tags.');
+    }
     $this->assertSame(
       ['settings', 'filter_shared_operator'],
       $form['filter_shared']['operator']['#parents'],

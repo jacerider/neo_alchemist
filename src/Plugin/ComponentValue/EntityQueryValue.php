@@ -58,7 +58,7 @@ final class EntityQueryValue extends ComponentValuePluginBase implements Contain
    * The list grows by one row once the last is filled and saved, so more pairs
    * stay reachable without an AJAX repeater — see buildQueryRefinementForm().
    */
-  private const SHARED_FILTER_ROWS = 3;
+  private const SHARED_FILTER_ROWS = 2;
 
   /**
    * Above this many host targets, score per pair instead of per target.
@@ -444,8 +444,8 @@ final class EntityQueryValue extends ComponentValuePluginBase implements Contain
       // whose right-hand side is always the host entity itself — both sides
       // are named, because the queried entity type is configured
       // independently and is routinely not the host's own type.
-      $hostOptions = $this->matcherReference->getReferencesAsOptions($entity->getEntityTypeId(), $entity->bundle());
-      $queryOptions = $this->matcherReference->getReferencesAsOptions($entityTypeId, $bundle);
+      $hostOptions = $this->directReferenceOptions($entity->getEntityTypeId(), $entity->bundle());
+      $queryOptions = $this->directReferenceOptions($entityTypeId, $bundle);
       if ($hostOptions && $queryOptions) {
         $pairs = $this->sharedReferencePairs();
         // A fixed row count rather than an AJAX repeater. Every #ajax in this
@@ -456,27 +456,47 @@ final class EntityQueryValue extends ComponentValuePluginBase implements Contain
         // per save keeps more pairs reachable with no callback and no
         // UI-only config key.
         $rowCount = max(self::SHARED_FILTER_ROWS, count($pairs) + 1);
+        // Name both sides by what they actually are on THIS component rather
+        // than as "current"/"queried" entity. A site builder configuring an
+        // article listing reads "Field on the Article being viewed" and knows
+        // immediately which column is which; "current entity" they have to be
+        // taught.
+        $hostLabel = $this->targetTypeLabel($entity->getEntityTypeId(), $entity->bundle());
+        $queryLabel = $this->targetTypeLabel($entityTypeId, $bundle);
         $form['filter_shared'] = [
           '#type' => 'details',
           '#title' => $this->t('Filter by shared references'),
-          '#description' => $this->t('Return entities pointing at one or more of the same targets as the current entity. Each row pairs a reference field on the current entity with the field on the queried entity that must overlap it. A row whose field on the current entity is empty contributes nothing, and when no row contributes the results are not filtered at all. A two-level reference follows the first referenced entity only.'),
+          '#description' => $this->t('Only return results tagged with something the page being viewed is also tagged with — the usual way to build a "related content" listing. Pick a field on the left and the field on the right that has to overlap it; both must point at the same kind of entity. Leave a row empty to ignore it. A field that is empty on the page being viewed is skipped, and if every row ends up skipped the results are not filtered at all.'),
           '#open' => (bool) $pairs,
           '#tree' => TRUE,
         ];
+        // A real table: the column headers carry the meaning, so the selects
+        // below the first row need no repeated label. Rendering these as bare
+        // #title_display => invisible selects OUTSIDE a table leaves unlabelled
+        // orphan selects stacked down the form, which is unreadable.
+        $form['filter_shared']['pairs'] = [
+          '#type' => 'table',
+          '#header' => [
+            'host' => $this->t('@host field on the page being viewed', ['@host' => $hostLabel]),
+            'query' => $this->t('Must share a value with this @query field', ['@query' => $queryLabel]),
+          ],
+        ];
         for ($delta = 0; $delta < $rowCount; $delta++) {
           foreach (['host' => $hostOptions, 'query' => $queryOptions] as $side => $sideOptions) {
-            $form['filter_shared'][$delta][$side] = [
+            $form['filter_shared']['pairs'][$delta][$side] = [
               '#type' => 'select',
               '#title' => $side === 'host'
-                ? $this->t('Reference on the current entity')
-                : $this->t('Reference on the queried entity'),
-              // Only the first row is labelled; the rest read as a grid.
-              '#title_display' => $delta ? 'invisible' : 'before',
+                ? $this->t('@host field on the page being viewed', ['@host' => $hostLabel])
+                : $this->t('Must share a value with this @query field', ['@query' => $queryLabel]),
+              // The column header is the visible label; this one is for screen
+              // readers, which do not read table headers per cell.
+              '#title_display' => 'invisible',
               '#options' => $sideOptions,
               '#empty_option' => $this->t('- None -'),
               '#default_value' => $pairs[$delta][$side] ?? '',
-              // Explicit, so configurationValidate() can setError() on an
-              // element built by a caller that never ran form processing.
+              // Explicit, so the stored tree stays filter_shared.<delta>.<side>
+              // whatever the layout does, and so configurationValidate() can
+              // setError() on an element built without form processing.
               '#parents' => array_merge($form['#parents'], ['filter_shared', $delta, $side]),
             ];
           }
@@ -513,8 +533,10 @@ final class EntityQueryValue extends ComponentValuePluginBase implements Contain
       if ($entityTypeId === $entity->getEntityTypeId()) {
         $form['filter_exclude_self'] = [
           '#type' => 'checkbox',
-          '#title' => $this->t('Exclude the current entity'),
-          '#description' => $this->t('Leave the entity the component is rendered on out of its own results.'),
+          '#title' => $this->t('Leave out the page being viewed'),
+          '#description' => $this->t('Keep the @host the component is rendered on from appearing in its own results.', [
+            '@host' => $this->targetTypeLabel($entity->getEntityTypeId(), $entity->bundle()),
+          ]),
           '#default_value' => !empty($this->configuration['filter_exclude_self']),
         ];
       }
@@ -646,7 +668,7 @@ final class EntityQueryValue extends ComponentValuePluginBase implements Contain
    * {@inheritdoc}
    */
   protected function configurationValidate(array $form, FormStateInterface $form_state): void {
-    if (!isset($form['filter_shared'])) {
+    if (!isset($form['filter_shared']['pairs'])) {
       return;
     }
     // The submitted type/bundle, not the staged configuration: these are what
@@ -669,8 +691,8 @@ final class EntityQueryValue extends ComponentValuePluginBase implements Contain
       }
       if ($host === '' || $query === '') {
         $side = $host === '' ? 'host' : 'query';
-        if (isset($form['filter_shared'][$delta][$side])) {
-          $form_state->setError($form['filter_shared'][$delta][$side], $this->t('A shared reference filter needs a field on both sides.'));
+        if (isset($form['filter_shared']['pairs'][$delta][$side])) {
+          $form_state->setError($form['filter_shared']['pairs'][$delta][$side], $this->t('A shared reference filter needs a field on both sides.'));
         }
         continue;
       }
@@ -682,8 +704,8 @@ final class EntityQueryValue extends ComponentValuePluginBase implements Contain
         // Not a warning. The filter compares raw target ids, so mismatched
         // target types do not return nothing — they return whichever entity
         // happens to carry a colliding id. Wrong results, not no results.
-        if (isset($form['filter_shared'][$delta]['query'])) {
-          $form_state->setError($form['filter_shared'][$delta]['query'], $this->t('Both sides of a shared reference filter must point at the same entity type. The current entity’s field points at %host; the queried entity’s field points at %query.', [
+        if (isset($form['filter_shared']['pairs'][$delta]['query'])) {
+          $form_state->setError($form['filter_shared']['pairs'][$delta]['query'], $this->t('Both sides of a shared reference filter must point at the same kind of entity. The left field points at %host; the right field points at %query.', [
             '%host' => $hostTarget,
             '%query' => $queryTarget,
           ]));
@@ -747,6 +769,62 @@ final class EntityQueryValue extends ComponentValuePluginBase implements Contain
       $key = substr($key, 0, $lastPos);
     }
     return str_replace('.', '.entity.', $key);
+  }
+
+  /**
+   * The human label for an entity type/bundle, for use in form copy.
+   *
+   * @param string $entityTypeId
+   *   The entity type.
+   * @param string|null $bundle
+   *   The bundle, or NULL/'' to label the entity type itself.
+   *
+   * @return string
+   *   The bundle label where there is one, else the entity type label.
+   */
+  protected function targetTypeLabel(string $entityTypeId, ?string $bundle): string {
+    if ($bundle) {
+      $bundles = $this->entityTypeBundleInfo->getBundleInfo($entityTypeId);
+      if (isset($bundles[$bundle]['label'])) {
+        return (string) $bundles[$bundle]['label'];
+      }
+    }
+    $definition = $this->entityTypeManager->getDefinition($entityTypeId, FALSE);
+    return $definition ? (string) $definition->getLabel() : $entityTypeId;
+  }
+
+  /**
+   * Reference options for one side of a shared-reference pair.
+   *
+   * Narrowed to DIRECT references — no multi-hop paths, no language references.
+   * Both are deliberate and for the same reason: a multi-hop option is labelled
+   * by its last field only, so `revision_uid.langcode` and `uid.langcode` both
+   * render as "Language (langcode)" and a site builder cannot tell the paths
+   * apart. Offering choices nobody can distinguish is worse than not offering
+   * them. A hand-written multi-hop key still resolves — getReferenceField()
+   * walks the path and conditionField() rewrites it — it is simply not offered.
+   *
+   * @param string $entityTypeId
+   *   The entity type to list reference fields for.
+   * @param string|null $bundle
+   *   The bundle, or NULL/'' for the type's base fields.
+   *
+   * @return array
+   *   Grouped select options.
+   */
+  protected function directReferenceOptions(string $entityTypeId, ?string $bundle): array {
+    $options = $this->matcherReference->getReferencesAsOptions($entityTypeId, $bundle ?: NULL);
+    foreach ($options as $group => $groupOptions) {
+      foreach (array_keys($groupOptions) as $key) {
+        if (str_contains((string) $key, '.') || str_ends_with((string) $key, ':language')) {
+          unset($options[$group][$key]);
+        }
+      }
+      if (!$options[$group]) {
+        unset($options[$group]);
+      }
+    }
+    return $options;
   }
 
   /**
@@ -839,7 +917,7 @@ final class EntityQueryValue extends ComponentValuePluginBase implements Contain
       )));
       if (!$targetIds) {
         // An empty host field contributes nothing — not even under AND, which
-        // would otherwise turn "this page has no markets yet" into "show
+        // would otherwise turn "this page has not been tagged yet" into "show
         // nothing" instead of "show the plain list".
         continue;
       }
