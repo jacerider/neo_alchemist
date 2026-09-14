@@ -86,7 +86,10 @@ final class MatcherReference extends MatcherBase {
           continue;
         }
         if ($targetEntityBundle) {
-          $bundles = $definition->getSetting('handler_settings')['target_bundles'] ?: [$targetEntityTypeId];
+          // A reference field that was never bundle-restricted carries no
+          // target_bundles key at all — not an empty one — so this has to
+          // tolerate the key being absent rather than only falsy.
+          $bundles = $definition->getSetting('handler_settings')['target_bundles'] ?? NULL ?: [$targetEntityTypeId];
           if (!in_array($targetEntityBundle, $bundles, TRUE)) {
             continue;
           }

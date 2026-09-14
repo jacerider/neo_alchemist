@@ -1,5 +1,49 @@
 # Changelog
 
+## An entity query can match what the current page is tagged with
+
+`entity_query`'s existing `filter_entity` says one thing only: *the queried entity
+references the host entity*. Its right-hand side is always `$entity->id()`. The
+thing a related-content listing actually wants — *the queried entity is tagged
+with some of the same terms as this page* — was not expressible at all, and
+neither was leaving the current entity out of its own results.
+
+Two settings close that. **Filter by shared references** pairs a reference field
+on the current entity with the field on the queried entity that must overlap it,
+combining several such pairs with OR or AND; **Exclude the current entity** does
+what it says. Both sides of a pair are named, because the queried entity type is
+configured independently and is routinely not the host's own type.
+
+**The filter resolves to an id set rather than joining the reference field, and
+that is not a style choice.** A condition on a multi-value reference field joins
+the field table, so an entity sharing *N* targets with the host produces *N*
+rows — and `Query::finish()` applies `range()` before `Query::result()`'s
+`fetchAllKeyed()` collapses them. There is no `distinct()`. Written as a join, a
+three-item listing whose first hit shares three targets renders **one** card:
+the strongest matches are exactly the ones that break it. `filter_entity` mostly
+escapes this because its right-hand side is a single id matching one delta.
+
+**An empty host field contributes nothing rather than matching nothing** — not
+even under AND. An article that has not been tagged yet falls back to the plain
+sorted listing instead of rendering an empty section. The distinction is carried
+in the return type: NULL means no configured pair could contribute and no
+condition is added at all, while an empty id set means everything was checked and
+nothing matched, which really must return nothing.
+
+Ranking rides along for free. Resolving one query per host target yields, per
+candidate, how many pairs it matched and how many targets it shares — with no
+entity loads — so **Best match first** orders by breadth, then depth, then the
+configured sort, which survives as the tie-break because PHP's sort is stable.
+Query count scales with the host's own tagging, not with the corpus; past twenty
+targets it collapses to one query per pair and ranks on breadth alone. Only the
+top-scoring ids reach the main query, so the `IN` list stays bounded — a
+six-figure corpus should narrow the query through a
+`ComponentValueEntityQueryEvent` subscriber instead.
+
+Existing configurations are untouched: the new keys default to empty and FALSE,
+and `setConfiguration()` merges defaults under stored config, so no update hook
+is needed.
+
 ## A pager slot renders its own query's pager, or nothing
 
 `EntityQueryPagerSlot` emitted a bare `['#type' => 'pager']`, which renders pager

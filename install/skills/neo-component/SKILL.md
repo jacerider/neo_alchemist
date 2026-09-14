@@ -590,7 +590,7 @@ supplies the image and the picked/fallback media fills in otherwise.
 |---|---|---|
 | `entity` | any non-object prop | a field on the host entity ("heading ← node title", "image ← field_hero") |
 | `entity_reference` | array/object | entities referenced by a host field, mapped to child props via "Shape Fields" (array: one item per entity; object/aggregate: the first published entity) |
-| `entity_query` | array/object | an entity query — type/bundle, two sort levels, reference & taxonomy-hierarchy filters, offset/length, optional pager |
+| `entity_query` | array/object | an entity query — type/bundle, two sort levels, reference & taxonomy-hierarchy filters, **shared-reference matching** ("shares a market and/or a service with this page", ranked best-match-first), exclude-the-current-entity, offset/length, optional pager |
 | `entity_load` | object | one specific entity by ID (hard-bound promo) |
 | `entity_filter` | array/object | the entity a component **filter** picked (see Filters) |
 | `views` | array/object | a view display's result rows; also registers the executed view as the context every other `views_*` plugin/slot reads |

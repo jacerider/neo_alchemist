@@ -567,6 +567,28 @@ neo_alchemist.neo_component_value.entity_query:
     filter_entity_include_parents:
       type: boolean
       label: Include parent terms in the entity reference filter
+    filter_shared:
+      type: sequence
+      label: 'Shared reference filters'
+      sequence:
+        type: mapping
+        label: 'Shared reference pair'
+        mapping:
+          host:
+            type: string
+            label: 'The reference field on the current entity'
+          query:
+            type: string
+            label: 'The reference field on the queried entity'
+    filter_shared_operator:
+      type: string
+      label: 'How multiple shared reference pairs combine'
+    filter_shared_rank:
+      type: boolean
+      label: 'Rank results by match strength'
+    filter_exclude_self:
+      type: boolean
+      label: 'Exclude the current entity from the results'
     filter_parent:
       type: string
       label: Term hierarchy restriction

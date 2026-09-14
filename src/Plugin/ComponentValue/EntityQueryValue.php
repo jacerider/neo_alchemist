@@ -7,6 +7,7 @@ namespace Drupal\neo_alchemist\Plugin\ComponentValue;
 use Drupal\Component\Utility\Html;
 use Drupal\Core\Cache\CacheableMetadata;
 use Drupal\Core\DependencyInjection\DependencySerializationTrait;
+use Drupal\Core\Entity\ContentEntityInterface;
 use Drupal\Core\Entity\EntityTypeBundleInfoInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Entity\Query\QueryInterface;
@@ -50,6 +51,24 @@ final class EntityQueryValue extends ComponentValuePluginBase implements Contain
     __sleep as traitSleep;
   }
   use ComponentValueProcessingModeTrait;
+
+  /**
+   * How many shared-reference pair rows the form renders at a minimum.
+   *
+   * The list grows by one row once the last is filled and saved, so more pairs
+   * stay reachable without an AJAX repeater — see buildQueryRefinementForm().
+   */
+  private const SHARED_FILTER_ROWS = 3;
+
+  /**
+   * Above this many host targets, score per pair instead of per target.
+   *
+   * Scoring resolves one query per host target, which is exact but scales with
+   * the host's own tagging. A host carrying more targets than this falls back
+   * to one query per pair, which costs a bounded number of queries at the price
+   * of a coarser score (breadth only, every depth 1).
+   */
+  private const SHARED_FILTER_TARGET_LIMIT = 20;
 
   /**
    * The entity type manager service.
@@ -108,6 +127,18 @@ final class EntityQueryValue extends ComponentValuePluginBase implements Contain
   protected ?int $pagerElement = NULL;
 
   /**
+   * Match strength per candidate id, or NULL when no shared filter ran.
+   *
+   * Keyed by entity id, each value ['breadth' => int, 'depth' => int]:
+   * how many configured pairs the candidate matched, and how many of the
+   * host's targets it shares in total. Ranking reads it in
+   * getChildrenMatchEntities() — the entity query cannot sort by it.
+   *
+   * @var array<int|string, array{breadth: int, depth: int}>|null
+   */
+  protected ?array $sharedScores = NULL;
+
+  /**
    * {@inheritdoc}
    */
   public function __construct(
@@ -163,6 +194,10 @@ final class EntityQueryValue extends ComponentValuePluginBase implements Contain
       'filter_entity' => '',
       'filter_entity_include_children' => FALSE,
       'filter_entity_include_parents' => FALSE,
+      'filter_shared' => [],
+      'filter_shared_operator' => 'or',
+      'filter_shared_rank' => TRUE,
+      'filter_exclude_self' => FALSE,
       'filter_parent' => '',
       'filter_parent_term' => 0,
       'filter_level' => 1,
@@ -222,6 +257,25 @@ final class EntityQueryValue extends ComponentValuePluginBase implements Contain
       $summary[] = $this->t('Filtered by @field', [
         '@field' => explode(':', $filterEntity)[0],
       ]);
+    }
+    if ($pairs = $this->sharedReferencePairs()) {
+      // Naming the host side: that is the field the site builder recognises on
+      // the page they are configuring.
+      $summary[] = $this->t('Shares @op of @fields', [
+        '@op' => ($this->configuration['filter_shared_operator'] ?? 'or') === 'and'
+          ? $this->t('all')
+          : $this->t('any'),
+        '@fields' => implode(', ', array_map(
+          static fn (array $pair) => explode(':', $pair['host'])[0],
+          $pairs,
+        )),
+      ]);
+      if (!empty($this->configuration['filter_shared_rank'])) {
+        $summary[] = $this->t('Best match first');
+      }
+    }
+    if (!empty($this->configuration['filter_exclude_self'])) {
+      $summary[] = $this->t('Excludes the current entity');
     }
     return array_merge($summary, $this->childrenMatchMapper->summary($this->getShape(), $this->configuration));
   }
@@ -385,6 +439,86 @@ final class EntityQueryValue extends ComponentValuePluginBase implements Contain
         }
       }
 
+      // "Shares a reference with the current entity": the queried entity and
+      // the host point at some of the same targets. Unlike filter_entity —
+      // whose right-hand side is always the host entity itself — both sides
+      // are named, because the queried entity type is configured
+      // independently and is routinely not the host's own type.
+      $hostOptions = $this->matcherReference->getReferencesAsOptions($entity->getEntityTypeId(), $entity->bundle());
+      $queryOptions = $this->matcherReference->getReferencesAsOptions($entityTypeId, $bundle);
+      if ($hostOptions && $queryOptions) {
+        $pairs = $this->sharedReferencePairs();
+        // A fixed row count rather than an AJAX repeater. Every #ajax in this
+        // form works only because its trigger is a direct child of the
+        // settings form, whose #id is the wrapper — refreshAjax() returns the
+        // parent of the trigger. A nested "Add row" button would return a
+        // fragment that replaces the whole provider form. Growing by one row
+        // per save keeps more pairs reachable with no callback and no
+        // UI-only config key.
+        $rowCount = max(self::SHARED_FILTER_ROWS, count($pairs) + 1);
+        $form['filter_shared'] = [
+          '#type' => 'details',
+          '#title' => $this->t('Filter by shared references'),
+          '#description' => $this->t('Return entities pointing at one or more of the same targets as the current entity. Each row pairs a reference field on the current entity with the field on the queried entity that must overlap it. A row whose field on the current entity is empty contributes nothing, and when no row contributes the results are not filtered at all. A two-level reference follows the first referenced entity only.'),
+          '#open' => (bool) $pairs,
+          '#tree' => TRUE,
+        ];
+        for ($delta = 0; $delta < $rowCount; $delta++) {
+          foreach (['host' => $hostOptions, 'query' => $queryOptions] as $side => $sideOptions) {
+            $form['filter_shared'][$delta][$side] = [
+              '#type' => 'select',
+              '#title' => $side === 'host'
+                ? $this->t('Reference on the current entity')
+                : $this->t('Reference on the queried entity'),
+              // Only the first row is labelled; the rest read as a grid.
+              '#title_display' => $delta ? 'invisible' : 'before',
+              '#options' => $sideOptions,
+              '#empty_option' => $this->t('- None -'),
+              '#default_value' => $pairs[$delta][$side] ?? '',
+              // Explicit, so configurationValidate() can setError() on an
+              // element built by a caller that never ran form processing.
+              '#parents' => array_merge($form['#parents'], ['filter_shared', $delta, $side]),
+            ];
+          }
+        }
+        $form['filter_shared']['operator'] = [
+          '#type' => 'select',
+          '#title' => $this->t('Combine these filters with'),
+          '#options' => [
+            'or' => $this->t('Any — share at least one of the rows'),
+            'and' => $this->t('All — share every row'),
+          ],
+          '#default_value' => $this->configuration['filter_shared_operator'] ?? 'or',
+          // Rendered inside the details for legibility, stored as a sibling
+          // key — the explicit-#parents idiom ChildrenMatchMapper uses to keep
+          // the stored tree independent of the form layout.
+          '#parents' => array_merge($form['#parents'], ['filter_shared_operator']),
+        ];
+        $form['filter_shared']['rank'] = [
+          '#type' => 'checkbox',
+          '#title' => $this->t('Best match first'),
+          '#description' => $this->t('Results matching more of these fields come first, then those sharing more targets, then the sort above.'),
+          '#default_value' => !empty($this->configuration['filter_shared_rank']),
+          '#parents' => array_merge($form['#parents'], ['filter_shared_rank']),
+        ];
+        if (!empty($this->configuration['paging'])) {
+          // Ranking reorders the whole result set, so page 2 of a ranked
+          // listing would not be the second page of anything.
+          $form['filter_shared']['rank']['#disabled'] = TRUE;
+          $form['filter_shared']['rank']['#description'] = $this->t('Unavailable while paging is enabled — ranking reorders the whole result set, which would leave the pages meaningless.');
+        }
+      }
+
+      // Only offered when the host is one of the things being queried.
+      if ($entityTypeId === $entity->getEntityTypeId()) {
+        $form['filter_exclude_self'] = [
+          '#type' => 'checkbox',
+          '#title' => $this->t('Exclude the current entity'),
+          '#description' => $this->t('Leave the entity the component is rendered on out of its own results.'),
+          '#default_value' => !empty($this->configuration['filter_exclude_self']),
+        ];
+      }
+
       if ($entityTypeId === 'taxonomy_term') {
         $form['filter_parent'] = [
           '#type' => 'select',
@@ -509,6 +643,71 @@ final class EntityQueryValue extends ComponentValuePluginBase implements Contain
   }
 
   /**
+   * {@inheritdoc}
+   */
+  protected function configurationValidate(array $form, FormStateInterface $form_state): void {
+    if (!isset($form['filter_shared'])) {
+      return;
+    }
+    // The submitted type/bundle, not the staged configuration: these are what
+    // built the option lists now being validated, and staged settings lag a
+    // mid-AJAX submit.
+    $entityTypeId = (string) $form_state->getValue('entity_type', $this->configuration['entity_type']);
+    $bundle = (string) $form_state->getValue('bundle', $this->configuration['bundle']);
+    $entity = $this->shape->getEntity();
+    $hostRefs = $this->matcherReference->getReferences($entity->getEntityTypeId(), $entity->bundle());
+    $queryRefs = $this->matcherReference->getReferences($entityTypeId, $bundle ?: NULL);
+
+    foreach ((array) $form_state->getValue('filter_shared', []) as $delta => $row) {
+      if (!is_array($row)) {
+        continue;
+      }
+      $host = (string) ($row['host'] ?? '');
+      $query = (string) ($row['query'] ?? '');
+      if ($host === '' && $query === '') {
+        continue;
+      }
+      if ($host === '' || $query === '') {
+        $side = $host === '' ? 'host' : 'query';
+        if (isset($form['filter_shared'][$delta][$side])) {
+          $form_state->setError($form['filter_shared'][$delta][$side], $this->t('A shared reference filter needs a field on both sides.'));
+        }
+        continue;
+      }
+      $hostTarget = $hostRefs[$host]['definition'] ?? NULL;
+      $queryTarget = $queryRefs[$query]['definition'] ?? NULL;
+      $hostTarget = $hostTarget?->getSetting('target_type');
+      $queryTarget = $queryTarget?->getSetting('target_type');
+      if ($hostTarget && $queryTarget && $hostTarget !== $queryTarget) {
+        // Not a warning. The filter compares raw target ids, so mismatched
+        // target types do not return nothing — they return whichever entity
+        // happens to carry a colliding id. Wrong results, not no results.
+        if (isset($form['filter_shared'][$delta]['query'])) {
+          $form_state->setError($form['filter_shared'][$delta]['query'], $this->t('Both sides of a shared reference filter must point at the same entity type. The current entity’s field points at %host; the queried entity’s field points at %query.', [
+            '%host' => $hostTarget,
+            '%query' => $queryTarget,
+          ]));
+        }
+      }
+    }
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  protected function configurationMassage(array $values, array $form, FormStateInterface $form_state): array {
+    // The form renders a fixed number of rows; store only the complete ones,
+    // re-indexed, so the saved value is a clean config sequence and the row
+    // count is never persisted as data. array_key_exists, not ??: an absent
+    // key means the element was never rendered (no entity type chosen yet)
+    // and must not be clobbered to an empty list.
+    if (array_key_exists('filter_shared', $values)) {
+      $values['filter_shared'] = $this->normalizeSharedPairs($values['filter_shared']);
+    }
+    return $values;
+  }
+
+  /**
    * Loads a vocabulary's term tree as lightweight rows.
    *
    * The rows carry ->tid, ->name and ->depth in hierarchical order, which is
@@ -530,6 +729,195 @@ final class EntityQueryValue extends ComponentValuePluginBase implements Contain
     /** @var \Drupal\taxonomy\TermStorageInterface $storage */
     $storage = $this->entityTypeManager->getStorage('taxonomy_term');
     return $storage->loadTree($vid, 0, $depth ?: NULL, FALSE);
+  }
+
+  /**
+   * Turns a MatcherReference key into an entity-query condition field.
+   *
+   * @param string $key
+   *   The matcher key, e.g. `field_a:entity` or `field_a.field_b:entity`.
+   *
+   * @return string
+   *   The condition field, e.g. `field_a` or `field_a.entity.field_b`.
+   */
+  protected function conditionField(string $key): string {
+    $searchFor = ':entity';
+    $lastPos = strrpos($key, $searchFor);
+    if ($lastPos !== FALSE) {
+      $key = substr($key, 0, $lastPos);
+    }
+    return str_replace('.', '.entity.', $key);
+  }
+
+  /**
+   * Drops incomplete rows from a shared-reference pair list and re-indexes.
+   *
+   * @param mixed $rows
+   *   The raw rows, from configuration or from submitted form values.
+   *
+   * @return array<int, array{host: string, query: string}>
+   *   The complete pairs.
+   */
+  protected function normalizeSharedPairs(mixed $rows): array {
+    $pairs = [];
+    foreach ((array) $rows as $row) {
+      if (!is_array($row)) {
+        continue;
+      }
+      $host = (string) ($row['host'] ?? '');
+      $query = (string) ($row['query'] ?? '');
+      if ($host !== '' && $query !== '') {
+        $pairs[] = ['host' => $host, 'query' => $query];
+      }
+    }
+    return $pairs;
+  }
+
+  /**
+   * The configured shared-reference pairs, dropping incomplete rows.
+   *
+   * @return array<int, array{host: string, query: string}>
+   *   The pairs.
+   */
+  protected function sharedReferencePairs(): array {
+    return $this->normalizeSharedPairs($this->configuration['filter_shared'] ?? []);
+  }
+
+  /**
+   * Resolves the ids of entities sharing references with the host entity.
+   *
+   * Resolved to an id set by its own queries rather than joined into the main
+   * query, which is what makes the range correct. A condition on a multi-value
+   * reference field joins the field table and returns one row per shared
+   * target, and Query::finish() applies range() before Query::result()'s
+   * fetchAllKeyed() collapses the duplicates — so a three-item listing whose
+   * first hit shares three targets would render one card. Filtering on the id
+   * key cannot multiply rows.
+   *
+   * Scoring rides along for free: one query per host target yields, per
+   * candidate, how many of the host's targets it shares (depth) and how many
+   * distinct pairs those targets span (breadth) — with no entity loads at all.
+   *
+   * @param \Drupal\Core\Entity\ContentEntityInterface $entity
+   *   The host entity.
+   * @param string $entityTypeId
+   *   The queried entity type.
+   * @param string $bundle
+   *   The queried bundle, or an empty string for all bundles.
+   *
+   * @return array|null
+   *   NULL when no configured pair could contribute — there are no pairs, the
+   *   host is unsaved, or every named host field is empty — in which case the
+   *   caller adds no condition at all. Otherwise the matching ids in ranked
+   *   order, possibly empty, meaning nothing matched.
+   */
+  protected function resolveSharedReferenceIds(ContentEntityInterface $entity, string $entityTypeId, string $bundle): ?array {
+    $pairs = $this->sharedReferencePairs();
+    if (!$pairs || $entity->isNew()) {
+      return NULL;
+    }
+    $entityType = $this->entityTypeManager->getDefinition($entityTypeId);
+    $storage = $this->entityTypeManager->getStorage($entityTypeId);
+
+    // Read every host side first, so the per-target query budget is known
+    // before any query runs.
+    $sources = [];
+    $targetCount = 0;
+    foreach ($pairs as $index => $pair) {
+      // Reading through MatcherReference keeps two-level keys working and
+      // registers every traversed entity as a cache dependency, which is what
+      // makes the listing rebuild when the host's own field is edited.
+      $field = $this->matcherReference->getReferenceField(
+        $entity,
+        $pair['host'],
+        $this->shape->getCacheableMetadata(),
+      );
+      $targetIds = $field ? array_column($field->getValue(), 'target_id') : [];
+      $targetIds = array_values(array_unique(array_filter(
+        $targetIds,
+        static fn ($id) => $id !== NULL && $id !== '',
+      )));
+      if (!$targetIds) {
+        // An empty host field contributes nothing — not even under AND, which
+        // would otherwise turn "this page has no markets yet" into "show
+        // nothing" instead of "show the plain list".
+        continue;
+      }
+      $sources[] = [
+        'pair' => $index,
+        'field' => $this->conditionField($pair['query']),
+        'targets' => $targetIds,
+      ];
+      $targetCount += count($targetIds);
+    }
+    if (!$sources) {
+      return NULL;
+    }
+
+    // One query per target is exact but scales with the host's own tagging.
+    // Past the limit, collapse to one query per pair: breadth still ranks,
+    // depth degrades to 1 everywhere.
+    $perTarget = $targetCount <= self::SHARED_FILTER_TARGET_LIMIT;
+
+    $breadth = [];
+    $depth = [];
+    $pairHits = [];
+    foreach ($sources as $source) {
+      $batches = $perTarget
+        ? array_map(static fn ($target) => [$target], $source['targets'])
+        : [$source['targets']];
+      $seenForPair = [];
+      foreach ($batches as $batch) {
+        $query = $storage->getQuery()
+          // The main query is the access authority and is about to filter this
+          // set anyway; repeating the check here only adds a second join.
+          ->accessCheck(FALSE)
+          ->condition($source['field'], $batch, 'IN');
+        if ($bundle && $entityType->hasKey('bundle')) {
+          $query->condition($entityType->getKey('bundle'), $bundle);
+        }
+        foreach ($query->execute() as $id) {
+          $depth[$id] = ($depth[$id] ?? 0) + 1;
+          $seenForPair[$id] = TRUE;
+        }
+      }
+      foreach (array_keys($seenForPair) as $id) {
+        $breadth[$id] = ($breadth[$id] ?? 0) + 1;
+      }
+      $pairHits[] = $seenForPair;
+    }
+
+    $ids = array_keys($breadth);
+    if (($this->configuration['filter_shared_operator'] ?? 'or') === 'and') {
+      // Every pair that could contribute must have matched. Pairs whose host
+      // field was empty never became a source, so they do not veto.
+      $required = count($pairHits);
+      $ids = array_values(array_filter($ids, static fn ($id) => ($breadth[$id] ?? 0) === $required));
+    }
+
+    $this->sharedScores = [];
+    foreach ($ids as $id) {
+      $this->sharedScores[$id] = [
+        'breadth' => $breadth[$id] ?? 0,
+        'depth' => $depth[$id] ?? 0,
+      ];
+    }
+    // Rank here so a capped id list keeps the strongest matches. Equal scores
+    // keep their incoming order; the main query re-imposes the configured sort
+    // on the survivors either way.
+    usort($ids, fn ($a, $b) => [$this->sharedScores[$b]['breadth'], $this->sharedScores[$b]['depth']]
+      <=> [$this->sharedScores[$a]['breadth'], $this->sharedScores[$a]['depth']]);
+
+    return $ids;
+  }
+
+  /**
+   * Whether results should be reordered by match strength.
+   */
+  protected function shouldRankBySharedReferences(): bool {
+    return $this->sharedScores
+      && !empty($this->configuration['filter_shared_rank'])
+      && empty($this->configuration['paging']);
   }
 
   /**
@@ -566,6 +954,24 @@ final class EntityQueryValue extends ComponentValuePluginBase implements Contain
           }
         }
         $start = (int) $this->configuration['start'];
+
+        // Resolved before the range is applied, because ranking replaces it:
+        // a range cut by the configured sort would discard strong matches
+        // before they were ever scored.
+        $this->sharedScores = NULL;
+        $sharedIds = $this->resolveSharedReferenceIds(
+          $this->shape->getEntity(),
+          $entityTypeId,
+          (string) $this->configuration['bundle'],
+        );
+        $rankShared = $sharedIds !== NULL && $this->shouldRankBySharedReferences();
+        if ($rankShared) {
+          // Only the strongest candidates reach the main query, so the IN list
+          // stays bounded on a large corpus. The multiplier leaves room for
+          // rows the access check or the published filter will drop.
+          $sharedIds = array_slice($sharedIds, 0, max(($start + $length) * 10, 50));
+        }
+
         if ($this->getShape()->isIterable() && $this->configuration['paging']) {
           // A pager always needs a positive page size; "all results" is not a
           // meaningful page size, so fall back to the configured default.
@@ -587,6 +993,12 @@ final class EntityQueryValue extends ComponentValuePluginBase implements Contain
             (new CacheableMetadata())->addCacheContexts(['url.query_args.pagers:' . $element])
           );
         }
+        elseif ($rankShared) {
+          // Ranking reorders everything the query returns, so the window has
+          // to stay open until the scores have been applied. The slice happens
+          // in getChildrenMatchEntities().
+          $query->range(0, count($sharedIds) ?: 1);
+        }
         elseif ($length > 0) {
           $query->range($start, $length);
         }
@@ -601,15 +1013,17 @@ final class EntityQueryValue extends ComponentValuePluginBase implements Contain
             $query->condition($entityType->getKey('bundle'), $bundle);
           }
         }
+        if ($sharedIds !== NULL) {
+          // NULL means no configured pair could contribute — no pairs, an
+          // unsaved host, or every named host field empty — and is the
+          // deliberate degrade to the plain sorted list. An empty id set is a
+          // different answer: everything was checked and nothing matched,
+          // which has to return nothing rather than everything.
+          $query->condition($entityType->getKey('id'), $sharedIds ?: [0], 'IN');
+        }
         $entity = $this->shape->getEntity();
         if ($this->configuration['filter_entity'] && !$entity->isNew()) {
-          $filterField = $this->configuration['filter_entity'];
-          $searchFor = ':entity';
-          $lastPos = strrpos($filterField, $searchFor);
-          if ($lastPos !== FALSE) {
-            $filterField = substr($filterField, 0, $lastPos);
-          }
-          $filterField = str_replace('.', '.entity.', $filterField);
+          $filterField = $this->conditionField($this->configuration['filter_entity']);
 
           $filterIds = [$entity->id()];
           if ($entity->getEntityTypeId() === 'taxonomy_term') {
@@ -691,6 +1105,14 @@ final class EntityQueryValue extends ComponentValuePluginBase implements Contain
             $query->condition($statusKey, 1);
           }
         }
+        if (!empty($this->configuration['filter_exclude_self'])
+          && !$entity->isNew()
+          && $entity->getEntityTypeId() === $entityTypeId) {
+          // Guarded on the type: a different entity type shares no id space
+          // with the host, so the condition would drop an unrelated entity
+          // that happens to carry the same id.
+          $query->condition($entityType->getKey('id'), $entity->id(), '<>');
+        }
         $event = new ComponentValueEntityQueryEvent($this->getShape(), $query);
         $this->eventDispatcher->dispatch($event, ComponentValueEntityQueryEvent::EVENT_NAME);
         $this->entityQuery = $query;
@@ -731,7 +1153,20 @@ final class EntityQueryValue extends ComponentValuePluginBase implements Contain
     }
     $entities = [];
     if ($ids = $query->execute()) {
+      $ids = array_values($ids);
+      if ($this->shouldRankBySharedReferences()) {
+        // Strongest match first, then the query's own order. usort is stable
+        // in PHP 8, so equal scores keep the configured sort without needing a
+        // third comparator.
+        usort($ids, fn ($a, $b) => [$this->sharedScores[$b]['breadth'] ?? 0, $this->sharedScores[$b]['depth'] ?? 0]
+          <=> [$this->sharedScores[$a]['breadth'] ?? 0, $this->sharedScores[$a]['depth'] ?? 0]);
+        $length = $this->getShape()->isIterable() ? (int) $this->configuration['length'] : 1;
+        $ids = array_slice($ids, (int) $this->configuration['start'], $length > 0 ? $length : NULL);
+      }
       $storage = $this->entityTypeManager->getStorage($this->configuration['entity_type']);
+      // loadMultiple() returns the entities in the order the ids were passed
+      // (EntityStorageBase rebuilds the result from the flipped id list), so
+      // the ranking above survives the load. EntityQueryValueTest pins it.
       $entities = $storage->loadMultiple($ids);
     }
 
@@ -761,6 +1196,8 @@ final class EntityQueryValue extends ComponentValuePluginBase implements Contain
       // the order queries ask, so a woken plugin must recompute rather than
       // trust an id assigned during some earlier request.
       'pagerElement',
+      // Scores belong to the query that produced them.
+      'sharedScores',
     ]);
   }
 

@@ -213,6 +213,7 @@ class ChildrenMatchSourceResolutionTest extends UnitTestCase {
       $this->createMock('Symfony\Component\EventDispatcher\EventDispatcherInterface'),
       $this->matcherReference(),
       $this->mapper(),
+      $this->createMock('Drupal\Core\Pager\PagerManagerInterface'),
     );
 
     $this->assertNull($plugin->getChildrenMatchEntities()->entities);
