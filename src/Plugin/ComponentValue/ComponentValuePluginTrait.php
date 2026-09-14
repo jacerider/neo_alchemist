@@ -34,13 +34,18 @@ trait ComponentValuePluginTrait {
       }
     }
     $instances = $collection->getInlineInstances();
-    $hasEnabled = !empty(array_filter($defaults, function ($item) {
+    // Count only what this form actually renders a toggle for. $defaults was
+    // seeded above with the shape's default plugins, and those are not all
+    // inline: an `image` child carries the auto-attached, locked `media`
+    // provider, which has no checkbox here. Counting it badged every image row
+    // with a "1" whose single visible switch was off, and auto-opened the
+    // fieldset to show it — a number pointing at something invisible.
+    $toggleable = array_intersect_key($defaults, $instances);
+    $enabledCount = count(array_filter($toggleable, function ($item) {
       return !empty($item['status']);
     }));
+    $hasEnabled = (bool) $enabledCount;
     if ($instances) {
-      $enabledCount = count(array_filter($defaults, function ($item) {
-        return !empty($item['status']);
-      }));
       // The count rides in the collapsed summary so a mapped row communicates
       // whether plugins act on it without being opened (same unescaped-title
       // idiom as the prop form's section badges).
