@@ -103,13 +103,42 @@
   }
 }
 
+/**
+ * Reclaims the region's outer vertical spacing from its edge components.
+ *
+ * The selector must not name an element. `.neo-region` is a bare prefix/suffix
+ * wrapper with no per-child markup, so its direct children are the component
+ * roots themselves — and a component root is whatever element its twig chose:
+ * `<section>` for most, but also `<div>`, `<article>`, `<header>`. The original
+ * `> div:last-child` reads as "a div that is *also* the last child", so it
+ * silently matched nothing the moment a section-rooted component sat at the
+ * edge — the common case. Matching `.neo-section` fails the same way and for
+ * the same reason: it is a conjunction, not a fallback, and the class is not
+ * reliably on the root — the `gap` prop's deep-carrier form removes it, a
+ * component with no `gap` prop never had it, and a legacy `py-component`
+ * carrier never involved it at all.
+ *
+ * Zeroing the channel rather than `padding` is what reaches deep-carrier
+ * components, whose `neo-section-y` sits on an inner wrapper instead of the
+ * root: the variable inherits, so setting it here finds the carrier at any
+ * depth. The `margin-*` overrides do the same job for the deprecated
+ * `my-component` carriers at the bottom of this file, and have to stay
+ * `!important` — those are unlayered, and an important declaration inside a
+ * layer is what outranks them.
+ *
+ * Unlike `neo-region-flush-x` above, the child combinator here is load-bearing
+ * and must stay. One declaration on the edge child is enough because the
+ * channel inherits; widening this to a descendant selector would also zero the
+ * channel inside that child's own slotted component trees, and the
+ * `.neo-region` reset below cannot catch it — regions cannot nest.
+ */
 @utility neo-region-flush-y {
   .neo-region {
-    > div:first-child {
+    > *:first-child {
       --spacing-component-t: 0;
       margin-top: 0 !important;
     }
-    > div:last-child {
+    > *:last-child {
       --spacing-component-b: 0;
       margin-bottom: 0 !important;
     }
@@ -118,7 +147,7 @@
 
 @utility neo-region-flush-t {
   .neo-region {
-    > div:first-child {
+    > *:first-child {
       --spacing-component-t: 0;
       margin-top: 0 !important;
     }
@@ -127,7 +156,7 @@
 
 @utility neo-region-flush-b {
   .neo-region {
-    > div:last-child {
+    > *:last-child {
       --spacing-component-b: 0;
       margin-bottom: 0 !important;
     }

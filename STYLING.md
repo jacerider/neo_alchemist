@@ -367,8 +367,15 @@ survives `container-content`'s `!important` (the important governs which `paddin
 declaration wins, not what the variable resolves to), and it matches both spellings —
 `container-content` and the longhand `container-center px-container`. A child component
 needs no markup, class or prop of its own to participate: which gutters survive is the
-parent's decision, made once on the region. Companion utilities `neo-region-flush-y` /
-`-t` / `-b` do the same for the children's outer vertical spacing.
+parent's decision, made once on the region.
+
+Companion utilities `neo-region-flush-y` / `-t` / `-b` reclaim the children's outer
+**vertical** spacing, and are likewise the parent's decision alone. They target the
+region's first and/or last child — whatever element that is; a component root may be a
+`<section>`, `<div>`, `<article>`, anything — and zero the `--spacing-component-t` /
+`--spacing-component-b` channel on it. Because the channel is inherited rather than a
+`padding` override, it reaches the `neo-section-y` carrier wherever it sits, including
+the deep-carrier layout where the carrier is an inner wrapper rather than the root.
 
 ### The full-bleed pattern
 
