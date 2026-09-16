@@ -140,7 +140,7 @@ with the right `group:`.
 
 | group | ids |
 |---|---|
-| `providers` | `entity` · `entity_reference` · `entity_query` · `entity_load` · `entity_filter` · `views` · `views_exposed_filter` · `views_active_filters` · `views_summary` · `menu` · `breadcrumb` · `page_title` · `heading` · `media` · `share` · `read_time` · `event` · `entity_has_value` · `user_has_role` — plus neo_alchemist_taxonomy's `taxonomy_children`/`taxonomy_siblings`/`taxonomy_menu` and neo_site_settings' `site_settings`/`site_settings_field`/`site_settings_links`/`site_settings_fallback_media` |
+| `providers` | `entity` · `entity_reference` · `entity_query` · `entity_load` · `entity_filter` · `views` · `views_exposed_filter` · `views_active_filters` · `views_summary` · `menu` · `breadcrumb` · `page_title` · `heading` · `media` · `share` · `read_time` · `event` · `entity_has_value` · `user_has_role` — plus neo_alchemist_taxonomy's `taxonomy_children`/`taxonomy_siblings`/`taxonomy_menu` and neo_site_settings' `site_settings`/`site_settings_reference`/`site_settings_field`/`site_settings_links`/`site_settings_fallback_media` |
 | `fallback` | `default` (weight 1000 — terminal by construction, never claims) |
 | `modifiers` | `prefix` · `suffix` · `token` · `date` · `number` · `link_title` · `link_uri` · `formatted_text` · `media_image_size` |
 | `settings` | `widget` · `region_size` · `region_custom` |

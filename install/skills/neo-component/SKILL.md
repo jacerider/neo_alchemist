@@ -606,7 +606,7 @@ supplies the image and the picked/fallback media fills in otherwise.
 | `read_time` | string | client-side "N min read" (word count runs in the browser) |
 | `event` | anything | custom module code supplies the value (`ComponentValueEvent`) |
 | `entity_has_value` / `user_has_role` | boolean | **vetoes** — claim FALSE when a field is empty / the user lacks a role; `{% if %}` the markup on the prop |
-| `site_settings` / `site_settings_field` / `site_settings_links` / `site_settings_fallback_media` | object / any / menu / media | site-wide Site Settings entities (contact info, socials, a client-managed fallback image) |
+| `site_settings` / `site_settings_reference` / `site_settings_field` / `site_settings_links` / `site_settings_fallback_media` | object / array+object / any / menu / media | site-wide Site Settings entities (contact info, socials, a client-managed fallback image). `site_settings_reference` **iterates a reference field** on one — the curated alternative to `entity_query`, and the only way to feed a list from site settings when the component has no host entity (menu regions) |
 
 **Modifiers** — transform an existing value: `prefix` / `suffix` (literal text on
 strings/numbers), `token` (compose from a token template — `"[term:name] Projects"`),
