@@ -34,6 +34,17 @@ final class OptionFilter extends ComponentFilterPluginBase {
   /**
    * {@inheritdoc}
    */
+  public function valueSummary(?string $value): ?string {
+    if ($value === NULL || $value === '') {
+      return NULL;
+    }
+    $label = $this->getPluginDefinition()['options'][$value] ?? NULL;
+    return $label === NULL ? NULL : (string) $label;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
   public function getValue(?string $value = NULL): mixed {
     if (!isset($this->getPluginDefinition()['options'][$value])) {
       if ($this->filter->hasDefaultValue()) {

@@ -854,6 +854,126 @@
     }
 
     /**
+     * Plays the attention flash on an element.
+     */
+    function flashElement(el: HTMLElement): void {
+      el.classList.remove('neo-alchemist--prop-flash');
+      // Force a restyle so a repeated click replays the animation.
+      void el.offsetWidth;
+      el.classList.add('neo-alchemist--prop-flash');
+      el.addEventListener('animationend', () => {
+        el.classList.remove('neo-alchemist--prop-flash');
+      }, { once: true });
+    }
+
+    /**
+     * Shows one tab pane and marks its tab selected.
+     *
+     * The panes are server-rendered visible so the form still works without
+     * JS; the first call here is what hides the inactive ones.
+     */
+    function setTab(key: string): void {
+      if (!form) {
+        return;
+      }
+      form.querySelectorAll<HTMLElement>('.neo-alchemist--form-pane').forEach(pane => {
+        pane.hidden = pane.dataset.neoAlchemistPane !== key;
+      });
+      form.querySelectorAll<HTMLElement>('[data-neo-alchemist-tab]').forEach(tab => {
+        // aria-selected is the whole state: component-form.css draws the active
+        // underline off it, so there are no classes to keep in step here.
+        tab.setAttribute('aria-selected', tab.dataset.neoAlchemistTab === key ? 'true' : 'false');
+      });
+      // Report the open tab to the server. The debounced refresh replaces the
+      // whole header, so the strip it sends back has to know which tab to mark
+      // — otherwise every keystroke would snap the underline back to Content
+      // while the pane on screen stayed where it was.
+      const field = form.querySelector<HTMLInputElement>('[data-neo-alchemist-active-tab]');
+      if (field) {
+        field.value = key;
+      }
+    }
+
+    /**
+     * Reveals the tab pane holding an element, if it is in a hidden one.
+     *
+     * Tab state is plain DOM owned by this file, so unlike the Alpine-bound
+     * accordion below this is a direct call rather than a synthetic click.
+     */
+    function revealTabFor(element: HTMLElement): boolean {
+      const pane = element.closest<HTMLElement>('.neo-alchemist--form-pane');
+      if (!pane || !pane.hidden) {
+        return false;
+      }
+      setTab(pane.dataset.neoAlchemistPane || 'content');
+      return true;
+    }
+
+    /**
+     * Wires the tab strip and the state chips.
+     *
+     * Bound once against the container. The debounced refresh replaces the
+     * whole header — the chips are a readout of the values being edited, so
+     * they have to be rebuilt server-side — while the per-field and per-filter
+     * ajax callbacks replace subtrees *inside* a pane. Every listener here is
+     * therefore delegated on the form, which survives both.
+     */
+    function initTabs(): void {
+      if (!form) {
+        return;
+      }
+      const strip = form.querySelector<HTMLElement>('.neo-alchemist--form-tabs');
+      if (!strip) {
+        return;
+      }
+
+      // Delegated on the form rather than bound to the strip and the chips
+      // themselves: the refresh replaces the whole header, and a listener on
+      // an element that gets swapped out goes with it.
+      form.addEventListener('click', event => {
+        const tab = (event.target as HTMLElement).closest<HTMLElement>('[data-neo-alchemist-tab]');
+        if (tab && tab.dataset.neoAlchemistTab) {
+          setTab(tab.dataset.neoAlchemistTab);
+          return;
+        }
+
+        const chip = (event.target as HTMLElement).closest<HTMLElement>('[data-neo-alchemist-chip]');
+        if (!chip) {
+          return;
+        }
+        setTab(chip.dataset.neoAlchemistChip || 'content');
+
+        // A chip naming a prop goes through focusProp, which already reveals
+        // the pane, opens any enclosing groups, scrolls, focuses the control
+        // and flashes it. Only filters need the id path below — they are not
+        // prop shapes and so carry no data-neo-prop.
+        const prop = chip.dataset.neoAlchemistChipProp;
+        if (prop) {
+          focusProp(prop);
+          return;
+        }
+
+        const targetId = chip.dataset.neoAlchemistChipTarget;
+        if (!targetId) {
+          return;
+        }
+        const target = form.querySelector<HTMLElement>('#' + CSS.escape(targetId));
+        if (!target) {
+          return;
+        }
+        openPropGroups(target);
+        const scroller = scroll || formWrapper;
+        if (scroller) {
+          Drupal.behaviors.neoAlchemistComponentParent.scrollElementIntoView(target, scroller, { top: 16, bottom: 16 });
+        }
+        flashElement(target);
+      });
+
+      const selected = strip.querySelector<HTMLElement>('[aria-selected="true"][data-neo-alchemist-tab]');
+      setTab(selected?.dataset.neoAlchemistTab || 'content');
+    }
+
+    /**
      * Opens every collapsed group enclosing the wrapper, outermost first.
      *
      * @return TRUE if anything had to open (the caller then waits for the
@@ -923,6 +1043,9 @@
       }
       activePropId = propId;
       postPropFocus();
+      // The pane has to be visible before anything measures or scrolls inside
+      // it, so this runs ahead of the group opening.
+      revealTabFor(wrapper);
       const opened = openPropGroups(wrapper);
       const reopened = reopenFormPane();
       // A freshly opened accordion item is still mid x-collapse transition,
@@ -937,7 +1060,12 @@
         if (scroller) {
           Drupal.behaviors.neoAlchemistComponentParent.scrollElementIntoView(wrapper, scroller, { top: 16, bottom: 16 });
         }
-        const input = wrapper.querySelector<HTMLElement>('input:not([type="hidden"]):not([disabled]), select, textarea, [contenteditable="true"], .ck-editor__editable');
+        // The per-field state controls (Default / Hide) now render in the
+        // legend, which precedes the body — so a plain "first control" query
+        // lands on the Default toggle rather than the field the user asked
+        // for. Skip anything inside that options group.
+        const candidates = wrapper.querySelectorAll<HTMLElement>('input:not([type="hidden"]):not([disabled]), select, textarea, [contenteditable="true"], .ck-editor__editable');
+        const input = [...candidates].find(el => !el.closest('.form--inline-min')) || candidates[0];
         if (input) {
           suppressFocusin = true;
           input.focus({ preventScroll: true });
@@ -945,13 +1073,7 @@
             suppressFocusin = false;
           }, 0);
         }
-        wrapper.classList.remove('neo-alchemist--prop-flash');
-        // Force a restyle so a repeated click replays the animation.
-        void wrapper.offsetWidth;
-        wrapper.classList.add('neo-alchemist--prop-flash');
-        wrapper.addEventListener('animationend', () => {
-          wrapper.classList.remove('neo-alchemist--prop-flash');
-        }, { once: true });
+        flashElement(wrapper);
       }, Math.max(opened ? 350 : 0, reopened ? 550 : 0));
     }
 
@@ -1040,6 +1162,7 @@
     // canvas is already in place when it appears, instead of being centred on
     // desktop and then jumping once every preview has loaded.
     restorePosition();
+    initTabs();
     scaleWrapper.addEventListener('transitionend', (event: TransitionEvent) => {
       // Check if the transition was specifically for transform
       if (event.propertyName === 'transform') {

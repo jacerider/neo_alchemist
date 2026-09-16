@@ -137,7 +137,9 @@ final class EntityFilter extends ComponentFilterPluginBase implements ContainerF
       $values = explode($this->configuration['multiple_operator'], $value);
 
       if ($this->configuration['multiple']) {
-        return (string) count($values);
+        // Self-describing, because this string is the whole summary wherever it
+        // is shown — a bare count reads as a label next to the filter's title.
+        return (string) $this->formatPlural(count($values), '1 selected', '@count selected');
       }
       else {
         $value = reset($values);

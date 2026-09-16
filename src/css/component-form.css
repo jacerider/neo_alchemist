@@ -1,5 +1,47 @@
 .neo-alchemist--component-form {
 
+  /* The per-field state chips are set in caps here, and only here. Uppercase
+     plus tracking is what lets them read as a status marker rather than as two
+     more words competing with the field label beside them — but that is this
+     panel's editorial choice, not a property of the `inline_buttons_text`
+     style, so it stays out of neo_base where every other form would inherit
+     it. The style itself supplies the text/outline behaviour. */
+  legend .form--inline-min {
+    /* Caps plus tracking push the pair to within a rounding error of the row's
+       shrink-to-fit width, and `.form--inline`'s `flex-wrap: wrap` then breaks
+       it onto two lines. The pair is one toolbar and should stay on one line —
+       the panel has width to spare, it is the fractional max-content width that
+       does not. */
+    @apply flex-nowrap;
+
+    .option {
+      @apply uppercase tracking-wide;
+    }
+  }
+
+  /* The active tab's underline. A pseudo-element rather than a border so it can
+     sit ON the strip's own bottom border instead of stacking above it — which
+     is what makes the tab read as continuous with the pane below. */
+  .neo-alchemist--form-tabs {
+
+    [role='tab'] {
+      @apply text-base-0-content/55;
+    }
+
+    [role='tab']:hover {
+      @apply text-default;
+    }
+
+    [role='tab'][aria-selected='true'] {
+      @apply text-default;
+    }
+
+    [role='tab'][aria-selected='true']::after {
+      content: '';
+      @apply absolute inset-x-2 -bottom-px h-0.5 rounded-t-sm bg-primary;
+    }
+  }
+
   .ck.ck-editor__top {
     position: sticky;
     top: 0;

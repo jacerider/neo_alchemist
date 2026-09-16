@@ -105,24 +105,42 @@ final class ComponentValuePanelBuilder {
    *   component's styles are browsed as a list; the preview workspace keeps
    *   schema order so a developer sees the component's own declaration.
    * @param bool $describeStyles
-   *   Whether a style's details element carries the shape description. The
-   *   instance editor describes; in the workspace the developer is looking at
-   *   the schema that description came from.
+   *   Whether the style's own card carries the shape description as visible
+   *   text. Both editors decline: the widget inside already carries the same
+   *   sentence, and neo_tooltip turns any `#input` element's description into
+   *   a hover tooltip, so a card-level copy prints it twice. The accordion
+   *   holder used to swallow it, which is why this only became visible once
+   *   the non-collapsing variant started rendering a real fieldset.
    * @param bool $hideOptionControls
    *   Whether to hide the per-prop `_options` controls (Allow Edit / Default /
    *   Hide). They configure a saved component, which is what the instance
    *   editor is doing and what the preview workspace is not.
+   * @param bool $collapsibleStyles
+   *   Whether the styles section is a collapsing accordion. The preview
+   *   workspace keeps it, because there the styles sit in one long form
+   *   alongside everything else. The instance editor turns it off: its styles
+   *   have a tab of their own, so collapsing them only hides the values the
+   *   editor exists to show.
    *
    * @return array
    *   The `styles` and `values` elements, keyed by those names.
    */
-  public function build(ComponentInterface $component, array &$form, FormStateInterface $form_state, bool $sortStylesByTitle = TRUE, bool $describeStyles = TRUE, bool $hideOptionControls = FALSE): array {
+  public function build(ComponentInterface $component, array &$form, FormStateInterface $form_state, bool $sortStylesByTitle = TRUE, bool $describeStyles = TRUE, bool $hideOptionControls = FALSE, bool $collapsibleStyles = TRUE): array {
     $panel = [
-      'styles' => [
+      'styles' => $collapsibleStyles ? [
         '#type' => 'accordion',
         '#title' => $this->icon('Styles', 'palette'),
         '#access' => FALSE,
         '#neo_size' => 'xs',
+      ] : [
+        // A plain container still holds the group: #group relocation is core
+        // (processGroup / preRenderGroup), and the accordion only adds Alpine,
+        // the accordion_item wrapper and #neo_size propagation on top.
+        // NeoProcess::details() reads $group['#type'] unguarded, so the holder
+        // must keep a #type. The caller sizes this holder for everything that
+        // stays inside it; the relocated style cards size themselves below.
+        '#type' => 'container',
+        '#access' => FALSE,
       ],
       'values' => [
         '#title' => $this->t('Values'),
@@ -148,8 +166,22 @@ final class ComponentValuePanelBuilder {
       }
       if ($shape instanceof ComponentShapeStylePluginInterface) {
         $panel['styles']['#access'] = TRUE;
-        $elementForm['#type'] = 'details';
+        // A fieldset when the section does not collapse: it renders the title
+        // as a legend with no disclosure affordance, which is what an
+        // always-open card wants. Both types carry processGroup, so the
+        // relocation into the styles holder is unaffected either way.
+        $elementForm['#type'] = $collapsibleStyles ? 'details' : 'fieldset';
         $elementForm['#title'] = $shape->getTitle();
+        if (!$collapsibleStyles) {
+          // A style card has to carry its own size, because `#group` puts it
+          // beyond the reach of the cascade: preRenderGroup() relocates it
+          // *after* NeoBasePreRender::neoSize() has run on the holder it leaves
+          // and the holder it joins, so it inherits from neither. The accordion
+          // variant does not need this — Accordion::preRender() walks its
+          // members and assigns `#neo_size` itself. A plain container has no
+          // such step, which is the whole difference between the two paths.
+          $elementForm['#neo_size'] = 'xs';
+        }
         if ($describeStyles) {
           $elementForm['#description'] = $shape->getDescription();
         }

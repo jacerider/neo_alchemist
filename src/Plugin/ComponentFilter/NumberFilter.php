@@ -28,4 +28,12 @@ final class NumberFilter extends ComponentFilterPluginBase {
     return $form;
   }
 
+  /**
+   * {@inheritdoc}
+   */
+  public function valueSummary(?string $value): ?string {
+    // A zero is a value, so only NULL and the empty string are "unset".
+    return ($value === NULL || $value === '') ? NULL : $value;
+  }
+
 }

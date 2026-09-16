@@ -2452,6 +2452,7 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
         '#tooltip' => TRUE,
         '#default_value' => $optionAccess->isEnabled(),
         '#neo_size' => 'xs',
+        '#neo_style' => 'inline_buttons_text',
       ];
     }
     $states = [];
@@ -2466,6 +2467,7 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
         '#default_value' => $optionDefault->isEnabled(),
         '#access' => $optionDefault->isFormForced() || $optionEmpty->isDisabled(),
         '#neo_size' => 'xs',
+        '#neo_style' => 'inline_buttons_text',
         '#ajax' => [
           'callback' => [get_class($this), 'ajaxRefresh'],
           'wrapper' => $id,
@@ -2484,6 +2486,7 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
         '#default_value' => $optionEmpty->isEnabled(),
         '#access' => $optionEmpty->isFormForced() || $optionDefault->isDisabled(),
         '#neo_size' => 'xs',
+        '#neo_style' => 'inline_buttons_text',
         '#ajax' => [
           'callback' => [get_class($this), 'ajaxRefresh'],
           'wrapper' => $id,
@@ -2492,9 +2495,13 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
     }
 
     if (!empty(Element::children($form['_options']))) {
-      if ($optionDefault->isFormForced() || $optionEmpty->isFormForced()) {
-        $form['#title'] = $this->getTitle();
-      }
+      // The title is always set, not just when a state is forced or active.
+      // `_options` asks to render in the legend (`#neo_region: legend_end`),
+      // and NeoBasePreRender::neoRegion() skips a fieldset with no title
+      // outright — so without this the controls fall back into the body and
+      // cost a row on every field. The widget's own label is suppressed below
+      // to keep the legend the single label.
+      $form['#title'] = $this->getTitle();
       if ($states) {
         $form['#title'] = $this->t('@label <small class="font-normal">(@states)</small>', [
           '@label' => $this->getTitle(),
@@ -2504,6 +2511,7 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
       $form['#type'] = 'fieldset';
       $form['_options']['#access'] = TRUE;
       $form['#required'] = $this->isRequired();
+      $this->hideWidgetTitle($form);
     }
 
     foreach ($this->getValueCollection()->getAllowedInstances('form') as $instance) {
@@ -2580,6 +2588,43 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
       $this->formWidgetAlter($form['widget'], $form_state);
     }
     return $form;
+  }
+
+  /**
+   * Hides the widget's own label once the fieldset legend carries it.
+   *
+   * The widget's title comes from the field definition label — ::getFieldItem()
+   * sets it to ::getTitle() — but where it lands differs per widget: on the
+   * element itself for some, on a child the widget nests it on for others.
+   * Rather than guess one path and silently miss the rest, this hides every
+   * title in the widget subtree equal to the shape's own, which is exactly the
+   * duplicate the legend now renders.
+   *
+   * `#title_display` rather than unsetting `#title`: the label stays in the
+   * accessibility tree, so the control keeps its accessible name.
+   *
+   * @param array $form
+   *   The prop form, modified by reference.
+   */
+  private function hideWidgetTitle(array &$form): void {
+    if (!isset($form['widget']) || !is_array($form['widget'])) {
+      return;
+    }
+    $title = (string) $this->getTitle();
+    if ($title === '') {
+      return;
+    }
+    $hide = static function (array &$element) use (&$hide, $title): void {
+      if (isset($element['#title']) && (string) $element['#title'] === $title) {
+        $element['#title_display'] = 'invisible';
+      }
+      foreach (Element::children($element) as $key) {
+        if (is_array($element[$key])) {
+          $hide($element[$key]);
+        }
+      }
+    };
+    $hide($form['widget']);
   }
 
   /**

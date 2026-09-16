@@ -9,12 +9,15 @@ use Drupal\Component\Serialization\Json;
 use Drupal\Component\Utility\Html;
 use Drupal\Component\Utility\NestedArray;
 use Drupal\Core\Ajax\AjaxResponse;
+use Drupal\Core\Ajax\ReplaceCommand;
 use Drupal\Core\Entity\ContentEntityForm;
 use Drupal\Core\Entity\EntityRepositoryInterface;
 use Drupal\Core\Entity\EntityTypeBundleInfoInterface;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Form\SubformState;
 use Drupal\Core\Render\Element;
+use Drupal\Core\Render\Markup;
+use Drupal\neo_alchemist\Shape\ComponentShapeStylePluginInterface;
 use Drupal\neo_alchemist\Ajax\InstanceComponentManageIframeCommand;
 use Drupal\neo_alchemist\Ajax\ComponentAjaxFormHelperTrait;
 use Drupal\neo_alchemist\ComponentManageHelper;
@@ -33,6 +36,14 @@ final class InstanceComponentForm extends ContentEntityForm {
   use ComponentAjaxFormHelperTrait;
   use DraftConflictMessageTrait;
   use IconTrait;
+
+  /**
+   * How many state chips the header shows before collapsing to "+N more".
+   *
+   * The panel is 30rem wide; a component with six style props would otherwise
+   * push the tab strip off the bottom of the header.
+   */
+  private const CHIP_LIMIT = 4;
 
   /**
    * The per-user scratch store holding the live form buffer.
@@ -259,18 +270,35 @@ final class InstanceComponentForm extends ContentEntityForm {
     $form['draft_version'] = $this->draftVersionField($this->instance->getFieldItem());
 
     // Assigned in this order because top-level render order is array order and
-    // the Context accordion belongs between the two panel elements.
-    $panel = $this->valuePanelBuilder->build($this->instance, $form, $form_state);
+    // the Sources accordion belongs between the two panel elements.
+    // Styles do not collapse here: they have a tab of their own, so an
+    // accordion would only hide the values the header chips advertise.
+    $panel = $this->valuePanelBuilder->build(
+      $this->instance,
+      $form,
+      $form_state,
+      describeStyles: FALSE,
+      collapsibleStyles: FALSE,
+    );
+    // Size the two holders, not the props inside them. neoSize() is registered
+    // on container/fieldset/details/accordion but *not* on `form`, so the
+    // `#neo_size` this form sets sizes the <form> element and stops there. A
+    // holder with no size of its own defaults to 'md', which is what left the
+    // content prop cards at 16px/bold beside 12px style cards — and, since
+    // 'md' is the one size emitting no `--spacing-form-item`, gave their state
+    // chips a 1rem gap rather than 0.5rem.
     $form['styles'] = $panel['styles'];
+    $form['styles']['#neo_size'] = 'xs';
 
+    // "Sources" rather than "Context": a content builder has no reason to know
+    // what a context is, and the section holds any number of typed filters.
     $form['filters'] = [
-      '#type' => 'accordion',
-      '#title' => $this->icon('Context', 'flux-capacitor'),
+      '#type' => 'container',
       '#access' => FALSE,
-      '#neo_size' => 'xs',
     ];
 
     $form['values'] = $panel['values'];
+    $form['values']['#neo_size'] = 'xs';
 
     foreach ($this->instance->getFilters() as $uuid => $filter) {
       if (!$filter->isEditable()) {
@@ -282,19 +310,23 @@ final class InstanceComponentForm extends ContentEntityForm {
       $allowDefault = $filter->allowDefault();
       $hasOverrideValue = $filter->hasOverrideValue();
 
+      // A fieldset, not a details: the Sources tab shows one card per filter
+      // and there is nothing to gain from collapsing them.
       $subform = [
-        '#type' => 'details',
+        '#type' => 'fieldset',
         '#title' => $filter->label(),
         '#group' => 'filters',
         '#tree' => TRUE,
-        '#open' => !$allowDefault && !$hasOverrideValue,
         '#required' => $filter->isRequired(),
+        // The container holding these does not propagate #neo_size the way the
+        // accordion did, so each card states its own.
+        '#neo_size' => 'xs',
         '#attributes' => [
           'id' => $id,
         ],
       ];
       if ($summary = $filter->valueSummary()) {
-        $subform['#title'] .= '<div class="inline-block badge bg-primary text-primary-content leading-tight">' . $summary . '</div>';
+        $subform['#title'] .= '<div class="inline-block badge bg-primary text-primary-content leading-tight ml-1.5">' . $summary . '</div>';
       }
       $subform['value'] = [
         '#type' => 'container',
@@ -329,7 +361,381 @@ final class InstanceComponentForm extends ContentEntityForm {
       $form['filters'][$filter->uuid()] = $subform;
     }
 
+    // The three panes the tab strip switches between.
+    //
+    // Marked with #prefix/#suffix rather than nested inside a container: a real
+    // wrapper would change each element's #parents, and the style props reach
+    // the Styles accordion through a #group key derived from exactly that path.
+    // Both holders are plain containers, which render no title of their own —
+    // the tab already names each section.
+    $this->markFormPane($form['values'], 'content');
+    $this->markFormPane($form['styles'], 'style');
+    $this->markFormPane($form['filters'], 'sources');
+
+    // Which tab is open is client state, but the header is server-rendered
+    // and the refresh below replaces it wholesale — so it has to round-trip.
+    // Without it every refresh would hand back a strip that says "Content"
+    // while the pane on screen is still Sources.
+    $form['active_tab'] = [
+      '#type' => 'hidden',
+      '#default_value' => '',
+      '#attributes' => ['data-neo-alchemist-active-tab' => 'true'],
+    ];
+
+    $form['header'] = $this->buildHeader((string) $form_state->getValue('active_tab', ''));
+
     return $form;
+  }
+
+  /**
+   * Tags a top-level form section as a tab pane.
+   *
+   * @param array $element
+   *   The section, modified by reference.
+   * @param string $tab
+   *   The tab key this section belongs to.
+   */
+  private function markFormPane(array &$element, string $tab): void {
+    $element['#prefix'] = '<div class="neo-alchemist--form-pane" data-neo-alchemist-pane="' . Html::escape($tab) . '">';
+    $element['#suffix'] = '</div>';
+  }
+
+  /**
+   * Builds the pinned header: what is being edited, and its current state.
+   *
+   * `sticky top-0` inside `.neo-alchemist-manage--form-scroll`, mirroring the
+   * footer's `sticky bottom-0`, so the styles and sources a builder has chosen
+   * stay readable at the bottom of a long form. That is the whole reason this
+   * header exists — the form scrolls well past those sections otherwise.
+   *
+   * @param string $activeTab
+   *   The tab to mark selected. See buildTabStrip().
+   */
+  private function buildHeader(string $activeTab = ''): array {
+    $state = $this->collectState();
+
+    $header = [
+      '#type' => 'container',
+      '#weight' => -100,
+      '#attributes' => [
+        'class' => [
+          'neo-alchemist--form-header',
+          'sticky', 'top-0', 'z-20', 'bg-default',
+          // Negative margins cancel the scroll pane's px-4 and the form's pt-4
+          // so the band runs edge to edge and sits flush with the toolbar.
+          '-mx-4', '-mt-4', 'px-4', 'pt-3', 'border-b',
+        ],
+      ],
+    ];
+
+    $header['identity'] = $this->buildIdentity();
+
+    if ($chips = $this->rankChips($state)) {
+      $header['chips'] = $this->buildChips($chips);
+    }
+
+    $header['tabs'] = $this->buildTabStrip($state['counts'], $state['attention'], $activeTab);
+
+    return $header;
+  }
+
+  /**
+   * The component being edited, and the page it sits on.
+   *
+   * Deliberately no machine name, entity id or view mode: a content builder
+   * cannot name those, and they were the reason the old panel said nothing
+   * useful about where you were.
+   */
+  private function buildIdentity(): array {
+    $markup = '<span class="font-bold leading-tight">'
+      . Html::escape((string) ($this->instance->label() ?? $this->t('Component')))
+      . '</span>';
+
+    $entity = $this->instance->getFieldItem()->getEntity();
+    if ($entity && $entity->label()) {
+      $markup .= '<span class="text-xs text-base-0-content/60">'
+        . $this->t('on @page', ['@page' => $entity->label()])
+        . '</span>';
+    }
+
+    return [
+      '#type' => 'html_tag',
+      '#tag' => 'div',
+      '#attributes' => ['class' => ['flex', 'flex-wrap', 'items-baseline', 'gap-x-2']],
+      '#value' => Markup::create($markup),
+    ];
+  }
+
+  /**
+   * Renders the ranked chips, collapsing the overflow into a single "+N more".
+   */
+  private function buildChips(array $chips): array {
+    $shown = array_slice($chips, 0, self::CHIP_LIMIT);
+    $hidden = count($chips) - count($shown);
+
+    $build = [
+      '#type' => 'container',
+      '#attributes' => [
+        'class' => [
+          'neo-alchemist--form-chips',
+          'flex', 'flex-wrap', 'gap-1',
+          // A recessed band of its own rather than more of the header's white:
+          // this row is the state readout, and it reads as one object when the
+          // surface changes under it. The negative margin cancels the scroll
+          // pane's padding so the band runs edge to edge.
+          '-mx-4', 'px-4', 'py-2', 'mt-3',
+          // Drupal's container template tags these as `form--item`, which
+          // carries `my-form-item` (1rem top and bottom). The spacing here is
+          // deliberate, so the inherited margin is cleared.
+          'mb-0',
+          'bg-base-50', 'border-y',
+        ],
+      ],
+    ];
+    foreach ($shown as $delta => $chip) {
+      $build[$delta] = $this->buildChip($chip);
+    }
+    if ($hidden > 0) {
+      $build['more'] = $this->buildChip([
+        'title' => NULL,
+        'value' => (string) $this->t('+@count more', ['@count' => $hidden]),
+        'tab' => 'style',
+        'target' => NULL,
+        'prop' => NULL,
+        'attention' => FALSE,
+      ]);
+    }
+    return $build;
+  }
+
+  /**
+   * One chip: a label, its current value, and where clicking it goes.
+   */
+  private function buildChip(array $chip): array {
+    $classes = [
+      'inline-flex', 'items-center', 'gap-1', 'max-w-full', 'cursor-pointer',
+      'rounded-2xl', 'border', 'px-2', 'py-px', 'text-2xs', 'leading-normal',
+      'transition',
+    ];
+    if ($chip['attention']) {
+      $classes = array_merge($classes, ['bg-warning-50', 'border-warning-200', 'text-warning-900']);
+    }
+    else {
+      $classes = array_merge($classes, ['bg-base-50', 'hover:border-primary']);
+    }
+
+    $markup = '';
+    if (!empty($chip['title'])) {
+      $markup .= '<span class="uppercase tracking-tight opacity-60">' . Html::escape($chip['title']) . '</span>';
+    }
+    $markup .= '<span class="font-semibold truncate">' . Html::escape($chip['value']) . '</span>';
+
+    $attributes = [
+      'type' => 'button',
+      'class' => $classes,
+      'data-neo-alchemist-chip' => $chip['tab'],
+    ];
+    if (!empty($chip['target'])) {
+      $attributes['data-neo-alchemist-chip-target'] = $chip['target'];
+    }
+    if (!empty($chip['prop'])) {
+      $attributes['data-neo-alchemist-chip-prop'] = $chip['prop'];
+    }
+
+    return [
+      '#type' => 'html_tag',
+      '#tag' => 'button',
+      '#attributes' => $attributes,
+      '#value' => Markup::create($markup),
+    ];
+  }
+
+  /**
+   * The Content / Style / Sources strip.
+   *
+   * An underline strip rather than the segmented pill group the local tasks
+   * use: those read as buttons competing with Save, and this sits directly
+   * above the fields it switches. The active bar itself is a pseudo-element in
+   * component-form.css, keyed on aria-selected.
+   *
+   * A tab is omitted when the component has nothing in that section — a
+   * component with no filters gets no Sources tab at all.
+   *
+   * @param array $counts
+   *   How many fields each tab holds, keyed by tab.
+   * @param bool $attention
+   *   TRUE when a required source is still empty.
+   * @param string $activeTab
+   *   The tab the client last opened, round-tripped through the hidden
+   *   'active_tab' field. Empty on a first build, and ignored when it names a
+   *   tab this component does not have.
+   */
+  private function buildTabStrip(array $counts, bool $attention, string $activeTab = ''): array {
+    $labels = [
+      'content' => $this->t('Content'),
+      'style' => $this->t('Style'),
+      'sources' => $this->t('Sources'),
+    ];
+
+    $strip = [
+      '#type' => 'container',
+      '#attributes' => [
+        'class' => [
+          'neo-alchemist--form-tabs',
+          // `my-0` clears the `my-form-item` that `form--item` brings in: the
+          // tabs sit directly under the chip band, which already separates
+          // them from the identity row.
+          'flex', 'items-end', 'gap-1', 'my-0', '-mb-px', 'border-b',
+        ],
+        'role' => 'tablist',
+      ],
+    ];
+
+    // The tab the client reports, but only if it still exists: a component
+    // whose only source was removed would otherwise come back with no tab
+    // marked at all.
+    $available = array_keys(array_filter(array_intersect_key($counts, $labels)));
+    $selected = in_array($activeTab, $available, TRUE)
+      ? $activeTab
+      : (string) (reset($available) ?: '');
+
+    foreach ($labels as $key => $label) {
+      if (empty($counts[$key])) {
+        continue;
+      }
+      $active = $key === $selected;
+      $badge = ($key === 'sources' && $attention)
+        ? 'badge bg-warning text-warning-content'
+        : 'badge bg-base-100 text-base-100-content/70';
+
+      $strip[$key] = [
+        '#type' => 'html_tag',
+        '#tag' => 'button',
+        '#attributes' => [
+          'type' => 'button',
+          'role' => 'tab',
+          'aria-selected' => $active ? 'true' : 'false',
+          'data-neo-alchemist-tab' => $key,
+          'class' => [
+            'relative', 'inline-flex', 'items-center', 'gap-1.5', 'cursor-pointer',
+            'px-3', 'py-2', 'text-xs', 'font-semibold', 'transition',
+            'border-0', 'bg-transparent',
+          ],
+        ],
+        '#value' => Markup::create(
+          '<span>' . $label . '</span>'
+          . '<span class="' . $badge . '">' . (int) $counts[$key] . '</span>'
+        ),
+      ];
+    }
+
+    return $strip;
+  }
+
+  /**
+   * Reads the current state of every style prop and every editable source.
+   *
+   * @return array
+   *   Keys: 'styles' and 'sources' (chip candidates, already ordered), plus the
+   *   three tab counts and whether Sources needs attention.
+   */
+  private function collectState(): array {
+    $styles = [];
+    $content = 0;
+    $styleCount = 0;
+
+    foreach ($this->instance->getPropShapes() as $shape) {
+      if (!$shape->access('update')) {
+        continue;
+      }
+      if (!$shape instanceof ComponentShapeStylePluginInterface) {
+        $content++;
+        continue;
+      }
+      // Counted before the label is resolved: a style prop the builder has not
+      // set yet still belongs in the Style tab, it just earns no chip.
+      $styleCount++;
+      $key = $this->styleValueKey($shape->getValue());
+      $label = $key === NULL ? NULL : ($shape->getFieldOptions()[$key] ?? NULL);
+      if ($label === NULL) {
+        continue;
+      }
+      $styles[] = [
+        // The scheme is the most visually consequential prop, so it leads.
+        'lead' => $shape->getRef() === 'scheme',
+        'title' => (string) $shape->getTitle(),
+        'value' => (string) $label,
+        'tab' => 'style',
+        'target' => NULL,
+        // The shape id is what every shape form carries as data-neo-prop, so
+        // the chip can hand it straight to focusProp() and reuse the whole
+        // reveal-tab / open-groups / scroll / focus / flash path.
+        'prop' => $shape->id(),
+        'attention' => FALSE,
+      ];
+    }
+    usort($styles, fn(array $a, array $b) => ($b['lead'] <=> $a['lead']));
+
+    $sources = [];
+    foreach ($this->instance->getFilters() as $uuid => $filter) {
+      if (!$filter->isEditable()) {
+        continue;
+      }
+      $summary = $filter->valueSummary();
+      $attention = $filter->isRequired() && $filter->isEmpty();
+      $sources[] = [
+        'lead' => FALSE,
+        'title' => (string) $filter->label(),
+        'value' => $attention ? (string) $this->t('Not set') : (string) ($summary ?? $this->t('None chosen')),
+        'tab' => 'sources',
+        // Filters are not prop shapes, so they have no data-neo-prop to hand
+        // focusProp(); they are addressed by the id set on the subform below.
+        'target' => Html::getId('filter-' . $uuid),
+        'prop' => NULL,
+        'attention' => $attention,
+      ];
+    }
+
+    return [
+      'styles' => $styles,
+      'sources' => $sources,
+      'counts' => [
+        'content' => $content,
+        'style' => $styleCount,
+        'sources' => count($sources),
+      ],
+      'attention' => (bool) array_filter($sources, fn(array $s) => $s['attention']),
+    ];
+  }
+
+  /**
+   * Flattens a style value down to the option key it selects.
+   *
+   * Most style shapes store a plain key, but the scheme shape stores an entity
+   * reference array (`['target_id' => 'default']`) — so a naive is_scalar()
+   * check silently drops the one style prop that matters most.
+   */
+  private function styleValueKey(mixed $value): ?string {
+    if (is_array($value)) {
+      $value = $value['target_id'] ?? reset($value);
+    }
+    return (is_scalar($value) && $value !== '') ? (string) $value : NULL;
+  }
+
+  /**
+   * Ranks the chips, so a narrow header shows the ones that matter.
+   *
+   * Order: the colour scheme, then anything required and still unset (it is why
+   * a save will fail), then the remaining sources, then the other style props.
+   * Whatever does not fit collapses into a single "+N more".
+   */
+  private function rankChips(array $state): array {
+    $attention = array_values(array_filter($state['sources'], fn(array $s) => $s['attention']));
+    $rest = array_values(array_filter($state['sources'], fn(array $s) => !$s['attention']));
+    $lead = array_values(array_filter($state['styles'], fn(array $s) => $s['lead']));
+    $styles = array_values(array_filter($state['styles'], fn(array $s) => !$s['lead']));
+
+    return array_merge($lead, $attention, $rest, $styles);
   }
 
   /**
@@ -513,6 +919,21 @@ final class InstanceComponentForm extends ContentEntityForm {
     $form['#old_build_id'] = $form['#build_id'];
     $response = new AjaxResponse();
     $response->addCommand(new InstanceComponentManageIframeCommand('#' . ComponentManageHelper::getId($this->instance) . ' iframe'));
+    // The header is a readout of the values being edited, so it has to travel
+    // with them. validateForm() has already written this round's values onto
+    // the instance, and setValues() drops the prop-shape and filter memos, so
+    // the header in the rebuilt form reads the new state rather than the one
+    // the page was opened with.
+    //
+    // Only the header: the panes hold the controls this refresh was typed
+    // into, and replacing those would take the focused field out from under
+    // the cursor. Nothing inside the header carries an event listener of its
+    // own — both the tabs and the chips are handled by delegation on the form
+    // — so swapping it costs no rebinding.
+    if (isset($form['header'])) {
+      $selector = '#' . ComponentValuePanelBuilder::FORM_ID . ' .neo-alchemist--form-header';
+      $response->addCommand(new ReplaceCommand($selector, $form['header']));
+    }
     return $response;
   }
 

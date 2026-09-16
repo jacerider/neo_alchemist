@@ -18,4 +18,15 @@ use Drupal\neo_alchemist\Filter\ComponentFilterPluginBase;
 )]
 final class StringFilter extends ComponentFilterPluginBase {
 
+  /**
+   * {@inheritdoc}
+   */
+  public function valueSummary(?string $value): ?string {
+    $value = trim((string) $value);
+    if ($value === '') {
+      return NULL;
+    }
+    return mb_strlen($value) > 40 ? mb_substr($value, 0, 40) . '…' : $value;
+  }
+
 }
