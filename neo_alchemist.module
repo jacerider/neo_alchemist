@@ -57,6 +57,7 @@ function neo_alchemist_theme(): array {
         'iframe_end' => [],
         'form' => [],
         'form_position' => 'footer',
+        'toolbar_title' => NULL,
         'top_start' => [],
         'top_end' => [],
         'bottom_start' => [],
@@ -129,13 +130,18 @@ function template_preprocess_neo_alchemist_manage(&$variables) {
       $variables["src_$size"] = $iframeUrl->toString();
     }
   }
+  // A recessed square on the dark bar rather than a bare glyph: the icon keeps
+  // one colour and the *background* answers the pointer, which reads as a
+  // button at the size the toolbar gives it. Turning the glyph itself primary
+  // on hover made it look like a state change rather than an affordance.
+  $control = 'flex items-center justify-center size-6 rounded bg-base-0/10 hover:bg-base-0/20 text-base-0 transition';
   $variables['toolbar']['expand'] = [
     '#type' => 'link',
     '#title' => neo_icon('Expand', 'arrow-from-right')->iconOnly(),
     '#url' => Url::fromRoute('<current>'),
     '#tooltip' => t('Expand'),
     '#attributes' => [
-      'class' => ['neo-alchemist-manage--expand text-base-0 hover:text-primary'],
+      'class' => ['neo-alchemist-manage--expand ' . $control],
     ],
   ];
   $variables['toolbar']['collapse'] = [
@@ -144,7 +150,7 @@ function template_preprocess_neo_alchemist_manage(&$variables) {
     '#url' => Url::fromRoute('<current>'),
     '#tooltip' => t('Collapse'),
     '#attributes' => [
-      'class' => ['neo-alchemist-manage--collapse hidden text-base-0 hover:text-primary'],
+      'class' => ['neo-alchemist-manage--collapse hidden ' . $control],
     ],
   ];
 }
@@ -730,7 +736,7 @@ function neo_alchemist_route_is_alchemist() {
       ->getStorage('entity_view_display')
       ->load($entityTypeId . '.' . $bundle . '.' . $viewModeId);
     if ($viewMode) {
-      foreach ($viewMode->getComponents() as $field_name => $component) {
+      foreach ($viewMode->getComponents() as $component) {
         if (($component['type'] ?? '') === 'neo_component_tree') {
           $isAlchemistRoute = TRUE;
           break;

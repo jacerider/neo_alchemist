@@ -43,6 +43,7 @@ final class InstanceComponentEditController extends ControllerBase {
       '#theme' => 'neo_alchemist_manage',
       '#form_position' => 'side',
       '#id' => ComponentManageHelper::getId($neo_component),
+      '#toolbar_title' => ComponentManageHelper::getToolbarTitle($neo_component),
       '#iframe_url' => $neo_component->toUrl('preview')->setOption('query', [
         'uuid' => $neo_component->uuid(),
         'component' => $neo_component->id(),

@@ -5,6 +5,7 @@ namespace Drupal\neo_alchemist;
 use Drupal\Component\Render\MarkupInterface;
 use Drupal\Component\Utility\Html;
 use Drupal\Core\Plugin\Component as ComponentPlugin;
+use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\neo_alchemist\Plugin\Field\FieldType\ComponentTreeItem;
 use Drupal\neo_tooltip\Tooltip;
 
@@ -19,6 +20,25 @@ class ComponentManageHelper {
    * @var string
    */
   protected static $id = 'neo-alchemist-manage';
+
+  /**
+   * The wording for the side panel's toolbar.
+   *
+   * Taken from the instance's own state rather than from which route built it.
+   * The add and edit routes do currently mean exactly "new" and "saved", but
+   * that is a coincidence of routing, and a third caller would have to know it.
+   *
+   * @param \Drupal\neo_alchemist\ComponentInterface $instance
+   *   The component being placed or edited.
+   *
+   * @return \Drupal\Core\StringTranslation\TranslatableMarkup
+   *   The toolbar title.
+   */
+  public static function getToolbarTitle(ComponentInterface $instance): TranslatableMarkup {
+    return $instance->isNew()
+      ? new TranslatableMarkup('Add component')
+      : new TranslatableMarkup('Edit component');
+  }
 
   /**
    * Gets the element ID.

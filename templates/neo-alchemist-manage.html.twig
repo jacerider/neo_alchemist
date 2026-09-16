@@ -111,8 +111,18 @@
 
     {% if form and form_position == 'side' %}
       <div class="neo-alchemist-manage--form-wrapper neo-alchemist--form-side absolute flex flex-col rounded-lg shadow-lg overflow-hidden">
-        {% if toolbar %}
-          <div class="flex gap-2 bg-base-950 px-4 py-2">{{ toolbar }}</div>
+        {% if toolbar or toolbar_title %}
+          {#
+            The title is set in caps and dimmed rather than sized up: it names
+            the task once, and the component's own name is right below it in the
+            identity row. Anything louder competes with that.
+          #}
+          <div class="flex items-center gap-2 bg-base-950 px-3 py-2">
+            {{ toolbar }}
+            {% if toolbar_title %}
+              <span class="text-2xs uppercase tracking-widest font-semibold text-base-0/60">{{ toolbar_title }}</span>
+            {% endif %}
+          </div>
         {% endif %}
         <div class="neo-alchemist-manage--form-scroll bg-base-0 px-4 grow">
           {{ form|neo_class('neo-alchemist-manage--form p-0 pt-4')|neo_class('mt-0', 'inner_attributes') }}
