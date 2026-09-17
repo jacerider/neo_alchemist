@@ -6,6 +6,7 @@ namespace Drupal\neo_alchemist;
 
 use Drupal\Component\Render\MarkupInterface;
 use Drupal\Core\Template\Attribute;
+use Drupal\neo_alchemist\Shape\ComponentShapeStylePluginInterface;
 
 /**
  * Builds the prop map delivered to a single-component editor preview.
@@ -54,6 +55,14 @@ final class PreviewPropMapBuilder {
         'title' => $shape->getNestedTitle(),
         'ref' => $shape->getRef(),
         'type' => $shape->getType(),
+        // A style shape owns no element of its own — buildRenderValue() skips
+        // the data-neo-prop stamp for exactly this interface, because stamping
+        // one turns the whole component into a hover target for a presentation
+        // prop. It still has a scope, though: the component it restyles. The
+        // preview reads this to outline that component when such a prop is
+        // focused, which costs no new hover target because it is resolved at
+        // focus time rather than written into the markup.
+        'style' => $shape instanceof ComponentShapeStylePluginInterface,
         'hints' => ['text' => [], 'src' => [], 'href' => []],
       ];
     }

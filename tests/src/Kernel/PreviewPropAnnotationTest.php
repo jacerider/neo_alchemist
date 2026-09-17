@@ -7,6 +7,8 @@ namespace Drupal\Tests\neo_alchemist\Kernel;
 use Drupal\Core\Template\Attribute;
 use Drupal\KernelTests\KernelTestBase;
 use Drupal\neo_alchemist\Entity\Component;
+use Drupal\neo_alchemist\PreviewPropMapBuilder;
+use Drupal\Tests\user\Traits\UserCreationTrait;
 use PHPUnit\Framework\Attributes\Group;
 
 /**
@@ -34,6 +36,8 @@ use PHPUnit\Framework\Attributes\Group;
  */
 #[Group('neo_alchemist')]
 class PreviewPropAnnotationTest extends KernelTestBase {
+
+  use UserCreationTrait;
 
   /**
    * {@inheritdoc}
@@ -124,6 +128,38 @@ class PreviewPropAnnotationTest extends KernelTestBase {
     $size = $values['heading']['size'] ?? NULL;
     $this->assertInstanceOf(Attribute::class, $size, 'Premise: the heading examples resolved and size is an attribute object.');
     $this->assertNoAnnotations($values, 'props');
+  }
+
+  /**
+   * The prop map marks style shapes, which own no element to outline.
+   *
+   * The companion to the test above: a style shape is never stamped, so the
+   * preview can find no element for it and, left to itself, would outline
+   * nothing when one is focused. The flag is what lets it outline the
+   * component such a prop restyles instead — the honest answer, since that is
+   * the prop's actual scope.
+   *
+   * Built against empty props deliberately. The hints come from the resolved
+   * values, but this flag comes from the shape, so an empty set pins it
+   * without standing up a preview render — which needs a target entity type
+   * the minimal module set here does not have.
+   */
+  public function testPropMapMarksStyleShapes(): void {
+    // build() keeps only shapes the current user may update, and an anonymous
+    // kernel user may update none — the map comes back empty and every
+    // assertion below passes vacuously. Set up here rather than in setUp() so
+    // the stamping tests keep running against the user they always have.
+    $this->installEntitySchema('user');
+    $this->setUpCurrentUser([], [], TRUE);
+
+    $component = $this->buildComponent(preview: TRUE, instancePreview: TRUE);
+    $map = PreviewPropMapBuilder::build($component, ['#props' => []]);
+    $this->assertNotEmpty($map['props'], 'Premise: the map is populated, so the assertions below are not vacuous.');
+
+    $this->assertArrayHasKey('heading~size', $map['props'], 'Premise: the style sub-prop reached the map.');
+    $this->assertTrue($map['props']['heading~size']['style'], 'A style shape is marked so the preview outlines the component it restyles.');
+    $this->assertArrayHasKey('heading~title', $map['props'], 'Premise: a content sub-prop reached the map.');
+    $this->assertFalse($map['props']['heading~title']['style'], 'A content shape owns its own element and is not marked.');
   }
 
   /**

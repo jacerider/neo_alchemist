@@ -27,51 +27,93 @@
   z-index: 9999;
   box-sizing: border-box;
   pointer-events: none;
-
-  /* Halo rings that ride either side of the brand stroke.
-   *
-   * The stroke is drawn over author content of unknown colour, and on a dark
-   * component it disappears into the ground — the label still read, so the
-   * highlight looked simply absent rather than broken. No token swap can fix
-   * that: `--color-primary-500` is the one stop neo deliberately holds still
-   * across schemes, and plenty of dark components are a bare `bg-base-900`
-   * with no scheme wrapper to react to in the first place.
-   *
-   * So the shape carries its own contrast instead. A light ring inside and a
-   * dark ring outside means one of the two always reads, whatever it lands on,
-   * while the brand stroke between them still carries the colour wherever the
-   * ground allows it.
-   */
-  --neo-prop-halo-light: rgb(255 255 255 / 0.8);
-  --neo-prop-halo-dark: rgb(0 0 0 / 0.5);
 }
 
+/* Hover and focus are one system at two strengths, not two systems.
+ *
+ * Both stand off the element by the same kind of dashed stroke, so an editor
+ * learns one mark; hover is the quieter half — half the opacity, a hair closer
+ * in, and carrying the faint fill that focus does not. That fill is what tells
+ * the two apart when they are on different elements at once, which is the only
+ * time both are ever drawn: an element that is selected never also shows the
+ * hover state (see setHover()).
+ */
 .neo-alchemist--prop-overlay.is-hover {
-  border: 2px dashed rgb(var(--color-primary-500, 59 130 246) / 0.9);
-  background: rgb(var(--color-primary-500, 59 130 246) / 0.06);
-  box-shadow:
-    0 0 0 1px var(--neo-prop-halo-dark),
-    inset 0 0 0 1px var(--neo-prop-halo-light);
+  border: none;
+  outline: 1px dashed rgb(var(--color-primary-500, 59 130 246) / 0.45);
+  outline-offset: 2px;
+  background: rgb(var(--color-primary-500, 59 130 246) / 0.05);
 }
 
+/* The focus outline stands off the element instead of sitting on it.
+ *
+ * An `outline` occupies no space and `outline-offset` pushes it clear of the
+ * box, so the stroke traces the content's shape without ever covering a pixel
+ * of it — which a 2px border drawn on the element's own edge necessarily does,
+ * most visibly by cropping the first line of a heading it was meant to point
+ * at.
+ *
+ * Standing off is also what lets it be quiet. A stroke laid over content has to
+ * shout to stay legible against it; a stroke in the gap beside it does not, so
+ * this is 1px dashed where it used to be 2px solid. Dashed reads as an
+ * annotation — a mark *about* the content — where a solid rule reads as a
+ * border belonging to it.
+ */
 .neo-alchemist--prop-overlay.is-active {
-  border: 2px solid rgb(var(--color-primary-500, 59 130 246) / 0.9);
-  box-shadow:
-    0 0 0 1px var(--neo-prop-halo-dark),
-    inset 0 0 0 1px var(--neo-prop-halo-light);
+  border: none;
+  outline: 1px dashed rgb(var(--color-primary-500, 59 130 246) / 0.85);
+  outline-offset: 3px;
+  /* The overlay is rebuilt, not moved, each time the highlight changes, so this
+   * runs on arrival only — enough to read the new box as having appeared rather
+   * than as the old one having teleported. Kept short: the point is to make the
+   * change legible, not to animate it. */
+  animation: neo-alchemist-prop-in 120ms ease-out;
 }
 
+/* A style prop restyles the whole component rather than owning any element of
+ * it, so its outline is the component. Quieter again, and standing further off:
+ * a box drawn tight around everything reads as "this exact element", which is
+ * the confusion this whole treatment exists to avoid. */
+.neo-alchemist--prop-overlay.is-active.is-component {
+  outline-color: rgb(var(--color-primary-500, 59 130 246) / 0.55);
+  outline-offset: 6px;
+}
+
+@keyframes neo-alchemist-prop-in {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+/* Above the box, not inside it.
+ *
+ * The chip used to sit at the overlay's top-left corner, which put it squarely
+ * over the first line of whatever it names — so the one element the editor had
+ * just asked to look at was the one the label hid. Outside, it annotates the
+ * content instead of occluding it, and the gap clears the offset stroke so the
+ * two never touch.
+ *
+ * `max-width` is dropped with it: constrained to the box, a long prop name on a
+ * narrow element ellipsised away the part that identifies it. Nothing overlaps
+ * out here, so it can take the width it needs.
+ */
 .neo-alchemist--prop-overlay-label {
   position: absolute;
-  top: 0;
+  bottom: 100%;
   left: 0;
-  max-width: 100%;
+  margin-bottom: 6px;
   overflow: hidden;
   padding: 1px 6px;
-  /* Opaque, and ringed like the stroke: the chip is the one part that already
-   * read on any ground, and it should keep doing so where it meets one. */
+  /* Opaque, and edged in the next stop down the same ramp rather than in a
+   * neutral. A black ring read as a stray grey border sitting on a red chip —
+   * two colours doing one job. One family, two stops, is the chip defining its
+   * own edge instead of being outlined by something foreign to it. */
   background: rgb(var(--color-primary-500, 59 130 246));
-  box-shadow: 0 0 0 1px var(--neo-prop-halo-dark);
+  box-shadow: 0 0 0 1px rgb(var(--color-primary-600, 37 99 235));
   color: rgb(var(--color-primary-500-content, 255 255 255));
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   font-size: 10px;
@@ -79,6 +121,24 @@
   line-height: 1.5;
   white-space: nowrap;
   text-overflow: ellipsis;
+}
+
+/* An element near the top of the frame has no room above it, and the overlay
+ * layer clips — so the chip would simply vanish for exactly the props that sit
+ * at the top of a component. Flipped below instead; the class is set where the
+ * geometry is known. */
+.neo-alchemist--prop-overlay.is-label-below > .neo-alchemist--prop-overlay-label {
+  top: 100%;
+  bottom: auto;
+  margin-top: 6px;
+  margin-bottom: 0;
+}
+
+/* The hover chip is the quieter half of the pair here too, so that when both
+ * are on screen the one naming what you are editing is the one that leads. */
+.neo-alchemist--prop-overlay.is-hover > .neo-alchemist--prop-overlay-label {
+  background: rgb(var(--color-primary-500, 59 130 246) / 0.75);
+  font-weight: 500;
 }
 
 /**

@@ -44,17 +44,17 @@
       let scrollLeft = container.scrollLeft;
       let needsScroll = false;
 
-      // Determine if vertical scrolling is needed
-      if (elementRect.height > containerRect.height) {
-        // alert('help');
-      }
-      else if (elementTop < containerVisibleTop) {
-        // Element is above the visible area, scroll up
-        scrollTop += elementTop - offsets.top;
-        needsScroll = true;
-      }
-      else if (elementBottom > containerVisibleBottom) {
-        // Element is above the visible area, scroll up
+      // Determine if vertical scrolling is needed.
+      //
+      // All three cases land on the same answer — put the element's top at the
+      // top inset — so they are asked as one question. An element taller than
+      // the pane used to be a branch that did nothing, which meant a click on a
+      // long field in the preview scrolled the form nowhere at all; there is no
+      // position that shows all of such an element, and showing its start is
+      // the one that lets you read down it.
+      if (elementRect.height > containerRect.height
+        || elementTop < containerVisibleTop
+        || elementBottom > containerVisibleBottom) {
         scrollTop += elementTop - offsets.top;
         needsScroll = true;
       }
@@ -87,6 +87,60 @@
       }
     }
   };
+
+  /**
+   * How much of a scroller's own box its pinned chrome is covering.
+   *
+   * The panel's header — title, state chips, tabs — is `sticky top-0` inside
+   * the scrolling pane, and its footer is `sticky bottom-0`. Neither takes any
+   * room out of the scroll box, so scrolling a field to the top of that box
+   * parks it *under* the header: 118px of chrome over a field asked for by a
+   * click. The insets have to come off the target position, and they have to be
+   * measured rather than assumed — the header grows a row when the chips wrap
+   * and the footer is not always there.
+   *
+   * Probed at the two edges rather than by walking the subtree, which answers
+   * the question directly ("what is covering this point?") and cannot be fooled
+   * by sticky content that is not currently pinned — a CKEditor toolbar sitting
+   * mid-pane is `sticky top-0` too, and measuring it as chrome would inset the
+   * pane by its full distance down the page.
+   */
+  function stickyInsets(scroller: HTMLElement): { top: number; bottom: number } {
+    const box = scroller.getBoundingClientRect();
+    const x = Math.round(box.left + box.width / 2);
+    const pinnedAt = (y: number): HTMLElement[] =>
+      (document.elementsFromPoint(x, y) as HTMLElement[]).filter(el => {
+        if (el === scroller || !scroller.contains(el)) {
+          return false;
+        }
+        const position = getComputedStyle(el).position;
+        return position === 'sticky' || position === 'fixed';
+      });
+
+    let top = 0;
+    pinnedAt(Math.round(box.top) + 1).forEach(el => {
+      top = Math.max(top, el.getBoundingClientRect().bottom - box.top);
+    });
+    let bottom = 0;
+    pinnedAt(Math.round(box.bottom) - 1).forEach(el => {
+      bottom = Math.max(bottom, box.bottom - el.getBoundingClientRect().top);
+    });
+    return { top, bottom };
+  }
+
+  /**
+   * Brings an element into the part of a scroller that is actually visible.
+   *
+   * The gap over and above the sticky chrome, so a field arrives just clear of
+   * it rather than flush against it.
+   */
+  function scrollPropIntoView(element: HTMLElement, scroller: HTMLElement): void {
+    const insets = stickyInsets(scroller);
+    Drupal.behaviors.neoAlchemistComponentParent.scrollElementIntoView(element, scroller, {
+      top: insets.top + 16,
+      bottom: insets.bottom + 16,
+    });
+  }
 
   /**
    * Whether a frame has finished loading its own document.
@@ -719,8 +773,53 @@
 
     let sizeCount = 0;
     let activePropId: string | null = null;
+    // Set when the highlight is a row rather than a single prop: the row's
+    // fields, outlined together as the one card they are.
+    let activePropIds: string[] | null = null;
+    let activePropLabel = '';
+    let propExpiryTimer = 0;
     let hintedWrapper: HTMLElement | null = null;
     let suppressFocusin = false;
+
+    /**
+     * How long an untouched highlight survives.
+     *
+     * A backstop, not a behaviour: the outline should normally go when focus
+     * leaves the form or Escape is pressed, and this only catches the cases
+     * neither reaches — focus lost to browser chrome, a preview reloaded out
+     * from under it. Long enough that it never fires on someone who is simply
+     * reading the preview they just lit up.
+     */
+    const PROP_EXPIRY_MS = 10000;
+
+    /**
+     * Restarts the expiry countdown.
+     *
+     * The timer lives here rather than in the preview because the preview is
+     * not the owner: `operations.size` re-posts `activePropId` to any frame
+     * that reports a resize, so an outline the preview had expired locally
+     * would be resurrected by the next reflow. Clearing the id at the source is
+     * what makes the expiry stick.
+     */
+    function restartPropExpiry(): void {
+      window.clearTimeout(propExpiryTimer);
+      if (!activePropId && !activePropIds) {
+        return;
+      }
+      propExpiryTimer = window.setTimeout(() => {
+        // A cursor sitting in the form is not an abandoned highlight — it is
+        // the one thing that explains the outline. Expiring it there would
+        // take the box away from someone still working in the field it
+        // describes, which is the confusion this whole change is undoing. The
+        // guarantee the backstop exists for is unaffected: every way of
+        // leaving the field also leaves the form, and that clears outright.
+        if (form && form.contains(document.activeElement)) {
+          restartPropExpiry();
+          return;
+        }
+        clearPropFocus();
+      }, PROP_EXPIRY_MS);
+    }
     const operations:any = {
       size: function (data:any) {
         const size = data.size;
@@ -745,8 +844,16 @@
           }
           // The frame reloads after every debounced form refresh and loses its
           // highlight state; size is the first message a fresh document sends.
-          if (activePropId) {
-            iframe.contentWindow?.postMessage({ type: 'propFocus', propId: activePropId }, window.location.origin);
+          // Deliberately does not restart the expiry: a preview that reflows on
+          // its own is not the editor still working, and letting it feed the
+          // timer would keep a forgotten outline alive indefinitely.
+          if (activePropId || activePropIds) {
+            iframe.contentWindow?.postMessage({
+              type: 'propFocus',
+              propId: activePropId,
+              propIds: activePropIds,
+              label: activePropLabel,
+            }, window.location.origin);
           }
         }
       },
@@ -756,14 +863,17 @@
           focusProp(data.propId);
           return;
         }
-        // Deselected in the preview. Drop the highlight in every frame rather
-        // than leaving it on the prop that was being edited a moment ago.
-        activePropId = null;
+        // Deselected in the preview — a click on empty space, or Escape in
+        // there. Drop the highlight in every frame rather than leaving it on
+        // the prop that was being edited a moment ago.
         hintProp(null);
-        postPropFocus();
+        clearPropFocus();
       },
 
       propHover: function (data:any) {
+        // Hovering the preview is the editor at work, so it keeps the highlight
+        // alive; the expiry is only meant to catch an abandoned one.
+        restartPropExpiry();
         hintProp(typeof data.propId === 'string' ? data.propId : null);
       },
 
@@ -964,7 +1074,7 @@
         openPropGroups(target);
         const scroller = scroll || formWrapper;
         if (scroller) {
-          Drupal.behaviors.neoAlchemistComponentParent.scrollElementIntoView(target, scroller, { top: 16, bottom: 16 });
+          scrollPropIntoView(target, scroller);
         }
         flashElement(target);
       });
@@ -1041,8 +1151,14 @@
       if (!wrapper) {
         return;
       }
-      activePropId = propId;
+      setActiveProp(propId, null, '');
       postPropFocus();
+      // The hover hint has done its job the moment the click it was inviting
+      // lands. Left up, it outlines the same wrapper the flash is about to
+      // cross and the focus ring is about to settle on — three marks on one
+      // field in under a second, which is what made the highlight look like it
+      // was changing its mind rather than following you.
+      hintProp(null);
       // The pane has to be visible before anything measures or scrolls inside
       // it, so this runs ahead of the group opening.
       revealTabFor(wrapper);
@@ -1058,7 +1174,7 @@
         // and so have no --form-scroll element at all.
         const scroller = scroll || formWrapper;
         if (scroller) {
-          Drupal.behaviors.neoAlchemistComponentParent.scrollElementIntoView(wrapper, scroller, { top: 16, bottom: 16 });
+          scrollPropIntoView(wrapper, scroller);
         }
         // The per-field state controls (Default / Hide) now render in the
         // legend, which precedes the body — so a plain "first control" query
@@ -1100,8 +1216,47 @@
     function postPropFocus(frame?: HTMLIFrameElement): void {
       const targets = frame ? [frame] : Array.from(iframes);
       targets.forEach(target => {
-        target.contentWindow?.postMessage({ type: 'propFocus', propId: activePropId }, window.location.origin);
+        target.contentWindow?.postMessage({
+          type: 'propFocus',
+          propId: activePropId,
+          propIds: activePropIds,
+          label: activePropLabel,
+        }, window.location.origin);
       });
+    }
+
+    /**
+     * Drops the highlight everywhere.
+     */
+    function clearPropFocus(): void {
+      if (!activePropId && !activePropIds) {
+        return;
+      }
+      setActiveProp(null, null, '');
+      postPropFocus();
+    }
+
+    function setActiveProp(propId: string | null, propIds: string[] | null, label: string): void {
+      activePropId = propId;
+      activePropIds = propIds;
+      activePropLabel = label;
+      restartPropExpiry();
+    }
+
+    /**
+     * The row a focus event landed in, when it landed on the row's own chrome.
+     *
+     * An array row carries no `data-neo-prop` of its own, so focusing its
+     * summary, drag handle or Remove button resolves up to the bare container
+     * — and the preview then outlines every row at once. The tell is which way
+     * round the two elements nest: `closest()` returns the innermost match, so
+     * focus inside a real field resolves to that field's wrapper, which sits
+     * *inside* the row. A wrapper that instead *contains* the row is the
+     * container, which means the focus never reached a field.
+     */
+    function rowChromeFor(target: HTMLElement, wrapper: HTMLElement | null): HTMLElement | null {
+      const row = target.closest<HTMLElement>('.neo-alchemist-draggable-item');
+      return row && wrapper && wrapper.contains(row) ? row : null;
     }
 
     // Reverse direction: focusing a form field highlights the preview
@@ -1111,15 +1266,72 @@
         if (suppressFocusin) {
           return;
         }
-        const wrapper = (e.target as HTMLElement).closest<HTMLElement>('[data-neo-prop]');
+        const target = e.target as HTMLElement;
+        const wrapper = target.closest<HTMLElement>('[data-neo-prop]');
         const propId = wrapper?.dataset.neoProp || null;
-        if (propId === activePropId) {
+        const row = rowChromeFor(target, wrapper);
+        // The row's own fields, named so the preview outlines that one card
+        // rather than the whole list. Read straight from the DOM because
+        // renumberDraggableList() keeps these deltas in visual order, which is
+        // the order the preview renumbers to.
+        const propIds = row
+          ? [...row.querySelectorAll<HTMLElement>('[data-neo-prop]')]
+            .map(el => el.dataset.neoProp || '')
+            .filter(Boolean)
+          : null;
+        const label = row
+          ? (row.querySelector<HTMLElement>('.details--title')?.textContent || '').trim()
+          : '';
+        if (propId === activePropId && sameIds(propIds, activePropIds)) {
+          restartPropExpiry();
           return;
         }
-        activePropId = propId;
+        setActiveProp(propId, propIds, label);
         postPropFocus();
       });
+
+      // Leaving the editor drops the highlight — it describes where the cursor
+      // is, and once the cursor is gone it is describing nothing. Deferred and
+      // re-checked against activeElement so a move between two fields, which
+      // fires focusout before the next focusin, never blinks it; and so the
+      // focus churn of an AJAX subtree swap settles first.
+      //
+      // The boundary is the editor, not the form, because the preview is the
+      // other half of the same tool. Clicking an element in it moves focus onto
+      // the <iframe>, which sits outside the form — so a form-shaped boundary
+      // read the most ordinary gesture in the editor as leaving it, and cleared
+      // the very outline that click had just asked for. Worse, invisibly: the
+      // field this path focuses a moment later is focused programmatically,
+      // under `suppressFocusin`, so nothing re-asserted the highlight and it
+      // stayed gone.
+      form.addEventListener('focusout', () => {
+        window.setTimeout(() => {
+          if (suppressFocusin) {
+            return;
+          }
+          if (!container.contains(document.activeElement)) {
+            clearPropFocus();
+          }
+        }, 150);
+      });
     }
+
+    function sameIds(a: string[] | null, b: string[] | null): boolean {
+      if (!a || !b) {
+        return a === b;
+      }
+      return a.length === b.length && a.every((id, i) => id === b[i]);
+    }
+
+    // Escape clears from the form side, and the preview routes its own Escape
+    // up through the `prop` channel to land here too. Skipped while a dialog is
+    // open so one press does not both close the dialog and drop the outline.
+    document.addEventListener('keydown', (e: KeyboardEvent) => {
+      if (e.key !== 'Escape' || document.querySelector('dialog[open], .ui-dialog')) {
+        return;
+      }
+      clearPropFocus();
+    });
 
     // Pad the edges of the drag area
     const padding = Math.floor(document.body.clientWidth * 0.9);

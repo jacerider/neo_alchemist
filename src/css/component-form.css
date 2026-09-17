@@ -114,25 +114,37 @@
   }
 }
 
-/* Preview-to-form focus feedback (component-parent.ts focusProp/hintProp). */
+/* Preview-to-form focus feedback (component-parent.ts focusProp/hintProp).
+ *
+ * One outline vocabulary on this side, matching the preview's: a quiet dashed
+ * stroke standing off the field, drawn only while the pointer is over that
+ * prop in the preview. It says "this is the field that one belongs to".
+ */
 .neo-alchemist--prop-hint {
-  outline: 2px dashed rgb(var(--color-primary-500, 59 130 246) / 0.5);
+  outline: 1px dashed rgb(var(--color-primary-500, 59 130 246) / 0.45);
   outline-offset: 2px;
 }
 
+/* The arrival cue is a fill, deliberately not another outline.
+ *
+ * It used to be a 2px solid outline, which landed on the same wrapper the
+ * dashed hint was already drawing and the browser's focus ring was about to —
+ * so clicking a preview element produced a dotted border that snapped to a
+ * solid one and then to a third treatment, reading as the UI changing its mind
+ * rather than as one thing happening. A fill occupies a different channel
+ * entirely, so it can play over the focus ring without competing with it, and
+ * its only job is to catch the eye after the panel has scrolled somewhere new.
+ */
 .neo-alchemist--prop-flash {
-  animation: neo-alchemist-prop-flash 1.2s ease-out;
+  animation: neo-alchemist-prop-flash 900ms ease-out;
 }
 
 @keyframes neo-alchemist-prop-flash {
   0% {
-    outline: 2px solid rgb(var(--color-primary-500, 59 130 246) / 0.9);
-    outline-offset: 2px;
-    background-color: rgb(var(--color-primary-500, 59 130 246) / 0.12);
+    background-color: rgb(var(--color-primary-500, 59 130 246) / 0.14);
   }
+
   100% {
-    outline: 2px solid rgb(var(--color-primary-500, 59 130 246) / 0);
-    outline-offset: 2px;
     background-color: transparent;
   }
 }

@@ -11,6 +11,10 @@
     title: string;
     ref: string;
     type: string;
+    // A presentation prop, which owns no element of its own anywhere in the
+    // markup — the server stamp skips it deliberately. Its scope is the whole
+    // component, so that is what gets outlined when one is focused.
+    style?: boolean;
     hints?: {
       text?: string[];
       src?: string[];
@@ -43,6 +47,13 @@
   // every initPropTargets() run alongside the scope it indexed.
   let claimedProps = new Set<string>();
   let activeTargets: HTMLElement[] = [];
+  // How the active targets are to be drawn. `exact` outlines each one, because
+  // a prop stamped on several elements really is in several places. The other
+  // two are one logical thing spread over several boxes — a card, a container,
+  // a whole component — so they get a single outline round the union, which is
+  // what stops a four-card list from drawing twelve.
+  let activeMode: 'exact' | 'group' | 'component' | 'none' = 'none';
+  let activeLabel = '';
   let hoverOverlay: HTMLElement | null = null;
   let hoverOverlayLabel: HTMLElement | null = null;
   let activeOverlays: HTMLElement[] = [];
@@ -302,6 +313,23 @@
     return overlay;
   };
 
+  /**
+   * Height the label chip needs above the box, including its gap and stroke.
+   */
+  const LABEL_CLEARANCE = 26;
+
+  /**
+   * Flips the label below when the box is too near the top of the frame.
+   *
+   * The overlay layer clips, so a chip placed above an element within a chip's
+   * height of the top edge is simply not drawn — and that is exactly where a
+   * component's own heading tends to sit, so the props most worth naming were
+   * the ones losing their name.
+   */
+  const placeOverlayLabel = (overlay: HTMLElement, top: number): void => {
+    overlay.classList.toggle('is-label-below', top < LABEL_CLEARANCE);
+  };
+
   const positionOverlay = (overlay: HTMLElement, target: HTMLElement): void => {
     const rect = visibleRect(target);
     if (!rect) {
@@ -314,9 +342,18 @@
     overlay.style.top = rect.top + 'px';
     overlay.style.width = rect.width + 'px';
     overlay.style.height = rect.height + 'px';
+    placeOverlayLabel(overlay, rect.top);
   };
 
   const setHover = (target: HTMLElement | null): void => {
+    // Selection wins. An element carrying the focus outline does not also get a
+    // hover one: the two are the same shape in the same place, so the second
+    // reads as a duplicate rather than as more information — two strokes and
+    // two identical name chips stacked on one element. The stronger state
+    // already says everything the weaker one would.
+    if (target && activeTargets.includes(target)) {
+      target = null;
+    }
     if (target === hoverTarget) {
       // Keep tracking transforms mid-transition (hover scale effects).
       if (hoverTarget && hoverOverlay) {
@@ -348,13 +385,87 @@
     post('propHover', { propId: propId });
   };
 
+  /**
+   * The smallest box containing every target, in viewport coordinates.
+   *
+   * Targets clipped out of view contribute nothing — visibleRect() returns null
+   * for them — so a union never stretches to a card scrolled off the page.
+   * Null when nothing is visible, which positions as a hidden overlay exactly
+   * as a single clipped target already does.
+   */
+  const unionRect = (targets: HTMLElement[]): DOMRect | null => {
+    let left = Infinity, top = Infinity, right = -Infinity, bottom = -Infinity;
+    targets.forEach(target => {
+      const rect = visibleRect(target);
+      if (!rect) {
+        return;
+      }
+      left = Math.min(left, rect.left);
+      top = Math.min(top, rect.top);
+      right = Math.max(right, rect.right);
+      bottom = Math.max(bottom, rect.bottom);
+    });
+    if (left === Infinity) {
+      return null;
+    }
+    return new DOMRect(left, top, right - left, bottom - top);
+  };
+
+  const positionOverlayRect = (overlay: HTMLElement, rect: DOMRect | null): void => {
+    if (!rect || rect.width <= 0 || rect.height <= 0) {
+      overlay.style.display = 'none';
+      return;
+    }
+    overlay.style.display = '';
+    overlay.style.left = rect.left + 'px';
+    overlay.style.top = rect.top + 'px';
+    overlay.style.width = rect.width + 'px';
+    overlay.style.height = rect.height + 'px';
+    placeOverlayLabel(overlay, rect.top);
+  };
+
+  /**
+   * Places the active overlays against their targets.
+   *
+   * Shared by the initial render and every reposition so the two can never
+   * disagree about how many boxes there are — the grouped modes draw one
+   * overlay whose geometry has to be recomputed from all of the targets, not
+   * from the one that happens to sit at the same index.
+   */
+  const layoutActiveOverlays = (): void => {
+    if (activeMode === 'exact') {
+      activeTargets.forEach((target, index) => {
+        if (activeOverlays[index]) {
+          positionOverlay(activeOverlays[index], target);
+        }
+      });
+      return;
+    }
+    if (activeOverlays[0]) {
+      positionOverlayRect(activeOverlays[0], unionRect(activeTargets));
+    }
+  };
+
   const renderActiveOverlays = (): void => {
     activeOverlays.forEach(overlay => overlay.remove());
-    activeOverlays = activeTargets.map(target => {
-      const overlay = buildOverlay('is-active');
-      positionOverlay(overlay, target);
-      return overlay;
+    const count = activeTargets.length && activeMode !== 'exact' ? 1 : activeTargets.length;
+    activeOverlays = Array.from({ length: count }, () => {
+      return buildOverlay(activeMode === 'component' ? 'is-active is-component' : 'is-active');
     });
+    if (activeOverlays.length) {
+      const label = document.createElement('span');
+      label.className = 'neo-alchemist--prop-overlay-label';
+      label.textContent = activeLabel;
+      label.style.display = activeLabel ? '' : 'none';
+      activeOverlays[0].appendChild(label);
+    }
+    // The pointer may already be resting on what just became selected — from a
+    // click in the preview, which is the usual way in. Re-asserting the rule
+    // here is what stops that path leaving the hover box stranded underneath.
+    if (hoverTarget && activeTargets.includes(hoverTarget)) {
+      setHover(null);
+    }
+    layoutActiveOverlays();
     // A refreshed subtree is measured the moment it lands, which is before
     // anything above it has finished resolving its height — so the outline
     // gets placed where the element briefly was. The resize observer corrects
@@ -367,11 +478,7 @@
     if (hoverTarget && hoverOverlay) {
       positionOverlay(hoverOverlay, hoverTarget);
     }
-    activeTargets.forEach((target, index) => {
-      if (activeOverlays[index]) {
-        positionOverlay(activeOverlays[index], target);
-      }
-    });
+    layoutActiveOverlays();
   };
 
   /**
@@ -554,6 +661,8 @@
     activeOverlays.forEach(overlay => overlay.remove());
     activeOverlays = [];
     activeTargets = [];
+    activeMode = 'none';
+    activeLabel = '';
     hoverTarget = null;
     Drupal.detachBehaviors(element, drupalSettings, 'unload');
   };
@@ -663,6 +772,93 @@
     return matches;
   };
 
+  /**
+   * Elements whose id is exactly this prop's.
+   */
+  const findExactPropElements = (propId: string): HTMLElement[] => {
+    const matches: HTMLElement[] = [];
+    const root: ParentNode = propScope || document;
+    root.querySelectorAll<HTMLElement>(targetSelector).forEach(el => {
+      if (el.dataset.neoPropTarget === propId || el.dataset.neoProp === propId) {
+        matches.push(el);
+      }
+    });
+    return matches;
+  };
+
+  /**
+   * Drops any target that wraps another, keeping the innermost.
+   *
+   * One prop can land on two nested elements — a stamped wrapper and the
+   * element the prop map's hints claimed inside it. Outlining both draws a box
+   * inside a box round one value, which reads as two props rather than one.
+   * The inner element is the content the prop actually produced, which is the
+   * same reason propIdOf() prefers the claim over the stamp; targets that do
+   * not contain each other are left alone, because a prop genuinely rendered in
+   * two places really is in two places.
+   */
+  const dropEnclosing = (targets: HTMLElement[]): HTMLElement[] => {
+    if (targets.length < 2) {
+      return targets;
+    }
+    return targets.filter(candidate => !targets.some(other => other !== candidate && candidate.contains(other)));
+  };
+
+  /**
+   * What to outline for a focus request, and how.
+   *
+   * This used to walk the id coarser a segment at a time until something
+   * matched. Because findPropElements() already matches descendants by prefix,
+   * that loop could only ever fire for a prop with no element AND no rendered
+   * descendants — at which point it jumped to an ancestor and outlined that
+   * ancestor's OTHER children. Focusing an empty Supertitle drew a box round
+   * the Title, which is the one answer that is worse than none: it names the
+   * wrong field while looking authoritative.
+   *
+   * So nothing climbs any more. A prop is outlined by its own elements, or as
+   * the union of its descendants, or — for a style prop, which owns no element
+   * anywhere because the stamp deliberately skips it — by the component it
+   * restyles, since that genuinely is its scope. Failing all three it is not
+   * outlined at all, and silence is the honest answer.
+   */
+  const resolveFocus = (propId: string, propIds: string[] | null): {
+    targets: HTMLElement[];
+    mode: 'exact' | 'group' | 'component' | 'none';
+    label: string;
+  } => {
+    // An explicit set is a caller that has already decided these belong
+    // together — a card's fields, say — so it is drawn as the one thing it is.
+    if (propIds && propIds.length) {
+      const targets: HTMLElement[] = [];
+      propIds.forEach(id => {
+        findPropElements(id).forEach(el => {
+          if (!targets.includes(el)) {
+            targets.push(el);
+          }
+        });
+      });
+      return targets.length
+        ? { targets, mode: 'group', label: '' }
+        : { targets: [], mode: 'none', label: '' };
+    }
+    if (!propId) {
+      return { targets: [], mode: 'none', label: '' };
+    }
+    const label = propMap?.props[propId]?.title || '';
+    const exact = dropEnclosing(findExactPropElements(propId));
+    if (exact.length) {
+      return { targets: exact, mode: 'exact', label };
+    }
+    const descendants = findPropElements(propId);
+    if (descendants.length) {
+      return { targets: descendants, mode: 'group', label };
+    }
+    if (propMap?.props[propId]?.style && propScope) {
+      return { targets: [propScope], mode: 'component', label };
+    }
+    return { targets: [], mode: 'none', label: '' };
+  };
+
   // Anything that moves an element by transform — an author's own transition,
   // a component's internal animation — resizes nothing, so the resize observer
   // never fires and an outline measured mid-flight would stay where the
@@ -670,6 +866,23 @@
   // subtree however it is replaced.
   document.addEventListener('animationend', refreshOverlays);
   document.addEventListener('transitionend', refreshOverlays);
+
+  // Escape inside the preview dismisses the outline. Routed through the same
+  // upward `prop` channel a click on empty space already uses rather than a
+  // message of its own: the parent owns the highlight, and a preview that
+  // cleared its own overlays would have them replayed by the next resize.
+  // Only when nothing is focused here, so it cannot swallow an Escape a
+  // control inside the preview wanted.
+  document.addEventListener('keydown', (e: KeyboardEvent) => {
+    if (e.key !== 'Escape' || !activeTargets.length) {
+      return;
+    }
+    const focused = document.activeElement;
+    if (focused && focused !== document.body && focused.closest('[role="dialog"], dialog')) {
+      return;
+    }
+    post('prop', { propId: null });
+  });
 
   // Highlight requests from the parent editor (form focus, and re-asserted
   // after each preview reload). No scrolling here: the iframe is auto-sized
@@ -688,16 +901,15 @@
     if (!data || data.type !== 'propFocus') {
       return;
     }
-    let propId: string = data.propId || '';
-    let matches: HTMLElement[] = [];
-    while (propId && !matches.length) {
-      matches = findPropElements(propId);
-      if (!matches.length) {
-        const idx = propId.lastIndexOf('~');
-        propId = idx === -1 ? '' : propId.substring(0, idx);
-      }
-    }
-    activeTargets = matches;
+    const resolved = resolveFocus(
+      typeof data.propId === 'string' ? data.propId : '',
+      Array.isArray(data.propIds) ? data.propIds.filter((id: unknown) => typeof id === 'string') : null,
+    );
+    activeTargets = resolved.targets;
+    activeMode = resolved.mode;
+    activeLabel = (typeof data.label === 'string' && data.label)
+      ? data.label
+      : resolved.label;
     renderActiveOverlays();
   });
 
