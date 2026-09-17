@@ -47,6 +47,11 @@ component.child:
     - core/drupal
     - core/once
     - core/drupalSettings
+    # refreshPreview() morphs the re-rendered markup into the live DOM rather
+    # than replacing it, so element identity survives an edit. ~10KB, and the
+    # preview is useless without it, so it loads with the chunk rather than on
+    # demand the way library.snapdom does.
+    - neo_alchemist/library.idiomorph
 
 component.form:
   version: VERSION
@@ -122,6 +127,18 @@ utilities:
       src/css/_utilities.css: { minified: true }
 
 # Libraries
+
+library.idiomorph:
+  version: 0.7.4
+  license:
+    name: 0BSD
+    url: https://github.com/bigskysoftware/idiomorph/blob/main/LICENSE
+    gpl-compatible: true
+  js:
+    # No `defer`, unlike snapdom below: this one is a dependency rather than an
+    # on-demand fetch, and a classic script without it runs before the module
+    # chunk that reads the global, whatever order Drupal emits the two in.
+    lib/js/idiomorph.js: { minified: true }
 
 library.snapdom:
   version: 2.18.0

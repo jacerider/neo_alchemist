@@ -62,6 +62,18 @@
   // watching the subtree it is about to discard.
   let resizeObserver: ResizeObserver | null = null;
   let refreshController: AbortController | null = null;
+  // Which elements on screen came from the server, as opposed to ones a
+  // component's own JS built after it rendered — list_s1 appends a canvas for
+  // its dots, and plenty of widgets do something similar. A morph works from
+  // the server's markup, so every one of those looks to it like a node to
+  // delete; they are protected by asking this rather than by guessing from
+  // what an element looks like. Node identity survives a morph, which is what
+  // lets a set hold the answer across one.
+  let serverNodes = new WeakSet<Element>();
+  // The shape of the last markup the server sent. Compared against the next
+  // one rather than against the DOM, because the DOM has the client's
+  // additions in it and so never matches a render exactly.
+  let lastServerSignature = '';
   Drupal.behaviors.neoAlchemistComponentChild = {
     attach: function () {
       once('neo.alchemist', '.neo-alchemist-preview').forEach(element => {
@@ -165,12 +177,33 @@
   };
 
   /**
-   * Index clickable prop targets and wire the pointer delegation.
+   * Index clickable prop targets against the markup as it stands now.
+   *
+   * Split out of initPropTargets() because a morph re-runs this and must not
+   * re-run the listener wiring below it: the morph leaves the preview root in
+   * place, so binding again would stack a second set of handlers on it and
+   * post every click twice.
+   *
+   * Claims are derived from the markup, so they are rebuilt rather than
+   * amended — an edit moves text between elements, and a claim left pointing
+   * at where the text used to be opens the wrong field.
    */
-  const initPropTargets = (element: HTMLElement): void => {
+  const indexPropTargets = (element: HTMLElement): void => {
     const scope = propComponentScope(element);
     propScope = scope;
     claimedProps = new Set<string>();
+
+    // Clear the previous pass. A morph preserves client-owned attributes (see
+    // refreshPreview), so last pass's claims survive into this markup unless
+    // they are dropped here; the class goes with them because a server-owned
+    // class attribute is re-asserted by the morph and would otherwise keep a
+    // target styled after it stopped being one.
+    scope.querySelectorAll<HTMLElement>('[data-neo-prop-target]').forEach(el => {
+      delete el.dataset.neoPropTarget;
+    });
+    scope.querySelectorAll<HTMLElement>('.neo-alchemist--prop-target').forEach(el => {
+      el.classList.remove('neo-alchemist--prop-target');
+    });
 
     // Authoritative targets stamped server-side.
     scope.querySelectorAll<HTMLElement>('[data-neo-prop]').forEach(el => {
@@ -184,6 +217,13 @@
       indexSrcHints(scope);
       indexHrefHints(scope);
     }
+  };
+
+  /**
+   * Index clickable prop targets and wire the pointer delegation.
+   */
+  const initPropTargets = (element: HTMLElement): void => {
+    indexPropTargets(element);
 
     // Hit-test through the point rather than the event target: decorative
     // layers (gradients, stretched pseudo-links) often sit on top of the
@@ -626,6 +666,44 @@
   };
 
   /**
+   * The element tree's shape, ignoring every value hanging off it.
+   *
+   * Two renders with the same signature differ only in text and attributes, so
+   * every element in the old tree has a counterpart in the new one and a morph
+   * can patch values in place without adding or removing a node. That is the
+   * common edit by far: typing, and picking a scheme, spacing or gap.
+   *
+   * A differing signature means the render gained or lost elements — a card
+   * added, a conditional block appearing — and the morph would have to splice
+   * the tree. That is where a widget's own state (a carousel's slide count, a
+   * lightbox's index) goes stale against markup it no longer matches, so those
+   * renders take the full replace below and let everything re-initialise.
+   */
+  const structureSignature = (root: HTMLElement): string => {
+    const parts: string[] = [];
+    const walk = (el: Element, depth: number): void => {
+      parts.push(depth + el.tagName);
+      for (let child = el.firstElementChild; child; child = child.nextElementSibling) {
+        walk(child, depth + 1);
+      }
+    };
+    walk(root, 0);
+    return parts.join(',');
+  };
+
+  /**
+   * Record every element of a tree the server produced.
+   *
+   * Called on the fresh markup before it is morphed in, so the live nodes it
+   * merges onto are the ones that end up recorded — and anything already on
+   * screen that it never touched is, by elimination, the client's.
+   */
+  const recordServerTree = (root: Element): void => {
+    serverNodes.add(root);
+    root.querySelectorAll('*').forEach(el => serverNodes.add(el));
+  };
+
+  /**
    * The prop map carried by a fetched document.
    */
   const readPropMap = (doc: Document): PropMap | undefined => {
@@ -694,6 +772,14 @@
    * in-flight fetch, so a burst of typing costs one swap rather than a queue
    * of them. Anything this cannot do safely falls back to the reload, so the
    * worst case is the behaviour it replaced.
+   *
+   * Swapping the subtree was still a full teardown of it, though, which is why
+   * an edit went on reading as a reload: every image became a new element and
+   * re-decoded, and every widget re-initialised, so a carousel three slides in
+   * snapped back to the first because the subtitle changed. When the re-render
+   * has the same shape as what is on screen — every edit that changes values
+   * rather than structure — the markup is morphed onto the live nodes instead,
+   * and nothing is destroyed to begin with. See structureSignature().
    */
   const refreshPreview = (provided: string | null): void => {
     const element = document.querySelector<HTMLElement>('.neo-alchemist-preview');
@@ -728,26 +814,106 @@
         if (assetFingerprint(doc) !== assetFingerprint(document)) {
           throw new Error('Asset set changed');
         }
-        teardownPreview(element);
         const next = document.importNode(fresh, true);
-        // Otherwise once() reads the marker the server never wrote but the
-        // previous document did, and skips initialising the new subtree.
-        next.removeAttribute('data-once');
         // The markup may have been rendered for a different frame — that is
         // the point of rendering once — so restamp the one attribute the
         // server varies by size.
         if (size) {
           next.setAttribute('data-size', size);
         }
-        element.replaceWith(next);
-        // Before behaviors run: initPropTargets() indexes against this.
+
+        // The prop map describes the markup, so it has to land before anything
+        // indexes against it.
         const nextMap = readPropMap(doc);
         if (nextMap) {
           propMap = nextMap;
           drupalSettings.neoAlchemist = drupalSettings.neoAlchemist || {};
           drupalSettings.neoAlchemist.propMap = nextMap;
         }
-        Drupal.attachBehaviors(next, drupalSettings);
+
+        const signature = structureSignature(next);
+        const sameShape = signature === lastServerSignature;
+        lastServerSignature = signature;
+        recordServerTree(next);
+
+        if (sameShape) {
+          // Idiomorph pairs two elements only if their ids agree, and a
+          // component's ids are made out of its content: the section is
+          // identified by an anchor slugged from the heading, so editing the
+          // title renames it. The pairing then fails on the one element that
+          // holds everything, and the morph deletes and rebuilds the whole
+          // component — the very thing this branch exists to avoid.
+          //
+          // Taking the ids off first drops the morph back to matching by
+          // position, which is exactly right here: this branch only runs when
+          // the two trees have the same shape, so position identifies an
+          // element unambiguously. The server's markup carries the ids it
+          // wants, and the morph writes them back on the way through.
+          const shedIds = new Map<Element, string>();
+          const shed = (el: Element): void => {
+            if (el.id) {
+              shedIds.set(el, el.id);
+              el.removeAttribute('id');
+            }
+          };
+          shed(element);
+          element.querySelectorAll('[id]').forEach(shed);
+
+          // Same tree, new values: patch them onto the nodes already standing.
+          // Replacing the subtree instead is what made an edit read as a
+          // reload — every image re-decoded, and a carousel three slides in
+          // snapped back to the first, however unrelated the edited prop was.
+          Idiomorph.morph(element, next, {
+            morphStyle: 'outerHTML',
+            callbacks: {
+              // An attribute the new markup does not carry at all was put
+              // there by client JS, not by the server: `data-once`, a widget's
+              // own init marker (list_s1 writes data-list-s1-init), the inline
+              // transform a carousel tracks its position with. Removing those
+              // tells that JS to start over, which is the flash this is here
+              // to stop. An attribute the server does render is its own, so an
+              // update — including one that adds it — still applies, and a
+              // style or scheme prop lands as the class swap it should be.
+              beforeAttributeUpdated: (_name, _node, mutationType) => {
+                return mutationType !== 'remove';
+              },
+              // The same argument one level up: a node the server never sent
+              // belongs to whatever script built it, and deleting it both
+              // breaks that widget and leaves it no way to notice — its init
+              // marker was just preserved, so it will not rebuild.
+              beforeNodeRemoved: (node) => {
+                return !(node instanceof Element) || serverNodes.has(node);
+              },
+            },
+          });
+          // A server element has whatever id the render just gave it, or none
+          // because the render gave it none. What is left unnamed here is the
+          // client's own, which the morph never visited and so never renamed.
+          shedIds.forEach((value, el) => {
+            if (!el.id && el.isConnected && !serverNodes.has(el)) {
+              el.setAttribute('id', value);
+            }
+          });
+
+          // The morph re-asserted every server-owned class and left the
+          // client-owned attributes alone, so both halves of the target index
+          // are now stale in opposite directions. No behaviors run: by
+          // definition this branch added no element for them to attach to, and
+          // re-running them against markers that were deliberately preserved
+          // would either no-op or double-bind.
+          indexPropTargets(element);
+          refreshOverlays();
+        }
+        else {
+          // Structure changed. Fall back to the replace this path has always
+          // done, which re-initialises everything against the new tree.
+          teardownPreview(element);
+          // Otherwise once() reads the marker the server never wrote but the
+          // previous document did, and skips initialising the new subtree.
+          next.removeAttribute('data-once');
+          element.replaceWith(next);
+          Drupal.attachBehaviors(next, drupalSettings);
+        }
       })
       .catch((error: unknown) => {
         if (error instanceof DOMException && error.name === 'AbortError') {
@@ -883,6 +1049,16 @@
     }
     post('prop', { propId: null });
   });
+
+  // Take the baseline before any behavior has run. This chunk is a module, so
+  // it executes after the document is parsed but before DOMContentLoaded
+  // brings up Drupal's behaviors — the one moment the preview is exactly what
+  // the server sent, with nothing a component's JS added yet mixed into it.
+  const initialPreview = document.querySelector<HTMLElement>('.neo-alchemist-preview');
+  if (initialPreview) {
+    recordServerTree(initialPreview);
+    lastServerSignature = structureSignature(initialPreview);
+  }
 
   // Highlight requests from the parent editor (form focus, and re-asserted
   // after each preview reload). No scrolling here: the iframe is auto-sized
