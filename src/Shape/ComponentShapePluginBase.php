@@ -2457,14 +2457,23 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
     }
     $states = [];
     if ((!$optionEmpty->isFormForced() || $optionDefault->isFormForced()) && $optionDefault->isAllowed()) {
-      if ($optionDefault->isEnabled()) {
+      $defaulted = $optionDefault->isEnabled();
+      if ($defaulted) {
         $states[] = $this->t('Default');
       }
       $form['_options']['default'] = [
         '#type' => 'checkbox',
-        '#title' => $this->t('Default'),
-        '#description' => $this->t('Use the default value of @label', ['@label' => $this->getTitle()]),
-        '#default_value' => $optionDefault->isEnabled(),
+        // Named for what pressing it does, like its `Hide` / `Show` neighbour.
+        // `Customize` over `Override`: what the press does is hand the field
+        // back so a value can be typed into it, and that is a thing a content
+        // editor does. `Override` is the builder's word for it, and the
+        // component builder keeps it (see HeadingValue::configurationForm()),
+        // where the reader is choosing which options an editor will get.
+        '#title' => $defaulted ? $this->t('Customize') : $this->t('Default'),
+        '#description' => $defaulted
+          ? $this->t('Set your own value for @label', ['@label' => $this->getTitle()])
+          : $this->t('Use the default value of @label', ['@label' => $this->getTitle()]),
+        '#default_value' => $defaulted,
         '#access' => $optionDefault->isFormForced() || $optionEmpty->isDisabled(),
         '#neo_size' => 'xs',
         '#neo_style' => 'inline_buttons_text',
@@ -2475,15 +2484,24 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
       ];
     }
     if ((!$optionDefault->isFormForced() || $optionEmpty->isFormForced()) && $optionEmpty->isAllowed()) {
-      if ($optionEmpty->isEnabled()) {
+      $hidden = $optionEmpty->isEnabled();
+      if ($hidden) {
         $states[] = $this->t('Hidden');
       }
       $form['_options']['empty'] = [
         '#type' => 'checkbox',
-        '#title' => $this->t('Hide'),
-        '#description' => $this->t('Do not show @label', ['@label' => $this->getTitle()]),
+        // The chip names what pressing it does, not the state it is in. Naming
+        // the state would say the same thing twice — the legend beside it
+        // already reads `(Hidden)`, and the row has visibly collapsed to a
+        // single line with no control under it — while leaving the one thing
+        // the control has to answer, "what happens if I press this?", to be
+        // inferred from a fill.
+        '#title' => $hidden ? $this->t('Show') : $this->t('Hide'),
+        '#description' => $hidden
+          ? $this->t('Show @label', ['@label' => $this->getTitle()])
+          : $this->t('Do not show @label', ['@label' => $this->getTitle()]),
         '#tooltip' => TRUE,
-        '#default_value' => $optionEmpty->isEnabled(),
+        '#default_value' => $hidden,
         '#access' => $optionEmpty->isFormForced() || $optionDefault->isDisabled(),
         '#neo_size' => 'xs',
         '#neo_style' => 'inline_buttons_text',
