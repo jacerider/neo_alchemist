@@ -924,6 +924,57 @@
   };
 
   /**
+   * Show a typed value before the render that confirms it arrives.
+   *
+   * Only the text node the prop actually owns is rewritten, never the claimed
+   * element's textContent: a claim lands on the closest element wrapping the
+   * text, and that element is often shared — the heading's `h2` holds the
+   * title's own text and the subtitle's span beside it, so assigning to it
+   * would delete a sibling prop.
+   *
+   * The map's hint is what that text last rendered as, which is how the right
+   * node is picked out, and it is moved on with the text so a second keystroke
+   * still finds it. The next real render replaces the map wholesale, so any
+   * drift lasts until then at most.
+   */
+  const echoProp = (propId: string, text: string): void => {
+    const info = propMap?.props?.[propId];
+    // Presentation props own no element, and a non-string is not a thing that
+    // can be dropped into a text node.
+    if (!info || info.style || info.type !== 'string') {
+      return;
+    }
+    const hints = info.hints?.text;
+    const current = hints?.[0];
+    // An empty value is not echoable: a prop with nothing in it usually makes
+    // the server drop the element rather than render it blank, which is a
+    // structural change and nothing this can imitate.
+    if (!hints || !current || !text) {
+      return;
+    }
+    const scope = propScope || document.body;
+    const el = Array.from(scope.querySelectorAll<HTMLElement>('[data-neo-prop-target]'))
+      .find(candidate => candidate.dataset.neoPropTarget === propId);
+    if (!el) {
+      return;
+    }
+    const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+    let node = walker.nextNode();
+    while (node) {
+      const value = node.textContent || '';
+      if (value.trim() === current) {
+        // Replacing inside the node rather than assigning to it keeps the
+        // whitespace the template indented the markup with.
+        node.textContent = value.replace(current, text);
+        hints[0] = text;
+        refreshOverlays();
+        return;
+      }
+      node = walker.nextNode();
+    }
+  };
+
+  /**
    * Elements matching a prop id exactly or as a `~` prefix.
    */
   const findPropElements = (propId: string): HTMLElement[] => {
@@ -1072,6 +1123,12 @@
     const data = e.data;
     if (data && data.type === 'previewRefresh') {
       refreshPreview(typeof data.html === 'string' ? data.html : null);
+      return;
+    }
+    if (data && data.type === 'propEcho') {
+      if (typeof data.propId === 'string' && typeof data.text === 'string') {
+        echoProp(data.propId, data.text);
+      }
       return;
     }
     if (!data || data.type !== 'propFocus') {

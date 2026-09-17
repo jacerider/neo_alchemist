@@ -1,15 +1,27 @@
 (function (Drupal, once, drupalSettings) {
 
-  function debounce<T extends (...args: any[]) => void>(func: T, delay: number): T {
+  type Debounced<T extends (...args: any[]) => void> = T & { cancel: () => void };
+
+  function debounce<T extends (...args: any[]) => void>(func: T, delay: number): Debounced<T> {
     let timeoutId: ReturnType<typeof setTimeout>|null;
-    return function (this: any, ...args: any[]) {
+    const debounced = function (this: any, ...args: any[]) {
       if (timeoutId) {
         clearTimeout(timeoutId);
       }
       timeoutId = setTimeout(() => {
         func.apply(this, args);
       }, delay);
-    } as T;
+    } as Debounced<T>;
+    // Needed by the controls that refresh at once: without dropping the call
+    // this one is holding, a discrete change would be followed a moment later
+    // by a second POST for the keystrokes that preceded it.
+    debounced.cancel = () => {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+        timeoutId = null;
+      }
+    };
+    return debounced;
   }
 
   // The two DOM ids this behavior matches on. The server owns both — see
@@ -74,6 +86,50 @@
       if (label) {
         label.textContent = (label.textContent || '').replace(/\d+(?!.*\d)/, String(idx + 1));
       }
+    });
+  }
+
+  /**
+   * A control whose change is a decision rather than a keystroke.
+   *
+   * Picking a scheme, a spacing or a gap is done the moment the value lands,
+   * so there is no stream of further input to wait out — the text debounce
+   * only ever spent 250ms of the editor's time on these.
+   */
+  function isDiscreteControl(el: EventTarget | null): boolean {
+    return el instanceof HTMLSelectElement
+      || (el instanceof HTMLInputElement && (el.type === 'checkbox' || el.type === 'radio'));
+  }
+
+  /**
+   * Show a typed value in the preview without waiting for the server.
+   *
+   * The round trip is a form POST and then a render, so a keystroke took about
+   * half a second to appear. For a plain string there is nothing in that trip
+   * that changes the text — what the server sends back is what was typed — so
+   * the preview can be told straight away and reconciled when the real render
+   * lands. The frames hold the prop map and the element each prop claimed, so
+   * they decide whether a prop can be echoed at all; this end only reports
+   * which prop changed and to what.
+   *
+   * Confined to text inputs. A rich-text prop goes through a text filter that
+   * can legitimately change what it is given, and echoing one would show
+   * markup the render then visibly corrects.
+   */
+  function echoProp(target: EventTarget | null): void {
+    if (!(target instanceof HTMLInputElement) || target.type !== 'text') {
+      return;
+    }
+    const propId = target.closest<HTMLElement>('[data-neo-prop]')?.dataset.neoProp;
+    if (!propId) {
+      return;
+    }
+    document.querySelectorAll<HTMLIFrameElement>('iframe.neo-alchemist--iframe').forEach(frame => {
+      frame.contentWindow?.postMessage({
+        type: 'propEcho',
+        propId: propId,
+        text: target.value,
+      }, window.location.origin);
     });
   }
 
@@ -350,7 +406,12 @@
             if (e.target.dataset.once && e.target.dataset.once.includes('drupal-ajax')) {
               return;
             }
+            else if (isDiscreteControl(e.target)) {
+              throttledInput.cancel();
+              handleRefresh();
+            }
             else {
+              echoProp(e.target);
               throttledInput();
             }
           }
