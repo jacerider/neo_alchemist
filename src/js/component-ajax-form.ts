@@ -20,6 +20,63 @@
   let formId = '';
   let refreshId = '';
 
+  /**
+   * Renumbers an array prop's rows to the order they are sitting in.
+   *
+   * The server does not restate the rows on a drop: ArrayShape sorts on submit
+   * ("sorting only changes the order of elements in the dom" —
+   * ArrayShape::massageFinalValues()), so until the next full rebuild the
+   * panes keep the deltas they were built with while the preview, which
+   * re-renders from the sorted values, renumbers from zero. Preview and form
+   * address a field by the same shape id, so the moment those two numbers
+   * disagree a click in the preview opens whichever row happens to hold that
+   * delta in the form — drag the second card to the top and its text opens the
+   * first card.
+   *
+   * The visual order is the one both sides agree on, and the client already
+   * writes it into the row weights. Writing it into the ids as well keeps the
+   * two vocabularies in step until the server restates them.
+   *
+   * Idempotent, and run on every attach rather than only on a drop, because a
+   * partial rebuild re-stamps the server's build-time delta into whatever
+   * subtree it replaces: toggling Hide on a field of a row that has been
+   * dragged would otherwise hand that one row a stale id again, colliding with
+   * whichever row genuinely holds that delta.
+   */
+  function renumberDraggableList(list: HTMLElement) {
+    // A shape id is its parent's id, its own name, then its delta if it has
+    // one (ComponentShapePluginBase::id()), so a row's children read
+    // `<array>~<child>~<delta>` and anything below them keeps that delta
+    // mid-path — `items~heading~1~title`. The delta therefore always lands one
+    // segment past the array's own id, whatever the array is nested in, and a
+    // list nested inside a row has its own delta further along that this
+    // leaves alone. With no wrapper to measure from, the ids are left as they
+    // are rather than guessed at.
+    const arrayId = list.closest<HTMLElement>('[data-neo-prop]')?.dataset.neoProp;
+    const deltaIndex = arrayId ? arrayId.split('~').length + 1 : null;
+    const items = Array.from(list.querySelectorAll<HTMLElement>('.neo-alchemist-draggable-item'));
+    items.forEach((item, idx) => {
+      if (deltaIndex !== null) {
+        item.querySelectorAll<HTMLElement>('[data-neo-prop]').forEach(shape => {
+          const parts = (shape.dataset.neoProp || '').split('~');
+          // Only a segment that is already a delta is rewritten: a shape that
+          // carries none has some other name in that seat.
+          if (/^\d+$/.test(parts[deltaIndex] ?? '')) {
+            parts[deltaIndex] = String(idx);
+            shape.dataset.neoProp = parts.join('~');
+          }
+        });
+      }
+      // The row's label is `@label @delta` counted from one — positional, not
+      // a name — so it is stale the moment the row moves. Replacing the
+      // trailing number leaves a label of any wording or length alone.
+      const label = item.querySelector<HTMLElement>('.details--title');
+      if (label) {
+        label.textContent = (label.textContent || '').replace(/\d+(?!.*\d)/, String(idx + 1));
+      }
+    });
+  }
+
   function handleRefresh() {
     const form = jQuery('#' + formId) as any;
     if (Drupal.Ajax) {
@@ -82,9 +139,18 @@
           throttledInput();
         });
       });
+      // Outside the `once` below, and not scoped to `context`: a partial
+      // rebuild replaces a subtree *inside* a list and attaches behaviors to
+      // that subtree alone, so the list itself is never in context and the
+      // `once` never fires again. Re-asserting every list here is what heals
+      // the stale delta such a replace stamps back in.
+      document.querySelectorAll<HTMLElement>('#' + formId + ' .neo-alchemist-draggable-list')
+        .forEach(list => renumberDraggableList(list));
+
       // Draggable.
       once('neo.alchemist', '#' + formId + ' .neo-alchemist-draggable-list').forEach(el => {
         function updateWeights(list: HTMLElement) {
+          renumberDraggableList(list);
           const items = Array.from(list.querySelectorAll<HTMLElement>('.neo-alchemist-draggable-item'));
           items.forEach((item, idx) => {
             // Try select or input inside the .neo-alchemist-draggable-weight element.
