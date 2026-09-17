@@ -26,6 +26,7 @@ use Drupal\neo_alchemist\EditorState\DraftConflictException;
 use Drupal\neo_alchemist\EditorState\EditorScratchStore;
 use Drupal\neo_alchemist\Value\ComponentValuePanelBuilder;
 use Drupal\neo_icon\IconTrait;
+use Drupal\neo_tooltip\Tooltip;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
@@ -204,9 +205,6 @@ final class InstanceComponentForm extends ContentEntityForm {
     if ($form['values']['#access'] ?: $form['filters']['#access'] ?? FALSE) {
       $form['footer']['#attributes']['class'][] = 'mb-0 py-3 border-t';
     }
-    elseif (!empty($form['description'])) {
-      $form['footer']['#attributes']['class'][] = 'mt-3';
-    }
     else {
       $form['footer']['#attributes']['class'][] = '!mt-0';
     }
@@ -249,15 +247,6 @@ final class InstanceComponentForm extends ContentEntityForm {
 
     $form['#process'][] = '::processForm';
     $this->valuePanelBuilder->attachClient($form);
-
-    if ($description = $this->instance->getDescription()) {
-      $form['description'] = [
-        '#type' => 'item',
-        '#markup' => $description,
-        '#prefix' => '<div class="text-xs bg-base-100 p-4 rounded text-base-100-content/70">',
-        '#suffix' => '</div>',
-      ];
-    }
 
     $form['uuid'] = [
       '#type' => 'hidden',
@@ -447,23 +436,62 @@ final class InstanceComponentForm extends ContentEntityForm {
    * useful about where you were.
    */
   private function buildIdentity(): array {
-    $markup = '<span class="font-bold leading-tight">'
-      . Html::escape((string) ($this->instance->label() ?? $this->t('Component')))
-      . '</span>';
+    $label = (string) ($this->instance->label() ?? $this->t('Component'));
+
+    // `my-0` because a nested container is tagged `form--item`, which carries
+    // `my-form-item`; the header sets its own rhythm. No `gap-x` either: the
+    // help badge brings its own `margin-inline-start`, so a gap would stack on
+    // top of it and leave the badge floating away from the name.
+    $build = [
+      '#type' => 'container',
+      '#attributes' => [
+        'class' => ['flex', 'flex-wrap', 'items-baseline', 'my-0'],
+      ],
+    ];
+
+    $build['name'] = [
+      '#type' => 'html_tag',
+      '#tag' => 'span',
+      '#attributes' => ['class' => ['font-bold', 'leading-tight']],
+      '#value' => $label,
+    ];
+
+    // The component's description hangs off the component's name, which is the
+    // rule every field in the panel below already follows — see
+    // neo-tooltip-help.html.twig. It used to sit in a standing box above the
+    // panes, where it cost 64px of a 30rem panel on every tab for a sentence
+    // read once. Deliberately not on the toolbar title: that names the task
+    // ("Add component"), not the thing being described.
+    if ($description = $this->instance->getDescription()) {
+      $build['help'] = [
+        '#type' => 'html_tag',
+        '#tag' => 'button',
+        '#attributes' => [
+          'type' => 'button',
+          'class' => ['form-label-help'],
+          'aria-label' => $this->t('More information about @label', [
+            '@label' => $label,
+          ]),
+        ],
+        '#value' => Markup::create('<span aria-hidden="true">?</span>'),
+      ];
+      // No setDescribedElsewhere(): the sentence lives nowhere else on screen
+      // now, so tippy's own `aria-describedby` is what announces it.
+      (new Tooltip($description, ['placement' => 'bottom-start']))
+        ->applyTo($build['help']);
+    }
 
     $entity = $this->instance->getFieldItem()->getEntity();
     if ($entity && $entity->label()) {
-      $markup .= '<span class="text-xs text-base-0-content/60">'
-        . $this->t('on @page', ['@page' => $entity->label()])
-        . '</span>';
+      $build['page'] = [
+        '#type' => 'html_tag',
+        '#tag' => 'span',
+        '#attributes' => ['class' => ['text-xs', 'text-base-0-content/60', 'ml-2']],
+        '#value' => $this->t('on @page', ['@page' => $entity->label()]),
+      ];
     }
 
-    return [
-      '#type' => 'html_tag',
-      '#tag' => 'div',
-      '#attributes' => ['class' => ['flex', 'flex-wrap', 'items-baseline', 'gap-x-2']],
-      '#value' => Markup::create($markup),
-    ];
+    return $build;
   }
 
   /**
