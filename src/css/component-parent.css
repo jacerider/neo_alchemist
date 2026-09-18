@@ -121,12 +121,35 @@ form.neo-alchemist-manage--form:has(.neo-alchemist--form-layout) > .form--inner,
   float: none;
   display: flex;
 
-  /* The 1px rule along the top of the fieldset belongs to the wrapper, so it
-     scrolls away and left the pinned bar with no top edge. A shadow rather
-     than a border because it must not take a pixel of layout, and it follows
-     the legend's own `rounded-t` so it lines up with the wrapper's corners
-     exactly while unpinned. */
-  box-shadow: 0 -1px 0 0 var(--color-border-default);
+  /* The fieldset's top rule, moved off the wrapper and onto the legend.
+   *
+   * It belonged to the wrapper, which scrolls away and left the pinned bar with
+   * no top edge. Drawing it above the legend instead does not work: a pinned
+   * legend sits exactly on the scrollport's top edge, so anything painted above
+   * it — an outset shadow, most obviously — lands outside the fields band's
+   * padding box and `overflow-y: auto` clips it away. It has to be inside the
+   * legend's own box.
+   *
+   * Moving the pixel rather than adding one is what keeps this free: the
+   * wrapper gives up its top border below and the legend takes it, so the
+   * fieldset is the same height, the body starts on the same row, and unpinned
+   * it looks exactly as it did. The legend carries `rounded-t` at the wrapper's
+   * own radius, so the corners still meet the side borders.
+   */
+  border-top: 1px solid var(--color-border-default);
+}
+
+/* The other half of that swap. Scoped to a wrapper whose OWN legend is the
+ * sticky one — `> fieldset > legend` — so an array nested inside this one does
+ * not strip the outer fieldset's border too.
+ *
+ * Written as one `:has()` with a descendant combinator inside it rather than
+ * `:has(... :has(...))`, because nesting `:has()` is invalid and the browser
+ * drops the whole rule silently. That is exactly how this went unfixed the
+ * first time: the declaration looked right and never applied.
+ */
+.neo-alchemist--form-body .neo-alchemist--component-form-shape:has(> fieldset > legend .neo-alchemist-array-nav.is-active) {
+  border-top-width: 0;
 }
 
 /* Thumbnail capture framing toolbar (rendered in the parent window so it stays
