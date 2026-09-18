@@ -76,6 +76,15 @@ form.neo-alchemist-manage--form:has(.neo-alchemist--form-layout) > .form--inner,
   > .neo-alchemist--form-footer {
     flex: none;
   }
+
+  /* The footer is a `container`, so Drupal gives it `form--item` and a
+     form-item top margin. That margin used to be absorbed by the scroll — it
+     is a band in the layout now, so it showed as a gap between the fields and
+     the footer. Written on the two-class selector to beat `.form--item` on
+     specificity rather than on stylesheet order. */
+  > .neo-alchemist--form-footer {
+    margin-top: 0;
+  }
 }
 
 .neo-alchemist--form-body {
@@ -101,6 +110,23 @@ form.neo-alchemist-manage--form:has(.neo-alchemist--form-layout) > .form--inner,
   position: sticky;
   top: 0;
   z-index: 10;
+
+  /* The theme floats a legend to make it behave as a block, and the fieldset
+     body clears it. Floating and sticking at once is a corner of the spec
+     engines disagree about, and once pinned the clearance is measured against
+     a box that has moved — which is what opened a gap above the first row when
+     toggling a row forced the fieldset to lay out again. Nothing here depends
+     on the float: as a full-width flex row the layout is identical to the
+     pixel, with no float left to clear. */
+  float: none;
+  display: flex;
+
+  /* The 1px rule along the top of the fieldset belongs to the wrapper, so it
+     scrolls away and left the pinned bar with no top edge. A shadow rather
+     than a border because it must not take a pixel of layout, and it follows
+     the legend's own `rounded-t` so it lines up with the wrapper's corners
+     exactly while unpinned. */
+  box-shadow: 0 -1px 0 0 var(--color-border-default);
 }
 
 /* Thumbnail capture framing toolbar (rendered in the parent window so it stays
