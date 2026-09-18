@@ -104,6 +104,13 @@
         <a class="neo-alchemist-manage--size-split neo-alchemist--sizing {{ sizing }}" href="#">{{ icon('compress') }} {{ 'Split View'|t }}</a>
         <a class="neo-alchemist-manage--size-contract neo-alchemist--sizing {{ sizing }}" href="#">{{ icon('arrow-to-bottom') }} {{ 'Preview View'|t }}</a>
       </div>
+      {#
+        Scrolls as a whole, which is right for the forms that render here.
+        A three-band form (see neo-alchemist-component-form.html.twig) scrolls
+        its own fields instead, and component-parent.css switches this box to a
+        clipped column when it finds one — keyed off the layout itself, so a
+        form without one is untouched.
+      #}
       <div class="neo-alchemist-manage--form-wrapper flex-auto overflow-auto bg-base-0">
         {{ form|neo_class('neo-alchemist-manage--form') }}
       </div>

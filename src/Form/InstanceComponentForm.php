@@ -195,10 +195,19 @@ final class InstanceComponentForm extends ContentEntityForm {
     $form['#attributes']['class'][] = 'neo-alchemist--component-form';
     $form['#attached']['library'][] = 'neo_alchemist/component.form';
 
+    // Claimed in an #after_build because neo_back sets `#theme` from a THEME
+    // form alter, which runs after every module alter — there is no alter this
+    // module could implement that would still be holding the hook by the time
+    // the form renders. #after_build runs later than both.
+    $form['#after_build'][] = [static::class, 'claimFormTheme'];
+
+    // Pinned by the layout rather than by `position: sticky`: the header and
+    // footer are bands outside the scrolling region now, so there is nothing
+    // to stick to. See neo-alchemist-component-form.html.twig.
     $form['footer'] = [
       '#type' => 'container',
       '#attributes' => [
-        'class' => ['sticky bottom-0 bg-base-0 z-10'],
+        'class' => ['neo-alchemist--form-footer', 'bg-base-0 z-10'],
       ],
     ];
 
@@ -377,6 +386,33 @@ final class InstanceComponentForm extends ContentEntityForm {
   }
 
   /**
+   * Takes the form's `#theme` back from the admin theme.
+   *
+   * The admin theme themes every content entity form with `entity_edit_form`,
+   * which renders `header` inside the two-column row. The editor needs it
+   * outside, as a band above the scrolling fields — see
+   * neo-alchemist-component-form.html.twig.
+   *
+   * This runs as an #after_build rather than an alter because neo_back's is a
+   * THEME alter: themes alter last, so no module alter could still be holding
+   * the hook. Opting out of that alter instead (it skips itself when
+   * `#neo_entity_form` is already set) would also skip neo_back_form_meta(),
+   * which this form does want.
+   *
+   * @param array $form
+   *   The built form.
+   * @param \Drupal\Core\Form\FormStateInterface $form_state
+   *   The form state.
+   *
+   * @return array
+   *   The form.
+   */
+  public static function claimFormTheme(array $form, FormStateInterface $form_state): array {
+    $form['#theme'] = 'neo_alchemist_component_form';
+    return $form;
+  }
+
+  /**
    * Tags a top-level form section as a tab pane.
    *
    * @param array $element
@@ -392,10 +428,15 @@ final class InstanceComponentForm extends ContentEntityForm {
   /**
    * Builds the pinned header: what is being edited, and its current state.
    *
-   * `sticky top-0` inside `.neo-alchemist-manage--form-scroll`, mirroring the
-   * footer's `sticky bottom-0`, so the styles and sources a builder has chosen
-   * stay readable at the bottom of a long form. That is the whole reason this
-   * header exists — the form scrolls well past those sections otherwise.
+   * A band outside the scrolling region, above it, mirroring the footer below
+   * — so the styles and sources a builder has chosen stay readable however far
+   * down the fields they are. That is the whole reason this header exists: the
+   * form runs well past those sections otherwise.
+   *
+   * It used to pin itself with `sticky top-0` from inside the scroller, which
+   * worked but made `top: 0` mean "below the header" for everything else that
+   * wanted to pin. Being outside it is what lets an array's legend stick to the
+   * real top without measuring this one.
    *
    * @param string $activeTab
    *   The tab to mark selected. See buildTabStrip().
@@ -409,7 +450,7 @@ final class InstanceComponentForm extends ContentEntityForm {
       '#attributes' => [
         'class' => [
           'neo-alchemist--form-header',
-          'sticky', 'top-0', 'z-20', 'bg-default',
+          'z-20', 'bg-default',
           // Negative margins cancel the scroll pane's px-4 and the form's pt-4
           // so the band runs edge to edge and sits flush with the toolbar.
           '-mx-4', '-mt-4', 'px-4', 'pt-3', 'border-b',

@@ -49,6 +49,15 @@ function neo_alchemist_theme(): array {
     'neo_alchemist_entity' => [
       'render element' => 'elements',
     ],
+    // The component editor's own form layout. neo_back themes every content
+    // entity form with `entity_edit_form`, which renders the header inside the
+    // two-column row — fine on a page that scrolls as a whole, wrong in a
+    // sidebar that has to pin the header and scroll only the fields between it
+    // and the footer. InstanceComponentForm claims this hook in an
+    // #after_build, which runs after that theme alter.
+    'neo_alchemist_component_form' => [
+      'render element' => 'form',
+    ],
     'neo_alchemist_manage' => [
       'variables' => [
         'id' => '',

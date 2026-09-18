@@ -1,0 +1,38 @@
+{#
+/**
+ * @file
+ * The component editor's form layout.
+ *
+ * Three bands in a column: a pinned header, the fields, and a pinned footer.
+ * The middle band is the only thing that scrolls.
+ *
+ * This exists because the shared `entity_edit_form` template renders the header
+ * *inside* the two-column row, which is right for a page that scrolls as a
+ * whole and wrong here. With the header inside the scroller it has to pin
+ * itself with `position: sticky`, and then anything else wanting to pin — an
+ * array's legend carrying its pager, say — has to offset itself by a header
+ * height that changes with the active tab. Taking the header out of the
+ * scroller removes that whole class of arithmetic: `top: 0` means the top.
+ *
+ * `layout-entity-form` is kept so the form still picks up the shared entity
+ * form styling; only the arrangement differs.
+ *
+ * Alchemist folds `actions` into `footer` itself, and has no `advanced`
+ * sidebar, but both are rendered here so this stays a complete layout rather
+ * than one that silently drops a region if that ever changes.
+ *
+ * @see \Drupal\neo_alchemist\Form\InstanceComponentForm::claimFormTheme()
+ * @see neo_back/templates/entity-edit-form.html.twig
+ */
+#}
+<div class="layout-entity-form neo-alchemist--form-layout">
+  {{ form.header }}
+  <div class="neo-alchemist--form-body">
+    {{ form|without('header', 'advanced', 'footer', 'actions') }}
+    {% if form.advanced %}
+      {{ form.advanced|neo_class('layout-entity-form--advanced mt-form-item') }}
+    {% endif %}
+  </div>
+  {{ form.footer }}
+  {{ form.actions }}
+</div>

@@ -100,56 +100,48 @@
   };
 
   /**
-   * How much of a scroller's own box its pinned chrome is covering.
+   * How much pinned chrome will be over an element once it is scrolled to.
    *
-   * The panel's header — title, state chips, tabs — is `sticky top-0` inside
-   * the scrolling pane, and its footer is `sticky bottom-0`. Neither takes any
-   * room out of the scroll box, so scrolling a field to the top of that box
-   * parks it *under* the header: 118px of chrome over a field asked for by a
-   * click. The insets have to come off the target position, and they have to be
-   * measured rather than assumed — the header grows a row when the chips wrap
-   * and the footer is not always there.
+   * Measured structurally, from the element, rather than by hit-testing what
+   * happens to be pinned right now — because those two answers differ at
+   * exactly the moment this is asked. An array's legend only sticks once its
+   * own rows have scrolled up under it, so before the scroll it is sitting
+   * somewhere mid-pane and a probe at the top edge finds nothing; the scroll
+   * then lands the field behind it.
    *
-   * Probed at the two edges rather than by walking the subtree, which answers
-   * the question directly ("what is covering this point?") and cannot be fooled
-   * by sticky content that is not currently pinned — a CKEditor toolbar sitting
-   * mid-pane is `sticky top-0` too, and measuring it as chrome would inset the
-   * pane by its full distance down the page.
+   * What will be over it is knowable without moving anything: the sticky
+   * legends of the fieldsets the element is inside. A legend that contains the
+   * element is skipped — a field cannot be behind its own heading.
+   *
+   * This used to probe the scroller's edges for whatever was pinned there,
+   * which it had to, because the panel's header and footer were `sticky`
+   * INSIDE the scrolling pane and so covered its top and bottom. They are
+   * bands outside it now, taking their own room in the layout, so nothing
+   * covers the scroll box except these legends.
    */
-  function stickyInsets(scroller: HTMLElement): { top: number; bottom: number } {
-    const box = scroller.getBoundingClientRect();
-    const x = Math.round(box.left + box.width / 2);
-    const pinnedAt = (y: number): HTMLElement[] =>
-      (document.elementsFromPoint(x, y) as HTMLElement[]).filter(el => {
-        if (el === scroller || !scroller.contains(el)) {
-          return false;
-        }
-        const position = getComputedStyle(el).position;
-        return position === 'sticky' || position === 'fixed';
-      });
-
-    let top = 0;
-    pinnedAt(Math.round(box.top) + 1).forEach(el => {
-      top = Math.max(top, el.getBoundingClientRect().bottom - box.top);
-    });
-    let bottom = 0;
-    pinnedAt(Math.round(box.bottom) - 1).forEach(el => {
-      bottom = Math.max(bottom, box.bottom - el.getBoundingClientRect().top);
-    });
-    return { top, bottom };
+  function pinnedAbove(element: HTMLElement, scroller: HTMLElement): number {
+    let total = 0;
+    let node: HTMLElement | null = element.parentElement;
+    while (node && node !== scroller && scroller.contains(node)) {
+      const legend = node.querySelector<HTMLElement>(':scope > legend');
+      if (legend && !legend.contains(element) && getComputedStyle(legend).position === 'sticky') {
+        total += legend.getBoundingClientRect().height;
+      }
+      node = node.parentElement;
+    }
+    return total;
   }
 
   /**
    * Brings an element into the part of a scroller that is actually visible.
    *
-   * The gap over and above the sticky chrome, so a field arrives just clear of
-   * it rather than flush against it.
+   * The gap over and above the pinned legends, so a field arrives just clear of
+   * them rather than flush against them.
    */
   function scrollPropIntoView(element: HTMLElement, scroller: HTMLElement): void {
-    const insets = stickyInsets(scroller);
     Drupal.behaviors.neoAlchemistComponentParent.scrollElementIntoView(element, scroller, {
-      top: insets.top + 16,
-      bottom: insets.bottom + 16,
+      top: pinnedAbove(element, scroller) + 16,
+      bottom: 16,
     });
   }
 
@@ -286,7 +278,12 @@
     const wrapper = container.querySelector('.neo-alchemist-manage--wrapper') as HTMLElement;
     const messages = document.querySelector('.alchemist-messages');
     const formWrapper = container.querySelector('.neo-alchemist-manage--form-wrapper') as HTMLElement;
-    const scroll = container.querySelector('.neo-alchemist-manage--form-scroll') as HTMLElement;
+    // The fields band, which is the only part of the form that scrolls. The
+    // pane around it (--form-scroll) sizes the form and clips it; scrolling
+    // that would move nothing. Falls back to the pane for any layout that has
+    // not been re-themed to the three-band form.
+    const scroll = (container.querySelector('.neo-alchemist--form-body')
+      || container.querySelector('.neo-alchemist-manage--form-scroll')) as HTMLElement;
     const form = container.querySelector('.neo-alchemist-manage--form') as HTMLIFrameElement;
 
     /**

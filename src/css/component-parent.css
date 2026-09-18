@@ -29,6 +29,80 @@
   }
 }
 
+/* The editor form as three bands: header, fields, footer.
+ *
+ * Only the middle band scrolls, which is what lets the header and footer stop
+ * pinning themselves with `position: sticky`. That matters beyond tidiness:
+ * while they were sticky INSIDE the scroller, `top: 0` meant "behind the
+ * header" for anything else that wanted to pin, so an array's legend could not
+ * stick without measuring a header whose height changes with the active tab.
+ *
+ * Every rule here is keyed off `:has(.neo-alchemist--form-layout)` rather than
+ * off the boxes themselves, because those boxes also host forms that are not
+ * built this way — the component manage page renders a plain form and must go
+ * on scrolling as a whole. Claiming the box unconditionally clipped that form
+ * to the pane and left 900px of it unreachable.
+ */
+.neo-alchemist-manage--form-wrapper:has(.neo-alchemist--form-layout),
+.neo-alchemist-manage--form-scroll:has(.neo-alchemist--form-layout),
+form.neo-alchemist-manage--form:has(.neo-alchemist--form-layout),
+form.neo-alchemist-manage--form:has(.neo-alchemist--form-layout) > .form--inner,
+.neo-alchemist--form-layout {
+  display: flex;
+  flex-direction: column;
+  /* A flex item defaults to min-height:auto and so refuses to shrink below its
+     content, which would push the footer off the bottom instead of scrolling
+     the fields. */
+  min-height: 0;
+}
+
+/* Each link in the chain fills its parent. The outermost is already sized by
+   the layout around it. */
+.neo-alchemist-manage--form-scroll:has(.neo-alchemist--form-layout),
+form.neo-alchemist-manage--form:has(.neo-alchemist--form-layout),
+form.neo-alchemist-manage--form:has(.neo-alchemist--form-layout) > .form--inner,
+.neo-alchemist--form-layout {
+  flex: 1 1 auto;
+}
+
+/* The pane clips instead of scrolling: the fields band inside it scrolls. */
+.neo-alchemist-manage--form-wrapper:has(.neo-alchemist--form-layout),
+.neo-alchemist-manage--form-scroll:has(.neo-alchemist--form-layout) {
+  overflow: hidden;
+}
+
+.neo-alchemist--form-layout {
+  > .neo-alchemist--form-header,
+  > .neo-alchemist--form-footer {
+    flex: none;
+  }
+}
+
+.neo-alchemist--form-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  /* Pulled out to the pane's edge and padded back in, so the scrollbar rides
+     the edge of the panel rather than floating four units inside it. The
+     header already does the same to run its band edge to edge. */
+  margin-inline: calc(var(--spacing) * -4);
+  padding-inline: calc(var(--spacing) * 4);
+}
+
+/* A legend carrying a stepper pins to the top of the fields.
+ *
+ * Expanding a row pushes its legend off the top, and with it the pager that
+ * says which of the five you are looking at — the one control you want while
+ * moving between them. `top: 0` is literally the top here, which is the whole
+ * point of taking the header out of the scroller.
+ */
+.neo-alchemist--form-body legend:has(.neo-alchemist-array-nav.is-active) {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
 /* Thumbnail capture framing toolbar (rendered in the parent window so it stays
  * fixed in the viewport while the crop frame lives inside the preview iframe). */
 .neo-alchemist-capture-toolbar {
