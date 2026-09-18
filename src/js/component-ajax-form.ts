@@ -33,6 +33,29 @@
   let refreshId = '';
 
   /**
+   * The rows a draggable list owns, leaving the rows of a list inside one.
+   *
+   * querySelectorAll() searches descendants, so an array whose rows hold an
+   * array of their own — a slide and its links — hands the outer list every
+   * inner row too, and numbering them together counts straight past the rows
+   * it was asked about: three slides carrying five links between them label
+   * themselves Slide 1, Slide 4, Slide 6 and take ids to match.
+   *
+   * A row of this list is one with no row above it that this list also holds.
+   * That reads the nesting rather than the markup around it, which matters
+   * because an array of a single row renders no list to scope to — there is
+   * nothing to drag — leaving its row sitting in the outer list's tree with
+   * nothing but its parent row to tell them apart.
+   */
+  function draggableRows(list: HTMLElement): HTMLElement[] {
+    return Array.from(list.querySelectorAll<HTMLElement>('.neo-alchemist-draggable-item'))
+      .filter(item => {
+        const parentRow = item.parentElement?.closest<HTMLElement>('.neo-alchemist-draggable-item');
+        return !parentRow || !list.contains(parentRow);
+      });
+  }
+
+  /**
    * Renumbers an array prop's rows to the order they are sitting in.
    *
    * The server does not restate the rows on a drop: ArrayShape sorts on submit
@@ -66,7 +89,7 @@
     // are rather than guessed at.
     const arrayId = list.closest<HTMLElement>('[data-neo-prop]')?.dataset.neoProp;
     const deltaIndex = arrayId ? arrayId.split('~').length + 1 : null;
-    const items = Array.from(list.querySelectorAll<HTMLElement>('.neo-alchemist-draggable-item'));
+    const items = draggableRows(list);
     items.forEach((item, idx) => {
       if (deltaIndex !== null) {
         item.querySelectorAll<HTMLElement>('[data-neo-prop]').forEach(shape => {
@@ -207,7 +230,9 @@
       once('neo.alchemist', '#' + formId + ' .neo-alchemist-draggable-list').forEach(el => {
         function updateWeights(list: HTMLElement) {
           renumberDraggableList(list);
-          const items = Array.from(list.querySelectorAll<HTMLElement>('.neo-alchemist-draggable-item'));
+          // This list's own rows: a weight written into a nested row would
+          // reorder that inner array by the outer one's positions.
+          const items = draggableRows(list);
           items.forEach((item, idx) => {
             // Try select or input inside the .neo-alchemist-draggable-weight element.
             const weightInput = item.querySelector<HTMLElement>('.neo-alchemist-draggable-weight');
