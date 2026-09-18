@@ -115,15 +115,18 @@ services:
   # neo_build is a runtime dependency of neo (and so always present on a real
   # site) but is not declared by neo_alchemist, and Kernel tests enable a
   # minimal module list. Reference it optionally so the container still
-  # compiles without it — the feature simply reports itself unavailable.
+  # compiles without it — dev mode simply reports itself off.
+  neo_alchemist.dev_mode:
+    class: Drupal\neo_alchemist\DevMode
+    arguments: ['@?neo_build', '@config.factory']
+
   neo_alchemist.sdc_thumbnail_writer:
     class: Drupal\neo_alchemist\SdcThumbnailWriter
-    arguments: ['@plugin.manager.sdc', '@?neo_build', '@config.factory', '%app.root%']
+    arguments: ['@plugin.manager.sdc', '@neo_alchemist.dev_mode', '%app.root%']
 
   # Cached in cache.discovery, the same bin the SDC definitions live in, so a
   # single `drush cr` invalidates both together and they can never disagree
-  # about which components exist. neo_build is optional for the same reason as
-  # above; without it only the dev-mode cache bypass is lost.
+  # about which components exist.
   neo_alchemist.slot_template_locator:
     class: Drupal\neo_alchemist\Slot\ComponentSlotTemplateLocator
     arguments:
@@ -131,9 +134,8 @@ services:
       - '@extension.path.resolver'
       - '@module_handler'
       - '@cache.discovery'
-      - '@config.factory'
       - '%app.root%'
-      - '@?neo_build'
+      - '@neo_alchemist.dev_mode'
 
   plugin.manager.neo_component_prop_def:
     class: Drupal\neo_alchemist\ComponentPropDefPluginManager

@@ -4,11 +4,9 @@ declare(strict_types=1);
 
 namespace Drupal\neo_alchemist;
 
-use Drupal\Core\Config\ConfigFactoryInterface;
 use Drupal\Core\StringTranslation\StringTranslationTrait;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\Core\Theme\ComponentPluginManager;
-use Drupal\neo_build\NeoBuild;
 
 /**
  * Writes a captured thumbnail into a raw SDC's own directory.
@@ -62,47 +60,25 @@ final class SdcThumbnailWriter {
   private const MIN_HEIGHT = 100;
   private const MAX_HEIGHT = 6000;
 
-  /**
-   * The config split whose being active marks a local development checkout.
-   */
-  private const DEV_SPLIT = 'config_split.config_split.dev';
-
   public function __construct(
     private readonly ComponentPluginManager $componentPluginManager,
-    private readonly ?NeoBuild $neoBuild,
-    private readonly ConfigFactoryInterface $configFactory,
+    private readonly DevMode $devMode,
     private readonly string $appRoot,
   ) {}
 
   /**
    * Whether writing thumbnails into component directories is offered at all.
    *
-   * Either signal is enough, and both mean the same thing: this is somebody's
-   * working checkout rather than a deployed site.
-   *
-   * - The Neo dev server is running. Narrow — it only holds while `npm start`
-   *   is up — but it carries the useful corollary that the feature is
-   *   available exactly when this module's TypeScript is being compiled live.
-   * - The dev config split is enabled, which is switched on from the
-   *   (gitignored) settings.local.php and so stays true for a whole local
-   *   environment regardless of whether a dev server happens to be running.
-   *
-   * Both dependencies are soft. neo_build is not a declared dependency of
-   * neo_alchemist, so a Kernel test's minimal module list may not provide it;
-   * config_split need not be installed at all, in which case the config object
-   * is empty and its status reads as nothing. Either way the answer is "not a
-   * development environment", which is the safe default.
+   * Writing into a component's own directory only makes sense in a working
+   * checkout, which is exactly what DevMode answers.
    *
    * @return bool
    *   TRUE when the feature is available.
+   *
+   * @see \Drupal\neo_alchemist\DevMode::isDevMode()
    */
   public function isEnabled(): bool {
-    if ($this->neoBuild?->isDevMode()) {
-      return TRUE;
-    }
-    // Read through the config factory rather than the entity, so the override
-    // in settings.local.php is what counts — the stored entity says FALSE.
-    return (bool) $this->configFactory->get(self::DEV_SPLIT)->get('status');
+    return $this->devMode->isDevMode();
   }
 
   /**

@@ -6,13 +6,12 @@ namespace Drupal\neo_alchemist\Slot;
 
 use Drupal\Core\Cache\Cache;
 use Drupal\Core\Cache\CacheBackendInterface;
-use Drupal\Core\Config\ConfigFactoryInterface;
 use Drupal\Core\Extension\Exception\UnknownExtensionException;
 use Drupal\Core\Extension\Exception\UnknownExtensionTypeException;
 use Drupal\Core\Extension\ExtensionPathResolver;
 use Drupal\Core\Extension\ModuleHandlerInterface;
 use Drupal\Core\Theme\ComponentPluginManager;
-use Drupal\neo_build\NeoBuild;
+use Drupal\neo_alchemist\DevMode;
 
 /**
  * Finds the optional per-slot Twig template shipped inside a component.
@@ -53,11 +52,6 @@ final class ComponentSlotTemplateLocator {
   public const CACHE_TAG = 'neo_alchemist_slot_templates';
 
   /**
-   * The config split whose being active marks a local development checkout.
-   */
-  private const DEV_SPLIT = 'config_split.config_split.dev';
-
-  /**
    * The memoized map, keyed by component id then slot name.
    *
    * @var array<string, array<string, string>>|null
@@ -69,9 +63,8 @@ final class ComponentSlotTemplateLocator {
     private readonly ExtensionPathResolver $extensionPathResolver,
     private readonly ModuleHandlerInterface $moduleHandler,
     private readonly CacheBackendInterface $cache,
-    private readonly ConfigFactoryInterface $configFactory,
     private readonly string $appRoot,
-    private readonly ?NeoBuild $neoBuild = NULL,
+    private readonly DevMode $devMode,
   ) {}
 
   /**
@@ -129,11 +122,6 @@ final class ComponentSlotTemplateLocator {
   /**
    * Whether this is somebody's working checkout rather than a deployed site.
    *
-   * Mirrors SdcThumbnailWriter::isEnabled(). Both signals are soft: neo_build
-   * is not a declared dependency, and config_split need not be installed, in
-   * which case the answer is "not a development environment" — the safe
-   * default.
-   *
    * Used for two things: bypassing the cache, so a freshly added slot template
    * is picked up without a rebuild while `npm start` is running; and emitting
    * the HTML comments that tell a developer what to name their template.
@@ -141,15 +129,10 @@ final class ComponentSlotTemplateLocator {
    * @return bool
    *   TRUE in a development environment.
    *
-   * @see \Drupal\neo_alchemist\SdcThumbnailWriter::isEnabled()
+   * @see \Drupal\neo_alchemist\DevMode::isDevMode()
    */
   public function isDevMode(): bool {
-    if ($this->neoBuild?->isDevMode()) {
-      return TRUE;
-    }
-    // Read through the config factory rather than the entity, so the override
-    // in settings.local.php is what counts — the stored entity says FALSE.
-    return (bool) $this->configFactory->get(self::DEV_SPLIT)->get('status');
+    return $this->devMode->isDevMode();
   }
 
   /**
