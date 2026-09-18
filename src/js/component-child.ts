@@ -1287,10 +1287,23 @@
    */
   const REVEAL_EVENT = 'neo-alchemist:reveal';
 
-  // The request waiting on a reveal, and the attempts left to notice one. A
-  // reveal is usually a CSS transition, so the answer does not arrive in the
-  // same tick as the question.
-  let pendingReveal: { propId: string; propIds: string[] | null; label: string } | null = null;
+  // How many times one focus request may ask to be revealed, and how long it
+  // waits between asks.
+  //
+  // Asking once is not enough, because a component is entitled to ignore the
+  // question. Every slider in this site's theme holds a lock while it moves —
+  // `hero_s1` sets `busy` for 1080ms and `go()` returns early the whole time —
+  // so a request made while the previous one is still animating is dropped on
+  // the floor, silently and by design. Three asks 1200ms apart outlast that
+  // lock with room for an image that loads slowly, and the bound is what keeps
+  // a component that simply never answers from being asked forever.
+  const REVEAL_ASKS = 3;
+  const REVEAL_ASK_INTERVAL = 1200;
+
+  // The request waiting on a reveal, and the asks it has left. A reveal is
+  // usually a CSS transition, so the answer does not arrive in the same tick
+  // as the question.
+  let pendingReveal: { propId: string; propIds: string[] | null; label: string; asks: number } | null = null;
   let pendingRevealTimer = 0;
 
   const clearPendingReveal = (): void => {
@@ -1302,17 +1315,19 @@
   /**
    * Resolves a focus request and draws it, asking for a reveal if it is hidden.
    *
-   * `allowReveal` is false on the retry, so a component that answers the event
-   * without actually revealing anything cannot put this in a loop.
+   * `asks` is how many times this request may still dispatch the reveal event.
+   * It counts down rather than being a flag, because the honest answer to "did
+   * the component act on it?" is "not yet" far more often than "no" — see
+   * REVEAL_ASKS above.
    */
-  const applyFocus = (propId: string, propIds: string[] | null, label: string, allowReveal: boolean): void => {
+  const applyFocus = (propId: string, propIds: string[] | null, label: string, asks: number): void => {
     clearPendingReveal();
     const resolved = resolveFocus(propId, propIds);
     const visible = resolved.targets.filter(el => !isHiddenTarget(el));
 
     if (resolved.targets.length && !visible.length) {
-      if (allowReveal) {
-        pendingReveal = { propId, propIds, label };
+      if (asks > 0) {
+        pendingReveal = { propId, propIds, label, asks: asks - 1 };
         // From the target, so a listener can read `event.target` as well as the
         // detail, and bubbling so any ancestor component can answer.
         resolved.targets[0].dispatchEvent(new CustomEvent(REVEAL_EVENT, {
@@ -1320,9 +1335,9 @@
           detail: { propId, target: resolved.targets[0] },
         }));
         // A reveal that needs no transition has landed by now; one that does is
-        // picked up by the transitionend listener below, and this is the floor
-        // under both.
-        pendingRevealTimer = window.setTimeout(() => retryPendingReveal(), 1200);
+        // picked up by settlePendingReveal() below, and this is both the floor
+        // under that and the moment the next ask goes out.
+        pendingRevealTimer = window.setTimeout(() => retryPendingReveal(), REVEAL_ASK_INTERVAL);
       }
       // Nothing is drawn meanwhile: an outline over the panel that happens to
       // be showing would name it as a field it is not.
@@ -1344,21 +1359,49 @@
    */
   const onMotionEnd = (): void => {
     refreshOverlays();
-    if (pendingReveal) {
-      retryPendingReveal();
-    }
+    settlePendingReveal();
     // A component that just moved may have moved a different item into view —
     // including when the editor did not ask it to, as a swipe in the canvas
     // does.
     scheduleItemsReport();
   };
 
+  /**
+   * Draws a pending reveal the moment it lands — and only then.
+   *
+   * Motion end is the earliest notice that a component has arrived somewhere,
+   * so it is worth checking on. What it is not is evidence that the component
+   * answered *this* request: one `hero_s1` crossfade fires 154 transitionend
+   * events, the first about 200ms in, and every one of them is some other
+   * element finishing its own move. Taking the request down on that reading is
+   * what made the retry below dead code — the timer was cleared long before it
+   * could fire, so the only ask that ever went out was the first one, and a
+   * component that had dropped it was never asked again.
+   *
+   * So a still-hidden target is left strictly alone here. Giving up is the
+   * timer's decision, and it makes it by running out of asks.
+   */
+  const settlePendingReveal = (): void => {
+    if (!pendingReveal) {
+      return;
+    }
+    const request = pendingReveal;
+    const resolved = resolveFocus(request.propId, request.propIds);
+    if (!resolved.targets.some(el => !isHiddenTarget(el))) {
+      return;
+    }
+    applyFocus(request.propId, request.propIds, request.label, 0);
+  };
+
+  /**
+   * Asks again, having waited REVEAL_ASK_INTERVAL for the last ask to land.
+   */
   const retryPendingReveal = (): void => {
     if (!pendingReveal) {
       return;
     }
     const request = pendingReveal;
-    applyFocus(request.propId, request.propIds, request.label, false);
+    applyFocus(request.propId, request.propIds, request.label, request.asks);
   };
 
   // Anything that moves an element by transform — an author's own transition,
@@ -1423,7 +1466,7 @@
       typeof data.propId === 'string' ? data.propId : '',
       Array.isArray(data.propIds) ? data.propIds.filter((id: unknown) => typeof id === 'string') : null,
       typeof data.label === 'string' ? data.label : '',
-      true,
+      REVEAL_ASKS,
     );
   });
 

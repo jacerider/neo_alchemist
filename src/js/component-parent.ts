@@ -1376,6 +1376,20 @@
     const propItemsBySize: Record<string, Record<string, { visible: boolean; steerable: boolean }>> = {};
 
     /**
+     * Per array, the row its stepper last asked for while that ask is still in
+     * flight — cleared by the report that confirms it.
+     *
+     * This is the one thing the form remembers, and it is intent rather than
+     * state: what was asked for, never what is showing. The readout is still
+     * derived from the preview every time, so it cannot drift.
+     */
+    const stepIntent = new WeakMap<HTMLElement, { index: number; at: number }>();
+    // Covers the preview's whole reveal-retry budget (three asks, 1200ms
+    // apart). Past that the component is not going to answer, and the row the
+    // preview can actually see is the better place to count from.
+    const STEP_INTENT_TTL = 4500;
+
+    /**
      * The rows belonging to this array and not to an array nested inside it.
      *
      * A row carries no data-neo-prop, so the nearest one above it is its own
@@ -1452,6 +1466,12 @@
           return;
         }
         const state = readArray(fieldset, report);
+        // The preview has caught up with the last click, so stepping can go
+        // back to counting from the row it can see.
+        const intent = stepIntent.get(fieldset);
+        if (intent && (intent.index === state.onScreen || Date.now() - intent.at >= STEP_INTENT_TTL)) {
+          stepIntent.delete(fieldset);
+        }
         nav.classList.toggle('is-active', state.steerable);
         const count = nav.querySelector<HTMLElement>('.neo-alchemist-array-nav--count');
         if (count) {
@@ -1490,12 +1510,23 @@
       if (!rows.length) {
         return;
       }
-      const current = rows.findIndex(row => row.hasAttribute('aria-current'));
+      // Where the last click was headed, if the preview has not confirmed it
+      // yet. The readout stays the preview's to tell — that is what stops it
+      // drifting — but stepping cannot start from it, because confirmation
+      // takes a round trip and about a quarter of a second. Counting from the
+      // confirmed row meant two quick clicks both read "on row 1" and both
+      // asked for row 2, so the second one bought nothing and the pair moved
+      // one slide.
+      const intent = stepIntent.get(fieldset);
+      const from = intent && intent.index < rows.length && Date.now() - intent.at < STEP_INTENT_TTL
+        ? intent.index
+        : rows.findIndex(row => row.hasAttribute('aria-current'));
       const step = button.dataset.neoAlchemistStep === 'prev' ? -1 : 1;
       // Wraps rather than stopping: both slider engines in this site's theme
       // wrap, and a stepper that dead-ends where the component does not would
       // be describing a limit that is not there.
-      const next = rows[(Math.max(current, 0) + step + rows.length) % rows.length];
+      const index = (Math.max(from, 0) + step + rows.length) % rows.length;
+      const next = rows[index];
       const ids = Array.from(next.querySelectorAll<HTMLElement>('[data-neo-prop]'))
         .map(el => el.dataset.neoProp || '')
         .filter(Boolean);
@@ -1503,6 +1534,7 @@
         return;
       }
       const label = (next.querySelector<HTMLElement>('.details--title')?.textContent || '').trim();
+      stepIntent.set(fieldset, { index, at: Date.now() });
       focusProp(ids[0], ids, label, next);
     }
 
