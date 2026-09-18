@@ -326,6 +326,29 @@ Alchemist in config scope) and the per-entity stored value:
 - **Per-item data on the `menu` value provider** (badges, mega menu regions, …) → implement `hook_neo_alchemist_menu_value_item_alter()` (documented in `neo_alchemist.api.php`); extra `$entry` keys flow through to twig, `$entry = NULL` drops an item, and cacheability goes through `$shape->addCacheableDependency()`.
 - **Drush command** → method on `NeoAlchemistCommands` with `#[CLI\Command]`; inject via `#[Autowire(service:'…')]` (`AutowireTrait`).
 
+## The editor preview's two-way contract with components
+
+The form and the preview iframe address a field by one **shape id**
+(`ComponentShapePluginBase::id()` — `parentId~ownName[~delta]`), stamped as `data-neo-prop` on
+both sides. `src/js/component-parent.ts` owns the form half, `src/js/component-child.ts` the
+preview half; `PreviewPropMapBuilder` supplies the hints that map unstamped DOM (strings,
+images, links) back to a prop.
+
+One rule governs the highlight: **it is only drawn when it is true.** No climbing to an
+ancestor's other children, no outline on a target that is hidden, nothing when there is no
+honest answer.
+
+That last case is where components come in. A carousel's inactive slide has a perfectly good
+box, so the preview cannot tell from geometry that it is not on screen — it reads `opacity: 0`,
+`visibility`, `[aria-hidden]` and `[inert]` up the ancestor chain, withholds the outline, and
+fires a bubbling **`neo-alchemist:reveal`** from the target. A component that hides parts of
+itself listens on its root and shows the one holding it; anything that does not listen simply
+gets no outline. Components must also not run timers inside the canvas.
+
+Both rules are documented for component authors in the **neo-component** skill
+("Component JS inside the editor canvas") — that is the copy to update if the contract changes,
+since it is the one an agent building a component will read.
+
 ## Introspect at runtime instead of reading plugins
 
 Prefer these over grepping the shape/definition code:

@@ -872,6 +872,52 @@ When the component has interactive state (tabs, accordions), expose event hooks 
 >
 ```
 
+### Component JS inside the editor canvas
+
+Two rules for any component whose JS moves or hides its own content — a slideshow, a carousel, tabs, an accordion. Both exist because the editor preview is a **workspace**, not a page being viewed.
+
+Detect the canvas from JS with `el.closest('.neo-alchemist-preview')` — the class the editor's own behavior binds to, so nothing needs plumbing through the yml or twig. (`neoIsPreview` is the twig-side equivalent.)
+
+**1. No timers.** Autoplay in the editor moves content out from under the person editing it, and the preview re-renders on every keystroke, so a rotation restarts constantly. Guard the starter rather than its call sites — pause/resume handlers restart it too:
+
+```js
+function Hero(el) {
+  this.el = el;
+  this.preview = !!el.closest('.neo-alchemist-preview');
+  // …
+}
+
+Hero.prototype.start = function () {
+  if (REDUCED || this.preview) {
+    return;
+  }
+  this.timer = window.setInterval(/* … */);
+};
+```
+
+This is the same reasoning that makes the preview force-disable `neo_animate` entrance animations: content that moves on its own is content the editor cannot aim at.
+
+**2. Answer `neo-alchemist:reveal`.** Focusing a field in the form outlines the element it controls in the preview. When that element is hidden — an inactive slide, a closed accordion panel — the editor **withholds the outline** rather than drawing it somewhere untrue, and fires a bubbling `neo-alchemist:reveal` from the target. Show the part of yourself that holds it, and the editor picks the outline up when your transition ends.
+
+```js
+Hero.prototype.bindReveal = function () {
+  var self = this;
+  this.el.addEventListener('neo-alchemist:reveal', function (event) {
+    var node = (event.detail && event.detail.target) || event.target;
+    var to = self.slideIndexOf(node);   // which of my panels contains it?
+    if (to !== -1) {
+      self.go(to);                      // your own existing "show this one"
+    }
+  });
+};
+```
+
+Bind it **before** any early return for the single-item case, so the component still answers when it has nothing to reveal. A strip that rotates its own DOM has no index to jump to — step toward the target instead, bounded by the item count so an unreachable target cannot spin it forever (see `hero_s6.js` / `list_s2.js`).
+
+The event is the whole contract: the editor never learns what a carousel is, and the carousel never learns what the editor is. **Ignore it and the field simply has no outline** — no error, and nothing points at the wrong content.
+
+**What counts as hidden.** The editor already discounts anything clipped out of view, so a track slider with `overflow: hidden` needs no help to stay honest. What it cannot see from geometry alone is content that occupies a real box and is faded or flagged away — so it also treats `opacity: 0`, `visibility: hidden`, `[aria-hidden="true"]` and `[inert]` on the target **or any ancestor** as hidden. Hiding a panel with one of those is what makes your component legible to the editor; hiding it by moving it somewhere with a real box and full opacity is not.
+
 ### Fixed / floating roots and the preview iframe
 
 A component whose root is `position: fixed` (or `absolute`) has **no flow height**, so the Alchemist preview iframe — which sizes to document height — collapses and the component looks blank even though it renders. Render it **in-flow for preview**: switch the positioning behind `{% if neoIsPreview %}`, and give it a solid background if it's normally transparent (e.g. a header that overlays a hero). `drush neo:alchemist:render` renders the preview branch by default; add `--live` to render the runtime (`neoIsPreview` false) path.

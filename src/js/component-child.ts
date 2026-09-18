@@ -742,6 +742,8 @@
     activeMode = 'none';
     activeLabel = '';
     hoverTarget = null;
+    // The markup that was going to answer it is about to be replaced.
+    clearPendingReveal();
     Drupal.detachBehaviors(element, drupalSettings, 'unload');
   };
 
@@ -1038,6 +1040,39 @@
    * restyles, since that genuinely is its scope. Failing all three it is not
    * outlined at all, and silence is the honest answer.
    */
+  /**
+   * Whether an element is hidden by something other than its geometry.
+   *
+   * visibleRect() already discounts anything clipped out of view, which covers
+   * the usual ways content goes away. It cannot see the other family: a
+   * carousel stacks its slides at one rect and fades between them, so an
+   * inactive slide has a perfectly good box and is simply not on screen. Left
+   * to geometry alone the outline draws over whichever slide *is* showing, and
+   * names it as the field the editor asked for.
+   *
+   * `aria-hidden` and `inert` are read as well as the visual properties,
+   * because a component that hides a panel properly says so there — and it
+   * says it on the panel, which is why this walks up rather than testing the
+   * element alone.
+   */
+  const isHiddenTarget = (el: HTMLElement): boolean => {
+    let node: HTMLElement | null = el;
+    while (node) {
+      if (node.hasAttribute('inert') || node.getAttribute('aria-hidden') === 'true') {
+        return true;
+      }
+      const style = getComputedStyle(node);
+      if (style.visibility === 'hidden' || style.visibility === 'collapse' || Number(style.opacity) === 0) {
+        return true;
+      }
+      if (node === propScope) {
+        break;
+      }
+      node = node.parentElement;
+    }
+    return false;
+  };
+
   const resolveFocus = (propId: string, propIds: string[] | null): {
     targets: HTMLElement[];
     mode: 'exact' | 'group' | 'component' | 'none';
@@ -1076,13 +1111,97 @@
     return { targets: [], mode: 'none', label: '' };
   };
 
+  /**
+   * The event a component listens for to bring a hidden prop into view.
+   *
+   * The editor cannot know what a carousel is, and a carousel should not have
+   * to know what the editor is — so it asks, in the one vocabulary they share:
+   * this element, please. A component that hides parts of itself listens on its
+   * root, works out which of its panels holds the target and shows that one.
+   * Anything that does not listen simply does not answer, and the outline is
+   * withheld rather than drawn somewhere untrue.
+   *
+   * @see the neo-component skill, "Revealing a hidden prop in the preview".
+   */
+  const REVEAL_EVENT = 'neo-alchemist:reveal';
+
+  // The request waiting on a reveal, and the attempts left to notice one. A
+  // reveal is usually a CSS transition, so the answer does not arrive in the
+  // same tick as the question.
+  let pendingReveal: { propId: string; propIds: string[] | null; label: string } | null = null;
+  let pendingRevealTimer = 0;
+
+  const clearPendingReveal = (): void => {
+    pendingReveal = null;
+    window.clearTimeout(pendingRevealTimer);
+    pendingRevealTimer = 0;
+  };
+
+  /**
+   * Resolves a focus request and draws it, asking for a reveal if it is hidden.
+   *
+   * `allowReveal` is false on the retry, so a component that answers the event
+   * without actually revealing anything cannot put this in a loop.
+   */
+  const applyFocus = (propId: string, propIds: string[] | null, label: string, allowReveal: boolean): void => {
+    clearPendingReveal();
+    const resolved = resolveFocus(propId, propIds);
+    const visible = resolved.targets.filter(el => !isHiddenTarget(el));
+
+    if (resolved.targets.length && !visible.length) {
+      if (allowReveal) {
+        pendingReveal = { propId, propIds, label };
+        // From the target, so a listener can read `event.target` as well as the
+        // detail, and bubbling so any ancestor component can answer.
+        resolved.targets[0].dispatchEvent(new CustomEvent(REVEAL_EVENT, {
+          bubbles: true,
+          detail: { propId, target: resolved.targets[0] },
+        }));
+        // A reveal that needs no transition has landed by now; one that does is
+        // picked up by the transitionend listener below, and this is the floor
+        // under both.
+        pendingRevealTimer = window.setTimeout(() => retryPendingReveal(), 1200);
+      }
+      // Nothing is drawn meanwhile: an outline over the panel that happens to
+      // be showing would name it as a field it is not.
+      activeTargets = [];
+      activeMode = 'none';
+      activeLabel = '';
+      renderActiveOverlays();
+      return;
+    }
+
+    activeTargets = visible.length ? visible : resolved.targets;
+    activeMode = resolved.mode;
+    activeLabel = label || resolved.label;
+    renderActiveOverlays();
+  };
+
+  /**
+   * A component finishing a move: reposition, and notice a reveal landing.
+   */
+  const onMotionEnd = (): void => {
+    refreshOverlays();
+    if (pendingReveal) {
+      retryPendingReveal();
+    }
+  };
+
+  const retryPendingReveal = (): void => {
+    if (!pendingReveal) {
+      return;
+    }
+    const request = pendingReveal;
+    applyFocus(request.propId, request.propIds, request.label, false);
+  };
+
   // Anything that moves an element by transform — an author's own transition,
   // a component's internal animation — resizes nothing, so the resize observer
   // never fires and an outline measured mid-flight would stay where the
   // element briefly was. Both events bubble, so one listener covers the
   // subtree however it is replaced.
-  document.addEventListener('animationend', refreshOverlays);
-  document.addEventListener('transitionend', refreshOverlays);
+  document.addEventListener('animationend', onMotionEnd);
+  document.addEventListener('transitionend', onMotionEnd);
 
   // Escape inside the preview dismisses the outline. Routed through the same
   // upward `prop` channel a click on empty space already uses rather than a
@@ -1134,16 +1253,12 @@
     if (!data || data.type !== 'propFocus') {
       return;
     }
-    const resolved = resolveFocus(
+    applyFocus(
       typeof data.propId === 'string' ? data.propId : '',
       Array.isArray(data.propIds) ? data.propIds.filter((id: unknown) => typeof id === 'string') : null,
+      typeof data.label === 'string' ? data.label : '',
+      true,
     );
-    activeTargets = resolved.targets;
-    activeMode = resolved.mode;
-    activeLabel = (typeof data.label === 'string' && data.label)
-      ? data.label
-      : resolved.label;
-    renderActiveOverlays();
   });
 
 })(Drupal, once, drupalSettings);
