@@ -168,10 +168,15 @@
  * the mark in the form and the mark in the canvas are one system, and giving
  * them separate palettes would make them read as two unrelated signals about
  * the same thing.
+ *
+ * After the title rather than before it. Ahead of the label it pushed the
+ * current row's text in by its own width, so that one row's label no longer
+ * lined up with its neighbours — the list appeared to jog every time the
+ * preview moved on.
  */
-.neo-alchemist-draggable-item[aria-current='true'] > summary .details--title::before {
+.neo-alchemist-draggable-item[aria-current='true'] > summary .details--title::after {
   content: '';
-  @apply mr-1.5 inline-block size-1.5 shrink-0 rounded-full align-middle;
+  @apply ml-1.5 inline-block size-1.5 shrink-0 rounded-full align-middle;
   background: rgb(var(--color-primary-500, 59 130 246));
 }
 
