@@ -79,17 +79,65 @@ function neo_alchemist_theme(): array {
 }
 
 /**
- * Implements hook_page_attachments().
+ * The attachments no screen of the editor should carry.
+ *
+ * Analytics, tag managers, session recorders and support widgets have nothing
+ * to measure on an authoring screen, and they are not free there: a tag manager
+ * is a loader, so one library pulls in whatever a site has configured behind it
+ * — this site's brought a session recorder, a heatmap recorder and two ad
+ * pixels. A recorder is the worst fit of all, because it is built to serialise
+ * DOM mutations and the preview rewrites its DOM on every keystroke.
+ *
+ * Named rather than detected. A tag manager's own library is a local file that
+ * injects its vendors at runtime, so there is no external URL to spot and no
+ * flag on a library saying what it is for; guessing from the markup would mean
+ * stripping legitimate assets. A site that loads something not listed here adds
+ * it through the alter.
+ *
+ * @return array
+ *   An array with two keys: `library`, the library ids to drop, and
+ *   `drupalSettings`, the top-level settings keys to drop with them.
+ *
+ * @see hook_neo_alchemist_suppressed_attachments_alter()
  */
-function neo_alchemist_page_attachments(&$attachments) {
-  if (neo_alchemist_route_is_alchemist_preview()) {
-    // Suppress markerio in alchemist preview routes.
-    unset($attachments['#attached']['drupalSettings']['markerio']);
-    if (!empty($attachments['#attached']['library'])) {
-      $attachments['#attached']['library'] = array_filter($attachments['#attached']['library'], function ($library) {
-        return $library !== 'markerio/markerio';
-      });
-    }
+function neo_alchemist_suppressed_attachments(): array {
+  $suppressed = [
+    'library' => [
+      // Google Tag Manager and gtag, plus the AJAX bridge that would otherwise
+      // report an event for every debounced edit the editor posts.
+      'google_tag/gtm',
+      'google_tag/gtag',
+      'google_tag/gtag.ajax',
+      // A floating support widget, which overlaps the editor's own chrome.
+      'markerio/markerio',
+    ],
+    'drupalSettings' => ['gtm', 'gtag', 'markerio'],
+  ];
+  \Drupal::moduleHandler()->alter('neo_alchemist_suppressed_attachments', $suppressed);
+  return $suppressed;
+}
+
+/**
+ * Implements hook_page_attachments_alter().
+ *
+ * The alter rather than hook_page_attachments(): this has to run after the
+ * module that attached what it is removing, and plain hook order is module
+ * weight, which neither module owns. google_tag reorders itself through
+ * hook_module_implements_alter() as it is.
+ */
+function neo_alchemist_page_attachments_alter(array &$attachments) {
+  if (!neo_alchemist_route_is_alchemist_editor()) {
+    return;
+  }
+  $suppressed = neo_alchemist_suppressed_attachments();
+  foreach ($suppressed['drupalSettings'] as $key) {
+    unset($attachments['#attached']['drupalSettings'][$key]);
+  }
+  if (!empty($attachments['#attached']['library'])) {
+    $attachments['#attached']['library'] = array_values(array_filter(
+      $attachments['#attached']['library'],
+      static fn ($library) => !in_array($library, $suppressed['library'], TRUE),
+    ));
   }
 }
 
@@ -763,6 +811,36 @@ function neo_alchemist_route_is_alchemist_preview() {
   $routeObject = $routeMatch->getRouteObject();
   $isAlchemistRoute = !empty($routeObject->getOption('_neo_alchemist_preview'));
   return $isAlchemistRoute;
+}
+
+/**
+ * Check if route is a screen of the alchemist editor.
+ *
+ * Broader than neo_alchemist_route_is_alchemist_preview(), which answers for
+ * the preview frames alone: this is true of the whole editor, the page holding
+ * the form included. Every route EditorRouteFamily builds carries the option,
+ * whatever path scope it was registered under.
+ *
+ * Unrelated to neo_alchemist_route_is_alchemist(), which asks whether a page
+ * *renders* a component tree — that is true of the rendered site, and false
+ * here.
+ *
+ * @return bool
+ *   TRUE if the route belongs to the alchemist editor.
+ *
+ * @see \Drupal\neo_alchemist\Routing\EditorRouteFamily::build()
+ */
+function neo_alchemist_route_is_alchemist_editor() {
+  $isEditorRoute = &drupal_static(__FUNCTION__);
+  if (isset($isEditorRoute)) {
+    return $isEditorRoute;
+  }
+  // No route object on a request that never matched one, which is every CLI
+  // call: this is reached from a page-level hook, so it has to answer rather
+  // than fatal.
+  $routeObject = \Drupal::routeMatch()->getRouteObject();
+  $isEditorRoute = $routeObject && !empty($routeObject->getOption('_neo_alchemist_editor'));
+  return $isEditorRoute;
 }
 
 /**

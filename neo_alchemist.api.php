@@ -308,5 +308,41 @@ function hook_neo_component_value_info_alter(array &$definitions): void {
 }
 
 /**
+ * Alter what the editor refuses to load.
+ *
+ * Every screen of the alchemist editor drops the attachments listed here
+ * before the page is built: analytics, tag managers, session recorders and
+ * support widgets, which have nothing to measure on an authoring screen and
+ * are not free there. A tag manager is the one worth naming — it is a loader,
+ * so dropping its library drops every vendor a site has configured behind it.
+ *
+ * The shipped list names what neo_alchemist knows about. Add to it for
+ * anything else a site loads: there is no reliable way to recognise a tracker
+ * from its library definition, because a tag manager's own file is local and
+ * injects its vendors at runtime.
+ *
+ * Only the editor calls this. The rendered site is untouched, so a tag keeps
+ * firing everywhere visitors actually are.
+ *
+ * @param array $suppressed
+ *   An array with two keys:
+ *   - library: library ids ("provider/name") to drop from the page.
+ *   - drupalSettings: top-level drupalSettings keys to drop with them.
+ *
+ * @see neo_alchemist_suppressed_attachments()
+ * @see neo_alchemist_route_is_alchemist_editor()
+ */
+function hook_neo_alchemist_suppressed_attachments_alter(array &$suppressed): void {
+  // Example: this site loads a heatmap recorder directly rather than through
+  // its tag manager, so the editor has to be told about that one by name.
+  $suppressed['library'][] = 'my_analytics/hotjar';
+  $suppressed['drupalSettings'][] = 'hotjar';
+
+  // Example: keep the support widget, which this site's editors use to report
+  // problems with the page they are building.
+  $suppressed['library'] = array_diff($suppressed['library'], ['markerio/markerio']);
+}
+
+/**
  * @} End of "addtogroup hooks".
  */

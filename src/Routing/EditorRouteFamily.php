@@ -323,6 +323,13 @@ final class EditorRouteFamily {
       $routeOptions = $options;
       $routeOptions['parameters'] = $routeParameters;
       $routeOptions['_admin_route'] = $spec['admin_route'];
+      // Marks every screen of the editor, whatever it hangs off. The entity
+      // scope puts these under the host's own path — /node/1/alchemist/… —
+      // rather than under /admin, so a site excluding analytics by path has
+      // nothing here to match on, and `_admin_route` is not it either: the
+      // preview frames deliberately set it FALSE so they render in the front
+      // theme. This is what neo_alchemist_route_is_alchemist_editor() reads.
+      $routeOptions['_neo_alchemist_editor'] = TRUE;
       if ($spec['preview']) {
         $routeOptions['_neo_alchemist_preview'] = TRUE;
       }
