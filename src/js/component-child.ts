@@ -126,6 +126,7 @@
 
         // Map preview DOM back to the form's prop fields.
         initPropTargets(element as HTMLElement);
+        scheduleItemsReport();
       });
     }
   };
@@ -905,6 +906,7 @@
           // would either no-op or double-bind.
           indexPropTargets(element);
           refreshOverlays();
+          scheduleItemsReport();
         }
         else {
           // Structure changed. Fall back to the replace this path has always
@@ -1073,6 +1075,82 @@
     return false;
   };
 
+  // The last state posted upward, so a burst of transitions that settles back
+  // where it started says nothing.
+  let lastItemsSignature = '';
+  let itemsReportTimer = 0;
+
+  /**
+   * Tells the form which of this component's props are on screen right now.
+   *
+   * A component that shows one item at a time — a carousel, an accordion, a
+   * tablist — has no way of saying so that the form could rely on, and the two
+   * slider engines in this site's theme do not even agree with each other: one
+   * keeps a numeric index and stamps a state class on the live slide, the
+   * other rotates its own DOM and publishes nothing at all. What they do agree
+   * on is how they hide what is not showing, which is exactly what
+   * isHiddenTarget() already reads.
+   *
+   * So nothing is asked and nothing is declared. The preview measures what it
+   * can see and reports it; the form decides what that means for its rows. The
+   * form keeping no count of its own is the point — a counter maintained on
+   * that side drifts the moment the component is swiped, re-rendered, or
+   * revealed from somewhere else, and this cannot, because it is re-derived
+   * from the markup every time the preview settles.
+   */
+  const reportPropItems = (): void => {
+    if (!propScope) {
+      return;
+    }
+    const byId = new Map<string, { propId: string; visible: boolean; steerable: boolean }>();
+    propScope.querySelectorAll<HTMLElement>(targetSelector).forEach(el => {
+      const visible = !isHiddenTarget(el);
+      // Asked per element rather than once of the component root, so a
+      // steerable region inside a static one answers for itself.
+      const steerable = !!el.closest('[data-neo-reveal]');
+      [el.dataset.neoPropTarget, el.dataset.neoProp].forEach(propId => {
+        if (!propId) {
+          return;
+        }
+        const seen = byId.get(propId);
+        if (!seen) {
+          byId.set(propId, { propId, visible, steerable });
+          return;
+        }
+        // A prop can be stamped in more than one place — hero_s1 renders each
+        // slide's image and its copy in separate stacks — and showing any one
+        // of them is showing the prop. Read the other way round it comes out
+        // wrong: that component's whole image stage is aria-hidden, so every
+        // slide would report off screen and the form would believe the
+        // component had no current item at all.
+        seen.visible = seen.visible || visible;
+        seen.steerable = seen.steerable || steerable;
+      });
+    });
+    const items = Array.from(byId.values());
+    const signature = items
+      .map(item => item.propId + ':' + (item.visible ? '1' : '0') + (item.steerable ? '1' : '0'))
+      .sort()
+      .join('|');
+    if (signature === lastItemsSignature) {
+      return;
+    }
+    lastItemsSignature = signature;
+    post('propItems', { items });
+  };
+
+  /**
+   * Coalesces a burst of reports into one.
+   *
+   * Every slide in a crossfade ends its transition separately, so one move
+   * fires the motion listener once per element. The form only wants the state
+   * it settled into.
+   */
+  const scheduleItemsReport = (): void => {
+    window.clearTimeout(itemsReportTimer);
+    itemsReportTimer = window.setTimeout(() => reportPropItems(), 50);
+  };
+
   const resolveFocus = (propId: string, propIds: string[] | null): {
     targets: HTMLElement[];
     mode: 'exact' | 'group' | 'component' | 'none';
@@ -1185,6 +1263,10 @@
     if (pendingReveal) {
       retryPendingReveal();
     }
+    // A component that just moved may have moved a different item into view —
+    // including when the editor did not ask it to, as a swipe in the canvas
+    // does.
+    scheduleItemsReport();
   };
 
   const retryPendingReveal = (): void => {

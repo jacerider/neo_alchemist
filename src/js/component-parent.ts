@@ -1,5 +1,15 @@
 (function (Drupal, once) {
 
+  /**
+   * Repaints that have to survive a partial AJAX rebuild.
+   *
+   * init() runs behind once(), but adding or removing an array row replaces
+   * that whole fieldset — so anything the client had written into it is gone,
+   * while the preview, which did not change, has nothing new to report. These
+   * run on every attach to put it back.
+   */
+  const onFormRebuild: Array<() => void> = [];
+
   Drupal.behaviors.neoAlchemistComponentParent = {
     scale: 1,
 
@@ -7,6 +17,7 @@
       once('neo.alchemist.component.parent', '.neo-alchemist-manage').forEach(container => {
         init(container);
       });
+      onFormRebuild.forEach(repaint => repaint());
     },
 
     scrollElementIntoView: function (
@@ -870,6 +881,23 @@
         clearPropFocus();
       },
 
+      // Which of the component's props that frame can currently see. Stored
+      // against the frame that measured it, never merged: the frames are three
+      // different renderings and a slider sits wherever each one left it.
+      propItems: function (data:any) {
+        if (!Array.isArray(data.items) || typeof data.size !== 'string') {
+          return;
+        }
+        const report: Record<string, { visible: boolean; steerable: boolean }> = {};
+        data.items.forEach((item:any) => {
+          if (item && typeof item.propId === 'string' && item.propId) {
+            report[item.propId] = { visible: !!item.visible, steerable: !!item.steerable };
+          }
+        });
+        propItemsBySize[data.size] = report;
+        renderArrayNav();
+      },
+
       propHover: function (data:any) {
         // Hovering the preview is the editor at work, so it keeps the highlight
         // alive; the expiry is only meant to catch an abandoned one.
@@ -1146,12 +1174,22 @@
     /**
      * Brings the form field controlling a preview element into focus.
      */
-    function focusProp(propId: string): void {
-      const wrapper = resolvePropWrapper(propId);
+    /**
+     * Brings a prop's field forward in the form and highlights it.
+     *
+     * `propIds` and `label` are the row form: an array row carries no
+     * data-neo-prop of its own, so it is named by the set of fields inside it
+     * and outlined as the one card it is. `override` is that row's <details>,
+     * which is what the arrival sequence below should open, scroll to and
+     * flash — its first field is still what ends up focused, but scrolling to
+     * the field alone would leave the row's own header above the fold.
+     */
+    function focusProp(propId: string, propIds: string[] | null = null, label = '', override: HTMLElement | null = null): void {
+      const wrapper = override || resolvePropWrapper(propId);
       if (!wrapper) {
         return;
       }
-      setActiveProp(propId, null, '');
+      setActiveProp(propId, propIds, label);
       postPropFocus();
       // The hover hint has done its job the moment the click it was inviting
       // lands. Left up, it outlines the same wrapper the flash is about to
@@ -1267,6 +1305,12 @@
           return;
         }
         const target = e.target as HTMLElement;
+        // The stepper sits in the array's own legend, so focusing it resolves
+        // to the array itself and would outline every row at once for the
+        // moment before the step lands on one of them.
+        if (target.closest('.neo-alchemist-array-nav')) {
+          return;
+        }
         const wrapper = target.closest<HTMLElement>('[data-neo-prop]');
         const propId = wrapper?.dataset.neoProp || null;
         const row = rowChromeFor(target, wrapper);
@@ -1321,6 +1365,171 @@
         return a === b;
       }
       return a.length === b.length && a.every((id, i) => id === b[i]);
+    }
+
+    /**
+     * What each preview last reported about which of its props are on screen.
+     *
+     * Kept per frame because the three previews disagree by design — a slider
+     * sits on a different slide at each width, and the two lazy frames are not
+     * even painting until they are scrolled to. Storing one report per size and
+     * reading the one the editor is looking at is what stops the last frame to
+     * speak from deciding what the form says.
+     */
+    const propItemsBySize: Record<string, Record<string, { visible: boolean; steerable: boolean }>> = {};
+
+    /**
+     * The rows belonging to this array and not to an array nested inside it.
+     *
+     * A row carries no data-neo-prop, so the nearest one above it is its own
+     * array's fieldset — and a nested array's rows answer with that array
+     * instead. Same rule as draggableRows() in component-ajax-form.ts, reached
+     * from the other end.
+     */
+    function arrayRows(fieldset: HTMLElement): HTMLElement[] {
+      return Array.from(fieldset.querySelectorAll<HTMLElement>('.neo-alchemist-draggable-item'))
+        .filter(row => row.closest<HTMLElement>('[data-neo-prop]') === fieldset);
+    }
+
+    /**
+     * Reads the preview's report onto one array: which row is on screen, and
+     * whether stepping through them is offered at all.
+     *
+     * Three row states, and the third is load-bearing. A row whose fields are
+     * all empty renders nothing at all, so none of its ids come back — that is
+     * `unknown`, not `hidden`, and reading it as hidden would make an array of
+     * empty rows look like a fully collapsed slider.
+     */
+    function readArray(fieldset: HTMLElement, report: Record<string, { visible: boolean; steerable: boolean }> | null): {
+      rows: HTMLElement[];
+      onScreen: number;
+      steerable: boolean;
+    } {
+      const rows = arrayRows(fieldset);
+      let onScreen = -1;
+      let anyHidden = false;
+      let steerable = false;
+      rows.forEach((row, idx) => {
+        let reported = false;
+        let visible = false;
+        row.querySelectorAll<HTMLElement>('[data-neo-prop]').forEach(el => {
+          const item = report?.[el.dataset.neoProp || ''];
+          if (!item) {
+            return;
+          }
+          reported = true;
+          visible = visible || item.visible;
+          steerable = steerable || item.steerable;
+        });
+        if (!reported) {
+          return;
+        }
+        if (visible) {
+          if (onScreen === -1) {
+            onScreen = idx;
+          }
+          return;
+        }
+        anyHidden = true;
+      });
+      // Both halves are required: something must be off screen for stepping to
+      // mean anything, and something must be on screen for the readout to name
+      // a row. A component that answers no reveal fails the third test whatever
+      // its markup does, so a control that nothing would respond to is never
+      // drawn.
+      return { rows, onScreen, steerable: steerable && anyHidden && onScreen !== -1 };
+    }
+
+    /**
+     * Repaints every array stepper and row marker from the current report.
+     */
+    function renderArrayNav(): void {
+      if (!form) {
+        return;
+      }
+      const size = getMostVisibleIframe()?.getAttribute('data-size') || '';
+      const report = propItemsBySize[size] || null;
+      form.querySelectorAll<HTMLElement>('.neo-alchemist-array-nav').forEach(nav => {
+        const fieldset = nav.closest<HTMLElement>('[data-neo-prop]');
+        if (!fieldset) {
+          return;
+        }
+        const state = readArray(fieldset, report);
+        nav.classList.toggle('is-active', state.steerable);
+        const count = nav.querySelector<HTMLElement>('.neo-alchemist-array-nav--count');
+        if (count) {
+          count.textContent = state.steerable
+            ? (state.onScreen + 1) + ' / ' + state.rows.length
+            : '';
+        }
+        state.rows.forEach((row, idx) => {
+          if (state.steerable && idx === state.onScreen) {
+            row.setAttribute('aria-current', 'true');
+            return;
+          }
+          row.removeAttribute('aria-current');
+        });
+      });
+    }
+
+    /**
+     * Moves the preview one item along, by moving the form there.
+     *
+     * Everything past picking the row is the path a click on that row's header
+     * already takes: focusProp opens it, scrolls it clear of the sticky
+     * headers, focuses its first field and posts the highlight — and the
+     * preview answers the highlight by revealing the item, because that is the
+     * contract it already implements. So the readout is never set from here;
+     * it is repainted by the report the preview sends once it has settled,
+     * which is why it cannot end up describing a slide the component did not
+     * actually move to.
+     */
+    function stepArray(button: HTMLElement): void {
+      const fieldset = button.closest<HTMLElement>('[data-neo-prop]');
+      if (!fieldset) {
+        return;
+      }
+      const rows = arrayRows(fieldset);
+      if (!rows.length) {
+        return;
+      }
+      const current = rows.findIndex(row => row.hasAttribute('aria-current'));
+      const step = button.dataset.neoAlchemistStep === 'prev' ? -1 : 1;
+      // Wraps rather than stopping: both slider engines in this site's theme
+      // wrap, and a stepper that dead-ends where the component does not would
+      // be describing a limit that is not there.
+      const next = rows[(Math.max(current, 0) + step + rows.length) % rows.length];
+      const ids = Array.from(next.querySelectorAll<HTMLElement>('[data-neo-prop]'))
+        .map(el => el.dataset.neoProp || '')
+        .filter(Boolean);
+      if (!ids.length) {
+        return;
+      }
+      const label = (next.querySelector<HTMLElement>('.details--title')?.textContent || '').trim();
+      focusProp(ids[0], ids, label, next);
+    }
+
+    if (form) {
+      onFormRebuild.push(renderArrayNav);
+
+      form.addEventListener('click', (e: MouseEvent) => {
+        const button = (e.target as HTMLElement).closest<HTMLElement>('[data-neo-alchemist-step]');
+        if (!button) {
+          return;
+        }
+        e.preventDefault();
+        stepArray(button);
+      });
+
+      // The canvas scrolls between the three frames, and which one is in view
+      // decides whose report the form is showing.
+      if (wrapper) {
+        let navScrollTimer: number | undefined;
+        wrapper.addEventListener('scroll', () => {
+          window.clearTimeout(navScrollTimer);
+          navScrollTimer = window.setTimeout(() => renderArrayNav(), 120);
+        });
+      }
     }
 
     // Escape clears from the form side, and the preview routes its own Escape

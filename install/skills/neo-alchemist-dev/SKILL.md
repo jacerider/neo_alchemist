@@ -345,6 +345,30 @@ fires a bubbling **`neo-alchemist:reveal`** from the target. A component that hi
 itself listens on its root and shows the one holding it; anything that does not listen simply
 gets no outline. Components must also not run timers inside the canvas.
 
+A component that answers also sets **`data-neo-reveal`** on the element it listens on, from the
+same function that binds the listener. That is the whole of what a component declares about
+itself, and it is a capability — "I answer reveal" — not a widget type, so the same line serves a
+carousel, an accordion or a tablist.
+
+Everything else is measured. `component-child.ts` reports each stamped prop as
+`{propId, visible, steerable}` over a `propItems` message whenever the preview settles;
+`component-parent.ts` groups that against its own rows and offers a `‹ 2 / 5 ›` stepper on an
+array that has at least one row on screen, at least one off it, and the marker. Pressing `›`
+focuses the next row, which fires the reveal the component already answers — so there is no
+second definition of "advance" anywhere.
+
+Three things that shape the implementation:
+
+- **A row with no reported ids is `unknown`, not hidden.** An array whose rows are all empty
+  renders nothing, and reading that as "everything is off screen" makes it look like a fully
+  collapsed slider.
+- **A prop is visible if *any* of its elements is.** `hero_s1` puts each slide's picture in a
+  wholly `aria-hidden` stage and its copy in a separate live stack; requiring all of them would
+  report every slide off screen.
+- **Reports are stored per frame size and never merged.** The three previews are three
+  renderings, each sitting wherever its own slider was left, and the two lazy ones are not
+  painting at all until scrolled to. The form renders the entry for the size on screen.
+
 Both rules are documented for component authors in the **neo-component** skill
 ("Component JS inside the editor canvas") — that is the copy to update if the contract changes,
 since it is the one an agent building a component will read.

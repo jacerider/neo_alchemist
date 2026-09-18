@@ -458,6 +458,10 @@ class ArrayShape extends ChildrenShapeBase implements ComponentShapeInterablePlu
     $form['#description_display'] = 'before';
     $form['#required'] = $this->isRequired();
 
+    if ($count > 1) {
+      $form['nav'] = $this->buildItemNav($itemLabel);
+    }
+
     if (!empty($shapeList)) {
       $addNew = FALSE;
       if ($trigger = $form_state->getTriggeringElement()) {
@@ -563,6 +567,76 @@ class ArrayShape extends ChildrenShapeBase implements ComponentShapeInterablePlu
       ];
     }
     return $form;
+  }
+
+  /**
+   * The stepper that walks the preview through items shown one at a time.
+   *
+   * Hidden until the preview says otherwise. A component that shows every item
+   * at once — which is most of them — never reports anything off screen, so
+   * component-parent.ts leaves this without its `is-active` class and it stays
+   * out of the way. There is no server-side test that could stand in for that:
+   * whether items appear one at a time is a fact about the rendered component,
+   * not about the prop.
+   *
+   * It sits in the legend beside the label, ahead of the Default/Hide chips:
+   * the count belongs to the label — "Slides 2 / 5" — where the chips are the
+   * field's state, a different register. The legend is a wrapping flex row, so
+   * the controls have to stay narrow or they take a line of their own and
+   * outshout the field they belong to; hence icon-only buttons with their
+   * wording carried on `title` and `aria-label` rather than rendered.
+   *
+   * @param string|\Drupal\Core\StringTranslation\TranslatableMarkup $itemLabel
+   *   What one item is called, for the button labels.
+   *
+   * @return array
+   *   The render array.
+   */
+  protected function buildItemNav($itemLabel): array {
+    $button = function (string $step, $title, string $icon): array {
+      return [
+        '#type' => 'html_tag',
+        '#tag' => 'button',
+        '#value' => neo_icon_admin(NULL, $icon)->render(),
+        '#attributes' => [
+          // Never a submit: this moves the preview, it does not change a
+          // value, and a stray form submission here would discard the edit in
+          // progress.
+          'type' => 'button',
+          'class' => ['btn', 'btn-outline', 'btn-xs', 'icon-only'],
+          'data-neo-alchemist-step' => $step,
+          'title' => $title,
+          'aria-label' => $title,
+        ],
+      ];
+    };
+    return [
+      '#type' => 'container',
+      '#neo_region' => 'legend_end',
+      // Ahead of the Default/Hide chips, which carry -10.
+      '#weight' => -20,
+      '#attributes' => [
+        'class' => ['neo-alchemist-array-nav'],
+      ],
+      'prev' => $button('prev', $this->t('Show the previous @label', [
+        '@label' => $itemLabel,
+      ]), 'chevron-left'),
+      'count' => [
+        '#type' => 'html_tag',
+        '#tag' => 'span',
+        '#value' => '',
+        '#attributes' => [
+          'class' => ['neo-alchemist-array-nav--count'],
+          // The preview is the authority on which item is showing, so this
+          // arrives over the message channel rather than being rendered here —
+          // and it changes without the form being rebuilt.
+          'aria-live' => 'polite',
+        ],
+      ],
+      'next' => $button('next', $this->t('Show the next @label', [
+        '@label' => $itemLabel,
+      ]), 'chevron-right'),
+    ];
   }
 
   /**

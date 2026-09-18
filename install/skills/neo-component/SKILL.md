@@ -902,9 +902,11 @@ This is the same reasoning that makes the preview force-disable `neo_animate` en
 ```js
 Hero.prototype.bindReveal = function () {
   var self = this;
+  // Says "I answer the event below". Nothing outside the editor reads it.
+  this.el.setAttribute('data-neo-reveal', '');
   this.el.addEventListener('neo-alchemist:reveal', function (event) {
     var node = (event.detail && event.detail.target) || event.target;
-    var to = self.slideIndexOf(node);   // which of my panels contains it?
+    var to = self.itemIndexOf(node);    // which of my panels contains it?
     if (to !== -1) {
       self.go(to);                      // your own existing "show this one"
     }
@@ -912,7 +914,23 @@ Hero.prototype.bindReveal = function () {
 };
 ```
 
-Bind it **before** any early return for the single-item case, so the component still answers when it has nothing to reveal. A strip that rotates its own DOM has no index to jump to — step toward the target instead, bounded by the item count so an unreachable target cannot spin it forever (see `hero_s6.js` / `list_s2.js`).
+Bind it **before** any early return for the single-item case, so the component still answers when it has nothing to reveal.
+
+**Set the attribute next to the listener, never in the twig.** It is what tells the editor it may offer a back/forward stepper for that prop in the form — see below — and a claim made anywhere else drifts away from the behaviour it promises. It also never reaches a visitor's markup, and a component whose JS failed to load then makes no promise the editor would act on.
+
+Three things decide whether the reveal actually lands, and each has been got wrong at least once here:
+
+- **Search every place an item's content lives, not just the obvious one.** A strip's pictures are in the strip, but its captions are often a separate stack outside it. Matching only on the slide means half the props — exactly the text ones an editor is most likely to be editing — silently get no reveal. Check both (`hero_s1.js`, `hero_s6.js`).
+- **Stop on *your own* idea of which item is showing, not on geometry.** `hero_s6` stepped until the target was on screen, and its slides peek past the frame edge — so it decided a peeking slide was "already visible" and refused to advance to it, while that slide was still `inert` and therefore hidden to everything else, the editor included. Compare against `this.current` / your index instead.
+- **A strip that rotates its own DOM has no index to jump to.** Step toward the target instead, bounded by the item count so an unreachable one cannot spin it forever (`hero_s6.js`, `list_s2.js`).
+
+### The stepper the marker earns you
+
+Once a component sets `data-neo-reveal`, an array prop whose items appear one at a time gets a `‹ 2 / 5 ›` stepper beside its label in the form, and the row currently on screen is marked. You write nothing for it.
+
+It works because the editor measures rather than asks: it already knows which of the prop's elements are hidden (the rules above), so it can tell that some items are off screen, and pressing `›` just focuses the next row — which fires the same reveal you already answer. **The form never keeps a count of its own**; the number is re-derived from the preview every time it settles, which is why it stays right when someone swipes the component by hand.
+
+The consequence for you is that the marker has to be honest. Set it and then decline to move, and the editor offers a control that appears to do nothing.
 
 The event is the whole contract: the editor never learns what a carousel is, and the carousel never learns what the editor is. **Ignore it and the field simply has no outline** — no error, and nothing points at the wrong content.
 

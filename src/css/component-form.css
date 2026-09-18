@@ -114,6 +114,50 @@
   }
 }
 
+/* The array stepper — walking the preview through items it shows one at a time.
+ *
+ * ArrayShape renders this for every array with more than one item, because
+ * whether the items appear one at a time is a fact about the *rendered*
+ * component, not about the prop: the same array is a carousel in one component
+ * and a grid in the next. So it stays display:none until component-parent.ts
+ * has heard from the preview that some of these items are off screen AND that
+ * the component answers a reveal — a control nothing would respond to is worse
+ * than no control, so it is never drawn on that evidence alone.
+ */
+.neo-alchemist-array-nav {
+  display: none;
+}
+
+.neo-alchemist-array-nav.is-active {
+  /* The trailing margin separates it from the Default/Hide chips, which share
+     this legend region and bring no spacing of their own — without it the
+     stepper and the state chips run together into one undifferentiated strip. */
+  @apply inline-flex items-center gap-1 mr-3;
+}
+
+.neo-alchemist-array-nav--count {
+  /* Fixed width and tabular figures so stepping does not shuffle the buttons
+     either side of it as the digits change. */
+  @apply w-10 text-center text-2xs tabular-nums opacity-60;
+}
+
+/* The row whose item is currently on screen in the preview.
+ *
+ * One dot, on the one row it is true of. A counterpart on every other row
+ * would be noise on a list that is already dense, and the stepper beside the
+ * label supplies the denominator — the dot only has to say "this one".
+ *
+ * Primary, because that is the colour the preview outlines the same item with:
+ * the mark in the form and the mark in the canvas are one system, and giving
+ * them separate palettes would make them read as two unrelated signals about
+ * the same thing.
+ */
+.neo-alchemist-draggable-item[aria-current='true'] > summary .details--title::before {
+  content: '';
+  @apply mr-1.5 inline-block size-1.5 shrink-0 rounded-full align-middle;
+  background: rgb(var(--color-primary-500, 59 130 246));
+}
+
 /* Preview-to-form focus feedback (component-parent.ts focusProp/hintProp).
  *
  * One outline vocabulary on this side, matching the preview's: a quiet dashed
