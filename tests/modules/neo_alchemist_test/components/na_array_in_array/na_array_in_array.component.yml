@@ -1,0 +1,47 @@
+$schema: 'https://git.drupalcode.org/project/drupal/-/raw/10.1.x/core/modules/sdc/src/metadata.schema.json'
+name: 'NA array in array fixture'
+description: >
+  An array whose rows each hold another array, so a value sits under TWO row
+  indexes at once. That is the depth at which PreviewPropMapBuilder used to
+  lose the outer one: it carried a single delta, and descending into the inner
+  array overwrote the row it was inside. The second link of the first group was
+  then hinted as `groups~links~1`, which is the *second group's* links prop —
+  so clicking that link in the preview opened a field belonging to another row.
+
+  Distinct from na_array_nested, which puts a structured object under one index
+  rather than a second iterable under the first.
+
+  The titles are distinct sentinels so a test can tell which group a hint was
+  filed under.
+status: stable
+neo: true
+props:
+  type: object
+  properties:
+    groups:
+      type: array
+      title: Groups
+      examples:
+        -
+          links:
+            -
+              title: 'GROUP 0 LINK 0'
+              uri: 'internal:/group-0-link-0'
+            -
+              title: 'GROUP 0 LINK 1'
+              uri: 'internal:/group-0-link-1'
+        -
+          links:
+            -
+              title: 'GROUP 1 LINK 0'
+              uri: 'internal:/group-1-link-0'
+      items:
+        type: object
+        title: Group
+        properties:
+          links:
+            type: array
+            title: Links
+            items:
+              type: link
+              title: Link

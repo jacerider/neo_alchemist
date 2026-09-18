@@ -71,7 +71,7 @@ final class PreviewPropMapBuilder {
     unset($props['attributes'], $props['neoId'], $props['neoUuid'], $props['neoIsPreview']);
     $prefix = $component->isAggregate() ? ['_aggregate'] : [];
     foreach ($props as $name => $value) {
-      static::walk($shapes, $value, array_merge($prefix, [(string) $name]), NULL);
+      static::walk($shapes, $value, array_merge($prefix, [(string) $name]), []);
     }
 
     foreach ($shapes as &$info) {
@@ -92,21 +92,28 @@ final class PreviewPropMapBuilder {
    *   The value at this point of the walk.
    * @param string[] $namePath
    *   The non-numeric key path from the prop root.
-   * @param int|null $delta
-   *   The nearest enclosing iterable row index, if any.
-   * @param int|null $deltaDepth
-   *   Where that delta sits in a shape id: the number of path segments before
-   *   it. A row's delta follows the array child's own segment, so the shape
-   *   holding it is `items~title~0` and its own children are
-   *   `items~title~0~title` — a depth of 2 for a path rooted at `items`.
+   * @param array[] $deltas
+   *   Every enclosing row index, outermost first, each as
+   *   `['depth' => int, 'delta' => int]`. `depth` is where that index sits in a
+   *   shape id — the number of path segments before it — because a row's delta
+   *   follows the array child's own segment: the shape holding it is
+   *   `items~title~0` and its own children are `items~title~0~title`, a depth
+   *   of 2 for a path rooted at `items`.
+   *
+   *   A list rather than one index because arrays nest. `slides` holds a
+   *   `links` array which holds the links themselves, and a single slot made
+   *   the inner row index overwrite the outer one — so the second link of the
+   *   first slide was hinted as `slides~links~1`, which is the *second slide's*
+   *   links prop. Clicking that button in the preview opened a field belonging
+   *   to another slide, which is the one answer worse than none.
    */
-  private static function walk(array &$shapes, mixed $value, array $namePath, ?int $delta, ?int $deltaDepth = NULL): void {
+  private static function walk(array &$shapes, mixed $value, array $namePath, array $deltas): void {
     if ($value instanceof Attribute) {
       // Presentational; already stamped server-side.
       return;
     }
     if (is_string($value) || $value instanceof MarkupInterface) {
-      static::addHint($shapes, $namePath, $delta, $deltaDepth, 'text', trim(strip_tags((string) $value)));
+      static::addHint($shapes, $namePath, $deltas, 'text', trim(strip_tags((string) $value)));
       return;
     }
     if (!is_array($value)) {
@@ -124,11 +131,11 @@ final class PreviewPropMapBuilder {
     // Keys that identify the composite value itself rather than a child.
     if (isset($value['src']) && is_string($value['src'])) {
       $basename = basename(parse_url($value['src'], PHP_URL_PATH) ?: '');
-      static::addHint($shapes, $namePath, $delta, $deltaDepth, 'src', $basename);
+      static::addHint($shapes, $namePath, $deltas, 'src', $basename);
     }
     foreach (['uri', 'url'] as $key) {
       if (isset($value[$key]) && is_string($value[$key])) {
-        static::addHint($shapes, $namePath, $delta, $deltaDepth, 'href', static::normalizeHref($value[$key]));
+        static::addHint($shapes, $namePath, $deltas, 'href', static::normalizeHref($value[$key]));
       }
     }
 
@@ -136,43 +143,108 @@ final class PreviewPropMapBuilder {
       if (is_int($key)) {
         // Descending into a row: the delta belongs one segment further in
         // than the path reached here, since the shape that holds it is the
-        // array's child rather than the array itself.
-        static::walk($shapes, $item, $namePath, $key, count($namePath) + 1);
+        // array's child rather than the array itself. Pushed rather than
+        // replaced, so an array inside a row keeps the row it is inside.
+        static::walk($shapes, $item, $namePath, array_merge($deltas, [
+          ['depth' => count($namePath) + 1, 'delta' => $key],
+        ]));
       }
       else {
-        static::walk($shapes, $item, array_merge($namePath, [(string) $key]), $delta, $deltaDepth);
+        static::walk($shapes, $item, array_merge($namePath, [(string) $key]), $deltas);
       }
     }
   }
 
   /**
+   * Builds a shape id by weaving row indexes into a name path at their depths.
+   *
+   * Each index inserted shifts the ones after it along, hence the running
+   * offset. An index deeper than the path has run out of segments to sit
+   * between and is appended instead — which is exactly what a row's own shape
+   * id looks like (`items~title~0`).
+   */
+  private static function weave(array $path, array $deltas): string {
+    $segments = $path;
+    $inserted = 0;
+    foreach ($deltas as $row) {
+      $at = min($row['depth'] + $inserted, count($segments));
+      array_splice($segments, $at, 0, [(string) $row['delta']]);
+      $inserted++;
+    }
+    return implode('~', $segments);
+  }
+
+  /**
+   * The one child shape that could own a row of the array at $prefix.
+   *
+   * An array's rows are not shapes; its children are, one per row —
+   * `slides~links~0~link~1` is the link in row 1 of the links array on slide 0.
+   * The rendered value carries no segment naming that child, because the row
+   * value *is* the link, so the name path alone can never spell the id out.
+   *
+   * Asking the shape map instead: of the ids that sit one segment below this
+   * array and end at this row, exactly one should be able to own DOM. Style
+   * shapes are skipped because they are never stamped and own no element, and
+   * anything still ambiguous after that returns NULL — the caller then falls
+   * back to the array itself, which is coarser but still true.
+   */
+  private static function findRowChild(array $shapes, string $prefix, int $delta): ?string {
+    $suffix = '~' . $delta;
+    $found = NULL;
+    foreach ($shapes as $id => $info) {
+      $id = (string) $id;
+      if (!str_starts_with($id, $prefix . '~') || !str_ends_with($id, $suffix)) {
+        continue;
+      }
+      $middle = substr($id, strlen($prefix) + 1, -strlen($suffix));
+      if ($middle === '' || str_contains($middle, '~') || !empty($info['style'])) {
+        continue;
+      }
+      if ($found !== NULL) {
+        return NULL;
+      }
+      $found = $id;
+    }
+    return $found;
+  }
+
+  /**
    * Attaches a hint to the closest shape owning the walked path.
    *
-   * Tries the id with the row's delta woven in at its own depth first, then
-   * with it appended, then the bare id, then strips trailing path segments —
-   * so hints for value keys that are not shapes of their own climb to their
-   * owning shape.
+   * Tries the id with every row index woven in at its own depth first, then
+   * the array's own child for the innermost row, then the same path with the
+   * innermost indexes dropped one at a time, then strips trailing path
+   * segments — so hints for value keys that are not shapes of their own climb
+   * to their owning shape.
+   *
+   * Going from most specific to least is what keeps it honest: each step up
+   * names something larger but still true, and it stops at the first id that
+   * exists rather than guessing past it.
    */
-  private static function addHint(array &$shapes, array $namePath, ?int $delta, ?int $deltaDepth, string $type, ?string $hint): void {
+  private static function addHint(array &$shapes, array $namePath, array $deltas, string $type, ?string $hint): void {
     if ($hint === NULL || $hint === '' || mb_strlen($hint) > self::MAX_TEXT_HINT_LENGTH) {
       return;
     }
     $path = $namePath;
     while ($path) {
-      $candidates = [];
-      if ($delta !== NULL) {
-        if ($deltaDepth !== NULL && count($path) > $deltaDepth) {
-          // Deeper than the row itself, so the delta sits mid-path:
-          // `items~title~0~title`, not `items~title~title~0`.
-          $spliced = $path;
-          array_splice($spliced, $deltaDepth, 0, [(string) $delta]);
-          $candidates[] = implode('~', $spliced);
+      $candidates = [static::weave($path, $deltas)];
+      if ($deltas) {
+        $innermost = end($deltas);
+        $child = static::findRowChild(
+          $shapes,
+          static::weave($path, array_slice($deltas, 0, -1)),
+          $innermost['delta'],
+        );
+        if ($child !== NULL) {
+          $candidates[] = $child;
         }
-        // At or above the row's own depth, weaving in and appending are the
-        // same string — and this is what the row's own shape id looks like.
-        $candidates[] = implode('~', $path) . '~' . $delta;
       }
-      $candidates[] = implode('~', $path);
+      // Drop the innermost index, then the next, down to none: a value inside
+      // a row that has no shape of its own belongs to the row's array, and
+      // that array may itself be inside a row.
+      for ($i = count($deltas) - 1; $i >= 0; $i--) {
+        $candidates[] = static::weave($path, array_slice($deltas, 0, $i));
+      }
       foreach ($candidates as $candidate) {
         if (isset($shapes[$candidate])) {
           if (!in_array($hint, $shapes[$candidate]['hints'][$type], TRUE)) {

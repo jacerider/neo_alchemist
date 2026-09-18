@@ -1,0 +1,14 @@
+{#
+  Minimal on purpose. The suite asserts against shape ids and the hints built
+  from resolved values, not markup — this template only exists so the component
+  can be rendered end to end.
+#}
+<div{{ attributes }}>
+  {% for group in groups %}
+    <ul class="na-group">
+      {% for link in group.links %}
+        <li><a href="{{ link.url }}">{{ link.title }}</a></li>
+      {% endfor %}
+    </ul>
+  {% endfor %}
+</div>

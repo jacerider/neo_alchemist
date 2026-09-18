@@ -48,6 +48,9 @@ class PreviewPropAnnotationTest extends KernelTestBase {
     // The heading's `size` sub-prop is a StyleShape backed by `list_string`,
     // which the options module supplies.
     'options',
+    // na_array_in_array's inner rows are links, whose shape resolves the
+    // `link` field item.
+    'link',
     'neo_settings',
     'neo_alchemist',
     'neo_alchemist_test',
@@ -160,6 +163,63 @@ class PreviewPropAnnotationTest extends KernelTestBase {
     $this->assertTrue($map['props']['heading~size']['style'], 'A style shape is marked so the preview outlines the component it restyles.');
     $this->assertArrayHasKey('heading~title', $map['props'], 'Premise: a content sub-prop reached the map.');
     $this->assertFalse($map['props']['heading~title']['style'], 'A content shape owns its own element and is not marked.');
+  }
+
+  /**
+   * A value under two row indexes keeps the outer one, not just the inner.
+   *
+   * The builder used to carry a single delta, so descending into an array
+   * inside a row overwrote the row it was inside: the second link of the first
+   * group was filed under `groups~links~1`, which is the *second group's*
+   * links prop. Nothing failed — the hint simply pointed at another row, and
+   * clicking that link in the preview opened a field belonging to it.
+   *
+   * Asserted through the hints rather than the ids, because the ids were
+   * always right; it was which value got filed against which id that was
+   * wrong.
+   */
+  public function testPropMapKeepsOuterRowDeltaForNestedArrays(): void {
+    // build() keeps only shapes the current user may update; see the note in
+    // testPropMapMarksStyleShapes().
+    $this->installEntitySchema('user');
+    $this->setUpCurrentUser([], [], TRUE);
+
+    $component = $this->buildNestedArrayComponent();
+    $map = PreviewPropMapBuilder::build($component, $component->toRenderable());
+
+    $filedUnder = [];
+    foreach ($map['props'] as $id => $info) {
+      foreach ($info['hints']['text'] ?? [] as $text) {
+        $filedUnder[$text] = $id;
+      }
+    }
+    $this->assertNotEmpty($filedUnder, 'Premise: hints were collected, so the assertions below are not vacuous.');
+
+    $this->assertSame('groups~links~0~value~0', $filedUnder['GROUP 0 LINK 0'] ?? NULL);
+    $this->assertSame('groups~links~0~value~1', $filedUnder['GROUP 0 LINK 1'] ?? NULL, 'The second link of the first group stays in the first group.');
+    $this->assertSame('groups~links~1~value~0', $filedUnder['GROUP 1 LINK 0'] ?? NULL);
+  }
+
+  /**
+   * Builds the array-inside-an-array fixture in the editor preview flavor.
+   */
+  private function buildNestedArrayComponent(): Component {
+    $storage = $this->container->get('entity_type.manager')->getStorage('neo_component');
+    if (!$storage->load('na_array_in_array')) {
+      Component::create([
+        'id' => 'na_array_in_array',
+        'label' => 'Array in array fixture',
+        'description' => 'Array in array fixture',
+        'component' => 'neo_alchemist_test:na_array_in_array',
+        'status' => TRUE,
+      ])->save();
+    }
+    $storage->resetCache(['na_array_in_array']);
+    /** @var \Drupal\neo_alchemist\Entity\Component $component */
+    $component = $storage->load('na_array_in_array');
+    $component->setPreview(TRUE);
+    $component->setInstancePreview(TRUE);
+    return $component;
   }
 
   /**
