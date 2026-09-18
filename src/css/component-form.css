@@ -129,16 +129,33 @@
 }
 
 .neo-alchemist-array-nav.is-active {
-  /* The trailing margin separates it from the Default/Hide chips, which share
-     this legend region and bring no spacing of their own — without it the
-     stepper and the state chips run together into one undifferentiated strip. */
-  @apply inline-flex items-center gap-1 mr-3;
+  /* Sized and spaced to the legend's own register — 11px borderless chips —
+     rather than to the form's buttons. `self-center` because the legend lays
+     its regions out as a row of differing heights, and without it this aligns
+     to the top of the row while the label and the chips sit on the text
+     baseline. The trailing margin keeps it off the Default/Hide chips, which
+     share this region and bring no spacing of their own.
+
+     `my-0` because this is a `container`, so Drupal gives it `form--item` and
+     with it a form-item bottom margin. On a centred flex item that margin is
+     part of the box being centred, which lifted the whole stepper 4px above
+     the label it sits beside. Written on the two-class selector so it beats
+     `.form--item` on specificity rather than on stylesheet order. */
+  @apply inline-flex items-center gap-0.5 mr-2 my-0 self-center;
+}
+
+.neo-alchemist-array-nav--step {
+  @apply flex size-4 shrink-0 cursor-pointer items-center justify-center rounded-sm border-0 bg-transparent p-0 text-2xs leading-none text-base-0-content/55 transition;
+
+  &:hover {
+    @apply bg-base-100 text-default;
+  }
 }
 
 .neo-alchemist-array-nav--count {
   /* Fixed width and tabular figures so stepping does not shuffle the buttons
      either side of it as the digits change. */
-  @apply w-10 text-center text-2xs tabular-nums opacity-60;
+  @apply w-7 text-center text-2xs tabular-nums text-base-0-content/55;
 }
 
 /* The row whose item is currently on screen in the preview.

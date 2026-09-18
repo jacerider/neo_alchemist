@@ -603,7 +603,10 @@ class ArrayShape extends ChildrenShapeBase implements ComponentShapeInterablePlu
           // value, and a stray form submission here would discard the edit in
           // progress.
           'type' => 'button',
-          'class' => ['btn', 'btn-outline', 'btn-xs', 'icon-only'],
+          // Deliberately not `btn`: the legend's own register is 11px
+          // borderless chips, and a button at button scale beside them reads
+          // as the loudest thing in a row it is only annotating.
+          'class' => ['neo-alchemist-array-nav--step'],
           'data-neo-alchemist-step' => $step,
           'title' => $title,
           'aria-label' => $title,
