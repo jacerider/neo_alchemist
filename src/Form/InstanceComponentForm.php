@@ -211,13 +211,6 @@ final class InstanceComponentForm extends ContentEntityForm {
       ],
     ];
 
-    if ($form['values']['#access'] ?: $form['filters']['#access'] ?? FALSE) {
-      $form['footer']['#attributes']['class'][] = 'mb-0 py-3 border-t';
-    }
-    else {
-      $form['footer']['#attributes']['class'][] = '!mt-0';
-    }
-
     $form['footer']['status'] = [
       '#type' => 'checkbox',
       '#title' => $this->t('Enabled'),
@@ -453,7 +446,7 @@ final class InstanceComponentForm extends ContentEntityForm {
           'z-20', 'bg-default',
           // Negative margins cancel the scroll pane's px-4 and the form's pt-4
           // so the band runs edge to edge and sits flush with the toolbar.
-          '-mx-4', '-mt-4', 'px-4', 'pt-3', 'border-b',
+          '-mx-4', '-mt-4', 'px-4', 'pt-3', 'border-b', 'mb-0',
         ],
       ],
     ];

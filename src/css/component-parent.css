@@ -99,57 +99,30 @@ form.neo-alchemist-manage--form:has(.neo-alchemist--form-layout) > .form--inner,
   padding-inline: calc(var(--spacing) * 4);
 }
 
+.neo-alchemist--form-footer {
+
+  .form-item:has(+.neo-modal--hide:last-child) {
+    margin-bottom: 0;
+  }
+}
+
 /* A legend carrying a stepper pins to the top of the fields.
  *
  * Expanding a row pushes its legend off the top, and with it the pager that
  * says which of the five you are looking at — the one control you want while
- * moving between them. `top: 0` is literally the top here, which is the whole
- * point of taking the header out of the scroller.
+ * moving between them. The top is literally the top here, with no header
+ * height to offset against, which is the whole point of taking the header out
+ * of the scroller.
  */
 .neo-alchemist--form-body legend:has(.neo-alchemist-array-nav.is-active) {
   position: sticky;
-  top: 0;
+  top: -2px;
   z-index: 10;
-
-  /* The theme floats a legend to make it behave as a block, and the fieldset
-     body clears it. Floating and sticking at once is a corner of the spec
-     engines disagree about, and once pinned the clearance is measured against
-     a box that has moved — which is what opened a gap above the first row when
-     toggling a row forced the fieldset to lay out again. Nothing here depends
-     on the float: as a full-width flex row the layout is identical to the
-     pixel, with no float left to clear. */
   float: none;
   display: flex;
-
-  /* The fieldset's top rule, moved off the wrapper and onto the legend.
-   *
-   * It belonged to the wrapper, which scrolls away and left the pinned bar with
-   * no top edge. Drawing it above the legend instead does not work: a pinned
-   * legend sits exactly on the scrollport's top edge, so anything painted above
-   * it — an outset shadow, most obviously — lands outside the fields band's
-   * padding box and `overflow-y: auto` clips it away. It has to be inside the
-   * legend's own box.
-   *
-   * Moving the pixel rather than adding one is what keeps this free: the
-   * wrapper gives up its top border below and the legend takes it, so the
-   * fieldset is the same height, the body starts on the same row, and unpinned
-   * it looks exactly as it did. The legend carries `rounded-t` at the wrapper's
-   * own radius, so the corners still meet the side borders.
-   */
   border-top: 1px solid var(--color-border-default);
-}
-
-/* The other half of that swap. Scoped to a wrapper whose OWN legend is the
- * sticky one — `> fieldset > legend` — so an array nested inside this one does
- * not strip the outer fieldset's border too.
- *
- * Written as one `:has()` with a descendant combinator inside it rather than
- * `:has(... :has(...))`, because nesting `:has()` is invalid and the browser
- * drops the whole rule silently. That is exactly how this went unfixed the
- * first time: the declaration looked right and never applied.
- */
-.neo-alchemist--form-body .neo-alchemist--component-form-shape:has(> fieldset > legend .neo-alchemist-array-nav.is-active) {
-  border-top-width: 0;
+  margin-top: -2px;
+  /* padding-top: 2px; */
 }
 
 /* Thumbnail capture framing toolbar (rendered in the parent window so it stays

@@ -28,11 +28,15 @@
 <div class="layout-entity-form neo-alchemist--form-layout">
   {{ form.header }}
   <div class="neo-alchemist--form-body">
-    {{ form|without('header', 'advanced', 'footer', 'actions') }}
-    {% if form.advanced %}
-      {{ form.advanced|neo_class('layout-entity-form--advanced mt-form-item') }}
-    {% endif %}
+    <div class="py-4">
+      {{ form|without('header', 'advanced', 'footer', 'actions') }}
+      {% if form.advanced %}
+        {{ form.advanced|neo_class('layout-entity-form--advanced mt-form-item') }}
+      {% endif %}
+    </div>
   </div>
-  {{ form.footer }}
-  {{ form.actions }}
+  <div class="border-t -mx-form-item p-form-item">
+    {{ form.footer }}
+    {{ form.actions }}
+  </div>
 </div>
