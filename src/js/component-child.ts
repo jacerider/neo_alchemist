@@ -214,9 +214,7 @@
     // Heuristic targets from the prop map. Absent on preview flavors that do
     // not attach one — stamped targets still work there.
     if (propMap && propMap.props) {
-      indexTextHints(scope);
-      indexSrcHints(scope);
-      indexHrefHints(scope);
+      indexPropHints(scope);
     }
   };
 
@@ -548,62 +546,94 @@
   };
 
   /**
-   * Exact-trim text-node matching, document-order pairing for duplicates.
+   * Places every hinted prop on the element it came from.
+   *
+   * Hints are values, not addresses: a heading's text, an image's basename, a
+   * link's href. Matching them is an assignment problem — n props onto n
+   * elements — and it used to be solved as three independent greedy sweeps,
+   * one per hint type, each pairing the first prop to the first element that
+   * matched. Three ways that went wrong, none of them specific to any one
+   * component:
+   *
+   * - A value can match more elements than there are props carrying it. A
+   *   component that renders its own breadcrumb has anchors to `/` that belong
+   *   to no prop at all, and one surplus element shifted every later claim by
+   *   one — so each card's link pointed at the row before it.
+   * - A value can be carried by more than one prop. A link whose title *is*
+   *   the caption beside it puts both props in the queue for one text node;
+   *   whichever lost then fell through to a weaker sweep where it was no
+   *   longer distinguishable from anything else.
+   * - Each sweep saw one hint type alone, so a prop identifiable by its text
+   *   AND its href together never got to use both.
+   *
+   * So: score every element a prop could have come from, counting all its
+   * hint types at once, then commit only to what is forced, and fall back to
+   * pairing by position only where that is actually sound.
    */
-  const indexTextHints = (scope: HTMLElement): void => {
+  const indexPropHints = (scope: HTMLElement): void => {
     const map = propMap;
     if (!map) {
       return;
     }
-    // Hint text → prop ids carrying it, in map order (= delta order).
-    const byText: Record<string, string[]> = {};
-    Object.keys(map.props).forEach(propId => {
-      (map.props[propId].hints?.text || []).forEach(text => {
-        (byText[text] = byText[text] || []).push(propId);
-      });
-    });
+
+    const anchors = Array.from(scope.querySelectorAll<HTMLAnchorElement>('a[href]'));
+    const imgs = Array.from(scope.querySelectorAll<HTMLImageElement>('img[src]'));
+
+    // Text value → the elements directly holding a text node with that value.
+    const byText: Record<string, HTMLElement[]> = {};
     const walker = document.createTreeWalker(scope, NodeFilter.SHOW_TEXT);
     let node: Node | null;
     while ((node = walker.nextNode())) {
       const text = (node.textContent || '').trim();
-      if (!text) {
-        continue;
-      }
-      const queue = byText[text];
       const parent = (node as Text).parentElement;
-      if (!queue || !queue.length || !parent) {
-        continue;
-      }
-      // Drop props another hint already placed rather than letting them hold
-      // the queue: the pairing is positional, so a prop that cannot claim
-      // must step aside for the next one rather than consume this text node.
-      while (queue.length && claimedProps.has(queue[0])) {
-        queue.shift();
-      }
-      if (queue.length) {
-        claimTarget(parent, queue.shift() as string);
+      if (text && parent) {
+        (byText[text] = byText[text] || []).push(parent);
       }
     }
-  };
 
-  /**
-   * Match images by source basename (derivatives keep the filename).
-   */
-  const indexSrcHints = (scope: HTMLElement): void => {
-    const map = propMap;
-    if (!map) {
-      return;
-    }
-    const imgs = Array.from(scope.querySelectorAll<HTMLImageElement>('img[src]'));
+    // Document position, so a candidate list can be compared and paired in the
+    // order the markup renders — which is the order the map lists rows in.
+    const order = new Map<HTMLElement, number>();
+    scope.querySelectorAll<HTMLElement>('*').forEach((el, i) => order.set(el, i));
+
+    // A hint type matching the element itself. Several of these on one element
+    // is the whole point: text AND href together identify a link that neither
+    // does alone.
+    const SIGNAL = 4;
+    // The element merely contains the matching text rather than holding it.
+    // Worth less than a signal but more than nothing, and it is exactly what
+    // tells an anchor from the span inside it.
+    const NESTED = 1;
+
+    const matchesHref = (anchor: HTMLAnchorElement, href: string): boolean => {
+      return href.startsWith('/')
+        ? (anchor.pathname + anchor.search === href || anchor.pathname === href)
+        : (anchor.href === href || anchor.href.startsWith(href));
+    };
+
+    const scores = new Map<string, Map<HTMLElement, number>>();
     Object.keys(map.props).forEach(propId => {
-      (map.props[propId].hints?.src || []).forEach(basename => {
-        if (claimedProps.has(propId)) {
-          return;
-        }
-        for (const img of imgs) {
-          if (img.dataset.neoPropTarget) {
-            continue;
+      const hints = map.props[propId].hints;
+      if (!hints) {
+        return;
+      }
+      const score = new Map<HTMLElement, number>();
+      const bump = (el: HTMLElement, by: number): void => {
+        score.set(el, (score.get(el) || 0) + by);
+      };
+      // Whole-element matches first, so the text pass below can find the ones
+      // that wrap a matching text node.
+      const whole: HTMLElement[] = [];
+      (hints.href || []).forEach(href => {
+        anchors.forEach(anchor => {
+          if (matchesHref(anchor, href)) {
+            bump(anchor, SIGNAL);
+            whole.push(anchor);
           }
+        });
+      });
+      (hints.src || []).forEach(basename => {
+        imgs.forEach(img => {
           let src = img.src;
           try {
             src = decodeURIComponent(src);
@@ -612,44 +642,98 @@
             // Keep the raw src.
           }
           if (src.includes(basename)) {
-            claimTarget(img, propId);
-            break;
+            bump(img, SIGNAL);
+            whole.push(img);
           }
+        });
+      });
+      (hints.text || []).forEach(text => {
+        (byText[text] || []).forEach(el => {
+          bump(el, SIGNAL);
+          whole.forEach(candidate => {
+            if (candidate !== el && candidate.contains(el)) {
+              bump(candidate, NESTED);
+            }
+          });
+        });
+      });
+      if (score.size) {
+        scores.set(propId, score);
+      }
+    });
+
+    /**
+     * The elements still free that score highest for this prop.
+     */
+    const topCandidates = (propId: string): HTMLElement[] => {
+      const score = scores.get(propId);
+      if (!score) {
+        return [];
+      }
+      let best = 0;
+      score.forEach((value, el) => {
+        if (!el.dataset.neoPropTarget && value > best) {
+          best = value;
         }
       });
-    });
-  };
+      if (!best) {
+        return [];
+      }
+      const top: HTMLElement[] = [];
+      score.forEach((value, el) => {
+        if (!el.dataset.neoPropTarget && value === best) {
+          top.push(el);
+        }
+      });
+      return top.sort((a, b) => (order.get(a) ?? 0) - (order.get(b) ?? 0));
+    };
 
-  /**
-   * Match links by href path.
-   */
-  const indexHrefHints = (scope: HTMLElement): void => {
-    const map = propMap;
-    if (!map) {
-      return;
-    }
-    const anchors = Array.from(scope.querySelectorAll<HTMLAnchorElement>('a[href]'));
-    Object.keys(map.props).forEach(propId => {
-      (map.props[propId].hints?.href || []).forEach(href => {
+    // Forced choices only, until nothing more is forced. Claiming an element
+    // removes it from every other prop's candidates, which can force the next
+    // one — so a link that only its href identifies frees the span inside it
+    // for the caption that only its text identifies. Iterating rather than
+    // sweeping once is what stops a single wrong guess cascading.
+    let progressed = true;
+    while (progressed) {
+      progressed = false;
+      Object.keys(map.props).forEach(propId => {
         if (claimedProps.has(propId)) {
           return;
         }
-        for (const anchor of anchors) {
-          if (anchor.dataset.neoPropTarget) {
-            continue;
-          }
-          const match = href.startsWith('/')
-            ? (anchor.pathname + anchor.search === href || anchor.pathname === href)
-            : (anchor.href === href || anchor.href.startsWith(href));
-          if (match) {
-            claimTarget(anchor, propId);
-            break;
-          }
+        const top = topCandidates(propId);
+        if (top.length === 1) {
+          progressed = claimTarget(top[0], propId) || progressed;
         }
       });
+    }
+
+    // What is left is genuinely ambiguous: rows whose content is identical, so
+    // nothing but position tells them apart. Position IS the answer there —
+    // but only when the candidates and the props claiming them are the same
+    // set, which is the assumption the old sweeps made without ever checking
+    // it. Where the counts differ something in the markup belongs to no prop,
+    // and pairing in order would hand every prop its neighbour's element.
+    const groups = new Map<string, { props: string[]; elements: HTMLElement[] }>();
+    Object.keys(map.props).forEach(propId => {
+      if (claimedProps.has(propId)) {
+        return;
+      }
+      const top = topCandidates(propId);
+      if (!top.length) {
+        return;
+      }
+      const key = top.map(el => order.get(el)).join(',');
+      const group = groups.get(key) || { props: [], elements: top };
+      group.props.push(propId);
+      groups.set(key, group);
+    });
+    groups.forEach(group => {
+      if (group.props.length !== group.elements.length) {
+        return;
+      }
+      group.props.forEach((propId, i) => claimTarget(group.elements[i], propId));
     });
   };
-
   /**
    * The stylesheet and script URLs a document depends on, as one comparable
    * string.

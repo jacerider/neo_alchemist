@@ -338,6 +338,14 @@ One rule governs the highlight: **it is only drawn when it is true.** No climbin
 ancestor's other children, no outline on a target that is hidden, nothing when there is no
 honest answer.
 
+The same rule shapes how hints are matched, and it is worth knowing before touching
+`indexPropHints()`. Hints are values, not addresses, so placing them is an assignment problem and
+**not** three per-type sweeps: score every element a prop could have come from across all its hint
+types at once, commit only to forced choices (iterating, because each claim narrows the rest), and
+pair by position only where the candidates and the props claiming them are the same size. That last
+guard is the one that is easy to drop — a component rendering its own breadcrumb has anchors
+belonging to no prop at all, and one surplus element silently shifts every later claim by one row.
+
 That last case is where components come in. A carousel's inactive slide has a perfectly good
 box, so the preview cannot tell from geometry that it is not on screen — it reads `opacity: 0`,
 `visibility`, `[aria-hidden]` and `[inert]` up the ancestor chain, withholds the outline, and
