@@ -125,6 +125,31 @@ form.neo-alchemist-manage--form:has(.neo-alchemist--form-layout) > .form--inner,
   /* padding-top: 2px; */
 }
 
+/* Dev-mode count of props the matcher could not place confidently.
+ *
+ * Sits in the top bar's right-hand group, ahead of the scale and viewport
+ * controls. Styled as a quiet warning chip rather than a button: it is a
+ * statement that happens to be clickable, and it appears only when there is
+ * something to say, so it never becomes furniture. */
+.neo-alchemist--weak-badge {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.125rem 0.5rem;
+  border: 1px solid rgb(var(--color-warning-500, 234 179 8) / 0.4);
+  border-radius: 0.25rem;
+  background: rgb(var(--color-warning-500, 234 179 8) / 0.12);
+  color: rgb(var(--color-warning-900, 113 63 18));
+  font-size: 0.7rem;
+  line-height: 1.2;
+  cursor: pointer;
+  transition: background 150ms;
+
+  &:hover {
+    background: rgb(var(--color-warning-500, 234 179 8) / 0.22);
+  }
+}
+
 /* Thumbnail capture framing toolbar (rendered in the parent window so it stays
  * fixed in the viewport while the crop frame lives inside the preview iframe). */
 .neo-alchemist-capture-toolbar {

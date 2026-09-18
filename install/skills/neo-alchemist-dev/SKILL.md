@@ -365,6 +365,33 @@ array that has at least one row on screen, at least one off it, and the marker. 
 focuses the next row, which fires the reveal the component already answers — so there is no
 second definition of "advance" anywhere.
 
+### How the matcher grades itself
+
+`indexPropHints()` also records **how** each prop got its element, in a module-scope
+`propOutcome` map rebuilt alongside `claimedProps`. The tag is written inside `claimTarget()`,
+which takes a required `via` argument — never at the call sites, because only `claimTarget` knows
+a claim was actually *taken*. Two positional groups can list overlapping elements, so the refused
+claims are real, and a tag written from the branch you are standing in would label a prop that
+matched nothing.
+
+Outcomes: `forced` · `positional` · `ambiguous` · `contested` · `shadowed` · `unmatched` ·
+`hintless` · `style`. The whole set goes up over a `propMatch` message; `component-parent.ts`
+decides which of them is worth drawing, behind `data-alchemist-dev` on the editor container.
+**Keep that judgement in the parent** — it has changed once already and the parent is the side you
+can edit without rebuilding the bundle that runs inside the iframe.
+
+Only `ambiguous` is surfaced, and the measurement is why. Across `hero_s1`, `hero_s3`, `hero_s6`
+and `list_s2` it fires **zero** times; injecting one surplus element carrying a value three props
+shared made it fire on exactly those three. The louder-looking outcomes were retired by the same
+measurement: `positional` is simply how repeating content matches (23 occurrences across three
+components that are all correct), and `contested` turned out to track example content that reuses
+one `href` everywhere rather than anything a developer could act on. **A warning that fires on
+healthy components teaches people to ignore it** — if you widen this, measure first.
+
+`shadowed` exists only to keep `contested` honest: a prop that lost its element to a *sibling* (a
+link's title and its url are one anchor) is structural, while losing it to a prop from another
+part of the component is the `hero_s3` shape. `propFamily()` tells them apart from the shape id.
+
 Three things that shape the implementation:
 
 - **A row with no reported ids is `unknown`, not hidden.** An array whose rows are all empty

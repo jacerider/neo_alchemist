@@ -46,6 +46,50 @@
   // Props that have claimed an element, so none claims a second. Rebuilt by
   // every initPropTargets() run alongside the scope it indexed.
   let claimedProps = new Set<string>();
+
+  /**
+   * How each prop ended up where it did, rebuilt alongside `claimedProps`.
+   *
+   * The matcher's answer is a set of attributes in the DOM, and a wrong one
+   * looks exactly like a right one — which is how a hero_s3 prop claimed the
+   * component's own breadcrumb and nobody found out for months. What separates
+   * them is not the result but the rule that produced it: an element only one
+   * prop could have come from is a fact, and the same element handed over
+   * because it was third in a list of three is a guess that happened to be
+   * available.
+   *
+   * Kept beside the claims rather than returned, so it shares their exact
+   * lifecycle and cannot describe a pass that has already been thrown away.
+   */
+  type PropOutcome = 'forced' | 'positional' | 'ambiguous' | 'contested' | 'shadowed' | 'unmatched' | 'hintless' | 'style';
+  let propOutcome = new Map<string, PropOutcome>();
+  // Re-indexing usually reaches the same conclusion, and the editor only wants
+  // to hear about it when it does not.
+  let lastMatchSignature = '';
+
+  /**
+   * The row a prop belongs to — its parent prefix, and its delta where it has
+   * one.
+   *
+   * Used to tell a prop that lost its element to a stranger from one that lost
+   * it to its own sibling. A link's title and its url are one anchor and only
+   * one of them can hold it, which is structure rather than a mismatch; an
+   * image's link claiming a breadcrumb's anchor is the thing worth saying out
+   * loud. Both look identical from the losing prop's side, and the shape id is
+   * what separates them.
+   *
+   * A trailing all-digit segment is a delta (`breadcrumb~url~0`); anything else
+   * is the prop's own name (`slides~heading~0~title`).
+   */
+  const propFamily = (propId: string): string => {
+    const parts = propId.split('~');
+    let delta = '';
+    if (parts.length > 1 && /^\d+$/.test(parts[parts.length - 1])) {
+      delta = parts.pop() as string;
+    }
+    parts.pop();
+    return parts.join('~') + '#' + delta;
+  };
   let activeTargets: HTMLElement[] = [];
   // How the active targets are to be drawn. `exact` outlines each one, because
   // a prop stamped on several elements really is in several places. The other
@@ -193,6 +237,7 @@
     const scope = propComponentScope(element);
     propScope = scope;
     claimedProps = new Set<string>();
+    propOutcome = new Map<string, PropOutcome>();
 
     // Clear the previous pass. A morph preserves client-owned attributes (see
     // refreshPreview), so last pass's claims survive into this markup unless
@@ -215,7 +260,34 @@
     // not attach one — stamped targets still work there.
     if (propMap && propMap.props) {
       indexPropHints(scope);
+      reportPropMatch();
     }
+  };
+
+  /**
+   * Tells the editor how each prop was matched.
+   *
+   * Every outcome goes up, not just the ones worth drawing. Which of them
+   * deserves to be said out loud is a judgement that changes — the first
+   * measurement of it retired two thirds of the candidates — and the parent is
+   * where it can change without rebuilding the bundle that runs in here. The
+   * preview's job is to report what happened, not to decide what it means.
+   */
+  const reportPropMatch = (): void => {
+    if (!propMap) {
+      return;
+    }
+    const matches = Object.keys(propMap.props).map(propId => ({
+      propId,
+      title: propMap!.props[propId].title || propId,
+      outcome: propOutcome.get(propId) || 'unmatched',
+    }));
+    const signature = matches.map(m => m.propId + ':' + m.outcome).sort().join('|');
+    if (signature === lastMatchSignature) {
+      return;
+    }
+    lastMatchSignature = signature;
+    post('propMatch', { matches });
   };
 
   /**
@@ -533,15 +605,22 @@
    * clicking the button outlined the card too and each card's link pointed at
    * the row before it.
    *
+   * `via` names the rule that produced the claim, and is recorded here rather
+   * than at the call sites because only here is it known that a claim was
+   * actually taken. A caller tagging by the branch it is standing in would
+   * label a refused claim — and refusals do happen in the positional pass,
+   * where two groups can list overlapping elements.
+   *
    * @return TRUE if the claim was taken.
    */
-  const claimTarget = (el: HTMLElement, propId: string): boolean => {
+  const claimTarget = (el: HTMLElement, propId: string, via: 'forced' | 'positional'): boolean => {
     if (el.dataset.neoPropTarget || claimedProps.has(propId)) {
       return false;
     }
     el.dataset.neoPropTarget = propId;
     el.classList.add('neo-alchemist--prop-target');
     claimedProps.add(propId);
+    propOutcome.set(propId, via);
     return true;
   };
 
@@ -702,7 +781,9 @@
         }
         const top = topCandidates(propId);
         if (top.length === 1) {
-          progressed = claimTarget(top[0], propId) || progressed;
+          if (claimTarget(top[0], propId, 'forced')) {
+            progressed = true;
+          }
         }
       });
     }
@@ -729,9 +810,57 @@
     });
     groups.forEach(group => {
       if (group.props.length !== group.elements.length) {
+        group.props.forEach(propId => propOutcome.set(propId, 'ambiguous'));
         return;
       }
-      group.props.forEach((propId, i) => claimTarget(group.elements[i], propId));
+      group.props.forEach((propId, i) => claimTarget(group.elements[i], propId, 'positional'));
+    });
+
+    // Whatever is still untagged never claimed anything, and the four reasons
+    // are worth telling apart — three of them are the editor's problem and one
+    // is nobody's.
+    Object.keys(map.props).forEach(propId => {
+      if (propOutcome.has(propId)) {
+        return;
+      }
+      const prop = map.props[propId];
+      if (prop.style) {
+        // A style prop resolves to the whole component at focus time; it owns
+        // no element of its own and never wanted one.
+        propOutcome.set(propId, 'style');
+        return;
+      }
+      const hints = prop.hints;
+      // Tested array by array, not on the object: the builder runs array_filter
+      // over the hint set, so a prop with nothing to look for arrives as `[]` —
+      // which is perfectly truthy here.
+      if (!hints || !((hints.text || []).length || (hints.src || []).length || (hints.href || []).length)) {
+        propOutcome.set(propId, 'hintless');
+        return;
+      }
+      // Having scored at all means the markup did hold something this prop
+      // could have come from, and every one of them went to somebody else.
+      // That is a different problem from finding nothing, and the score map is
+      // the only thing that still tells them apart.
+      const score = scores.get(propId);
+      if (!score) {
+        propOutcome.set(propId, 'unmatched');
+        return;
+      }
+      // Who took them decides whether this is worth reporting. Losing to a
+      // sibling is how a link's title and url share one anchor — normal, and
+      // there is nothing to fix. Losing to a prop from another part of the
+      // component is the shape of the hero_s3 bug, where an image's link
+      // claimed the breadcrumb's.
+      const family = propFamily(propId);
+      let stranger = false;
+      score.forEach((_weight, el) => {
+        const winner = el.dataset.neoPropTarget;
+        if (winner && propFamily(winner) !== family) {
+          stranger = true;
+        }
+      });
+      propOutcome.set(propId, stranger ? 'contested' : 'shadowed');
     });
   };
   /**

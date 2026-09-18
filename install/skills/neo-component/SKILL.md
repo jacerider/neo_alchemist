@@ -936,6 +936,21 @@ The event is the whole contract: the editor never learns what a carousel is, and
 
 **What counts as hidden.** The editor already discounts anything clipped out of view, so a track slider with `overflow: hidden` needs no help to stay honest. What it cannot see from geometry alone is content that occupies a real box and is faded or flagged away — so it also treats `opacity: 0`, `visibility: hidden`, `[aria-hidden="true"]` and `[inert]` on the target **or any ancestor** as hidden. Hiding a panel with one of those is what makes your component legible to the editor; hiding it by moving it somewhere with a real box and full opacity is not.
 
+### "N props unmatched in preview"
+
+A warning chip in the editor's top bar, and a small `unmatched` chip beside the label of each field it names. It appears only in a development checkout, and only when there is something to say — on a healthy component you will never see it. Hover either chip for the explanation.
+
+**What it means.** Nothing in the rendered markup says which element came from which prop. The editor works it out by searching your markup for the values it handed the component: the text of a heading, the `href` of a link, the filename in an `src`. Usually that is decisive. Sometimes several elements carry the same value, and then the editor pairs them in order — N indistinguishable props to N indistinguishable elements — which is correct, and is how every repeating list matches.
+
+The chip fires on the case where even that is unsafe: the values matched **more elements than there are props**. One of those elements belongs to nothing, pairing in order hands each prop its neighbour's element, and every field named is now wired to the wrong thing. Clicking one outlines someone else's content; hovering that content opens the wrong field. This is not hypothetical — it is why `images~link~0` once highlighted the component's own breadcrumb.
+
+**What to do.** The mark is about the *editor's* ability to follow your markup, not about whether your component is correct — a component with this warning renders perfectly for visitors. In order of likelihood:
+
+- **An extra element carries the same value.** A visually-hidden label, a duplicated caption, a `<span>` repeating the link text for screen readers. Most often the fix is that it did not need to be a separate element.
+- **Your example content is degenerate.** Three slides whose subtitle is `"."`, or every link pointing at `/`. Give the examples in `.component.yml` distinct values and the ambiguity disappears — this costs nothing and makes the whole editor experience sharper, because distinct values are what lets the editor match precisely rather than by position.
+
+**What is deliberately not reported.** A prop whose value never reaches the DOM as text, `href` or `src` — an image painted as a CSS `background-image`, say — simply cannot be located, and there is nothing you could change short of restructuring the markup. Those stay silent rather than nagging.
+
 ### Fixed / floating roots and the preview iframe
 
 A component whose root is `position: fixed` (or `absolute`) has **no flow height**, so the Alchemist preview iframe — which sizes to document height — collapses and the component looks blank even though it renders. Render it **in-flow for preview**: switch the positioning behind `{% if neoIsPreview %}`, and give it a solid background if it's normally transparent (e.g. a header that overlays a hero). `drush neo:alchemist:render` renders the preview branch by default; add `--live` to render the runtime (`neoIsPreview` false) path.

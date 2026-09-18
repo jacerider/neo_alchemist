@@ -1,4 +1,4 @@
-<div{% if id %} id="{{ id }}"{% endif %} class="neo-alchemist-manage fixed flex flex-col top-0 left-0 w-full h-full bg-base-300 z-0 modal:relative">
+<div{% if id %} id="{{ id }}"{% endif %}{% if dev %} data-alchemist-dev{% endif %} class="neo-alchemist-manage fixed flex flex-col top-0 left-0 w-full h-full bg-base-300 z-0 modal:relative">
   {% if top_start or top_end %}
     <div class="neo-alchemist-manage--top relative flex-none flex gap-4 w-full bg-default border-b px-4 py-2 shadow z-50" data-alchemist-offset-top>
       {% if top_start %}

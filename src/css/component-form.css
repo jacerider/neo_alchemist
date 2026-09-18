@@ -200,6 +200,39 @@
   animation: neo-alchemist-prop-flash 900ms ease-out;
 }
 
+/* A field whose preview element the matcher had to guess at (dev mode only).
+ *
+ * The field itself is left unpainted. This started as an inset rule down its
+ * leading edge and that was the wrong instrument: a bare coloured bar beside a
+ * label states nothing, carries no tooltip, and reads as a rendering artifact
+ * rather than as a warning. Anything that only makes sense once somebody
+ * explains it is decoration, and this has something specific to say.
+ *
+ * So it says it. The flag goes in the field's own label row, which is already
+ * where this form puts the status of a prop — the Default/Hide chips and the
+ * array stepper share it — in the same 11px register those use, so it reads as
+ * one more thing the legend knows rather than as damage. Warning colour rather
+ * than their muted grey, because unlike them it is not a control and wants
+ * answering. The full sentence is in the title attribute, which is the reason
+ * for an element here instead of a ::before. */
+.neo-alchemist--prop-weak-flag {
+  @apply ml-2 inline-flex shrink-0 cursor-help items-center gap-1 rounded-sm border px-1 py-px align-middle text-2xs leading-none font-medium;
+  /* The same chip the top bar counts these with, at label scale — one warning
+     in two places, not two warnings. */
+  border-color: rgb(var(--color-warning-500, 234 179 8) / 0.4);
+  background: rgb(var(--color-warning-500, 234 179 8) / 0.12);
+  color: rgb(var(--color-warning-900, 113 63 18));
+
+  /* A dot ahead of the word, matching the on-screen-row marker's vocabulary:
+     this form already says "this one" with a small round mark, and reusing the
+     shape means only the colour has to be read as new. */
+  &::before {
+    content: '';
+    @apply inline-block size-1 shrink-0 rounded-full;
+    background: rgb(var(--color-warning-500, 234 179 8));
+  }
+}
+
 @keyframes neo-alchemist-prop-flash {
   0% {
     background-color: rgb(var(--color-primary-500, 59 130 246) / 0.14);

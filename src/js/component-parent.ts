@@ -895,6 +895,18 @@
         renderArrayNav();
       },
 
+      // How the preview matched each prop to an element. Developer-facing
+      // only, so it stops here on a deployed site — the preview reports
+      // regardless, because it has no way of knowing and no need to.
+      propMatch: function (data:any) {
+        if (!devMode || !Array.isArray(data.matches) || typeof data.size !== 'string') {
+          return;
+        }
+        propMatchBySize[data.size] = data.matches.filter((match:any) =>
+          match && typeof match.propId === 'string' && typeof match.outcome === 'string');
+        renderWeakProps();
+      },
+
       propHover: function (data:any) {
         // Hovering the preview is the editor at work, so it keeps the highlight
         // alive; the expiry is only meant to catch an abandoned one.
@@ -1376,6 +1388,26 @@
     const propItemsBySize: Record<string, Record<string, { visible: boolean; steerable: boolean }>> = {};
 
     /**
+     * How the preview matched each prop, per frame.
+     *
+     * The preview reports every outcome; which of them is worth saying out
+     * loud is decided here. Only `ambiguous` is — measured across four shipped
+     * components, it never fires, and injecting the one surplus element that
+     * caused the hero_s3 bug made it fire on exactly the three props that
+     * element confused. The louder-looking outcomes were retired by the same
+     * measurement: `positional` is how any repeating content matches (23 of
+     * them across three components that are all correct), and `contested`
+     * turned out to be driven by example content that reuses one href
+     * everywhere rather than by anything a developer could fix.
+     */
+    const propMatchBySize: Record<string, Array<{ propId: string; title: string; outcome: string }>> = {};
+    const WEAK_OUTCOMES = ['ambiguous'];
+    // Set by the editor template when the site is somebody's working checkout.
+    // Nothing below this point runs without it.
+    const devMode = container.hasAttribute('data-alchemist-dev');
+    let weakBadge: HTMLButtonElement | null = null;
+
+    /**
      * Per array, the row its stepper last asked for while that ask is still in
      * flight — cleared by the report that confirms it.
      *
@@ -1449,6 +1481,111 @@
       // its markup does, so a control that nothing would respond to is never
       // drawn.
       return { rows, onScreen, steerable: steerable && anyHidden && onScreen !== -1 };
+    }
+
+    /**
+     * The row a field's own label occupies, which is where its status belongs.
+     *
+     * Scoped to direct children throughout, because these wrappers nest — a
+     * fieldset's legend is its own, but its descendants' labels are not, and
+     * an unscoped lookup would hang a parent's flag on the first child field
+     * it found. The order is the shapes a prop wrapper actually takes: a
+     * fieldset with a legend, a draggable row with a summary, or a plain form
+     * item with a label.
+     */
+    function weakFlagHost(wrapper: HTMLElement): HTMLElement | null {
+      const region = wrapper.querySelector<HTMLElement>(':scope > fieldset > legend')
+        || wrapper.querySelector<HTMLElement>(':scope > legend')
+        || wrapper.querySelector<HTMLElement>(':scope > summary .details--title')
+        || wrapper.querySelector<HTMLElement>(':scope > label')
+        || wrapper.querySelector<HTMLElement>(':scope > .form-item--label');
+      if (!region) {
+        return null;
+      }
+      // Down to whatever actually holds the label text, which is where the
+      // flag reads as qualifying the word rather than sitting near it. Both
+      // shallower stopping points are wrong in their own way: a legend lays
+      // its regions out as a row and gives the trailing one `ml-auto`, which
+      // strands the flag a panel's width to the right, and the label block
+      // inside it is a block, which drops the flag onto its own line. Finding
+      // the text is what survives both, and any other label markup with them.
+      const walker = document.createTreeWalker(region, NodeFilter.SHOW_TEXT);
+      let node: Node | null;
+      while ((node = walker.nextNode())) {
+        if ((node.textContent || '').trim() && node.parentElement) {
+          return node.parentElement;
+        }
+      }
+      return region;
+    }
+
+    /**
+     * Marks the fields whose preview element the matcher had to guess at, and
+     * counts them in the top bar.
+     *
+     * The mark is a claim about the *editor*, not about the component: it says
+     * this field's link to the preview is unreliable, so an outline drawn from
+     * it may land on the wrong thing. That is worth a developer's attention
+     * precisely because the failure is otherwise invisible — a wrong match
+     * looks exactly like a right one.
+     */
+    function renderWeakProps(): void {
+      if (!devMode || !form) {
+        return;
+      }
+      const size = getMostVisibleIframe()?.getAttribute('data-size') || '';
+      const report = propMatchBySize[size] || [];
+      const weak = report.filter(match => WEAK_OUTCOMES.includes(match.outcome));
+
+      form.querySelectorAll<HTMLElement>('.neo-alchemist--prop-weak-flag').forEach(el => el.remove());
+      weak.forEach(match => {
+        const wrapper = resolvePropWrapper(match.propId);
+        const host = wrapper && weakFlagHost(wrapper);
+        if (!host) {
+          return;
+        }
+        const flag = document.createElement('span');
+        flag.className = 'neo-alchemist--prop-weak-flag';
+        flag.textContent = Drupal.t('unmatched');
+        flag.title = Drupal.t(
+          "The editor could not tell which element in the preview this field controls, so clicking it may highlight the wrong thing. Usually means something else in the markup carries the same value.",
+        );
+        host.appendChild(flag);
+      });
+
+      if (!weak.length) {
+        weakBadge?.remove();
+        weakBadge = null;
+        return;
+      }
+      const topEnd = container.querySelector('.neo-alchemist-manage--top-end');
+      if (!topEnd) {
+        return;
+      }
+      if (!weakBadge) {
+        weakBadge = document.createElement('button');
+        weakBadge.type = 'button';
+        weakBadge.className = 'neo-alchemist--weak-badge';
+        weakBadge.addEventListener('click', () => {
+          // The first one that actually has a field. focusProp does nothing at
+          // all for a prop with no wrapper, so picking blindly can look like a
+          // dead control.
+          const match = weak.find(item => resolvePropWrapper(item.propId));
+          if (match) {
+            focusProp(match.propId);
+          }
+        });
+        // Ahead of the scale and viewport controls, which are the settled
+        // furniture of that corner.
+        topEnd.insertBefore(weakBadge, topEnd.firstChild);
+      }
+      weakBadge.textContent = weak.length === 1
+        ? Drupal.t('1 prop unmatched in preview')
+        : Drupal.t('@count props unmatched in preview', { '@count': String(weak.length) });
+      weakBadge.title = Drupal.t(
+        'The editor could not tell which element these fields control, so highlighting them may be wrong. Props: @props',
+        { '@props': weak.map(match => match.propId).join(', ') },
+      );
     }
 
     /**
@@ -1540,6 +1677,9 @@
 
     if (form) {
       onFormRebuild.push(renderArrayNav);
+      // The preview is right not to resend after a form-only rebuild, so the
+      // marks have to be put back from the report the parent already holds.
+      onFormRebuild.push(renderWeakProps);
 
       form.addEventListener('click', (e: MouseEvent) => {
         const button = (e.target as HTMLElement).closest<HTMLElement>('[data-neo-alchemist-step]');
@@ -1556,7 +1696,10 @@
         let navScrollTimer: number | undefined;
         wrapper.addEventListener('scroll', () => {
           window.clearTimeout(navScrollTimer);
-          navScrollTimer = window.setTimeout(() => renderArrayNav(), 120);
+          navScrollTimer = window.setTimeout(() => {
+            renderArrayNav();
+            renderWeakProps();
+          }, 120);
         });
       }
     }
