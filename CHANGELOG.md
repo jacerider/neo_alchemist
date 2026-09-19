@@ -1,5 +1,31 @@
 # Changelog
 
+## Pages without a description are described by their first rich text
+
+`[neo:description]` fell back to the site slogan on every page that had no
+description of its own, so every such page shared one description — or had none,
+on a site without a slogan. **It now falls back to the page's own first words**:
+the text of the first rich-text prop in its component tree, cut at 160 characters
+on a word boundary. Metatag defaults that use the token (description,
+og:description, twitter:description, schema descriptions) pick it up with no
+config change.
+
+**This changes the description of existing pages that relied on the slogan.** A
+description another module provides is still used first, and the slogan remains
+the fallback for pages whose tree holds no rich text. The front page is not
+affected: neo describes it by the slogan before any module is asked. To keep the
+slogan everywhere, turn off *Describe pages by their first rich text* in the
+Alchemist settings (`description_from_content`); update 11010 writes the setting
+into config so the change shows in a config diff.
+
+**Only what a page shows and stores counts.** The walk goes through published
+components in reading order (a component's props, then its slots), and reads
+only a top-level rich-text prop that the instance stores a value for. An unset
+prop reports the component's example text, and an array entry lacking the field
+reports it too, so both are passed over — a page is never described as
+"Duis in neque a velit…". Block boundaries become spaces, so `<h2>Title</h2><p>Text</p>`
+reads "Title Text".
+
 ## An entity query can match what the current page is tagged with
 
 `entity_query`'s existing `filter_entity` says one thing only: *the queried entity

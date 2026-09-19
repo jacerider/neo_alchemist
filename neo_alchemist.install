@@ -1179,3 +1179,23 @@ function neo_alchemist_update_11009(&$sandbox) {
     '@count' => $sandbox['migrated'],
   ]);
 }
+
+/**
+ * Turns on describing pages by their first rich text.
+ *
+ * [neo:description] now falls back to the text of the first rich-text prop
+ * in a page's component tree before the site slogan
+ * (neo_alchemist_neo_token_description_alter()). That arrives with the code,
+ * whether or not this hook runs: a missing `description_from_content` key
+ * reads as on. The hook writes the setting into stored config so the change
+ * shows in `git diff config/`, and so a site that wants the slogan back has a
+ * key to switch off. A value already set is left alone.
+ */
+function neo_alchemist_update_11010() {
+  $config = \Drupal::configFactory()->getEditable('neo_alchemist.settings');
+  if ($config->get('description_from_content') !== NULL) {
+    return (string) t('Describing pages by their first rich text was already set.');
+  }
+  $config->set('description_from_content', TRUE)->save();
+  return (string) t('Pages without a description of their own are now described by their first rich text (neo_alchemist settings: description_from_content).');
+}

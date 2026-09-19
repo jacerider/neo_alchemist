@@ -18,6 +18,9 @@ neo_alchemist:
     anchor_override_status:
       type: boolean
       label: Allow overriding anchors
+    description_from_content:
+      type: boolean
+      label: Describe pages by their first rich text
 
 neo_alchemist.neo_component.*:
   type: config_entity

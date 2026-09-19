@@ -39,6 +39,13 @@ class AlchemistSettings extends SettingsBase {
       '#default_value' => $this->getValue('anchor_override_status'),
     ];
 
+    $form['description_from_content'] = [
+      '#type' => 'checkbox',
+      '#title' => $this->t('Describe pages by their first rich text'),
+      '#description' => $this->t('The [neo:description] token uses the first rich text in a page\'s components, cut at 160 characters, when nothing else describes the page. If not checked, it falls back to the site slogan.'),
+      '#default_value' => $this->getValue('description_from_content') ?? TRUE,
+    ];
+
     return $form;
   }
 

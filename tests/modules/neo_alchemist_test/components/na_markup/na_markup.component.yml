@@ -1,0 +1,18 @@
+$schema: 'https://git.drupalcode.org/project/drupal/-/raw/10.1.x/core/modules/sdc/src/metadata.schema.json'
+name: 'NA markup fixture'
+description: >
+  One plain string and one rich-text prop, both with examples. The description
+  token test reads the rich text, and must never read an example.
+status: stable
+neo: true
+props:
+  type: object
+  properties:
+    title:
+      type: string
+      title: Title
+      examples: 'EXAMPLE MARKUP TITLE'
+    body:
+      type: markup
+      title: Body
+      examples: '<p>EXAMPLE MARKUP BODY</p>'

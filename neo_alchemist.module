@@ -8,6 +8,8 @@
 declare(strict_types=1);
 
 use Drupal\neo_alchemist\Plugin\ComponentValue\ViewsValue;
+use Drupal\Component\Utility\Html;
+use Drupal\Component\Utility\Unicode;
 use Drupal\Core\Entity\ContentEntityFormInterface;
 use Drupal\Core\Entity\ContentEntityInterface;
 use Drupal\Core\Entity\ContentEntityTypeInterface;
@@ -30,6 +32,8 @@ use Drupal\neo_alchemist\Form\InstanceComponentPublishForm;
 use Drupal\neo_alchemist\Form\InstanceComponentResetForm;
 use Drupal\neo_alchemist\Form\InstanceComponentRevertForm;
 use Drupal\neo_alchemist\Form\InstanceComponentSortForm;
+use Drupal\neo_alchemist\Plugin\DataType\ComponentTreeStructure;
+use Drupal\neo_alchemist\Plugin\Field\FieldType\ComponentTreeItem;
 use Drupal\neo_alchemist\Plugin\Field\NeoComponentTreeList;
 use Drupal\neo_alchemist\Routing\EditorOpInventory;
 use Drupal\neo_alchemist\Routing\EditorRouteFamily;
@@ -938,6 +942,111 @@ function neo_alchemist_neo_token_image_alter(&$uri, &$params, ?ContentEntityInte
       $uri = $shapeValue;
     }
   }
+}
+
+/**
+ * Implements hook_neo_token_description_alter().
+ *
+ * Describes an entity by its first words: the text of the first filled
+ * rich-text prop in its component tree, cut at 160 characters on a word
+ * boundary. Without it [neo:description] falls back to the site slogan on
+ * every page. A description another module already provided is kept, and the
+ * "description_from_content" setting turns this off.
+ */
+function neo_alchemist_neo_token_description_alter(&$description, &$params, ?ContentEntityInterface $entity = NULL) {
+  if ($description || !$entity) {
+    return;
+  }
+  // See neo_alchemist_neo_token_image_alter(): never walk a tree while a
+  // views value provider is executing.
+  if (ViewsValue::isExecuting()) {
+    return;
+  }
+  $settings = \Drupal::service('neo_alchemist.settings')->getActive();
+  if ($settings && $settings->getValue('description_from_content') === FALSE) {
+    return;
+  }
+  $fieldName = neo_alchemist_get_entity_field_name($entity);
+  if (!$fieldName || !$entity->hasField($fieldName)) {
+    return;
+  }
+  $item = $entity->get($fieldName)->first();
+  if (!$item instanceof ComponentTreeItem) {
+    return;
+  }
+  $text = neo_alchemist_description_find($item);
+  if ($text !== '') {
+    $description = Unicode::truncate($text, 160, TRUE, TRUE);
+  }
+}
+
+/**
+ * The text of the first filled rich-text prop, in reading order.
+ *
+ * Walks published components depth first: a component's own props, then the
+ * components in its slots. Only top-level props the instance stores a value
+ * for count: an unset prop reports the component's example, which must never
+ * describe a page (nor must an array entry's, for the same reason).
+ *
+ * @param \Drupal\neo_alchemist\Plugin\Field\FieldType\ComponentTreeItem $item
+ *   The tree.
+ * @param string $parentUuid
+ *   The component whose children to walk; the root by default.
+ * @param int $depth
+ *   How deep the walk is, to stop a malformed tree looping.
+ *
+ * @return string
+ *   The text, or '' when the tree has none.
+ */
+function neo_alchemist_description_find(ComponentTreeItem $item, string $parentUuid = ComponentTreeStructure::ROOT_UUID, int $depth = 0): string {
+  if ($depth > 20) {
+    return '';
+  }
+  foreach ($item->getComponents($parentUuid) as $uuid => $component) {
+    if (!$component->isPublished()) {
+      continue;
+    }
+    foreach ($component->getPropShapes() as $name => $shape) {
+      if ($shape->getRef() !== 'markup') {
+        continue;
+      }
+      // Only a value the instance stores: an unset prop reports the
+      // component's example, and a hidden one stores an empty value.
+      $stored = $component->getValue(['props', $name, 'value']);
+      $stored = is_array($stored) ? ($stored['value'] ?? '') : $stored;
+      if (!is_scalar($stored) || trim((string) $stored) === '') {
+        continue;
+      }
+      $text = neo_alchemist_description_text((string) $shape->getValue());
+      if ($text !== '') {
+        return $text;
+      }
+    }
+    $text = neo_alchemist_description_find($item, (string) $uuid, $depth + 1);
+    if ($text !== '') {
+      return $text;
+    }
+  }
+  return '';
+}
+
+/**
+ * The visible text of rich text, one line, for a description.
+ *
+ * Block boundaries (paragraphs, headings, list items, line breaks) become
+ * spaces, so "<h2>Title</h2><p>Text</p>" reads "Title Text" rather than
+ * running the words together.
+ *
+ * @param string $html
+ *   The rich text.
+ *
+ * @return string
+ *   The text, whitespace collapsed.
+ */
+function neo_alchemist_description_text(string $html): string {
+  $html = preg_replace('#<(/?(?:p|div|h[1-6]|li|ul|ol|dl|dt|dd|br|hr|tr|td|th|table|blockquote|pre|figure|figcaption|section|article|address)\b)#i', ' <$1', $html);
+  $text = Html::decodeEntities(strip_tags((string) $html));
+  return trim((string) preg_replace('/[\s\x{00A0}]+/u', ' ', $text));
 }
 
 /**
