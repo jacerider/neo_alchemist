@@ -1,5 +1,19 @@
 # Changelog
 
+## Previews make room for a component that rises over what precedes it
+
+**A preview frame pads itself for content that reaches above it.** A component
+that pulls itself up over the section before it on a page — a negative top
+margin, a relative offset, a transform, at any depth — had nothing above it in
+a preview: the raised part sat above the frame's top edge, clipped, and the
+frame's height (the wrapper's `scrollHeight`) never counted it. The frame now
+measures how far visible content reaches above the preview wrapper and adds that
+much top padding before it reports its height. Every preview gets it — the
+component library, the instance editor, the page canvas, thumbnails — with no
+per-component setup; content that does not rise (or rises by under 2px, which is
+text leaving its line box) is untouched, and on the page canvas a raised
+component overlaps the one before it as on the site.
+
 ## Pages without a description are described by their first rich text
 
 `[neo:description]` fell back to the site slogan on every page that had no

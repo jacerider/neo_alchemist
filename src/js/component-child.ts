@@ -152,6 +152,7 @@
         resizeObserver?.disconnect();
         resizeObserver = new ResizeObserver(entries => {
           for (const _entry of entries) {
+            fitRaisedContent(element as HTMLElement);
             window.parent.postMessage({
               type: 'size',
               id: id,
@@ -172,6 +173,52 @@
         initPropTargets(element as HTMLElement);
         scheduleItemsReport();
       });
+    }
+  };
+
+  /**
+   * Makes room for content that reaches above the preview.
+   *
+   * On a page a component may pull itself up over whatever precedes it — a
+   * negative top margin, a relative offset, a transform, at any depth. Alone
+   * in a preview there is nothing above it: that part lands above the frame's
+   * top edge, where it is clipped, and scrollHeight never counts it. So the
+   * wrapper gets that much more top padding, on top of its own, before the
+   * frame reports its height. Padding already added is measured out again, so
+   * repeated calls settle rather than grow. Fixed and hidden elements (dialogs,
+   * closed menus) do not count.
+   */
+  const fitRaisedContent = (wrapper: HTMLElement): void => {
+    const added = parseFloat(wrapper.dataset.neoRaised || '0');
+    const style = getComputedStyle(wrapper);
+    const padding = parseFloat(style.paddingTop) - added;
+    const top = wrapper.getBoundingClientRect().top;
+    let highest = Infinity;
+    wrapper.querySelectorAll<HTMLElement>('*').forEach(el => {
+      const rect = el.getBoundingClientRect();
+      if (!rect.width && !rect.height) {
+        return;
+      }
+      const elStyle = getComputedStyle(el);
+      if (elStyle.position === 'fixed' || elStyle.visibility === 'hidden') {
+        return;
+      }
+      highest = Math.min(highest, rect.top - top - added);
+    });
+    // A pixel or two is text poking out of its line box, not a raised
+    // component: leaving it keeps every ordinary preview exactly as it was.
+    const reach = highest === Infinity ? 0 : Math.round(padding - highest);
+    const raise = reach >= 2 ? reach : 0;
+    if (raise === added) {
+      return;
+    }
+    if (raise) {
+      wrapper.dataset.neoRaised = String(raise);
+      wrapper.style.paddingTop = `${padding + raise}px`;
+    }
+    else {
+      delete wrapper.dataset.neoRaised;
+      wrapper.style.removeProperty('padding-top');
     }
   };
 
