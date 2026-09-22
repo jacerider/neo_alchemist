@@ -140,6 +140,11 @@ final class BreadcrumbValue extends ComponentValuePluginBase implements Containe
     $breadcrumb = $this->breadcrumbManager->build($this->routeMatch);
     $value = [];
     $links = $breadcrumb->getLinks();
+    // Asked before `hide_home` shifts the home crumb off. A page whose trail
+    // is only Home still has a breadcrumb, and hiding home must not also
+    // suppress the current page: read off the shifted array, the guard below
+    // emptied the prop entirely on any page whose only crumb was Home.
+    $has_links = (bool) $links;
     if ($links && $this->configuration['hide_home']) {
       array_shift($links);
     }
@@ -159,7 +164,7 @@ final class BreadcrumbValue extends ComponentValuePluginBase implements Containe
         ];
       }
     }
-    if ($links && !isset($links['_current'])) {
+    if ($has_links && !isset($links['_current'])) {
       if (!$this->configuration['hide_current']) {
         // Resolved through the shared title trait rather than the title
         // resolver directly. A route title can be a render array, and the
