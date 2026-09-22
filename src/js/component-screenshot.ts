@@ -143,6 +143,50 @@
     }
   };
 
+  // snapdom rasterizes by serializing a clone of the subtree with
+  // XMLSerializer, wrapping it in a <foreignObject> and handing the whole thing
+  // to an <img> as an SVG data URL, so the markup has to parse as
+  // namespace-aware XML. Alpine's syntax does not: `@scroll.window` opens with
+  // a character XML forbids in a name at all, and `:class` /
+  // `x-bind:aria-expanded` read as namespace prefixes that were never declared.
+  // One of either anywhere in the tree fails the parse, and because the failure
+  // surfaces as the <img> refusing to decode, the whole capture dies with an
+  // opaque EncodingError rather than losing one attribute. Without this, a
+  // header carrying @scroll.window, or a nav with @mouseenter, is simply
+  // uncapturable.
+  //
+  // Dropping them costs nothing. The clone is thrown away after rasterizing,
+  // and no behaviour attribute contributes to how the component paints: the
+  // computed styles are copied across from the live element separately, after
+  // this hook runs. Only null-namespace attributes are candidates, so the
+  // genuinely prefixed ones (`xlink:href`, `xml:lang`) keep their names and
+  // serialize with their declaration intact.
+  const XML_NAME = /^[A-Za-z_][A-Za-z0-9_.-]*$/;
+
+  const stripUnserializableAttributes = (el: Element): void => {
+    const attrs = el.attributes;
+    for (let i = attrs.length - 1; i >= 0; i--) {
+      const attr = attrs[i];
+      if (attr.namespaceURI === null && !XML_NAME.test(attr.name)) {
+        // By node rather than by name: removeAttribute() case-folds its
+        // argument for HTML elements, which these names cannot rely on.
+        el.removeAttributeNode(attr);
+      }
+    }
+  };
+
+  const CAPTURE_PLUGINS: SnapdomPlugin[] = [{
+    name: 'neo-xml-safe-attributes',
+    afterClone: (context) => {
+      const clone = context && context.clone;
+      if (!clone || clone.nodeType !== Node.ELEMENT_NODE) {
+        return;
+      }
+      stripUnserializableAttributes(clone);
+      clone.querySelectorAll('*').forEach(stripUnserializableAttributes);
+    },
+  }];
+
   let snapdomLoader: Promise<void> | null = null;
 
   /**
@@ -322,6 +366,7 @@
         compress: true,
         fast: true,
         backgroundColor: '#ffffff',
+        plugins: CAPTURE_PLUGINS,
       });
       const output = resizeCanvas(canvas, OUTPUT_WIDTH);
       const blob = await new Promise<Blob | null>((resolve) => output.toBlob(resolve, 'image/png'));
@@ -393,6 +438,7 @@
           compress: true,
           fast: true,
           backgroundColor: '#ffffff',
+          plugins: CAPTURE_PLUGINS,
         });
         const target = Math.max(1, Math.round(Math.min(needed, component.offsetWidth)));
         images[componentUuid] = resizeCanvas(canvas, target).toDataURL('image/png');

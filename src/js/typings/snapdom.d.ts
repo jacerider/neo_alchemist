@@ -1,3 +1,14 @@
+// A snapdom lifecycle plugin. Only the hook neo_alchemist actually uses is
+// declared; snapdom dispatches several more (beforeSnap, beforeClone,
+// beforeRender, beforeExport) against the same context object.
+interface SnapdomPlugin {
+  // Required: snapdom dedupes registered plugins by name.
+  name: string;
+  // Runs once the subtree has been cloned and before its computed styles are
+  // copied across or it is serialized, with the detached clone to mutate.
+  afterClone?: (context: { clone?: Element }) => void | Promise<void>;
+}
+
 interface SnapdomOptions {
   scale?: number;
   dpr?: number;
@@ -10,6 +21,7 @@ interface SnapdomOptions {
   useProxy?: string;
   exclude?: string[];
   filter?: (el: Element) => boolean;
+  plugins?: SnapdomPlugin[];
 }
 
 declare var snapdom: {
