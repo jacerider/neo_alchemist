@@ -472,6 +472,56 @@
   };
 
   /**
+   * An `r g b` colour token as three numbers, or null if it is anything else.
+   *
+   * The stylesheet writes `rgb(var(--neo-alchemist-prop-stroke))`, so a value
+   * that is not a bare triple (a hex, an `rgb()`, an empty string on a site
+   * with no colour module) does not merely change the colour, it makes the
+   * whole declaration invalid. Refusing to copy one leaves the fallback in
+   * place, which is the difference between an unbranded outline and no outline.
+   */
+  const colorChannels = (value: string): number[] | null => {
+    const parts = value.trim().split(/[\s,]+/);
+    if (parts.length !== 3) {
+      return null;
+    }
+    const channels = parts.map(part => Number(part));
+    return channels.some(channel => !isFinite(channel)) ? null : channels;
+  };
+
+  /**
+   * Paint an overlay in the colours of the thing it marks.
+   *
+   * The overlay layer hangs off the body so it cannot take part in the frame's
+   * scroll size (see getOverlayLayer()), which also puts it outside whatever
+   * colour scheme the component sets on its own wrapper. So the tokens the
+   * stylesheet reads resolved against the page root, not against the component
+   * the mark is drawn over: a `scheme-dark` hero was outlined in the light
+   * scheme's primary, a dark green hairline on its own near-black background.
+   *
+   * Read from the target, the stroke is the accent that component itself would
+   * use, and a scheme picks that accent to read against its own background. The
+   * ink is then black or white, whichever the stroke is not; it carries the
+   * chip's lettering and the halo that keeps the stroke legible where the
+   * component's background is a photograph rather than the scheme's colour.
+   */
+  const applyPropInk = (overlay: HTMLElement, target: HTMLElement): void => {
+    const style = window.getComputedStyle(target);
+    const stroke = colorChannels(style.getPropertyValue('--color-primary-500'));
+    if (!stroke) {
+      return;
+    }
+    const edge = colorChannels(style.getPropertyValue('--color-primary-600'));
+    overlay.style.setProperty('--neo-alchemist-prop-stroke', stroke.join(' '));
+    overlay.style.setProperty('--neo-alchemist-prop-edge', (edge || stroke).join(' '));
+    // Rec. 601 luma, thresholded high because the two candidates are the
+    // extremes: the decision only has to land on the right side, and a stroke
+    // in the middle of the range carries black better than it carries white.
+    const luma = (0.299 * stroke[0] + 0.587 * stroke[1] + 0.114 * stroke[2]) / 255;
+    overlay.style.setProperty('--neo-alchemist-prop-ink', luma > 0.55 ? '0 0 0' : '255 255 255');
+  };
+
+  /**
    * Height the label chip needs above the box, including its gap and stroke.
    */
   const LABEL_CLEARANCE = 26;
@@ -533,6 +583,7 @@
       hoverOverlayLabel.className = 'neo-alchemist--prop-overlay-label';
       hoverOverlay.appendChild(hoverOverlayLabel);
     }
+    applyPropInk(hoverOverlay, hoverTarget);
     const propId = propIdOf(hoverTarget);
     if (hoverOverlayLabel) {
       const title = propMap?.props[propId]?.title || '';
@@ -606,9 +657,14 @@
 
   const renderActiveOverlays = (): void => {
     activeOverlays.forEach(overlay => overlay.remove());
-    const count = activeTargets.length && activeMode !== 'exact' ? 1 : activeTargets.length;
-    activeOverlays = Array.from({ length: count }, () => {
-      return buildOverlay(activeMode === 'component' ? 'is-active is-component' : 'is-active');
+    // One box per target in `exact`, one box over all of them otherwise. In
+    // the grouped modes the first target is the one that colours it, since
+    // everything in a group shares the component's scheme anyway.
+    const owners = activeMode === 'exact' ? activeTargets : activeTargets.slice(0, 1);
+    activeOverlays = owners.map(target => {
+      const overlay = buildOverlay(activeMode === 'component' ? 'is-active is-component' : 'is-active');
+      applyPropInk(overlay, target);
+      return overlay;
     });
     if (activeOverlays.length) {
       const label = document.createElement('span');

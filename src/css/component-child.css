@@ -27,6 +27,31 @@
   z-index: 9999;
   box-sizing: border-box;
   pointer-events: none;
+
+  /* The mark's colour, and the one colour guaranteed to contrast with it.
+   *
+   * Both are written per overlay by the child script, read off the element
+   * being marked rather than off this layer. See applyPropInk(). The layer is
+   * appended to the body so it cannot disturb the frame's scroll size, which
+   * also puts it outside whatever colour scheme the component sets on its own
+   * wrapper; a token read here therefore resolved against the page root. That
+   * is how a `scheme-dark` hero came to be outlined in the *light* scheme's
+   * primary: a dark green hairline on a near-black background, which is the
+   * bug this pair exists to close. What follows is only the fallback for a
+   * site that defines no primary at all.
+   */
+  --neo-alchemist-prop-stroke: var(--color-primary-500, 59 130 246);
+  --neo-alchemist-prop-edge: var(--color-primary-600, 37 99 235);
+  --neo-alchemist-prop-ink: 255 255 255;
+
+  /* A scheme's primary is picked to read against that scheme's *background*,
+   * which is not necessarily what is behind this particular mark once a
+   * component carries a photograph or a gradient. The halo is the insurance:
+   * ink contrasts with the stroke by construction, so where the stroke itself
+   * washes out, its edge still does not. One pixel of blur, enough to lift the
+   * mark off what it sits on and not enough to read as a glow of its own.
+   */
+  filter: drop-shadow(0 0 1px rgb(var(--neo-alchemist-prop-ink) / 0.7));
 }
 
 /* Hover and focus are one system at two strengths, not two systems.
@@ -40,9 +65,9 @@
  */
 .neo-alchemist--prop-overlay.is-hover {
   border: none;
-  outline: 1px dashed rgb(var(--color-primary-500, 59 130 246) / 0.45);
+  outline: 1px dashed rgb(var(--neo-alchemist-prop-stroke) / 0.45);
   outline-offset: 2px;
-  background: rgb(var(--color-primary-500, 59 130 246) / 0.05);
+  background: rgb(var(--neo-alchemist-prop-stroke) / 0.05);
 }
 
 /* The focus outline stands off the element instead of sitting on it.
@@ -61,7 +86,7 @@
  */
 .neo-alchemist--prop-overlay.is-active {
   border: none;
-  outline: 1px dashed rgb(var(--color-primary-500, 59 130 246) / 0.85);
+  outline: 1px dashed rgb(var(--neo-alchemist-prop-stroke) / 0.85);
   outline-offset: 3px;
   /* The overlay is rebuilt, not moved, each time the highlight changes, so this
    * runs on arrival only — enough to read the new box as having appeared rather
@@ -75,7 +100,7 @@
  * a box drawn tight around everything reads as "this exact element", which is
  * the confusion this whole treatment exists to avoid. */
 .neo-alchemist--prop-overlay.is-active.is-component {
-  outline-color: rgb(var(--color-primary-500, 59 130 246) / 0.55);
+  outline-color: rgb(var(--neo-alchemist-prop-stroke) / 0.55);
   outline-offset: 6px;
 }
 
@@ -108,13 +133,19 @@
   margin-bottom: 6px;
   overflow: hidden;
   padding: 1px 6px;
-  /* Opaque, and edged in the next stop down the same ramp rather than in a
+  /* Opaque, and edged in the next stop along the same ramp rather than in a
    * neutral. A black ring read as a stray grey border sitting on a red chip —
    * two colours doing one job. One family, two stops, is the chip defining its
-   * own edge instead of being outlined by something foreign to it. */
-  background: rgb(var(--color-primary-500, 59 130 246));
-  box-shadow: 0 0 0 1px rgb(var(--color-primary-600, 37 99 235));
-  color: rgb(var(--color-primary-500-content, 255 255 255));
+   * own edge instead of being outlined by something foreign to it.
+   *
+   * The text is ink, not the scheme's own `-content` token. A scheme sets one
+   * content colour for the whole scheme, so in a dark scheme it is light, and
+   * that scheme's primary is light too, which put near-white lettering on a
+   * pale gold chip. Ink is picked against this chip rather than against the
+   * scheme, so it is legible in both. */
+  background: rgb(var(--neo-alchemist-prop-stroke));
+  box-shadow: 0 0 0 1px rgb(var(--neo-alchemist-prop-edge));
+  color: rgb(var(--neo-alchemist-prop-ink));
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   font-size: 10px;
   font-weight: 600;
@@ -137,7 +168,7 @@
 /* The hover chip is the quieter half of the pair here too, so that when both
  * are on screen the one naming what you are editing is the one that leads. */
 .neo-alchemist--prop-overlay.is-hover > .neo-alchemist--prop-overlay-label {
-  background: rgb(var(--color-primary-500, 59 130 246) / 0.75);
+  background: rgb(var(--neo-alchemist-prop-stroke) / 0.75);
   font-weight: 500;
 }
 
