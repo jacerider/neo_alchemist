@@ -190,7 +190,7 @@ final class DefaultValue extends ComponentValuePluginBase implements ContainerFa
     // @todo Restore the "just enabled, no widget" early return. It was removed
     // because object and array props have no widget and must still pass values.
     if (!empty(Element::children($form))) {
-      $defaultShape->validateForm($form, $form_state, $values);
+      $defaultShape->validateForm($form, $form_state);
       $originalValues = $this->configuration['default'] ?? [];
       if (!is_array($originalValues)) {
         $originalValues = [$originalValues];

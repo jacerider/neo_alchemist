@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Drupal\Tests\neo_alchemist\Kernel;
 
 use Drupal\Core\Form\FormState;
+use Drupal\Core\Render\Element;
 use Drupal\KernelTests\KernelTestBase;
 use Drupal\neo_alchemist\ComponentInterface;
 use Drupal\neo_alchemist\Entity\Component;
@@ -127,7 +128,9 @@ class ComponentPropValueHarvestTest extends KernelTestBase {
       ->build($component, $form, $formState);
     $form['styles'] = $panel['styles'];
     $form['values'] = $panel['values'];
-    $formState->setValues(['values' => $submitted]);
+    $formState->setValues([
+      'values' => $this->withOptionDefaults($panel['values'], $submitted),
+    ]);
     return $form;
   }
 
@@ -333,6 +336,205 @@ class ComponentPropValueHarvestTest extends KernelTestBase {
       'The harvest reports the shape\'s nested options verbatim.',
     );
     $this->assertNotSame([], $props['text']['options'], 'And there is something in them to report.');
+  }
+
+  /**
+   * Builds a fixture whose prop carries options its component configured.
+   *
+   * The fallback layer is what a component's own configuration contributes,
+   * and the Default Value provider is the only thing that writes into it.
+   *
+   * @param string $sdcId
+   *   The SDC to build a component for.
+   * @param string $propName
+   *   The prop to configure.
+   * @param array $options
+   *   The options to configure, keyed by shape id.
+   *
+   * @return \Drupal\neo_alchemist\ComponentInterface
+   *   The component, with its shapes freshly built.
+   */
+  private function componentWithConfiguredOptions(string $sdcId, string $propName, array $options): ComponentInterface {
+    $component = $this->component($sdcId);
+    $id = $component->id();
+    $this->container->get('config.factory')
+      ->getEditable('neo_alchemist.neo_component.' . $id)
+      ->set('settings.props.' . $propName . '.plugins.' . $propName . '.default', [
+        'id' => 'default',
+        'settings' => [
+          'field_type' => 'map',
+          'default' => NULL,
+          'options' => $options,
+        ],
+      ])
+      ->save();
+    $storage = $this->container->get('entity_type.manager')->getStorage('neo_component');
+    $storage->resetCache([$id]);
+    /** @var \Drupal\neo_alchemist\ComponentInterface $component */
+    $component = $storage->load($id);
+    $component->setPreview(TRUE);
+    $this->resetPreviewValues($component);
+    return $component;
+  }
+
+  /**
+   * An option the form could not offer survives the harvest.
+   *
+   * The regression test. ::setOptions() replaces rather than merges, on the
+   * contract that `_options` carries every control the shape offered — and an
+   * option whose control was never BUILT breaks that contract rather than
+   * bending it. NestedOptionMap::toArray() unions its two layers by top-level
+   * key, so the one saved option left standing threw away the whole fallback
+   * entry beside it.
+   *
+   * An array shape is the module-light way to reach that state: ArrayShape
+   * withdraws `empty` access in init(), so its form offers `default` alone,
+   * exactly as a media prop's does once MediaValue force-shows `default`.
+   *
+   * Red before the fix with `empty` absent from the harvested options, which
+   * is what un-hid a background image the moment any other prop changed.
+   */
+  public function testAnOptionTheFormCouldNotOfferSurvivesTheHarvest(): void {
+    $component = $this->componentWithConfiguredOptions(
+      self::ARRAY_SDC,
+      'items',
+      ['items' => ['empty' => 1, 'default' => 1]],
+    );
+    $shape = $component->getPropShapes()['items'];
+    $this->assertFalse(
+      $shape->getOptionEmpty()->isAllowed(),
+      'Premise: the form cannot offer an `empty` control for an array shape.',
+    );
+    $this->assertTrue(
+      $shape->getOptionEmpty()->isEnabled(),
+      'Premise: the component configured the prop hidden all the same.',
+    );
+
+    $props = $this->harvest(
+      $component,
+      ['items' => [0 => ['_weight' => '0'] + $this->stringSubmission('value', 'ITEM')]],
+    );
+
+    $this->assertSame(
+      1,
+      $props['items']['options']['items']['empty'] ?? NULL,
+      'The configured `empty` survived a harvest that never offered it.',
+    );
+  }
+
+  /**
+   * A shape that offered no options writes none.
+   *
+   * Replacing with an empty array still creates a present top-level key, and
+   * toArray()'s union is by top-level key — so writing `[]` shadows a shape's
+   * whole fallback entry just as thoroughly as writing the wrong value does.
+   * A form that offered nothing has nothing to say about the options.
+   *
+   * @see \Drupal\Tests\neo_alchemist\Unit\Shape\NestedOptionMapTest::testReplaceOwnWithNothingStillShadowsTheFallback
+   */
+  public function testShapeOfferingNoOptionsWritesNone(): void {
+    $component = $this->componentWithConfiguredOptions(
+      self::LEAF_SDC,
+      'text',
+      ['text' => ['empty' => 1]],
+    );
+    $shape = $component->getPropShapes()['text'];
+    // What SlugShape does to itself in init(), stated here rather than
+    // reached through whichever fixture happens to have the property. With
+    // `access` already withheld outside config scope, withdrawing the other
+    // two leaves the group built but childless, which is the shape of a form
+    // that offered nothing. The prop stays editable, so the harvest still
+    // visits it, which one gated out by access('update') would not be.
+    $shape->getOptionEmpty()->setAccess(FALSE);
+    $shape->getOptionDefault()->setAccess(FALSE);
+    $this->assertFalse($shape->getOptionAccess()->isAllowed(), 'Premise.');
+    $this->assertTrue($shape->access('update'), 'Premise: the harvest visits it.');
+
+    $form = $this->buildPanel(
+      $component,
+      $this->stringSubmission('text', 'SUBMITTED'),
+      $formState,
+    );
+    $group = $form['values']['text']['_options'] ?? [];
+    $this->assertSame(
+      [],
+      Element::children($group),
+      'Premise: the built form carries no option controls for this prop.',
+    );
+
+    $this->container->get('neo_alchemist.prop_value_harvester')
+      ->harvest($component, $form, $formState, []);
+
+    // Truthiness, not identity: an option reaching the map from config is a
+    // bool where one written by ::readOptions() is an int, and NestedOptionMap
+    // documents reading them the same way either way.
+    $this->assertNotEmpty(
+      $component->getPropShapes()['text']->getOptions()['empty'] ?? NULL,
+      'The configured `empty` was not shadowed by an empty saved entry.',
+    );
+  }
+
+  /**
+   * An offered option still comes from the submission, not from the map.
+   *
+   * The other half of the rule above, and the reason the carry-over is keyed
+   * on what the form offered rather than on what the submission happens to
+   * hold: an unchecked checkbox submits nothing, so a shape that fell back to
+   * its current value for a missing key would have no way to be cleared.
+   */
+  public function testAnOfferedOptionStillComesFromTheSubmission(): void {
+    $component = $this->component(self::LEAF_SDC);
+    $shape = $component->getPropShapes()['text'];
+    $this->setPreviewValues($component, [
+      'props' => [
+        'text' => [
+          'ref' => $shape->getRef(),
+          'value' => ['value' => 'ANYTHING'],
+          'options' => [$shape->id() => ['default' => 1]],
+        ],
+      ],
+    ]);
+    $this->assertTrue($component->getPropShapes()['text']->getOptionDefault()->isEnabled());
+
+    // Clearing the box is the author pressing `Customize`.
+    $submitted = $this->stringSubmission('text', 'SUBMITTED');
+    $submitted['text']['_options'] = ['default' => 0];
+    $props = $this->harvest($component, $submitted);
+
+    $this->assertSame(
+      0,
+      $props['text']['options']['text']['default'] ?? NULL,
+      'The cleared checkbox won over the option the map was carrying.',
+    );
+  }
+
+  /**
+   * Input for an option the form never offered is ignored.
+   *
+   * An element that was never built got no access check from FormBuilder, so
+   * input sitting at its key is input the shape never asked for. Reading it
+   * would let a crafted submission turn on an option its form withheld.
+   */
+  public function testStaleInputForAnUnofferedOptionIsIgnored(): void {
+    $component = $this->componentWithConfiguredOptions(
+      self::ARRAY_SDC,
+      'items',
+      ['items' => ['empty' => 1]],
+    );
+    $this->assertFalse(
+      $component->getPropShapes()['items']->getOptionEmpty()->isAllowed(),
+      'Premise: the form offers no `empty` control to submit against.',
+    );
+
+    $submitted = ['items' => [0 => ['_weight' => '0'] + $this->stringSubmission('value', 'ITEM')]];
+    $submitted['items']['_options'] = ['empty' => 0];
+    $props = $this->harvest($component, $submitted);
+
+    $this->assertSame(
+      1,
+      $props['items']['options']['items']['empty'] ?? NULL,
+      'The shape kept its own option rather than taking the wire\'s word.',
+    );
   }
 
   /**

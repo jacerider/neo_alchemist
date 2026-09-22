@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\Tests\neo_alchemist\Kernel;
 
+use Drupal\Core\Render\Element;
 use Drupal\entity_test\Entity\EntityTestBundle;
 use Drupal\user\Entity\User;
 
@@ -54,6 +55,49 @@ trait ValueEditorFixtureTrait {
    */
   protected function stringSubmission(string $propName, string $value): array {
     return [$propName => [$propName => [0 => ['value' => $value]]]];
+  }
+
+  /**
+   * Seeds every `_options` control's default into a submission.
+   *
+   * A Kernel test sets form values straight onto the form state, so nothing
+   * runs the pass where FormBuilder assigns an element's `#default_value` as
+   * its value. Without that, every option control reads as cleared, and a
+   * shape's options come back off rather than as the form presented them.
+   * Production never submits a form the builder did not first process, so a
+   * test that skips it is asserting against a state that cannot occur.
+   *
+   * @param array $element
+   *   The built element to walk, `values` at the top.
+   * @param array $submitted
+   *   The submission, keyed the same way.
+   *
+   * @return array
+   *   The submission, with an `_options` entry per control the form built.
+   */
+  protected function withOptionDefaults(array $element, array $submitted): array {
+    foreach (Element::children($element) as $key) {
+      if (!is_array($element[$key])) {
+        continue;
+      }
+      if ($key === '_options') {
+        foreach (Element::children($element[$key]) as $option) {
+          $default = $element[$key][$option]['#default_value'] ?? 0;
+          // Seeded, not imposed: a caller stating a control's value is
+          // describing the author who pressed it, and that outranks the
+          // default the form was built with.
+          $submitted['_options'][$option] ??= (int) $default;
+        }
+        continue;
+      }
+      // A widget's own subtree can hold scalars, which are not something to
+      // recurse into and never carry an `_options` group.
+      $child = $submitted[$key] ?? [];
+      if (is_array($child)) {
+        $submitted[$key] = $this->withOptionDefaults($element[$key], $child);
+      }
+    }
+    return $submitted;
   }
 
 }

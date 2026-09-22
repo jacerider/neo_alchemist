@@ -2456,7 +2456,13 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
       ];
     }
     $states = [];
-    if ((!$optionEmpty->isFormForced() || $optionDefault->isFormForced()) && $optionDefault->isAllowed()) {
+    // Each control answers for its own option. Letting one option's forced
+    // form suppress the OTHER one's control is what left a media prop, where
+    // MediaValue::onShapeInit() force-shows `default`, with no way to say
+    // `Show` once a site builder had configured it hidden. The legend could
+    // not say `(Hidden)` either, because the state below is pushed from
+    // inside a branch that was never taken.
+    if ($optionDefault->isAllowed()) {
       $defaulted = $optionDefault->isEnabled();
       if ($defaulted) {
         $states[] = $this->t('Default');
@@ -2474,7 +2480,13 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
           ? $this->t('Set your own value for @label', ['@label' => $this->getTitle()])
           : $this->t('Use the default value of @label', ['@label' => $this->getTitle()]),
         '#default_value' => $defaulted,
-        '#access' => $optionDefault->isFormForced() || $optionEmpty->isDisabled(),
+        // Visible when it is forced, when the shape is sitting ON the state
+        // (there is always a way back out of one), or when nothing else is
+        // already suppressing the value: you can only opt into the default
+        // while the prop is not hidden.
+        '#access' => $optionDefault->isFormForced()
+        || $defaulted
+        || $optionEmpty->isDisabled(),
         '#neo_size' => 'xs',
         '#neo_style' => 'inline_buttons_text',
         '#ajax' => [
@@ -2483,7 +2495,7 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
         ],
       ];
     }
-    if ((!$optionDefault->isFormForced() || $optionEmpty->isFormForced()) && $optionEmpty->isAllowed()) {
+    if ($optionEmpty->isAllowed()) {
       $hidden = $optionEmpty->isEnabled();
       if ($hidden) {
         $states[] = $this->t('Hidden');
@@ -2502,7 +2514,11 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
           : $this->t('Do not show @label', ['@label' => $this->getTitle()]),
         '#tooltip' => TRUE,
         '#default_value' => $hidden,
-        '#access' => $optionEmpty->isFormForced() || $optionDefault->isDisabled(),
+        // The mirror of `default` above: always a way out of hidden, and a
+        // way in whenever the prop is not already sitting on its default.
+        '#access' => $optionEmpty->isFormForced()
+        || $hidden
+        || $optionDefault->isDisabled(),
         '#neo_size' => 'xs',
         '#neo_style' => 'inline_buttons_text',
         '#ajax' => [
@@ -2679,17 +2695,31 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
    */
   public function validateForm(array $form, FormStateInterface $form_state): void {
     $values = $form_state->getValues();
-    $options = $form_state->getValue('_options') ?? [];
-    if (isset($options['default'])) {
-      $options['default'] = (int) $options['default'];
+    // `_options` reports the controls this shape's form OFFERED, and
+    // ::setOptions() replaces rather than merges. That is deliberate, and
+    // pinned by NestedOptionMapTest. The two agree only while every option the
+    // shape carries is an element in `$form['_options']`.
+    //
+    // An element built with `#access: FALSE` satisfies that: core's
+    // FormBuilder::handleInputElement() assigns `#default_value` as its value
+    // and calls setValueForElement() outside the input-processing gate. It is
+    // the invariant ComponentValuePanelBuilder::hideOptionControls() rests on.
+    //
+    // An element that was never BUILT does not. MediaValue::onShapeInit()
+    // force-shows the `default` control, which used to suppress the `empty`
+    // control's build condition in ::getForm(). So `_options` carried
+    // `default` alone, and replacing with it discarded the `Hidden` that the
+    // component's own configuration had supplied as a fallback:
+    // NestedOptionMap::toArray() unions its layers by TOP-LEVEL key, so one
+    // saved option throws that shape's whole fallback entry away.
+    //
+    // A form that offered nothing reports nothing. Writing an empty array
+    // still creates a present key, and that shadows a fallback just as
+    // thoroughly as a wrong one does.
+    $offered = array_intersect_key($form['_options'] ?? [], $this->options);
+    if ($offered) {
+      $this->setOptions($this->readOptions($offered, $form_state));
     }
-    if (isset($options['empty'])) {
-      $options['empty'] = (int) $options['empty'];
-    }
-    if (isset($options['access'])) {
-      $options['access'] = (int) $options['access'];
-    }
-    $this->setOptions($options);
     // Remove options so that they are not processed or stored.
     $form_state->unsetValue('_options');
 
@@ -2701,6 +2731,45 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
     if (empty($values) && $this->isRequired()) {
       $form_state->setError($form, $this->getTitle() . ' is required.');
     }
+  }
+
+  /**
+   * Reads this shape's options back out of its submitted form.
+   *
+   * @param array $offered
+   *   The `_options` elements the form built, keyed by option name.
+   * @param \Drupal\Core\Form\FormStateInterface $form_state
+   *   The form state, scoped to this shape.
+   *
+   * @return array
+   *   Option name => 0 or 1, for every option this shape has a record of.
+   *   Ordered by ::$options rather than by what arrived on the wire, so that
+   *   a stored map does not reshuffle between saves.
+   */
+  private function readOptions(
+    array $offered,
+    FormStateInterface $form_state,
+  ): array {
+    $submitted = $form_state->getValue('_options') ?? [];
+    // Saved unioned over fallback: what the shape is actually running on, and
+    // for an option with no control the only record of it there is.
+    $current = $this->getOptions();
+    $options = [];
+    foreach (array_keys($this->options) as $name) {
+      if (isset($offered[$name])) {
+        // Not `?? $current[$name]`: an unchecked checkbox submits nothing, so
+        // falling back would make clearing the box impossible.
+        $options[$name] = (int) ($submitted[$name] ?? 0);
+        continue;
+      }
+      if (array_key_exists($name, $current)) {
+        // Deliberately not read from $submitted. An element that was never
+        // built got no access check from FormBuilder, so input sitting at its
+        // key is input this shape never asked for.
+        $options[$name] = (int) $current[$name];
+      }
+    }
+    return $options;
   }
 
   /**

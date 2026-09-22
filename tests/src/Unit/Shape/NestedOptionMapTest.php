@@ -216,6 +216,37 @@ class NestedOptionMapTest extends UnitTestCase {
   }
 
   /**
+   * Replacing with nothing still shadows the fallback.
+   *
+   * An empty array is a present top-level key, and ::toArray() unions by
+   * top-level key — so writing `[]` discards a shape's fallback entry just as
+   * thoroughly as writing the wrong value does. There is no "clear" that means
+   * "defer to the fallback again".
+   *
+   * This is why a caller must not write at all when the form it is reading
+   * offered no option controls, rather than writing what it found.
+   *
+   * @see \Drupal\neo_alchemist\Shape\ComponentShapePluginBase::validateForm()
+   * @see \Drupal\Tests\neo_alchemist\Kernel\ComponentPropValueHarvestTest::testShapeOfferingNoOptionsWritesNone
+   */
+  public function testReplaceOwnWithNothingStillShadowsTheFallback(): void {
+    $map = new NestedOptionMap();
+    $options = $map->forShape('heading');
+    $map->mergeFallbacks([
+      'heading' => [NestedOptionMap::OPTION_EMPTY => 1],
+    ]);
+    $this->assertSame(
+      [NestedOptionMap::OPTION_EMPTY => 1],
+      $options->getOwn(),
+      'Premise: the fallback is what the shape reads before anything is saved.',
+    );
+
+    $options->replaceOwn([]);
+
+    $this->assertSame([], $options->getOwn());
+  }
+
+  /**
    * A shape with nothing recorded for it has no own options.
    */
   public function testShapeWithNothingRecordedHasNoOwnOptions(): void {
