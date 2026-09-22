@@ -228,8 +228,14 @@ interface ComponentValuePluginInterface extends ConfigurableInterface, PluginFor
   /**
    * Massage the form values.
    *
-   * @param array $values
-   *   The form values.
+   * Every allowed instance on the shape is called in turn with the same
+   * by-reference $values, so an implementation receives whatever the previous
+   * one left behind. Setting $values to NULL drops the prop's stored value
+   * altogether; implementations must therefore tolerate being handed NULL and
+   * leave it alone unless they mean to resurrect the value.
+   *
+   * @param array|null $values
+   *   The form values, or NULL if an earlier instance dropped them.
    * @param array $submitted_values
    *   The values before they have been massaged by the widget.
    * @param array $original_values
@@ -239,7 +245,7 @@ interface ComponentValuePluginInterface extends ConfigurableInterface, PluginFor
    * @param \Drupal\Core\Form\FormStateInterface $form_state
    *   The parent form state.
    */
-  public function massageValuesAlter(array &$values, array $submitted_values, array $original_values, array $form, FormStateInterface $form_state): void;
+  public function massageValuesAlter(?array &$values, array $submitted_values, array $original_values, array $form, FormStateInterface $form_state): void;
 
   /**
    * Determines if the component value is editable.

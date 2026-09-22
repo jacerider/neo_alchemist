@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\Tests\neo_alchemist\Unit\Value;
 
+use Drupal\Core\Form\FormStateInterface;
 use Drupal\Tests\neo_alchemist\Traits\ShapeDoubleTrait;
 use Drupal\neo_alchemist\Shape\ComponentShapePluginInterface;
 use Drupal\neo_alchemist\Shape\ComponentShapeStylePluginInterface;
@@ -155,6 +156,39 @@ class MediaImageSizeValueTest extends UnitTestCase {
     $value = $this->stylePlugin(['value' => 'hero'])->modifyValue('anything');
 
     $this->assertSame(['sm' => ['width' => 1920, 'height' => '']], $value);
+  }
+
+  /**
+   * A dropped value stays dropped through the massage.
+   *
+   * Every allowed instance on a shape shares one by-reference $values, and
+   * the `media` provider runs ahead of this modifier and sets it to NULL when
+   * the prop is empty or the user cleared it. Typing the argument as a plain
+   * array fataled the form outright, so an add form for any component with
+   * an untouched image prop could not be saved. Writing the size back would
+   * auto-vivify the array and resurrect the prop as a sizeless image.
+   *
+   * @see \Drupal\neo_alchemist\Plugin\ComponentValue\MediaValue::massageValuesAlter()
+   */
+  public function testMassageLeavesDroppedValuesDropped(): void {
+    $values = NULL;
+    $formState = $this->createMock(FormStateInterface::class);
+
+    $this->plugin()->massageValuesAlter($values, ['size' => 'hero'], [], [], $formState);
+
+    $this->assertNull($values, 'A value the media provider dropped is left dropped.');
+  }
+
+  /**
+   * An intact value is given the submitted size.
+   */
+  public function testMassageWritesTheSubmittedSize(): void {
+    $values = ['target_id' => 7];
+    $formState = $this->createMock(FormStateInterface::class);
+
+    $this->plugin()->massageValuesAlter($values, ['size' => 'hero'], [], [], $formState);
+
+    $this->assertSame(['target_id' => 7, 'size' => 'hero'], $values);
   }
 
   /**

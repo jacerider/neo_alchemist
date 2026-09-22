@@ -323,6 +323,28 @@ class MediaValueTest extends UnitTestCase {
   }
 
   /**
+   * An empty config-scope value is dropped rather than stored as an empty one.
+   *
+   * The NULL is deliberate. It is how the shape is told there is no value at
+   * all, which switches the widget back to the default. It also travels on to
+   * every other instance on this shape through the shared by-reference
+   * argument, so those must tolerate it; the modifier that did not is what
+   * turned an untouched image prop into a 500 on Save.
+   *
+   * @see \Drupal\neo_alchemist\Plugin\ComponentValue\MediaImageSizeValue::massageValuesAlter()
+   */
+  public function testEmptyConfigScopeValueIsDropped(): void {
+    [$plugin] = $this->overridePlugin('items~image~0');
+    $formState = $this->createMock(FormStateInterface::class);
+    $formState->method('getTriggeringElement')->willReturn(NULL);
+
+    $values = [];
+    $plugin->massageValuesAlter($values, [], [], [], $formState);
+
+    $this->assertNull($values, 'An image prop left empty stores nothing.');
+  }
+
+  /**
    * Without a widget in the rebuilt form the callback degrades to a no-op.
    *
    * Belt and braces for the errors that #limit_validation_errors cannot

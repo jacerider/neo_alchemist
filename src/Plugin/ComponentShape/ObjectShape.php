@@ -182,6 +182,12 @@ class ObjectShape extends ChildrenShapeBase implements ComponentShapeExpandedPlu
    */
   public function massageFormValues(array $values, array $original_values, array $form, FormStateInterface $form_state): ?array {
     $values = parent::massageFormValues($values, $original_values, $form, $form_state);
+    if ($values === NULL) {
+      // A value plugin dropped the whole value: a media prop left empty, or
+      // cleared. Massaging children back in would auto-vivify the array and
+      // resurrect the prop.
+      return NULL;
+    }
     foreach ($this->getChildShapes() as $shape) {
       $shapeName = $shape->getName();
       $shapeValue = $values[$shapeName] ?? [];

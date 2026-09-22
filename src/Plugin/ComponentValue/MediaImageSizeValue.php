@@ -196,9 +196,15 @@ final class MediaImageSizeValue extends ComponentValuePluginBase {
   /**
    * {@inheritdoc}
    */
-  public function massageValuesAlter(array &$values, array $submitted_values, array $original_values, array $form, FormStateInterface $form_state): void {
+  public function massageValuesAlter(?array &$values, array $submitted_values, array $original_values, array $form, FormStateInterface $form_state): void {
     if ($this->isStyle()) {
       // We do not need to massage the values.
+      return;
+    }
+    if ($values === NULL) {
+      // The media provider dropped the value: an empty config-scope prop, or
+      // one the user removed. Writing a size back would auto-vivify the array
+      // and resurrect the prop as a sizeless image.
       return;
     }
     $values['size'] = $submitted_values['size'] ?? NULL;

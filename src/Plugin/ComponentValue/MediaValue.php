@@ -441,7 +441,7 @@ final class MediaValue extends ComponentValuePluginBase implements ContainerFact
   /**
    * {@inheritdoc}
    */
-  public function massageValuesAlter(array &$values, array $submitted_values, array $original_values, array $form, FormStateInterface $form_state): void {
+  public function massageValuesAlter(?array &$values, array $submitted_values, array $original_values, array $form, FormStateInterface $form_state): void {
     $shape = $this->getShape();
 
     if ($shape instanceof ComponentShapeMediaPluginInterface && $shape->getScope() === 'field' && $this->getImageMediaType()) {
@@ -503,7 +503,9 @@ final class MediaValue extends ComponentValuePluginBase implements ContainerFact
         }
       }
     }
-    if ($shape instanceof ComponentShapeMediaPluginInterface) {
+    if ($shape instanceof ComponentShapeMediaPluginInterface && $values !== NULL) {
+      // A NULL value was dropped just above; ::massageMediaOverrideValues()
+      // merges into $values, which would bring the prop back.
       if (!empty($submitted_values[$this->shape->getName()])) {
         $widget_values = $submitted_values[$this->shape->getName()];
         if (isset($widget_values['media_override']) && is_array($widget_values['media_override'])) {
