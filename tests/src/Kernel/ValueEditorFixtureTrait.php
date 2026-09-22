@@ -90,12 +90,17 @@ trait ValueEditorFixtureTrait {
         }
         continue;
       }
-      // A widget's own subtree can hold scalars, which are not something to
-      // recurse into and never carry an `_options` group.
-      $child = $submitted[$key] ?? [];
-      if (is_array($child)) {
-        $submitted[$key] = $this->withOptionDefaults($element[$key], $child);
+      // Only walk where the submission already goes, and never create a key.
+      // Grafting the form's structure onto a submission would hand the
+      // harvest an array prop's nav buttons, and the rows an author deleted,
+      // as data: a deleted row is still built, and its subtree carries an
+      // option control, so seeding it would bring the row back. A widget's
+      // own subtree can also hold scalars, which are not something to recurse
+      // into and never carry an `_options` group.
+      if (!array_key_exists($key, $submitted) || !is_array($submitted[$key])) {
+        continue;
       }
+      $submitted[$key] = $this->withOptionDefaults($element[$key], $submitted[$key]);
     }
     return $submitted;
   }

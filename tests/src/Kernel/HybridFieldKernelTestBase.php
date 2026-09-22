@@ -55,6 +55,8 @@ abstract class HybridFieldKernelTestBase extends KernelTestBase {
     'user',
     'field',
     'entity_test',
+    'neo_icon',
+    'neo_tooltip',
     'neo_settings',
     'neo_alchemist',
     'neo_alchemist_test',

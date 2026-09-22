@@ -6,6 +6,7 @@ namespace Drupal\Tests\neo_alchemist\Kernel;
 
 use Drupal\Core\Form\FormState;
 use Drupal\Core\Render\Element;
+use Drupal\Core\Render\RenderContext;
 use Drupal\KernelTests\KernelTestBase;
 use Drupal\neo_alchemist\ComponentInterface;
 use Drupal\neo_alchemist\Entity\Component;
@@ -44,6 +45,8 @@ class ComponentPropValueHarvestTest extends KernelTestBase {
     'system',
     'user',
     'entity_test',
+    'neo_icon',
+    'neo_tooltip',
     'neo_settings',
     'neo_alchemist',
     'neo_alchemist_test',
@@ -124,8 +127,16 @@ class ComponentPropValueHarvestTest extends KernelTestBase {
     // shapes' own validateForm() strips its option controls out of both.
     $formState->setUserInput([]);
     $form = ['#parents' => []];
-    $panel = $this->container->get('neo_alchemist.value_panel_builder')
-      ->build($component, $form, $formState);
+    // A prop form is built inside a render: ArrayShape's item nav renders an
+    // icon to markup while assembling its buttons, and Renderer::render()
+    // throws outside a context. A real request is always inside one, so a test
+    // that builds a panel without it is not reproducing production, it is
+    // reproducing a situation production never reaches.
+    $panel = $this->container->get('renderer')->executeInRenderContext(
+      new RenderContext(),
+      fn () => $this->container->get('neo_alchemist.value_panel_builder')
+        ->build($component, $form, $formState),
+    );
     $form['styles'] = $panel['styles'];
     $form['values'] = $panel['values'];
     $formState->setValues([
