@@ -230,6 +230,18 @@
   // iframeReady() mirrors iframeHasLoaded() in component-parent.ts, which
   // draws the same distinction for the same reason.
   const iframesLoaded = new Set<string>();
+  // Frames the sweep below released rather than the browser. Their report was
+  // made while the document was still fetching, so the geometry it produced is
+  // provisional and gets asked for again once the document does finish.
+  const iframesForced = new Set<string>();
+  // When each frame was first seen parsed but unfinished, which is what tells a
+  // frame taking its time from one that has stopped making progress.
+  const iframeStalledSince: Record<string, number> = {};
+  // How long a frame may go on fetching before the editor stops waiting on it.
+  // staggerIframeLoads() in component-parent.ts spends the same patience on the
+  // same problem.
+  const iframeLoadTimeout = 10000;
+  const iframeSweepInterval = 1000;
 
   function iframeReady(iframe: HTMLIFrameElement): boolean {
     if (iframe.dataset.src) {
@@ -246,13 +258,56 @@
     }
   }
 
-  function iframeLoaded(size: string, iframe: HTMLIFrameElement): void {
-    if (!iframe.contentWindow || !iframeReady(iframe) || iframesLoaded.has(size)) {
+  /**
+   * A frame's document state, or '' when there is not one to read.
+   *
+   * The distinction iframeReady() cannot draw: `complete` means the load event
+   * fired, which waits on every subresource, while `interactive` means the DOM
+   * is built and nothing more. Interactive is the point a frame has geometry
+   * worth measuring and a listener in it to answer, and a frame that sits there
+   * is a frame waiting on something that is not coming.
+   */
+  function iframeState(iframe: HTMLIFrameElement): string {
+    if (iframe.dataset.src) {
+      // Deferred, and not started yet.
+      return '';
+    }
+    try {
+      if (!iframe.contentWindow || iframe.contentWindow.location.href === 'about:blank') {
+        return '';
+      }
+      return iframe.contentDocument?.readyState || '';
+    }
+    catch (e) {
+      return '';
+    }
+  }
+
+  function requestPositionData(): void {
+    Object.values(iframes).forEach(iframe => {
+      if (!iframe.contentWindow) {
+        return;
+      }
+      iframe.contentWindow.postMessage({
+        type: 'getPositionData',
+      }, "*");
+    });
+    // Draw with whatever has answered by the deadline. Declared below, so this
+    // reads the binding rather than closing over an initial value.
+    armPositionWatchdog();
+  }
+
+  /**
+   * Spends a frame's one report, whoever decided the frame was done.
+   */
+  function reportFrame(size: string, iframe: HTMLIFrameElement): void {
+    delete iframeStalledSince[size];
+    if (iframesLoaded.has(size)) {
       return;
     }
     iframesLoaded.add(size);
 
-    if (size === 'desktop') {
+    if (size === 'desktop' && iframe.contentWindow) {
       // Request structure data from desktop iframe.
       iframe.contentWindow.postMessage({
         type: 'getStructureData',
@@ -262,15 +317,73 @@
     if (iframesLoaded.size === Object.keys(iframes).length) {
       iframesLoaded.clear();
       // All frames loaded.
-      Object.values(iframes).forEach(iframe => {
-        if (!iframe.contentWindow) {
-          return;
-        }
-        iframe.contentWindow.postMessage({
-          type: 'getPositionData',
-        }, "*");
-      });
+      requestPositionData();
     }
+  }
+
+  function iframeLoaded(size: string, iframe: HTMLIFrameElement): void {
+    if (!iframe.contentWindow || !iframeReady(iframe)) {
+      return;
+    }
+    // A frame the sweep had given up on has now finished for real. Its
+    // report is already spent and the handshake will not come round again, so
+    // ask every frame for geometry directly: that is what the report would have
+    // done, and it corrects positions that were measured mid-load.
+    if (iframesForced.delete(size)) {
+      requestPositionData();
+      return;
+    }
+    reportFrame(size, iframe);
+  }
+
+  /**
+   * Releases a frame that has stopped making progress.
+   *
+   * A frame that never finishes must not hold the editor hostage. A preview
+   * pulls whatever the page it renders pulls: web fonts from a third party, a
+   * hero image, a video, an embed. Any one of them stalling keeps the load
+   * event from firing, and the count in reportFrame() then never reaches three,
+   * so getPositionData is never sent. That left the editor with no outlines, no
+   * hit targets and nothing to click, with nothing to recover it however long
+   * you waited. Three previews all pulling the same stalled web font is how one
+   * slow third party took the whole page down.
+   *
+   * Releasing gets the editor working on the geometry there is, and
+   * iframeLoaded() corrects it if the document ever does finish.
+   *
+   * A sweep rather than a timer armed per load, because a preview reloads
+   * itself (components-child.ts calls location.reload() after a save), which
+   * leaves the parent no navigation to arm against. Reading the state is cheap
+   * and every round is covered by the same few lines.
+   */
+  function sweepStalledIframes(): void {
+    Object.entries(iframes).forEach(([size, iframe]) => {
+      const state = iframeState(iframe);
+      if (state === '' || state === 'loading') {
+        // Early rather than stalled: a deferred frame waiting its turn in
+        // staggerIframeLoads(), or a document still arriving. A frame that has
+        // begun a new document is also a frame whose last release is spent.
+        delete iframeStalledSince[size];
+        iframesForced.delete(size);
+        return;
+      }
+      if (state === 'complete' || iframesLoaded.has(size) || iframesForced.has(size)) {
+        // Finished, already reported, or already released once.
+        delete iframeStalledSince[size];
+        return;
+      }
+      const since = iframeStalledSince[size];
+      if (since === undefined) {
+        iframeStalledSince[size] = Date.now();
+        return;
+      }
+      if (Date.now() - since < iframeLoadTimeout) {
+        return;
+      }
+      delete iframeStalledSince[size];
+      iframesForced.add(size);
+      reportFrame(size, iframe);
+    });
   }
 
   Object.entries(iframes).forEach(([size, iframe]) => {
@@ -279,6 +392,7 @@
     // is gone and is not coming back.
     iframeLoaded(size, iframe);
   });
+  setInterval(sweepStalledIframes, iframeSweepInterval);
 
   // Watch for scale changes
   const scaleCallback = (event: CustomEvent<any>) => {
@@ -307,7 +421,42 @@
   // Keyed by frame rather than counted, for the same reason as the loads
   // above: three replies is only three frames if they are three different
   // frames, and ready() reads every size's rects.
+  //
+  // Asking is not hearing back, so this half carries the same watchdog as the
+  // loads above. A preview whose own scripts are still blocked has nothing
+  // listening in it to answer, and one silent frame used to mean ready() never
+  // ran at all: no outlines, no hit targets, nothing to click, for the two
+  // frames that did answer as much as for the one that did not. What has
+  // answered by the deadline is what the canvas is drawn from, and a frame that
+  // answers later is placed into the canvas already standing.
   const iframesFinished = new Set<string>();
+  let positionWatchdog: ReturnType<typeof setTimeout> | null = null;
+
+  function finishPositions(): void {
+    if (positionWatchdog) {
+      clearTimeout(positionWatchdog);
+      positionWatchdog = null;
+    }
+    iframesFinished.clear();
+    ready();
+  }
+
+  function armPositionWatchdog(): void {
+    if (positionWatchdog) {
+      clearTimeout(positionWatchdog);
+    }
+    positionWatchdog = setTimeout(() => {
+      positionWatchdog = null;
+      if (!iframesFinished.size) {
+        // Not one frame answered, so there are no rects to place anything by
+        // and ready() would do nothing but clear the canvas. Leave what is
+        // there and let a late answer above bring it up to date.
+        return;
+      }
+      finishPositions();
+    }, iframeLoadTimeout);
+  }
+
   const onChild:any = {
     structureData: function (data: any) {
       structureData = data.data;
@@ -323,10 +472,16 @@
     positionData: function (data: any) {
       const size = data.size as 'desktop' | 'tablet' | 'mobile';
       positionData[size] = data.data;
+      if (!positionWatchdog && !iframesFinished.size) {
+        // A frame answering after its round was drawn without it. Place what it
+        // has just reported rather than opening a fresh round, which would tear
+        // the canvas down and build it again for one late viewport.
+        elementsPosition();
+        return;
+      }
       iframesFinished.add(size);
       if (iframesFinished.size === Object.keys(iframes).length) {
-        iframesFinished.clear();
-        ready();
+        finishPositions();
       }
     },
     positionUpdateData: function (data: any) {
