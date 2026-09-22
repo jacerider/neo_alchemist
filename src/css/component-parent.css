@@ -99,6 +99,36 @@ form.neo-alchemist-manage--form:has(.neo-alchemist--form-layout) > .form--inner,
   padding-inline: calc(var(--spacing) * 4);
 }
 
+/* A scroller is the containing block for what it scrolls.
+ *
+ * Every box between a scroller here and the fields inside it is static, so an
+ * absolutely positioned descendant of the form resolved against whatever sat
+ * above the scroller: the side pane, or the layout box behind the footer pane.
+ * A form is full of such descendants, because every `sr-only` checkbox and
+ * every `visually-hidden` description is positioned that way. Sitting a
+ * thousand pixels down the fields but sized against a box further out, they
+ * were neither clipped nor scrolled by the band holding them, and that outer
+ * box counted them as its own scrollable overflow.
+ *
+ * `overflow: hidden` stops a reader scrolling a box, not the browser. Toggling
+ * Hide rebuilds that field over AJAX and returns focus to the checkbox that
+ * triggered it, and revealing a focused element scrolls every scrollable
+ * ancestor: the side pane scrolled its own header, fields and footer out of
+ * view, which read as the panel losing its height.
+ *
+ * Positioning each scroller keeps those boxes in the band that clips them,
+ * leaving nothing for the box outside it to scroll. Which band scrolls depends
+ * on the form: `.neo-alchemist--form-body` for a three-band editor form, the
+ * pane itself for a plain form that scrolls whole (see above). The side pane
+ * is left out because it is already `position: absolute`, and claiming it here
+ * would take that away.
+ */
+.neo-alchemist-manage--form-wrapper:not(.neo-alchemist--form-side),
+.neo-alchemist-manage--form-scroll,
+.neo-alchemist--form-body {
+  position: relative;
+}
+
 .neo-alchemist--form-footer {
 
   .form-item:has(+.neo-modal--hide:last-child) {
