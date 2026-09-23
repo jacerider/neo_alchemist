@@ -454,11 +454,22 @@ final class MediaValue extends ComponentValuePluginBase implements ContainerFact
       // names the shape, because the triggering element is form-global and this
       // method runs for every media prop on the component) or by uploading a
       // file — mirroring the media widget so the custom image is shown.
-      if (($trigger['#neo_override'] ?? NULL) === $shape->id() || $configFileId) {
+      $ownOverride = ($trigger['#neo_override'] ?? NULL) === $shape->id();
+      if ($ownOverride || $configFileId) {
         $options = $shape->getOptions();
+        $revealed = $options;
         if (!empty($options['default'])) {
-          $options['default'] = 0;
-          $shape->setOptions($options);
+          $revealed['default'] = 0;
+        }
+        // Out of hidden as well, for the same reason as the media widget
+        // below. Only on the press, though: a stored file is present on every
+        // later submission too, so keying on it would undo a deliberate Hide
+        // the next time anything else on the component changed.
+        if ($ownOverride) {
+          $revealed['empty'] = 0;
+        }
+        if ($revealed !== $options) {
+          $shape->setOptions($revealed);
         }
       }
       $values = $configFileId ? ['config_file' => $configFileId] : NULL;
@@ -471,9 +482,21 @@ final class MediaValue extends ComponentValuePluginBase implements ContainerFact
     // form-global, so a bare truthiness test turned the default off for every
     // media prop at once — visibly, since the others then render nothing.
     if (($trigger['#neo_override'] ?? NULL) === $shape->id()) {
-      // Set default to disabled when overriding.
+      // Pressing "Add media" says the author wants their own media shown, so
+      // the prop comes off its default AND out of hidden. Left hidden, the
+      // media they go on to pick lands in the widget but never reaches the
+      // page, and nothing on screen says why.
+      //
+      // Decided here, on the press, rather than when the pick arrives: core's
+      // update button carries its own #validate, which replaces the form's,
+      // so the harvest never runs for it. And ::ajaxOverride() repaints the
+      // whole shape, so the legend and its chips catch up in the same round
+      // trip. Cancelling the library afterwards is harmless: with neither
+      // option on and no media, ::provideDefaultValue() resolves to nothing,
+      // exactly as hidden did.
       $options = $shape->getOptions();
       $options['default'] = 0;
+      $options['empty'] = 0;
       $this->getShape()->setOptions($options);
     }
     if ($shape->getScope() === 'config') {

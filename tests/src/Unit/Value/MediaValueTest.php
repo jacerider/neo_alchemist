@@ -20,6 +20,8 @@ use Drupal\neo_alchemist\Shape\ComponentShapePluginInterface;
 use Drupal\neo_alchemist\Shape\ComponentShapeValueInterface;
 use Drupal\neo_alchemist\Plugin\ComponentValue\MediaValue;
 use Drupal\Tests\UnitTestCase;
+use Drupal\media\MediaSourceInterface;
+use Drupal\media\MediaTypeInterface;
 use PHPUnit\Framework\Attributes\Group;
 
 /**
@@ -312,7 +314,8 @@ class MediaValueTest extends UnitTestCase {
 
     [$clicked, $clickedRoles] = $this->overridePlugin('items~image~0');
     $clickedRoles['options']->method('getOptions')->willReturn(['default' => 1]);
-    $clickedRoles['options']->expects($this->once())->method('setOptions')->with(['default' => 0]);
+    $clickedRoles['options']->expects($this->once())->method('setOptions')
+      ->with(['default' => 0, 'empty' => 0]);
 
     $formState = $this->createMock(FormStateInterface::class);
     $formState->method('getTriggeringElement')->willReturn(['#neo_override' => 'items~image~0']);
@@ -320,6 +323,102 @@ class MediaValueTest extends UnitTestCase {
     $values = ['target_id' => 7];
     $sibling->massageValuesAlter($values, [], [], [], $formState);
     $clicked->massageValuesAlter($values, [], [], [], $formState);
+  }
+
+  /**
+   * Pressing "Add media" on a hidden prop brings it out of hidden.
+   *
+   * The regression test. Only `default` used to be turned off, so the media
+   * the author went on to pick landed in the widget and never reached the
+   * page: the prop was still hidden, and the legend said so only if they
+   * thought to look. The press is the one moment to decide it, because core's
+   * update button replaces the form's #validate and so never reaches the
+   * harvest that would.
+   */
+  public function testOverrideRevealsHiddenProp(): void {
+    [$plugin, $roles] = $this->overridePlugin('image');
+    $roles['options']->method('getOptions')->willReturn(['empty' => 1, 'default' => 1]);
+    $roles['options']->expects($this->once())->method('setOptions')
+      ->with(['empty' => 0, 'default' => 0]);
+
+    $formState = $this->createMock(FormStateInterface::class);
+    $formState->method('getTriggeringElement')->willReturn(['#neo_override' => 'image']);
+
+    $values = [];
+    $plugin->massageValuesAlter($values, [], [], [], $formState);
+  }
+
+  /**
+   * Builds the plugin over a config-hosted image shape.
+   *
+   * The `field` scope with an image media type is what diverts
+   * massageValuesAlter() into the neo_config_file branch, where the override
+   * button reads "Upload image" rather than "Add media".
+   *
+   * @param string $shapeId
+   *   The id the shape reports.
+   *
+   * @return array
+   *   A tuple of [plugin, roles].
+   */
+  private function configFilePlugin(string $shapeId): array {
+    $source = $this->createMock(MediaSourceInterface::class);
+    $source->method('getPluginId')->willReturn('image');
+    $mediaType = $this->createMock(MediaTypeInterface::class);
+    $mediaType->method('getSource')->willReturn($source);
+    $storage = $this->createMock(EntityStorageInterface::class);
+    $storage->method('loadMultiple')->willReturn(['image' => $mediaType]);
+    $entityTypeManager = $this->createMock(EntityTypeManagerInterface::class);
+    $entityTypeManager->method('getStorage')->willReturn($storage);
+
+    $roles = $this->mediaShapeRoles();
+    $roles['identity']->method('id')->willReturn($shapeId);
+    $roles['context']->method('getScope')->willReturn('field');
+    $roles['media']->method('getSupportedMediaTypes')->willReturn(['image']);
+
+    $plugin = new MediaValue('media', [], $this->mediaShape($roles), ['default' => []], $entityTypeManager);
+    return [$plugin, $roles];
+  }
+
+  /**
+   * Pressing "Upload image" on a hidden config-hosted prop reveals it too.
+   *
+   * The same rule on the neo_config_file branch, so a field default layout or
+   * an Alchemist block does not keep the bug the entity form has lost.
+   */
+  public function testConfigFileOverrideRevealsHiddenProp(): void {
+    [$plugin, $roles] = $this->configFilePlugin('image');
+    $roles['options']->method('getOptions')->willReturn(['empty' => 1, 'default' => 1]);
+    $roles['options']->expects($this->once())->method('setOptions')
+      ->with(['empty' => 0, 'default' => 0]);
+
+    $formState = $this->createMock(FormStateInterface::class);
+    $formState->method('getTriggeringElement')->willReturn(['#neo_override' => 'image']);
+
+    $values = [];
+    $plugin->massageValuesAlter($values, [], [], [], $formState);
+  }
+
+  /**
+   * A stored file turns the default off but leaves a deliberate Hide alone.
+   *
+   * The default has always been turned off whenever a file is present, on
+   * every submission. Un-hiding on the same condition would reverse a Hide
+   * the next time anything else on the component changed, which is the shape
+   * of the bug that made a hidden background image reappear on every edit.
+   */
+  public function testStoredConfigFileLeavesHideAlone(): void {
+    [$plugin, $roles] = $this->configFilePlugin('image');
+    $roles['options']->method('getOptions')->willReturn(['empty' => 1, 'default' => 1]);
+    $roles['options']->expects($this->once())->method('setOptions')
+      ->with(['empty' => 1, 'default' => 0]);
+
+    // A refresh, not the override: nothing was pressed on this prop.
+    $formState = $this->createMock(FormStateInterface::class);
+    $formState->method('getTriggeringElement')->willReturn(['#name' => 'op']);
+
+    $values = [];
+    $plugin->massageValuesAlter($values, ['config_file' => 'stored-file'], [], [], $formState);
   }
 
   /**
