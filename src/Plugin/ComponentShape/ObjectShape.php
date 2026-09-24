@@ -97,6 +97,10 @@ class ObjectShape extends ChildrenShapeBase implements ComponentShapeExpandedPlu
     }
     $forceChildDefaultValue = $this->forceChildDefaultValues();
     foreach ($this->getChildShapes(NULL, $value) as $shapeName => $shape) {
+      if (is_array($value) && $this->isChildValueWithheld($value, $shapeName)) {
+        unset($value[$shapeName]);
+        continue;
+      }
       if ($forceChildDefaultValue) {
         $value[$shapeName] = $shape->buildDefaultValue($renderAttributes);
       }
@@ -111,6 +115,28 @@ class ObjectShape extends ChildrenShapeBase implements ComponentShapeExpandedPlu
       }
     }
     return $value;
+  }
+
+  /**
+   * Whether a child is left out of the value rather than built.
+   *
+   * A built child resolves through its own shape, which falls back to the
+   * schema example when the value gives it nothing. A shape whose value can
+   * say "this is unknown" (rather than "this is unset") overrides this so
+   * that answer is kept instead of replaced by the author's placeholder.
+   *
+   * @param array $value
+   *   The object's value, before its children are built.
+   * @param string $name
+   *   The child's property name.
+   *
+   * @return bool
+   *   TRUE to drop the child from the value. Never, by default.
+   *
+   * @see \Drupal\neo_alchemist\Plugin\ComponentShape\MediaShapeBase::isChildValueWithheld()
+   */
+  protected function isChildValueWithheld(array $value, string $name): bool {
+    return FALSE;
   }
 
   /**

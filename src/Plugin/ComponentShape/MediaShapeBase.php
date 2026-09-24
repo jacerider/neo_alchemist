@@ -86,6 +86,34 @@ abstract class MediaShapeBase extends ObjectShape implements ComponentShapeMedia
   }
 
   /**
+   * {@inheritDoc}
+   *
+   * A media value's explicit NULL is an answer, not a gap. It is what
+   * getValueFromMedia() writes for a property the media cannot report, such
+   * as an SVG's width and height, which no image toolkit can measure. Built
+   * as a child, that NULL fell through to the component author's example, so
+   * the SVG rendered with the placeholder's dimensions. The key is dropped
+   * instead.
+   *
+   * The field item usually holds only the media reference, and a child then
+   * resolves from the default value, where the media's full value lives (see
+   * ObjectShape::loadChildSchema()). So a key absent here is judged by the
+   * default value, and a key holding a real value is never withheld.
+   */
+  protected function isChildValueWithheld(array $value, string $name): bool {
+    if (isset($value[$name])) {
+      return FALSE;
+    }
+    if (array_key_exists($name, $value)) {
+      return TRUE;
+    }
+    $default = $this->getDefaultValue();
+    return is_array($default)
+      && array_key_exists($name, $default)
+      && $default[$name] === NULL;
+  }
+
+  /**
    * Matches the field definition type with the entity field definition type.
    *
    * @param \Drupal\Core\Field\FieldDefinitionInterface $entityFieldDefinition
