@@ -452,6 +452,10 @@ function neo_alchemist_form_alter(array &$form, FormStateInterface $form_state, 
           'neo_alchemist_content_entity_form_redirect',
         ],
         '#weight' => 100,
+        // In the page header neo_back moves the actions into, show only the
+        // compass, with the label as a tooltip. The full label crowded out the
+        // page title, and the toolbar's Layout tab already uses this icon.
+        '#neo_header_icon_only' => TRUE,
       ];
     }
   }
