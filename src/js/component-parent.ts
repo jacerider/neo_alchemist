@@ -712,37 +712,28 @@
     // load before its handler exists.
     staggerIframeLoads(iframes);
 
-    if (scroll) {
-      const resizeObserver = new ResizeObserver(() => {
-        scroll.style.width = '';
-        if (scroll && scroll.scrollWidth > scroll.offsetWidth) {
-          // Get the parent's padding
-          const computedStyle = window.getComputedStyle(scroll);
-          const paddingRight = parseFloat(computedStyle.paddingRight);
-          scroll.style.width = scroll.offsetWidth + paddingRight + (scroll.scrollWidth - scroll.offsetWidth) + 'px';
-        }
-      });
-      resizeObserver.observe(form);
-
+    // Expand widens the pane, not the fields band `scroll` may now point at:
+    // the pane is what holds the side panel's width (see --form-scroll in
+    // component-parent.css). The panel never widens itself to fit a field —
+    // fields shrink to the pane, and Expand is the way to see one whole.
+    const pane = container.querySelector('.neo-alchemist-manage--form-scroll') as HTMLElement;
+    if (pane) {
       const expand = formWrapper.querySelector('.neo-alchemist-manage--expand') as HTMLElement;
       const collapse = formWrapper.querySelector('.neo-alchemist-manage--collapse') as HTMLElement;
       if (drag && expand && collapse) {
         expand.addEventListener('click', function (e) {
           e.preventDefault();
-          resizeObserver.disconnect();
           drag.style.opacity = '0';
-          scroll.style.width = '';
           expand.classList.toggle('hidden');
           collapse.classList.toggle('hidden');
-          scroll.classList.toggle('expanded');
+          pane.classList.toggle('expanded');
         });
         collapse.addEventListener('click', function (e) {
           e.preventDefault();
           drag.style.opacity = '';
           expand.classList.toggle('hidden');
           collapse.classList.toggle('hidden');
-          scroll.classList.toggle('expanded');
-          resizeObserver.observe(form);
+          pane.classList.toggle('expanded');
         });
       }
     }

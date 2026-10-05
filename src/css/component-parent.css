@@ -29,6 +29,29 @@
   }
 }
 
+/* Fields shrink to the pane; the pane never grows to fit a field.
+ *
+ * A fieldset's UA `min-width: min-content` let it stretch to the widest thing
+ * inside it. For CKEditor that is the whole toolbar, which then never felt
+ * full enough to group its overflow into the ⋮ menu, so the field ran off the
+ * edge of the panel. Releasing the floor lets the toolbar group.
+ *
+ * Unbroken strings (a pasted URL) wrap rather than holding the field open,
+ * which also lets a multi-value table shrink through its cells. Deliberately
+ * no sideways scroller on a field or table: CKEditor's dropdowns are
+ * positioned inside the field and would be clipped by it, and a table made
+ * `display: block` to scroll stops spanning the pane.
+ */
+.neo-alchemist-manage--form-scroll {
+  fieldset {
+    min-width: 0;
+  }
+
+  .form-item {
+    overflow-wrap: anywhere;
+  }
+}
+
 /* The editor form as three bands: header, fields, footer.
  *
  * Only the middle band scrolls, which is what lets the header and footer stop
