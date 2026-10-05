@@ -55,8 +55,10 @@ final class FormattedTextValue extends ComponentValuePluginBase implements Conta
     array $configuration,
     EntityTypeManagerInterface $entity_type_manager,
   ) {
-    parent::__construct($plugin_id, $plugin_definition, $shape, $configuration);
+    // Assigned before the parent constructor: that is where setConfiguration()
+    // first merges defaultConfiguration(), which needs the format storage.
     $this->entityTypeManager = $entity_type_manager;
+    parent::__construct($plugin_id, $plugin_definition, $shape, $configuration);
   }
 
   /**
@@ -77,8 +79,32 @@ final class FormattedTextValue extends ComponentValuePluginBase implements Conta
    */
   public function defaultConfiguration() {
     return [
-      'format' => 'neo_simple',
+      'format' => $this->getDeclaredFormat() ?? 'neo_simple',
     ];
+  }
+
+  /**
+   * The default format a markup prop names in its .component.yml.
+   *
+   * `text_format: neo` on the prop replaces the plugin-wide `neo_simple`
+   * fallback; a stored setting still wins, because stored settings are merged
+   * over these defaults. It is what lets a markup prop nested in an array have
+   * a format at all: the array's children cannot store plugin settings unless
+   * it is expanded, so the yml is the one place their format can be chosen.
+   * Read here rather than overridden after construction, because
+   * setConfiguration() re-merges the defaults every time it runs.
+   *
+   * @return string|null
+   *   The declared format's id, or NULL when none is declared or this site has
+   *   no such format — a missing one is ignored rather than locking the field
+   *   to a format that does not exist.
+   */
+  protected function getDeclaredFormat(): ?string {
+    $declared = isset($this->shape) ? ($this->shape->getSchema()['text_format'] ?? NULL) : NULL;
+    if (!is_string($declared) || !isset($this->getTextFormats()[$declared])) {
+      return NULL;
+    }
+    return $declared;
   }
 
   /**
