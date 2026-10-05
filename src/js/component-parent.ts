@@ -24,7 +24,14 @@
       element: HTMLElement|DOMRect,
       container: HTMLElement = document.documentElement,
       offset: number | { top?: number; bottom?: number; left?: number; right?: number } = 0,
-      behavior: ScrollBehavior = 'smooth'
+      behavior: ScrollBehavior = 'smooth',
+      // What to do with an element taller than the container. `top` puts its
+      // start at the top inset — right for a long form field, which you read
+      // down from its start. `stay` leaves the vertical position alone while
+      // any part of it is on screen — right for the layout canvas, where a
+      // tall section is selected by clicking something inside it, and
+      // scrolling to its top throws away the spot that was just clicked.
+      tall: 'top' | 'stay' = 'top'
     ): void {
       // Get positions
       const containerRect = container.getBoundingClientRect();
@@ -63,7 +70,17 @@
       // long field in the preview scrolled the form nowhere at all; there is no
       // position that shows all of such an element, and showing its start is
       // the one that lets you read down it.
-      if (elementRect.height > containerRect.height
+      //
+      // With `tall: 'stay'` an over-tall element that is already partly on
+      // screen keeps its position; once it is entirely off screen it still
+      // scrolls to its top like any other.
+      const isTall = elementRect.height > containerRect.height;
+      const onScreen = elementBottom > 0
+        && elementTop < (isRoot ? window.innerHeight : containerRect.height);
+      if (isTall && tall === 'stay' && onScreen) {
+        // Leave the vertical position where it is.
+      }
+      else if (isTall
         || elementTop < containerVisibleTop
         || elementBottom > containerVisibleBottom) {
         scrollTop += elementTop - offsets.top;

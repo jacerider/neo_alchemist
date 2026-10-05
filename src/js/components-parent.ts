@@ -1744,7 +1744,9 @@
       sizes.forEach(size => {
         const element = structureElements[uuid as string]?.[size];
         if (size === layerInteractSize && element) {
-          Drupal.behaviors.neoAlchemistComponentParent.scrollElementIntoView(element, wrapper, 100);
+          // `stay`: selecting a section by clicking inside it must not scroll
+          // the canvas to the section's top — see scrollElementIntoView().
+          Drupal.behaviors.neoAlchemistComponentParent.scrollElementIntoView(element, wrapper, 100, 'smooth', 'stay');
         }
       });
     }
