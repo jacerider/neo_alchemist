@@ -87,21 +87,24 @@
         needsScroll = true;
       }
 
-      // Determine if horizontal scrolling is needed
-      if (containerRect.width < elementRect.width) {
-        // We need to center the element
-        const elementCenter = (elementLeft + elementRight) / 2;
-        const containerCenter = (containerVisibleLeft + containerVisibleRight) / 2;
-        const offsetLeft = elementCenter - containerCenter;
-        scrollLeft += offsetLeft;
-        needsScroll = true;
-      } else if (elementLeft < containerVisibleLeft) {
-        // Element is to the left of the visible area, scroll left
+      // Determine if horizontal scrolling is needed.
+      //
+      // Only an element with no part in view is scrolled to, and only as far
+      // as it takes to show it: its start at the left inset, or, coming from
+      // the right, its end at the right inset when the whole of it fits. An
+      // element that is partly on screen is left where it is. Revealing its
+      // cut-off edge, or centring one wider than the pane, moved a section
+      // selected by clicking it in the canvas sideways, away from the spot
+      // that was clicked.
+      if (elementRight <= containerVisibleLeft) {
         scrollLeft += elementLeft - offsets.left;
         needsScroll = true;
-      } else if (elementRight > containerVisibleRight) {
-        // Element is to the right of the visible area, scroll right
-        scrollLeft += elementRight - containerVisibleRight + offsets.right;
+      }
+      else if (elementLeft >= containerVisibleRight) {
+        const fits = elementRect.width <= containerVisibleRight - offsets.left - offsets.right;
+        scrollLeft += fits
+          ? elementRight - containerVisibleRight + offsets.right
+          : elementLeft - offsets.left;
         needsScroll = true;
       }
 
