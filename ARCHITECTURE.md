@@ -232,6 +232,20 @@ during the parent's `init()`. Note the two layers union by top-level key rather 
 merging, so one saved option discards a shape's whole fallback entry; that is
 deliberate and pinned by `NestedOptionMapTest`.
 
+A placement's stored options enter the saved layer in
+`ComponentShapePluginManager::getInstancesFromSchema()`. The editor always writes an
+`options` key for every prop it stores, so editor data never reaches the fallback by
+omission. Code writing a tree by hand usually leaves the key out, and its value would then
+take the fallback: hidden, or on the default, and never rendered. So a stored prop with
+**no `options` key** gets options derived from its value by
+[StoredValueOptions](src/Shape/StoredValueOptions.php): `{empty: 0, default: 0}` for every
+non-empty value in its subtree, keyed exactly as `id()` keys them (`items~image~0`). They
+merge like any instance options, so locks still win, empty values keep their fallback,
+and a present `options` key, even `[]`, is untouched. Raw values written through
+`ComponentTreeItem::addComponent()` / `updateComponent()` are first converted to
+`{ref, value}` by [ComponentPropValueNormalizer](src/ComponentPropValueNormalizer.php).
+Both are pinned by `StoredValueWithoutOptionsTest`.
+
 A shape's `init()` **seals** its scope of the map, because its children read their
 options as they are built. Writing a child option afterwards asserts rather than
 silently doing nothing. A shape's *own* options stay writable — a submitted form is

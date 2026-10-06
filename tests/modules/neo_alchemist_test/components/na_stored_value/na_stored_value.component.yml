@@ -1,0 +1,59 @@
+$schema: 'https://git.drupalcode.org/project/drupal/-/raw/10.1.x/core/modules/sdc/src/metadata.schema.json'
+name: 'NA stored value fixture'
+description: >
+  Props written in code rather than by the editor: stored without an `options`
+  key, or as raw values the normalizer converts. One prop per way such a value
+  used to be lost — a string whose Default Value starts it hidden, one whose
+  Default Value starts it on the default, a locked string, an image (which
+  starts on its default by class), a heading, and an array whose rows carry an
+  image and a string.
+status: stable
+neo: true
+props:
+  type: object
+  properties:
+    text:
+      type: string
+      title: Text
+      examples: 'EXAMPLE TEXT'
+    fallback_text:
+      type: string
+      title: 'Fallback text'
+      examples: 'EXAMPLE FALLBACK TEXT'
+    locked_text:
+      type: string
+      title: 'Locked text'
+      examples: 'EXAMPLE LOCKED TEXT'
+    image:
+      type: image
+      title: Image
+      examples:
+        src: 'https://placehold.co/400x300.png'
+        alt: 'EXAMPLE ALT'
+        width: 400
+        height: 300
+    heading:
+      type: heading
+      title: Heading
+      examples:
+        title: 'EXAMPLE TITLE'
+    items:
+      type: array
+      title: Items
+      examples:
+        -
+          image:
+            src: 'https://placehold.co/400x300.png'
+            alt: 'EXAMPLE ROW ALT'
+            width: 400
+            height: 300
+          label: 'EXAMPLE ROW LABEL'
+      items:
+        type: object
+        properties:
+          image:
+            type: image
+            title: Image
+          label:
+            type: string
+            title: Label

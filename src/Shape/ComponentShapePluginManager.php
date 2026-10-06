@@ -116,8 +116,16 @@ final class ComponentShapePluginManager extends DefaultPluginManager {
           // values. As a result, if ref is not set, we allow the override to
           // provide backwards compatibility.
           if (isset($values['props'][$propName]) && (empty($values['props'][$propName]['ref']) || ($values['props'][$propName]['ref'] === $shape->getRef()))) {
-            $shape->setOverrideValue($values['props'][$propName]['value'] ?? NULL);
-            $shape->getNestedOptionMap()->merge($values['props'][$propName]['options'] ?? []);
+            $stored = $values['props'][$propName];
+            $shape->setOverrideValue($stored['value'] ?? NULL);
+            // The editor always writes `options`. A prop stored without the
+            // key was written in code, and its value is the author's decision:
+            // without this it would take the component's fallback options and
+            // could render hidden or on its default instead.
+            $options = array_key_exists('options', $stored)
+              ? ($stored['options'] ?? [])
+              : (new StoredValueOptions())->build($propName, $prop, $stored['value'] ?? NULL);
+            $shape->getNestedOptionMap()->merge($options);
           }
           $instances[$propName] = $shape;
         }

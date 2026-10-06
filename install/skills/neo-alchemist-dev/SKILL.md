@@ -315,6 +315,41 @@ Alchemist in config scope) and the per-entity stored value:
   badge). Semantics (seed copy-on-write, explicitly-empty slots, orphan preservation) →
   ARCHITECTURE.md §"Field modes: locked, custom, hybrid".
 
+## Writing trees in code: the stored format
+
+A tree item stores `tree` (structure, JSON) and `props` (JSON), and `props` holds one
+entry per instance: `{status, props: {<prop>: {ref, value, options}}}`. `value` is the
+prop shape's **field item** value (`{value: 'x'}` for a string, `{target_id: 33}` for
+media, `{uri, title, options}` for a link, a list of rows of child field-item values for
+an array, a map of child field-item values for an object/heading). `options` is a
+`NestedOptionMap` subtree keyed by shape id (`prop`, `prop~child`, and for array rows
+`prop~child~<delta>`) holding `empty` / `default` (0/1).
+
+Write it through `ComponentTreeItem::addComponent()` / `updateComponent()`, which pass
+every write through `ComponentPropValueNormalizer`:
+
+- An entry with `ref` or `value` is stored form and passes through untouched.
+- Anything else is **raw** and is converted through the prop's real shape:
+  `'title' => 'Text'`, `'image' => 33` (a media id), `'link' => ['uri' => …, 'title' => …]`,
+  `'heading' => ['title' => 'x']`, `'items' => [['image' => 33, 'label' => 'x']]`. The SDC
+  `examples` format (an image's `{src, alt}`) is **not** accepted.
+- An undeclared prop or child, an unknown field-item property, a missing referenced entity
+  or a value outside a list's allowed values throws `InvalidArgumentException`.
+
+**Omit `options`.** A stored prop with **no `options` key** takes its value as the author's
+decision: at load, `StoredValueOptions` gives every non-empty value in its subtree
+`{empty: 0, default: 0}` (`ComponentShapePluginManager::getInstancesFromSchema()`). Without
+that, the shape would take the component's Default Value options (often `empty`, so new
+placements start hidden) or its class's starting options (`ImageShape` starts on
+`default`), and the value would be stored but never rendered. An `options` key that is
+**present**, even `[]`, is honoured as-is: that is how the editor stores every prop, and
+its Hide / Use default must stand. Empty values keep their fallback, and a locked
+(`editable: false`) prop still ignores instance values. Pinned by
+`StoredValueWithoutOptionsTest`.
+
+Setting the field value directly (`$entity->set('field_x', ['tree' => …, 'props' => …])`)
+skips the normalizer, so it needs stored form, but the no-`options` rule still applies.
+
 ## Where to add X
 
 - **ComponentShape** → `src/Plugin/ComponentShape/MyShape.php` with `#[ComponentShape(prop:'my_type', …)]` extends `ComponentShapePluginBase`; implement `preRenderValue()` (+ optional `getGenerationExamples()`/`onGenerateTwig()`); add a `my_type:` entry to `neo_alchemist.neo_component_prop_defs.yml`; `drush cr`.

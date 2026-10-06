@@ -671,6 +671,7 @@ class ComponentTreeItem extends FieldItemBase implements RenderableInterface, Co
    * @return $this
    */
   public function addComponent(string $uuid, string $neoComponentId, array $propValues = [], string $parentUuid = ComponentTreeStructure::ROOT_UUID, $slot = NULL): self {
+    $propValues = $this->normalizePropValues($neoComponentId, $propValues);
     $this->getTreeStructure()->addComponent($uuid, $neoComponentId, $parentUuid, $slot, $propValues);
     return $this;
   }
@@ -827,10 +828,43 @@ class ComponentTreeItem extends FieldItemBase implements RenderableInterface, Co
    * @return $this
    */
   public function updateComponent(string $uuid, array $propValues): self {
+    $propValues = $this->normalizePropValues($this->getTreeStructure()->getComponentId($uuid), $propValues);
     $props = $this->get('props');
     assert($props instanceof ComponentPropsValues);
     $props->setComponent($uuid, $propValues);
     return $this;
+  }
+
+  /**
+   * Converts raw prop values written in code into their stored form.
+   *
+   * Values already in stored form, which is every write the editor makes,
+   * return untouched without loading the component.
+   *
+   * @param string|null $neoComponentId
+   *   The placed component's id, NULL when the instance is not in the tree.
+   * @param array $propValues
+   *   The placement's values.
+   *
+   * @return array
+   *   The values, with raw props converted.
+   *
+   * @throws \InvalidArgumentException
+   *   When a raw prop cannot be stored.
+   *
+   * @see \Drupal\neo_alchemist\ComponentPropValueNormalizer
+   */
+  protected function normalizePropValues(?string $neoComponentId, array $propValues): array {
+    /** @var \Drupal\neo_alchemist\ComponentPropValueNormalizer $normalizer */
+    $normalizer = \Drupal::service('neo_alchemist.prop_value_normalizer');
+    if (!$normalizer->hasRawProps($propValues)) {
+      return $propValues;
+    }
+    $component = $neoComponentId ? Component::load($neoComponentId) : NULL;
+    if (!$component) {
+      throw new \InvalidArgumentException(sprintf('Cannot convert raw prop values: component "%s" does not exist.', $neoComponentId ?? ''));
+    }
+    return $normalizer->normalize($component, $propValues);
   }
 
   /**

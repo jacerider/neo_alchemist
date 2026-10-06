@@ -112,28 +112,34 @@ match the desktop viewport even inside the narrow slide menu) — see
 `menu_insights` for the pattern (compact thumbnail rows in narrow containers,
 stacked two-column cards from `@md`).
 
-## Writing trees programmatically (the format trap)
+## Writing trees programmatically
 
-`ComponentTreeItem::addComponent()/updateComponent()` accept any array, but
-shapes only read the **canonical wrapper** — raw `['title' => 'x']` maps are
-stored without error and every prop then silently **renders the component's
-examples instead**, which looks right with demo data and is deeply misleading:
+`ComponentTreeItem::addComponent()/updateComponent()` convert raw values through
+each prop's shape, so the simplest write is the values themselves:
 
 ```php
 $item->updateComponent($uuid, [
   'status' => 1,
   'props' => [
-    'title' => ['ref' => 'string', 'value' => ['value' => 'Text']],
-    'image' => ['ref' => 'image',  'value' => ['src' => '…', 'alt' => '…', 'width' => 480, 'height' => 320]],
-    'link'  => ['ref' => 'url',    'value' => ['uri' => 'internal:/', 'title' => 'CTA', 'options' => []]],
-    'items' => ['ref' => 'array',  'value' => [/* nested props in the same field structure */]],
+    'title' => 'Text',
+    'image' => $media->id(),
+    'link'  => ['uri' => 'internal:/', 'title' => 'CTA'],
+    'items' => [['image' => $media->id(), 'label' => 'Row']],
   ],
 ]);
 $entity->save();
 ```
 
-Reference for the stored shape: `components.props` in
-[config/neo_alchemist_block.block.header.yml](config/neo_alchemist_block.block.header.yml).
+An undeclared prop, an unknown child or property, or a media id that does not
+exist throws `InvalidArgumentException`. Images take a **media id**; the SDC
+examples format (`{src, alt}`) is not accepted.
+
+**Do not write `options`.** A prop stored without them renders its value. A prop
+stored with them follows them, and the editor's options are what decide whether
+a value shows at all: copying an `options` block from elsewhere can hide your
+value or put it back on the default. The full stored format (`{ref, value,
+options}`, option keys like `items~image~0`) is in the **neo-alchemist-dev**
+skill, §"Writing trees in code".
 
 ## Gotchas
 

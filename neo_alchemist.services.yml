@@ -80,6 +80,13 @@ services:
   neo_alchemist.prop_value_harvester:
     class: Drupal\neo_alchemist\ComponentPropValueHarvester
 
+  # Converts raw prop values written in code into the stored {ref, value}
+  # form; ComponentTreeItem::addComponent()/updateComponent() run every write
+  # through it.
+  neo_alchemist.prop_value_normalizer:
+    class: Drupal\neo_alchemist\ComponentPropValueNormalizer
+    arguments: ['@entity_type.manager']
+
   # The static checks behind `drush neo:alchemist:validate`. Deliberately
   # dependency-free: they are regexes over Twig, and keeping them out of the
   # command is what lets a unit test call them directly.
