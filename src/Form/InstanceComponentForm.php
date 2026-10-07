@@ -17,6 +17,7 @@ use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Form\SubformState;
 use Drupal\Core\Render\Element;
 use Drupal\Core\Render\Markup;
+use Drupal\neo_alchemist\Plugin\ComponentShape\StyleToggleShape;
 use Drupal\neo_alchemist\Shape\ComponentShapeStylePluginInterface;
 use Drupal\neo_alchemist\Ajax\InstanceComponentManageIframeCommand;
 use Drupal\neo_alchemist\Ajax\ComponentAjaxFormHelperTrait;
@@ -717,8 +718,15 @@ final class InstanceComponentForm extends ContentEntityForm {
       // Counted before the label is resolved: a style prop the builder has not
       // set yet still belongs in the Style tab, it just earns no chip.
       $styleCount++;
-      $key = $this->styleValueKey($shape->getValue());
-      $label = $key === NULL ? NULL : ($shape->getFieldOptions()[$key] ?? NULL);
+      if ($shape instanceof StyleToggleShape) {
+        // An on/off style earns a chip only while it is on; "Off" on every
+        // unticked switch would crowd out the choices that were made.
+        $label = $shape->getValue() ? $this->t('On') : NULL;
+      }
+      else {
+        $key = $this->styleValueKey($shape->getValue());
+        $label = $key === NULL ? NULL : ($shape->getFieldOptions()[$key] ?? NULL);
+      }
       if ($label === NULL) {
         continue;
       }

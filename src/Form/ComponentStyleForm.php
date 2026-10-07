@@ -10,6 +10,7 @@ use Drupal\Core\Entity\EntityForm;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\neo_alchemist\Ajax\InstanceComponentManageIframeCommand;
 use Drupal\neo_alchemist\ComponentManageHelper;
+use Drupal\neo_alchemist\Plugin\ComponentShape\StyleToggleShape;
 use Drupal\neo_alchemist\Shape\ComponentShapeStylePluginInterface;
 use Drupal\neo_icon\IconTrait;
 use Symfony\Component\DependencyInjection\ContainerInterface;
@@ -78,6 +79,26 @@ final class ComponentStyleForm extends EntityForm {
     ];
     $shapes = array_filter($this->entity->getPropShapes(), fn ($shape) => $shape->access('manage_value'));
     foreach ($shapes as $propName => $shape) {
+      if ($shape instanceof StyleToggleShape) {
+        if (!$shape->access('update')) {
+          continue;
+        }
+        // An on/off style has no options to list, so a select would offer
+        // nothing but "- Default -".
+        $form['styles'][$propName] = [
+          '#type' => 'checkbox',
+          '#title' => $shape->getTitle(),
+          '#default_value' => (bool) $shape->getValue(),
+          '#description' => $shape->getDescription(),
+          '#shape_id' => $shape->id(),
+          '#neo_align' => 'inline',
+          '#neo_size' => 'xs',
+          '#ajax' => [
+            'callback' => '::ajaxStyle',
+          ],
+        ];
+        continue;
+      }
       if ($shape instanceof ComponentShapeStylePluginInterface) {
         if (!$shape->access('update')) {
           continue;

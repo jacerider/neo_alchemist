@@ -1,0 +1,15 @@
+$schema: 'https://git.drupalcode.org/project/drupal/-/raw/10.1.x/core/modules/sdc/src/metadata.schema.json'
+name: 'NA style toggle fixture'
+description: >
+  One style_toggle prop, defaulting on, so the shape can be pinned: a style
+  shape (the Style tab), a boolean in Twig, and a reader of values and settings
+  stored for the `boolean` prop it replaces.
+status: stable
+neo: true
+props:
+  type: object
+  properties:
+    toggle:
+      type: style_toggle
+      title: Toggle
+      examples: true

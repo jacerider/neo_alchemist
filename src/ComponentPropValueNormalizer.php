@@ -37,10 +37,15 @@ use Drupal\neo_alchemist\Shape\ComponentShapePluginInterface;
  * The SDC `examples` format is NOT accepted: an image's `{src, alt}` describes
  * a rendered value, not a stored media reference.
  *
+ * NULL hides: a top-level NULL stores the prop hidden (the one place this
+ * writes `options`), and a NULL child is simply left out, which hides it when
+ * the prop loads.
+ *
  * A prop the component does not declare, or a value its field item refuses,
  * throws rather than storing something that would silently render the
- * examples. No `options` are written: a stored prop without them takes its
- * value as the author's decision when it loads.
+ * examples. Otherwise no `options` are written: a stored prop without them
+ * takes its value as the author's decision when it loads, and the parts it
+ * leaves out as hidden.
  *
  * @see \Drupal\neo_alchemist\Shape\StoredValueOptions
  * @see \Drupal\neo_alchemist\Plugin\Field\FieldType\ComponentTreeItem::addComponent()
@@ -89,6 +94,20 @@ final class ComponentPropValueNormalizer {
       $shape = $shapes[$propName] ?? NULL;
       if (!$shape) {
         throw new \InvalidArgumentException(sprintf('Component "%s" has no prop "%s".', $component->id(), $propName));
+      }
+      // NULL hides the prop. A value can only say what to show, and a prop
+      // left out of the write falls back to its default — the component's
+      // example, often. Hiding is an option, so it is stored as one.
+      if ($entry === NULL) {
+        if (!$shape->getOptionEmpty()->isAllowed()) {
+          throw new \InvalidArgumentException(sprintf('Prop "%s" of component "%s" cannot be hidden.', $propName, $component->id()));
+        }
+        $propValues['props'][$propName] = [
+          'ref' => $shape->getRef(),
+          'value' => [],
+          'options' => [$shape->id() => ['empty' => 1, 'default' => 0]],
+        ];
+        continue;
       }
       $propValues['props'][$propName] = [
         'ref' => $shape->getRef(),
@@ -199,6 +218,10 @@ final class ComponentPropValueNormalizer {
     }
     $values = [];
     foreach ($raw as $name => $childRaw) {
+      // A NULL child is left out, which hides it when the prop loads.
+      if ($childRaw === NULL) {
+        continue;
+      }
       if (!isset($children[$name])) {
         throw new \InvalidArgumentException(sprintf('Prop "%s" of component "%s" has no child "%s".', $path, $component->id(), $name));
       }

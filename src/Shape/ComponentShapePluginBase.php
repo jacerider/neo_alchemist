@@ -341,7 +341,7 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
     // We migrated from using 'shape' to 'ref' to identify shapes values. As
     // a result, if ref is not set, we allow the override to provide backwards
     // compatibility.
-    if (empty($settings['ref']) || ($settings['ref'] === $this->getRef())) {
+    if (empty($settings['ref']) || $this->isStoredRefCompatible((string) $settings['ref'])) {
       // Initialize settings.
       $this->setActive($settings['active'] ?? TRUE);
       $this->setExpanded($settings['expanded'] ?? []);
@@ -847,6 +847,13 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
    */
   public function getRef(): string {
     return $this->schema['ref'] ?? $this->getType();
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  public function isStoredRefCompatible(string $ref): bool {
+    return $ref === $this->getRef();
   }
 
   /**

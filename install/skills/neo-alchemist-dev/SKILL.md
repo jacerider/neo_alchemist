@@ -123,7 +123,10 @@ by **plugin id**, so `timestamp` must be listed even though it subclasses intege
 `StructuredObjectShapeBase` (link), `MediaShapeBase` (media/image/file/videos —
 `theme://` / `component://` src resolution; previews borrow the newest published media),
 `StyleShapeBase`/`StyleShape` (option map → `ComponentShapeStyleAttribute`, whose
-`getValue()` is the option **key**), `UrlShapeBase` + `UrlShapeTrait` (url/link). Naming
+`getValue()` is the option **key**; the editor's Style tab is exactly the shapes implementing
+`ComponentShapeStylePluginInterface`, so `StyleToggleShape` (`style_toggle`) is a
+`StyleShapeBase` with a boolean field and no options: a checkbox on the Style tab that renders
+a bool and, via `isStoredRefCompatible()`, reads data saved for `boolean`), `UrlShapeBase` + `UrlShapeTrait` (url/link). Naming
 traps: `ImageSize.php` **is** a shape plugin (`prop: 'image_size'`, a style shape whose
 option values are dynamic-style arrays) despite lacking the `*Shape` suffix; there is
 **no** `MenuShape` — `menu` is a prop-def filled by the `MenuValue` value plugin. Full
@@ -333,15 +336,23 @@ every write through `ComponentPropValueNormalizer`:
   `'title' => 'Text'`, `'image' => 33` (a media id), `'link' => ['uri' => …, 'title' => …]`,
   `'heading' => ['title' => 'x']`, `'items' => [['image' => 33, 'label' => 'x']]`. The SDC
   `examples` format (an image's `{src, alt}`) is **not** accepted.
-- An undeclared prop or child, an unknown field-item property, a missing referenced entity
-  or a value outside a list's allowed values throws `InvalidArgumentException`.
+- `NULL` hides: a top-level `NULL` stores the prop hidden (`empty: 1`, the one case that
+  writes `options`); a `NULL` child is left out, which hides it on load. Use it for props
+  whose examples carry placeholder content (a fallback video, a sample heading).
+- An undeclared prop or child, an unknown field-item property, a missing referenced entity,
+  a value outside a list's allowed values, or `NULL` for a prop that cannot be hidden (a
+  style) throws `InvalidArgumentException`.
 
 **Omit `options`.** A stored prop with **no `options` key** takes its value as the author's
 decision: at load, `StoredValueOptions` gives every non-empty value in its subtree
 `{empty: 0, default: 0}` (`ComponentShapePluginManager::getInstancesFromSchema()`). Without
 that, the shape would take the component's Default Value options (often `empty`, so new
 placements start hidden) or its class's starting options (`ImageShape` starts on
-`default`), and the value would be stored but never rendered. An `options` key that is
+`default`), and the value would be stored but never rendered. The stored value is also the
+**whole** value: a child that a stored object, heading or array row leaves out is hidden,
+not filled from the examples (`{title: 'Menu'}` renders no example subtitle). Style
+children (a heading's `size`) and slugs (`anchor`) are exempt, and shapes that store their
+own field item (image `{target_id}`, link `{uri, title}`) are never walked into. An `options` key that is
 **present**, even `[]`, is honoured as-is: that is how the editor stores every prop, and
 its Hide / Use default must stand. Empty values keep their fallback, and a locked
 (`editable: false`) prop still ignores instance values. Pinned by

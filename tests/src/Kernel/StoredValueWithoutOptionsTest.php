@@ -27,9 +27,10 @@ use PHPUnit\Framework\Attributes\Group;
  * Two fixes, pinned here together because they are one promise:
  *
  * - StoredValueOptions: a prop stored WITHOUT an `options` key takes its value
- *   as the author's decision, down through every child that carries one.
+ *   as the author's decision, down through every child that carries one, and
+ *   the parts it leaves out as hidden rather than as examples.
  * - ComponentPropValueNormalizer: a raw prop value is converted into the
- *   stored wrapper, or refused loudly.
+ *   stored wrapper, or refused loudly; NULL hides.
  *
  * And what they must leave alone: an explicit options entry (the editor's Hide
  * and Use default), an empty value (keeps its fallback) and a locked prop.
@@ -40,7 +41,9 @@ use PHPUnit\Framework\Attributes\Group;
  * five tests go red: the four "wins" tests (hidden text, the builder
  * default, and two example images where the authored media should be) and the
  * raw round trip, whose normalized props carry no options either. The guard
- * tests stay green, as they must.
+ * tests stay green, as they must. With StoredValueOptions::hideLeftOut()
+ * reduced to a no-op, testLeftOutPartsAreHidden and testNullHides go red: the
+ * omitted parts show the examples.
  *
  * @see \Drupal\neo_alchemist\Shape\StoredValueOptions
  * @see \Drupal\neo_alchemist\ComponentPropValueNormalizer
@@ -247,6 +250,30 @@ class StoredValueWithoutOptionsTest extends KernelTestBase {
   }
 
   /**
+   * Parts a written value leaves out are hidden, not filled from examples.
+   *
+   * The heading's examples fill all three parts and each row's example has a
+   * label, so a part that fell back would show. The heading's size is
+   * presentation and keeps its default.
+   */
+  public function testLeftOutPartsAreHidden(): void {
+    $values = $this->resolve([
+      'heading' => ['ref' => 'heading', 'value' => ['title' => ['value' => 'AUTHORED']]],
+      'items' => [
+        'ref' => 'array',
+        'value' => [
+          ['image' => ['target_id' => $this->media->id()]],
+        ],
+      ],
+    ]);
+    $this->assertSame('AUTHORED', $values['heading']['title'] ?? NULL);
+    $this->assertEmpty($values['heading']['supertitle'] ?? NULL, 'The left-out supertitle is hidden.');
+    $this->assertEmpty($values['heading']['subtitle'] ?? NULL, 'The left-out subtitle is hidden.');
+    $this->assertStringContainsString('na-authored', $values['items'][0]['image']['src'] ?? '');
+    $this->assertEmpty($values['items'][0]['label'] ?? NULL, 'The left-out row label is hidden.');
+  }
+
+  /**
    * An options key that is present is honoured, even an empty one.
    *
    * The editor always writes the key, so this is what editor-saved data looks
@@ -325,6 +352,29 @@ class StoredValueWithoutOptionsTest extends KernelTestBase {
   }
 
   /**
+   * NULL hides: a whole prop at the top level, a part inside a value.
+   */
+  public function testNullHides(): void {
+    $normalizer = $this->container->get('neo_alchemist.prop_value_normalizer');
+    $normalized = $normalizer->normalize($this->load(), [
+      'props' => [
+        'fallback_text' => NULL,
+        'heading' => ['title' => 'RAW TITLE', 'subtitle' => NULL],
+      ],
+    ]);
+    $this->assertSame(
+      ['ref' => 'string', 'value' => [], 'options' => ['fallback_text' => ['empty' => 1, 'default' => 0]]],
+      $normalized['props']['fallback_text'],
+    );
+    $this->assertSame(['title' => ['value' => 'RAW TITLE']], $normalized['props']['heading']['value'], 'A NULL part is left out.');
+
+    $values = $this->resolve($normalized['props']);
+    $this->assertEmpty($values['fallback_text'] ?? NULL, 'Hidden, rather than the builder default.');
+    $this->assertSame('RAW TITLE', $values['heading']['title'] ?? NULL);
+    $this->assertEmpty($values['heading']['subtitle'] ?? NULL);
+  }
+
+  /**
    * A raw value that cannot be stored is refused, naming what went wrong.
    */
   public function testUnstorableRawValuesThrow(): void {
@@ -335,6 +385,7 @@ class StoredValueWithoutOptionsTest extends KernelTestBase {
       'missing media' => [['image' => 999999], 'references no existing entity'],
       'unknown property' => [['text' => ['bogus' => 'x']], 'has no "bogus" property'],
       'rows not a list' => [['items' => ['label' => 'x']], 'takes a list of rows'],
+      'unhideable' => [['toggle' => NULL], 'cannot be hidden'],
     ];
     foreach ($cases as $label => [$props, $message]) {
       try {

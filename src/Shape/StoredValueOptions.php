@@ -22,12 +22,23 @@ namespace Drupal\neo_alchemist\Shape;
  * `{empty: 0, default: 0}` — exactly what the editor writes for a value an
  * author typed in.
  *
+ * The stored value is also the WHOLE value. A child that a stored object,
+ * heading or array row leaves out gets `{empty: 1, default: 0}`, so it renders
+ * nothing rather than the component's example: a heading written as
+ * `{title: 'Menu'}` is that title alone, not the title beside the example
+ * subtitle. Two kinds of child are exempt, because their default is
+ * presentation rather than content: style children (a heading's `size`) and
+ * slugs (its `anchor`).
+ *
  * What it deliberately leaves alone:
  *
  * - An `options` key that is present, even an empty array. That is how the
  *   editor stores a prop, and its choices (Hide, Use default) stand.
  * - Empty values. They keep whatever fallback they had, so a value left blank
  *   in code behaves as it does today.
+ * - Shapes that store their own field item rather than a map of children: an
+ *   image's `{target_id}`, a link's `{uri, title}`. Their schema children are
+ *   built from that item, so "left out" means nothing there.
  * - Locks. The options are merged as instance options always have been, under
  *   anything already saved, and a locked shape ignores its instance value
  *   regardless of options.
@@ -97,13 +108,18 @@ final class StoredValueOptions {
     // An iterable stores a list of rows; each row child's id carries the row's
     // delta after the child's name.
     if (in_array('array', $types, TRUE) && isset($schema['items']['properties']) && array_is_list($value)) {
+      $rowsStoreChildren = $this->storesChildren((array) $schema['items']);
       foreach ($value as $delta => $row) {
         if (!is_array($row)) {
           continue;
         }
         foreach ($schema['items']['properties'] as $name => $childSchema) {
+          $childId = $id . self::SEPARATOR . $name . self::SEPARATOR . $delta;
           if (array_key_exists($name, $row)) {
-            $this->walk($id . self::SEPARATOR . $name . self::SEPARATOR . $delta, (array) $childSchema, $row[$name], $options);
+            $this->walk($childId, (array) $childSchema, $row[$name], $options);
+          }
+          elseif ($rowsStoreChildren) {
+            $this->hideLeftOut($childId, (array) $childSchema, $options);
           }
         }
       }
@@ -111,12 +127,56 @@ final class StoredValueOptions {
     }
 
     if (isset($schema['properties']) && is_array($schema['properties'])) {
+      $storesChildren = $this->storesChildren($schema);
       foreach ($schema['properties'] as $name => $childSchema) {
+        $childId = $id . self::SEPARATOR . $name;
         if (array_key_exists($name, $value)) {
-          $this->walk($id . self::SEPARATOR . $name, (array) $childSchema, $value[$name], $options);
+          $this->walk($childId, (array) $childSchema, $value[$name], $options);
+        }
+        elseif ($storesChildren) {
+          $this->hideLeftOut($childId, (array) $childSchema, $options);
         }
       }
     }
+  }
+
+  /**
+   * Whether a schema's stored value is a map of its children.
+   *
+   * True for a plain object and a heading. Every other object prop def (image,
+   * media, file, video, link, url, address, …) stores one field item that its
+   * children are derived from.
+   *
+   * @param array $schema
+   *   The resolved schema.
+   *
+   * @return bool
+   *   TRUE when an omitted child is an omission by the author.
+   */
+  private function storesChildren(array $schema): bool {
+    $ref = $schema['ref'] ?? NULL;
+    return in_array('object', (array) ($schema['type'] ?? []), TRUE)
+      && ($ref === NULL || $ref === 'object' || $ref === 'heading');
+  }
+
+  /**
+   * Hides a child the stored value left out, unless it is presentation.
+   *
+   * @param string $id
+   *   The child's shape id.
+   * @param array $schema
+   *   The child's resolved schema.
+   * @param array $options
+   *   The options collected so far.
+   */
+  private function hideLeftOut(string $id, array $schema, array &$options): void {
+    if (isset($schema['styles']) || ($schema['ref'] ?? NULL) === 'slug') {
+      return;
+    }
+    $options[$id] = [
+      NestedOptionMap::OPTION_EMPTY => 1,
+      NestedOptionMap::OPTION_DEFAULT => 0,
+    ];
   }
 
   /**

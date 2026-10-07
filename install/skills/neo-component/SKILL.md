@@ -196,6 +196,7 @@ Alchemist extends SDC with custom "shapes" — reusable prop definitions from [n
   `examples` so previews and new placements start right.
 - `button_style` — solid/outline/text variants in base/primary/secondary/accent (`btn`, `btn-outline-primary`, `btn-text-accent`, …).
 - `button_size` — `xs|sm|md|lg|xl|2xl|3xl` → `btn-*` (`md` maps to an empty value — it's the built-in default size).
+- `style_toggle` — an on/off **presentation** switch: a checkbox on the **Style** tab (a plain `boolean` lands on the Content tab beside the copy). Twig gets a real `TRUE`/`FALSE`, so guard with `{% if prop %}` exactly as for a boolean; there are no classes and no `apply`. Use it for layout/visual switches (show numerals, flank the overline with rules, sit under the header); keep `boolean` for content facts (an item is "featured"). Converting an existing `boolean` prop to `style_toggle` is safe: the shape reads values and settings saved for `boolean`, so no placement resets. Give it `examples: true|false` for the default.
 - `image_size` — an editor-selectable image transform. Unlike every other style shape its `styles:` values are **neo dynamic-style arrays**, not class strings, and the prop hands Twig a ready transform you pass straight to the image function — the editor picks the crop, the yml stays the single source of dimensions:
 
   ```yaml

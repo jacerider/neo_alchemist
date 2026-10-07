@@ -115,7 +115,7 @@ final class ComponentShapePluginManager extends DefaultPluginManager {
           // We migrated from using 'shape' to 'ref' to identify shapes in
           // values. As a result, if ref is not set, we allow the override to
           // provide backwards compatibility.
-          if (isset($values['props'][$propName]) && (empty($values['props'][$propName]['ref']) || ($values['props'][$propName]['ref'] === $shape->getRef()))) {
+          if (isset($values['props'][$propName]) && (empty($values['props'][$propName]['ref']) || $shape->isStoredRefCompatible((string) $values['props'][$propName]['ref']))) {
             $stored = $values['props'][$propName];
             $shape->setOverrideValue($stored['value'] ?? NULL);
             // The editor always writes `options`. A prop stored without the

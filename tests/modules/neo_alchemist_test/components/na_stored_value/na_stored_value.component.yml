@@ -5,8 +5,10 @@ description: >
   key, or as raw values the normalizer converts. One prop per way such a value
   used to be lost — a string whose Default Value starts it hidden, one whose
   Default Value starts it on the default, a locked string, an image (which
-  starts on its default by class), a heading, and an array whose rows carry an
-  image and a string.
+  starts on its default by class), a heading whose examples fill all three
+  parts (so a part left out of a written value would show), and an array whose
+  rows carry an image and a string. `toggle` is a style_toggle, which cannot
+  be hidden.
 status: stable
 neo: true
 props:
@@ -36,7 +38,13 @@ props:
       type: heading
       title: Heading
       examples:
+        supertitle: 'EXAMPLE SUPERTITLE'
         title: 'EXAMPLE TITLE'
+        subtitle: 'EXAMPLE SUBTITLE'
+    toggle:
+      type: style_toggle
+      title: Toggle
+      examples: true
     items:
       type: array
       title: Items

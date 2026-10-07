@@ -239,12 +239,22 @@ omission. Code writing a tree by hand usually leaves the key out, and its value 
 take the fallback: hidden, or on the default, and never rendered. So a stored prop with
 **no `options` key** gets options derived from its value by
 [StoredValueOptions](src/Shape/StoredValueOptions.php): `{empty: 0, default: 0}` for every
-non-empty value in its subtree, keyed exactly as `id()` keys them (`items~image~0`). They
-merge like any instance options, so locks still win, empty values keep their fallback,
-and a present `options` key, even `[]`, is untouched. Raw values written through
+non-empty value in its subtree, keyed exactly as `id()` keys them (`items~image~0`), and
+`{empty: 1, default: 0}` for every child a stored object, heading or array row leaves out
+(style children and slugs excepted), so an omitted part renders nothing rather than the
+example. They merge like any instance options, so locks still win, empty values keep their
+fallback, and a present `options` key, even `[]`, is untouched. Raw values written through
 `ComponentTreeItem::addComponent()` / `updateComponent()` are first converted to
 `{ref, value}` by [ComponentPropValueNormalizer](src/ComponentPropValueNormalizer.php).
-Both are pinned by `StoredValueWithoutOptionsTest`.
+A top-level `NULL` is the normalizer's way to hide a prop. Both are pinned by
+`StoredValueWithoutOptionsTest`.
+
+Stored values and saved prop settings each record the `ref` they were written for, and both
+are discarded when it no longer matches the prop's shape
+(`ComponentShapeSchemaInterface::isStoredRefCompatible()`), so a prop whose type changed starts
+over. A shape that can read another type's data widens that check: `StyleToggleShape` reads
+`boolean`, which is what lets a `boolean` prop become a `style_toggle` (a checkbox on the
+Style tab) without resetting any page. Pinned by `StyleToggleShapeTest`.
 
 A shape's `init()` **seals** its scope of the map, because its children read their
 options as they are built. Writing a child option afterwards asserts rather than

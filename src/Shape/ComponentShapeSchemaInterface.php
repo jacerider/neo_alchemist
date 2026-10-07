@@ -58,6 +58,24 @@ interface ComponentShapeSchemaInterface extends ComponentShapeIdentityInterface 
   public function getRef(): string;
 
   /**
+   * Whether a value or setting stored under the given ref belongs to this prop.
+   *
+   * Stored placement values and a component's saved prop settings both record
+   * the ref they were written for, and are discarded when it no longer
+   * matches: a prop whose type changed starts over rather than misreading data
+   * shaped for another type. A shape that can read another type's data as-is
+   * (StyleToggleShape reads `boolean`) widens this so converting a prop keeps
+   * what was saved.
+   *
+   * @param string $ref
+   *   The stored ref.
+   *
+   * @return bool
+   *   TRUE when the stored data can be read by this shape.
+   */
+  public function isStoredRefCompatible(string $ref): bool;
+
+  /**
    * Get the prop format.
    *
    * This is the optional format of the prop.

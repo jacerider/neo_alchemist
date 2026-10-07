@@ -865,6 +865,12 @@ style:
   title: Style
   type: string
 
+style_toggle:
+  title: Style Toggle
+  description: An on/off presentation setting, shown as a checkbox on the Style tab.
+  type: boolean
+  examples: false
+
 containment:
   title: Containment
   description: The horizontal size of the component.
