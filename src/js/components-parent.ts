@@ -2017,7 +2017,9 @@
     if (!panel || panel.style.display === 'none') {
       return;
     }
-    const gap = 16;
+    // One spacing for everything that floats over the canvas: side panels,
+    // Layers and badge dropdowns (panels.ts). Set on the editor's root.
+    const gap = parseFloat(getComputedStyle(container).getPropertyValue('--neo-alchemist-floating-gap')) || 16;
     const rect = wrapper.getBoundingClientRect();
     panel.style.top = `${rect.top + panelTopHeight() + gap}px`;
     panel.style.bottom = `${(window.innerHeight - rect.bottom) + panelBottomHeight() + gap}px`;

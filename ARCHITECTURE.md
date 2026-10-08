@@ -953,13 +953,14 @@ controls, as children of the same flex container (`gap-2`, the top bar start's g
 scale and device groups are evenly spaced — `#top_end` is never re-rendered, so the badge's client
 half keeps it current. With no badge `#top_end` is exactly the iframe operations. The client registers `badge(element, api,
 dropdown)` beside `mount()`; it runs at **registration (editor load)**, not on panel open, with the
-same draft api. `dropdown` is neo_alchemist's: an element anchored under the badge
+same draft api. `dropdown` is neo_alchemist's: an element anchored under the badge, placed below
+the top bar by `--neo-alchemist-floating-gap` (set on the editor root, 16px; the same gap side
+panels and Layers float in from the canvas edge, read by `floatingPosition()`)
 (`dropdown.element`, which the badge fills), toggled by any `<button>` in the badge, closed by Esc,
 a click elsewhere or focus moving into a preview frame; focus moves in on `open(focus?)` and back
-to the opening button on `close()`; `isOpen()`, `onToggle(cb(open, trigger))`, `setTrigger(button)`. Clicking another
-button of the same badge while open keeps it open and calls `onToggle(true, thatButton)`, so a
-badge with several parts can show the clicked part; clicking the current trigger closes it, and
-`setTrigger()` moves that role when the badge switches parts from inside the dropdown. `onDraftChange` listeners hear
+to the opening button on `close()`; `isOpen()`, `onToggle(cb(open, trigger))`. Clicking another button of the same badge
+while open keeps it open and calls `onToggle(true, thatButton)`, so a badge with several parts can
+show the clicked part; clicking the current trigger closes it. `onDraftChange` listeners hear
 every change whether or not their panel was mounted: `layoutChanged()` reads the version through
 any registered panel when nothing is mounted but someone listens. Fixture: `TestLabelPanel` adds a
 badge while the `neo_alchemist_test.panel_badge` state flag is on.

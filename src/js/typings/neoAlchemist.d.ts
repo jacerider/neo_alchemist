@@ -49,11 +49,6 @@ interface NeoAlchemistDropdown {
   close(): void;
   isOpen(): boolean;
   /**
-   * Which badge button the open dropdown now belongs to, when the badge moves
-   * it (e.g. a tab inside it): clicking that button closes, others switch.
-   */
-  setTrigger(button: HTMLElement): void;
-  /**
    * Called after every open and close, and when another button of the badge
    * is clicked while open (it stays open), with the button that opened it.
    */

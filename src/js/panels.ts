@@ -154,7 +154,7 @@
   function dropdownCreate(badge: HTMLElement, id: string): NeoAlchemistDropdown {
     const element = document.createElement('div');
     element.id = `neo-alchemist-dropdown-${id}`;
-    element.className = 'neo-alchemist--dropdown absolute right-0 top-full mt-2 w-96 max-w-[calc(100vw-2rem)] max-h-[70vh] overflow-y-auto rounded-lg shadow-lg border bg-base-0 text-base-0-content text-sm z-50';
+    element.className = 'neo-alchemist--dropdown absolute right-0 w-96 max-w-[calc(100vw-2rem)] overflow-y-auto rounded-lg shadow-lg border bg-base-0 text-base-0-content text-sm z-50';
     element.setAttribute('role', 'dialog');
     element.setAttribute('aria-label', settings[id]?.label ?? id);
     element.hidden = true;
@@ -179,6 +179,18 @@
           console.error(e);
         }
       });
+    };
+    /**
+     * Below the top bar, not the badge: as far under the bar as side panels
+     * float in from the canvas edge (--neo-alchemist-floating-gap).
+     */
+    const place = () => {
+      const editor = badge.closest<HTMLElement>('.neo-alchemist-manage');
+      const bar = badge.closest<HTMLElement>('[data-alchemist-offset-top]');
+      const gap = editor ? parseFloat(getComputedStyle(editor).getPropertyValue('--neo-alchemist-floating-gap')) || 16 : 16;
+      const below = bar ? bar.getBoundingClientRect().bottom - badge.getBoundingClientRect().top : badge.offsetHeight;
+      element.style.top = `${Math.round(below + gap)}px`;
+      element.style.maxHeight = `calc(100vh - ${Math.round((bar?.getBoundingClientRect().bottom ?? 0) + gap * 2)}px)`;
     };
     const onKey = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
@@ -213,6 +225,7 @@
             : triggers()[0] ?? null);
         clicked = null;
         element.hidden = false;
+        place();
         document.addEventListener('keydown', onKey, true);
         document.addEventListener('pointerdown', onPointer, true);
         window.addEventListener('blur', onBlur);
@@ -235,13 +248,6 @@
         }
       },
       isOpen: () => !element.hidden,
-      setTrigger(button) {
-        // The badge says which of its buttons the open dropdown now belongs
-        // to, so clicking that one closes it and the others switch to theirs.
-        if (badge.contains(button)) {
-          opener = button;
-        }
-      },
       onToggle(callback) {
         callbacks.push(callback);
       },
