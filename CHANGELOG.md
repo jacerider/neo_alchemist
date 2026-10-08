@@ -1,5 +1,15 @@
 # Changelog
 
+## Token templates no longer double-escape their values
+
+**A token value with `&`, `<` or a quote rendered as a literal entity.** The
+`link_title`, `link_uri` and `token` value plugins resolved their templates with
+`Token::replace()`, which HTML-escapes each token's value — but the result is a
+plain-text prop that Twig escapes again on output, so a term named "Electric &
+Vehicles" behind `View [term:name] Projects` showed on the page as "View
+Electric &amp;amp; Vehicles Projects". `ComponentValueTokenTrait` now resolves with
+`Token::replacePlain()`, leaving escaping to the renderer. No config change.
+
 ## Previews make room for a component that rises over what precedes it
 
 **A preview frame pads itself for content that reaches above it.** A component
