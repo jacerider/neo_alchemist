@@ -7,6 +7,7 @@ namespace Drupal\neo_alchemist\Plugin\Field\FieldType;
 use Drupal\Component\Render\FormattableMarkup;
 use Drupal\Component\Serialization\Json;
 use Drupal\Core\Access\AccessResult;
+use Drupal\Core\Entity\ContentEntityInterface;
 use Drupal\Core\Entity\EntityChangedInterface;
 use Drupal\Core\Entity\RevisionableInterface;
 use Drupal\Core\Field\Attribute\FieldType;
@@ -326,6 +327,8 @@ class ComponentTreeItem extends FieldItemBase implements RenderableInterface, Co
       'revert' => $this->getEntity()->toUrl("alchemist.revert")->setRouteParameter('neo_field', $fieldKey),
       'reset' => $this->getEntity()->toUrl("alchemist.reset")->setRouteParameter('neo_field', $fieldKey),
       'sort' => $this->getEntity()->toUrl("alchemist.sort")->setRouteParameter('neo_field', $fieldKey),
+      // The caller names the panel: ->setRouteParameter('panel', $panelId).
+      'panel' => $this->getEntity()->toUrl("alchemist.panel")->setRouteParameter('neo_field', $fieldKey),
       default => $this->getEntity()->toUrl("alchemist.manage")->setRouteParameter('neo_field', $fieldKey)
     };
   }
@@ -931,6 +934,11 @@ class ComponentTreeItem extends FieldItemBase implements RenderableInterface, Co
         $this->getSharedDraftStore()->set($this, $this->getValue(), $this->loadedDraftVersion);
         return SAVED_UPDATED;
       }
+      // Editor panels' drafted data goes live with the layout, so it is read
+      // before the delete below consumes the draft. The delete is the version
+      // guard: a refused (stale) publish throws there, before any panel has
+      // touched the entity and before anything is saved.
+      $panelData = $this->getSharedDraftStore()->panels($this);
       $this->getSharedDraftStore()->delete($this, $this->loadedDraftVersion);
       $entity = $this->getEntity();
       $fieldName = $this->getFieldDefinition()->getName();
@@ -945,6 +953,9 @@ class ComponentTreeItem extends FieldItemBase implements RenderableInterface, Co
         // (empty after a non-hybrid reset).
         $empty = $this->isHybridScope() && $this->isDefault();
         $entity->set($fieldName, $empty ? NULL : $list->getValue(), FALSE);
+      }
+      if ($panelData && $entity instanceof ContentEntityInterface) {
+        \Drupal::service('plugin.manager.neo_alchemist_panel')->publish($this, $entity, $panelData, \Drupal::currentUser());
       }
       if ($entity instanceof EntityChangedInterface) {
         // Update the changed time to ensure that the entity is marked as

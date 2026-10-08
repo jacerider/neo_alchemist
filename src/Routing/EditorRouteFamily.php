@@ -13,6 +13,7 @@ use Drupal\neo_alchemist\Controller\InstanceComponentEditController;
 use Drupal\neo_alchemist\Controller\InstanceComponentLibraryController;
 use Drupal\neo_alchemist\Controller\InstanceComponentManageController;
 use Drupal\neo_alchemist\Controller\InstanceComponentMoveController;
+use Drupal\neo_alchemist\Controller\InstanceComponentPanelController;
 use Drupal\neo_alchemist\Controller\InstanceComponentPreviewController;
 use Drupal\neo_alchemist\Controller\InstanceComponentPublishController;
 use Drupal\neo_alchemist\Controller\InstanceComponentResetController;
@@ -102,7 +103,9 @@ final class EditorRouteFamily {
    * - `publish`, `revert` and `reset` are entity-scope only. They act on a
    *   single entity's stored draft/published pair; a field's shared default
    *   layout has no per-entity draft to publish, revert or reset, so the ops
-   *   are meaningless in the field-UI scope.
+   *   are meaningless in the field-UI scope. `panel` — an editor side panel's
+   *   read/write of its key in that draft — is entity-only for the same
+   *   reason.
    * - `purge` is a field-UI-scope member the entity and block scopes both opt
    *   out of. Purging removes the per-entity layout rows a now-locked field no
    *   longer renders (@see \Drupal\neo_alchemist\Form\PurgeInertDataForm), so
@@ -135,6 +138,7 @@ final class EditorRouteFamily {
       'clone',
       'delete',
       'move',
+      'panel',
     ],
     self::SCOPE_FIELD_UI => [
       self::OP_BASE,
@@ -198,6 +202,10 @@ final class EditorRouteFamily {
     'reset' => [
       self::SCOPE_FIELD_UI => 'A shared default layout has no per-entity draft to reset.',
       self::SCOPE_BLOCK => 'A null-storage block host has no per-entity draft to reset.',
+    ],
+    'panel' => [
+      self::SCOPE_FIELD_UI => 'Editor panels draft into the per-entity draft, which a shared default layout does not have.',
+      self::SCOPE_BLOCK => 'Editor panels draft into the per-entity draft, which a null-storage block host does not have.',
     ],
     'purge' => [
       self::SCOPE_ENTITY => 'Purge clears the field-wide per-entity layout rows a locked field no longer renders — a decision about the field across every entity, never about one entity.',
@@ -313,6 +321,9 @@ final class EditorRouteFamily {
 
       $route = new Route($pathPrefix . $spec['path']);
       $route->setDefaults($spec['defaults'] + $defaults);
+      if (isset($spec['methods'])) {
+        $route->setMethods($spec['methods']);
+      }
 
       $routeParameters = $parameters;
       foreach ($spec['params'] as $paramName) {
@@ -428,6 +439,9 @@ final class EditorRouteFamily {
 
   /**
    * The member-op table: op → (path, params, defaults, requirement, options).
+   *
+   * An op may also name the HTTP `methods` it accepts; without them a route
+   * accepts every method, as Symfony's default.
    *
    * `move` carries a static `title` in every scope: the field-UI scope always
    * did, and InstanceComponentMoveController has no getTitle for the entity
@@ -549,6 +563,24 @@ final class EditorRouteFamily {
         'params' => ['neo_field', 'neo_component'],
         'defaults' => $action(InstanceComponentMoveController::class, 'Move'),
         'requirement' => ['_neo_component_field' => 'neo_field.sort'],
+        'admin_route' => TRUE,
+        'preview' => FALSE,
+      ],
+      // An editor side panel's JSON endpoint: GET reads its key in the shared
+      // draft, POST writes it. {panel} is a plugin id, not upcast; the panel's
+      // own access() is the _custom_access check, on top of entity update
+      // access. POST needs the X-CSRF-Token header (/session/token).
+      'panel' => [
+        'path' => '/{neo_field}/panel/{panel}',
+        'params' => ['neo_field'],
+        'defaults' => $action(InstanceComponentPanelController::class, 'Panel'),
+        'requirement' => [
+          '_neo_component_field' => 'neo_field.update',
+          '_custom_access' => InstanceComponentPanelController::class . '::access',
+          '_csrf_request_header_token' => 'TRUE',
+          'panel' => '[a-z0-9_]+',
+        ],
+        'methods' => ['GET', 'POST'],
         'admin_route' => TRUE,
         'preview' => FALSE,
       ],

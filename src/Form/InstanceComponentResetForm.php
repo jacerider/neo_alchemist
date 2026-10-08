@@ -4,6 +4,7 @@ namespace Drupal\neo_alchemist\Form;
 
 use Drupal\Core\Entity\EntityConfirmFormBase;
 use Drupal\Core\Form\FormStateInterface;
+use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
  * Component form.
@@ -25,6 +26,26 @@ class InstanceComponentResetForm extends EntityConfirmFormBase {
    * @var \Drupal\neo_alchemist\Plugin\Field\FieldType\ComponentTreeItem
    */
   protected $fieldItem;
+
+  /**
+   * The shared draft store.
+   *
+   * Not promoted, and protected rather than private: form objects are
+   * serialized into the form cache, and DependencySerializationTrait can only
+   * swap a service for its id when it can see the property.
+   *
+   * @var \Drupal\neo_alchemist\EditorState\SharedDraftStore
+   */
+  protected $sharedDraftStore;
+
+  /**
+   * {@inheritdoc}
+   */
+  public static function create(ContainerInterface $container) {
+    $form = parent::create($container);
+    $form->sharedDraftStore = $container->get('neo_alchemist.shared_draft_store');
+    return $form;
+  }
 
   /**
    * Gets the actual form array to be built.
@@ -74,6 +95,10 @@ class InstanceComponentResetForm extends EntityConfirmFormBase {
   public function submitForm(array &$form, FormStateInterface $form_state) {
     $fieldItem = $this->fieldItem->enforceAsDraft(FALSE)->resetComponents();
     $form_state->setRedirectUrl($this->entity->toUrl());
+    // Reset throws the whole draft away, editor panels' data included. The
+    // commit below would otherwise read that data and publish it — the commit
+    // path is Publish's — so the draft goes first, unguarded like Revert's.
+    $this->sharedDraftStore->delete($fieldItem);
     $result = $fieldItem->saveComponents();
     $this->messenger()->addStatus($this->t('Components have been reset successfully on %label: %field_label.', [
       '%label' => $this->entity->label(),

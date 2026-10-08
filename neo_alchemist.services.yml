@@ -196,6 +196,12 @@ services:
     class: Drupal\neo_alchemist\Access\ComponentAccessPluginManager
     parent: default_plugin_manager
 
+  # Editor side panels other modules add beside Layers, each with its own key
+  # in the shared draft. See src/Panel/AlchemistPanelInterface.php.
+  plugin.manager.neo_alchemist_panel:
+    class: Drupal\neo_alchemist\Panel\AlchemistPanelManager
+    parent: default_plugin_manager
+
   neo_component.slot.factory:
     class: Drupal\neo_alchemist\Slot\ComponentSlotFactory
     arguments:
