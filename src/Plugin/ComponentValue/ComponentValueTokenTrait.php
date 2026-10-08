@@ -27,11 +27,17 @@ trait ComponentValueTokenTrait {
    * Bubbles token + entity cacheability onto the shape so the rendered value
    * invalidates correctly when the source entity changes.
    *
+   * Uses replacePlain(), not replace(): the result feeds plain-text props (a
+   * link title, a URI, a string prop) that Twig escapes on output, so an
+   * HTML-escaped token value would be escaped twice — "Electric & Vehicles"
+   * rendered as a literal "Electric &amp; Vehicles".
+   *
    * @param string $template
    *   The raw template, possibly containing tokens.
    *
    * @return string
-   *   The template with tokens replaced. Unresolved tokens are cleared.
+   *   The template with tokens replaced, as plain (unescaped) text. Unresolved
+   *   tokens are cleared.
    */
   protected function replaceEntityTokens(string $template): string {
     // Cheap opt-out: nothing token-like, so skip loading the entity entirely.
@@ -41,7 +47,7 @@ trait ComponentValueTokenTrait {
     $entity = $this->shape->getEntity();
     $tokenType = $this->getEntityTokenType($entity->getEntityTypeId());
     $metadata = new BubbleableMetadata();
-    $replaced = \Drupal::token()->replace(
+    $replaced = \Drupal::token()->replacePlain(
       $template,
       $tokenType ? [$tokenType => $entity] : [],
       ['clear' => TRUE],
