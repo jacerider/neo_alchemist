@@ -160,7 +160,9 @@ class ComponentManageHelper {
       '#type' => 'html_tag',
       '#tag' => 'div',
       '#attributes' => [
-        'class' => ['flex gap-4'],
+        // The same gap as the top bar's start, between every group here —
+        // panel badges included, which lead this container.
+        'class' => ['flex items-center gap-2'],
       ],
     ];
 
@@ -344,7 +346,7 @@ class ComponentManageHelper {
         $build['badges']['badge_' . $id] = [
           '#type' => 'container',
           '#attributes' => [
-            'class' => ['neo-alchemist--badge', 'relative', 'flex', 'items-center', 'gap-1'],
+            'class' => ['neo-alchemist--badge', 'relative', 'flex', 'items-center', 'gap-2'],
             'data-alchemist-badge' => $id,
           ],
           'content' => $badge,

@@ -147,7 +147,9 @@
   /**
    * The dropdown under a badge: every <button> in the badge toggles it, Esc
    * and a click anywhere else (a preview frame included) close it, and focus
-   * moves in on open and back to the opening button on close.
+   * moves in on open and back to the opening button on close. Clicking a
+   * different button of the badge while it is open keeps it open and reports
+   * that button to onToggle() — a badge with two parts shows the part clicked.
    */
   function dropdownCreate(badge: HTMLElement, id: string): NeoAlchemistDropdown {
     const element = document.createElement('div');
@@ -157,8 +159,10 @@
     element.setAttribute('aria-label', settings[id]?.label ?? id);
     element.hidden = true;
     badge.append(element);
-    const callbacks: Array<(open: boolean) => void> = [];
+    const callbacks: Array<(open: boolean, trigger: HTMLElement | null) => void> = [];
     let opener: HTMLElement | null = null;
+    // The badge button a click is opening the dropdown from, if any.
+    let clicked: HTMLElement | null = null;
 
     const triggers = () => Array.from(badge.querySelectorAll<HTMLElement>('button'))
       .filter(button => !element.contains(button));
@@ -169,7 +173,7 @@
       });
       callbacks.forEach(callback => {
         try {
-          callback(open);
+          callback(open, opener);
         }
         catch (e) {
           console.error(e);
@@ -203,9 +207,11 @@
           (focus ?? null)?.focus();
           return;
         }
-        opener = document.activeElement instanceof HTMLElement && badge.contains(document.activeElement)
-          ? document.activeElement
-          : triggers()[0] ?? null;
+        opener = clicked
+          ?? (document.activeElement instanceof HTMLElement && badge.contains(document.activeElement)
+            ? document.activeElement
+            : triggers()[0] ?? null);
+        clicked = null;
         element.hidden = false;
         document.addEventListener('keydown', onKey, true);
         document.addEventListener('pointerdown', onPointer, true);
@@ -229,6 +235,13 @@
         }
       },
       isOpen: () => !element.hidden,
+      setTrigger(button) {
+        // The badge says which of its buttons the open dropdown now belongs
+        // to, so clicking that one closes it and the others switch to theirs.
+        if (badge.contains(button)) {
+          opener = button;
+        }
+      },
       onToggle(callback) {
         callbacks.push(callback);
       },
@@ -240,12 +253,18 @@
         return;
       }
       event.preventDefault();
-      if (dropdown.isOpen()) {
+      if (!dropdown.isOpen()) {
+        clicked = button;
+        dropdown.open();
+      }
+      else if (button === opener) {
         dropdown.close();
       }
       else {
+        // Another button of the same badge: the dropdown stays open and
+        // follows it, so a badge can show that button's side of it.
         opener = button;
-        dropdown.open();
+        sync(true);
       }
     });
     sync(false);

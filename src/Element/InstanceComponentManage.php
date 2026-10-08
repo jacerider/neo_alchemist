@@ -77,14 +77,14 @@ class InstanceComponentManage extends RenderElementBase {
     }
     // Panel badges lead the top bar's end, left of the scale controls. The
     // top bar is never re-rendered, so their client halves keep them current.
+    // One container, one gap: the badges sit beside the scale and device
+    // groups rather than in a wrapper of their own.
     if ($sidePanels['badges']) {
-      $element['#top_end'] = [
-        'badges' => [
-          '#type' => 'container',
-          '#attributes' => ['class' => ['neo-alchemist--badges', 'flex', 'items-center', 'gap-2']],
-        ] + $sidePanels['badges'],
-        'operations' => $element['#top_end'],
-      ];
+      $badges = [
+        '#type' => 'container',
+        '#attributes' => ['class' => ['neo-alchemist--badges', 'contents']],
+      ] + $sidePanels['badges'];
+      $element['#top_end'] = ['badges' => $badges] + $element['#top_end'];
     }
 
     return $element;

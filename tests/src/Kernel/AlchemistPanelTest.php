@@ -235,7 +235,8 @@ class AlchemistPanelTest extends HybridFieldKernelTestBase {
 
     \Drupal::state()->set(TestLabelPanel::BADGE_STATE_KEY, TRUE);
     $badged = $this->manageElement($item);
-    $this->assertSame(['badges', 'operations'], array_keys($badged['#top_end']), 'Badges come first, then the scale and device controls.');
+    $children = array_values(array_filter(array_keys($badged['#top_end']), static fn ($key) => $key[0] !== '#'));
+    $this->assertSame(['badges', 'scale', 'size'], $children, 'Badges come first, in the same container as the scale and device controls.');
     $badge = $badged['#top_end']['badges']['badge_' . self::PANEL];
     $this->assertSame(self::PANEL, $badge['#attributes']['data-alchemist-badge']);
     $this->assertSame('button', $badge['content']['#tag']);
