@@ -42,6 +42,10 @@ use Drupal\neo_alchemist\Plugin\Field\FieldType\ComponentTreeItem;
  * content, so clearing the draft — on publish, discard or revert — clears the
  * contributor set with it, and a fresh draft starts with just its author.
  *
+ * Editor side panels (AlchemistPanelInterface) draft into the same record, one
+ * key each under 'panels', so their data is versioned, reverted, reset and
+ * published with the layout rather than beside it.
+ *
  * Unlike the disposable scratch buffer, a draft is unpublished editor work on a
  * live site: if this store's backend ever changes, existing drafts must be
  * migrated, not dropped.
@@ -59,18 +63,20 @@ final class SharedDraftStore {
   protected const CACHE_TAG_PREFIX = 'neo_alchemist_draft';
 
   /**
-   * The metadata a record carries when nothing has been written yet.
+   * What a record carries besides its layout value, before anything is written.
    *
    * Reads fall back to these, and a legacy record (a bare content array stored
    * before draft metadata existed) is read as content with these defaults — so
    * no draft content is lost to the shape change and 07 can re-seed metadata on
-   * migration.
+   * migration. A record written before editor panels existed has no 'panels'
+   * key and reads as having none.
    */
   protected const EMPTY_METADATA = [
     'version' => 0,
     'last_editor' => NULL,
     'last_modified' => NULL,
     'contributors' => [],
+    'panels' => [],
   ];
 
   /**
@@ -99,7 +105,8 @@ final class SharedDraftStore {
    *   The field item the draft belongs to.
    *
    * @return array|null
-   *   The draft content, or NULL when no draft is stored.
+   *   The draft content, or NULL when no layout draft is stored — including
+   *   when the draft holds only editor panel data (see setPanel()).
    */
   public function get(ComponentTreeItem $item): ?array {
     $record = $this->record($item);
@@ -139,20 +146,108 @@ final class SharedDraftStore {
     if ($conflict = $this->conflictFromRecord($expectedVersion, $record)) {
       throw $conflict;
     }
-    $storedVersion = (int) ($record['version'] ?? 0);
-    $uid = (int) $this->currentUser->id();
+    // The editor panels' data rides along untouched: a tree write replaces the
+    // layout, never what a panel drafted beside it.
+    $this->writeEdit($item, $record, $value, $record['panels'] ?? []);
+  }
 
+  /**
+   * Reads every editor panel's drafted data for an entity/field.
+   *
+   * @param \Drupal\neo_alchemist\Plugin\Field\FieldType\ComponentTreeItem $item
+   *   The field item the draft belongs to.
+   *
+   * @return array
+   *   Panel id => drafted data, empty when no draft or no panel has written.
+   *
+   * @see \Drupal\neo_alchemist\Panel\AlchemistPanelInterface
+   */
+  public function panels(ComponentTreeItem $item): array {
+    $panels = $this->record($item)['panels'] ?? [];
+    return is_array($panels) ? $panels : [];
+  }
+
+  /**
+   * Reads one editor panel's drafted data, or NULL when it has none.
+   *
+   * @param \Drupal\neo_alchemist\Plugin\Field\FieldType\ComponentTreeItem $item
+   *   The field item the draft belongs to.
+   * @param string $panelId
+   *   The panel plugin id.
+   *
+   * @return mixed
+   *   The drafted data, or NULL.
+   */
+  public function getPanel(ComponentTreeItem $item, string $panelId): mixed {
+    return $this->panels($item)[$panelId] ?? NULL;
+  }
+
+  /**
+   * Writes one editor panel's drafted data, under the same version guard.
+   *
+   * A panel write is a draft write like any other: it increments the version,
+   * records the editor, and is refused when $expectedVersion is behind. The
+   * layout value is left as it is. With no draft yet, the record is created
+   * with no layout value — the layout has not changed, so publishing it keeps
+   * the entity's own layout rather than a snapshot taken now — and has() turns
+   * TRUE so Save and Revert appear. NULL data removes the panel's key.
+   *
+   * @param \Drupal\neo_alchemist\Plugin\Field\FieldType\ComponentTreeItem $item
+   *   The field item the draft belongs to.
+   * @param string $panelId
+   *   The panel plugin id.
+   * @param mixed $data
+   *   The panel's data; anything serializable. NULL removes it.
+   * @param int|null $expectedVersion
+   *   The draft version the session loaded, or NULL to write unguarded.
+   *
+   * @throws \Drupal\neo_alchemist\EditorState\DraftConflictException
+   *   When $expectedVersion is behind the stored version.
+   */
+  public function setPanel(ComponentTreeItem $item, string $panelId, mixed $data, ?int $expectedVersion = NULL): void {
+    $record = $this->record($item);
+    if ($conflict = $this->conflictFromRecord($expectedVersion, $record)) {
+      throw $conflict;
+    }
+    $panels = $record['panels'] ?? [];
+    if ($data === NULL) {
+      unset($panels[$panelId]);
+    }
+    else {
+      $panels[$panelId] = $data;
+    }
+    $this->writeEdit($item, $record, $record['value'] ?? NULL, $panels);
+  }
+
+  /**
+   * Writes an edit: the new content, with the version and attribution moved on.
+   *
+   * The write increments the version, records the current user as the last
+   * editor with the current time, and adds them to the contributor set — for a
+   * tree write and a panel write alike.
+   *
+   * @param \Drupal\neo_alchemist\Plugin\Field\FieldType\ComponentTreeItem $item
+   *   The field item the draft belongs to.
+   * @param array|null $record
+   *   The record as read before the write, or NULL when there was none.
+   * @param array|null $value
+   *   The layout value to store, or NULL when the layout has no draft.
+   * @param array $panels
+   *   The panel data to store.
+   */
+  private function writeEdit(ComponentTreeItem $item, ?array $record, ?array $value, array $panels): void {
+    $uid = (int) $this->currentUser->id();
     $contributors = $record['contributors'] ?? [];
     if (!in_array($uid, $contributors, TRUE)) {
       $contributors[] = $uid;
     }
-
     $this->writeRecord($item, [
       'value' => $value,
-      'version' => $storedVersion + 1,
+      'version' => (int) ($record['version'] ?? 0) + 1,
       'last_editor' => $uid,
       'last_modified' => $this->time->getRequestTime(),
       'contributors' => $contributors,
+      'panels' => $panels,
     ]);
   }
 
@@ -275,7 +370,9 @@ final class SharedDraftStore {
    *
    * A config-scope field item — the field default layout — never has a draft:
    * drafts are per-entity, unpublished editor work. That rule lives here, in
-   * the store that owns draft existence, so a caller cannot get it wrong.
+   * the store that owns draft existence, so a caller cannot get it wrong. A
+   * record holding only editor panel data is a draft too: it has something to
+   * publish or revert even though the layout is unchanged.
    *
    * @param \Drupal\neo_alchemist\Plugin\Field\FieldType\ComponentTreeItem $item
    *   The field item the draft belongs to.
@@ -287,7 +384,7 @@ final class SharedDraftStore {
     if ($item->belongsToFieldConfig()) {
       return FALSE;
     }
-    return (bool) $this->get($item);
+    return (bool) $this->get($item) || $this->panels($item) !== [];
   }
 
   /**
@@ -375,8 +472,9 @@ final class SharedDraftStore {
   /**
    * Writes a whole record at this store's key and invalidates the preview.
    *
-   * The two write paths — the versioning set() and the migration seed — differ
-   * only in the metadata they compute; the write itself and its invalidation
+   * The two write paths — the versioning edit (writeEdit(), behind set() and
+   * setPanel()) and the migration seed — differ only in the metadata they
+   * compute; the write itself and its invalidation
    * postcondition are the same, and live here so neither path can add a key to
    * the record and forget to write it, nor write without invalidating.
    *
