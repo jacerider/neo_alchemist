@@ -263,7 +263,10 @@ where most of them come from, and that is long after init.
 
 `init()` seals a second store the same way: [ChildShapeState](src/ChildShapeState.php),
 which holds what a producer decided about individual children (hide / default / lock, plus
-per-child value plugins). Both stores share `ShapeScopedStoreTrait` — one instance on the
+per-child value plugins) and which entity each mapped row came from. A shape's
+`getContextEntity()` walks up its chain to the nearest recorded row entity, falling back to
+the host (`getEntity()`); token replacement uses it, so a per-row token template reads the
+row's entity rather than the page's. Both stores share `ShapeScopedStoreTrait` — one instance on the
 root shape, cheap per-shape views onto it via `forShape()`, and a per-shape deadline.
 Per shape, not per store: children initialize strictly after their root and go on
 being configured afterwards.

@@ -54,11 +54,14 @@ class TokenValueTest extends UnitTestCase {
     // to, so the context role is the whole of what it answers.
     $context = $this->shapeRole(ComponentShapeContextInterface::class);
     $context->method('getEntity')->willReturn($entity);
+    // Outside a mapped row the context entity is the host.
+    $context->method('getContextEntity')->willReturn($entity);
     $context->method('getTargetEntityType')->willReturn('node');
     $shape = $this->shapeDouble([$context]);
 
     $token = $this->createMock(Token::class);
-    $token->method('replace')->willReturnCallback(function (string $text): string {
+    // replacePlain(): the result feeds plain-text props that Twig escapes.
+    $token->method('replacePlain')->willReturnCallback(function (string $text): string {
       $this->replacedTemplate = $text;
       return str_replace('[node:title]', 'RESOLVED TITLE', $text);
     });

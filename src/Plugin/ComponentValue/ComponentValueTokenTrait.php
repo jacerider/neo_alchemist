@@ -7,13 +7,15 @@ namespace Drupal\neo_alchemist\Plugin\ComponentValue;
 use Drupal\Core\Render\BubbleableMetadata;
 
 /**
- * Adds token replacement against the component's target entity.
+ * Adds token replacement against the entity a shape stands for.
  *
  * Value plugins that mix this in let a site builder enter a token template
  * (e.g. "View [term:name] Projects" or "internal:/projects?market=[term:tid]")
  * that is resolved at render time against the entity the component is attached
- * to. It is entity-type agnostic — the token type is derived from the shape's
- * target entity, so the same plugin works on term, node, user, … pages.
+ * to, or, for a child of a row a producer filled from another entity (a list of
+ * queried rooms, say), against that row's entity. It is entity-type agnostic —
+ * the token type is derived from that entity, so the same plugin works on term,
+ * node, user, … pages.
  *
  * Requires the "token" contrib module for entity-type-to-token-type mapping and
  * the token browser; without it, replacement still runs using the entity type
@@ -44,7 +46,9 @@ trait ComponentValueTokenTrait {
     if ($template === '' || !str_contains($template, '[')) {
       return $template;
     }
-    $entity = $this->shape->getEntity();
+    // The row's entity inside a mapped row, so a per-row template reads the
+    // row; the host otherwise.
+    $entity = $this->shape->getContextEntity();
     $tokenType = $this->getEntityTokenType($entity->getEntityTypeId());
     $metadata = new BubbleableMetadata();
     $replaced = \Drupal::token()->replacePlain(

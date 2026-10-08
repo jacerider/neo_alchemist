@@ -49,6 +49,19 @@ interface ComponentShapeContextInterface extends ComponentShapeIdentityInterface
   public function getEntity(): ContentEntityInterface;
 
   /**
+   * Gets the entity this shape's value stands for.
+   *
+   * The host entity (::getEntity()), unless the shape sits in a row a producer
+   * filled from another entity: a child of a list of queried or referenced
+   * entities stands for its row's entity. Token replacement resolves against
+   * this, so a per-row template reads the row.
+   *
+   * @return \Drupal\Core\Entity\ContentEntityInterface
+   *   The entity.
+   */
+  public function getContextEntity(): ContentEntityInterface;
+
+  /**
    * Get the entity type.
    *
    * This is the entity type id set on the component. It is not the entity type
