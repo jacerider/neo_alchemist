@@ -75,6 +75,17 @@ class InstanceComponentManage extends RenderElementBase {
       $element['#attached']['drupalSettings']['neoAlchemist']['panels'] = $sidePanels['settings'];
       $element['#attached']['library'][] = 'neo_alchemist/panels';
     }
+    // Panel badges lead the top bar's end, left of the scale controls. The
+    // top bar is never re-rendered, so their client halves keep them current.
+    if ($sidePanels['badges']) {
+      $element['#top_end'] = [
+        'badges' => [
+          '#type' => 'container',
+          '#attributes' => ['class' => ['neo-alchemist--badges', 'flex', 'items-center', 'gap-2']],
+        ] + $sidePanels['badges'],
+        'operations' => $element['#top_end'],
+      ];
+    }
 
     return $element;
   }

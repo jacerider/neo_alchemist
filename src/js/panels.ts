@@ -13,6 +13,11 @@
  * in the shared layout draft. Registration order does not matter: a panel
  * opened before its script registers is mounted when it does.
  *
+ * badge() runs at registration — editor load — when the plugin rendered a
+ * badge in the top bar, with the same api and a dropdown anchored under the
+ * badge (see dropdownCreate()). onDraftChange() listeners hear every change
+ * whether or not their panel was ever opened.
+ *
  * The draft is versioned as a whole, so this file carries one version for every
  * panel on the page, refreshes it after each write and after the previews
  * reload following a layout write, and sends it with each set() — a stale
@@ -139,6 +144,134 @@
     };
   }
 
+  /**
+   * The dropdown under a badge: every <button> in the badge toggles it, Esc
+   * and a click anywhere else (a preview frame included) close it, and focus
+   * moves in on open and back to the opening button on close.
+   */
+  function dropdownCreate(badge: HTMLElement, id: string): NeoAlchemistDropdown {
+    const element = document.createElement('div');
+    element.id = `neo-alchemist-dropdown-${id}`;
+    element.className = 'neo-alchemist--dropdown absolute right-0 top-full mt-2 w-96 max-w-[calc(100vw-2rem)] max-h-[70vh] overflow-y-auto rounded-lg shadow-lg border bg-base-0 text-base-0-content text-sm z-50';
+    element.setAttribute('role', 'dialog');
+    element.setAttribute('aria-label', settings[id]?.label ?? id);
+    element.hidden = true;
+    badge.append(element);
+    const callbacks: Array<(open: boolean) => void> = [];
+    let opener: HTMLElement | null = null;
+
+    const triggers = () => Array.from(badge.querySelectorAll<HTMLElement>('button'))
+      .filter(button => !element.contains(button));
+    const sync = (open: boolean) => {
+      triggers().forEach(button => {
+        button.setAttribute('aria-expanded', open ? 'true' : 'false');
+        button.setAttribute('aria-controls', element.id);
+      });
+      callbacks.forEach(callback => {
+        try {
+          callback(open);
+        }
+        catch (e) {
+          console.error(e);
+        }
+      });
+    };
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        dropdown.close();
+      }
+    };
+    const onPointer = (event: PointerEvent) => {
+      if (!badge.contains(event.target as Node)) {
+        dropdown.close();
+      }
+    };
+    // A click into a preview frame never reaches this document; it blurs it.
+    const onBlur = () => {
+      window.setTimeout(() => {
+        if (document.activeElement instanceof HTMLIFrameElement) {
+          dropdown.close();
+        }
+      });
+    };
+
+    const dropdown: NeoAlchemistDropdown = {
+      element,
+      open(focus) {
+        if (!element.hidden) {
+          (focus ?? null)?.focus();
+          return;
+        }
+        opener = document.activeElement instanceof HTMLElement && badge.contains(document.activeElement)
+          ? document.activeElement
+          : triggers()[0] ?? null;
+        element.hidden = false;
+        document.addEventListener('keydown', onKey, true);
+        document.addEventListener('pointerdown', onPointer, true);
+        window.addEventListener('blur', onBlur);
+        sync(true);
+        const target = focus ?? element.querySelector<HTMLElement>('input, select, textarea, button, a[href], [tabindex]:not([tabindex="-1"])');
+        target?.focus();
+      },
+      close() {
+        if (element.hidden) {
+          return;
+        }
+        const returnFocus = element.contains(document.activeElement);
+        element.hidden = true;
+        document.removeEventListener('keydown', onKey, true);
+        document.removeEventListener('pointerdown', onPointer, true);
+        window.removeEventListener('blur', onBlur);
+        sync(false);
+        if (returnFocus) {
+          opener?.focus();
+        }
+      },
+      isOpen: () => !element.hidden,
+      onToggle(callback) {
+        callbacks.push(callback);
+      },
+    };
+
+    badge.addEventListener('click', (event) => {
+      const button = (event.target as Element).closest('button');
+      if (!button || element.contains(button)) {
+        return;
+      }
+      event.preventDefault();
+      if (dropdown.isOpen()) {
+        dropdown.close();
+      }
+      else {
+        opener = button;
+        dropdown.open();
+      }
+    });
+    sync(false);
+    return dropdown;
+  }
+
+  const badged: Record<string, true> = {};
+
+  /**
+   * Runs a panel's badge() once, when both it and its badge element exist.
+   */
+  function badgeNow(id: string): void {
+    const definition = definitions[id];
+    const badge = document.querySelector<HTMLElement>(`[data-alchemist-badge="${id}"]`);
+    if (badged[id] || !definition?.badge || !badge || !settings[id]) {
+      return;
+    }
+    badged[id] = true;
+    try {
+      definition.badge(badge, api(id), dropdownCreate(badge, id));
+    }
+    catch (e) {
+      console.error(e);
+    }
+  }
+
   function mountNow(id: string, element: HTMLElement): void {
     mounted[id] = element;
     delete pending[id];
@@ -156,6 +289,14 @@
       if (pending[id]) {
         mountNow(id, pending[id]);
       }
+      if (definition.badge) {
+        if (document.readyState === 'loading') {
+          document.addEventListener('DOMContentLoaded', () => badgeNow(id), { once: true });
+        }
+        else {
+          badgeNow(id);
+        }
+      }
     },
 
     mount(id, element) {
@@ -171,9 +312,11 @@
     },
 
     layoutChanged() {
-      const id = Object.keys(mounted)[0];
+      // Listeners hear the change whether or not their panel was ever opened:
+      // a badge keeps its top bar summary current from editor load.
+      const id = Object.keys(mounted)[0] ?? (listeners.size ? Object.keys(settings)[0] : undefined);
       if (!id) {
-        // Nothing mounted holds a version; the first get() or set() reads one.
+        // Nothing listens or holds a version; the first get() or set() reads one.
         version = null;
         return;
       }

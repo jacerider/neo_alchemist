@@ -311,7 +311,7 @@ class ComponentManageHelper {
    */
   public static function buildSidePanels(ComponentTreeItem $item): array {
     $cacheability = new CacheableMetadata();
-    $build = ['toggles' => [], 'panels' => [], 'settings' => [], 'cacheability' => $cacheability];
+    $build = ['toggles' => [], 'panels' => [], 'settings' => [], 'badges' => [], 'cacheability' => $cacheability];
     /** @var \Drupal\neo_alchemist\Panel\AlchemistPanelManager $manager */
     $manager = \Drupal::service('plugin.manager.neo_alchemist_panel');
     foreach ($manager->accessiblePanels($item, \Drupal::currentUser(), $cacheability) as $id => $panel) {
@@ -338,6 +338,18 @@ class ComponentManageHelper {
         'label' => $label,
         'url' => $item->toUrl('panel')->setRouteParameter('panel', $id)->toString(),
       ];
+      // The badge's dropdown is added by panels.ts beside the badge content.
+      $badge = $panel->badge($item);
+      if ($badge) {
+        $build['badges']['badge_' . $id] = [
+          '#type' => 'container',
+          '#attributes' => [
+            'class' => ['neo-alchemist--badge', 'relative', 'flex', 'items-center', 'gap-1'],
+            'data-alchemist-badge' => $id,
+          ],
+          'content' => $badge,
+        ];
+      }
     }
     return $build;
   }

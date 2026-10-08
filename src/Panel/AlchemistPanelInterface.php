@@ -61,6 +61,23 @@ interface AlchemistPanelInterface extends PluginInspectionInterface {
   public function build(ComponentTreeItem $item): array;
 
   /**
+   * The panel's badge in the editor's top bar, or an empty array for none.
+   *
+   * Placed left of the scale controls, in panel weight order, only while
+   * access() passes. The top bar is never re-rendered, so the badge's client
+   * half (the `badge()` of its registration) keeps it current: it runs at
+   * editor load, gets the same draft api as mount(), and a dropdown that the
+   * editor anchors under the badge. Every <button> in the badge toggles it.
+   *
+   * @param \Drupal\neo_alchemist\Plugin\Field\FieldType\ComponentTreeItem $item
+   *   The entity-scope field item being edited.
+   *
+   * @return array
+   *   A render array; empty for no badge.
+   */
+  public function badge(ComponentTreeItem $item): array;
+
+  /**
    * Applies the panel's drafted data to the entity just before it is saved.
    *
    * Called on Publish only, after the layout value has been synced onto the

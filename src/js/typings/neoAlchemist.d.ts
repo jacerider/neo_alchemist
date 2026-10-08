@@ -38,6 +38,21 @@ interface NeoAlchemistPanelApi {
 }
 
 /**
+ * The dropdown the editor anchors under a panel's top bar badge.
+ */
+interface NeoAlchemistDropdown {
+  /** The dropdown's body: the badge fills it. */
+  readonly element: HTMLElement;
+  /** Opens it and moves focus in: to `focus` when given, else its first control. */
+  open(focus?: HTMLElement | null): void;
+  /** Closes it; focus returns to the badge button that opened it. */
+  close(): void;
+  isOpen(): boolean;
+  /** Called after every open and close. */
+  onToggle(callback: (open: boolean) => void): void;
+}
+
+/**
  * What a module registers for its panel.
  */
 interface NeoAlchemistPanelDefinition {
@@ -45,6 +60,11 @@ interface NeoAlchemistPanelDefinition {
   mount(element: HTMLElement, api: NeoAlchemistPanelApi): void;
   /** Called when the editor page goes away. */
   unmount?(): void;
+  /**
+   * Called at editor load when the panel's plugin rendered a badge(), with the
+   * badge element, the same draft api as mount(), and the badge's dropdown.
+   */
+  badge?(element: HTMLElement, api: NeoAlchemistPanelApi, dropdown: NeoAlchemistDropdown): void;
 }
 
 interface NeoAlchemistPanelRegistry {

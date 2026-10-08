@@ -11,6 +11,7 @@ use Drupal\entity_test\Entity\EntityTest;
 use Drupal\neo_alchemist\ComponentManageHelper;
 use Drupal\neo_alchemist\Controller\InstanceComponentPanelController;
 use Drupal\neo_alchemist\EditorState\DraftConflictException;
+use Drupal\neo_alchemist\Element\InstanceComponentManage;
 use Drupal\neo_alchemist\EditorState\SharedDraftStore;
 use Drupal\neo_alchemist\Panel\AlchemistPanelManager;
 use Drupal\neo_alchemist\Plugin\Field\FieldType\ComponentTreeItem;
@@ -221,6 +222,44 @@ class AlchemistPanelTest extends HybridFieldKernelTestBase {
     $item = $this->item($this->labelledEntity());
     $this->assertFalse($this->manager()->access($item, 'no_such_panel', $this->container->get('current_user'))->isAllowed());
     $this->assertSame([], $this->manager()->accessiblePanels($item, new UserSession(['uid' => 0])), 'No update access, no panel.');
+  }
+
+  /**
+   * A panel's badge leads the top bar's end, left of the scale controls.
+   */
+  public function testBadgeLeadsTheTopBar(): void {
+    $item = $this->item($this->labelledEntity());
+    $plain = $this->manageElement($item);
+    $this->assertArrayNotHasKey('badges', $plain['#top_end'], 'No badge: the top bar is unchanged.');
+    $this->assertSame(['scale', 'size'], array_values(array_filter(array_keys($plain['#top_end']), static fn ($key) => $key[0] !== '#')), 'The top bar end holds only the scale and device controls.');
+
+    \Drupal::state()->set(TestLabelPanel::BADGE_STATE_KEY, TRUE);
+    $badged = $this->manageElement($item);
+    $this->assertSame(['badges', 'operations'], array_keys($badged['#top_end']), 'Badges come first, then the scale and device controls.');
+    $badge = $badged['#top_end']['badges']['badge_' . self::PANEL];
+    $this->assertSame(self::PANEL, $badge['#attributes']['data-alchemist-badge']);
+    $this->assertSame('button', $badge['content']['#tag']);
+    $this->assertContains('neo_alchemist/panels', $badged['#attached']['library'], 'The badge client half loads with the editor.');
+  }
+
+  /**
+   * A panel the editor may not open has no badge either.
+   */
+  public function testDeniedPanelHasNoBadge(): void {
+    $item = $this->item($this->labelledEntity());
+    \Drupal::state()->set(TestLabelPanel::BADGE_STATE_KEY, TRUE);
+    $this->assertArrayHasKey('badge_' . self::PANEL, $this->sidePanels($item)['badges'], 'Premise: allowed, the badge is built.');
+
+    \Drupal::state()->set(TestLabelPanel::STATE_KEY, FALSE);
+    $this->assertSame([], $this->sidePanels($item)['badges']);
+    $this->assertArrayNotHasKey('badges', $this->manageElement($item)['#top_end']);
+  }
+
+  /**
+   * The editor element as its pre-render builds it.
+   */
+  private function manageElement(ComponentTreeItem $item): array {
+    return $this->container->get('renderer')->executeInRenderContext(new RenderContext(), static fn () => InstanceComponentManage::preRenderManage(['#neo_field' => $item]));
   }
 
   /**

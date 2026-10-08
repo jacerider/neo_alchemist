@@ -12,9 +12,9 @@ use Drupal\neo_alchemist\Plugin\Field\FieldType\ComponentTreeItem;
 /**
  * Base class for Alchemist editor side panels.
  *
- * Supplies label() from the attribute and an access() that lets anyone who may
- * update the host entity in. A panel overrides access() to narrow that, and
- * implements build() and publish().
+ * Supplies label() from the attribute, an access() that lets anyone who may
+ * update the host entity in, and no badge. A panel overrides access() to
+ * narrow that, badge() to add one, and implements build() and publish().
  */
 abstract class AlchemistPanelBase extends PluginBase implements AlchemistPanelInterface {
 
@@ -30,6 +30,15 @@ abstract class AlchemistPanelBase extends PluginBase implements AlchemistPanelIn
    */
   public function access(ComponentTreeItem $item, AccountInterface $account): AccessResultInterface {
     return $item->getEntity()->access('update', $account, TRUE);
+  }
+
+  /**
+   * {@inheritdoc}
+   *
+   * No badge by default.
+   */
+  public function badge(ComponentTreeItem $item): array {
+    return [];
   }
 
 }

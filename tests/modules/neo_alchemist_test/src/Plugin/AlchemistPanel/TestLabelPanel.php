@@ -34,6 +34,11 @@ final class TestLabelPanel extends AlchemistPanelBase {
   public const STATE_KEY = 'neo_alchemist_test.panel_enabled';
 
   /**
+   * The state flag that adds the panel's top bar badge.
+   */
+  public const BADGE_STATE_KEY = 'neo_alchemist_test.panel_badge';
+
+  /**
    * {@inheritdoc}
    */
   public function access(ComponentTreeItem $item, AccountInterface $account): AccessResultInterface {
@@ -51,6 +56,24 @@ final class TestLabelPanel extends AlchemistPanelBase {
       '#tag' => 'div',
       '#attributes' => ['class' => ['na-test-label-panel']],
       '#attached' => ['library' => ['neo_alchemist_test/panel']],
+    ];
+  }
+
+  /**
+   * {@inheritdoc}
+   *
+   * A button the client half labels with the drafted label; it opens a
+   * dropdown counting the draft changes the badge has heard.
+   */
+  public function badge(ComponentTreeItem $item): array {
+    if (!\Drupal::state()->get(self::BADGE_STATE_KEY, FALSE)) {
+      return [];
+    }
+    return [
+      '#type' => 'html_tag',
+      '#tag' => 'button',
+      '#value' => $this->t('Label'),
+      '#attributes' => ['type' => 'button', 'class' => ['na-test-label-badge', 'btn', 'btn-xs', 'btn-outline']],
     ];
   }
 

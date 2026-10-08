@@ -36,5 +36,14 @@
       });
       load();
     },
+    badge(element, api, dropdown) {
+      let heard = 0;
+      dropdown.element.innerHTML = '<p class="na-test-label-heard p-3">0</p>';
+      api.onDraftChange((change) => {
+        heard += 1;
+        dropdown.element.querySelector('p').textContent = `${heard} (${change.reason})`;
+      });
+      element.dataset.badgeReady = 'true';
+    },
   });
 })(Drupal);

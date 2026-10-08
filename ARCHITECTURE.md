@@ -880,6 +880,8 @@ final class MyPanel extends AlchemistPanelBase {
   public function publish(ComponentTreeItem $item, ContentEntityInterface $entity, mixed $data): void {
     // Apply $data to $entity. Do not save — the caller does, right after.
   }
+  // Optional, AlchemistPanelBase returns []: a badge in the editor's top bar.
+  public function badge(ComponentTreeItem $item): array { /* render array, [] = none */ }
 }
 ```
 
@@ -942,6 +944,21 @@ Drupal.neoAlchemist.panels.register('my_panel', {
   unmount() {},  // optional, on pagehide
 });
 ```
+
+**Top bar badges** — a panel may also return a `badge()` render array. `buildSidePanels()`
+collects them (`badges`, keyed `badge_{id}`, each wrapped in
+`div.neo-alchemist--badge[data-alchemist-badge={id}]`) in weight order, only for panels whose
+`access()` passes; `preRenderManage()` puts them first in `#top_end`, left of the scale and device
+controls — `#top_end` is never re-rendered, so the badge's client half keeps it current. With no
+badge `#top_end` is exactly the iframe operations. The client registers `badge(element, api,
+dropdown)` beside `mount()`; it runs at **registration (editor load)**, not on panel open, with the
+same draft api. `dropdown` is neo_alchemist's: an element anchored under the badge
+(`dropdown.element`, which the badge fills), toggled by any `<button>` in the badge, closed by Esc,
+a click elsewhere or focus moving into a preview frame; focus moves in on `open(focus?)` and back
+to the opening button on `close()`; `isOpen()`, `onToggle(cb)`. `onDraftChange` listeners hear
+every change whether or not their panel was mounted: `layoutChanged()` reads the version through
+any registered panel when nothing is mounted but someone listens. Fixture: `TestLabelPanel` adds a
+badge while the `neo_alchemist_test.panel_badge` state flag is on.
 
 `src/js/panels.ts` holds the registry and the one record-level version every panel shares;
 `components-parent.ts` owns the toggles and positioning (`sidePanelToggle()`,
