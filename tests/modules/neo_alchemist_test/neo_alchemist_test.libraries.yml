@@ -1,0 +1,9 @@
+# The client half of TestLabelPanel: plain JS, no build step, to show the panel
+# registry needs nothing more than a dependency on neo_alchemist/panels.
+panel:
+  version: VERSION
+  js:
+    js/test-panel.js: {}
+  dependencies:
+    - core/drupal
+    - neo_alchemist/panels
