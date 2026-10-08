@@ -61,6 +61,7 @@ class TokenValueTest extends UnitTestCase {
 
     $token = $this->createMock(Token::class);
     // replacePlain(): the result feeds plain-text props that Twig escapes.
+    $token->expects($this->never())->method('replace');
     $token->method('replacePlain')->willReturnCallback(function (string $text): string {
       $this->replacedTemplate = $text;
       return str_replace('[node:title]', 'RESOLVED TITLE', $text);
