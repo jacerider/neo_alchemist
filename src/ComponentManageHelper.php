@@ -4,6 +4,7 @@ namespace Drupal\neo_alchemist;
 
 use Drupal\Component\Render\MarkupInterface;
 use Drupal\Component\Utility\Html;
+use Drupal\Core\Cache\CacheableMetadata;
 use Drupal\Core\Plugin\Component as ComponentPlugin;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\neo_alchemist\Plugin\Field\FieldType\ComponentTreeItem;
@@ -288,6 +289,57 @@ class ComponentManageHelper {
         ],
       ],
     ];
+  }
+
+  /**
+   * Builds the editor side panels the current user may use on a field item.
+   *
+   * Every piece the editor needs from the accessible AlchemistPanel plugins: a
+   * toggle per panel for the bottom bar (beside Layers), the panel boxes the
+   * template floats where Layers does, and the drupalSettings the client reads
+   * each panel's endpoint from. With no panel registered, or none accessible,
+   * every list is empty and the editor is unchanged.
+   *
+   * @param \Drupal\neo_alchemist\Plugin\Field\FieldType\ComponentTreeItem $item
+   *   The field item being edited.
+   *
+   * @return array
+   *   Keyed 'toggles' (a render array), 'panels' (the template's side_panels
+   *   list of {id, label, width, body}), 'settings' (the
+   *   drupalSettings.neoAlchemist.panels map, id => {label, url}) and
+   *   'cacheability' (the access decisions' CacheableMetadata).
+   */
+  public static function buildSidePanels(ComponentTreeItem $item): array {
+    $cacheability = new CacheableMetadata();
+    $build = ['toggles' => [], 'panels' => [], 'settings' => [], 'cacheability' => $cacheability];
+    /** @var \Drupal\neo_alchemist\Panel\AlchemistPanelManager $manager */
+    $manager = \Drupal::service('plugin.manager.neo_alchemist_panel');
+    foreach ($manager->accessiblePanels($item, \Drupal::currentUser(), $cacheability) as $id => $panel) {
+      $definition = $panel->getPluginDefinition();
+      $label = $panel->label();
+      $build['toggles']['sidepanel_' . $id] = [
+        '#type' => 'html_tag',
+        '#tag' => 'button',
+        '#value' => neo_icon_admin($label, $definition['icon'] ?? NULL)->render(),
+        '#attributes' => [
+          'type' => 'button',
+          'class' => ['neo-alchemist--sidepanel-toggle', 'btn', 'btn-outline', 'btn-xs', 'is-active:btn-primary'],
+          'data-alchemist-sidepanel' => $id,
+          'aria-expanded' => 'false',
+        ],
+      ];
+      $build['panels'][] = [
+        'id' => $id,
+        'label' => $label,
+        'width' => $definition['width'] ?? '24rem',
+        'body' => $panel->build($item),
+      ];
+      $build['settings'][$id] = [
+        'label' => $label,
+        'url' => $item->toUrl('panel')->setRouteParameter('panel', $id)->toString(),
+      ];
+    }
+    return $build;
   }
 
   /**

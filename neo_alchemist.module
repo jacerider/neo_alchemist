@@ -75,6 +75,9 @@ function neo_alchemist_theme(): array {
         'top_end' => [],
         'bottom_start' => [],
         'bottom_end' => [],
+        // Editor side panels: a list of {id, label, width, body}.
+        // @see \Drupal\neo_alchemist\ComponentManageHelper::buildSidePanels()
+        'side_panels' => [],
       ],
     ],
     'neo_alchemist_overlay' => [

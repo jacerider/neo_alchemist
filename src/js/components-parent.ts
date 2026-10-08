@@ -100,6 +100,17 @@
   const layersTree = container.querySelector('.neo-alchemist--layers-tree') as HTMLElement | null;
   const layersToggleButton = container.querySelector('.neo-alchemist--layers-toggle') as HTMLElement | null;
   const layersCloseButton = container.querySelector('.neo-alchemist--layers-close') as HTMLElement | null;
+  // Editor side panels other modules add (AlchemistPanelInterface). Each floats
+  // where Layers does, and only one of them — or Layers — is open at a time.
+  // Their content is the panel's own; see panels.ts for the registry.
+  const sidePanels: Record<string, HTMLElement> = {};
+  container.querySelectorAll<HTMLElement>('.neo-alchemist--sidepanel').forEach(panel => {
+    if (panel.dataset.alchemistSidepanel) {
+      sidePanels[panel.dataset.alchemistSidepanel] = panel;
+    }
+  });
+  const sidePanelToggles = container.querySelectorAll<HTMLElement>('.neo-alchemist--sidepanel-toggle');
+  let sidePanelOpenId: string | null = null;
   // The component edit form takes the right-hand side, which is where the
   // layers panel floats. Editing one component's props is not a moment for
   // navigating the tree, so the panel stays out of that view entirely.
@@ -651,6 +662,27 @@
       layersToggleButton?.style.setProperty('display', 'none');
     }
 
+    // Editor side panels.
+    sidePanelToggles.forEach(toggle => {
+      if (hasSideForm) {
+        toggle.style.setProperty('display', 'none');
+        return;
+      }
+      toggle.addEventListener('click', (e) => {
+        e.preventDefault();
+        const id = toggle.dataset.alchemistSidepanel;
+        if (id) {
+          sidePanelToggle(id, sidePanelOpenId !== id);
+        }
+      });
+    });
+    Object.entries(sidePanels).forEach(([id, panel]) => {
+      panel.querySelector('.neo-alchemist--sidepanel-close')?.addEventListener('click', (e) => {
+        e.preventDefault();
+        sidePanelToggle(id, false);
+      });
+    });
+
     // Escape climbs out of the selection — component, then its region, then the
     // page — the same step clicking the dimmed area takes, so pressing it
     // repeatedly deselects. Escape had no other job on this page, but two
@@ -814,6 +846,8 @@
    * This will be called once all iframes have sent position data. It can be
    * called multiple times if the iframes are reloaded.
    */
+  let readyCount = 0;
+
   function ready(): void {
     // Reset overlay state
     overlayState = {};
@@ -928,9 +962,18 @@
     seamsShow(layerUuid);
     layersBuild();
     // An explicit choice wins, but only on the layout it was made on;
-    // otherwise whether this tree has regions decides.
+    // otherwise whether this tree has regions decides. An open side panel
+    // keeps the spot: a layout save must not swap it for Layers.
     const layersChoice = localStorage.getItem(layersStorageKey);
-    layersPanelToggle(layersChoice ? layersChoice === 'open' : layersHasRegions(), true);
+    if (!sidePanelOpenId) {
+      layersPanelToggle(layersChoice ? layersChoice === 'open' : layersHasRegions(), true);
+    }
+    // Every ready() after the first follows a layout write (the previews
+    // reload on its AJAX response), so the draft moved on under any side panel.
+    readyCount++;
+    if (readyCount > 1) {
+      Drupal.neoAlchemist?.panels?.layoutChanged();
+    }
 
     if (layerUuid) {
       if (eventHistory && Object.keys(eventHistory).length > 0) {
@@ -1940,6 +1983,9 @@
     if (!layersPanel || hasSideForm) {
       return;
     }
+    if (open) {
+      sidePanelToggle(null, false);
+    }
     layersPanel.style.display = open ? '' : 'none';
     // The toggle stays put either way — it is the one fixed way to reach the
     // tree — and reflects the state rather than disappearing into it.
@@ -1960,17 +2006,66 @@
    * only counted while they are actually up.
    */
   function layersPosition(): void {
-    if (!layersPanel || layersPanel.style.display === 'none') {
+    floatingPosition(layersPanel);
+    floatingPosition(sidePanelOpenId ? sidePanels[sidePanelOpenId] : null);
+  }
+
+  /**
+   * Pin a floating panel — Layers or a side panel — to the canvas's right edge.
+   */
+  function floatingPosition(panel: HTMLElement | null): void {
+    if (!panel || panel.style.display === 'none') {
       return;
     }
     const gap = 16;
     const rect = wrapper.getBoundingClientRect();
-    layersPanel.style.top = `${rect.top + panelTopHeight() + gap}px`;
-    layersPanel.style.bottom = `${(window.innerHeight - rect.bottom) + panelBottomHeight() + gap}px`;
-    layersPanel.style.right = `${(window.innerWidth - rect.right) + gap}px`;
+    panel.style.top = `${rect.top + panelTopHeight() + gap}px`;
+    panel.style.bottom = `${(window.innerHeight - rect.bottom) + panelBottomHeight() + gap}px`;
+    panel.style.right = `${(window.innerWidth - rect.right) + gap}px`;
     // Under the breadcrumb and ops bars, which own z-30, so a mid-transition
     // overlap never puts the panel on top of them.
-    layersPanel.style.zIndex = '29';
+    panel.style.zIndex = '29';
+  }
+
+  /**
+   * Open one side panel (closing Layers and any other), or close them all.
+   *
+   * The panel's client is mounted on its first open, not at page load, so a
+   * panel nobody opens costs nothing. Closing keeps it mounted: reopening
+   * shows it as it was left.
+   *
+   * @param id
+   *   The panel to act on, or null for whichever is open.
+   * @param open
+   *   Whether to open it.
+   */
+  function sidePanelToggle(id: string | null, open: boolean): void {
+    if (hasSideForm) {
+      return;
+    }
+    Object.entries(sidePanels).forEach(([panelId, panel]) => {
+      const show = open && panelId === id;
+      panel.style.display = show ? '' : 'none';
+    });
+    sidePanelToggles.forEach(toggle => {
+      const show = open && toggle.dataset.alchemistSidepanel === id;
+      toggle.classList.toggle('is-active', show);
+      toggle.setAttribute('aria-expanded', show ? 'true' : 'false');
+    });
+    sidePanelOpenId = open ? id : null;
+    if (!open || !id || !sidePanels[id]) {
+      return;
+    }
+    if (layersPanelIsOpen()) {
+      // Silent: making room for a panel is not a choice about Layers, so the
+      // remembered preference for this layout stands.
+      layersPanelToggle(false, true);
+    }
+    floatingPosition(sidePanels[id]);
+    const body = sidePanels[id].querySelector<HTMLElement>('.neo-alchemist--sidepanel-body');
+    if (body) {
+      Drupal.neoAlchemist?.panels?.mount(id, body);
+    }
   }
 
   /**

@@ -29,6 +29,7 @@ class InstanceComponentManage extends RenderElementBase {
       '#theme' => 'neo_alchemist_manage',
       '#neo_field' => NULL,
       '#neo_modal' => [],
+      '#side_panels' => [],
       '#pre_render' => [
         [$class, 'preRenderManage'],
       ],
@@ -63,6 +64,17 @@ class InstanceComponentManage extends RenderElementBase {
     $element['#top_end'] = ComponentManageHelper::buildIframeOperations($neoField);
     $element['#bottom_start'] = ComponentManageHelper::buildOperations($neoField, $element['#neo_modal'] ?? []);
     $element['#bottom_end'] = ComponentManageHelper::buildLayersToggle();
+
+    // Side panels other modules add: their toggles sit left of Layers. With
+    // none accessible nothing here changes the editor.
+    $sidePanels = ComponentManageHelper::buildSidePanels($neoField);
+    $sidePanels['cacheability']->applyTo($element);
+    if ($sidePanels['panels']) {
+      $element['#bottom_end'] = $sidePanels['toggles'] + $element['#bottom_end'];
+      $element['#side_panels'] = $sidePanels['panels'];
+      $element['#attached']['drupalSettings']['neoAlchemist']['panels'] = $sidePanels['settings'];
+      $element['#attached']['library'][] = 'neo_alchemist/panels';
+    }
 
     return $element;
   }

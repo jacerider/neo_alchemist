@@ -12,6 +12,18 @@ components.parent:
     - neo_alchemist/component.parent
     - neo_alchemist/component.ajax
 
+# The editor side panel registry: Drupal.neoAlchemist.panels. Attached to the
+# editor only when a panel is accessible; a module's panel library depends on
+# it so its register() call finds the registry. See src/js/panels.ts.
+panels:
+  version: VERSION
+  neo: true
+  js:
+    src/js/panels.ts: {}
+  dependencies:
+    - core/drupal
+    - core/drupalSettings
+
 components.child:
   version: VERSION
   neo: true
