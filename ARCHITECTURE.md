@@ -859,6 +859,100 @@ draft mode) on a detached item, the copy's value is synced onto the entity befor
 `$entity->save()` — as NULL when a hybrid list is still flagged default (reset), so the
 entity returns to the field default instead of copy-on-writing the seeds.
 
+### Editor side panels
+
+Any module can add a side panel to the layout editor: a toggle in the bottom bar beside
+Layers, a floating box where Layers floats (one of them open at a time), and **one key in
+the shared draft**, so what the panel drafts is saved, reverted, reset and published with the
+layout rather than beside it. The existing Content / Style / Sources tabs are not panels and
+stay hardcoded. Entity scope only — a field default layout and a block host have no
+per-entity draft. Worked example: the fixture `TestLabelPanel` in
+`tests/modules/neo_alchemist_test` (drafts the entity label, sets it on Publish).
+
+**Server half** — a plugin in `src/Plugin/AlchemistPanel/` of any module:
+
+```php
+#[AlchemistPanel(id: 'my_panel', label: new TranslatableMarkup('SEO'), icon: 'search', weight: 0, width: '24rem')]
+final class MyPanel extends AlchemistPanelBase {
+  // access(ComponentTreeItem $item, AccountInterface $account): AccessResultInterface
+  //   Base: update access to the host entity. Narrow it here.
+  public function build(ComponentTreeItem $item): array { /* mount element + #attached */ }
+  public function publish(ComponentTreeItem $item, ContentEntityInterface $entity, mixed $data): void {
+    // Apply $data to $entity. Do not save — the caller does, right after.
+  }
+}
+```
+
+[AlchemistPanelInterface](src/Panel/AlchemistPanelInterface.php),
+[AlchemistPanelBase](src/Panel/AlchemistPanelBase.php) and
+[AlchemistPanelManager](src/Panel/AlchemistPanelManager.php)
+(`plugin.manager.neo_alchemist_panel`, alter hook `hook_neo_alchemist_panel_info_alter()`)
+live in `src/Panel/`; the attribute in `src/Attribute/`. The id is the draft key and the
+route's `{panel}` segment, so it is `[a-z0-9_]+`. The manager owns the gates every caller
+shares: no panels in config scope, an unknown id is forbidden, and a panel whose `access()`
+fails is not listed, read, written or published.
+
+**Draft storage** — the `SharedDraftStore` record gains `panels: {panelId: data}`.
+`panels()` / `getPanel()` read it; `setPanel($item, $id, $data, $expectedVersion)` writes
+one key under the same optimistic version guard as a tree write (NULL data removes the
+key). Both writes go through one private `writeEdit()` (version bump, last editor,
+contributors) and `writeRecord()`, so `set()` carries `panels` through untouched rather
+than writing a fresh record. A panel write with no layout draft creates a record whose
+`value` is NULL — deliberately **not** a snapshot of the current layout: the layout has not
+changed, so publishing keeps the entity's own value, and a hybrid list stays uncustomized
+(a snapshot would freeze it off the field default for an SEO edit). `has()` is therefore
+"layout value **or** panel data", which is what makes Save/Revert appear after the first
+panel write. `delete()` removes the whole record, so Revert discards panel data. Legacy
+records (no `panels` key) read as having none.
+
+**Publish handoff** — `ComponentTreeItem::saveComponents()`'s commit path reads
+`panels()` **before** `delete($expectedVersion)` consumes the draft, then, after the
+detached-copy value sync and before `$entity->save()`, calls
+`AlchemistPanelManager::publish()`, which hands each accessible panel its data. The delete is
+the version guard, so a refused (stale) publish throws before any panel touches the entity
+and nothing is saved. Data for a panel that no longer exists or the publisher may not access
+is dropped. **Reset** shares that commit path, so `InstanceComponentResetForm` deletes the
+draft first — Reset discards panel data instead of publishing it.
+
+**Route** — entity-scope op `panel`: `…/alchemist/{neo_field}/panel/{panel}`
+(`InstanceComponentPanelController`, GET|POST, `_neo_component_field: neo_field.update` +
+`_custom_access` = the manager's panel access + `_csrf_request_header_token`). GET →
+`{data, version, hasDraft}`. POST `{data, version}` → `{version, hasDraft, operations}`
+(`operations` is the re-rendered top-start toolbar HTML), or `409 {message, version}` on a
+stale version, or 400 on a malformed body. Field-UI and block scopes opt out in
+`SCOPE_DIVERGENCES`. `ComponentTreeItem::toUrl('panel')` gives the URL minus the panel id
+(`->setRouteParameter('panel', $id)`).
+
+**Editor** — `InstanceComponentManage::preRenderManage()` calls
+`ComponentManageHelper::buildSidePanels()`: toggles prepended to `#bottom_end`, the boxes as
+`#side_panels` (template variable `side_panels`), `drupalSettings.neoAlchemist.panels`
+(`{id: {label, url}}`) and the `neo_alchemist/panels` library. With no accessible panel
+none of that is added — the editor's markup is unchanged (the build gains only the
+`neo_alchemist_panel_plugins` cache tag).
+
+**Client half** — a library depending on `neo_alchemist/panels`:
+
+```js
+Drupal.neoAlchemist.panels.register('my_panel', {
+  mount(element, api) {
+    // api.get(): Promise<{data, version, hasDraft}>
+    // api.set(data): Promise<{version, hasDraft}> — rejects on 409; the message is shown in the panel
+    // api.onDraftChange(cb): unsubscribe — cb({reason: 'panel'|'layout', panelId?, version, hasDraft})
+  },
+  unmount() {},  // optional, on pagehide
+});
+```
+
+`src/js/panels.ts` holds the registry and the one record-level version every panel shares;
+`components-parent.ts` owns the toggles and positioning (`sidePanelToggle()`,
+`floatingPosition()`). `mount()` runs lazily on first open (registration order does not
+matter); closing keeps the panel mounted. `onDraftChange` fires after any panel's write and
+after the previews reload following a layout write (every `ready()` after the first) — the
+client re-reads the version first, so a panel never 409s against its own session's layout
+save. A 409 keeps the stale version: the message asks for a reload, and silently adopting the
+newer version would let the next write overwrite the colleague. Save / Revert / Reset /
+Publish are full page navigations, so a panel sees them as a fresh mount.
+
 ---
 
 ## Render pipeline
@@ -932,7 +1026,9 @@ From [neo_alchemist.services.yml](neo_alchemist.services.yml):
   against an entity) and `neo_alchemist.matcher_reference` → `MatcherReference` (lists and
   follows entity reference fields). Both are `final`; unit tests build a real one over mocked
   services rather than doubling them.
-- **Plugin managers** — `plugin.manager.neo_component_{prop_def,shape,value,value_group,group,size,slot,filter,filter_options,access}`.
+- **Plugin managers** — `plugin.manager.neo_component_{prop_def,shape,value,value_group,group,size,slot,filter,filter_options,access}`, and
+  `plugin.manager.neo_alchemist_panel` → `AlchemistPanelManager` — editor side panels (see
+  "Editor side panels").
 - **Factories** — `neo_component.{slot,filter,access}.factory`.
 - **Configured-plugin kinds** — `neo_alchemist.configured_plugin_kind.{access,filter}` and the
   `neo_alchemist.configured_plugin_kinds` repository the shared form and controller resolve
@@ -1200,6 +1296,11 @@ From [neo_alchemist.services.yml](neo_alchemist.services.yml):
   entity's tree fields (the Layout route redirect/picker and the token image field
   lookup). Remove entries only; pair with `hook_entity_field_access()` to hide the same
   fields from rendering. Canonical consumer: `modules/neo_alchemist_taxonomy/`.
+- **An editor side panel** (a floating box beside Layers with its own key in the shared
+  draft, applied to the entity on Publish) — an `#[AlchemistPanel]` plugin in
+  `src/Plugin/AlchemistPanel/` extending `AlchemistPanelBase`, plus a library depending on
+  `neo_alchemist/panels` that calls `Drupal.neoAlchemist.panels.register()`. See "Editor side
+  panels"; no neo_alchemist edit needed.
 - **A Drush command** — add a method to `NeoAlchemistCommands` with `#[CLI\Command]`;
   inject services via `#[Autowire(service: '…')]` (the class uses `AutowireTrait`).
 - After any plugin/attribute/service change: **`drush cr`** (discovery is cached), and run

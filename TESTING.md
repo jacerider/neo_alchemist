@@ -220,6 +220,8 @@ tests/
 │   ├── src/Plugin/ComponentAccess/    # TestCacheTagAccess
 │   ├── src/Plugin/ComponentFilter/    # TestEntityBoundFilter (declines a component)
 │   ├── src/Plugin/ComponentSlot/      # TestNoteSlot (one settings field, no deps)
+│   ├── src/Plugin/AlchemistPanel/     # TestLabelPanel (editor side panel; inert until its state flag)
+│   ├── js/test-panel.js               # its client half (plain JS, neo_alchemist_test/panel library)
 │   └── neo_alchemist_test.neo_component_prop_defs.yml
 └── src/
     ├── Unit/                          # no container, no database
