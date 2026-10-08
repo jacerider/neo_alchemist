@@ -669,6 +669,36 @@ Access plugins can only **forbid**, never grant; the first forbidden wins; users
   value-plugin veto — reach for the value plugin when one prop should react, this when
   the entire component should.
 
+## Schema pieces (neo_seo)
+
+On a site with `neo_seo`, a component can put itself into the page's schema.org graph by
+declaring a piece in its `.component.yml` — no PHP:
+
+```yaml
+thirdPartySettings:
+  neo_seo:
+    pieces:
+      - type: VideoObject
+        properties:
+          name: title            # a prop name…
+          contentUrl: video.src  # …then keys into its resolved value
+          thumbnailUrl: video.poster
+```
+
+- Each property names a prop, then dot-keys into its value **as resolved** — bindings to
+  entity fields included. `neo_seo` walks the tree the page renders, skipping unpublished
+  instances and ones the visitor cannot see.
+- One node per instance, at `{canonical}#{type}-{uuid}`, `isPartOf` the page's WebPage.
+- A type with Google requirements is checked: a `VideoObject` needs `name`, `thumbnailUrl`,
+  `uploadDate` and one of `contentUrl`/`embedUrl`. `uploadDate` falls back to the page's
+  published date and `name` to the page title; a node still missing something is left out
+  and logged once — never emitted invalid.
+- `video` props resolve to `{src, poster, mime, title, …}`; `remote_video` to `{src,
+  thumbnail, thumbnail_width, thumbnail_height, title}` — map `thumbnailUrl` to `poster` or
+  `thumbnail` accordingly, and `embedUrl` (not `contentUrl`) for a remote video.
+- Do not declare FAQ or HowTo pieces: Google no longer shows either.
+- Check the result with `ddev drush neo-seo:validate --insecure --url=<page>`.
+
 ## The `.twig` file
 
 ### Root element & structure
