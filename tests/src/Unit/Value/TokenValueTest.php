@@ -57,8 +57,12 @@ class TokenValueTest extends UnitTestCase {
     $context->method('getTargetEntityType')->willReturn('node');
     $shape = $this->shapeDouble([$context]);
 
+    // replacePlain(), never replace(): the result is a plain-text prop that
+    // Twig escapes on output, so an HTML-escaped token value would be escaped
+    // twice.
     $token = $this->createMock(Token::class);
-    $token->method('replace')->willReturnCallback(function (string $text): string {
+    $token->expects($this->never())->method('replace');
+    $token->method('replacePlain')->willReturnCallback(function (string $text): string {
       $this->replacedTemplate = $text;
       return str_replace('[node:title]', 'RESOLVED TITLE', $text);
     });
