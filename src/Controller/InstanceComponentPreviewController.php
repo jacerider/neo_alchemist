@@ -10,6 +10,7 @@ use Drupal\Core\Render\BareHtmlPageRendererInterface;
 use Drupal\Core\Routing\RouteMatchInterface;
 use Drupal\neo_alchemist\EditorState\EditorScratchStore;
 use Drupal\neo_alchemist\EditorState\SharedDraftStore;
+use Drupal\neo_alchemist\PageHeading;
 use Drupal\neo_alchemist\Plugin\Field\FieldType\ComponentTreeItem;
 use Drupal\neo_alchemist\PreviewPropMapBuilder;
 use Drupal\neo_icon\IconTrait;
@@ -31,6 +32,7 @@ final class InstanceComponentPreviewController extends ControllerBase {
     private readonly EditorScratchStore $scratchStore,
     private readonly SharedDraftStore $sharedDraftStore,
     private readonly RouteMatchInterface $routeMatch,
+    private readonly PageHeading $pageHeading,
   ) {}
 
   /**
@@ -41,7 +43,8 @@ final class InstanceComponentPreviewController extends ControllerBase {
       $container->get('neo_component_page_renderer'),
       $container->get('neo_alchemist.editor_scratch_store'),
       $container->get('neo_alchemist.shared_draft_store'),
-      $container->get('current_route_match')
+      $container->get('current_route_match'),
+      $container->get('neo_alchemist.page_heading'),
     );
   }
 
@@ -135,6 +138,7 @@ final class InstanceComponentPreviewController extends ControllerBase {
       $neo_field->updateComponent($uuid, $draft);
     }
 
+    $this->markPageContent($neo_field);
     $component = $neo_field->getComponent($uuid);
     $component->setInstancePreview(TRUE);
     $renderable = $component->toRenderable(routeMatch: $this->routeMatch);
@@ -155,6 +159,20 @@ final class InstanceComponentPreviewController extends ControllerBase {
   }
 
   /**
+   * Marks a previewed tree as page content when its host's page renders it.
+   *
+   * So the preview prints the H1 the page will. A header or menu tree is
+   * previewed through here too, and is not page content.
+   *
+   * @param \Drupal\neo_alchemist\Plugin\Field\FieldType\ComponentTreeItem $neo_field
+   *   The component field.
+   */
+  private function markPageContent(ComponentTreeItem $neo_field): void {
+    $pageHeading = $this->pageHeading;
+    $pageHeading->setPageContent($neo_field, $pageHeading->isPageField($neo_field));
+  }
+
+  /**
    * Preview for all components.
    *
    * @param \Drupal\neo_alchemist\Plugin\Field\FieldType\ComponentTreeItem $neo_field
@@ -172,6 +190,7 @@ final class InstanceComponentPreviewController extends ControllerBase {
       ],
     ];
 
+    $this->markPageContent($neo_field);
     $build['components'] = $neo_field->toRenderable();
     $build['components']['#theme'] = 'neo_alchemist_component_preview';
 

@@ -61,8 +61,9 @@ class HeadingShape extends ObjectShape {
    *
    * A heading carries content in `supertitle`, `title` and `subtitle` only.
    * `size` always resolves — it falls back to `md` even when the editor has
-   * touched nothing — and `anchor` is a link target rather than text, so
-   * neither says anything about whether there is a heading to render.
+   * touched nothing — `anchor` is a link target rather than text, and `tag` is
+   * computed, so none of them says anything about whether there is a heading
+   * to render.
    *
    * Both keys are named here rather than inherited. A heading's `size` is a
    * schema property of its own, unrelated to the identically named key the
@@ -73,7 +74,7 @@ class HeadingShape extends ObjectShape {
    * @see \Drupal\neo_alchemist\Plugin\ComponentShape\ImageShape::getPresentationalValueKeys()
    */
   protected function getPresentationalValueKeys(): array {
-    return array_merge(parent::getPresentationalValueKeys(), ['size', 'anchor']);
+    return array_merge(parent::getPresentationalValueKeys(), ['size', 'anchor', 'tag']);
   }
 
   /**
@@ -109,7 +110,14 @@ class HeadingShape extends ObjectShape {
     // `size` child alone keeps the array non-empty, every heading tests as
     // truthy, and a textless heading renders an empty wrapper whose spacing
     // classes still push the content below it down.
-    return $isEmpty ? [] : $value;
+    if ($isEmpty) {
+      return [];
+    }
+    // The tag to print: h1 when this is the page's H1, otherwise the prop's
+    // fallback. Asked only of a heading with text, which is all that can be
+    // one.
+    $value['tag'] = \Drupal::service('neo_alchemist.page_heading')->tag($this);
+    return $value;
   }
 
   /**

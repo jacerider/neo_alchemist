@@ -279,6 +279,16 @@ final class ComponentTwigLinterTest extends UnitTestCase {
   }
 
   /**
+   * A literal h1 is reported; the heading's own tag and comments are not.
+   */
+  public function testLiteralH1IsReported(): void {
+    $checks = fn(string $twig) => array_column($this->linter->lint($twig, NULL, ['heading'], []), 'check');
+    $this->assertContains('literal_h1', $checks('<h1 class="component-title">{{ heading.title }}</h1>'));
+    $this->assertNotContains('literal_h1', $checks('<{{ heading.tag }} class="component-title">{{ heading.title }}</{{ heading.tag }}>'));
+    $this->assertNotContains('literal_h1', $checks('{# was <h1> #}<h2>{{ heading.title }}</h2>'));
+  }
+
+  /**
    * A non-heading prop named `title` is not a heading shape.
    */
   public function testOnlyHeadingShapesAreChecked(): void {

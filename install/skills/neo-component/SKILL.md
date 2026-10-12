@@ -844,20 +844,20 @@ The canonical form (what `drush neo:alchemist:shapes heading` prints):
   <div{{ heading.size }}>
     {% if heading.anchor %}<a name="{{ heading.anchor }}" title="{{ heading.title }}"></a>{% endif %}
     {% if heading.supertitle %}<div class="component-supertitle">{{ heading.supertitle }}</div>{% endif %}
-    {% if heading.title %}<h2 class="component-title">{{ heading.title }}</h2>{% endif %}
+    {% if heading.title %}<{{ heading.tag }} class="component-title">{{ heading.title }}</{{ heading.tag }}>{% endif %}
     {% if heading.subtitle %}<div class="component-subtitle">{{ heading.subtitle }}</div>{% endif %}
   </div>
 {% endif %}
 ```
 
-Four rules, each load-bearing:
+Five rules, each load-bearing:
 
 1. **All three children present**, each `{% if %}`-guarded so an unfilled part emits nothing.
 2. **`heading.size` on the shared wrapper, `component-*` on the children.** `title-*` only
    sets the `--title-size` / `--supertitle-size` / `--subtitle-size` **variables**; the
    `component-supertitle` / `component-title` / `component-subtitle` classes consume them.
    Put `size` on the wrapper and all three parts scale together from one editor control.
-   (A hand-rolled `<h2{{ heading.size.addClass(['component-title']) }}>` puts size and
+   (A hand-rolled `<{{ heading.tag }}{{ heading.size.addClass(['component-title']) }}>` puts size and
    consumer on the same tag — that works *only* for the title, which is precisely why it
    tends to leave the other two parts unrendered. Prefer the wrapper.)
 3. **`{% if heading %}` is the outer guard — plain, no three-way test.** The shape reports
@@ -871,6 +871,17 @@ Four rules, each load-bearing:
    you meet that symptom, the shape's `getPresentationalValueKeys()` is what governs it.)
 4. **Never gate one part on another.** `{% if heading.supertitle %}<h2>{{ heading.title }}</h2>{% endif %}`
    makes the title disappear whenever the supertitle is empty. Each part guards itself.
+5. **Print `heading.tag`, never a literal `<h1>` or `<h2>`.** A page has one H1, and
+   Alchemist decides which: the first heading of the page's layout, in reading order, that
+   has text and prints its tag. That heading gets `h1`; every other heading gets `h2`. When
+   no heading qualifies, the page title (kept visually hidden on Alchemist pages) is the H1,
+   and when one does, the page title is not printed. A component that types `<h1>` gives
+   every page it leads a second H1, and the lint reports it (`literal_h1`). One that types
+   `<h2>` is simply never the H1, so a page led by it keeps the hidden page title. In an
+   array, each item's heading prints its own tag: `slide.heading.tag`, and only the first
+   item's can be the H1. Two optional keys on the prop in `.component.yml` adjust this:
+   `h1: false` for a heading that should never be the page's H1 (an alert banner, a call to
+   action), and `tag: h3` (h2–h6) for the tag it prints otherwise (a card title).
 
 Spacing and color between the parts is the component's design decision — the usual house
 treatment is a small `mb-2` under the supertitle and `mt-2` above the subtitle, with the
@@ -880,7 +891,7 @@ when a trailing arrow or icon rides beside the title, leaving supertitle/subtitl
 above and below (see [list_s3](web/themes/front/components/list_s3/list_s3.twig)).
 
 Inline variants are fine where the design calls for a single run of text — hero_s1 and
-list_s1 render supertitle and subtitle as colored `<span>`s *inside* the `<h1>`/`<h2>`
+list_s1 render supertitle and subtitle as colored `<span>`s *inside* the heading tag
 around the title. That still satisfies the rule: all three parts render. What is never
 acceptable is dropping a part entirely.
 

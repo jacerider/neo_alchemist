@@ -29,7 +29,7 @@ heading:
       - '{% if %name%.anchor %}<a name="{{ %name%.anchor }}" title="{{ %name%.title }}"></a>{% endif %}'
       - '<div{{ %name%.size }}>'
       - '  {% if %name%.supertitle %}<div class="component-supertitle">{{ %name%.supertitle }}</div>{% endif %}'
-      - '  {% if %name%.title %}<h2 class="component-title">{{ %name%.title }}</h2>{% endif %}'
+      - '  {% if %name%.title %}<{{ %name%.tag }} class="component-title">{{ %name%.title }}</{{ %name%.tag }}>{% endif %}'
       - '  {% if %name%.subtitle %}<div class="component-subtitle">{{ %name%.subtitle }}</div>{% endif %}'
       - '</div>'
     suffix: '{% endif %}'

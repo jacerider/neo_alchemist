@@ -1,0 +1,18 @@
+$schema: 'https://git.drupalcode.org/project/drupal/-/raw/10.1.x/core/modules/sdc/src/metadata.schema.json'
+name: 'NA heading tag fixture'
+description: >
+  A heading that prints the tag it is handed, so it can be the page's H1, and
+  a region for children, so reading order can be pinned. The heading declares
+  no examples: an unfilled one is empty, as on a real page.
+status: stable
+neo: true
+props:
+  type: object
+  properties:
+    heading:
+      type: heading
+      title: Heading
+      examples: {}
+    body:
+      type: region
+      title: Body

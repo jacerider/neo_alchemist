@@ -203,6 +203,12 @@ final class ComponentTwigLinter {
    */
   private function headingFindings(string $twig, array $rawProps): array {
     $findings = [];
+    if (HeadingTag::printsLiteralH1($twig)) {
+      $findings[] = [
+        'check' => 'literal_h1',
+        'message' => 'Twig types a literal `<h1>`. A page has one H1, decided per page: the first heading of the layout that prints its tag, or else the page title. Print a heading prop\'s tag instead — `<{{ heading.tag }}>…</{{ heading.tag }}>` — or this component\'s h1 is a second one wherever another heading or the page title is the first (see "Rendering a heading" in the neo-component skill).',
+      ];
+    }
     foreach ($this->unguardedHeadingTitles($twig, $rawProps) as $name) {
       $findings[] = [
         'check' => 'unguarded_heading_title',

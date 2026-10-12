@@ -1,0 +1,16 @@
+$schema: 'https://git.drupalcode.org/project/drupal/-/raw/10.1.x/core/modules/sdc/src/metadata.schema.json'
+name: 'NA heading opt-out fixture'
+description: >
+  A heading that prints its tag but may never be the page's H1, and falls
+  back to h3 rather than h2.
+status: stable
+neo: true
+props:
+  type: object
+  properties:
+    heading:
+      type: heading
+      title: Heading
+      examples: {}
+      h1: false
+      tag: h3

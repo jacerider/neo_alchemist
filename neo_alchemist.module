@@ -10,6 +10,8 @@ declare(strict_types=1);
 use Drupal\neo_alchemist\Plugin\ComponentValue\ViewsValue;
 use Drupal\Component\Utility\Html;
 use Drupal\Component\Utility\Unicode;
+use Drupal\Core\Access\AccessResult;
+use Drupal\Core\Block\BlockPluginInterface;
 use Drupal\Core\Entity\ContentEntityFormInterface;
 use Drupal\Core\Entity\ContentEntityInterface;
 use Drupal\Core\Entity\ContentEntityTypeInterface;
@@ -716,6 +718,25 @@ function neo_alchemist_preprocess_block(&$variables) {
   if (neo_alchemist_route_is_alchemist()) {
     $variables['attributes']['class'][] = 'sr-only';
   }
+}
+
+/**
+ * Implements hook_block_view_BASE_BLOCK_ID_alter() for page_title_block.
+ *
+ * On an Alchemist page the title is kept for screen readers so the page has an
+ * H1 (neo_alchemist_preprocess_block()). When a heading in the layout is the
+ * page's H1 instead, the title would be a second one, so it is not printed.
+ *
+ * @see \Drupal\neo_alchemist\PageHeading
+ */
+function neo_alchemist_block_view_page_title_block_alter(array &$build, BlockPluginInterface $block) {
+  if (!neo_alchemist_route_is_alchemist()) {
+    return;
+  }
+  /** @var \Drupal\neo_alchemist\PageHeading $pageHeading */
+  $pageHeading = \Drupal::service('neo_alchemist.page_heading');
+  [$hasH1, $cacheability] = $pageHeading->routeHasH1(\Drupal::routeMatch());
+  $build['#access'] = AccessResult::allowedIf(!$hasH1)->addCacheableDependency($cacheability);
 }
 
 /**

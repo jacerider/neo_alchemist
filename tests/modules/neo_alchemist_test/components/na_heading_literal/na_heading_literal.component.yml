@@ -1,0 +1,15 @@
+$schema: 'https://git.drupalcode.org/project/drupal/-/raw/10.1.x/core/modules/sdc/src/metadata.schema.json'
+name: 'NA heading literal fixture'
+description: >
+  A heading whose template types its own <h2> rather than printing the tag it
+  is handed, as a component written before heading.tag existed does. It can
+  never be the page's H1.
+status: stable
+neo: true
+props:
+  type: object
+  properties:
+    heading:
+      type: heading
+      title: Heading
+      examples: {}

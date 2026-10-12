@@ -127,6 +127,12 @@ services:
     class: Drupal\neo_alchemist\DevMode
     arguments: ['@?neo_build', '@config.factory']
 
+  # Which heading is the page's H1. Holds per-request state (the trees marked
+  # as page content and their walks), so it is not shared across requests.
+  neo_alchemist.page_heading:
+    class: Drupal\neo_alchemist\PageHeading
+    arguments: ['@plugin.manager.sdc', '@renderer']
+
   neo_alchemist.sdc_thumbnail_writer:
     class: Drupal\neo_alchemist\SdcThumbnailWriter
     arguments: ['@plugin.manager.sdc', '@neo_alchemist.dev_mode', '%app.root%']

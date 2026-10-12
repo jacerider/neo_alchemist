@@ -131,7 +131,7 @@ judge the result.
 
 **Everything else the lint reports is a defect** and should be fixed:
 `legacy_section_carrier`, `channel_aware_inner_spacing`, `unguarded_heading_title`,
-`mismatched_tag_condition`, `addclass_multi_arg`, `non_collapsing_surface`,
+`literal_h1`, `mismatched_tag_condition`, `addclass_multi_arg`, `non_collapsing_surface`,
 `orphan_content_token`, `href_without_target`, `unguarded_link_access`,
 `dynamic_classes`, `undeclared_var`.
 

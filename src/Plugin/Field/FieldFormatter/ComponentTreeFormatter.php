@@ -6,7 +6,9 @@ use Drupal\Core\Field\Attribute\FieldFormatter;
 use Drupal\Core\Field\FormatterBase;
 use Drupal\Core\Field\FieldItemListInterface;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
+use Drupal\neo_alchemist\PageHeading;
 use Drupal\neo_alchemist\Plugin\Field\FieldType\ComponentTreeItem;
+use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
  * Field formatter for the component tree field type.
@@ -19,6 +21,20 @@ use Drupal\neo_alchemist\Plugin\Field\FieldType\ComponentTreeItem;
   ],
 )]
 class ComponentTreeFormatter extends FormatterBase {
+
+  /**
+   * Which heading is the page's H1.
+   */
+  protected PageHeading $pageHeading;
+
+  /**
+   * {@inheritdoc}
+   */
+  public static function create(ContainerInterface $container, array $configuration, $plugin_id, $plugin_definition) {
+    $instance = parent::create($container, $configuration, $plugin_id, $plugin_definition);
+    $instance->pageHeading = $container->get('neo_alchemist.page_heading');
+    return $instance;
+  }
 
   /**
    * {@inheritdoc}
@@ -39,6 +55,10 @@ class ComponentTreeFormatter extends FormatterBase {
     }
     assert($items->count() === 1);
     assert($items[0] instanceof ComponentTreeItem);
+    // The full view mode is the page's main content, which may supply the
+    // page's H1. Marked either way: the same item can render in another view
+    // mode in the same request.
+    $this->pageHeading->setPageContent($items[0], $this->viewMode === 'full');
     // This field type is single-cardinality: delta 0 is rendered.
     return [$items[0]->toRenderable()];
   }
