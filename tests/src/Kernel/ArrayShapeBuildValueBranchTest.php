@@ -282,7 +282,7 @@ class ArrayShapeBuildValueBranchTest extends KernelTestBase {
     $items = $component->getPropValues()['items'] ?? [];
 
     $this->assertCount(2, $items);
-    $this->assertContainsOnly('string', $items, TRUE, 'Every item collapsed to a bare string.');
+    $this->assertSame($items, array_filter($items, 'is_string'), 'Every item collapsed to a bare string.');
     $this->assertSame(['0', 'AUTHORED'], array_values($items));
   }
 

@@ -28,6 +28,11 @@ class ComponentPluginManager extends ThemeComponentPluginManager {
 
   /**
    * {@inheritdoc}
+   *
+   * The cache backend is set by core's constructor, which this one calls; the
+   * rule only looks for the call in this class.
+   *
+   * @phpstan-ignore pluginManagerSetsCacheBackend.missingCacheBackend
    */
   public function __construct(
     ModuleHandlerInterface $module_handler,

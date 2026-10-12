@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Drupal\neo_alchemist_block\Plugin\Derivative;
 
 use Drupal\Component\Plugin\Derivative\DeriverBase;
-use Drupal\Core\Entity\EntityStorageInterface;
+use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Plugin\Discovery\ContainerDeriverInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
@@ -19,11 +19,11 @@ final class AlchemistBlockDeriver extends DeriverBase implements ContainerDerive
   /**
    * Constructs an AlchemistBlockDeriver.
    *
-   * @param \Drupal\Core\Entity\EntityStorageInterface $storage
-   *   The Alchemist block entity storage.
+   * @param \Drupal\Core\Entity\EntityTypeManagerInterface $entityTypeManager
+   *   The entity type manager.
    */
   public function __construct(
-    protected EntityStorageInterface $storage,
+    protected EntityTypeManagerInterface $entityTypeManager,
   ) {
   }
 
@@ -32,7 +32,7 @@ final class AlchemistBlockDeriver extends DeriverBase implements ContainerDerive
    */
   public static function create(ContainerInterface $container, $base_plugin_id) {
     return new static(
-      $container->get('entity_type.manager')->getStorage('neo_alchemist_block')
+      $container->get('entity_type.manager')
     );
   }
 
@@ -41,7 +41,7 @@ final class AlchemistBlockDeriver extends DeriverBase implements ContainerDerive
    */
   public function getDerivativeDefinitions($base_plugin_definition) {
     $this->derivatives = [];
-    foreach ($this->storage->loadMultiple() as $entity) {
+    foreach ($this->entityTypeManager->getStorage('neo_alchemist_block')->loadMultiple() as $entity) {
       /** @var \Drupal\neo_alchemist_block\AlchemistBlockInterface $entity */
       $this->derivatives[$entity->id()] = $base_plugin_definition;
       $this->derivatives[$entity->id()]['admin_label'] = $entity->label();

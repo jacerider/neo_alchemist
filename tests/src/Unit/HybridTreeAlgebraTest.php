@@ -153,7 +153,7 @@ class HybridTreeAlgebraTest extends UnitTestCase {
   public function testCollectUuidsDeduplicates(): void {
     $uuids = ComponentTreeStructure::collectUuids($this->tree());
 
-    $this->assertSame(count($uuids), count(array_unique($uuids)));
+    $this->assertCount(count($uuids), array_unique($uuids));
   }
 
   /**

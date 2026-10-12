@@ -212,6 +212,9 @@ class DraftCollaboratorsSurfaceTest extends HybridFieldKernelTestBase {
     $store->set($item, ['tree' => '{"c":3}', 'props' => '[]']);
 
     // Carol is the publisher: the confirmation names Jane, not the publisher.
+    // The subclass reaches the form's protected description, which this
+    // module's own test may do of its own internal class.
+    // @phpstan-ignore classExtendsInternalClass.classExtendsInternalClass
     $form = new class($this->container->get('plugin.manager.field.widget')) extends InstanceComponentPublishForm {
 
       /**

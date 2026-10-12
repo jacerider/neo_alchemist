@@ -27,8 +27,8 @@ class FieldComponentLocalTask extends LocalTaskDefault implements ContainerFacto
     array $configuration,
     $plugin_id,
     $plugin_definition,
-    private readonly RouteMatchInterface $routeMatch,
-    private readonly EntityFieldManagerInterface $entityFieldManager,
+    protected RouteMatchInterface $routeMatch,
+    protected EntityFieldManagerInterface $entityFieldManager,
   ) {
     parent::__construct($configuration, $plugin_id, $plugin_definition);
   }

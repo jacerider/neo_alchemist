@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace Drupal\neo_alchemist\Plugin\ComponentSlot;
 
-use Drupal\commerce_product\Entity\ProductInterface;
-use Drupal\commerce_product\ProductVariationFieldRendererInterface;
 use Drupal\Component\Utility\Html;
 use Drupal\Core\DependencyInjection\DependencySerializationTrait;
 use Drupal\Core\Entity\EntityDisplayRepositoryInterface;
@@ -31,6 +29,14 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
 final class ProductVariationFieldSlot extends ComponentSlotPluginBase implements ContainerFactoryPluginInterface {
 
   use DependencySerializationTrait;
+
+  /**
+   * The product interface, named rather than imported.
+   *
+   * Commerce is optional: this plugin only applies to commerce_product
+   * components, and a site without Commerce must still load the class.
+   */
+  private const PRODUCT_INTERFACE = 'Drupal\commerce_product\Entity\ProductInterface';
 
   /**
    * The entity type manager service.
@@ -63,9 +69,12 @@ final class ProductVariationFieldSlot extends ComponentSlotPluginBase implements
   /**
    * The product variation field renderer service.
    *
-   * @var \Drupal\commerce_product\ProductVariationFieldRendererInterface
+   * Commerce's ProductVariationFieldRendererInterface, untyped here because
+   * Commerce is optional (see ::PRODUCT_INTERFACE).
+   *
+   * @var object
    */
-  protected ProductVariationFieldRendererInterface $productVariationFieldRenderer;
+  protected object $productVariationFieldRenderer;
 
   /**
    * {@inheritdoc}
@@ -80,7 +89,7 @@ final class ProductVariationFieldSlot extends ComponentSlotPluginBase implements
     EntityTypeBundleInfoInterface $entity_type_bundle_info,
     EntityDisplayRepositoryInterface $entity_display_repository,
     EntityFieldManagerInterface $entity_field_manager,
-    ProductVariationFieldRendererInterface $product_variation_field_renderer,
+    object $product_variation_field_renderer,
   ) {
     parent::__construct($plugin_id, $plugin_definition, $component, $uuid, $configuration);
     $this->entityTypeManager = $entity_type_manager;
@@ -213,7 +222,7 @@ final class ProductVariationFieldSlot extends ComponentSlotPluginBase implements
    */
   public function toRenderable() {
     $entity = $this->component->getTargetEntity();
-    if (!$entity instanceof ProductInterface) {
+    if (!is_a($entity, self::PRODUCT_INTERFACE)) {
       return [];
     }
 

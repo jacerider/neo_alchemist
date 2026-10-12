@@ -119,6 +119,7 @@ class ShapeDoubleTest extends UnitTestCase {
     $context = $this->createStub(ComponentShapeContextInterface::class);
 
     $this->expectException(MethodCannotBeConfiguredException::class);
+    // @phpstan-ignore phpunit.mockMethod (the misspelling is the point)
     $context->method('getScoep');
   }
 
@@ -139,6 +140,7 @@ class ShapeDoubleTest extends UnitTestCase {
       'Premise: the name is real, so this is a wrong-role error rather than a typo.',
     );
     $this->expectException(MethodCannotBeConfiguredException::class);
+    // @phpstan-ignore phpunit.mockMethod (stubbing off the role is the point)
     $context->method('getValue');
   }
 

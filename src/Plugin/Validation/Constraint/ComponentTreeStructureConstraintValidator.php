@@ -39,34 +39,35 @@ final class ComponentTreeStructureConstraintValidator extends ConstraintValidato
   /**
    * ComponentTreeStructureConstraintValidator constructor.
    *
-   * @param \Drupal\Core\Config\Entity\ConfigEntityStorageInterface $componentStorage
-   *   The storage handler for configuration entities.
+   * @param \Drupal\Core\Entity\EntityTypeManagerInterface $entityTypeManager
+   *   The entity type manager, for the neo_component storage.
    * @param \Drupal\neo_alchemist\Plugin\Validation\Constraint\BasicRecursiveValidatorFactory $validatorFactory
    *   The factory for creating recursive validators.
-   *
-   * @throws \AssertionError
-   *   Thrown when the component storage is not 'neo_component'.
    *
    * @see \Drupal\neo_alchemist\Entity\Component
    */
   public function __construct(
-    private readonly ConfigEntityStorageInterface $componentStorage,
+    private readonly EntityTypeManagerInterface $entityTypeManager,
     private readonly BasicRecursiveValidatorFactory $validatorFactory,
-  ) {
-    // @see \Drupal\neo_alchemist\Entity\Component
-    assert($this->componentStorage->getEntityTypeId() === 'neo_component');
-  }
+  ) {}
 
   /**
    * {@inheritdoc}
    */
   public static function create(ContainerInterface $container): self {
-    $component_storage = $container->get(EntityTypeManagerInterface::class)->getStorage('neo_component');
-    assert($component_storage instanceof ConfigEntityStorageInterface);
     return new static(
-      $component_storage,
+      $container->get(EntityTypeManagerInterface::class),
       $container->get(BasicRecursiveValidatorFactory::class),
     );
+  }
+
+  /**
+   * The neo_component storage.
+   */
+  private function componentStorage(): ConfigEntityStorageInterface {
+    $storage = $this->entityTypeManager->getStorage('neo_component');
+    assert($storage instanceof ConfigEntityStorageInterface);
+    return $storage;
   }
 
   /**
@@ -242,7 +243,7 @@ final class ComponentTreeStructureConstraintValidator extends ConstraintValidato
         new Callback(
           callback: self::validateComponentInstance(...),
           payload: [
-            'component_storage' => $this->componentStorage,
+            'component_storage' => $this->componentStorage(),
           ]
         ),
       ]

@@ -187,7 +187,7 @@ class MediaValueTest extends UnitTestCase {
     $option = $this->createMock(ComponentShapeOption::class);
     $option->expects($this->once())
       ->method('alwaysShowForm')
-      ->with(TRUE, $this->isType('string'));
+      ->with(TRUE, $this->callback('is_string'));
 
     $roles = $this->mediaShapeRoles();
     $roles['options']->method('getOptionDefault')->willReturn($option);

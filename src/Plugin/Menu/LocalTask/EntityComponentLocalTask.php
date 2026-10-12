@@ -27,7 +27,7 @@ class EntityComponentLocalTask extends LocalTaskDefault implements ContainerFact
     array $configuration,
     $plugin_id,
     $plugin_definition,
-    private readonly RouteMatchInterface $routeMatch,
+    protected RouteMatchInterface $routeMatch,
   ) {
     parent::__construct($configuration, $plugin_id, $plugin_definition);
   }

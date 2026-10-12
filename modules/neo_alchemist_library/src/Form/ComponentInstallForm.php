@@ -23,10 +23,10 @@ final class ComponentInstallForm extends FormBase {
    * Constructs the form.
    */
   public function __construct(
-    private readonly RegistryClient $registryClient,
-    private readonly ComponentInstaller $installer,
-    private readonly ThemeHandlerInterface $themeHandler,
-    private readonly BuildAdvisor $buildAdvisor,
+    protected RegistryClient $registryClient,
+    protected ComponentInstaller $installer,
+    protected ThemeHandlerInterface $themeHandler,
+    protected BuildAdvisor $buildAdvisor,
   ) {}
 
   /**
