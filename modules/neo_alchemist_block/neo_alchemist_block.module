@@ -8,6 +8,7 @@
 declare(strict_types=1);
 
 use Drupal\Core\Block\BlockPluginInterface;
+use Drupal\Core\Cache\CacheableMetadata;
 use Drupal\Core\Entity\EntityInterface;
 use Drupal\Core\Entity\EntityTypeInterface;
 use Drupal\Core\Url;
@@ -49,7 +50,7 @@ function neo_alchemist_block_block_view_neo_alchemist_block_alter(array &$build,
  * Adds a "Layout" operation to Alchemist block placements on the Block layout
  * page, linking to the component management (layout) UI for that block.
  */
-function neo_alchemist_block_entity_operation(EntityInterface $entity): array {
+function neo_alchemist_block_entity_operation(EntityInterface $entity, ?CacheableMetadata $cacheability = NULL): array {
   $operations = [];
   // Only act on block placement config entities backed by an Alchemist block
   // derivative (plugin id "neo_alchemist_block:<alchemist_block_id>").
@@ -67,8 +68,11 @@ function neo_alchemist_block_entity_operation(EntityInterface $entity): array {
     'neo_field' => AlchemistBlockFieldConfig::getKeyFromFieldname(AlchemistBlockFieldConfig::FIELD_NAME),
   ]);
   // hook_entity_operation results are not access-filtered by the renderer, so
-  // only expose the link when the current user can reach the layout UI.
-  if ($url->access()) {
+  // only expose the link when the current user can reach the layout UI. Core
+  // passes $cacheability from 11.3 on; earlier cores pass nothing.
+  $access = $url->access(NULL, TRUE);
+  $cacheability?->addCacheableDependency($access);
+  if ($access->isAllowed()) {
     $operations['neo_alchemist_layout'] = [
       'title' => t('Layout'),
       'weight' => -50,

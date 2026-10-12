@@ -12,6 +12,7 @@ use Drupal\Component\Utility\Html;
 use Drupal\Component\Utility\Unicode;
 use Drupal\Core\Access\AccessResult;
 use Drupal\Core\Block\BlockPluginInterface;
+use Drupal\Core\Cache\CacheableMetadata;
 use Drupal\Core\Entity\ContentEntityFormInterface;
 use Drupal\Core\Entity\ContentEntityInterface;
 use Drupal\Core\Entity\ContentEntityTypeInterface;
@@ -675,34 +676,45 @@ function neo_alchemist_entity_bundle_field_info_alter(&$fields, EntityTypeInterf
 
 /**
  * Implements hook_entity_operation().
+ *
+ * The operations depend on the visitor's access, so its cacheability goes into
+ * $cacheability, which core passes from 11.3 on; earlier cores pass nothing.
  */
-function neo_alchemist_entity_operation(EntityInterface $entity) {
+function neo_alchemist_entity_operation(EntityInterface $entity, ?CacheableMetadata $cacheability = NULL) {
   $operations = [];
-  if ($entity->hasLinkTemplate('alchemist') && $entity->access('update')) {
+  if ($entity->hasLinkTemplate('alchemist')) {
+    $access = $entity->access('update', NULL, TRUE);
+    $cacheability?->addCacheableDependency($access);
+    if (!$access->isAllowed()) {
+      return $operations;
+    }
     $url = $entity->toUrl('alchemist');
-    if ($url->access()) {
+    $urlAccess = $url->access(NULL, TRUE);
+    $cacheability?->addCacheableDependency($urlAccess);
+    if ($urlAccess->isAllowed()) {
       $operations['alchemist'] = [
         'title' => t('Layout'),
-        'url' => $entity->toUrl('alchemist'),
+        'url' => $url,
         'weight' => 50,
       ];
     }
+    return $operations;
   }
-  else {
-    $info = $entity->getEntityType();
-    // Add manage fields and display links if this entity type is the bundle
-    // of another and that type has field UI enabled.
-    if (($bundle_of = $info->getBundleOf()) && \Drupal::entityTypeManager()->getDefinition($bundle_of)->getLinkTemplate('alchemist')) {
-      $url = Url::fromRoute("entity.{$bundle_of}.field_ui.alchemist", [
-        $entity->getEntityTypeId() => $entity->id(),
-      ]);
-      if ($url->access()) {
-        $operations['alchemist'] = [
-          'title' => t('Manage Layout'),
-          'weight' => 15,
-          'url' => $url,
-        ];
-      }
+  $info = $entity->getEntityType();
+  // Add manage fields and display links if this entity type is the bundle
+  // of another and that type has field UI enabled.
+  if (($bundle_of = $info->getBundleOf()) && \Drupal::entityTypeManager()->getDefinition($bundle_of)->getLinkTemplate('alchemist')) {
+    $url = Url::fromRoute("entity.{$bundle_of}.field_ui.alchemist", [
+      $entity->getEntityTypeId() => $entity->id(),
+    ]);
+    $urlAccess = $url->access(NULL, TRUE);
+    $cacheability?->addCacheableDependency($urlAccess);
+    if ($urlAccess->isAllowed()) {
+      $operations['alchemist'] = [
+        'title' => t('Manage Layout'),
+        'weight' => 15,
+        'url' => $url,
+      ];
     }
   }
   return $operations;

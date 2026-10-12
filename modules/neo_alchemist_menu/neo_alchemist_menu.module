@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 use Drupal\Component\Utility\Html;
 use Drupal\Core\Access\AccessResult;
+use Drupal\Core\Cache\CacheableMetadata;
 use Drupal\Core\Entity\EntityInterface;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Menu\MenuLinkTreeElement;
@@ -124,10 +125,13 @@ function neo_alchemist_menu_form_menu_link_content_menu_link_content_form_valida
  * the component tree field exists. Scope it to region items and point it
  * straight at the Alchemist manage route for the components field.
  */
-function neo_alchemist_menu_entity_operation_alter(array &$operations, EntityInterface $entity) {
+function neo_alchemist_menu_entity_operation_alter(array &$operations, EntityInterface $entity, ?CacheableMetadata $cacheability = NULL) {
   if ($entity->getEntityTypeId() !== 'menu_link_content' || !isset($operations['alchemist'])) {
     return;
   }
+  // Whether the link is a region item is the link's own data. Core passes
+  // $cacheability from 11.3 on; earlier cores pass nothing.
+  $cacheability?->addCacheableDependency($entity);
   /** @var \Drupal\menu_link_content\MenuLinkContentInterface $entity */
   if (!MenuRegion::isRegionItem($entity)) {
     unset($operations['alchemist']);
