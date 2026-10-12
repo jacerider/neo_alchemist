@@ -1,5 +1,27 @@
 # Changelog
 
+## A page's one H1 is its layout's first heading
+
+**An Alchemist page printed two H1s.** The page title is kept on Alchemist pages
+for screen readers, as a visually hidden H1, and components such as heroes typed
+their own `<h1>`, so a page led by one had two. The `heading` prop now hands Twig
+`heading.tag`: `h1` for the page's H1 and `h2` for every other heading. The H1 is
+the first heading of the page's layout, in reading order, that has text and whose
+template prints `heading.tag`; when there is one, the page title block is not
+printed, and when there is none, the hidden title stays the H1 as before.
+
+To adopt it, print `<{{ heading.tag }}>…</{{ heading.tag }}>` instead of a literal
+`<h1>` or `<h2>` — the default heading twig does, and `neo:alchemist:validate`
+reports a literal `<h1>` (`literal_h1`). A component that keeps typing its own tag
+is never the H1, so nothing changes on a site until its components print the tag.
+On a heading prop, `h1: false` keeps a heading from ever being the page's H1 (a call
+to action), and `tag: h3` (h2–h6) sets the tag it prints otherwise. Only the trees
+the full view mode renders take part — never a header, a mega menu panel or an
+entity embedded in another view mode.
+
+The legacy `h1_default` heading setting now carries over to `size_default` when a
+component is updated; it used to be dropped.
+
 ## Token templates no longer double-escape their values
 
 **A token value with `&`, `<` or a quote rendered as a literal entity.** The

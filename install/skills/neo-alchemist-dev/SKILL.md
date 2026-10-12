@@ -35,6 +35,7 @@ components and **transient previews** built from the SDC's `examples` via
 | Slots / Filters / Access / Value | `src/Plugin/Component{Slot,Filter,Access,Value}/` → matching `plugin.manager.neo_component_*` |
 | Field embedding | `src/Plugin/Field/FieldType/ComponentTreeItem` (field type) + `src/Plugin/Field/NeoComponentTreeList` (list class: mode resolution, hybrid merge/strip) + `src/Plugin/Field/{FieldWidget/ComponentTreeWidget,FieldFormatter/ComponentTreeFormatter}` |
 | Render | `src/Render/ComponentPageRenderer.php` (`neo_component_page_renderer`) |
+| The page's one H1 | `src/PageHeading.php` (`neo_alchemist.page_heading`) + `src/HeadingTag.php` (pure source checks) — see "The page's one H1" |
 | Preview | `src/ComponentPreviewBuilder.php`, `src/Controller/SdcPreviewController.php` |
 | Ejectable components | `src/ThemeComponentInstaller.php` (`neo_alchemist.theme_component_installer`) — sweeps every module component declaring `neo_install: true` into the site's theme (`installAll()`), then `claimComponent($default, $configName, $key, $theme = NULL)` repoints that module's settings key at the theme copy, but only while the key still holds the shipped default; returns `claimed` / `kept` / `unavailable`. A module shipping an ejectable component calls that one method from `hook_modules_installed()` and `hook_themes_installed()` — see `neo_commerce`, `neo_search`. It writes the **consumer's** config object, which is ADR-0002 (`docs/adr/0002-component-claim-writes-consumer-config.md`). |
 | SDC thumbnails | `src/SdcThumbnailWriter.php` (`neo_alchemist.sdc_thumbnail_writer`) + `src/Controller/SdcThumbnailCaptureController.php` — writes `thumbnail.png` into the component dir; gated on (`NeoBuild::isDevMode()` **or** the `config_split.config_split.dev` status override) + `is_writable()`. Both signals are soft: `@?neo_build` is an **optional** service reference (neo_alchemist does not declare neo_build, so a hard `@neo_build` breaks container compilation in every Kernel test), and the split is read through the config factory so an absent config_split simply reads as FALSE. |
@@ -319,6 +320,43 @@ Alchemist in config scope) and the per-entity stored value:
   server-side in `ComponentInstanceBase::checkHybridAccess()` ("Inherited layout"
   badge). Semantics (seed copy-on-write, explicitly-empty slots, orphan preservation) →
   ARCHITECTURE.md §"Field modes: locked, custom, hybrid".
+
+## The page's one H1
+
+A page has one H1, and on an Alchemist page neo_alchemist decides which heading it is.
+The `heading` prop hands Twig `heading.tag`: `h1` for the page's H1, otherwise the
+prop's fallback — `h2`, or the h2–h6 its `.component.yml` declares as `tag:`. Templates
+print `<{{ heading.tag }}>…</{{ heading.tag }}>`; the default heading twig does.
+
+- **Who gets it** — `PageHeading` walks the page's trees in reading order (tree order, a
+  component's own headings before its children's, array items in order) and picks the
+  first heading that has text, whose prop does not opt out (`h1: false`), and whose
+  component template prints `<key>.tag` (`HeadingTag::printsTag()`, matched on the
+  heading's own key, so `slide.heading.tag` in a loop counts). A template that types
+  its own `<h2>` is never chosen, which is what keeps unmigrated sites as they were.
+- **Which trees** — only page content: the formatter marks a tree page content when it
+  renders in the **full** view mode (`setPageContent()`), and the instance preview
+  controller marks a tree whose host's full display renders its field
+  (`isPageField()`), so the editor shows the same H1. Header blocks and mega menu panels
+  render their trees directly and never take part; an entity embedded in a slot in
+  another view mode does not either. With several tree fields in the display, they are
+  read in display weight order and only the first with a qualifying heading has one;
+  a tree the visitor may not view (field access — `neo_alchemist_taxonomy` hides all
+  but a term's own level this way) is skipped.
+- **When it is decided** — before render, once per tree (`walk()`, memoized per item in a
+  `WeakMap`): it resolves only the props that hold a heading, through the real render
+  path (`getPropValue()`), so emptiness agrees with what renders. During the walk
+  `HeadingShape::preRenderValue()` → `tag()` reports instead of asking. The walk runs in
+  its own `RenderContext` — a value provider may render while it resolves, and the title
+  block asks outside any render context. Because it is a function of the tree's data,
+  it travels with the entity's render cache; no request-scoped counter is involved.
+- **The page title** — `neo_alchemist_block_view_page_title_block_alter()` denies the
+  title block (`#access`, with the walk's cacheability) on an Alchemist route whose
+  page has a heading H1 (`routeHasH1()`); otherwise the title stays the page's sr-only
+  H1 (`neo_alchemist_preprocess_block()`).
+- **Linting** — `ComponentTwigLinter` reports a literal `<h1>` as `literal_h1`.
+- Tests: `PageHeadingTest` (kernel; fixtures `na_heading_tag`, `na_heading_optout`,
+  `na_heading_literal`), `HeadingTagTest`, `ComponentTwigLinterTest`.
 
 ## Writing trees in code: the stored format
 

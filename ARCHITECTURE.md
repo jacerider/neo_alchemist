@@ -1032,6 +1032,17 @@ Publish are full page navigations, so a panel sees them as a fresh mount.
   (`neo_component_page_renderer`), a `BareHtmlPageRenderer` whose `renderBarePage($content, $title, $scope)`
   wraps content in a `scope-front`/`scope-back` shell and runs neo_build attachments
   (CSS variables). This is used by the preview iframe controller.
+- **The page's one H1.** A `heading` value carries `tag` (`HeadingShape::preRenderValue()`
+  → `PageHeading::tag()`): `h1` for the one heading that is the page's H1, else the prop's
+  fallback (`h2`, or its declared `tag:`). [src/PageHeading.php](src/PageHeading.php)
+  decides before render, from the trees the full view mode renders (marked by
+  `ComponentTreeFormatter`, or by the instance preview for a field the host's full display
+  renders): the first heading in reading order with text, not opted out (`h1: false`), in
+  a template that prints `<key>.tag`. It walks only the props that hold a heading, through
+  the render path, in a `RenderContext` of its own, once per tree item. When a heading is
+  the H1, `neo_alchemist_block_view_page_title_block_alter()` denies the page title block,
+  which is otherwise the page's sr-only H1. Pure source checks live in
+  [src/HeadingTag.php](src/HeadingTag.php); the twig linter reports a literal `<h1>`.
 - **CLI caution:** `neo:alchemist:render` renders the component subtree directly (via
   `renderer` in a `RenderContext`), *not* through `renderBarePage`, because the page path
   invokes `hook_page_attachments`/`neo_build_page_top` which assume an HTTP request/route
