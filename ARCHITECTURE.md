@@ -965,6 +965,21 @@ every change whether or not their panel was mounted: `layoutChanged()` reads the
 any registered panel when nothing is mounted but someone listens. Fixture: `TestLabelPanel` adds a
 badge while the `neo_alchemist_test.panel_badge` state flag is on.
 
+**Taking the editor somewhere** — `Drupal.neoAlchemist.editor.focus({uuid, prop?, locate?})`
+(`components-parent.ts`) is the editor's public call for code outside it (a panel, a badge):
+it selects the component instance on the canvas (as the Layers panel does, aiming at the frame
+on show) and returns `false`, doing nothing, for a uuid the canvas does not show. With `prop` (a
+shape id) or `locate` (`{tag?, text?, src?, href?}` — something in the component's preview) it
+also opens the component's edit form and focuses that field. The request waits in the editor and
+is claimed by the edit form when it initializes (`takeFieldFocus()`, 20 s TTL, so an edit that
+never opened cannot hijack the next). A `prop` goes straight to `focusProp()`; a `locate` is sent
+to each edit preview frame on its first `size` message (`propLocate`), and the preview answers
+`propLocated` with the prop id of the nearest prop target from the first matching element — the
+same claims click-to-field uses, so there is no second mapping. Nothing found: the form stays open
+on the component, unfocused. The canvas carries no `data-neo-prop` (only edit previews have a
+prop map), which is why a caller holding a canvas element passes a `locate` rather than a prop.
+The preview script is built in both scopes, so a change to it needs the front build too.
+
 `src/js/panels.ts` holds the registry and the one record-level version every panel shares;
 `components-parent.ts` owns the toggles and positioning (`sidePanelToggle()`,
 `floatingPosition()`). `mount()` runs lazily on first open (registration order does not

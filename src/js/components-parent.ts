@@ -123,6 +123,39 @@
   Drupal.neoAlchemist = Drupal.neoAlchemist || {};
   Drupal.neoAlchemist.iframes = iframes;
 
+  // A field focus asked for along with an edit, claimed by the edit form when
+  // it opens (component-parent.ts). Stale after a while: an edit that never
+  // opened must not hijack the next one.
+  let fieldFocus: { prop?: string; locate?: NeoAlchemistLocate; at: number } | null = null;
+  const FIELD_FOCUS_TTL = 20000;
+
+  /**
+   * The editor's public calls, for code outside it (a side panel, a badge).
+   */
+  Drupal.neoAlchemist.editor = {
+    focus(target) {
+      if (!target || typeof target.uuid !== 'string' || !structureData[target.uuid]) {
+        return false;
+      }
+      // Off the canvas: aim at whichever frame the author is looking at.
+      layerShowOffCanvas(target.uuid);
+      if (!target.prop && !target.locate) {
+        return true;
+      }
+      fieldFocus = { prop: target.prop, locate: target.locate, at: Date.now() };
+      operationExecute('edit');
+      return true;
+    },
+    takeFieldFocus() {
+      const pending = fieldFocus;
+      fieldFocus = null;
+      if (!pending || Date.now() - pending.at > FIELD_FOCUS_TTL) {
+        return null;
+      }
+      return { prop: pending.prop, locate: pending.locate };
+    },
+  };
+
   // Data
   const structureElements: Record<string, Record<'desktop' | 'tablet' | 'mobile', HTMLElement>> = {};
   // Shades are the dimming layer, and only one node per depth is ever shaded

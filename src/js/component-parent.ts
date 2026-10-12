@@ -848,6 +848,9 @@
         );
         if (iframe instanceof HTMLIFrameElement) {
           sizeCount++;
+          if (pendingLocate) {
+            iframe.contentWindow?.postMessage({ type: 'propLocate', locate: pendingLocate }, window.location.origin);
+          }
           iframe.style.height = height + 'px';
           const iframeWrapper = iframe.closest('.neo-alchemist--iframe-wrapper') as HTMLIFrameElement;
           const iframeSize = iframeWrapper?.querySelector('.neo-alchemist--iframe-size') as HTMLIFrameElement;
@@ -984,7 +987,37 @@
           '@message': data.message || Drupal.t('unknown error'),
         }), 'error');
       },
+
+      // A preview found the field a requested locate points at.
+      propLocated: function (data:any) {
+        if (!pendingLocate || typeof data.propId !== 'string' || !data.propId) {
+          return;
+        }
+        pendingLocate = null;
+        focusProp(data.propId);
+      },
     };
+
+    // A field focus asked for with this edit (Drupal.neoAlchemist.editor.focus()
+    // in the layout editor). A shape id is focused as soon as the form is up;
+    // a locate goes to the previews, which resolve it through the same prop
+    // map their click-to-field uses and answer with `propLocated`. Each frame
+    // is asked on its first `size` message — the first a fresh document sends,
+    // by which point it has indexed its targets.
+    const requestedFocus = container.querySelector('.neo-alchemist-manage--form')
+      ? (Drupal.neoAlchemist?.editor?.takeFieldFocus?.() ?? null)
+      : null;
+    let pendingLocate: NeoAlchemistLocate | null = requestedFocus?.locate ?? null;
+    if (requestedFocus?.prop) {
+      const prop = requestedFocus.prop;
+      setTimeout(() => focusProp(prop));
+    }
+    if (pendingLocate) {
+      // Nothing found: the form stays open on the component, unfocused.
+      setTimeout(() => {
+        pendingLocate = null;
+      }, 10000);
+    }
 
     /**
      * The form wrapper for a prop id, one trailing ~segment coarser on miss.

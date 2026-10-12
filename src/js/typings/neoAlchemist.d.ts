@@ -56,6 +56,46 @@ interface NeoAlchemistDropdown {
 }
 
 /**
+ * Something in a component's preview to find the field for: an element of
+ * `tag` (any when omitted) whose text contains `text`, whose `src` ends with
+ * `src`, or whose `href` is `href`. The component's edit preview resolves it
+ * through the same prop map its click-to-field uses.
+ */
+interface NeoAlchemistLocate {
+  tag?: string;
+  text?: string;
+  src?: string;
+  href?: string;
+}
+
+/**
+ * What Drupal.neoAlchemist.editor.focus() goes to.
+ */
+interface NeoAlchemistFocusTarget {
+  /** The component instance (its data-component-uuid on the canvas). */
+  uuid: string;
+  /** A shape id (data-neo-prop) to focus in the component's edit form. */
+  prop?: string;
+  /** Or: what to find in the component's preview, to focus its field. */
+  locate?: NeoAlchemistLocate;
+}
+
+/**
+ * The layout editor's public calls.
+ */
+interface NeoAlchemistEditorApi {
+  /**
+   * Selects the component on the canvas. With `prop` or `locate` it also
+   * opens the component's edit form and focuses that field (the form stays
+   * open on the component when nothing is found). False, doing nothing, for a
+   * uuid the canvas does not show.
+   */
+  focus(target: NeoAlchemistFocusTarget): boolean;
+  /** Edit-form internal: claims a focus request made in the last moments. */
+  takeFieldFocus?(): Pick<NeoAlchemistFocusTarget, 'prop' | 'locate'> | null;
+}
+
+/**
  * What a module registers for its panel.
  */
 interface NeoAlchemistPanelDefinition {
@@ -85,6 +125,7 @@ declare namespace drupal {
     neoAlchemist?: {
       iframes?: Record<'desktop' | 'tablet' | 'mobile', HTMLIFrameElement | null>
       panels?: NeoAlchemistPanelRegistry;
+      editor?: NeoAlchemistEditorApi;
     };
   }
 }

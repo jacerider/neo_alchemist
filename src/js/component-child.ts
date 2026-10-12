@@ -338,10 +338,57 @@
   };
 
   /**
+   * The field an element in the preview belongs to, for a locate request.
+   *
+   * Answers through the same claims click-to-field uses: the first element of
+   * the requested kind whose text, src or href matches, then the nearest prop
+   * target from it (itself or an ancestor). Nothing is answered when nothing
+   * matches — the editor then leaves the form unfocused.
+   */
+  const locateProp = (locate: NeoAlchemistLocate): string => {
+    if (!propScope) {
+      return '';
+    }
+    const norm = (value: string | null | undefined): string => (value || '').replace(/\s+/g, ' ').trim().toLowerCase();
+    const text = norm(locate.text);
+    const tag = typeof locate.tag === 'string' && /^[a-z][a-z0-9]*$/i.test(locate.tag) ? locate.tag : '*';
+    const candidates = Array.from(propScope.querySelectorAll<HTMLElement>(tag)).filter(el => {
+      if (locate.src) {
+        const src = el.getAttribute('src') || '';
+        if (!(src === locate.src || src.endsWith(locate.src) || (el as HTMLImageElement).src?.endsWith(locate.src))) {
+          return false;
+        }
+      }
+      if (locate.href && el.getAttribute('href') !== locate.href) {
+        return false;
+      }
+      return !text || norm(el.textContent).includes(text);
+    });
+    // The innermost match: a paragraph, not the section that contains it.
+    const match = candidates.find(el => !candidates.some(other => other !== el && el.contains(other)));
+    const target = match ? (match.matches(targetSelector) ? match : match.closest<HTMLElement>(targetSelector)) : null;
+    return target && inPropScope(target) ? propIdOf(target) : '';
+  };
+
+  // A locate that arrived before the targets were indexed.
+  let pendingLocate: NeoAlchemistLocate | null = null;
+
+  const answerLocate = (locate: NeoAlchemistLocate): void => {
+    const propId = locateProp(locate);
+    if (propId) {
+      pendingLocate = null;
+      post('propLocated', { propId });
+    }
+  };
+
+  /**
    * Index clickable prop targets and wire the pointer delegation.
    */
   const initPropTargets = (element: HTMLElement): void => {
     indexPropTargets(element);
+    if (pendingLocate) {
+      answerLocate(pendingLocate);
+    }
 
     // Hit-test through the point rather than the event target: decorative
     // layers (gradients, stretched pseudo-links) often sit on top of the
@@ -1683,6 +1730,13 @@
     const data = e.data;
     if (data && data.type === 'previewRefresh') {
       refreshPreview(typeof data.html === 'string' ? data.html : null);
+      return;
+    }
+    if (data && data.type === 'propLocate' && data.locate && typeof data.locate === 'object') {
+      pendingLocate = data.locate as NeoAlchemistLocate;
+      if (propScope) {
+        answerLocate(pendingLocate);
+      }
       return;
     }
     if (data && data.type === 'propEcho') {
