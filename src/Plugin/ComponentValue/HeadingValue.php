@@ -180,7 +180,7 @@ final class HeadingValue extends ComponentValuePluginBase implements ContainerFa
       unset($this->configuration['h1_edit']);
     }
     if (isset($this->configuration['h1_default'])) {
-      $this->configuration['h1_default'] = $this->configuration['h1_default'];
+      $this->configuration['size_default'] = $this->configuration['h1_default'];
       unset($this->configuration['h1_default']);
     }
     if (isset($this->configuration['h1_value'])) {

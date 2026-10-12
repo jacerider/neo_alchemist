@@ -369,4 +369,25 @@ class HeadingValueOptionChoreographyTest extends UnitTestCase {
     $this->assertArrayNotHasKey('#access', $element['anchor']);
   }
 
+  /**
+   * The settings from before sizes carry over onto the size settings.
+   *
+   * The heading once had an "h1" switch; sizes replaced it, and an XL heading
+   * is what an h1 heading looked like.
+   */
+  public function testLegacyH1SettingsBecomeSizeSettings(): void {
+    $plugin = $this->plugin($this->shape((new NestedOptionMap())->forShape('heading')), [
+      'h1_edit' => FALSE,
+      'h1_default' => TRUE,
+      'h1_value' => TRUE,
+    ]);
+    $plugin->onUpdate();
+    $configuration = $plugin->getConfiguration();
+
+    $this->assertFalse($configuration['size_edit']);
+    $this->assertTrue($configuration['size_default']);
+    $this->assertSame('xl', $configuration['size_value']);
+    $this->assertSame([], array_intersect_key($configuration, array_flip(['h1_edit', 'h1_default', 'h1_value'])));
+  }
+
 }
