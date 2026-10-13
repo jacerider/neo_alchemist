@@ -99,6 +99,18 @@ drush neo:alchemist:render front:cards_test --scheme=dark
 drush neo:alchemist:render front:header --live --html
 ```
 
+`neo:alchemist:h1-report` (alias `neoa-h1`) — request every published page whose
+full view mode renders a component tree, as an anonymous visitor, and list its
+H1s and the component each one sits in (`page title` for the hidden page title).
+`--problems` lists only pages without exactly one H1; `--entity-type`, `--bundle`
+and `--limit` narrow the sweep. Save a report before migrating components to
+`heading.tag` and compare it with one taken after.
+
+```bash
+drush neo:alchemist:h1-report --problems
+drush neoa-h1 --format=csv > h1-before.csv
+```
+
 ## Capture a component thumbnail
 
 The component listings show a thumbnail per component, and core reads it from a

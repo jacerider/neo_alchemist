@@ -355,6 +355,10 @@ print `<{{ heading.tag }}>…</{{ heading.tag }}>`; the default heading twig doe
   page has a heading H1 (`routeHasH1()`); otherwise the title stays the page's sr-only
   H1 (`neo_alchemist_preprocess_block()`).
 - **Linting** — `ComponentTwigLinter` reports a literal `<h1>` as `literal_h1`.
+- **Reporting** — `drush neo:alchemist:h1-report` requests each page and reads the H1s
+  off the HTML (source = the nearest `data-component-id` ancestor), rather than asking
+  `PageHeading`: a walk run beside the request resolves values outside the page's
+  request, and in one process that leaks into the next page's render.
 - Tests: `PageHeadingTest` (kernel; fixtures `na_heading_tag`, `na_heading_optout`,
   `na_heading_literal`), `HeadingTagTest`, `ComponentTwigLinterTest`.
 
@@ -502,6 +506,8 @@ Prefer these over grepping the shape/definition code:
 `drush neo:alchemist:shapes [name]` · `neo:alchemist:info <id>` ·
 `neo:alchemist:components` · `neo:alchemist:validate <id>` ·
 `neo:alchemist:render <id> [--live] [--scheme=<id>] [--html]` ·
+`neo:alchemist:h1-report [--problems]` (each Alchemist page's H1s and their components,
+requested as an anonymous sub-request with static caches reset per page) ·
 `neo:alchemist:slot <neo_component id> [<slot>]` (per slot item: Twig key, theme hook,
 the template filename that overrides it, and that template's variables) ·
 `neo:alchemist:views-page <view>:<display> [--component=<id>]` (hand a views page to an

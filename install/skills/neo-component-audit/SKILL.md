@@ -1,6 +1,6 @@
 ---
 name: neo-component-audit
-description: Audit and repair a site's existing Neo Alchemist components — sweep every *.component.yml / *.twig for drift from current conventions, migrate pre-`gap` section carriers, and check saved neo_component config for post-upgrade breakage. Use when asked to validate, audit or fix a site's components, after upgrading neo_alchemist, when `drush neo:alchemist:validate` reports warnings that need triaging, or when components render wrong after a module update. NOT for authoring a new component (use neo-component) or changing the module's own PHP (use neo-alchemist-dev).
+description: Audit and repair a site's existing Neo Alchemist components — sweep every *.component.yml / *.twig for drift from current conventions, migrate pre-`gap` section carriers and literal heading tags to `heading.tag` (the page's one H1), and check saved neo_component config for post-upgrade breakage. Use when asked to validate, audit or fix a site's components, after upgrading neo_alchemist, when `drush neo:alchemist:validate` reports warnings that need triaging, or when components render wrong after a module update. NOT for authoring a new component (use neo-component) or changing the module's own PHP (use neo-alchemist-dev).
 allowed-tools: Read, Write, Edit, Glob, Grep, Bash
 ---
 
@@ -13,7 +13,7 @@ is deliberate, fix what should be fixed, and prove the result still renders.
 
 > Authoring a **new** component? That's the **neo-component** skill. Changing
 > neo_alchemist's own PHP? That's **neo-alchemist-dev**. This skill only ever
-> edits files under a theme's `components/` directory — plus, at Step 5, saved
+> edits files under a theme's `components/` directory — plus, at Step 6, saved
 > `neo_alchemist.neo_component.*` config.
 
 ## Mental model
@@ -56,7 +56,7 @@ grep -m1 '^version:' web/modules/contrib/neo_alchemist/neo_alchemist.info.yml
 ```
 
 A mismatch means every Tailwind class added since that build is missing from
-`dist/`. Rebuild before judging anything visual (Step 6).
+`dist/`. Rebuild before judging anything visual (Step 7).
 
 **Do not derive "what changed" from CHANGELOG.md.** It carries no version
 numbers and omits component-facing changes entirely — the `gap` prop and the
@@ -225,7 +225,102 @@ After migrating, re-render and compare. Root classes should now carry
 drush neo:alchemist:render <id> --live --html | head -3
 ```
 
-## Step 5 — config-level upgrade checks
+## Step 5 — migrate headings to `heading.tag`
+
+A page has one H1, and on an Alchemist page neo_alchemist decides which: the first
+heading of the page's layout, in reading order, that has text and whose template
+prints `heading.tag`. That heading renders `h1`, every other heading `h2`, and the
+page title — kept visually hidden on Alchemist pages — is not printed. When no
+heading qualifies, the hidden title stays the H1. (The full rule, and the yml keys,
+are in the **neo-component** skill under "Rendering a heading", rule 5.)
+
+A component that types its own tag never takes part, so **an unmigrated site
+renders exactly as it did**, and the migration can go one component at a time.
+Two things are wrong on most unmigrated sites, though: a component that types
+`<h1>` gives every page it leads a second H1 next to the hidden title
+(`literal_h1`), and pages are titled by a hidden H1 when a visible hero says the
+same thing better.
+
+**1. Snapshot first.** The report requests every Alchemist page as an anonymous
+visitor and lists its H1s and the component each sits in (`page title` when it
+is the hidden title):
+
+```bash
+drush neo:alchemist:h1-report --format=csv > h1-before.csv
+drush neoa-h1 --problems            # only pages without exactly one H1
+```
+
+It renders every page, so it takes minutes on a large site; `--entity-type`,
+`--bundle` and `--limit` narrow it.
+
+**2. Find the headings to convert** — every `type: heading` prop, at any depth
+(array items too), whose Twig types its own tag:
+
+```bash
+grep -l 'type: heading' web/themes/*/components/*/*.component.yml
+grep -n '<h[1-6][ >{]' web/themes/*/components/<id>/<id>.twig
+```
+
+Do the components that lead pages first — heroes, `*_full` entity templates —
+then the section components. A half-migrated site is consistent: unconverted
+components are simply never the H1.
+
+**3. Convert the tag, nothing else.** Replace only the element that prints the
+heading's title; leave classes, guards and inner markup alone:
+
+```twig
+{# before #}
+{% if heading.title %}<h2 class="component-title">{{ heading.title }}</h2>{% endif %}
+{# after #}
+{% if heading.title %}<{{ heading.tag }} class="component-title">{{ heading.title }}</{{ heading.tag }}>{% endif %}
+
+{# size on the tag itself #}
+<{{ heading.tag }}{{ heading.size.addClass(['component-title']) }}>…</{{ heading.tag }}>
+
+{# a heading inside an array item: the item's own tag #}
+{% for slide in slides %}
+  <{{ slide.heading.tag }} class="component-title">{{ slide.heading.title }}</{{ slide.heading.tag }}>
+{% endfor %}
+```
+
+- `heading.tag` exists only when the heading has text, so print it inside the
+  existing `{% if heading %}` / `{% if heading.title %}` guard — never outside.
+- A hand-rolled "first item is the h1" (`loop.first ? 'h1' : 'h2'`) is replaced by
+  the item's `tag`: only the first item's heading can be the page's H1 anyway.
+- A heading that typed `<h3>` (a card or column title) keeps its level with
+  `tag: h3` on the prop in the yml — without it, it becomes an h2.
+
+**4. Opt out the headings that should never name a page** with `h1: false` on
+the prop — a call to action, an alert banner. Judge by **every** placement, not
+by the component's name: the flag is per component, not per placement. A hero
+used both as a page's lead and as a "featured article" banner on a listing page
+should usually stay eligible (most pages want it), and the listing page's odd H1
+is better fixed with a separate featured variant that sets `h1: false`.
+
+```yaml
+    heading:
+      type: heading
+      h1: false     # a call to action closes a page rather than naming it
+```
+
+**5. Compare.** Rebuild nothing — this is Twig and yml only — `drush cr`, then:
+
+```bash
+drush neoa-h1 --format=csv > h1-after.csv
+diff h1-before.csv h1-after.csv
+drush neoa-h1 --problems
+```
+
+`--problems` should be empty. Then **read every changed row**: the risk is not
+broken markup but a page whose H1 is now the wrong heading — a listing page
+titled by its first featured item, a page titled by a section heading because
+its hero has no text. Fix those with `h1: false` or by giving the hero its text.
+
+Only trees the **full** view mode renders take part. Header and mega menu trees
+never do, and a site that renders its page layouts in another view mode keeps
+the hidden title until that changes.
+
+## Step 6 — config-level upgrade checks
 
 None of these show up in a Twig sweep, and they are the ones that silently drop
 content from a live page. Highest risk first.
@@ -270,7 +365,7 @@ grep -rn 'drupalSettings.neoAlchemist\|data-component' web/themes/*/src/ 2>/dev/
 
 Read `ops[op].permitted`.
 
-## Step 6 — rebuild and verify
+## Step 7 — rebuild and verify
 
 Any class the audit introduced does not exist until the assets are rebuilt.
 
@@ -283,6 +378,7 @@ Then re-run the sweep, load a real page, and read the log:
 
 ```bash
 drush neo:alchemist:validate --all
+drush neoa-h1 --problems
 drush watchdog:show --severity=Error
 ```
 
@@ -314,6 +410,10 @@ developer a false "assets need rebuilding" error.
   and variant forms: on a legacy carrier, `pb-0` and `md:py-component` lose.
 - **Rendering only the preview path.** `--live` exercises the runtime branch,
   and a `{% if neoIsPreview %}` component behaves differently there.
+- **Converting a heading's tag outside its guard.** `heading.tag` is empty when the
+  heading is, so `<{{ heading.tag }}>` outside `{% if heading %}` prints `<>`.
+- **Opting a component out of the H1 because of one page.** `h1: false` applies
+  wherever the component is placed; check its other placements first.
 - **Assuming an unplaced component is unused.** Header/footer-style components
   are usually placed through config, not a node tree.
 

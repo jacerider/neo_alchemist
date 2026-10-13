@@ -5,6 +5,9 @@ declare(strict_types=1);
 namespace Drupal\neo_alchemist\Drush\Commands;
 
 use Consolidation\OutputFormatters\StructuredData\RowsOfFields;
+use Drupal\Component\Utility\Html;
+use Drupal\Core\Entity\ContentEntityInterface;
+use Drupal\Core\Entity\EntityTypeBundleInfoInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Render\RenderContext;
 use Drupal\Core\Render\RendererInterface;
@@ -19,6 +22,8 @@ use Drush\Attributes as CLI;
 use Drush\Commands\AutowireTrait;
 use Drush\Commands\DrushCommands;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
+use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpKernel\HttpKernelInterface;
 use Symfony\Component\Yaml\Yaml;
 
 /**
@@ -57,6 +62,10 @@ final class NeoAlchemistCommands extends DrushCommands {
     private readonly ThemeComponentInstaller $themeComponentInstaller,
     #[Autowire(service: 'neo_alchemist.twig_linter')]
     private readonly ComponentTwigLinter $twigLinter,
+    #[Autowire(service: 'entity_type.bundle.info')]
+    private readonly EntityTypeBundleInfoInterface $bundleInfo,
+    #[Autowire(service: 'http_kernel')]
+    private readonly HttpKernelInterface $httpKernel,
   ) {
     parent::__construct();
   }
@@ -656,6 +665,159 @@ final class NeoAlchemistCommands extends DrushCommands {
       $this->io()->warning('No Neo components found. Did you clear cache after adding one? (`drush cr`)');
     }
     return new RowsOfFields($rows);
+  }
+
+  /**
+   * Report each Alchemist page's H1: its text, where it comes from, how many.
+   *
+   * Every published entity whose full view mode renders a component tree is
+   * requested as an anonymous visitor — the whole page, header and page title
+   * included — and its H1s are counted. Run it before and after migrating a
+   * site's components to `heading.tag` and diff the two (`--format=csv`).
+   */
+  #[CLI\Command(name: 'neo:alchemist:h1-report', aliases: ['neoa-h1'])]
+  #[CLI\Option(name: 'entity-type', description: 'Only this entity type.')]
+  #[CLI\Option(name: 'bundle', description: 'Only this bundle.')]
+  #[CLI\Option(name: 'limit', description: 'At most this many entities per bundle.')]
+  #[CLI\Option(name: 'problems', description: 'Only pages without exactly one H1.')]
+  #[CLI\FieldLabels(labels: [
+    'path' => 'Path',
+    'h1' => 'H1',
+    'source' => 'Source',
+    'count' => 'H1s',
+    'status' => 'HTTP',
+  ])]
+  #[CLI\DefaultFields(fields: ['path', 'h1', 'source', 'count'])]
+  #[CLI\Usage(name: 'drush neo:alchemist:h1-report', description: 'Every Alchemist page, its H1 and where it comes from.')]
+  #[CLI\Usage(name: 'drush neoa-h1 --problems', description: 'Only the pages with no H1 or more than one.')]
+  #[CLI\Usage(name: 'drush neoa-h1 --format=csv > h1-before.csv', description: 'Save a report to compare with one taken after a migration.')]
+  public function h1Report(
+    array $options = [
+      'entity-type' => NULL,
+      'bundle' => NULL,
+      'limit' => NULL,
+      'problems' => FALSE,
+      'format' => 'table',
+    ],
+  ): RowsOfFields {
+    $rows = [];
+    $limit = $options['limit'] ? (int) $options['limit'] : NULL;
+    $bundles = $this->alchemistBundles($options['entity-type'] ?: NULL, $options['bundle'] ?: NULL);
+    foreach ($bundles as [$entityTypeId, $bundle]) {
+      $storage = $this->entityTypeManager->getStorage($entityTypeId);
+      $definition = $this->entityTypeManager->getDefinition($entityTypeId);
+      $query = $storage->getQuery()->accessCheck(FALSE)->sort($definition->getKey('id'));
+      if ($bundleKey = $definition->getKey('bundle')) {
+        $query->condition($bundleKey, $bundle);
+      }
+      if ($publishedKey = $definition->getKey('published')) {
+        $query->condition($publishedKey, 1);
+      }
+      if ($limit) {
+        $query->range(0, $limit);
+      }
+      foreach (array_chunk($query->execute(), 50) as $ids) {
+        foreach ($storage->loadMultiple($ids) as $entity) {
+          if (!$entity instanceof ContentEntityInterface || !$entity->hasLinkTemplate('canonical')) {
+            continue;
+          }
+          $row = $this->h1Row($entity);
+          if (!$options['problems'] || $row['count'] !== '1') {
+            $rows[$entityTypeId . ':' . $entity->id()] = $row;
+          }
+        }
+        $storage->resetCache($ids);
+      }
+    }
+    $problems = count(array_filter($rows, fn(array $row) => $row['count'] !== '1'));
+    $this->io()->note(sprintf('%d page(s) listed; %d without exactly one H1.', count($rows), $problems));
+    return new RowsOfFields($rows);
+  }
+
+  /**
+   * The entity types and bundles whose full view mode renders a tree.
+   *
+   * @return array<int, array{0: string, 1: string}>
+   *   Entity type id and bundle pairs.
+   */
+  private function alchemistBundles(?string $entityTypeFilter, ?string $bundleFilter): array {
+    $pairs = [];
+    $displays = $this->entityTypeManager->getStorage('entity_view_display');
+    foreach ($this->entityTypeManager->getDefinitions() as $entityTypeId => $definition) {
+      if (!$definition->entityClassImplements(ContentEntityInterface::class) || !$definition->hasLinkTemplate('canonical')) {
+        continue;
+      }
+      if ($entityTypeFilter && $entityTypeId !== $entityTypeFilter) {
+        continue;
+      }
+      foreach (array_keys($this->bundleInfo->getBundleInfo($entityTypeId)) as $bundle) {
+        if ($bundleFilter && $bundle !== $bundleFilter) {
+          continue;
+        }
+        // The full view mode, or the default display it falls back to.
+        $display = $displays->load("$entityTypeId.$bundle.full");
+        if (!$display || !$display->status()) {
+          $display = $displays->load("$entityTypeId.$bundle.default");
+        }
+        foreach ($display?->getComponents() ?? [] as $component) {
+          if (($component['type'] ?? NULL) === 'neo_component_tree') {
+            $pairs[] = [$entityTypeId, (string) $bundle];
+            break;
+          }
+        }
+      }
+    }
+    return $pairs;
+  }
+
+  /**
+   * Requests an entity's page and reports its H1s.
+   *
+   * A sub-request, so neither the page cache nor the dynamic page cache
+   * answers it: the page is rendered as it is now. Each request starts from
+   * freshly loaded entities and reset static caches, as a request of its own
+   * would — every page is rendered in this one process. The source is read
+   * from the page, not worked out beside it: the component an H1 renders
+   * inside (SDC marks each component's root with data-component-id), or none,
+   * which on an Alchemist page is the page title.
+   *
+   * @return array<string, string>
+   *   The report row.
+   */
+  private function h1Row(ContentEntityInterface $entity): array {
+    $path = $entity->toUrl()->toString(TRUE)->getGeneratedUrl();
+    $this->entityTypeManager->getStorage($entity->getEntityTypeId())->resetCache([$entity->id()]);
+    drupal_static_reset();
+    try {
+      $response = $this->httpKernel->handle(Request::create($path), HttpKernelInterface::SUB_REQUEST);
+      $status = (string) $response->getStatusCode();
+      $html = (string) $response->getContent();
+    }
+    catch (\Throwable $e) {
+      $status = 'error: ' . $e->getMessage();
+      $html = '';
+    }
+    $texts = [];
+    $sources = [];
+    $document = Html::load($html);
+    foreach ($document->getElementsByTagName('h1') as $h1) {
+      $texts[] = trim((string) preg_replace('/\s+/u', ' ', $h1->textContent));
+      $source = 'page title';
+      for ($node = $h1->parentNode; $node instanceof \DOMElement; $node = $node->parentNode) {
+        if ($node->hasAttribute('data-component-id')) {
+          $source = $node->getAttribute('data-component-id');
+          break;
+        }
+      }
+      $sources[] = $source;
+    }
+    return [
+      'path' => $path,
+      'h1' => implode(' | ', $texts),
+      'source' => implode(' | ', $sources),
+      'count' => (string) count($texts),
+      'status' => $status,
+    ];
   }
 
   /**

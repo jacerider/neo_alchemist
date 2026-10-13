@@ -153,15 +153,33 @@ final class PageHeading {
     if ((explode('.', $entityView)[1] ?? NULL) !== self::VIEW_MODE) {
       return [FALSE, $cacheability];
     }
-    foreach ($this->pageItems($entity, $cacheability) as $item) {
+    [$heading, $walked] = $this->entityH1($entity);
+    return [$heading !== NULL, $cacheability->addCacheableDependency($walked)];
+  }
+
+  /**
+   * The heading that is the H1 of an entity's full page, if one is.
+   *
+   * @param \Drupal\Core\Entity\ContentEntityInterface $entity
+   *   The entity.
+   *
+   * @return array{0: array{field: string, uuid: string, shape: string}|null, 1: \Drupal\Core\Cache\CacheableMetadata}
+   *   The heading — its tree field, its component's instance uuid and its
+   *   shape id — or NULL when the page title is the H1; and what that depends
+   *   on.
+   */
+  public function entityH1(ContentEntityInterface $entity): array {
+    $cacheability = new CacheableMetadata();
+    foreach ($this->pageItems($entity, $cacheability) as $fieldName => $item) {
       $this->setPageContent($item);
       [$found, $walked] = $this->walk($item);
       $cacheability->addCacheableDependency($walked);
       if ($found !== NULL) {
-        return [TRUE, $cacheability];
+        [$uuid, $shape] = explode('|', $found, 2);
+        return [['field' => (string) $fieldName, 'uuid' => $uuid, 'shape' => $shape], $cacheability];
       }
     }
-    return [FALSE, $cacheability];
+    return [NULL, $cacheability];
   }
 
   /**

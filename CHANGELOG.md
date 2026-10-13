@@ -19,6 +19,11 @@ to action), and `tag: h3` (h2–h6) sets the tag it prints otherwise. Only the t
 the full view mode renders take part — never a header, a mega menu panel or an
 entity embedded in another view mode.
 
+`drush neo:alchemist:h1-report` lists every Alchemist page's H1s and the
+component each sits in — run it before and after migrating, and `--problems` for
+pages without exactly one. The neo-component-audit skill has the migration as a
+step of its own.
+
 The legacy `h1_default` heading setting now carries over to `size_default` when a
 component is updated; it used to be dropped.
 
