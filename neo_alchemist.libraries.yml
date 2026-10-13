@@ -57,6 +57,7 @@ sdc.audit:
   dependencies:
     - core/drupal
     - core/drupalSettings
+    - neo_alchemist/panels
 
 component.child:
   version: VERSION

@@ -125,6 +125,12 @@ interface NeoAlchemistPanelRegistry {
   mount(id: string, element: HTMLElement): void;
   /** Editor-internal: the previews refreshed after a layout write. */
   layoutChanged(): void;
+  /**
+   * A top bar dropdown under a badge that is not a panel's, placed and
+   * behaving as a panel badge's does. The id names its element; the label is
+   * its accessible name.
+   */
+  dropdown(badge: HTMLElement, id: string, label: string): NeoAlchemistDropdown;
 }
 
 declare namespace drupal {

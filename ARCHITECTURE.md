@@ -973,6 +973,11 @@ every change whether or not their panel was mounted: `layoutChanged()` reads the
 any registered panel when nothing is mounted but someone listens. Fixture: `TestLabelPanel` adds a
 badge while the `neo_alchemist_test.panel_badge` state flag is on.
 
+A top bar badge that is not a panel's gets the same dropdown from
+`Drupal.neoAlchemist.panels.dropdown(badge, id, label)` (depend on `neo_alchemist/panels`), so
+every dropdown under the manage chrome's top bar sits and behaves alike — the SDC preview page's
+audit badge (`sdc-audit.ts`) is one. Don't hand-roll a dropdown there.
+
 **Taking the editor somewhere** — `Drupal.neoAlchemist.editor.focus({uuid, prop?, locate?})`
 (`components-parent.ts`) is the editor's public call for code outside it (a panel, a badge):
 it selects the component instance on the canvas (as the Layers panel does, aiming at the frame

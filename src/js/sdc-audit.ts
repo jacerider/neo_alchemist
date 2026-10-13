@@ -27,7 +27,7 @@
   const settings: { url?: string } = drupalSettings.neoAlchemist?.sdcAudit ?? {};
   let badge: HTMLElement | null = null;
   let button: HTMLButtonElement | null = null;
-  let list: HTMLElement | null = null;
+  let dropdown: NeoAlchemistDropdown | null = null;
   let timer: number | undefined;
   let run = 0;
 
@@ -40,50 +40,32 @@
     return frames().find((frame) => frame.getBoundingClientRect().height > 0) ?? null;
   }
 
+  /**
+   * The badge, with the panels' own dropdown: below the top bar, centred
+   * under the badge, closed by Esc or a click elsewhere.
+   */
   function mount(): boolean {
     const topEnd = document.querySelector<HTMLElement>('.neo-alchemist-manage--top-end');
-    if (!topEnd) {
+    const panels = Drupal.neoAlchemist?.panels;
+    if (!topEnd || !panels) {
       return false;
     }
     button = document.createElement('button');
     button.type = 'button';
     button.className = 'neo-alchemist--audit-badge';
-    button.setAttribute('aria-expanded', 'false');
-    list = document.createElement('div');
-    list.className = 'neo-alchemist--audit-list';
-    list.id = 'neo-alchemist-audit-list';
-    list.hidden = true;
-    button.setAttribute('aria-controls', list.id);
     badge = document.createElement('div');
     badge.className = 'neo-alchemist--audit';
     badge.hidden = true;
-    badge.append(button, list);
-    button.addEventListener('click', () => toggle(list?.hidden ?? false));
-    document.addEventListener('keydown', (event) => {
-      if (event.key === 'Escape' && list && !list.hidden) {
-        toggle(false);
-        button?.focus();
-      }
-    });
-    document.addEventListener('pointerdown', (event) => {
-      if (badge && list && !list.hidden && !badge.contains(event.target as Node)) {
-        toggle(false);
-      }
-    }, true);
+    badge.append(button);
     // First in the corner, ahead of the scale and viewport controls.
     topEnd.insertBefore(badge, topEnd.firstChild);
+    dropdown = panels.dropdown(badge, 'audit', Drupal.t('Component audit'));
+    dropdown.element.classList.add('neo-alchemist--audit-list');
     return true;
   }
 
-  function toggle(open: boolean): void {
-    if (list && button) {
-      list.hidden = !open;
-      button.setAttribute('aria-expanded', open ? 'true' : 'false');
-    }
-  }
-
   async function refresh(): Promise<void> {
-    if (!settings.url || !badge || !button || !list) {
+    if (!settings.url || !badge || !button || !dropdown) {
       return;
     }
     run += 1;
@@ -104,12 +86,12 @@
     }
     badge.hidden = issues.length === 0;
     if (!issues.length) {
-      toggle(false);
+      dropdown.close();
       return;
     }
     button.textContent = Drupal.formatPlural(issues.length, '1 issue', '@count issues');
     button.title = Drupal.t('SEO and accessibility issues the component audit finds. The same as drush neo:alchemist:audit.');
-    list.replaceChildren(...issues.map(item));
+    dropdown.element.replaceChildren(...issues.map(item));
   }
 
   function item(issue: Issue): HTMLElement {
@@ -159,7 +141,7 @@
     if (!frame || !element) {
       return;
     }
-    toggle(false);
+    dropdown?.close();
     const previous = element.style.outline;
     const previousOffset = element.style.outlineOffset;
     element.style.outline = '3px solid #e11d48';

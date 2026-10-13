@@ -160,7 +160,7 @@
    * different button of the badge while it is open keeps it open and reports
    * that button to onToggle() — a badge with two parts shows the part clicked.
    */
-  function dropdownCreate(badge: HTMLElement, id: string): NeoAlchemistDropdown {
+  function dropdownCreate(badge: HTMLElement, id: string, label?: string): NeoAlchemistDropdown {
     const element = document.createElement('div');
     element.id = `neo-alchemist-dropdown-${id}`;
     element.className = 'neo-alchemist--dropdown absolute overflow-y-auto rounded-lg shadow-lg border bg-base-0 text-base-0-content text-sm z-50';
@@ -168,7 +168,7 @@
     element.dataset.size = 'md';
     element.setAttribute('role', 'dialog');
     element.tabIndex = -1;
-    element.setAttribute('aria-label', settings[id]?.label ?? id);
+    element.setAttribute('aria-label', label ?? settings[id]?.label ?? id);
     element.hidden = true;
     badge.append(element);
     const callbacks: Array<(open: boolean, trigger: HTMLElement | null) => void> = [];
@@ -383,6 +383,10 @@
       else {
         pending[id] = element;
       }
+    },
+
+    dropdown(badge, id, label) {
+      return dropdownCreate(badge, id, label);
     },
 
     layoutChanged() {

@@ -1,5 +1,7 @@
 /*
- * The component preview's audit badge and its list.
+ * The component preview's audit badge and its list. The list is the panels'
+ * dropdown (Drupal.neoAlchemist.panels.dropdown()), which places and frames
+ * it; this lays out what is inside.
  */
 .neo-alchemist--audit {
   position: relative;
@@ -28,23 +30,10 @@
 }
 
 .neo-alchemist--audit-list {
-  position: absolute;
-  top: calc(100% + 0.5rem);
-  right: 0;
-  z-index: 50;
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
-  width: 24rem;
-  max-width: calc(100vw - 2rem);
-  max-height: 70vh;
-  overflow-y: auto;
   padding: 0.75rem;
-  border: 1px solid rgb(var(--color-base-200, 229 231 235));
-  border-radius: 0.5rem;
-  background: rgb(var(--color-base-0, 255 255 255));
-  box-shadow: 0 8px 24px rgb(0 0 0 / 0.15);
-  color: rgb(var(--color-base-900, 17 24 39));
 }
 
 .neo-alchemist--audit-list[hidden] {
