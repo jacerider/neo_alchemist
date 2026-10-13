@@ -1,0 +1,28 @@
+$schema: 'https://git.drupalcode.org/project/drupal/-/raw/10.1.x/core/modules/sdc/src/metadata.schema.json'
+name: 'NA row token fixture'
+description: >
+  A list whose rows a query fills from entities, with a plain-text label and a
+  markup body, so token modifiers attached to row children can be pinned: they
+  resolve against each row's entity, and on a markup child their HTML renders
+  rather than printing escaped.
+status: stable
+neo: true
+props:
+  type: object
+  properties:
+    items:
+      type: array
+      title: Items
+      examples:
+        -
+          label: 'EXAMPLE LABEL'
+          body: 'EXAMPLE BODY'
+      items:
+        type: object
+        properties:
+          label:
+            type: string
+            title: Label
+          body:
+            type: markup
+            title: Body

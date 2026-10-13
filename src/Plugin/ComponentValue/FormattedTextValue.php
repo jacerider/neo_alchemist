@@ -27,7 +27,12 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
   // through a text format (alterValue() + modifyValue()).
   group: 'modifiers',
   ref_types: ['markup'],
-  weight: 10,
+  // Last of the modifiers: rendering is the final step, and every other
+  // modifier works on the text before it. At weight 10 it ran before `token`
+  // (11), which then replaced the rendered markup with its plain-text template,
+  // so a token template on a markup prop printed its HTML escaped. A saved
+  // drag-and-drop order still decides within a component's own plugins.
+  weight: 100,
 )]
 final class FormattedTextValue extends ComponentValuePluginBase implements ContainerFactoryPluginInterface {
 

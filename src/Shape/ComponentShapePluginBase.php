@@ -1558,6 +1558,29 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
 
   /**
    * {@inheritDoc}
+   *
+   * Walks up from this shape: at each step, the parent may have recorded the
+   * entity of the row the step sits in (keyed by the parent's id and the
+   * step's delta, or the parent's id alone for a single mapped entity). The
+   * nearest record wins, so a nested child of a row still reads that row.
+   */
+  public function getContextEntity(): ContentEntityInterface {
+    $shape = $this;
+    while ($parent = $shape->getParentShape()) {
+      if ($parent instanceof ComponentShapeChildrenMatchPluginInterface && $shape instanceof self) {
+        $delta = $shape->getDelta();
+        $rowId = $delta === NULL ? $parent->id() : $parent->id() . '~' . $delta;
+        if ($entity = $parent->getChildShapeState()->getRowEntity($rowId)) {
+          return $entity;
+        }
+      }
+      $shape = $parent;
+    }
+    return $this->getEntity();
+  }
+
+  /**
+   * {@inheritDoc}
    */
   public function getTargetEntityType(): ?string {
     return $this->getComponent()->getTargetEntityTypeId();

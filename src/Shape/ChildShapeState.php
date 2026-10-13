@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Drupal\neo_alchemist\Shape;
 
+use Drupal\Core\Entity\ContentEntityInterface;
+
 /**
  * What a producer decided about a shape's individual children.
  *
@@ -31,9 +33,18 @@ namespace Drupal\neo_alchemist\Shape;
  * the scope exists only to carry the deadline, and so that a writer says which
  * shape it is speaking for.
  *
- * ::setFlag(), ::enablePlugin() and ::disablePlugin() honour the seal; the two
- * readers do not, because reading is exactly what ChildOptionPolicy does once
- * the children start being built.
+ * ::setFlag(), ::enablePlugin(), ::disablePlugin() and ::setRowEntity() honour
+ * the seal; the readers do not, because reading is exactly what
+ * ChildOptionPolicy and the children do once they start being built.
+ *
+ * ## Row entities
+ *
+ * A producer mapping entities onto children also records which entity each row
+ * came from (::setRowEntity()), so a child can ask for the entity it stands for
+ * rather than the component's host (ComponentShapePluginBase::
+ * getContextEntity()). A token modifier attached to a row child resolves
+ * against that row's entity: on a page listing rooms, `[node:title]` is each
+ * room's name, not the page's.
  *
  * Holds no shape and no container, so it is assertable directly.
  *
@@ -84,6 +95,17 @@ final class ChildShapeState {
    * @var array<string, array<string, array{status: bool, settings: array}>>
    */
   private array $plugins = [];
+
+  /**
+   * The entity each mapped row was filled from, keyed by row id.
+   *
+   * A row id is the parent's shape id followed by the row's delta
+   * (`items~0`) when the parent takes a list, or the parent's id alone when it
+   * takes a single mapped entity.
+   *
+   * @var array<string, \Drupal\Core\Entity\ContentEntityInterface>
+   */
+  private array $rowEntities = [];
 
   /**
    * Records a producer's decision about one child.
@@ -178,6 +200,36 @@ final class ChildShapeState {
    */
   public function getPlugins(string $shapeId): array {
     return $this->store()->plugins[$shapeId] ?? [];
+  }
+
+  /**
+   * Records the entity a mapped row was filled from.
+   *
+   * @param string $rowId
+   *   The row id: the parent's shape id, followed by `~<delta>` when the parent
+   *   takes a list.
+   * @param \Drupal\Core\Entity\ContentEntityInterface $entity
+   *   The entity the row's values were read from.
+   *
+   * @return $this
+   */
+  public function setRowEntity(string $rowId, ContentEntityInterface $entity): self {
+    $this->assertNotSealed('Row entities');
+    $this->store()->rowEntities[$rowId] = $entity;
+    return $this;
+  }
+
+  /**
+   * Gets the entity a mapped row was filled from.
+   *
+   * @param string $rowId
+   *   The row id.
+   *
+   * @return \Drupal\Core\Entity\ContentEntityInterface|null
+   *   The entity, or NULL when no producer mapped that row.
+   */
+  public function getRowEntity(string $rowId): ?ContentEntityInterface {
+    return $this->store()->rowEntities[$rowId] ?? NULL;
   }
 
 }

@@ -614,7 +614,16 @@ strings/numbers), `token` (compose from a token template — `"[term:name] Proje
 `date` (timestamp/ISO → formatted date; raw `created` ints arrive unformatted without it),
 `number` (thousands separators), `link_title` / `link_uri` (override a link's text/URL,
 token-aware — the dynamic-CTA pattern), `formatted_text` ⊕ (text-format rendering on
-markup), `media_image_size` (editor-selectable size variants on an image prop).
+markup; always runs last, so a `token` template on a markup prop renders its HTML),
+`media_image_size` (editor-selectable size variants on an image prop).
+
+Tokens resolve against the entity the value stands for: the host entity, or, on a child
+of a row an `entity_query` / `entity_reference` provider filled, **that row's entity**.
+So a modifier attached to a row child in the provider's "Shape Fields" composes per-item
+text from the item's own fields, e.g. a room card's
+`<p>[node:field_dining_type] accommodates up to <strong>[node:field_capacity_seated:value]
+guests</strong> seated.</p>` (use `:value` to skip a field's display prefix/suffix; add
+`formatted_text` on a markup child so the HTML renders).
 
 **Settings** — never touch the value: `widget` (tune the edit widget), `region_size` /
 `region_custom` (see the `region` shape above).

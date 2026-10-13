@@ -713,6 +713,16 @@ class ChildrenMatchMapper {
         if (!array_filter($values[$delta])) {
           unset($values[$delta]);
         }
+        // Record which entity a kept row came from, so its children can
+        // resolve against it (a token modifier on a row child reads the row's
+        // entity, not the host's). A single-entity mapping keeps only its
+        // first row, so only that one is recorded.
+        elseif ($iterable) {
+          $shape->getChildShapeState()->setRowEntity($parentId . '~' . $delta, $entity);
+        }
+        elseif ($shape->getChildShapeState()->getRowEntity($parentId) === NULL) {
+          $shape->getChildShapeState()->setRowEntity($parentId, $entity);
+        }
         $delta++;
       }
     }
