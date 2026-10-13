@@ -1,0 +1,21 @@
+$schema: 'https://git.drupalcode.org/project/drupal/-/raw/10.1.x/core/modules/sdc/src/metadata.schema.json'
+name: 'NA array heading fixture'
+description: >
+  An array whose items each hold a heading, so a query over a tree's shapes
+  can be pinned to the items' own shapes rather than the array's template.
+status: stable
+neo: true
+props:
+  type: object
+  properties:
+    items:
+      type: array
+      title: Items
+      examples: []
+      items:
+        type: object
+        properties:
+          heading:
+            type: heading
+            title: Heading
+            examples: {}

@@ -951,9 +951,14 @@ function neo_alchemist_config_schema_info_alter(&$definitions) {
 
 /**
  * Implements hook_neo_token_image_alter().
+ *
+ * An entity with no image of its own is represented by the first image its
+ * layout shows. One it has — a media image field neo found — is the
+ * deliberate choice and is kept: the layout's first image may be anything,
+ * an author's photo in a byline among them.
  */
 function neo_alchemist_neo_token_image_alter(&$uri, &$params, ?ContentEntityInterface $entity = NULL) {
-  if (!$entity) {
+  if (!$entity || $uri) {
     return;
   }
   // Never walk a component tree while a views value provider is executing:
@@ -973,13 +978,15 @@ function neo_alchemist_neo_token_image_alter(&$uri, &$params, ?ContentEntityInte
     if (!$field instanceof NeoComponentTreeList) {
       return;
     }
-    $shape = $field->getQuery()
-      ->filterByRef('image')
-      ->filterNonEmpty()
-      ->first();
-
-    if ($shape && !empty($shapeValue = $shape->getValue()['uri'] ?? NULL)) {
-      $uri = $shapeValue;
+    // The first image the page shows: resolved, so one an entity field or a
+    // provider supplies counts, and one that resolves to no file is passed
+    // over for the next rather than ending the search.
+    foreach ($field->getQuery()->filterByRef('image')->filterNonEmpty(FALSE)->execute() as $shape) {
+      $value = $shape->getValue();
+      if (!empty($value['uri'])) {
+        $uri = $value['uri'];
+        break;
+      }
     }
   }
 }
