@@ -1,5 +1,25 @@
 # Changelog
 
+## Audit a component's markup while it is being built
+
+**A component's SEO and accessibility faults surfaced only once it was placed on a
+page.** A list whose items were h3s under the page's H1 was caught by the page's SEO
+analysis, long after the component was written. `drush neo:alchemist:audit <id>`
+(or `--all`) now renders a component and checks the markup: headings that skip a
+level or start below h2, an h1 of its own, images without alt text, and headings,
+links and buttons with no accessible name. It renders twice — from the component's
+examples, and again without its optional headings, since a list's h3s only skip a
+level once the component's own heading is left empty — and exits non-zero when it
+finds anything, so an agent building a component can run it as a gate. The
+neo-component skill tells agents to.
+
+The component preview page runs the same audit: an "N issues" badge in its top bar
+lists them, each with the render it came from, and **Show** outlines the element.
+It re-runs whenever the preview reloads.
+
+Checks are services tagged `neo_alchemist.component_audit_check`; another module can
+add its own.
+
 ## A page's one H1 is its layout's first heading
 
 **An Alchemist page printed two H1s.** The page title is kept on Alchemist pages

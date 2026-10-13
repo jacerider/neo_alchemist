@@ -99,6 +99,25 @@ drush neo:alchemist:render front:cards_test --scheme=dark
 drush neo:alchemist:render front:header --live --html
 ```
 
+`neo:alchemist:audit <id>` (alias `neoa-audit`) — render a component and check
+its markup for what search engines and screen readers trip over: headings that
+skip a level or start below h2 (a component sits under the page's H1), an h1 of
+its own, images without alt text (or a file name for one), and headings, links
+and buttons with no accessible name. It renders twice — from its `examples`, and
+again with every optional heading prop left out, the way an editor often places
+it — and names the render each issue came from. `--all` audits every component
+(`--theme=<name>` narrows it). Exits non-zero when anything is found. The
+component's preview page runs the same audit: an "N issues" badge in its top bar
+lists them, and **Show** outlines the element in the preview.
+
+```bash
+drush neo:alchemist:audit front:cards_test
+drush neoa-audit --all --theme=front
+```
+
+Checks are services tagged `neo_alchemist.component_audit_check`, implementing
+`ComponentAuditCheckInterface`, so another module can add its own.
+
 `neo:alchemist:h1-report` (alias `neoa-h1`) — request every published page whose
 full view mode renders a component tree, as an anonymous visitor, and list its
 H1s and the component each one sits in (`page title` for the hidden page title).

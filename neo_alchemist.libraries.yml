@@ -44,6 +44,20 @@ component.parent:
     - core/drupal
     - core/once
 
+# The component preview's audit badge: the issues the component audit finds,
+# re-checked after each preview reload.
+sdc.audit:
+  version: VERSION
+  neo: true
+  js:
+    src/js/sdc-audit.ts: {}
+  css:
+    component:
+      src/css/sdc-audit.css: {}
+  dependencies:
+    - core/drupal
+    - core/drupalSettings
+
 component.child:
   version: VERSION
   neo: true

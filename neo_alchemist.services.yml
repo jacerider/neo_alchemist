@@ -93,6 +93,26 @@ services:
   neo_alchemist.twig_linter:
     class: Drupal\neo_alchemist\ComponentTwigLinter
 
+  # Renders a component (examples, and bare) and checks the HTML: heading
+  # levels, image alt text, empty headings/links/buttons. A module adds its own
+  # checks by tagging a ComponentAuditCheckInterface service.
+  neo_alchemist.component_audit:
+    class: Drupal\neo_alchemist\Audit\ComponentAudit
+    arguments:
+      - '@neo_alchemist.preview_builder'
+      - '@renderer'
+      - !tagged_iterator neo_alchemist.component_audit_check
+  Drupal\neo_alchemist\Audit\ComponentAudit: '@neo_alchemist.component_audit'
+  neo_alchemist.component_audit.heading_levels:
+    class: Drupal\neo_alchemist\Audit\Check\HeadingLevelsCheck
+    tags: [{ name: neo_alchemist.component_audit_check }]
+  neo_alchemist.component_audit.image_alt:
+    class: Drupal\neo_alchemist\Audit\Check\ImageAltCheck
+    tags: [{ name: neo_alchemist.component_audit_check }]
+  neo_alchemist.component_audit.empty_elements:
+    class: Drupal\neo_alchemist\Audit\Check\EmptyElementsCheck
+    tags: [{ name: neo_alchemist.component_audit_check }]
+
   # Finds placements whose component no longer exists. A diff over
   # ComponentUsage rather than another sweep of its own.
   neo_alchemist.dangling_component_data:

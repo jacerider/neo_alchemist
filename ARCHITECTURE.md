@@ -1066,6 +1066,12 @@ From [neo_alchemist.services.yml](neo_alchemist.services.yml):
 - **`neo_component_page_renderer`** → `ComponentPageRenderer` — scoped bare-page renderer
   (also aliased to `BareHtmlPageRendererInterface`).
 - **`neo_alchemist.preview_builder`** → `ComponentPreviewBuilder` — transient entity builder.
+- **`neo_alchemist.component_audit`** → [ComponentAudit](src/Audit/ComponentAudit.php) — renders a
+  component through the preview builder, from its examples and again with its optional
+  `heading` props unset, and runs every service tagged `neo_alchemist.component_audit_check`
+  ([ComponentAuditCheckInterface](src/Audit/ComponentAuditCheckInterface.php)) over each
+  render's DOM. Behind `drush neo:alchemist:audit` and the SDC preview page's issues badge
+  (route `neo_alchemist.sdc_preview_audit`, JSON).
 - **`neo_alchemist.value_panel_builder`** → `ComponentValuePanelBuilder` — the prop panel both
   value editors present (styles accordion, values container, per-prop shape forms, the hidden
   refresh button), and the two DOM ids the editor client matches on.
@@ -1267,7 +1273,7 @@ From [neo_alchemist.services.yml](neo_alchemist.services.yml):
   component, `neo-component-prop` (`neoacp`) adds a prop to one.
 - **Introspection/verification** — [src/Drush/Commands/NeoAlchemistCommands.php](src/Drush/Commands/NeoAlchemistCommands.php):
   `neo:alchemist:components`, `:info`, `:shapes`, `:validate`, `:render` (`--scheme`,
-  `--html`, `--live`). These are the **runtime complement to this doc** — prefer them over
+  `--html`, `--live`), `:audit` (rendered-markup checks, `--all`). These are the **runtime complement to this doc** — prefer them over
   reading plugin files when you just need the current shapes/props/definitions. (Icon and
   scheme lookups live in their owning modules: `drush neo:icon:list`, `drush neo:color:schemes`.)
 
@@ -1280,6 +1286,10 @@ From [neo_alchemist.services.yml](neo_alchemist.services.yml):
   `preRenderValue()` (and optionally `getGenerationExamples()`/`onGenerateTwig()`); add a
   matching entry to `neo_alchemist.neo_component_prop_defs.yml` (schema + `examples` +
   `twig`); `drush cr`.
+- **A component audit check** — a class implementing `ComponentAuditCheckInterface`,
+  registered as a service tagged `neo_alchemist.component_audit_check`. It is handed each
+  render's `\DOMDocument` and returns `{message, element}` pairs; the audit locates the
+  element for the preview and lists an issue found in both renders once.
 - **A pure prop-def** (no custom PHP) — add an entry to a `*.neo_component_prop_defs.yml`
   in any module; reference it as `type: my_type` in a `.component.yml`.
 - **A ComponentValue / Slot / Filter / Access plugin** — add a class in the matching

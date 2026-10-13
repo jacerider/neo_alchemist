@@ -1,0 +1,16 @@
+$schema: 'https://git.drupalcode.org/project/drupal/-/raw/10.1.x/core/modules/sdc/src/metadata.schema.json'
+name: 'NA audit probe fixture'
+description: >
+  A component with one fault of every kind the component audit looks for: its
+  items are h3s, sound under its own h2 but a skipped level once the optional
+  heading is left out; an image with no alt; a link with no text.
+status: stable
+neo: true
+props:
+  type: object
+  properties:
+    heading:
+      type: heading
+      title: Heading
+      examples:
+        title: 'Probe heading'

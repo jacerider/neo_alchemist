@@ -12,6 +12,7 @@ use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Render\RenderContext;
 use Drupal\Core\Render\RendererInterface;
 use Drupal\Core\Theme\ComponentPluginManager;
+use Drupal\neo_alchemist\Audit\ComponentAudit;
 use Drupal\neo_alchemist\ComponentPreviewBuilder;
 use Drupal\neo_alchemist\ComponentPropDefPluginManager;
 use Drupal\neo_alchemist\ComponentTwigLinter;
@@ -62,6 +63,8 @@ final class NeoAlchemistCommands extends DrushCommands {
     private readonly ThemeComponentInstaller $themeComponentInstaller,
     #[Autowire(service: 'neo_alchemist.twig_linter')]
     private readonly ComponentTwigLinter $twigLinter,
+    #[Autowire(service: 'neo_alchemist.component_audit')]
+    private readonly ComponentAudit $componentAudit,
     #[Autowire(service: 'entity_type.bundle.info')]
     private readonly EntityTypeBundleInfoInterface $bundleInfo,
     #[Autowire(service: 'http_kernel')]
@@ -818,6 +821,73 @@ final class NeoAlchemistCommands extends DrushCommands {
       'count' => (string) count($texts),
       'status' => $status,
     ];
+  }
+
+  /**
+   * Render a component and check its HTML for SEO and accessibility issues.
+   *
+   * Two renders: with its examples, and without its optional headings (where
+   * a list of h3s under the component's h2 skips a level). Checks heading
+   * levels, image alt text, and headings, links and buttons with nothing to
+   * announce. Exits non-zero when anything is found, so an agent or CI can
+   * gate on it.
+   */
+  #[CLI\Command(name: 'neo:alchemist:audit', aliases: ['neoa-audit'])]
+  #[CLI\Argument(name: 'component', description: 'The SDC component id, e.g. front:cards_test. Omit with --all.')]
+  #[CLI\Option(name: 'all', description: 'Audit every Neo component.')]
+  #[CLI\Option(name: 'theme', description: 'With --all, only components provided by this theme/module machine name.')]
+  #[CLI\Usage(name: 'drush neo:alchemist:audit front:cards_test', description: 'Audit one component.')]
+  #[CLI\Usage(name: 'drush neoa-audit --all --theme=front', description: 'Audit every front theme component; exits non-zero if any has an issue.')]
+  public function audit(?string $component = NULL, array $options = ['all' => FALSE, 'theme' => NULL]): int {
+    if (empty($options['all'])) {
+      if ($component === NULL) {
+        $this->io()->error('Pass a component id, or --all to audit every component.');
+        return self::EXIT_FAILURE;
+      }
+      $components = [$component];
+    }
+    else {
+      $components = [];
+      foreach ($this->componentPluginManager->getDefinitions() as $id => $definition) {
+        if (!empty($definition['neo']) && (!$options['theme'] || ($definition['provider'] ?? '') === $options['theme'])) {
+          $components[] = (string) $id;
+        }
+      }
+      sort($components);
+    }
+
+    $total = 0;
+    $failed = [];
+    foreach ($components as $id) {
+      $issues = $this->componentAudit->audit($id);
+      if ($issues === NULL) {
+        $this->io()->error(sprintf('"%s" is not a renderable Neo component. Run `drush neo:alchemist:components` to list valid ids.', $id));
+        return self::EXIT_FAILURE;
+      }
+      if (!$issues) {
+        if (count($components) === 1) {
+          $this->io()->success(sprintf('%s: no issues.', $id));
+        }
+        continue;
+      }
+      $total += count($issues);
+      $failed[] = $id;
+      $this->io()->section($id);
+      $this->io()->table(['Render', 'Check', 'Issue', 'Element'], array_map(fn(array $issue) => [
+        $issue['variant'] === 'without_headings' ? 'without headings' : 'examples',
+        $issue['check'],
+        $issue['message'],
+        $issue['locator'] ? sprintf('<%s> %s', $issue['locator']['tag'], $issue['locator']['text']) : '',
+      ], $issues));
+    }
+    if (!$failed) {
+      if (count($components) > 1) {
+        $this->io()->success(sprintf('No issues in %d components.', count($components)));
+      }
+      return self::EXIT_SUCCESS;
+    }
+    $this->io()->warning(sprintf('%d issue(s) in %d of %d component(s).', $total, count($failed), count($components)));
+    return self::EXIT_FAILURE;
   }
 
   /**

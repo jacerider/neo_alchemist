@@ -8,6 +8,7 @@ use Drupal\Core\Cache\CacheableMetadata;
 use Drupal\Core\Controller\ControllerBase;
 use Drupal\Core\Render\BareHtmlPageRendererInterface;
 use Drupal\Core\Routing\RouteMatchInterface;
+use Drupal\Core\Template\Attribute;
 use Drupal\neo_alchemist\ComponentPreviewBuilder;
 use Drupal\neo_alchemist\EditorState\SdcPreviewStore;
 use Drupal\neo_alchemist\PreviewPropMapBuilder;
@@ -70,6 +71,11 @@ final class SdcPreviewController extends ControllerBase {
       $build['component_above'] = $above->toRenderable(routeMatch: $this->routeMatch);
     }
     $renderable = $entity->toRenderable(routeMatch: $this->routeMatch);
+    // Tells the audit badge's Show which component is the previewed one, not
+    // a neighbor that may be the same component.
+    if (($renderable['#props']['attributes'] ?? NULL) instanceof Attribute) {
+      $renderable['#props']['attributes']->setAttribute('data-neo-sdc-preview', 'component');
+    }
     $build['component'] = $renderable;
     if (!empty($context['below']) && ($below = $this->previewBuilder->build($context['below']))) {
       $build['component_below'] = $below->toRenderable(routeMatch: $this->routeMatch);

@@ -56,6 +56,14 @@ final class SdcPreviewManageController extends ControllerBase {
       '#attached' => [
         'library' => [
           'neo_alchemist/component.parent',
+          'neo_alchemist/sdc.audit',
+        ],
+        'drupalSettings' => [
+          'neoAlchemist' => [
+            'sdcAudit' => [
+              'url' => Url::fromRoute('neo_alchemist.sdc_preview_audit', ['component' => $component])->toString(),
+            ],
+          ],
         ],
       ],
       '#form' => $this->entityFormBuilder()->getForm($entity, 'preview_value'),

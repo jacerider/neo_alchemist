@@ -1,0 +1,85 @@
+/*
+ * The component preview's audit badge and its list.
+ */
+.neo-alchemist--audit {
+  position: relative;
+  display: inline-flex;
+}
+
+.neo-alchemist--audit[hidden] {
+  display: none;
+}
+
+.neo-alchemist--audit-badge {
+  padding: 0.125rem 0.5rem;
+  border: 1px solid rgb(var(--color-alert-300, 252 165 165));
+  border-radius: 0.25rem;
+  background: rgb(var(--color-alert-50, 254 242 242));
+  color: rgb(var(--color-alert-800, 153 27 27));
+  font-size: 0.75rem;
+  line-height: 1.25rem;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.neo-alchemist--audit-badge:focus-visible {
+  outline: 2px solid rgb(var(--color-primary-500, 59 130 246));
+  outline-offset: 2px;
+}
+
+.neo-alchemist--audit-list {
+  position: absolute;
+  top: calc(100% + 0.5rem);
+  right: 0;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  width: 24rem;
+  max-width: calc(100vw - 2rem);
+  max-height: 70vh;
+  overflow-y: auto;
+  padding: 0.75rem;
+  border: 1px solid rgb(var(--color-base-200, 229 231 235));
+  border-radius: 0.5rem;
+  background: rgb(var(--color-base-0, 255 255 255));
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.15);
+  color: rgb(var(--color-base-900, 17 24 39));
+}
+
+.neo-alchemist--audit-list[hidden] {
+  display: none;
+}
+
+.neo-alchemist--audit-item {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.125rem 0.75rem;
+  align-items: start;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid rgb(var(--color-base-100, 243 244 246));
+}
+
+.neo-alchemist--audit-item:last-child {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+.neo-alchemist--audit-message {
+  grid-column: 1;
+  margin: 0;
+  font-size: 0.8125rem;
+  line-height: 1.4;
+}
+
+.neo-alchemist--audit-meta {
+  grid-column: 1;
+  margin: 0;
+  font-size: 0.75rem;
+  color: rgb(var(--color-base-500, 107 114 128));
+}
+
+.neo-alchemist--audit-show {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+}

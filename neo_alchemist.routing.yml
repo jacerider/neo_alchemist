@@ -22,6 +22,17 @@ neo_alchemist.sdc_preview:
   requirements:
     _permission: 'administer neo_alchemist'
 
+neo_alchemist.sdc_preview_audit:
+  path: '/admin/config/neo/alchemist/preview/{component}/audit'
+  defaults:
+    _controller: '\Drupal\neo_alchemist\Controller\SdcPreviewAuditController'
+  requirements:
+    _permission: 'administer neo_alchemist'
+  # As the frame's, so the audit renders what the frame does.
+  options:
+    _neo_alchemist_preview: TRUE
+    _admin_route: FALSE
+
 neo_alchemist.sdc_preview_frame:
   path: '/admin/config/neo/alchemist/preview/{component}/frame'
   defaults:

@@ -111,6 +111,17 @@ Both matter. `{% if neoIsPreview %}` branches are common — a fixed header
 renders in-flow for the preview and fixed at runtime — so one path passing says
 nothing about the other.
 
+Then audit the rendered markup:
+
+```bash
+drush neo:alchemist:audit --all          # or --theme=front; exits non-zero on any issue
+```
+
+The lint reads the Twig; the audit reads what it renders — from the examples, and
+again with every optional heading left out — for skipped heading levels, images
+without alt text, and headings, links and buttons with no accessible name. The
+neo-component skill lists each check and its fix.
+
 ```bash
 drush neo:alchemist:integrity            # placements whose component is gone
 ```
@@ -135,7 +146,13 @@ judge the result.
 `orphan_content_token`, `href_without_target`, `unguarded_link_access`,
 `dynamic_classes`, `undeclared_var`.
 
-Three worth expanding, because the fix is not obvious from the message:
+**Everything the audit reports is a defect too**, with one judgment call: an
+image the audit flags for a missing `alt` may be decoration, and the fix is then
+`alt=""`, not invented text. A `heading_levels` issue found only *without
+headings* is still real — it is what every page shows when an editor leaves the
+component's heading empty.
+
+Three lint issues worth expanding, because the fix is not obvious from the message:
 
 - **`orphan_content_token`** — a `-content` token is the contrast-picked
   foreground for *its own* surface. `text-base-900-content` over `bg-accent-900`
@@ -378,6 +395,7 @@ Then re-run the sweep, load a real page, and read the log:
 
 ```bash
 drush neo:alchemist:validate --all
+drush neo:alchemist:audit --all
 drush neoa-h1 --problems
 drush watchdog:show --severity=Error
 ```

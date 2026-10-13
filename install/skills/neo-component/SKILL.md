@@ -1051,7 +1051,7 @@ and the component root reveals on scroll (editor-selectable, `apply: true`, no t
 6. **Write `<name>.twig`** — root div with `{{ attributes.addClass(classes) }}`, wrap optional sections in `{% if ... %}`, use `neo_uri()` for all URLs, `icon()` for icons, `neo_image_style()` for images. If the component has a `heading` prop, render **all three** of its text parts (see "Rendering a `heading`: all three parts, always").
 7. **Test interactive elements** with `{% if neoIsPreview %}data-event...{% endif %}` so the editor preview remains clickable.
 8. **Clear the cache** (`drush cr`) after adding a new component — SDC registration is cached.
-9. **Verify from the CLI before finishing** — run `drush neo:alchemist:validate <provider>:<name>` then `drush neo:alchemist:render <provider>:<name>`. Don't hand off a component you haven't rendered. See "Verify from the CLI" below.
+9. **Verify from the CLI before finishing** — run `drush neo:alchemist:validate <provider>:<name>`, `drush neo:alchemist:render <provider>:<name>`, then `drush neo:alchemist:audit <provider>:<name>`. Don't hand off a component you haven't rendered, or one the audit still flags. See "Verify from the CLI" below.
 10. **Ask whether to create the library entry** — a finished SDC still isn't usable by editors. Page building runs on `neo_component` **config entities**, and until one exists the component has no manage screen (`/admin/config/neo/alchemist/<id>` returns 404) and never appears in the picker. **Ask; don't assume.** It's a site-builder decision and it isn't 1:1 — one SDC can back several entries, each wired differently (this site carries four apiece for `list_s3` and `hero_s2`), so the entry id is not simply the SDC name. The UI path is **Add component** → `/admin/config/neo/alchemist/add`. On a yes, the equivalent for the default `general` group is:
 
     ```bash
@@ -1123,7 +1123,7 @@ ramps — the reference for what your component's colors will resolve to per sch
 
 ## Verify from the CLI
 
-You don't need a browser to confirm a component works. Two commands close the loop.
+You don't need a browser to confirm a component works. Three commands close the loop.
 (Sweeping every component on a site, rather than checking the one you just
 wrote? `validate --all` — and see the **neo-component-audit** skill.)
 
@@ -1137,6 +1137,29 @@ wrote? `validate --all` — and see the **neo-component-audit** skill.)
   instead of a white screen. Add `--html` to print the markup, `--scheme=<id>` to render
   under a scheme, and `--live` to render the runtime path (`neoIsPreview` false) instead
   of the editor preview.
+- **`drush neo:alchemist:audit <provider>:<name>`** — renders the component twice and
+  checks the markup for what a search engine or a screen reader trips over: once from its
+  `examples`, and once **without its headings** (every optional `heading` prop left out,
+  everything else as before), because an editor leaving the heading empty is the usual
+  case, not the edge. Exits non-zero when it finds anything. Each issue names the render
+  it came from. The checks, and their fixes:
+  - **`heading_levels`** — the component sits under the page's H1, so its first heading
+    is at most an h2 and no heading skips a level. *"The first heading is an h3"* in the
+    without-headings render means the items are h3s under the component's own h2: when
+    that h2 is gone, they skip from the page's H1. Either make the items h2s, siblings
+    of the component's heading, or let them follow it —
+    `{% set item_tag = heading.title ? 'h3' : 'h2' %}` and print `<{{ item_tag }}>`.
+    An h1 means a literal `<h1>`: print `heading.tag` instead.
+  - **`image_alt`** — an `<img>` with no `alt`, or one whose alt is a file name. Pass the
+    media's alt through; use `alt=""` only for an image that is pure decoration.
+  - **`empty_elements`** — a heading, a link or a button with no accessible name: an
+    icon-only link or button needs an `aria-label` (or a visually hidden label), and an
+    optional heading needs its `{% if %}` guard so it is not printed empty. Markup inside
+    `aria-hidden="true"` is not read and not checked.
+
+  The same audit runs on the component's preview page in the Alchemist UI (an "N issues"
+  badge in the top bar, with **Show** to outline the element), so a person building a
+  component sees what you see. `--all` (and `--theme=<name>`) audits every component.
 
 Supporting introspection: `drush neo:alchemist:components` (list all), `drush neo:alchemist:info <id>`
 (one component's resolved props/slots/libraries), `drush neo:alchemist:shapes [name]`,
@@ -1147,10 +1170,10 @@ resolved colors — see "Finding this site's real colors"). All tabular commands
 
 ## Common pitfalls
 
-> Most of the pitfalls below are now caught automatically — run `drush neo:alchemist:validate <id>`
-> and `drush neo:alchemist:render <id>` and they'll flag missing `neo: true`, missing
-> `examples`, unknown prop types, dynamic Tailwind classes, and non-adaptive numbered
-> role shades before you ship.
+> Most of the pitfalls below are now caught automatically — run `drush neo:alchemist:validate <id>`,
+> `drush neo:alchemist:render <id>` and `drush neo:alchemist:audit <id>` and they'll flag missing
+> `neo: true`, missing `examples`, unknown prop types, dynamic Tailwind classes, non-adaptive
+> numbered role shades, skipped heading levels, missing alt text and empty links before you ship.
 
 
 - **Forgetting `neo: true`** — component won't appear in Alchemist's picker. (A module source template declaring `neo_install: true` is the one deliberate exception — see "Shipping a component from a module".)
