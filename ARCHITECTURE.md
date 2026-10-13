@@ -960,8 +960,13 @@ same draft api. `dropdown` is neo_alchemist's: an element anchored under the bad
 the top bar by `--neo-alchemist-floating-gap` (set on the editor root, 16px; the same gap side
 panels and Layers float in from the canvas edge, read by `floatingPosition()`)
 (`dropdown.element`, which the badge fills), toggled by any `<button>` in the badge, closed by Esc,
-a click elsewhere or focus moving into a preview frame; focus moves in on `open(focus?)` and back
-to the opening button on `close()`; `isOpen()`, `onToggle(cb(open, trigger))`. Clicking another button of the same badge
+a click elsewhere or focus moving into a preview frame; focus moves in on `open(focus?)` — to
+`focus`, else the first visible field, else the dropdown itself (never a row's button or a help
+badge) — and back to the opening button on `close()`; `isOpen()`, `onToggle(cb(open, trigger))`.
+It is centred under the badge and `setSize('md' | 'lg' | 'xl')` (384 / 520 / 760px, `md` by
+default) widens it, here or while open; either way it stays within the window less the floating
+gap, and clear of Layers or a side panel floating beside the badge — sliding sideways first and
+narrowing only when the room is narrower than the size (re-placed on resize while open). Clicking another button of the same badge
 while open keeps it open and calls `onToggle(true, thatButton)`, so a badge with several parts can
 show the clicked part; clicking the current trigger closes it. `onDraftChange` listeners hear
 every change whether or not their panel was mounted: `layoutChanged()` reads the version through

@@ -40,14 +40,22 @@ interface NeoAlchemistPanelApi {
 /**
  * The dropdown the editor anchors under a panel's top bar badge.
  */
+/** A badge dropdown's width: 384px (the default), 520px or 760px. */
+type NeoAlchemistDropdownSize = 'md' | 'lg' | 'xl';
+
 interface NeoAlchemistDropdown {
   /** The dropdown's body: the badge fills it. */
   readonly element: HTMLElement;
-  /** Opens it and moves focus in: to `focus` when given, else its first control. */
+  /** Opens it and moves focus in: to `focus` when given, else its first visible field, else itself. */
   open(focus?: HTMLElement | null): void;
   /** Closes it; focus returns to the badge button that opened it. */
   close(): void;
   isOpen(): boolean;
+  /**
+   * Sets its width, here or while open. It is centred under the badge and
+   * capped at the room it has: the window, less any side panel floating there.
+   */
+  setSize(size: NeoAlchemistDropdownSize): void;
   /**
    * Called after every open and close, and when another button of the badge
    * is clicked while open (it stays open), with the button that opened it.

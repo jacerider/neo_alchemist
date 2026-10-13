@@ -15,7 +15,7 @@
  *
  * badge() runs at registration — editor load — when the plugin rendered a
  * badge in the top bar, with the same api and a dropdown anchored under the
- * badge (see dropdownCreate()). onDraftChange() listeners hear every change
+ * badge (see dropdownCreate()); setSize() widens it for more content. onDraftChange() listeners hear every change
  * whether or not their panel was ever opened.
  *
  * The draft is versioned as a whole, so this file carries one version for every
@@ -145,6 +145,15 @@
   }
 
   /**
+   * The widths a badge's dropdown can ask for (setSize()).
+   */
+  const DROPDOWN_SIZES: Record<NeoAlchemistDropdownSize, string> = {
+    md: '24rem',
+    lg: '32.5rem',
+    xl: '47.5rem',
+  };
+
+  /**
    * The dropdown under a badge: every <button> in the badge toggles it, Esc
    * and a click anywhere else (a preview frame included) close it, and focus
    * moves in on open and back to the opening button on close. Clicking a
@@ -154,8 +163,11 @@
   function dropdownCreate(badge: HTMLElement, id: string): NeoAlchemistDropdown {
     const element = document.createElement('div');
     element.id = `neo-alchemist-dropdown-${id}`;
-    element.className = 'neo-alchemist--dropdown absolute right-0 w-96 max-w-[calc(100vw-2rem)] overflow-y-auto rounded-lg shadow-lg border bg-base-0 text-base-0-content text-sm z-50';
+    element.className = 'neo-alchemist--dropdown absolute overflow-y-auto rounded-lg shadow-lg border bg-base-0 text-base-0-content text-sm z-50';
+    element.style.width = DROPDOWN_SIZES.md;
+    element.dataset.size = 'md';
     element.setAttribute('role', 'dialog');
+    element.tabIndex = -1;
     element.setAttribute('aria-label', settings[id]?.label ?? id);
     element.hidden = true;
     badge.append(element);
@@ -182,15 +194,39 @@
     };
     /**
      * Below the top bar, not the badge: as far under the bar as side panels
-     * float in from the canvas edge (--neo-alchemist-floating-gap).
+     * float in from the canvas edge (--neo-alchemist-floating-gap). Centred
+     * under the badge, within the room it has: the window less a gap each
+     * side, less Layers or a side panel floating there. It slides sideways rather
+     * than cross either, and narrows only when the room is narrower still.
      */
     const place = () => {
       const editor = badge.closest<HTMLElement>('.neo-alchemist-manage');
       const bar = badge.closest<HTMLElement>('[data-alchemist-offset-top]');
       const gap = editor ? parseFloat(getComputedStyle(editor).getPropertyValue('--neo-alchemist-floating-gap')) || 16 : 16;
-      const below = bar ? bar.getBoundingClientRect().bottom - badge.getBoundingClientRect().top : badge.offsetHeight;
+      const badgeRect = badge.getBoundingClientRect();
+      const below = bar ? bar.getBoundingClientRect().bottom - badgeRect.top : badge.offsetHeight;
       element.style.top = `${Math.round(below + gap)}px`;
       element.style.maxHeight = `calc(100vh - ${Math.round((bar?.getBoundingClientRect().bottom ?? 0) + gap * 2)}px)`;
+      const center = badgeRect.left + badgeRect.width / 2;
+      let start = gap;
+      let end = document.documentElement.clientWidth - gap;
+      // Everything that floats over the canvas: Layers and the side panels.
+      document.querySelectorAll<HTMLElement>('.neo-alchemist--layers, .neo-alchemist--sidepanel').forEach((panel) => {
+        const rect = panel.getBoundingClientRect();
+        if (!rect.width || !rect.height) {
+          return;
+        }
+        if (rect.left + rect.width / 2 < center) {
+          start = Math.max(start, rect.right + gap);
+        }
+        else {
+          end = Math.min(end, rect.left - gap);
+        }
+      });
+      element.style.maxWidth = `${Math.max(0, Math.floor(end - start))}px`;
+      const width = element.offsetWidth;
+      const left = Math.min(Math.max(center - width / 2, start), end - width);
+      element.style.left = `${Math.round(left - badgeRect.left)}px`;
     };
     const onKey = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
@@ -229,9 +265,14 @@
         document.addEventListener('keydown', onKey, true);
         document.addEventListener('pointerdown', onPointer, true);
         window.addEventListener('blur', onBlur);
+        window.addEventListener('resize', place);
         sync(true);
-        const target = focus ?? element.querySelector<HTMLElement>('input, select, textarea, button, a[href], [tabindex]:not([tabindex="-1"])');
-        target?.focus();
+        // Its first visible field, or else the dropdown itself: never the
+        // first button by default, which in a list of results is some row's
+        // action, and a help badge would pop its tooltip.
+        const field = Array.from(element.querySelectorAll<HTMLElement>('input:not([type="hidden"]), select, textarea'))
+          .find((candidate) => candidate.getClientRects().length > 0);
+        (focus ?? field ?? element).focus();
       },
       close() {
         if (element.hidden) {
@@ -242,12 +283,20 @@
         document.removeEventListener('keydown', onKey, true);
         document.removeEventListener('pointerdown', onPointer, true);
         window.removeEventListener('blur', onBlur);
+        window.removeEventListener('resize', place);
         sync(false);
         if (returnFocus) {
           opener?.focus();
         }
       },
       isOpen: () => !element.hidden,
+      setSize(size) {
+        element.style.width = DROPDOWN_SIZES[size] ?? DROPDOWN_SIZES.md;
+        element.dataset.size = DROPDOWN_SIZES[size] ? size : 'md';
+        if (!element.hidden) {
+          place();
+        }
+      },
       onToggle(callback) {
         callbacks.push(callback);
       },
