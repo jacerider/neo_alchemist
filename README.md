@@ -116,7 +116,12 @@ drush neoa-audit --all --theme=front
 ```
 
 Checks are services tagged `neo_alchemist.component_audit_check`, implementing
-`ComponentAuditCheckInterface`, so another module can add its own.
+`ComponentAuditCheckInterface`, so another module can add its own. A check sees the
+component as well as its markup, and may add a report — what the component produces, say —
+which the preview page folds under the issues (the badge then reads "No issues" rather than
+hiding). Likewise `neo:alchemist:validate` runs every service tagged
+`neo_alchemist.component_linter` (`ComponentLinterInterface`), for modules that read a key
+of their own from `.component.yml`; neo_seo checks a component's `seo` declaration this way.
 
 `neo:alchemist:h1-report` (alias `neoa-h1`) — request every published page whose
 full view mode renders a component tree, as an anonymous visitor, and list its

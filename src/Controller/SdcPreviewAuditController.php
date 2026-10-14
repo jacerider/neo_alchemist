@@ -36,14 +36,14 @@ final class SdcPreviewAuditController extends ControllerBase {
   }
 
   /**
-   * The issues, as JSON.
+   * The issues, and the checks' reports, as JSON.
    */
   public function __invoke(string $component): CacheableJsonResponse {
-    $issues = $this->audit->audit($component, $this->routeMatch);
-    if ($issues === NULL) {
+    $result = $this->audit->run($component, $this->routeMatch);
+    if ($result === NULL) {
       throw new NotFoundHttpException();
     }
-    $response = new CacheableJsonResponse(['issues' => $issues]);
+    $response = new CacheableJsonResponse($result);
     $response->addCacheableDependency((new CacheableMetadata())->setCacheMaxAge(0));
     return $response;
   }

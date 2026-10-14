@@ -9,6 +9,8 @@ use Drupal\neo_alchemist\Audit\Check\EmptyElementsCheck;
 use Drupal\neo_alchemist\Audit\Check\HeadingLevelsCheck;
 use Drupal\neo_alchemist\Audit\Check\ImageAltCheck;
 use Drupal\neo_alchemist\Audit\ComponentAuditCheckInterface;
+use Drupal\neo_alchemist\Audit\ComponentAuditContext;
+use Drupal\neo_alchemist\ComponentInterface;
 use Drupal\Tests\UnitTestCase;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Group;
@@ -36,7 +38,8 @@ class ComponentAuditChecksTest extends UnitTestCase {
     $check = new $class();
     $check->setStringTranslation($this->getStringTranslationStub());
     $this->assertInstanceOf(ComponentAuditCheckInterface::class, $check);
-    $issues = $check->check(Html::load($html));
+    $context = new ComponentAuditContext('test:probe', 'examples', $this->createMock(ComponentInterface::class));
+    $issues = $check->check(Html::load($html), $context);
     $this->assertSame($flagged, array_map(
       fn(array $issue) => trim($issue['element']->textContent) ?: $issue['element']->getAttribute('src'),
       $issues,

@@ -1,5 +1,15 @@
 # Changelog
 
+## Other modules can lint and audit components
+
+`drush neo:alchemist:validate` now also runs every service tagged
+`neo_alchemist.component_linter` (`Lint\ComponentLinterInterface`), so a module that reads a
+key of its own from `.component.yml` reports its problems where component authors already
+look. Audit checks now receive a `ComponentAuditContext` beside the markup — the component,
+which render it is, and a place to add a report — and the preview page folds the reports
+under its issues. A check that throws is reported as an issue instead of ending the audit.
+neo_seo uses both for a component's `seo` declaration.
+
 ## Audit a component's markup while it is being built
 
 **A component's SEO and accessibility faults surfaced only once it was placed on a

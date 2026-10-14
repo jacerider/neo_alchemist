@@ -3,11 +3,13 @@
  *
  * Asks the component audit (neo_alchemist.sdc_preview_audit) what it finds
  * in the component as the preview shows it, and again after every preview
- * reload — so a prop edited in the form is re-checked. Shows nothing while
- * the component is clean; otherwise "N issues" in the top bar, opening the
- * list. An issue in the render the preview shows has Show, which outlines the
- * element in the preview; one found only without the component's headings
- * cannot be shown there and says so.
+ * reload — so a prop edited in the form is re-checked. "N issues" in the top
+ * bar, opening the list; "No issues" when the component is clean but a check
+ * has something to report (what its schema declaration produces, say), and
+ * nothing at all when there is neither. An issue in the render the preview
+ * shows has Show, which outlines the element in the preview; one found only
+ * without the component's headings cannot be shown there and says so. The
+ * reports follow the issues, each folded under its label.
  */
 (function (Drupal, drupalSettings): void {
 
@@ -15,6 +17,11 @@
     tag: string;
     index: number;
     text: string;
+  }
+
+  interface Report {
+    label: string;
+    content: string;
   }
 
   interface Issue {
@@ -71,12 +78,15 @@
     run += 1;
     const current = run;
     let issues: Issue[] = [];
+    let reports: Report[] = [];
     try {
       const response = await fetch(settings.url, { credentials: 'same-origin', headers: { Accept: 'application/json' } });
       if (!response.ok) {
         return;
       }
-      issues = ((await response.json()) as { issues: Issue[] }).issues ?? [];
+      const body = (await response.json()) as { issues?: Issue[]; reports?: Report[] };
+      issues = body.issues ?? [];
+      reports = body.reports ?? [];
     }
     catch {
       return;
@@ -84,14 +94,41 @@
     if (current !== run) {
       return;
     }
-    badge.hidden = issues.length === 0;
-    if (!issues.length) {
+    badge.hidden = !issues.length && !reports.length;
+    if (badge.hidden) {
       dropdown.close();
       return;
     }
-    button.textContent = Drupal.formatPlural(issues.length, '1 issue', '@count issues');
+    badge.dataset.clean = issues.length ? 'false' : 'true';
+    // A report is preformatted (JSON-LD, say): it wants the room.
+    dropdown.setSize(reports.length ? 'lg' : 'md');
+    button.textContent = issues.length
+      ? Drupal.formatPlural(issues.length, '1 issue', '@count issues')
+      : Drupal.t('No issues');
     button.title = Drupal.t('SEO and accessibility issues the component audit finds. The same as drush neo:alchemist:audit.');
-    dropdown.element.replaceChildren(...issues.map(item));
+    dropdown.element.replaceChildren(
+      ...(issues.length ? issues.map(item) : [note(Drupal.t('The audit finds no issues.'))]),
+      ...reports.map(report),
+    );
+  }
+
+  function note(text: string): HTMLElement {
+    const element = document.createElement('p');
+    element.className = 'neo-alchemist--audit-meta';
+    element.textContent = text;
+    return element;
+  }
+
+  /** A check's report, folded under its label. */
+  function report(entry: Report): HTMLElement {
+    const details = document.createElement('details');
+    details.className = 'neo-alchemist--audit-report';
+    const summary = document.createElement('summary');
+    summary.textContent = entry.label;
+    const pre = document.createElement('pre');
+    pre.textContent = entry.content;
+    details.append(summary, pre);
+    return details;
   }
 
   function item(issue: Issue): HTMLElement {

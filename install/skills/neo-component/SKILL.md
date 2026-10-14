@@ -678,35 +678,82 @@ Access plugins can only **forbid**, never grant; the first forbidden wins; users
   value-plugin veto — reach for the value plugin when one prop should react, this when
   the entire component should.
 
-## Schema pieces (neo_seo)
+## Describing a component to search engines (`seo`, neo_seo)
 
-On a site with `neo_seo`, a component can put itself into the page's schema.org graph by
-declaring a piece in its `.component.yml` — no PHP:
+On a site with `neo_seo`, a component can add schema.org nodes to the page's JSON-LD graph
+by declaring them in its `.component.yml`, under a top-level `seo` key — no PHP. Declare
+schema when the component shows something search engines describe as a thing of its own:
+locations, people, events, videos, products. A heading or a block of copy needs none — the
+page already describes itself.
+
+The declaration is **shaped like the JSON-LD it produces**:
 
 ```yaml
-thirdPartySettings:
-  neo_seo:
-    pieces:
-      - type: VideoObject
-        properties:
-          name: title            # a prop name…
-          contentUrl: video.src  # …then keys into its resolved value
-          thumbnailUrl: video.poster
+seo:
+  - '@type': ProfessionalService
+    '@each': locations as office            # one node per row
+    '@id': '#office-{{ office.title|slug }}' # optional; {page}#office-plano
+    '@required': [name, address]            # optional; else the node is left out
+    name: '{{ office.title }}'
+    address: '{{ office.address|postal_address }}'
+    telephone: '{{ office.phone }}'
+    hasMap: '{{ office.directions|url }}'
+    geo:                                    # nested objects are written in place
+      '@type': GeoCoordinates
+      '@if': '{{ office.latitude }}'        # only where there are coordinates
+      latitude: '{{ office.latitude }}'
+      longitude: '{{ office.longitude }}'
+    parentOrganization: '{{ graph.organization }}'
 ```
 
-- Each property names a prop, then dot-keys into its value **as resolved** — bindings to
-  entity fields included. `neo_seo` walks the tree the page renders, skipping unpublished
-  instances and ones the visitor cannot see.
-- One node per instance, at `{canonical}#{type}-{uuid}`, `isPartOf` the page's WebPage.
-- A type with Google requirements is checked: a `VideoObject` needs `name`, `thumbnailUrl`,
-  `uploadDate` and one of `contentUrl`/`embedUrl`. `uploadDate` falls back to the page's
-  published date and `name` to the page title; a node still missing something is left out
-  and logged once — never emitted invalid.
-- `video` props resolve to `{src, poster, mime, title, …}`; `remote_video` to `{src,
-  thumbnail, thumbnail_width, thumbnail_height, title}` — map `thumbnailUrl` to `poster` or
-  `thumbnail` accordingly, and `embedUrl` (not `contentUrl`) for a remote video.
-- Do not declare FAQ or HowTo pieces: Google no longer shows either.
-- Check the result with `ddev drush neo-seo:validate --insecure --url=<page>`.
+- **Values.** `{{ path }}` reads a value; anything else is literal (`addressCountry: US`). A
+  value that is *exactly* one `{{ path }}` keeps its type — a number stays a number, a list a
+  list. Placeholders inside text are filled in as text (`'{{ city }}, {{ state }}'`), and text
+  whose placeholders are all empty is empty.
+- **Paths** start at a prop (`heading.title`), a row an `@each` named (`office.address.locality`),
+  or a reserved root: `page.url`, `page.title`, `page.language`, `site.name`, `site.url`, and
+  `graph.organization` / `graph.website` / `graph.page`, which print a reference
+  (`{"@id": …}`) to the page's own nodes. `graph`, `page` and `site` are therefore reserved:
+  don't name a prop or a row after them. Values are read **as resolved** — bindings to entity
+  fields, views and vocabularies included — so on a page the nodes carry the real data.
+- **Directives:**
+  - `'@each': <list> as <name>` repeats the node once per row; inside a property it builds a
+    list (`amenityFeature: { '@each': office.features as feature, '@type': …, name: '{{ feature }}' }`).
+    Repeats nest to any depth. Name the row; never reuse a prop name.
+  - `'@if': '{{ path }}'` or `'not {{ path }}'` keeps a node (or a nested object) only when the
+    value is truthy (or not).
+  - `'@required': [property, …]` drops a node missing any of them — a top-level node is logged,
+    a nested one silently left out.
+  - `'@id'` is optional: `#fragment` is made page-scoped, and a declared id two rows share takes
+    `-2`, `-3`. Without one, a node is at `{page}#{type}-{instance}` (`-{row}` when it repeats).
+- **Filters** turn Drupal values into schema.org's: `postal_address` (an `address` prop →
+  PostalAddress), `url` (a link, image, path or `public://` URI → an absolute URL; a link the
+  visitor may not follow → nothing), `image` (→ ImageObject with size and caption), `text`
+  (rich text → plain text), `date` (→ ISO 8601), `slug`, `first` (a list's first item), and
+  `join` (`{{ tags|join(' / ') }}`, `", "` by default). Prefer a filter to keying into a raw
+  value: `{{ office.address|postal_address }}`, never a hand-built `streetAddress`.
+- **Pruning.** Empty values are left out, and so is an object left with only its `@type`.
+- **Types Google checks** are enforced: a `VideoObject` needs `name`, `thumbnailUrl`,
+  `uploadDate` and one of `contentUrl`/`embedUrl`; `uploadDate` falls back to the page's
+  published date, `name` to the page title, and it is `isPartOf` the page. `video` props
+  resolve to `{src, poster, …}`, `remote_video` to `{src, thumbnail, …}` — `embedUrl` (not
+  `contentUrl`) for a remote video.
+- **Linking.** Relate nodes to the page's own with `graph.*`: a branch office is a
+  `LocalBusiness`/`ProfessionalService` with `parentOrganization: '{{ graph.organization }}'`;
+  a Place has no property that points at an organization.
+- Do not declare FAQ or HowTo: Google no longer shows either.
+
+**Check it while building** — all three run on the component alone, from its examples:
+
+```bash
+drush neo:alchemist:validate <provider>:<name>   # the declaration's syntax, paths, filters
+drush neo-seo:component <provider>:<name>        # the JSON-LD it produces; non-zero if a node is dropped
+drush neo:alchemist:audit <provider>:<name>      # reports a node the page would leave out
+```
+
+The component preview page shows the same: the audit badge lists a dropped node as an issue,
+and its dropdown folds the produced JSON-LD under *Schema (JSON-LD)*. On a real page,
+`drush neo-seo:validate --insecure --url=<page>` checks the whole graph.
 
 ## The `.twig` file
 

@@ -6,6 +6,7 @@ namespace Drupal\neo_alchemist\Audit\Check;
 
 use Drupal\Core\StringTranslation\StringTranslationTrait;
 use Drupal\neo_alchemist\Audit\ComponentAuditCheckInterface;
+use Drupal\neo_alchemist\Audit\ComponentAuditContext;
 
 /**
  * Headings that break the page outline.
@@ -29,7 +30,7 @@ class HeadingLevelsCheck implements ComponentAuditCheckInterface {
   /**
    * {@inheritdoc}
    */
-  public function check(\DOMDocument $document): array {
+  public function check(\DOMDocument $document, ComponentAuditContext $context): array {
     $issues = [];
     $previous = 1;
     $first = TRUE;

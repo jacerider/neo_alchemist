@@ -66,7 +66,7 @@ class ComponentAudit {
    * The issues a component has.
    *
    * @param string $component
-   *   The SDC component id, e.g. "front:list_office".
+   *   The SDC component id, e.g. "front:locations".
    * @param \Drupal\Core\Routing\RouteMatchInterface|null $routeMatch
    *   The route to render under, as the preview frame does.
    *
@@ -76,13 +76,32 @@ class ComponentAudit {
    *   component cannot be rendered at all (not a Neo component).
    */
   public function audit(string $component, ?RouteMatchInterface $routeMatch = NULL): ?array {
+    return $this->run($component, $routeMatch)['issues'] ?? NULL;
+  }
+
+  /**
+   * The issues a component has, and what its checks report besides.
+   *
+   * @param string $component
+   *   The SDC component id.
+   * @param \Drupal\Core\Routing\RouteMatchInterface|null $routeMatch
+   *   The route to render under, as the preview frame does.
+   *
+   * @return array{issues: array, reports: array<int, array{label: string, content: string}>}|null
+   *   The issues, as audit() lists them, and the checks' reports (a label
+   *   reported in both renders is the first's). NULL when the component
+   *   cannot be rendered at all.
+   */
+  public function run(string $component, ?RouteMatchInterface $routeMatch = NULL): ?array {
     $issues = [];
+    $reports = [];
     $seen = [];
     foreach (static::VARIANTS as $variant) {
       $entity = $this->previewBuilder->build($component);
       if (!$entity) {
         return NULL;
       }
+      $context = new ComponentAuditContext($component, $variant, $entity);
       try {
         $html = $this->render($entity, $variant === 'without_headings', $routeMatch);
       }
@@ -97,7 +116,14 @@ class ComponentAudit {
       }
       $document = Html::load($html);
       foreach ($this->checks as $check) {
-        foreach ($check->check($document) as $found) {
+        // One failing check is an issue of its own, not the end of the audit.
+        try {
+          $found_issues = $check->check($document, $context);
+        }
+        catch (\Throwable $e) {
+          $found_issues = [['message' => sprintf('The %s check failed: %s', $check->id(), $e->getMessage())]];
+        }
+        foreach ($found_issues as $found) {
           $locator = isset($found['element']) && $found['element'] instanceof \DOMElement ? $this->locator($found['element']) : NULL;
           $key = $check->id() . '|' . $found['message'] . '|' . json_encode($locator);
           if (isset($seen[$key])) {
@@ -112,8 +138,11 @@ class ComponentAudit {
           ];
         }
       }
+      foreach ($context->reports() as $report) {
+        $reports[$report['label']] ??= $report;
+      }
     }
-    return $issues;
+    return ['issues' => $issues, 'reports' => array_values($reports)];
   }
 
   /**

@@ -16,6 +16,7 @@ use Drupal\neo_alchemist\Audit\ComponentAudit;
 use Drupal\neo_alchemist\ComponentPreviewBuilder;
 use Drupal\neo_alchemist\ComponentPropDefPluginManager;
 use Drupal\neo_alchemist\ComponentTwigLinter;
+use Drupal\neo_alchemist\Lint\ComponentLinters;
 use Drupal\neo_alchemist\Shape\ComponentShapePluginManager;
 use Drupal\neo_alchemist\Slot\ComponentSlotTemplateLocator;
 use Drupal\neo_alchemist\ThemeComponentInstaller;
@@ -63,6 +64,8 @@ final class NeoAlchemistCommands extends DrushCommands {
     private readonly ThemeComponentInstaller $themeComponentInstaller,
     #[Autowire(service: 'neo_alchemist.twig_linter')]
     private readonly ComponentTwigLinter $twigLinter,
+    #[Autowire(service: 'neo_alchemist.component_linters')]
+    private readonly ComponentLinters $componentLinters,
     #[Autowire(service: 'neo_alchemist.component_audit')]
     private readonly ComponentAudit $componentAudit,
     #[Autowire(service: 'entity_type.bundle.info')]
@@ -437,6 +440,11 @@ final class NeoAlchemistCommands extends DrushCommands {
         $warnings[] = $finding['message'];
       }
     }
+
+    // Rules other modules add, for keys of their own in the definition.
+    [$moreErrors, $moreWarnings] = $this->componentLinters->lint($component, $def);
+    array_push($errors, ...$moreErrors);
+    array_push($warnings, ...$moreWarnings);
 
     return [$errors, $warnings, $oks];
   }

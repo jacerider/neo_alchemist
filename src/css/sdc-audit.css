@@ -72,3 +72,33 @@
   grid-column: 2;
   grid-row: 1 / span 2;
 }
+
+/* Clean, with a report to show: the badge stays, quieter. */
+.neo-alchemist--audit[data-clean="true"] .neo-alchemist--audit-badge {
+  border-color: rgb(var(--color-base-300, 209 213 219));
+  background: rgb(var(--color-base-0, 255 255 255));
+  color: rgb(var(--color-base-700, 55 65 81));
+}
+
+.neo-alchemist--audit-report {
+  border-top: 1px solid rgb(var(--color-base-100, 243 244 246));
+  padding-top: 0.5rem;
+}
+
+.neo-alchemist--audit-report summary {
+  cursor: pointer;
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.neo-alchemist--audit-report pre {
+  max-height: 20rem;
+  margin: 0.5rem 0 0;
+  overflow: auto;
+  padding: 0.5rem;
+  border-radius: 0.25rem;
+  background: rgb(var(--color-base-100, 243 244 246));
+  font-size: 0.6875rem;
+  line-height: 1.4;
+  white-space: pre;
+}

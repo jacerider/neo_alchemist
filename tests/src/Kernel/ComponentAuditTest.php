@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace Drupal\Tests\neo_alchemist\Kernel;
 
+use Drupal\Core\DependencyInjection\ContainerBuilder;
 use Drupal\KernelTests\KernelTestBase;
+use Drupal\neo_alchemist_test\Audit\ProbeReportCheck;
+use Drupal\neo_alchemist_test\Lint\ProbeLinter;
 use PHPUnit\Framework\Attributes\Group;
 
 /**
@@ -29,6 +32,19 @@ class ComponentAuditTest extends KernelTestBase {
     'neo_alchemist',
     'neo_alchemist_test',
   ];
+
+  /**
+   * {@inheritdoc}
+   *
+   * A check that reports, and a linter, from another module's point of view.
+   */
+  public function register(ContainerBuilder $container): void {
+    parent::register($container);
+    $container->register('neo_alchemist_test.probe_report_check', ProbeReportCheck::class)
+      ->addTag('neo_alchemist.component_audit_check');
+    $container->register('neo_alchemist_test.probe_linter', ProbeLinter::class)
+      ->addTag('neo_alchemist.component_linter');
+  }
 
   /**
    * The audit.
@@ -57,6 +73,31 @@ class ComponentAuditTest extends KernelTestBase {
       $issue['locator']['index'],
     ], $issues));
     $this->assertSame('Item', $issues[2]['locator']['text']);
+  }
+
+  /**
+   * A check sees the component and the render, and may report.
+   *
+   * One report per label: the examples render's, as the first.
+   */
+  public function testChecksReport(): void {
+    $result = $this->container->get('neo_alchemist.component_audit')->run('neo_alchemist_test:na_heading_tag');
+    $this->assertSame([], $result['issues']);
+    $this->assertSame([
+      ['label' => 'Probe', 'content' => 'neo_alchemist_test:na_heading_tag examples neo_alchemist_test:na_heading_tag'],
+    ], $result['reports']);
+  }
+
+  /**
+   * Another module's linter adds its errors and warnings.
+   */
+  public function testLinters(): void {
+    $linters = $this->container->get('neo_alchemist.component_linters');
+    $this->assertSame(
+      [['neo_alchemist_test:na_leaf declares no probe.'], ['A warning.']],
+      $linters->lint('neo_alchemist_test:na_leaf', []),
+    );
+    $this->assertSame([[], []], $linters->lint('neo_alchemist_test:na_leaf', ['probe' => TRUE]));
   }
 
   /**

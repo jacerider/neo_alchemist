@@ -6,6 +6,7 @@ namespace Drupal\neo_alchemist\Audit\Check;
 
 use Drupal\Core\StringTranslation\StringTranslationTrait;
 use Drupal\neo_alchemist\Audit\ComponentAuditCheckInterface;
+use Drupal\neo_alchemist\Audit\ComponentAuditContext;
 
 /**
  * Headings, links and buttons with nothing to announce.
@@ -28,7 +29,7 @@ class EmptyElementsCheck implements ComponentAuditCheckInterface {
   /**
    * {@inheritdoc}
    */
-  public function check(\DOMDocument $document): array {
+  public function check(\DOMDocument $document, ComponentAuditContext $context): array {
     $issues = [];
     $query = '//h1|//h2|//h3|//h4|//h5|//h6|//a[@href]|//button';
     foreach ((new \DOMXPath($document))->query($query) as $element) {
