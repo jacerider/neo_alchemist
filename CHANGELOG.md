@@ -1,5 +1,14 @@
 # Changelog
 
+## Managing a slot needs update access on its component
+
+The slot settings form at `/admin/config/neo/alchemist/{component}/slot/{slot}` checked only
+that the component declares the slot, so anyone who reached the URL, signed in or not, could
+open it and save the component's slot configuration. The slot route now asks the component's
+own `update` access, the rule its props already follow, which by default means
+`administer neo_alchemist`. Sites should update: until they do, the form is open to every
+visitor.
+
 ## The H1 report takes seconds, not minutes
 
 `drush neo:alchemist:h1-report` rendered every page whole, header and mega menu
