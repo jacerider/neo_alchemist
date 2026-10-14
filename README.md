@@ -123,16 +123,24 @@ hiding). Likewise `neo:alchemist:validate` runs every service tagged
 `neo_alchemist.component_linter` (`ComponentLinterInterface`), for modules that read a key
 of their own from `.component.yml`; neo_seo checks a component's `seo` declaration this way.
 
-`neo:alchemist:h1-report` (alias `neoa-h1`) — request every published page whose
-full view mode renders a component tree, as an anonymous visitor, and list its
-H1s and the component each one sits in (`page title` for the hidden page title).
-`--problems` lists only pages without exactly one H1; `--entity-type`, `--bundle`
-and `--limit` narrow the sweep. Save a report before migrating components to
-`heading.tag` and compare it with one taken after.
+`neo:alchemist:h1-report` (alias `neoa-h1`) — list each Alchemist page's H1s and
+the component each sits in (`page title` when no heading in the layout is the H1
+and the hidden page title is). It checks every published page whose layout the
+page owns (custom or hybrid), and the most recently changed few of each locked
+layout, which stand for the rest — they share the layout and differ only in their
+data; the summary names what was sampled. `--all` checks every page, `--sample=N`
+(default 5) sizes the samples, and `--entity-type`, `--bundle` and `--limit`
+narrow the sweep. Each page's entity is rendered in its full view mode under a
+request for its page — the layout without the header, menus, footer and blocks
+around it — so a run takes seconds rather than minutes; an `<h1>` a block or the
+theme prints outside the layout is not seen. Progress and each problem page go to
+stderr as the run goes; `--problems` lists only pages without exactly one H1.
+Save an `--all` report before migrating components to `heading.tag` and compare
+it with one taken after.
 
 ```bash
 drush neo:alchemist:h1-report --problems
-drush neoa-h1 --format=csv > h1-before.csv
+drush neoa-h1 --all --format=csv > h1-before.csv
 ```
 
 ## Capture a component thumbnail

@@ -355,10 +355,17 @@ print `<{{ heading.tag }}>…</{{ heading.tag }}>`; the default heading twig doe
   page has a heading H1 (`routeHasH1()`); otherwise the title stays the page's sr-only
   H1 (`neo_alchemist_preprocess_block()`).
 - **Linting** — `ComponentTwigLinter` reports a literal `<h1>` as `literal_h1`.
-- **Reporting** — `drush neo:alchemist:h1-report` requests each page and reads the H1s
-  off the HTML (source = the nearest `data-component-id` ancestor), rather than asking
-  `PageHeading`: a walk run beside the request resolves values outside the page's
-  request, and in one process that leaks into the next page's render.
+- **Reporting** — `drush neo:alchemist:h1-report` is `PageHeadingReport`: `plan()` picks
+  the pages (every page of a custom or hybrid layout; the `--sample` most recently changed
+  of a locked one, `--all` for every page) and `row()` renders one entity's full view mode
+  under a pushed request for its page (route matched, session attached, so page-bound
+  values such as the route title resolve) — the layout without the page around it — and
+  reads the H1s off that HTML (source = the nearest `data-component-id` ancestor). The
+  page title counts as the H1 when `entityH1()` — memoised from that same render's walk —
+  finds no claim. The command reloads each entity and resets static caches per page: in
+  one process, state left by one page's values must not reach the next. A block's or the
+  theme's own `<h1>` is outside what it renders. Tests: `PageHeadingReportTest`
+  (fixture `na_heading_h1` types a literal `<h1>`).
 - Tests: `PageHeadingTest` (kernel; fixtures `na_heading_tag`, `na_heading_optout`,
   `na_heading_literal`), `HeadingTagTest`, `ComponentTwigLinterTest`.
 
@@ -510,8 +517,9 @@ Prefer these over grepping the shape/definition code:
 `neo:alchemist:render <id> [--live] [--scheme=<id>] [--html]` ·
 `neo:alchemist:audit <id>|--all` (rendered-markup checks: heading levels, alt text, empty
 links/buttons/headings, from examples and without headings) ·
-`neo:alchemist:h1-report [--problems]` (each Alchemist page's H1s and their components,
-requested as an anonymous sub-request with static caches reset per page) ·
+`neo:alchemist:h1-report [--problems] [--all] [--sample=N]` (each Alchemist page's H1s and
+their components: every custom/hybrid page, a recent sample of each locked layout; the
+entity's full view mode rendered under a request for its page) ·
 `neo:alchemist:slot <neo_component id> [<slot>]` (per slot item: Twig key, theme hook,
 the template filename that overrides it, and that template's variables) ·
 `neo:alchemist:views-page <view>:<display> [--component=<id>]` (hand a views page to an

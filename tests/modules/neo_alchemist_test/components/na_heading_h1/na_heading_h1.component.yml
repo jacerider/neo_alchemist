@@ -1,0 +1,14 @@
+$schema: 'https://git.drupalcode.org/project/drupal/-/raw/10.1.x/core/modules/sdc/src/metadata.schema.json'
+name: 'NA typed h1 fixture'
+description: >
+  A heading whose template types its own <h1>: a second H1 on any page that
+  has a page title, which the h1 report must count.
+status: stable
+neo: true
+props:
+  type: object
+  properties:
+    heading:
+      type: heading
+      title: Heading
+      examples: {}

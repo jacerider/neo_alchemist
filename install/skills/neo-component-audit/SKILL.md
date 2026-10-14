@@ -258,17 +258,19 @@ Two things are wrong on most unmigrated sites, though: a component that types
 (`literal_h1`), and pages are titled by a hidden H1 when a visible hero says the
 same thing better.
 
-**1. Snapshot first.** The report requests every Alchemist page as an anonymous
-visitor and lists its H1s and the component each sits in (`page title` when it
-is the hidden title):
+**1. Snapshot first.** The report lists each Alchemist page's H1s and the
+component each sits in (`page title` when it is the hidden title). For a
+before/after comparison take every page, `--all`; without it, a locked layout is
+sampled (its most recently changed pages):
 
 ```bash
-drush neo:alchemist:h1-report --format=csv > h1-before.csv
+drush neo:alchemist:h1-report --all --format=csv > h1-before.csv
 drush neoa-h1 --problems            # only pages without exactly one H1
 ```
 
-It renders every page, so it takes minutes on a large site; `--entity-type`,
-`--bundle` and `--limit` narrow it.
+It renders each page's layout (not the page around it), so even `--all` takes
+seconds to a few minutes on a large site; progress and problem pages print as
+it goes. `--entity-type`, `--bundle` and `--limit` narrow it.
 
 **2. Find the headings to convert** — every `type: heading` prop, at any depth
 (array items too), whose Twig types its own tag:
@@ -323,7 +325,7 @@ is better fixed with a separate featured variant that sets `h1: false`.
 **5. Compare.** Rebuild nothing — this is Twig and yml only — `drush cr`, then:
 
 ```bash
-drush neoa-h1 --format=csv > h1-after.csv
+drush neoa-h1 --all --format=csv > h1-after.csv
 diff h1-before.csv h1-after.csv
 drush neoa-h1 --problems
 ```

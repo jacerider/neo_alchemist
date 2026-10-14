@@ -1,5 +1,18 @@
 # Changelog
 
+## The H1 report takes seconds, not minutes
+
+`drush neo:alchemist:h1-report` rendered every page whole, header and mega menu
+included, one after another, and printed nothing until the end: minutes on a site of a
+few hundred pages, an hour on one of thousands. It now renders each page's entity in
+its full view mode under a request for its page — the layout, without the page around
+it — and checks every page whose layout the page owns (custom or hybrid) but only the
+most recently changed few of each locked layout, which share the layout and differ only
+in their data. `--all` checks every page (seven times faster than before), `--sample=N`
+sizes the samples, and the summary says what was sampled. A progress bar and each
+problem page print to stderr as the run goes, so `--format=csv` output is clean. An
+`<h1>` printed by a block or the theme, outside the layout, is no longer seen.
+
 ## Other modules can lint and audit components
 
 `drush neo:alchemist:validate` now also runs every service tagged

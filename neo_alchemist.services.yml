@@ -158,6 +158,19 @@ services:
 
   # Which heading is the page's H1. Holds per-request state (the trees marked
   # as page content and their walks), so it is not shared across requests.
+  # drush neo:alchemist:h1-report: which pages to check, and one page's H1s.
+  neo_alchemist.page_heading_report:
+    class: Drupal\neo_alchemist\PageHeadingReport
+    arguments:
+      - '@entity_type.manager'
+      - '@entity_field.manager'
+      - '@entity_type.bundle.info'
+      - '@renderer'
+      - '@request_stack'
+      - '@router.no_access_checks'
+      - '@router.request_context'
+      - '@neo_alchemist.page_heading'
+  Drupal\neo_alchemist\PageHeadingReport: '@neo_alchemist.page_heading_report'
   neo_alchemist.page_heading:
     class: Drupal\neo_alchemist\PageHeading
     arguments: ['@plugin.manager.sdc', '@renderer']
