@@ -16,8 +16,8 @@ use Drupal\neo_alchemist\ComponentInterface;
  * `_neo_component_slot: <component param>.<slot name param>.<operation>`.
  *
  * The operation is declared because every route writes one, but this checker
- * does not read it: a slot the component declares is manageable, and the
- * component's own access handler decides who may manage it.
+ * does not read it: a slot the component declares is manageable by whoever may
+ * update the component, which its own access handler decides.
  */
 class ComponentSlotAccessCheck extends ComponentRouteAccessCheckBase {
 
@@ -46,7 +46,10 @@ class ComponentSlotAccessCheck extends ComponentRouteAccessCheckBase {
     $component = $parts['component'];
     $slot = $parts['slot'];
     if ($component instanceof ComponentInterface && is_string($slot) && isset($component->getComponentSlots()[$slot])) {
-      return AccessResult::allowed();
+      // A declared slot only makes the route valid. Saving the slot form
+      // rewrites the component, so who may is the component's update access;
+      // allowing outright opened it to every visitor, anonymous included.
+      return $component->access('update', $account, TRUE);
     }
     return AccessResult::neutral();
   }

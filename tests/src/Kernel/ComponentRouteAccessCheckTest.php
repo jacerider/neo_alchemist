@@ -15,6 +15,7 @@ use Drupal\neo_alchemist\Access\ComponentSlotAccessCheck;
 use Drupal\neo_alchemist\Access\EntityComponentAccessCheck;
 use Drupal\neo_alchemist\Access\FieldComponentAccessCheck;
 use Drupal\neo_alchemist\Entity\Component;
+use Drupal\user\Entity\Role;
 use Drupal\user\Entity\User;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Group;
@@ -205,23 +206,37 @@ class ComponentRouteAccessCheckTest extends KernelTestBase {
   }
 
   /**
-   * The slot checker allows a slot the component declares, and only that one.
+   * A declared slot is managed by whoever may update the component.
    */
-  public function testSlotCheckerAllowsDeclaredSlot(): void {
+  public function testSlotCheckerDefersToComponentAccess(): void {
     $component = $this->component();
+    $slot = ['neo_component' => $component, 'slot' => 'body'];
 
-    $allowed = $this->check(new ComponentSlotAccessCheck(), '_neo_component_slot', 'neo_component.slot', [
-      'neo_component' => $component,
-      'slot' => 'body',
-    ]);
-    $this->assertTrue($allowed->isAllowed());
+    // Fresh accounts, so neither can be user 1.
+    $this->account = User::create(['name' => 'visitor']);
+    $this->account->save();
+    $denied = $this->check(new ComponentSlotAccessCheck(), '_neo_component_slot', 'neo_component.slot', $slot);
+    $this->assertFalse($denied->isAllowed(), 'An account that cannot update the component cannot manage its slots.');
+
+    $this->account = User::getAnonymousUser();
+    $anonymous = $this->check(new ComponentSlotAccessCheck(), '_neo_component_slot', 'neo_component.slot', $slot);
+    $this->assertFalse($anonymous->isAllowed(), 'An anonymous visitor cannot manage a slot.');
+
+    Role::create(['id' => 'alchemist_admin', 'label' => 'Alchemist admin'])
+      ->grantPermission('administer neo_alchemist')
+      ->save();
+    $this->account = User::create(['name' => 'alchemist', 'roles' => ['alchemist_admin']]);
+    $this->account->save();
+    $allowed = $this->check(new ComponentSlotAccessCheck(), '_neo_component_slot', 'neo_component.slot', $slot);
+    $this->assertTrue($allowed->isAllowed(), 'An account that can update the component can manage its slots.');
     $this->assertContains('config:neo_alchemist.neo_component.' . $component->id(), $allowed->getCacheTags(), 'Which slots exist comes from the component.');
+    $this->assertContains('user.permissions', $allowed->getCacheContexts(), 'Who may manage a slot varies by permission.');
 
     $neutral = $this->check(new ComponentSlotAccessCheck(), '_neo_component_slot', 'neo_component.slot', [
       'neo_component' => $component,
       'slot' => 'no_such_slot',
     ]);
-    $this->assertTrue($neutral->isNeutral());
+    $this->assertTrue($neutral->isNeutral(), 'A slot the component does not declare gets no opinion.');
   }
 
 }
