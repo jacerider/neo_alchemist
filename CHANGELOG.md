@@ -43,6 +43,32 @@ It re-runs whenever the preview reloads.
 Checks are services tagged `neo_alchemist.component_audit_check`; another module can
 add its own.
 
+The badge's list opens in the editor panels' own dropdown, below the top bar and
+centred under the badge like every panel badge's. Any top bar badge that is not a
+panel's can have the same: `Drupal.neoAlchemist.panels.dropdown(badge, id, label)`
+(depend on `neo_alchemist/panels`) rather than a dropdown of its own.
+
+## A badge's dropdown can widen, and sits centred under its badge
+
+**An editor panel's badge dropdown was one width and hung from the badge's edge.**
+`dropdown.setSize('md' | 'lg' | 'xl')` now sets it to 384, 520 or 760px (`md` by
+default), at once when it is open. It is centred under its badge and kept within the
+window and clear of Layers or a side panel floating there: it slides sideways first,
+and narrows only when the room is narrower than its size; it is placed again when the
+window resizes. Opening it focuses its first visible field, or else the dropdown
+itself — no longer its first button, which could be a row's action or a help badge
+whose tooltip would pop up. Existing badges need no change.
+
+## `[neo:image]` finds a layout's first image wherever it is
+
+**A page whose first image sat in an array or a nested component shared the
+favicon.** The layout's image fallback walked only the root components, and an array
+prop only as its template, which holds no value, so a hero whose image is in its
+slides was found and then resolved to nothing. It now walks the whole tree in reading
+order — a component's props before its children's, each item of an array, published
+components only — and takes the first image that resolves to a file. An entity's own
+image field still comes first.
+
 ## A page's one H1 is its layout's first heading
 
 **An Alchemist page printed two H1s.** The page title is kept on Alchemist pages
