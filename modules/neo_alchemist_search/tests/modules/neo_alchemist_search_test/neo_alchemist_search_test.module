@@ -1,0 +1,15 @@
+<?php
+
+/**
+ * @file
+ * Hook implementations for the neo_alchemist_search test suite.
+ */
+
+declare(strict_types=1);
+
+/**
+ * Implements hook_neo_alchemist_search_field_text_policy_alter().
+ */
+function neo_alchemist_search_test_neo_alchemist_search_field_text_policy_alter(array &$barred): void {
+  $barred['fields']['field_code'] = TRUE;
+}

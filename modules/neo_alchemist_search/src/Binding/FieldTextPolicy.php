@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Drupal\neo_alchemist_search\Binding;
 
 use Drupal\Core\Extension\ModuleHandlerInterface;
+use Drupal\Core\Field\FieldDefinitionInterface;
 use Drupal\Core\TypedData\DataDefinitionInterface;
 
 /**
@@ -85,7 +86,7 @@ final class FieldTextPolicy {
   /**
    * The barred lists, after modules have had their say.
    *
-   * @var array{types: array<string, true>, properties: array<string, true>}|null
+   * @var array{types: array<string, true>, properties: array<string, true>, fields: array<string, true>}|null
    */
   private ?array $barred = NULL;
 
@@ -108,19 +109,34 @@ final class FieldTextPolicy {
   }
 
   /**
+   * Whether a field may contribute text, by its type and its own name.
+   *
+   * @param \Drupal\Core\Field\FieldDefinitionInterface $definition
+   *   The field's definition.
+   *
+   * @return bool
+   *   FALSE when the field's type or the field itself is barred.
+   */
+  public function allowsField(FieldDefinitionInterface $definition): bool {
+    return $this->allowsType($definition->getType())
+      && !isset($this->barred()['fields'][$definition->getName()]);
+  }
+
+  /**
    * The barred types and properties, alterable once per request.
    *
-   * @return array{types: array<string, true>, properties: array<string, true>}
-   *   The two lists.
+   * @return array{types: array<string, true>, properties: array<string, true>, fields: array<string, true>}
+   *   The three lists.
    */
   private function barred(): array {
     if ($this->barred === NULL) {
       $barred = [
         'types' => self::BARRED_TYPES,
         'properties' => self::BARRED_PROPERTIES,
+        'fields' => [],
       ];
       $this->moduleHandler->alter('neo_alchemist_search_field_text_policy', $barred);
-      $this->barred = $barred + ['types' => [], 'properties' => []];
+      $this->barred = $barred + ['types' => [], 'properties' => [], 'fields' => []];
     }
     return $this->barred;
   }

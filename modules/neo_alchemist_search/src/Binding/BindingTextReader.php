@@ -7,6 +7,7 @@ namespace Drupal\neo_alchemist_search\Binding;
 use Drupal\Core\Cache\CacheableMetadata;
 use Drupal\Core\Entity\ContentEntityInterface;
 use Drupal\Core\Field\FieldItemInterface;
+use Drupal\Core\Field\EntityReferenceFieldItemListInterface;
 use Drupal\Core\Field\FieldItemListInterface;
 use Drupal\neo_alchemist\Match\MatcherField;
 use Drupal\neo_alchemist_search\ComponentTextBuffer;
@@ -76,11 +77,9 @@ final class BindingTextReader {
       if ($descriptor->hops === 0 && $labelKey !== NULL && $this->fieldName($descriptor) === $labelKey) {
         continue;
       }
-      $list = $this->resolve($entity, $descriptor, $cacheability);
-      if ($list === NULL) {
-        continue;
+      foreach ($this->resolve($entity, $descriptor, $cacheability) as $list) {
+        $this->readList($list, $descriptor, $buffer);
       }
-      $this->readList($list, $descriptor, $buffer);
     }
   }
 
@@ -114,6 +113,12 @@ final class BindingTextReader {
   /**
    * Resolves one binding against the entity.
    *
+   * A key that crosses a reference reads the field on every referenced
+   * entity, not just the first. The matcher follows a single entity per hop,
+   * which is what a component rendering one value wants, but a binding that
+   * feeds a list (an `entity_reference` provider on an array prop) puts each
+   * referenced entity on the page, and each one's text belongs in search.
+   *
    * @param \Drupal\Core\Entity\ContentEntityInterface $entity
    *   The host entity.
    * @param \Drupal\neo_alchemist_search\Binding\BindingDescriptor $descriptor
@@ -121,16 +126,76 @@ final class BindingTextReader {
    * @param \Drupal\Core\Cache\CacheableMetadata $cacheability
    *   Collects cacheability.
    *
-   * @return \Drupal\Core\Field\FieldItemListInterface|null
-   *   The resolved field, or NULL when the key does not apply to this entity.
+   * @return \Drupal\Core\Field\FieldItemListInterface[]
+   *   The resolved fields, one per entity the key reaches; empty when the key
+   *   does not apply to this entity.
    */
   private function resolve(
     ContentEntityInterface $entity,
     BindingDescriptor $descriptor,
     CacheableMetadata $cacheability,
+  ): array {
+    $path = explode('.', $descriptor->fieldKey);
+    if ($descriptor->hops === 0 || count($path) < 2) {
+      $list = $this->resolveKey($entity, $descriptor->fieldKey, $cacheability);
+      return $list ? [$list] : [];
+    }
+
+    // Through the matcher, so the host is checked exactly as it is for a
+    // single-entity key: published, and carrying the reference field.
+    $first = array_shift($path);
+    try {
+      $host = $this->matcherField->getEntity($entity, $first, TRUE, $cacheability);
+    }
+    catch (\Throwable) {
+      return [];
+    }
+    [$fieldName] = explode(':', $first . ':');
+    $references = $host?->hasField($fieldName) ? $host->get($fieldName) : NULL;
+    if (!$references instanceof EntityReferenceFieldItemListInterface) {
+      return [];
+    }
+
+    $lists = [];
+    $rest = implode('.', $path);
+    foreach ($references as $delta => $item) {
+      if ($delta >= self::MAX_DELTAS) {
+        break;
+      }
+      $referenced = $item->entity ?? NULL;
+      if (!$referenced instanceof ContentEntityInterface) {
+        continue;
+      }
+      // The rest of the key resolves against each entity in turn, which also
+      // applies the matcher's publication check to it.
+      $list = $this->resolveKey($referenced, $rest, $cacheability);
+      if ($list) {
+        $lists[] = $list;
+      }
+    }
+    return $lists;
+  }
+
+  /**
+   * Resolves a field key against one entity.
+   *
+   * @param \Drupal\Core\Entity\ContentEntityInterface $entity
+   *   The entity the key starts from.
+   * @param string $key
+   *   A field key in the matcher grammar.
+   * @param \Drupal\Core\Cache\CacheableMetadata $cacheability
+   *   Collects cacheability.
+   *
+   * @return \Drupal\Core\Field\FieldItemListInterface|null
+   *   The resolved, non-empty field, or NULL.
+   */
+  private function resolveKey(
+    ContentEntityInterface $entity,
+    string $key,
+    CacheableMetadata $cacheability,
   ): ?FieldItemListInterface {
     try {
-      $list = $this->matcherField->getEntityField($entity, $descriptor->fieldKey, TRUE, $cacheability);
+      $list = $this->matcherField->getEntityField($entity, $key, TRUE, $cacheability);
     }
     catch (\Throwable) {
       // A key that names a field this bundle does not have is normal: one
@@ -155,8 +220,7 @@ final class BindingTextReader {
     BindingDescriptor $descriptor,
     ComponentTextBuffer $buffer,
   ): void {
-    $fieldType = $list->getFieldDefinition()->getType();
-    if (!$this->policy->allowsType($fieldType)) {
+    if (!$this->policy->allowsField($list->getFieldDefinition())) {
       return;
     }
     // A property named on the binding key itself wins over the policy: the

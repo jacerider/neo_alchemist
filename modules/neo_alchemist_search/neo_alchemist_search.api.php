@@ -36,6 +36,8 @@ declare(strict_types=1);
  *     properties are typed as.
  *   - 'properties': property names that are structure rather than content,
  *     whatever their data type says.
+ *   - 'fields': field names whose values are identifiers rather than words,
+ *     though stored in an ordinary text field (a video ID, a SKU).
  *
  * @see \Drupal\neo_alchemist_search\Binding\FieldTextPolicy
  */
@@ -47,6 +49,9 @@ function hook_neo_alchemist_search_field_text_policy_alter(array &$barred): void
   // Example: this site's rating field keeps an editor's private note in a
   // property that should not reach the index.
   $barred['properties']['internal_note'] = TRUE;
+
+  // Example: a plain string field holding a video platform's media ID.
+  $barred['fields']['field_video_id'] = TRUE;
 }
 
 /**

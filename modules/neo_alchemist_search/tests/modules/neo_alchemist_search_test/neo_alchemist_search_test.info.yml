@@ -1,0 +1,5 @@
+name: 'Neo Alchemist Search test fixtures'
+type: module
+description: 'Hook implementations for the neo_alchemist_search test suite.'
+package: Testing
+hidden: true
