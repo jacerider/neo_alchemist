@@ -1,0 +1,41 @@
+$schema: 'https://git.drupalcode.org/project/drupal/-/raw/10.1.x/core/modules/sdc/src/metadata.schema.json'
+name: 'NA access tree fixture'
+description: >
+  A list of groups, each holding its own list of items: the two-level shape a
+  children-match provider fills by following a reference from every group.
+  Used to pin the "Only use entities the visitor can view" policy at both
+  levels, and "Drop the item when this is empty" on the nested list.
+
+  The examples are sentinels so a test can tell a leaked placeholder from a
+  resolved value.
+status: stable
+neo: true
+props:
+  type: object
+  properties:
+    groups:
+      type: array
+      title: Groups
+      examples:
+        -
+          title: 'EXAMPLE GROUP'
+          items:
+            -
+              title: 'EXAMPLE ITEM'
+      items:
+        type: object
+        title: Group
+        properties:
+          title:
+            type: string
+            title: Title
+          items:
+            type: array
+            title: Items
+            items:
+              type: object
+              title: Item
+              properties:
+                title:
+                  type: string
+                  title: Title

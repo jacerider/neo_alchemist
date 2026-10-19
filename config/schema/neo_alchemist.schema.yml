@@ -162,6 +162,26 @@ neo_alchemist.neo_component_settings.props:
 neo_alchemist.neo_component_value.*:
   type: mapping
 
+# The settings every children-match producer stores on top of its own, as
+# ChildrenMatchMapper::defaultConfiguration() defines them. A producer's schema
+# extends this type and declares only its own keys, so a mapper setting is
+# declared here once - including for producers other modules provide.
+neo_alchemist.children_match_value:
+  type: mapping
+  label: 'Children-match value provider'
+  mapping:
+    shape_fields:
+      type: neo_alchemist.neo_component_shape_fields
+    shape_published:
+      type: boolean
+      label: Shape published
+    shape_access:
+      type: boolean
+      label: Shape access
+    processing_mode:
+      type: string
+      label: 'Processing mode'
+
 neo_alchemist.neo_component_value.region_size:
   type: mapping
   label: 'Region size value provider'
@@ -450,7 +470,7 @@ neo_alchemist.neo_component_value.entity:
       label: 'Processing mode'
 
 neo_alchemist.neo_component_value.entity_filter:
-  type: mapping
+  type: neo_alchemist.children_match_value
   label: 'Entity filter value provider'
   mapping:
     filter:
@@ -459,33 +479,17 @@ neo_alchemist.neo_component_value.entity_filter:
     entity:
       type: string
       label: Target entity type
-    shape_fields:
-      type: neo_alchemist.neo_component_shape_fields
-    shape_published:
-      type: boolean
-      label: Shape published
-    processing_mode:
-      type: string
-      label: 'Processing mode'
 
 neo_alchemist.neo_component_value.entity_reference:
-  type: mapping
+  type: neo_alchemist.children_match_value
   label: 'Entity reference value provider'
   mapping:
     entity:
       type: string
       label: Target entity type
-    shape_fields:
-      type: neo_alchemist.neo_component_shape_fields
-    shape_published:
-      type: boolean
-      label: Shape published
-    processing_mode:
-      type: string
-      label: 'Processing mode'
 
 neo_alchemist.neo_component_value.entity_load:
-  type: mapping
+  type: neo_alchemist.children_match_value
   label: 'Entity load value provider'
   mapping:
     entity_type:
@@ -494,14 +498,6 @@ neo_alchemist.neo_component_value.entity_load:
     entity_id:
       type: string
       label: Entity ID
-    shape_fields:
-      type: neo_alchemist.neo_component_shape_fields
-    shape_published:
-      type: boolean
-      label: Shape published
-    processing_mode:
-      type: string
-      label: 'Processing mode'
 
 neo_alchemist.neo_component_value.event:
   type: mapping
@@ -528,7 +524,7 @@ neo_alchemist.neo_component_value.page_label:
       label: 'Allow override'
 
 neo_alchemist.neo_component_value.entity_query:
-  type: mapping
+  type: neo_alchemist.children_match_value
   label: 'Entity query value provider'
   mapping:
     entity_type:
@@ -601,17 +597,9 @@ neo_alchemist.neo_component_value.entity_query:
     filter_level:
       type: integer
       label: The hierarchy level to return terms from
-    shape_fields:
-      type: neo_alchemist.neo_component_shape_fields
-    shape_published:
-      type: boolean
-      label: Shape published
-    processing_mode:
-      type: string
-      label: 'Processing mode'
 
 neo_alchemist.neo_component_value.views:
-  type: mapping
+  type: neo_alchemist.children_match_value
   label: 'Views value provider'
   mapping:
     view_id:
@@ -642,14 +630,6 @@ neo_alchemist.neo_component_value.views:
     view_arguments_sort:
       type: boolean
       label: Sort
-    shape_fields:
-      type: neo_alchemist.neo_component_shape_fields
-    shape_published:
-      type: boolean
-      label: Shape published
-    processing_mode:
-      type: string
-      label: 'Processing mode'
 
 neo_alchemist.neo_component_value.views_exposed_filter:
   type: mapping
@@ -1107,11 +1087,17 @@ neo_alchemist.neo_component_shape_fields:
         label: Render field
       render_field_format:
         type: neo_alchemist.neo_component_render_field_format
+      drop_empty:
+        type: boolean
+        label: Drop the item when this is empty
       shape_fields:
         type: neo_alchemist.neo_component_shape_fields
       shape_published:
         type: boolean
         label: Shape published
+      shape_access:
+        type: boolean
+        label: Shape access
       plugins:
         type: sequence
         label: Plugins

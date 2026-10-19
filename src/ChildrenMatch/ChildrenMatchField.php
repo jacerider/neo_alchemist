@@ -44,6 +44,10 @@ final class ChildrenMatchField {
    *   (`_render`) passes THIS on, rather than re-deriving it from `$settings` —
    *   which never carries `shape_published`, so re-deriving it always resolved
    *   FALSE and let unpublished content through below the first level.
+   * @param bool $access
+   *   The resolved view-access decision for the whole mapping, threaded down
+   *   from the provider root exactly like $published. A handler that walks on
+   *   to further entities passes THIS on.
    */
   public function __construct(
     public readonly string $shapeId,
@@ -53,6 +57,7 @@ final class ChildrenMatchField {
     public readonly ContentEntityInterface $entity,
     public readonly array $settings,
     public readonly bool $published,
+    public readonly bool $access = FALSE,
   ) {}
 
 }

@@ -1,0 +1,12 @@
+{#
+  Minimal on purpose. The suite asserts against resolved values, not markup.
+#}
+<div{{ attributes }}>
+  {% for group in groups %}
+    <div class="na-group">{{ group.title }}
+      {% for item in group.items %}
+        <span class="na-item">{{ item.title }}</span>
+      {% endfor %}
+    </div>
+  {% endfor %}
+</div>

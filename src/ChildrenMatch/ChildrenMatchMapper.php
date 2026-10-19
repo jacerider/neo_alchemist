@@ -113,6 +113,7 @@ class ChildrenMatchMapper {
     return [
       'shape_fields' => [],
       'shape_published' => TRUE,
+      'shape_access' => FALSE,
     ];
   }
 
@@ -175,7 +176,20 @@ class ChildrenMatchMapper {
     if (!$scope) {
       return $form;
     }
-    return $this->buildMappingForm($source, $shape, $form, $form_state, $scope, $configuration);
+    $form = $this->buildMappingForm($source, $shape, $form, $form_state, $scope, $configuration);
+    // Root only, unlike shape_published, which buildMappingForm() also offers
+    // at every nested level where nothing reads it: getValues() resolves the
+    // access decision once, here at the provider root, and threads it down.
+    if (isset($form['advanced'])) {
+      $form['advanced']['shape_access'] = [
+        '#type' => 'checkbox',
+        '#title' => $this->t('Only use entities the visitor can view'),
+        '#description' => $this->t('If checked, entities the current visitor has no "view" access to are left out, at this level and at every nested reference or expand level below it. The result varies by whatever the access check depends on.'),
+        '#default_value' => $configuration['shape_access'] ?? FALSE,
+        '#parents' => array_merge($form['#parents'], ['shape_access']),
+      ];
+    }
+    return $form;
   }
 
   /**
@@ -208,7 +222,9 @@ class ChildrenMatchMapper {
     // re-reads it from a settings array, because every level below the first is
     // handed a CHILD settings array that cannot carry it.
     $published = !empty($configuration['shape_published']);
-    return $this->fetchValues($source, $shape->getChildShapeNames(), $shape, $result->entities, $published, $configuration);
+    // The view-access decision follows the same rule as the published one.
+    $access = !empty($configuration['shape_access']);
+    return $this->fetchValues($source, $shape->getChildShapeNames(), $shape, $result->entities, $published, $configuration, access: $access);
   }
 
   /**
@@ -561,6 +577,13 @@ class ChildrenMatchMapper {
         $pluginDefaults = $configuration['plugins'] ?? [];
         $form = $this->buildPluginConfigurationForm($shape, $pluginDefaults, $form, $form_state);
       }
+      $form['drop_empty'] = [
+        '#type' => 'checkbox',
+        '#title' => $this->t('Drop the item when this is empty'),
+        '#description' => $this->t('Leave the whole item out when this property resolves to nothing — for example a nested list whose entities were all filtered out.'),
+        '#default_value' => !empty($configuration['drop_empty']),
+        '#weight' => 100,
+      ];
     }
     return $form;
   }
@@ -581,6 +604,13 @@ class ChildrenMatchMapper {
     }
     if (empty($values['plugins'])) {
       unset($values['plugins']);
+    }
+    // Stored only when set, so existing mappings export unchanged.
+    if (empty($values['drop_empty'])) {
+      unset($values['drop_empty']);
+    }
+    else {
+      $values['drop_empty'] = TRUE;
     }
     if (empty($values['field'])) {
       $values = [];
@@ -622,11 +652,15 @@ class ChildrenMatchMapper {
    *   cannot read (it keeps integer deltas only), and one that made
    *   ArrayShape::getDefaultSchemaValue() fatal as soon as a scalar child
    *   landed at a string key.
+   * @param bool $access
+   *   The resolved view-access decision, threaded down exactly like
+   *   $published: when TRUE, an entity the current visitor cannot view is
+   *   skipped at this level and at every nested level below it.
    *
    * @return mixed
    *   The values.
    */
-  public function fetchValues(ChildrenMatchSourceInterface $source, array $shapeNames, ComponentShapeChildrenMatchPluginInterface $shape, array $entities, bool $published, array $configuration = [], ?string $parentId = NULL, ?bool $iterable = NULL): mixed {
+  public function fetchValues(ChildrenMatchSourceInterface $source, array $shapeNames, ComponentShapeChildrenMatchPluginInterface $shape, array $entities, bool $published, array $configuration = [], ?string $parentId = NULL, ?bool $iterable = NULL, bool $access = FALSE): mixed {
     /** @var \Drupal\Core\Entity\ContentEntityInterface[] $entities */
     $values = [];
     $delta = 0;
@@ -648,7 +682,18 @@ class ChildrenMatchMapper {
         if ($published && $entity instanceof EntityPublishedInterface && !$entity->isPublished()) {
           continue;
         }
+        if ($access) {
+          // The access result's cacheability is kept whichever way it went:
+          // a skipped entity still makes the value vary by what decided it
+          // (user permissions, a custom audience context, the entity itself).
+          $accessResult = $entity->access('view', NULL, TRUE);
+          $shape->addCacheableDependency($accessResult);
+          if (!$accessResult->isAllowed()) {
+            continue;
+          }
+        }
         $shape->addCacheableDependency($entity);
+        $drop = FALSE;
         foreach ($shapeNames as $shapeName) {
           $shapeId = implode('~', [$parentId, $shapeName]);
           $values[$delta][$shapeName] = [];
@@ -669,8 +714,12 @@ class ChildrenMatchMapper {
             $name = $this->handlerName($field);
             $handler = $name !== NULL ? ($handlerMap[$name] ?? NULL) : NULL;
             if ($handler) {
-              $context = new ChildrenMatchField($shapeId, $shapeName, $delta, $shape, $entity, $settings, $published);
+              $context = new ChildrenMatchField($shapeId, $shapeName, $delta, $shape, $entity, $settings, $published, $access);
               $value = $handler->fetch($context, $this, $source);
+              if (!empty($settings['drop_empty']) && self::isDropEmpty($value)) {
+                $drop = TRUE;
+                break;
+              }
               if (!is_null($value)) {
                 $values[$delta][$shapeName] = $value;
               }
@@ -703,14 +752,19 @@ class ChildrenMatchMapper {
               published: $published,
               cacheableMetadata: $shape->getCacheableMetadata()
             );
+            if (!empty($settings['drop_empty']) && self::isDropEmpty($values[$delta][$shapeName])) {
+              $drop = TRUE;
+              break;
+            }
           }
           else {
             // Hide the shape if no field is selected.
             $shape->getChildShapeState()->setFlag($shapeId, ChildShapeState::HIDDEN);
           }
         }
-        // Remove values that are completely empty.
-        if (!array_filter($values[$delta])) {
+        // Remove values that are completely empty, and items a "drop when
+        // empty" child vetoed.
+        if ($drop || !array_filter($values[$delta])) {
           unset($values[$delta]);
         }
         // Record which entity a kept row came from, so its children can
@@ -738,6 +792,25 @@ class ChildrenMatchMapper {
       $values = reset($values) ?: [];
     }
     return $values;
+  }
+
+  /**
+   * Whether a child value counts as empty for "Drop the item when this is empty".
+   *
+   * NULL, '' and a list with nothing left in it are empty. FALSE and 0 are
+   * values, as everywhere else in the pipeline.
+   *
+   * @param mixed $value
+   *   The child's resolved value.
+   *
+   * @return bool
+   *   TRUE when the item should be dropped.
+   */
+  protected static function isDropEmpty(mixed $value): bool {
+    if (is_array($value)) {
+      return !array_filter($value, static fn ($item) => !self::isDropEmpty($item));
+    }
+    return $value === NULL || $value === '';
   }
 
   /**

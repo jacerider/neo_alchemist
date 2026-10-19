@@ -213,6 +213,16 @@ final class EntityFilterValue extends ComponentValuePluginBase implements Contai
     if ($entityKey) {
       $referencedEntities = [];
       foreach ($entities as $entity) {
+        // The mapper only ever sees the referenced entities, so the filtered
+        // entity they hang off is access-checked here: a category the visitor
+        // cannot view must not still list its children.
+        if (!empty($this->configuration['shape_access'])) {
+          $access = $entity->access('view', NULL, TRUE);
+          $this->shape->getComponent()->addCacheableDependency($access);
+          if (!$access->isAllowed()) {
+            continue;
+          }
+        }
         $field = $this->matcherReference->getReferenceField($entity, $entityKey, $this->shape->getComponent()->getCacheableMetadata());
         foreach ($field as $item) {
           $referencedEntities[] = $item->entity;
