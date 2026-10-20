@@ -1,5 +1,15 @@
 # Changelog
 
+## A media prop's image can be edited without leaving the component form
+
+The media library widget's Edit button, added by `neo`'s `neo_media_library_edit` submodule
+until core ships it (core issue #2985168), opens the selected media item's edit form in a
+modal. Core wires that form's Save only for its own field widget opener, so on an Alchemist
+media prop, which uses `neo_alchemist.media_library.opener`, Save would have navigated inside
+the modal. Alchemist now wires it for its own opener: Save submits over AJAX, refreshes the
+prop's preview and closes only the edit modal, leaving the component form open. Delete is
+hidden there. Nothing to configure, and nothing changes when core ships the button.
+
 ## Managing a slot needs update access on its component
 
 The slot settings form at `/admin/config/neo/alchemist/{component}/slot/{slot}` checked only
