@@ -26,6 +26,7 @@ use Drupal\Core\Routing\RouteProviderInterface;
 use Drupal\Core\TypedData\DataReferenceDefinitionInterface;
 use Drupal\Core\Url;
 use Drupal\neo_alchemist\ComponentFieldConfigInterface;
+use Drupal\neo_alchemist\LinkAccess;
 use Drupal\neo_alchemist\Shape\ComponentShapePluginInterface;
 use Drupal\neo_icon\IconTrait;
 
@@ -1173,7 +1174,7 @@ final class MatcherField extends MatcherBase {
     if (!$url) {
       return [];
     }
-    $access = $url->access(NULL, TRUE);
+    $access = LinkAccess::check($url);
     $cacheableMetadata?->addCacheableDependency($access);
     if ($property !== 'canonical' && !$access->isAllowed()) {
       return [];

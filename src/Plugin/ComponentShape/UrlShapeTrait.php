@@ -7,6 +7,7 @@ namespace Drupal\neo_alchemist\Plugin\ComponentShape;
 use Drupal\Core\Field\FieldDefinitionInterface;
 use Drupal\Core\Template\Attribute;
 use Drupal\neo\NeoLinkitFormatterTrait;
+use Drupal\neo_alchemist\LinkAccess;
 use Drupal\neo_alchemist\NonLinkingUri;
 
 /**
@@ -74,7 +75,7 @@ trait UrlShapeTrait {
         // the authoritative access check for every link on the site, and it
         // chooses between an <a> and a plain wrapper — cached with no context
         // to vary on, an editor's answer is served to anonymous.
-        $access = $item->getUrl()->access(NULL, TRUE);
+        $access = LinkAccess::check($item->getUrl());
         $this->addCacheableDependency($access);
         $value['access'] = $access->isAllowed();
       }
