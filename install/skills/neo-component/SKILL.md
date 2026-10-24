@@ -711,15 +711,17 @@ seo:
   list. Placeholders inside text are filled in as text (`'{{ city }}, {{ state }}'`), and text
   whose placeholders are all empty is empty.
 - **Paths** start at a prop (`heading.title`), a row an `@each` named (`office.address.locality`),
-  or a reserved root: `page.url`, `page.title`, `page.language`, `site.name`, `site.url`, and
-  `graph.organization` / `graph.website` / `graph.page`, which print a reference
-  (`{"@id": …}`) to the page's own nodes. `graph`, `page` and `site` are therefore reserved:
-  don't name a prop or a row after them. Values are read **as resolved** — bindings to entity
+  or a reserved root: `page.url`, `page.title`, `page.language`, `site.name`, `site.url`,
+  `loop.position` (inside an `@each` only), and `graph.organization` / `graph.website` /
+  `graph.page`, which print a reference (`{"@id": …}`) to the page's own nodes. `graph`, `loop`,
+  `page` and `site` are therefore reserved: don't name a prop or a row after them. Values are read **as resolved** — bindings to entity
   fields, views and vocabularies included — so on a page the nodes carry the real data.
 - **Directives:**
   - `'@each': <list> as <name>` repeats the node once per row; inside a property it builds a
     list (`amenityFeature: { '@each': office.features as feature, '@type': …, name: '{{ feature }}' }`).
-    Repeats nest to any depth. Name the row; never reuse a prop name.
+    Repeats nest to any depth. Name the row; never reuse a prop name. Inside it,
+    `{{ loop.position }}` is the row's place from 1 among the nodes that `@each` prints: a row left
+    out (by `@if`, `@required`, or for being empty) takes none, and a nested `@each` numbers its own.
   - `'@if': '{{ path }}'` or `'not {{ path }}'` keeps a node (or a nested object) only when the
     value is truthy (or not).
   - `'@required': [property, …]` drops a node missing any of them — a top-level node is logged,
@@ -741,6 +743,24 @@ seo:
 - **Linking.** Relate nodes to the page's own with `graph.*`: a branch office is a
   `LocalBusiness`/`ProfessionalService` with `parentOrganization: '{{ graph.organization }}'`;
   a Place has no property that points at an organization.
+- **Listings.** A list of links to pages is an `ItemList` of `ListItem`s, each with the
+  `position` and `url` Google requires:
+
+  ```yaml
+  seo:
+    - '@type': ItemList
+      itemListElement:
+        - '@type': ListItem
+          '@each': items as item
+          '@required': [url]
+          position: '{{ loop.position }}'
+          url: '{{ item.link|url }}'
+  ```
+
+  Don't declare it for rows fed by the **Views** value provider on a page whose SEO page type is
+  *Collection page*: neo_seo already describes that view's rows as the page's ItemList, numbered
+  across the pager, and a second list would duplicate it. Declare it for hand-entered lists, or
+  views listed on pages that are no collection.
 - Do not declare FAQ or HowTo: Google no longer shows either.
 
 **Check it while building** — all three run on the component alone, from its examples:

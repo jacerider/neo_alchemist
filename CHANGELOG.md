@@ -1,5 +1,13 @@
 # Changelog
 
+## The neo-component skill documents listings in a component's `seo` declaration
+
+The skill's `seo` reference now covers `{{ loop.position }}`, which neo_seo added to `@each` for a
+row's place in a list, lists `loop` among the reserved names, and gives an `ItemList` example. It
+also says when not to declare one: on a *Collection page*, neo_seo builds the ItemList from a
+view the **Views** value provider lists. Sites pick it up with their next skill install
+(`drush neo:build:install`).
+
 ## A media prop's image can be edited without leaving the component form
 
 The media library widget's Edit button, added by `neo`'s `neo_media_library_edit` submodule
