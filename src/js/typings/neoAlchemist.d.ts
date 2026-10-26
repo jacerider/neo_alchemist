@@ -144,21 +144,25 @@ type NeoAlchemistFrameSize = 'desktop' | 'tablet' | 'mobile';
 type NeoAlchemistFrameState = 'unloaded' | 'loading' | 'ready' | 'stale';
 
 /**
- * The canvas's preview frames, as both editors see them.
+ * A canvas's preview frames, as both editors see them.
+ *
+ * Every call takes the canvas (`.neo-alchemist-manage`) to answer for, and
+ * falls back to the page's first one. A page can hold two: the component edit
+ * form opens in a modal over the layout editor with a canvas of its own.
  */
 interface NeoAlchemistFrames {
   /** The frame for a size, or null when the canvas has none. */
-  get(size: NeoAlchemistFrameSize): HTMLIFrameElement | null;
+  get(size: NeoAlchemistFrameSize, editor?: Element | null): HTMLIFrameElement | null;
   /** Where that frame is. */
-  state(size: NeoAlchemistFrameSize): NeoAlchemistFrameState;
+  state(size: NeoAlchemistFrameSize, editor?: Element | null): NeoAlchemistFrameState;
   /** The sizes the canvas is using: the frames it loads, waits on and outlines. */
-  active(): NeoAlchemistFrameSize[];
+  active(editor?: Element | null): NeoAlchemistFrameSize[];
   /**
    * The sizes on screen: all of them in Compare, the shown one in Single. The
-   * canvas dispatches `alchemistManageView` on `.neo-alchemist-manage` once
-   * this has changed and the frames have moved.
+   * canvas dispatches `alchemistManageView` on itself once this has changed
+   * and the frames have moved.
    */
-  visible(): NeoAlchemistFrameSize[];
+  visible(editor?: Element | null): NeoAlchemistFrameSize[];
 }
 
 declare namespace drupal {

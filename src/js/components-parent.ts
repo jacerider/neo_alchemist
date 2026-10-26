@@ -311,7 +311,7 @@
    * coming.
    */
   function iframeState(size: NeoAlchemistFrameSize, iframe: HTMLIFrameElement): string {
-    if (frames.state(size) === 'unloaded') {
+    if (frames.state(size, container) === 'unloaded') {
       return '';
     }
     try {
@@ -331,7 +331,7 @@
    * to report; it joins once it has caught up.
    */
   function framesStarted(): NeoAlchemistFrameSize[] {
-    return frames.active().filter(size => !['unloaded', 'stale'].includes(frames.state(size)));
+    return frames.active(container).filter(size => !['unloaded', 'stale'].includes(frames.state(size, container)));
   }
 
   function requestPositionData(round: NeoAlchemistFrameSize[]): void {
@@ -400,7 +400,7 @@
   }
 
   function iframeLoaded(size: NeoAlchemistFrameSize, iframe: HTMLIFrameElement): void {
-    if (!iframe.contentWindow || frames.state(size) !== 'ready' || !frames.active().includes(size)) {
+    if (!iframe.contentWindow || frames.state(size, container) !== 'ready' || !frames.active(container).includes(size)) {
       return;
     }
     // A frame the sweep had given up on has now finished for real. Its
@@ -435,7 +435,7 @@
    * and every round is covered by the same few lines.
    */
   function sweepStalledIframes(): void {
-    const active = frames.active();
+    const active = frames.active(container);
     (Object.entries(iframes) as Array<[NeoAlchemistFrameSize, HTMLIFrameElement]>).forEach(([size, iframe]) => {
       if (!active.includes(size)) {
         return;
@@ -491,11 +491,11 @@
   // may have moved, and a frame already loaded that it uses again has no load
   // event coming to bring it into the outlines, so it joins from here.
   container.addEventListener('alchemistManageView', () => {
-    const visible = frames.visible();
+    const visible = frames.visible(container);
     if (!visible.includes(layerInteractSize)) {
       layerInteractSize = visible[0] ?? 'desktop';
     }
-    frames.active().forEach(size => {
+    frames.active(container).forEach(size => {
       const iframe = iframes[size];
       if (iframe && !framesDrawn.has(size)) {
         iframeLoaded(size, iframe);
@@ -599,7 +599,7 @@
       // still showing a render from before the last edit. Taking it would
       // place live outlines by a document that is out of date; the frame is
       // asked again when it joins.
-      if (!framesDrawn.has(size) || frames.state(size) === 'stale') {
+      if (!framesDrawn.has(size) || frames.state(size, container) === 'stale') {
         return;
       }
       positionData[size] = data.data;
@@ -2512,7 +2512,7 @@
   function centeredSize(): 'desktop' | 'tablet' | 'mobile' {
     const wrapperRect = wrapper.getBoundingClientRect();
     const center = wrapperRect.left + (wrapperRect.width / 2);
-    const visible = frames.visible();
+    const visible = frames.visible(container);
     const selectable = (size: NeoAlchemistFrameSize) => framesDrawn.has(size) && visible.includes(size) && !!iframes[size];
     let best: NeoAlchemistFrameSize = selectable(layerInteractSize) ? layerInteractSize : (visible[0] ?? 'desktop');
     let bestDistance = Infinity;

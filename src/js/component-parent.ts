@@ -189,8 +189,21 @@
 
   const frameSizes: NeoAlchemistFrameSize[] = ['desktop', 'tablet', 'mobile'];
 
-  function frameGet(size: NeoAlchemistFrameSize): HTMLIFrameElement | null {
-    return document.querySelector<HTMLIFrameElement>(`.neo-alchemist-manage iframe[data-size="${size}"]`);
+  /**
+   * The editor canvas an element belongs to, or the page's first one.
+   *
+   * A page can hold more than one: the component edit form opens in a modal
+   * over the layout editor with a canvas of its own, which must neither
+   * inherit the layout's view nor answer for its frames.
+   */
+  function editorOf(element?: Element | null): HTMLElement | null {
+    return element
+      ? element.closest<HTMLElement>('.neo-alchemist-manage')
+      : document.querySelector<HTMLElement>('.neo-alchemist-manage');
+  }
+
+  function frameGet(size: NeoAlchemistFrameSize, editor: Element | null = editorOf()): HTMLIFrameElement | null {
+    return editor?.querySelector<HTMLIFrameElement>(`iframe[data-size="${size}"]`) ?? null;
   }
 
   /**
@@ -221,13 +234,25 @@
     return iframe.dataset.stale !== undefined ? 'stale' : 'ready';
   }
 
-  // How the canvas shows the sizes. Single, the default, shows one size at a
+  // How a canvas shows the sizes. Single, the default, shows one size at a
   // time and always opens on desktop; Compare shows all of them side by side.
-  // Compare is remembered per browser, the size shown is not. Both are set by
-  // init() below, from the View options panel and the size buttons.
+  // Compare is remembered per browser, the size shown is not. Kept per canvas
+  // and set by init() below, from the View options panel and the size buttons.
+  interface FrameView {
+    compare: boolean;
+    shown: NeoAlchemistFrameSize;
+  }
   const compareStorageKey = 'neo-alchemist-compare';
-  let compare = compareStored();
-  let shownSize: NeoAlchemistFrameSize = 'desktop';
+  const views = new WeakMap<Element, FrameView>();
+
+  function viewOf(editor: Element): FrameView {
+    let view = views.get(editor);
+    if (!view) {
+      view = { compare: compareStored(), shown: 'desktop' };
+      views.set(editor, view);
+    }
+    return view;
+  }
 
   function compareStored(): boolean {
     try {
@@ -255,8 +280,12 @@
   /**
    * The sizes on screen: every one in Compare, the shown one in Single.
    */
-  function framesVisible(): NeoAlchemistFrameSize[] {
-    return frameSizes.filter(size => !!frameGet(size) && (compare || size === shownSize));
+  function framesVisible(editor: Element | null = editorOf()): NeoAlchemistFrameSize[] {
+    if (!editor) {
+      return [];
+    }
+    const view = viewOf(editor);
+    return frameSizes.filter(size => !!frameGet(size, editor) && (view.compare || size === view.shown));
   }
 
   /**
@@ -267,23 +296,23 @@
    * the layer tree, the screenshot and the thumbnail, so it stays loaded even
    * while another size is shown.
    */
-  function framesActive(): NeoAlchemistFrameSize[] {
-    const visible = framesVisible();
-    return frameSizes.filter(size => !!frameGet(size) && (size === 'desktop' || visible.includes(size)));
+  function framesActive(editor: Element | null = editorOf()): NeoAlchemistFrameSize[] {
+    const visible = framesVisible(editor);
+    return frameSizes.filter(size => !!frameGet(size, editor) && (size === 'desktop' || visible.includes(size)));
   }
 
   function frameIsActive(iframe: HTMLIFrameElement): boolean {
-    return framesActive().includes(iframe.dataset.size as NeoAlchemistFrameSize);
+    return framesActive(editorOf(iframe)).includes(iframe.dataset.size as NeoAlchemistFrameSize);
   }
 
   function frameIsVisible(iframe: HTMLIFrameElement): boolean {
-    return framesVisible().includes(iframe.dataset.size as NeoAlchemistFrameSize);
+    return framesVisible(editorOf(iframe)).includes(iframe.dataset.size as NeoAlchemistFrameSize);
   }
 
   Drupal.neoAlchemist = Drupal.neoAlchemist || {};
   Drupal.neoAlchemist.frames = {
     get: frameGet,
-    state: size => frameState(frameGet(size)),
+    state: (size, editor) => frameState(frameGet(size, editor === undefined ? editorOf() : editor)),
     active: framesActive,
     visible: framesVisible,
   };
@@ -338,10 +367,10 @@
         staggerQueue.push(iframe);
       }
     });
-    staggerNext(iframes);
+    staggerNext();
   }
 
-  function staggerNext(iframes: NodeListOf<HTMLIFrameElement>): void {
+  function staggerNext(): void {
     if (staggerWaiting) {
       return;
     }
@@ -349,7 +378,10 @@
     // usually still on about:blank here — frameState() reads that as loading
     // rather than done, where readyState alone would not — or one an edit is
     // reloading.
-    const busy = Array.from(iframes).find((iframe) => frameState(iframe) === 'loading' && !staggerStalled.has(iframe));
+    // Every canvas on the page counts: the edit modal's previews load the same
+    // assets as the layout's.
+    const busy = Array.from(document.querySelectorAll<HTMLIFrameElement>('.neo-alchemist-manage iframe[data-size]'))
+      .find((iframe) => frameState(iframe) === 'loading' && !staggerStalled.has(iframe));
     if (busy) {
       staggerWaiting = true;
       let advanced = false;
@@ -364,7 +396,7 @@
           busy.addEventListener('load', () => staggerStalled.delete(busy), { once: true });
         }
         staggerWaiting = false;
-        staggerNext(iframes);
+        staggerNext();
       };
       busy.addEventListener('load', () => advance(false), { once: true });
       setTimeout(() => advance(true), 10000);
@@ -379,11 +411,12 @@
       next.src = next.dataset.src as string;
       delete next.dataset.src;
     }
-    staggerNext(iframes);
+    staggerNext();
   }
 
   function init(container:HTMLElement): void {
     const id = container.id;
+    const view = viewOf(container);
 
     window.addEventListener('message', function (e) {
       if (e.origin !== window.location.origin) {
@@ -450,11 +483,11 @@
       }
       const left = parseInt(rawLeft || '0', 10);
       const top = parseInt(rawTop || '0', 10);
-      if (!compare) {
+      if (!view.compare) {
         // One frame on screen, always desktop on open, so a stored horizontal
         // offset would only aim beside it: it was measured on whatever layout
         // was showing when it was saved.
-        centerIframe(shownSize, 'auto');
+        centerIframe(view.shown, 'auto');
       }
       else {
         wrapper.scrollLeft = Number.isNaN(left) ? 0 : left;
@@ -533,7 +566,7 @@
         setButtonLabel(captureButton, Drupal.t('Composing thumbnail…'));
         // The thumbnail is framed in the desktop preview, so that is the one
         // that has to be on screen.
-        if (!compare && shownSize !== 'desktop') {
+        if (!view.compare && view.shown !== 'desktop') {
           showSize('desktop');
         }
         enterPreviewView();
@@ -847,18 +880,18 @@
      * the layout editor's CSS which size's outlines may show.
      */
     function viewLayout(): void {
-      const visible = framesVisible();
+      const visible = framesVisible(container);
       frameSizes.forEach(size => {
         frameWrap(size)?.classList.toggle('is-hidden', !visible.includes(size));
       });
-      if (compare) {
+      if (view.compare) {
         delete container.dataset.alchemistSingle;
       }
       else {
-        container.dataset.alchemistSingle = shownSize;
+        container.dataset.alchemistSingle = view.shown;
       }
       if (compareInput) {
-        compareInput.checked = compare;
+        compareInput.checked = view.compare;
       }
       focusButtonsSync();
     }
@@ -870,7 +903,7 @@
      */
     function viewApply(): void {
       viewLayout();
-      framesVisible().forEach(size => {
+      framesVisible(container).forEach(size => {
         const iframe = getIframe(size);
         const wrap = frameWrap(size);
         if (iframe && wrap?.querySelector('.neo-alchemist--iframe-loading')) {
@@ -879,12 +912,12 @@
       });
       staggerIframeLoads(iframes);
       container.dispatchEvent(new CustomEvent('alchemistManageView', {
-        detail: { compare, visible: framesVisible() },
+        detail: { compare: view.compare, visible: framesVisible(container) },
       }));
       // After the event, which the layout editor answers by drawing any frame
       // ready to be drawn: a stale one is not, and stays stale until its own
       // document says otherwise. One render for every frame shown stale.
-      const stale = framesVisible()
+      const stale = framesVisible(container)
         .map(size => getIframe(size))
         .filter((iframe): iframe is HTMLIFrameElement => !!iframe && frameState(iframe) === 'stale');
       if (stale.length) {
@@ -906,7 +939,7 @@
       if (!iframe) {
         return;
       }
-      if (compare) {
+      if (view.compare) {
         focusButtonsSync(size);
         iframe.closest('.neo-alchemist--iframe-wrapper')?.scrollIntoView({
           behavior: 'smooth',
@@ -915,7 +948,7 @@
         });
       }
       else {
-        shownSize = size;
+        view.shown = size;
         viewApply();
         centerIframe(size, 'auto');
       }
@@ -930,13 +963,13 @@
      * whichever size was most in view.
      */
     function compareSet(on: boolean): void {
-      if (on === compare) {
+      if (on === view.compare) {
         return;
       }
       if (on) {
-        const wrap = frameWrap(shownSize);
+        const wrap = frameWrap(view.shown);
         const before = wrap?.getBoundingClientRect().left ?? 0;
-        compare = true;
+        view.compare = true;
         compareStore(true);
         viewApply();
         if (wrap && wrapper) {
@@ -946,10 +979,10 @@
         focusButtonsSync();
       }
       else {
-        const size = (getMostVisibleIframe()?.dataset.size || shownSize) as NeoAlchemistFrameSize;
-        compare = false;
+        const size = (getMostVisibleIframe()?.dataset.size || view.shown) as NeoAlchemistFrameSize;
+        view.compare = false;
         compareStore(false);
-        shownSize = size;
+        view.shown = size;
         viewApply();
         centerIframe(size, 'auto');
       }
@@ -961,7 +994,7 @@
      * else the given size, else the frame most in view.
      */
     function focusButtonsSync(size?: string | null): void {
-      const active = !compare ? shownSize : (size ?? getMostVisibleIframe()?.dataset.size ?? null);
+      const active = !view.compare ? view.shown : (size ?? getMostVisibleIframe()?.dataset.size ?? null);
       container.querySelectorAll<HTMLElement>('.neo-alchemist--focus').forEach(button => {
         button.classList.toggle('is-active', button.dataset.size === active);
       });
@@ -2116,8 +2149,8 @@
     scaleWrapper.addEventListener('transitionend', (event: TransitionEvent) => {
       // Check if the transition was specifically for transform
       if (event.propertyName === 'transform') {
-        if (!compare) {
-          centerIframe(shownSize, 'smooth');
+        if (!view.compare) {
+          centerIframe(view.shown, 'smooth');
           savePositionWhenSettled();
         }
         const customEvent = new CustomEvent('alchemistManageScaleEnd');
@@ -2139,7 +2172,7 @@
               centerIframe('desktop', 'auto');
             }
           }
-          else if (compare) {
+          else if (view.compare) {
             // Reset position each time scale is changed. In Single the one
             // frame is centred instead, once the transform has settled (the
             // transitionend listener above).

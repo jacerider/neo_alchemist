@@ -22,7 +22,8 @@ Compare the size buttons scroll to their frame, as before. Each browser remember
 size shown is not remembered: the editor always opens on Desktop. Zoom and pan work in both
 modes, and in Single a zoom change re-centres the frame. Capturing a thumbnail from Tablet or
 Mobile switches to Desktop first. This applies to the layout editor and the single-component
-editor alike. Hidden frames stay laid out at their own width, so breakpoint scripts inside
+editor alike. Each canvas keeps its own view, so the component edit form opened over the
+layout editor still opens on Desktop. Hidden frames stay laid out at their own width, so breakpoint scripts inside
 them do not rebuild while they are out of sight.
 
 ## Canvas outlines no longer wait for every preview frame

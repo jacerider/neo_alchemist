@@ -92,10 +92,11 @@
    */
   const refreshFrames = (iframes: HTMLIFrameElement[]): void => {
     const frames = Drupal.neoAlchemist?.frames;
-    const active = frames?.active();
+    const active = frames?.active(iframes[0].closest('.neo-alchemist-manage'));
     const targets = iframes.filter(iframe => !active || active.includes(iframe.dataset.size as NeoAlchemistFrameSize));
     iframes.forEach(iframe => {
-      if (targets.includes(iframe) || !frames || frames.state(iframe.dataset.size as NeoAlchemistFrameSize) === 'unloaded') {
+      // Not started yet (data-src) is not stale: it loads the current render.
+      if (targets.includes(iframe) || !active || iframe.dataset.src !== undefined) {
         return;
       }
       iframe.dataset.stale = '';
