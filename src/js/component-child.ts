@@ -1033,19 +1033,31 @@
     });
   };
   /**
-   * The stylesheet and script URLs a document depends on, as one comparable
-   * string.
+   * The stylesheet and script URLs a document depends on.
+   */
+  const assetUrls = (root: Document): string[] => {
+    return Array.from(root.querySelectorAll('link[rel="stylesheet"][href], script[src]'))
+      .map(el => el.getAttribute('href') || el.getAttribute('src') || '');
+  };
+
+  /**
+   * Whether this document already has every asset a render depends on.
    *
    * A prop edit can change which libraries the component needs — turning on a
    * slider pulls in JS that is simply not in this document. Swapping markup
-   * cannot bring assets with it, so when the set differs the refresh has to
-   * give up and let the frame reload instead.
+   * cannot bring assets with it, so when the render needs one this document
+   * lacks, the refresh has to give up and let the frame reload instead.
+   *
+   * Only that direction matters: an asset this document has and the render
+   * does not is harmless. The render is shared between the frames, and the
+   * desktop preview alone carries the screenshot library, so deliver() in
+   * component-ajax.ts renders from a frame without it whenever one is
+   * refreshed — a render desktop has everything for, and the others too.
+   * Requiring the two sets to match made one side reload on every edit.
    */
-  const assetFingerprint = (root: Document): string => {
-    return Array.from(root.querySelectorAll('link[rel="stylesheet"][href], script[src]'))
-      .map(el => el.getAttribute('href') || el.getAttribute('src') || '')
-      .sort()
-      .join('\n');
+  const assetsCovered = (render: Document): boolean => {
+    const present = new Set(assetUrls(document));
+    return assetUrls(render).every(url => present.has(url));
   };
 
   /**
@@ -1196,8 +1208,8 @@
         if (!fresh) {
           throw new Error('Preview root missing from response');
         }
-        if (assetFingerprint(doc) !== assetFingerprint(document)) {
-          throw new Error('Asset set changed');
+        if (!assetsCovered(doc)) {
+          throw new Error('Render needs assets this document lacks');
         }
         const next = document.importNode(fresh, true);
         // The markup may have been rendered for a different frame — that is

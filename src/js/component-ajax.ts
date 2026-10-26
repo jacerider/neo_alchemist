@@ -63,12 +63,17 @@
       return;
     }
 
+    // Rendered for a frame other than desktop when one is being refreshed: the
+    // desktop preview alone attaches the screenshot library, so its render
+    // needs assets the other documents lack, while theirs needs nothing
+    // desktop lacks. See assetsCovered() in component-child.ts.
+    const source = iframes.find(iframe => iframe.dataset.size !== 'desktop') ?? iframes[0];
     let url = '';
     try {
-      url = iframes[0].contentWindow?.location.href || iframes[0].src;
+      url = source.contentWindow?.location.href || source.src;
     }
     catch (e) {
-      url = iframes[0].src;
+      url = source.src;
     }
     if (!url) {
       reloadAll(iframes);

@@ -1,5 +1,15 @@
 # Changelog
 
+## Tablet and mobile previews update in place instead of reloading
+
+When the component editor showed more than one size, every edit reloaded the tablet and mobile
+previews instead of updating them in place. The shared render was taken from the desktop
+preview, which alone loads the screenshot tool, so the other previews read it as needing an
+asset they did not have and reloaded. The render is now taken from a non-desktop preview when
+one is refreshed. A preview reloads only when the render needs an asset it lacks; an asset it
+has but no longer needs no longer forces a reload. All three sizes now keep their place,
+slider position included, across an edit.
+
 ## Layout editor edits stop rendering a preview they throw away
 
 After an edit, the layout editor rendered the preview once in the editor page and handed the
