@@ -300,3 +300,22 @@ form.neo-alchemist-manage--form:has(.neo-alchemist--form-layout) > .form--inner,
     transform: rotate(360deg);
   }
 }
+
+/* Single mode: the preview starts right under the header.
+ *
+ * The frame header card (icon, size name, dimensions) labels a frame among
+ * three; with one frame on screen the size toggle already says which, so the
+ * card and most of the band above it go. What stays is a gutter tall enough
+ * for what hangs above a frame's first component: its name chip and the top
+ * + seam (overlay template), so neither is clipped under the header. Compare
+ * keeps both, so its three frames stay labelled.
+ */
+.neo-alchemist-manage[data-alchemist-single] {
+  .neo-alchemist--iframe-header {
+    display: none;
+  }
+
+  .neo-alchemist--iframe-wrapper:not(.is-hidden) {
+    padding-top: 1rem;
+  }
+}

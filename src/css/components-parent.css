@@ -69,3 +69,12 @@
   outline-offset: -1px;
   box-shadow: 0 0 0 3px rgb(0 0 0 / 0.85);
 }
+
+/* Single mode, layout editor: the 1rem gutter (component-parent.css) plus the
+ * height of the breadcrumb bar, which overlays the top of the canvas while
+ * something is selected. Without it, the first component's top + seam sits
+ * under that bar and cannot be reached at the top of the page. Goes with the
+ * bar. */
+.neo-alchemist-manage[data-alchemist-single] .neo-alchemist--iframe-wrapper:not(.is-hidden) {
+  padding-top: calc(1rem + 2.75rem);
+}

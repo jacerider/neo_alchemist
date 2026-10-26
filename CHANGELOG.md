@@ -1,5 +1,14 @@
 # Changelog
 
+## In Single mode the preview starts right under the header
+
+With one frame on screen the canvas still showed the frame's header card (icon, "Desktop",
+dimensions) under a 64px empty band, repeating what the size toggle already said. Single mode
+now hides the card and keeps a 16px gutter: enough for the first component's name chip and +
+seam. The layout editor keeps 44px more, the height of the breadcrumb bar that covers the top
+of the canvas while something is selected. Compare is unchanged, so its three frames stay
+labelled.
+
 ## Save and Revert keep you in the editor, and the header says when there are unsaved changes
 
 Save and Revert used to send the editor to the entity's page, and the header showed Back, Reset,
