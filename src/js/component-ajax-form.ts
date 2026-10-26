@@ -157,6 +157,10 @@
   }
 
   function handleRefresh() {
+    // Every edit that previews comes through here, including the ones that
+    // raise no DOM event of their own (CKEditor, an autocomplete pick). The
+    // layout editor's inspector counts them as unapplied changes.
+    document.getElementById(formId)?.dispatchEvent(new CustomEvent('neoAlchemistFormEdited', { bubbles: true }));
     const form = jQuery('#' + formId) as any;
     if (Drupal.Ajax) {
       // Clear the form id so that the form is not submitted again.

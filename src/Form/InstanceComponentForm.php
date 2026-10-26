@@ -869,9 +869,13 @@ final class InstanceComponentForm extends ContentEntityForm {
    * {@inheritdoc}
    */
   protected function actions(array $form, FormStateInterface $form_state) {
+    // Docked in the layout editor this is the inspector, where the button
+    // writes the shared draft and Save in the header publishes it: two saves
+    // would read as the same thing.
+    $docked = (bool) $form_state->get('neo_alchemist_dock');
     $actions['submit'] = [
       '#type' => 'submit',
-      '#value' => $this->t('Save'),
+      '#value' => $docked ? $this->t('Apply') : $this->t('Save'),
       '#submit' => ['::submitForm', '::save'],
     ];
     $actions['cancel'] = [
@@ -914,6 +918,12 @@ final class InstanceComponentForm extends ContentEntityForm {
         ]);
         $actions['cancel']['#attached']['library'][] = 'core/drupal.dialog.ajax';
       }
+    }
+    if ($docked) {
+      // Discarding is the inspector's to do (components-parent.ts): it
+      // re-renders the canvas from the draft and reloads this form.
+      unset($actions['cancel']['#attributes']['data-neo-modal-close']);
+      $actions['cancel']['#attributes']['class'][] = 'neo-alchemist--inspector-cancel';
     }
     $actions['submit']['#attributes']['class'][] = 'btn btn-primary btn-xs';
     $actions['cancel']['#attributes']['class'][] = 'btn btn-xs';
@@ -989,7 +999,18 @@ final class InstanceComponentForm extends ContentEntityForm {
   public function ajaxRefresh(array &$form, FormStateInterface $form_state) {
     $form['#old_build_id'] = $form['#build_id'];
     $response = new AjaxResponse();
-    $response->addCommand(new InstanceComponentManageIframeCommand('#' . ComponentManageHelper::getId($this->instance) . ' iframe'));
+    if ($form_state->get('neo_alchemist_dock')) {
+      // Docked: the preview is the layout editor's canvas, rendered with this
+      // component's unapplied values on top of the draft (`inspect`, see
+      // InstanceComponentPreviewController::all()).
+      $response->addCommand(new InstanceComponentManageIframeCommand(
+        '#' . ComponentManageHelper::getId($this->instance->getFieldItem()) . ' iframe',
+        ['inspect' => $this->instance->uuid(), 'live' => '1'],
+      ));
+    }
+    else {
+      $response->addCommand(new InstanceComponentManageIframeCommand('#' . ComponentManageHelper::getId($this->instance) . ' iframe'));
+    }
     // The header is a readout of the values being edited, so it has to travel
     // with them. validateForm() has already written this round's values onto
     // the instance, and setValues() drops the prop-shape and filter memos, so

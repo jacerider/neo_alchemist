@@ -233,6 +233,13 @@ class Component extends ConfigEntityBase implements ComponentInterface {
   protected bool $instancePreview = FALSE;
 
   /**
+   * Whether the layout editor's inspector has this instance open.
+   *
+   * @var bool
+   */
+  protected bool $inspected = FALSE;
+
+  /**
    * Whether this render is the standalone component-preview frame.
    *
    * Once route-derived on every read, now an in-memory flag resolved from a
@@ -560,6 +567,21 @@ class Component extends ConfigEntityBase implements ComponentInterface {
   /**
    * {@inheritdoc}
    */
+  public function setInspected(bool $inspected): self {
+    $this->inspected = $inspected;
+    return $this;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function isInspected(): bool {
+    return $this->inspected;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
   public function isComponentPreview(?RouteMatchInterface $routeMatch = NULL): bool {
     // Resolve from the route when one is handed in — at the render boundary —
     // and cache the answer as an in-memory flag. The entity never reaches for
@@ -586,7 +608,7 @@ class Component extends ConfigEntityBase implements ComponentInterface {
    * {@inheritdoc}
    */
   public function isEditorPreview(): bool {
-    return $this->isPreview() && ($this->isInstancePreview() || $this->isComponentPreview());
+    return $this->isPreview() && ($this->isInstancePreview() || $this->isComponentPreview() || $this->isInspected());
   }
 
   /**

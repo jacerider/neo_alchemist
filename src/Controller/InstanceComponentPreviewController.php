@@ -67,15 +67,32 @@ final class InstanceComponentPreviewController extends ControllerBase {
       $draftCacheTag = $this->scratchStore->cacheTag($neo_field, $uuid);
     }
     else {
-      $build = $this->all($neo_field);
+      // The component the inspector has open, if this render is for one: its
+      // prop map comes with the page, so the canvas answers a click with the
+      // field it belongs to. `live` is the form's own refresh: that editor's
+      // unapplied values (its scratch buffer) go on top of the draft. Every
+      // other render — opening, Cancel, a layout write — shows the draft, so
+      // a buffer Cancel has not cleared yet never comes back.
+      $inspect = (string) $request->query->get('inspect', '');
+      $live = $inspect !== '' && $request->query->get('live');
+      $inspected = $live && $neo_field->hasComponent($inspect)
+        ? $this->scratchStore->get($neo_field, $inspect)
+        : NULL;
+      $build = $this->all($neo_field, $inspect !== '' && $neo_field->hasComponent($inspect) ? $inspect : NULL, $inspected);
       if ($request->query->get('size') === 'desktop') {
         neo_alchemist_attach_screenshot($build);
       }
       // The whole-layout preview reflects the shared draft — read through the
       // store, which owns both the existence check and the cache-tag string it
       // invalidates on write.
-      $hasDraft = $this->sharedDraftStore->has($neo_field);
+      $hasDraft = $this->sharedDraftStore->has($neo_field) || !empty($inspected);
       $draftCacheTag = $this->sharedDraftStore->cacheTag($neo_field);
+      // The inspector's buffer changes this render too, and the render made
+      // when the inspector opened (no buffer yet) is cacheable: without the
+      // buffer's tag, Dynamic Page Cache hands that one back for every edit.
+      if ($live) {
+        $inspectCacheTag = $this->scratchStore->cacheTag($neo_field, $inspect);
+      }
     }
 
     // Tag the response with the draft that would change it. Writing or
@@ -85,6 +102,9 @@ final class InstanceComponentPreviewController extends ControllerBase {
     // never demote an entry that already exists.
     $cacheability = new CacheableMetadata();
     $cacheability->addCacheTags([$draftCacheTag]);
+    if (isset($inspectCacheTag)) {
+      $cacheability->addCacheTags([$inspectCacheTag]);
+    }
     if ($hasDraft) {
       // The draft lives in tempstore/state, which carry no cache tag to
       // invalidate on, so an unsaved preview cannot be cached at all.
@@ -104,6 +124,8 @@ final class InstanceComponentPreviewController extends ControllerBase {
         'url.query_args:uuid',
         'url.query_args:component',
         'url.query_args:size',
+        'url.query_args:inspect',
+        'url.query_args:live',
       ]);
     }
 
@@ -177,11 +199,15 @@ final class InstanceComponentPreviewController extends ControllerBase {
    *
    * @param \Drupal\neo_alchemist\Plugin\Field\FieldType\ComponentTreeItem $neo_field
    *   The component field.
+   * @param string|null $inspect
+   *   The uuid of the component the inspector has open, if any.
+   * @param array|null $inspected
+   *   That component's unapplied values, if the inspector holds any.
    *
    * @return array
    *   The render array.
    */
-  protected function all(ComponentTreeItem $neo_field) {
+  protected function all(ComponentTreeItem $neo_field, ?string $inspect = NULL, ?array $inspected = NULL) {
     $build = [
       '#attached' => [
         'library' => [
@@ -190,8 +216,24 @@ final class InstanceComponentPreviewController extends ControllerBase {
       ],
     ];
 
+    if ($inspect !== NULL && !empty($inspected)) {
+      // Before anything loads the tree's instances: they are built from the
+      // stored values once and kept, so an update after that would not reach
+      // the one this renders.
+      $neo_field->updateComponent($inspect, $inspected);
+    }
     $this->markPageContent($neo_field);
+    if ($inspect !== NULL) {
+      // The tree renders the instance it hands out here, so flagging it
+      // stamps the prop markers component-child.ts matches the form against,
+      // as the single-component preview does, while it stays a layout render.
+      $component = $neo_field->getComponent($inspect);
+      $component?->setInspected(TRUE);
+    }
     $build['components'] = $neo_field->toRenderable();
+    if ($inspect !== NULL && isset($component)) {
+      $build['#attached']['drupalSettings']['neoAlchemist']['propMap'] = PreviewPropMapBuilder::build($component, $component->toRenderable(routeMatch: $this->routeMatch));
+    }
     $build['components']['#theme'] = 'neo_alchemist_component_preview';
 
     if (!$neo_field->getComponents()) {

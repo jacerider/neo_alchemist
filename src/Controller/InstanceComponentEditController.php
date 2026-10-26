@@ -11,6 +11,7 @@ use Drupal\neo_alchemist\ComponentInterface;
 use Drupal\neo_alchemist\ComponentManageHelper;
 use Drupal\neo_alchemist\Plugin\Field\FieldType\ComponentTreeItem;
 use Symfony\Component\DependencyInjection\ContainerInterface;
+use Symfony\Component\HttpFoundation\Request;
 
 /**
  * Returns responses for Neo | Alchemist routes.
@@ -38,10 +39,25 @@ final class InstanceComponentEditController extends ControllerBase {
   /**
    * Builds the response.
    */
-  public function __invoke(ComponentInterface $neo_component) {
+  public function __invoke(Request $request, ComponentInterface $neo_component) {
+    // The inspector: the form alone, loaded into the layout editor's right
+    // dock (components-parent.ts). Its preview is that editor's own canvas,
+    // so nothing here renders frames.
+    if ($this->isAjax() && $request->query->get('dock')) {
+      $form = $this->entityFormBuilder()->getForm($neo_component->getTargetEntity(), 'alchemist_edit', [
+        'neo_component_instance' => $neo_component,
+        'neo_alchemist_dock' => TRUE,
+      ]);
+      $form['#attributes']['class'][] = 'neo-alchemist-manage--form';
+      return $form;
+    }
+
+    // Opened on its own: the same inspector, docked beside a canvas of the
+    // component.
     $build = [
       '#theme' => 'neo_alchemist_manage',
-      '#form_position' => 'side',
+      '#form_position' => 'dock',
+      '#dock' => TRUE,
       '#id' => ComponentManageHelper::getId($neo_component),
       '#toolbar_title' => ComponentManageHelper::getToolbarTitle($neo_component),
       '#iframe_url' => $neo_component->toUrl('preview')->setOption('query', [

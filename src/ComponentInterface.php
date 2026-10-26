@@ -280,6 +280,30 @@ interface ComponentInterface extends ConfigEntityInterface, RenderableInterface,
   public function isInstancePreview(): bool;
 
   /**
+   * Marks the instance as the one the layout editor's inspector has open.
+   *
+   * Unlike instance preview, it stays a layout render: it keeps the layout
+   * editor's markers and its regions render their children. It is also an
+   * editor preview, so the form's prop markers and scoping root are stamped
+   * and the canvas can answer a click with its field.
+   *
+   * @param bool $inspected
+   *   Whether the inspector has this instance open.
+   *
+   * @return $this
+   *   The current instance of the component.
+   */
+  public function setInspected(bool $inspected): self;
+
+  /**
+   * Checks whether the layout editor's inspector has this instance open.
+   *
+   * @return bool
+   *   TRUE when it does.
+   */
+  public function isInspected(): bool;
+
+  /**
    * Checks if the component is in Alchemist preview mode.
    *
    * This method determines if the component is being displayed in component

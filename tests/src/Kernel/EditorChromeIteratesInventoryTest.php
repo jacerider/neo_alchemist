@@ -17,9 +17,9 @@ use PHPUnit\Framework\Attributes\Group;
  * four positional ones as individual variables (op_add_before and three
  * siblings) that the template reached for by name. It now iterates
  * EditorOpInventory::ops() and names no op: _neo_alchemist_overlay_ops() is
- * the seam that projects the op vocabulary into the three render surfaces the
- * template loops over — the bottom bar's verb group (`ops`), its positional
- * group (`position_ops`), and the two outline edge clusters (`outline_ops`).
+ * the seam that projects the op vocabulary into the render surfaces the
+ * templates loop over — the two outline edge clusters (`outline_ops`), and the
+ * inspector header's buttons (`inspector_ops`) and ⋯ menu (`inspector_menu`).
  *
  * These assert that projection against the strings the chrome renders today
  * (an independent, hand-authored source of truth), and that a row added to the
@@ -65,45 +65,43 @@ class EditorChromeIteratesInventoryTest extends KernelTestBase {
    *   The op records, in render order.
    *
    * @return array
-   *   The `ops`, `position_ops` and `outline_ops` render structures.
+   *   The `outline_ops`, `inspector_ops` and `inspector_menu` render
+   *   structures.
    */
   private function chrome(array $ops): array {
     return _neo_alchemist_overlay_ops($ops);
   }
 
   /**
-   * The four verb ops project to the bottom bar's left group, in order.
+   * The verb ops but Edit project to the inspector's ⋯ menu, in order.
    *
-   * A verb op acts on the component itself; it carries neither a position nor a
-   * direction. Each is a filled button (alert for Delete, primary for the rest)
-   * keyed by its op id and appears only in this group — never among the
-   * positional ops or on the outline.
+   * A verb op acts on the component itself; it carries neither a position nor
+   * a direction. Edit is the inspector itself, so it has no item. Each item is
+   * labelled, keyed by its op id, and appears only in the menu — never among
+   * the inspector's buttons or on the outline. Delete destroys, so it takes the
+   * alert colour.
    */
-  public function testVerbOpsProjectToTheBottomBarLeftGroup(): void {
+  public function testVerbOpsProjectToTheInspectorMenu(): void {
     $chrome = $this->chrome($this->inventory()->ops());
 
     $this->assertSame(
-      ['edit', 'sort', 'clone', 'delete'],
-      array_keys($chrome['ops']),
-      'The verb ops are the bottom bar left group, in inventory order.',
+      ['sort', 'clone', 'delete'],
+      array_keys($chrome['inspector_menu']),
+      'The verb ops but edit are the ⋯ menu, in inventory order.',
     );
-    $labels = ['edit' => 'Edit', 'sort' => 'Sort', 'clone' => 'Clone', 'delete' => 'Delete'];
+    $labels = ['sort' => 'Sort', 'clone' => 'Clone', 'delete' => 'Delete'];
     foreach ($labels as $id => $label) {
-      $button = $chrome['ops'][$id];
-      $this->assertSame('link', $button['#type'], "$id is a link");
-      $this->assertSame($id, $button['#attributes']['data-op'], "$id data-op");
-      $classes = $button['#attributes']['class'];
-      // Delete destroys, so it takes the alert colour; the rest are primary.
-      $fill = $id === 'delete' ? 'btn-alert' : 'btn-primary';
-      $this->assertContains($fill, $classes, "$id is a $fill button");
+      $item = $chrome['inspector_menu'][$id];
+      $this->assertSame('link', $item['#type'], "$id is a link");
+      $this->assertSame($id, $item['#attributes']['data-op'], "$id data-op");
+      $classes = $item['#attributes']['class'];
       $this->assertContains('neo-alchemist--op', $classes, "$id is an op");
-      $placement = $button['#tooltip_options']['placement'];
-      $this->assertSame('top', $placement, "$id tooltip on top");
-      $this->assertInstanceOf(IconElement::class, $button['#title'], "$id icon");
-      $this->assertTrue($button['#title']->isIconOnly(), "$id icon only");
-      $this->assertSame($label, (string) $button['#title']->getText(), "$id label");
+      $this->assertSame($id === 'delete', in_array('text-alert-700', $classes, TRUE), "$id alert colour only on delete");
+      $this->assertInstanceOf(IconElement::class, $item['#title'], "$id icon");
+      $this->assertFalse($item['#title']->isIconOnly(), "$id is labelled");
+      $this->assertSame($label, (string) $item['#title']->getText(), "$id label");
     }
-    $this->assertArrayNotHasKey('edit', $chrome['position_ops']);
+    $this->assertArrayNotHasKey('edit', $chrome['inspector_ops']);
   }
 
   /**
@@ -146,59 +144,43 @@ class EditorChromeIteratesInventoryTest extends KernelTestBase {
   }
 
   /**
-   * The positional ops also appear, labelled, in the bottom bar's right group.
+   * The move ops are the inspector header's buttons, named for screen readers.
    *
-   * The outline copies sit off screen whenever the component is taller than the
-   * viewport, so the fixed bar is the always-visible route to them. There they
-   * are secondary buttons and labelled — the add ops with their short label,
-   * because the bar has no edge context to say which plus is before and which
-   * is after; the move ops show only their icon, with their full label kept
-   * for screen readers (an icon alone gave them no accessible name).
+   * The outline's copies sit off screen whenever the component is taller than
+   * the canvas, so the header keeps them in reach. Only ops with a direction
+   * are there: adding is left to the outline and the + seams, which say where.
    */
-  public function testPositionalOpsAppearLabelledInTheBottomBar(): void {
-    $positionOps = $this->chrome($this->inventory()->ops())['position_ops'];
+  public function testMoveOpsAreTheInspectorButtons(): void {
+    $buttons = $this->chrome($this->inventory()->ops())['inspector_ops'];
 
-    $this->assertSame(
-      ['add-before', 'add-after', 'move-up', 'move-down'],
-      array_keys($positionOps),
-      'The positional ops are the right group, in inventory order.',
-    );
-    foreach ($positionOps as $id => $button) {
-      $this->assertSame($id, $button['#attributes']['data-op'], "$id data-op");
-      $classes = $button['#attributes']['class'];
-      $this->assertContains('btn-secondary', $classes, "$id is secondary");
-      $this->assertInstanceOf(IconElement::class, $button['#title']);
-    }
-    $this->assertFalse($positionOps['add-before']['#title']->isIconOnly(), 'add-before is labelled');
-    $this->assertFalse($positionOps['add-after']['#title']->isIconOnly(), 'add-after is labelled');
-    $this->assertSame('Before', (string) $positionOps['add-before']['#title']->getText());
-    $this->assertSame('After', (string) $positionOps['add-after']['#title']->getText());
+    $this->assertSame(['move-up', 'move-down'], array_keys($buttons), 'The move ops, in inventory order.');
     foreach (['move-up' => 'Move component up', 'move-down' => 'Move component down'] as $id => $label) {
-      $this->assertTrue($positionOps[$id]['#title']->isIconOnly(), "$id shows only its icon");
-      $this->assertSame($label, (string) $positionOps[$id]['#title']->getText(), "$id keeps its name for screen readers");
+      $button = $buttons[$id];
+      $this->assertSame($id, $button['#attributes']['data-op'], "$id data-op");
+      $this->assertContains('neo-alchemist--op', $button['#attributes']['class'], "$id is an op");
+      $this->assertInstanceOf(IconElement::class, $button['#title']);
+      $this->assertTrue($button['#title']->isIconOnly(), "$id shows only its icon");
+      $this->assertSame($label, (string) $button['#title']->getText(), "$id keeps its name for screen readers");
     }
   }
 
   /**
    * Every inventory op becomes exactly one button, on the surfaces it belongs.
    *
-   * The chrome is a pure projection of the inventory: the union of the two
-   * bottom-bar groups is exactly the op set, verb ops appear only in the left
-   * group and positional ops only in the right, and the outline holds the four
-   * positional ops and no others. A hardcoded op, or one dropped by a broken
-   * loop, reddens this.
+   * The chrome is a pure projection of the inventory: every op but edit is on
+   * the outline or in the inspector (the move ops on both), and the outline
+   * holds the four positional ops and no others. A hardcoded op, or one
+   * dropped by a broken loop, reddens this.
    */
   public function testEveryOpBecomesExactlyOneButton(): void {
     $chrome = $this->chrome($this->inventory()->ops());
 
-    $bar = array_merge(
-      array_keys($chrome['ops']),
-      array_keys($chrome['position_ops']),
+    $inspector = array_merge(
+      array_keys($chrome['inspector_menu']),
+      array_keys($chrome['inspector_ops']),
     );
-    sort($bar);
-    $opIds = array_keys($this->inventory()->ops());
-    sort($opIds);
-    $this->assertSame($opIds, $bar, 'Every op is one bottom-bar button.');
+    sort($inspector);
+    $this->assertSame(['clone', 'delete', 'move-down', 'move-up', 'sort'], $inspector, 'The inspector holds every verb op but edit, and the move ops.');
 
     $outlineIds = [];
     foreach (['top', 'bottom'] as $edge) {
@@ -220,10 +202,10 @@ class EditorChromeIteratesInventoryTest extends KernelTestBase {
    * This is the whole point of the ticket, shown rather than assumed: a
    * synthetic verb op and a synthetic positional op are appended to the real
    * inventory and handed to the same builder the preprocess calls. The verb op
-   * becomes a button in the bottom bar's left group; the positional op becomes
-   * a button in the right group and on the outline edge its direction names —
-   * with no change to _neo_alchemist_overlay_ops() or the template, which loop
-   * over whatever the inventory contains.
+   * becomes an item in the inspector's ⋯ menu; the positional op becomes an
+   * inspector button and sits on the outline edge its direction names — with
+   * no change to _neo_alchemist_overlay_ops() or the templates, which loop over
+   * whatever the inventory contains.
    */
   public function testAddingAnInventoryRowAddsButton(): void {
     $ops = $this->inventory()->ops();
@@ -250,17 +232,15 @@ class EditorChromeIteratesInventoryTest extends KernelTestBase {
 
     $chrome = $this->chrome($ops);
 
-    // The new verb op is a bottom-bar button in the left group.
-    $this->assertArrayHasKey('duplicate', $chrome['ops']);
-    $newVerb = $chrome['ops']['duplicate']['#attributes']['data-op'];
+    // The new verb op is an item in the inspector's ⋯ menu.
+    $this->assertArrayHasKey('duplicate', $chrome['inspector_menu']);
+    $newVerb = $chrome['inspector_menu']['duplicate']['#attributes']['data-op'];
     $this->assertSame('duplicate', $newVerb);
-    $this->assertArrayNotHasKey('duplicate', $chrome['position_ops']);
+    $this->assertArrayNotHasKey('duplicate', $chrome['inspector_ops']);
 
-    // The new positional op (direction up) joins the right group and the top
-    // outline edge, labelled with its short label there.
-    $this->assertArrayHasKey('move-top', $chrome['position_ops']);
-    $short = (string) $chrome['position_ops']['move-top']['#title']->getText();
-    $this->assertSame('Top', $short);
+    // The new positional op (direction up) joins the inspector's buttons and
+    // the top outline edge.
+    $this->assertArrayHasKey('move-top', $chrome['inspector_ops']);
     $topEdge = array_map(
       fn (array $i) => $i['link']['#attributes']['data-op'],
       $chrome['outline_ops']['top'],

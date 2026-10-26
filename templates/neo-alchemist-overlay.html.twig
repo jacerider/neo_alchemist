@@ -27,36 +27,10 @@
 {%
   set op_move_classes = 'bg-primary-600 text-primary-600-content px-2 py-0.5 text-2xs transition pointer-events-auto hover:bg-primary-700 hover:text-primary-700-content'
 %}
-<div class="neo-alchemist--panel neo-alchemist--panel-top fixed" style="display: none;" data-alchemist-ignore data-alchemist-nodrag>
-  <div class="flex gap-2 items-center bg-base-900 text-base-900-content shadow py-2 px-4">
-    <div class="flex gap-2">
-      <div class="neo-alchemist--panel-title flex items-center gap-1 text-sm"></div>
-    </div>
-    <div class="flex gap-2 ml-auto">
-      {{ close }}
-    </div>
-  </div>
-</div>
-<div class="neo-alchemist--panel neo-alchemist--panel-bottom fixed" style="display: none;" data-alchemist-ignore data-alchemist-nodrag>
-  <div class="flex gap-2 items-center bg-base-900 text-base-900-content shadow py-2 px-4">
-    {# Acting on the component itself. #}
-    <div class="flex gap-2">
-      {% for op in ops %}
-        {{ op }}
-      {% endfor %}
-    </div>
-    {#
-      Placing it relative to its siblings. Separated because these answer a
-      different question, and duplicated from the outline because the outline's
-      copies sit off screen whenever the component is taller than the viewport.
-    #}
-    <div class="neo-alchemist--panel-position-ops flex gap-2 items-center pl-2 ml-auto">
-      {% for op in position_ops %}
-        {{ op }}
-      {% endfor %}
-    </div>
-  </div>
-</div>
+{#
+  The breadcrumb and the selection's ops used to be two bars over the canvas.
+  Both live in the inspector's header now (neo-alchemist-manage.html.twig).
+#}
 <div class="neo-alchemist--shade-base {{ shade_classes }}" data-alchemist-ignore></div>
 <div class="neo-alchemist--overlay-base {{ overlay_classes }}" data-alchemist-ignore>
   {#

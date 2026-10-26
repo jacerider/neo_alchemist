@@ -62,6 +62,14 @@ class InstanceComponentManage extends RenderElementBase {
     // The save group trails the view controls, and is the part a write
     // re-renders (see ComponentManageHelper::buildDynamicOperations()).
     $element['#top_save'] = ComponentManageHelper::buildDynamicOperations($neoField);
+    // The inspector docks on the right and opens with the selection
+    // (components-parent.ts). Its header carries the selection's ops, from the
+    // op inventory like the outline's.
+    $chrome = _neo_alchemist_overlay_ops(\Drupal::service('neo_alchemist.editor_op_inventory')->ops());
+    $element['#dock'] = TRUE;
+    $element['#dock_ops'] = $chrome['inspector_ops'];
+    $element['#dock_menu'] = $chrome['inspector_menu'];
+    $element['#dock_close'] = TRUE;
     $element['#bottom_start'] = ComponentManageHelper::buildOperations($neoField, $element['#neo_modal'] ?? []);
     $element['#bottom_end'] = ComponentManageHelper::buildLayersToggle();
 

@@ -177,8 +177,10 @@ class ComponentManageHelper {
         'class' => ['btn-group', 'flush'],
       ],
     ];
-    // Scale.
+    // Scale. Fit, the default, scales the frames to the canvas column
+    // (component-parent.ts); the rest are fixed.
     foreach ([
+      'fit' => neo_icon_admin(t('Fit'), 'arrows-alt-h'),
       'full' => neo_icon_admin(t('100%'), 'expand'),
       '75' => neo_icon_admin(t('75%'), 'compress'),
       '50' => neo_icon_admin(t('50%'), 'compress-arrows-alt'),

@@ -70,10 +70,10 @@
    * The per-component operations, keyed by the op's verb. Each takes a fully
    * resolved request URL — read off the op record, with any genuinely
    * client-side parameter already appended — and only chooses how the request
-   * is dispatched (which modal, if any). No handler builds a path.
+   * is dispatched (which modal, if any). No handler builds a path. Edit has
+   * none: selecting a component already opens it in the inspector.
    */
   interface Operations {
-    edit: (url: string) => void;
     sort: (url: string) => void;
     delete: (url: string) => void;
     clone: (url: string) => void;
@@ -87,10 +87,13 @@
   const wrapper = container.querySelector('.neo-alchemist-manage--wrapper') as HTMLElement;
   if (!wrapper) return;
   const iframes = {} as Record<'desktop' | 'tablet' | 'mobile', HTMLIFrameElement>;
-  const panelTop = container.querySelector('.neo-alchemist--panel-top') as HTMLElement;
-  const panelBottom = container.querySelector('.neo-alchemist--panel-bottom') as HTMLElement;
-  const panelTitle = container.querySelector('.neo-alchemist--panel-title') as HTMLElement;
-  const panelPositionOps = container.querySelector('.neo-alchemist--panel-position-ops') as HTMLElement | null;
+  // The inspector: the right dock the selected component's form loads into.
+  // Its header carries the breadcrumb and the selection's ops.
+  const dock = container.querySelector('.neo-alchemist--dock') as HTMLElement | null;
+  const dockTitle = dock?.querySelector('.neo-alchemist--dock-title') as HTMLElement | null;
+  const dockBody = dock?.querySelector('.neo-alchemist--dock-body') as HTMLElement | null;
+  const dockPrompt = dock?.querySelector('.neo-alchemist--dock-prompt') as HTMLElement | null;
+  const dockMore = dock?.querySelector('.neo-alchemist--dock-more') as HTMLElement | null;
   // Scoped to this layout. A single global preference leaked a choice made on
   // a nested layout onto every flat one, which is exactly what the depth
   // default exists to avoid.
@@ -143,7 +146,12 @@
         return true;
       }
       fieldFocus = { prop: target.prop, locate: target.locate, at: Date.now() };
-      operationExecute('edit');
+      // The selection opened the inspector. Already showing this component's
+      // form, it is told to take the focus now; otherwise the form takes it
+      // as it loads (component-parent.ts).
+      if (inspectorUuid === target.uuid && dockBody?.querySelector('form')) {
+        container.dispatchEvent(new CustomEvent('neoAlchemistFieldFocus'));
+      }
       return true;
     },
     takeFieldFocus() {
@@ -179,7 +187,10 @@
   const debugElements = false;
   const actionButtons = container.querySelectorAll<HTMLElement>('.neo-alchemist--action');
   let opButtons:NodeListOf<HTMLElement> | null = null;
-  let scale: string = localStorage.getItem('neo-alchemist-scale') || '1';
+  // The scale applied, which component-parent.ts announces with
+  // alchemistManageScale. Never read back from storage, which remembers the
+  // choice ('fit' among them), not the scale.
+  let scale: string = '1';
   let structureData: Record<string, ElementData> = {};
   let positionData = {} as Record<'desktop' | 'tablet' | 'mobile', Record<string, DOMRect>>;
   let overlayTimeouts = {} as Record<string, ReturnType<typeof setTimeout> | null>;
@@ -747,12 +758,10 @@
     overlayBase.remove();
     seamBase.remove();
 
-    // Close button handling
-    wrapper.querySelectorAll<HTMLElement>('.neo-alchemist--close').forEach(closeButton => {
-      closeButton.addEventListener('click', (e) => {
-        e.preventDefault();
-        layerShow();
-      });
+    // The inspector's close: deselecting, as Escape at the top level does.
+    dock?.querySelector('.neo-alchemist--dock-close')?.addEventListener('click', (e) => {
+      e.preventDefault();
+      layerShow(null);
     });
 
     // Action button handling
@@ -861,6 +870,11 @@
       if (document.body.classList.contains('has-neo-modal')) {
         return;
       }
+      // Escape in the inspector is the form's (a CKEditor balloon, a field's
+      // own undo of a highlight), not a way out of the selection.
+      if (dock && e.target instanceof Node && dock.contains(e.target)) {
+        return;
+      }
       layerBack();
     });
     document.addEventListener('click', (e) => {
@@ -902,43 +916,17 @@
     // Watch for component focus event
     const focusCallback = (event: CustomEvent<any>) => {
       const detail = event.detail as { uuid: string };
+      // Sent after a component's form saved: the inspector's Apply, or a
+      // component added from the library, which the selection moves to.
+      if (detail.uuid === inspectorUuid) {
+        inspectorApplied(detail.uuid);
+        return;
+      }
       layerUuid = detail.uuid;
     }
     container.addEventListener('alchemistManageComponentFocus', focusCallback as EventListener);
 
-    panelTop.style.display = '';
-    panelTop.style.opacity = '0';
-    panelTop.style.zIndex = '30';
-    panelTop.style.cursor = 'default';
-    panelTop.style.transition = `opacity ${transitionSpeed}ms ease-in-out, transform ${transitionSpeed}ms ease-in-out`;
-    panelBottom.style.display = '';
-    panelBottom.style.opacity = '0';
-    panelBottom.style.zIndex = '30';
-    panelBottom.style.cursor = 'default';
-    panelBottom.style.transition = `opacity ${transitionSpeed}ms ease-in-out, transform ${transitionSpeed}ms ease-in-out`;
-    panelsPosition();
-  }
-
-  /**
-   * Pin the breadcrumb and ops bars to the canvas.
-   *
-   * They span the canvas rather than the viewport, so they stay aligned to the
-   * previews rather than to the window.
-   */
-  function panelsPosition(): void {
-    const rect = wrapper.getBoundingClientRect();
-    panelTop.style.top = `${rect.top}px`;
-    panelTop.style.left = `${rect.left}px`;
-    panelTop.style.right = `${window.innerWidth - rect.right}px`;
-    if (panelTop.style.transform !== 'translate(0px, 0px)') {
-      panelTop.style.transform = `translate(0, -${rect.top}px)`;
-    }
-    panelBottom.style.bottom = `${window.innerHeight - rect.bottom}px`;
-    panelBottom.style.left = `${rect.left}px`;
-    panelBottom.style.right = `${window.innerWidth - rect.right}px`;
-    if (panelBottom.style.transform !== 'translate(0px, 0px)') {
-      panelBottom.style.transform = `translate(0, ${rect.top}px)`;
-    }
+    inspectorInit();
     layersPosition();
   }
 
@@ -949,7 +937,9 @@
    * clones start unbound because the prototype is never marked.
    */
   function opButtonsBind(): void {
-    opButtons = wrapper.querySelectorAll('.neo-alchemist--op') as NodeListOf<HTMLElement>;
+    // The whole editor: the outline's ops are on the canvas, the inspector's
+    // in its header.
+    opButtons = container.querySelectorAll('.neo-alchemist--op') as NodeListOf<HTMLElement>;
     opButtons.forEach(opButton => {
       if (opButton.dataset.opBound) {
         return;
@@ -1010,14 +1000,6 @@
     overlay.setAttribute('data-node-type', structureData[uuid]?.type || 'component');
     overlay.style.zIndex = (15 + level).toString();
     overlay.style.opacity = '0';
-    // Allow editing with a double-click
-    overlay.addEventListener('dblclick', (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      if (layerUuid) {
-        operationExecute('edit');
-      }
-    });
     overlay.style.transition = `all ${transitionSpeed}ms ease-in-out`;
     overlayLabel.style.opacity = '0';
     overlayActions.forEach(action => action.style.opacity = '0');
@@ -1351,7 +1333,7 @@
     // Clamp to the space actually left over, not the raw canvas edge: the
     // breadcrumb bar covers the top of the canvas whenever anything is
     // focused, which is exactly when chips are on screen.
-    const clampTop = wrapperRect.top + panelTopHeight();
+    const clampTop = wrapperRect.top;
     Object.entries(overlayElements).forEach(([uuid, bySize]) => {
       if (!overlayState[uuid]) {
         return;
@@ -1382,19 +1364,6 @@
     return Math.min(Math.max(value, min), max);
   }
 
-  /**
-   * How much of the canvas the breadcrumb bar is covering, if it is up.
-   */
-  function panelTopHeight(): number {
-    return panelTop.style.opacity === '1' ? panelTop.getBoundingClientRect().height : 0;
-  }
-
-  /**
-   * How much of the canvas the ops bar is covering, if it is up.
-   */
-  function panelBottomHeight(): number {
-    return panelBottom.style.opacity === '1' ? panelBottom.getBoundingClientRect().height : 0;
-  }
 
   /**
    * Run labelsClamp() at most once a frame while the canvas scrolls.
@@ -1538,7 +1507,11 @@
     // the placeholder silently becomes a selection target. There is nothing in
     // an empty region to select, so leave the overlay inert and let the pointer
     // through to the placeholder, which already posts `regionAdd`.
-    if (data.type !== 'region' || data.children.length) {
+    //
+    // A selected component's outline lets the pointer through too: selecting
+    // is editing, so a click inside it belongs to the preview, which answers
+    // with the field that element came from (component-child.ts).
+    if (data.type === 'region' && data.children.length) {
       overlay.style.pointerEvents = 'auto';
     }
     setTimeout(() => {
@@ -1672,10 +1645,11 @@
    */
   function titleSet(uuid: string | null): void {
     crumbMenuClose();
-    panelTitle.innerHTML = '';
+    if (!dockTitle) {
+      return;
+    }
+    dockTitle.innerHTML = '';
     if (!uuid || !structureData[uuid]) {
-      panelTop.style.opacity = '0';
-      panelTop.style.transform = `translate(0, -${panelTop.getBoundingClientRect().height}px)`;
       return;
     }
     const trail: Array<string | null> = [null, ...structureData[uuid].parents, uuid];
@@ -1684,12 +1658,11 @@
         const sep = document.createElement('div');
         sep.textContent = '»';
         sep.style.opacity = '0.5';
-        panelTitle.appendChild(sep);
+        sep.setAttribute('aria-hidden', 'true');
+        dockTitle.appendChild(sep);
       }
-      panelTitle.appendChild(crumbBuild(crumbUuid, crumbUuid === uuid));
+      dockTitle.appendChild(crumbBuild(crumbUuid, crumbUuid === uuid));
     });
-    panelTop.style.opacity = '1';
-    panelTop.style.transform = 'translate(0, 0)';
   }
 
   /**
@@ -1710,10 +1683,10 @@
     // shown for context but are not clickable.
     const inert = hybrid && isInheritedComponent(crumbUuid);
     const crumb = document.createElement('div');
-    crumb.className = 'neo-alchemist--crumb relative flex items-center whitespace-nowrap bg-base-0/15 border border-base-600 px-1 rounded';
+    crumb.className = 'neo-alchemist--crumb relative flex min-w-0 items-center whitespace-nowrap border px-1 rounded';
 
     const link = document.createElement((isCurrent || inert) ? 'div' : 'a');
-    link.className = `neo-alchemist--crumb-link flex items-center h-6 px-1 gap-1.5 text-base-900-content ${isCurrent ? 'font-medium' : 'font-light'}`;
+    link.className = `neo-alchemist--crumb-link flex min-w-0 items-center h-6 px-1 gap-1.5 text-base-0-content ${isCurrent ? 'font-semibold' : 'font-normal'}`;
     if (link instanceof HTMLAnchorElement) {
       link.href = '#';
       link.classList.add('hover:underline');
@@ -1794,14 +1767,14 @@
     toggle.type = 'button';
     // The class is a hook, not styling — crumbMenuClose() finds the toggle
     // through it to put aria-expanded back.
-    toggle.className = 'neo-alchemist--crumb-toggle inline-flex items-center justify-center w-4.5 h-4.5 rounded-sm text-xs leading-none cursor-pointer opacity-55 transition hover:opacity-100 hover:bg-base-0/15 focus-visible:opacity-100';
+    toggle.className = 'neo-alchemist--crumb-toggle inline-flex items-center justify-center w-4.5 h-4.5 rounded-sm text-xs leading-none cursor-pointer transition hover:bg-base-100';
     toggle.setAttribute('aria-haspopup', 'true');
     toggle.setAttribute('aria-expanded', 'false');
     toggle.setAttribute('title', Drupal.t('Go to a child'));
     toggle.textContent = '▾';
 
     const menu = document.createElement('div');
-    menu.className = 'neo-alchemist--crumb-menu absolute top-full left-0 mt-1.5 z-40 min-w-48 max-h-72 overflow-y-auto p-1 rounded-md shadow-lg bg-base-0 text-base-0-content';
+    menu.className = 'neo-alchemist--crumb-menu absolute top-full left-0 mt-1.5 z-50 min-w-48 max-h-72 overflow-y-auto p-1 rounded-md shadow-lg border bg-base-0 text-base-0-content';
     menu.hidden = true;
     menu.setAttribute('role', 'menu');
 
@@ -1809,7 +1782,7 @@
       const child = structureData[childUuid];
       const item = document.createElement('button');
       item.type = 'button';
-      item.className = 'neo-alchemist--crumb-menu-item flex items-center gap-1.5 w-full px-2 py-1 rounded-sm text-xs font-light text-left cursor-pointer hover:bg-base-100 focus-visible:bg-base-100';
+      item.className = 'neo-alchemist--crumb-menu-item flex items-center gap-1.5 w-full px-2 py-1 rounded-sm text-sm text-left cursor-pointer hover:bg-base-100 focus-visible:bg-base-100';
       item.setAttribute('role', 'menuitem');
       item.appendChild(markerElement(child.type));
       const text = document.createElement('span');
@@ -1896,13 +1869,313 @@
     opButtons?.forEach(button => (button as any)._tippy?.hide());
   }
 
-  let opTimeout: ReturnType<typeof setTimeout> | null = null;
+  /**
+   * The inspector: the selected component's form, docked on the right.
+   *
+   * Selecting a component opens it here; there is no separate edit step. The
+   * form previews into this canvas as it is typed (the frames re-render with
+   * `inspect`, see InstanceComponentForm::ajaxRefresh()), but nothing reaches
+   * the shared draft until Apply. Changes not yet applied are the one thing
+   * the durable draft does not hold, so while there are any, moving the
+   * selection, a structural op on the component, or leaving the page asks
+   * first — inline, in the dock, never in a dialog.
+   */
+  // The component whose form the dock holds (or is loading), else null.
+  let inspectorUuid: string | null = null;
+  // Changes typed into that form and not yet applied.
+  let inspectorDirty = false;
+  // What to do once the prompt is answered with Apply or Discard.
+  let inspectorPending: (() => void) | null = null;
+  // Set while an Apply is in flight, to run once it has landed.
+  let inspectorAfterApply: (() => void) | null = null;
+  // Increments per form load, so a slow response for a component the
+  // selection has since left is dropped rather than shown.
+  let inspectorLoadToken = 0;
+
+  function inspectorInit(): void {
+    if (!dock || !dockBody) {
+      return;
+    }
+    // What any render of this canvas is for: the component the inspector has
+    // open, marked so its fields answer clicks (component-ajax.ts asks).
+    Drupal.neoAlchemist = Drupal.neoAlchemist || {};
+    Drupal.neoAlchemist.inspecting = (): Record<string, string> => (inspectorUuid && structureData[inspectorUuid]?.type === 'component')
+      ? { inspect: inspectorUuid }
+      : {};
+    // Anything typed, picked or reordered in the form is unapplied until
+    // Apply. component-ajax-form.ts also reports edits it sends for preview
+    // that raise no DOM event of their own (CKEditor, an autocomplete pick).
+    const markDirty = (e: Event) => {
+      const target = e.target as HTMLElement | null;
+      // The tab the form reports to the server is bookkeeping, not an edit.
+      if (target?.matches?.('[data-neo-alchemist-active-tab]')) {
+        return;
+      }
+      if (inspectorUuid && dockBody.querySelector('form')) {
+        inspectorDirty = true;
+      }
+    };
+    dockBody.addEventListener('input', markDirty);
+    dockBody.addEventListener('change', markDirty);
+    dockBody.addEventListener('neoAlchemistFormEdited', markDirty);
+
+    // Cancel: throw the unapplied changes away. With none, it closes the
+    // inspector instead, as there is nothing else for it to undo.
+    dockBody.addEventListener('click', (e) => {
+      const cancel = (e.target as HTMLElement).closest('.neo-alchemist--inspector-cancel');
+      if (!cancel) {
+        return;
+      }
+      e.preventDefault();
+      if (!inspectorDirty) {
+        layerShow(null);
+        return;
+      }
+      inspectorDiscard();
+      if (inspectorUuid) {
+        inspectorLoad(inspectorUuid);
+      }
+    });
+
+    // Unapplied changes are not in the draft, so they would be lost.
+    window.addEventListener('beforeunload', (e) => {
+      if (inspectorDirty) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    });
+  }
+
+  /**
+   * Follow the selection: open the dock on it, or close the dock.
+   */
+  function inspectorSync(uuid: string | null): void {
+    if (!dock || !dockBody) {
+      return;
+    }
+    if (!uuid || !structureData[uuid]) {
+      inspectorClose();
+      return;
+    }
+    dock.hidden = false;
+    if (uuid === inspectorUuid) {
+      return;
+    }
+    const data = structureData[uuid];
+    if (data.type !== 'component') {
+      // A region has no form of its own: the header's breadcrumb still says
+      // where it is, and the body says what to do with it.
+      inspectorEmpty(Drupal.t('Select a component in @region to edit it, or use the + between components to add one.', { '@region': String(data.data.label ?? '') }));
+      inspectorUuid = uuid;
+      return;
+    }
+    inspectorLoad(uuid);
+  }
+
+  function inspectorEmpty(text: string): void {
+    if (!dockBody) {
+      return;
+    }
+    Drupal.detachBehaviors(dockBody, drupalSettings, 'unload');
+    dockBody.innerHTML = '';
+    const note = document.createElement('p');
+    note.className = 'py-6 text-sm text-base-0-content/75';
+    note.textContent = text;
+    dockBody.appendChild(note);
+    inspectorDirty = false;
+  }
+
+  /**
+   * Load a component's form into the dock.
+   */
+  function inspectorLoad(uuid: string): void {
+    if (!dockBody) {
+      return;
+    }
+    inspectorUuid = uuid;
+    inspectorDirty = false;
+    const op = structureData[uuid]?.data?.ops?.edit;
+    if (!op?.permitted) {
+      inspectorEmpty(Drupal.t('This component cannot be edited here.'));
+      return;
+    }
+    const token = ++inspectorLoadToken;
+    Drupal.detachBehaviors(dockBody, drupalSettings, 'unload');
+    dockBody.innerHTML = '';
+    dockBody.setAttribute('aria-busy', 'true');
+    const ajax: any = Drupal.ajax({
+      url: appendParams(op.url, { dock: '1' }),
+      wrapper: dockBody.id,
+      method: 'html',
+      progress: { type: 'none' },
+    } as any);
+    const success = ajax.success;
+    ajax.success = function (this: any, response: any, status: string) {
+      if (token !== inspectorLoadToken) {
+        return;
+      }
+      dockBody.removeAttribute('aria-busy');
+      return success.call(this, response, status);
+    };
+    ajax.execute();
+    // The frames render with this component's prop markers and map, so a
+    // click in the preview finds its field and a field finds its element.
+    inspectorRefreshFrames(uuid);
+  }
+
+  function inspectorClose(): void {
+    if (!dock || !dockBody) {
+      return;
+    }
+    const had = inspectorUuid;
+    inspectorLoadToken++;
+    inspectorUuid = null;
+    inspectorDirty = false;
+    inspectorPromptHide();
+    if (!dock.hidden || had) {
+      Drupal.detachBehaviors(dockBody, drupalSettings, 'unload');
+      dockBody.innerHTML = '';
+    }
+    dock.hidden = true;
+    dock.classList.remove('is-expanded');
+  }
+
+  /**
+   * Re-render the canvas, for the inspected component when given one.
+   */
+  function inspectorRefreshFrames(uuid: string | null): void {
+    const refresh = Drupal.neoAlchemist?.refreshFrames;
+    const frames = Object.values(iframes).filter(Boolean) as HTMLIFrameElement[];
+    if (refresh && frames.length) {
+      refresh(frames, uuid ? { inspect: uuid } : {});
+    }
+  }
+
+  /**
+   * Throw away the unapplied changes: the canvas goes back to the draft.
+   */
+  function inspectorDiscard(): void {
+    inspectorDirty = false;
+    inspectorRefreshFrames(inspectorUuid && structureData[inspectorUuid]?.type === 'component' ? inspectorUuid : null);
+  }
+
+  /**
+   * Submit the inspector's form, then run `then` once it has applied.
+   */
+  function inspectorApply(then: (() => void) | null = null): void {
+    const submit = dockBody?.querySelector<HTMLElement>('.neo-alchemist--form-footer [type="submit"]:not(.js-hide)');
+    if (!submit) {
+      return;
+    }
+    inspectorAfterApply = then;
+    // The submit is AJAX-bound to mousedown, as Drupal binds every submit.
+    submit.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+  }
+
+  /**
+   * The Apply landed: the form is clean, and anything waiting on it runs.
+   */
+  function inspectorApplied(uuid: string): void {
+    if (uuid !== inspectorUuid) {
+      return;
+    }
+    inspectorDirty = false;
+    inspectorPromptHide();
+    const then = inspectorAfterApply;
+    inspectorAfterApply = null;
+    if (then) {
+      then();
+      return;
+    }
+    // A fresh form, built from what was just applied.
+    inspectorLoad(uuid);
+  }
+
+  /**
+   * Whether an action has to wait for the prompt. When it does, the prompt is
+   * shown and the action runs once it is answered.
+   */
+  function inspectorGuard(label: string, action: () => void): boolean {
+    if (!inspectorDirty || !dockPrompt) {
+      return false;
+    }
+    inspectorPending = action;
+    dockPrompt.innerHTML = '';
+    const text = document.createElement('p');
+    text.className = 'mb-2';
+    text.textContent = Drupal.t('Apply changes to @label?', { '@label': label });
+    const buttons = document.createElement('div');
+    buttons.className = 'flex gap-2';
+    const apply = document.createElement('button');
+    apply.type = 'button';
+    apply.className = 'btn btn-xs btn-primary';
+    apply.textContent = Drupal.t('Apply');
+    apply.addEventListener('click', () => {
+      const pending = inspectorPending;
+      inspectorPending = null;
+      inspectorApply(() => {
+        inspectorPromptHide();
+        pending?.();
+      });
+    });
+    const discard = document.createElement('button');
+    discard.type = 'button';
+    discard.className = 'btn btn-xs btn-outline';
+    discard.textContent = Drupal.t('Discard');
+    discard.addEventListener('click', () => {
+      const pending = inspectorPending;
+      inspectorPending = null;
+      inspectorPromptHide();
+      inspectorDiscard();
+      if (pending) {
+        pending();
+      }
+      // Discarding without moving on: the same component, reloaded clean.
+      if (inspectorUuid && structureData[inspectorUuid]?.type === 'component' && !dockBody?.querySelector('form')) {
+        inspectorLoad(inspectorUuid);
+      }
+    });
+    buttons.append(apply, discard);
+    dockPrompt.append(text, buttons);
+    dockPrompt.hidden = false;
+    apply.focus();
+    return true;
+  }
+
+  function inspectorPromptHide(): void {
+    if (dockPrompt) {
+      dockPrompt.hidden = true;
+      dockPrompt.innerHTML = '';
+    }
+    inspectorPending = null;
+  }
+
+  /**
+   * The label the prompt names: the component with the unapplied changes.
+   */
+  function inspectorLabel(): string {
+    return String((inspectorUuid && structureData[inspectorUuid]?.data?.label) || Drupal.t('this component'));
+  }
+
+  /**
+   * Keyboard into the inspector: its first field (Enter in Layers).
+   */
+  function inspectorFocus(): void {
+    // The first field on screen: the inactive tab panes are in the DOM too,
+    // and a hidden control takes no focus. The per-field Default / Hide chips
+    // are controls of the legend, not the field.
+    const field = Array.from(dockBody?.querySelectorAll<HTMLElement>('.neo-alchemist--form-body :is(input:not([type="hidden"]):not([disabled]), select, textarea, [contenteditable="true"])') ?? [])
+      .find(el => !el.closest('[hidden], .form--inline-min') && el.getClientRects().length > 0);
+    if (field) {
+      field.focus();
+      return;
+    }
+    dock?.setAttribute('tabindex', '-1');
+    dock?.focus();
+  }
+
   function opsSet(uuid: string | null): void {
     if (!opButtons) return;
-    if (opTimeout) {
-      clearTimeout(opTimeout);
-      opTimeout = null;
-    }
     opTooltipsHide();
 
     // Find enabled buttons
@@ -1919,13 +2192,10 @@
           if (!op.permitted) {
             continue;
           }
-          // Every copy of the op, not just the first found. The positional ops
-          // now live in the bar as well as on the outline, and stopping at the
-          // first match would leave the other copy hidden.
-          const panelButton = panelBottom.querySelector<HTMLElement>(`[data-op="${opKey}"]`);
-          if (panelButton) {
-            enabledButtons.push(panelButton);
-          }
+          // Every copy of the op, not just the first found. The move ops live
+          // in the inspector's header as well as on the outline, and stopping
+          // at the first match would leave the other copy hidden.
+          dock?.querySelectorAll<HTMLElement>(`[data-op="${opKey}"]`).forEach(button => enabledButtons.push(button));
           sizes.forEach(size => {
             const overlayButton = overlayElements[uuid]?.[size]?.querySelector<HTMLElement>(`[data-op="${opKey}"]`);
             if (overlayButton) {
@@ -1936,32 +2206,14 @@
       }
     }
 
-    // Show/hide buttons and animate panel
-    if (enabledButtons.length > 0) {
-      const enabledSet = new Set(enabledButtons);
-      opButtons.forEach(button => {
-        button.style.display = enabledSet.has(button) ? '' : 'none';
-      });
-      // The positional group carries a divider, so it has to go when every one
-      // of its buttons is denied — otherwise the bar keeps a rule with nothing
-      // after it.
-      if (panelPositionOps) {
-        const anyVisible = Array.from(panelPositionOps.querySelectorAll<HTMLElement>('.neo-alchemist--op'))
-          .some(button => button.style.display !== 'none');
-        panelPositionOps.style.display = anyVisible ? '' : 'none';
-      }
-      panelBottom.style.opacity = '1';
-      panelBottom.style.transform = 'translate(0, 0)';
-    } else {
-      const height = panelBottom.getBoundingClientRect().height;
-      panelBottom.style.opacity = '0';
-      panelBottom.style.transform = `translate(0, ${height}px)`;
-      opTimeout = setTimeout(() => {
-        if (!opButtons) return;
-        opButtons.forEach(button => {
-          button.style.display = 'none';
-        });
-      }, transitionSpeed);
+    const enabledSet = new Set(enabledButtons);
+    opButtons.forEach(button => {
+      button.style.display = enabledSet.has(button) ? '' : 'none';
+    });
+    // ⋯ with nothing permitted inside it is a menu that opens on nothing.
+    if (dockMore) {
+      dockMore.hidden = !Array.from(dockMore.querySelectorAll<HTMLElement>('.neo-alchemist--op'))
+        .some(button => button.style.display !== 'none');
     }
   }
 
@@ -1977,6 +2229,10 @@
    */
   function layerShow(uuid: string | null = null, force: boolean = false, instant: boolean = false, scroll: boolean = true): void {
     if (!uuid && !layerUuid) {
+      return;
+    }
+    // Moving off a component with unapplied changes asks first.
+    if (uuid !== layerUuid && inspectorGuard(inspectorLabel(), () => layerShow(uuid, force, instant, scroll))) {
       return;
     }
     // Inherited components are inert in hybrid mode. Reachable here only via a
@@ -2086,8 +2342,7 @@
     seamsShow(uuid);
     seamPreviewOnly = false;
     layersSelectionSet(uuid);
-    // The breadcrumb and ops bars just changed visibility, so the space the
-    // panel has to sit in changed with them.
+    inspectorSync(uuid);
     layersPosition();
     // Focusing something already scrolled past has to clamp straight away, not
     // wait for the next scroll.
@@ -2328,8 +2583,8 @@
     // Layers and badge dropdowns (panels.ts). Set on the editor's root.
     const gap = parseFloat(getComputedStyle(container).getPropertyValue('--neo-alchemist-floating-gap')) || 16;
     const rect = wrapper.getBoundingClientRect();
-    panel.style.top = `${rect.top + panelTopHeight() + gap}px`;
-    panel.style.bottom = `${(window.innerHeight - rect.bottom) + panelBottomHeight() + gap}px`;
+    panel.style.top = `${rect.top + gap}px`;
+    panel.style.bottom = `${(window.innerHeight - rect.bottom) + gap}px`;
     panel.style.right = `${(window.innerWidth - rect.right) + gap}px`;
     // Under the breadcrumb and ops bars, which own z-30, so a mid-transition
     // overlap never puts the panel on top of them.
@@ -3077,6 +3332,16 @@
     if (!op?.permitted) {
       return;
     }
+    // Editing is the inspector, which the selection already opened.
+    if (op.verb === 'edit') {
+      inspectorFocus();
+      return;
+    }
+    // An op that changes the tree waits on unapplied changes to this
+    // component, which it would otherwise build on without them.
+    if (inspectorGuard(inspectorLabel(), () => operationExecute(opId))) {
+      return;
+    }
     // Dispatch by the op's verb, read off the record — the client no longer
     // decomposes the id by splitting it on a hyphen. The handler only chooses
     // how the request is dispatched; the URL comes from the record.
@@ -3149,22 +3414,6 @@
    * request URL and only decides how the request is dispatched.
    */
   const operations: Operations = {
-    edit: (url: string): void => {
-      const modalOptionsEdit: any = {
-        ...baseModalOptions,
-        neo: {
-          ...baseModalOptions.neo,
-          contentPadding: '0px',
-        },
-      };
-      Drupal.ajax({
-        progress: ajaxProgress(),
-        url: url,
-        dialogType: 'modal',
-        dialog: modalOptionsEdit,
-      }).execute();
-    },
-
     sort: (url: string): void => {
       Drupal.ajax({
         progress: ajaxProgress(),

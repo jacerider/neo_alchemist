@@ -978,20 +978,45 @@ A top bar badge that is not a panel's gets the same dropdown from
 every dropdown under the manage chrome's top bar sits and behaves alike — the SDC preview page's
 audit badge (`sdc-audit.ts`) is one. Don't hand-roll a dropdown there.
 
+**The inspector** — the layout editor edits in a right-hand dock, not a modal. Selecting a
+component opens its form there (`components-parent.ts`, `inspector*()`): the form is
+`InstanceComponentEditController` with `?dock=1`, which returns the form alone (form state
+`neo_alchemist_dock`: Save reads Apply, Cancel is the inspector's). There is no second canvas.
+The form previews into the layout canvas: its debounced refresh sends `InstanceComponentManageIframeCommand`
+with `{inspect: uuid, live: 1}`, and `InstanceComponentPreviewController::all()` puts that
+editor's scratch buffer on top of the draft (`live` only) and flags the instance
+`setInspected(TRUE)`. Inspected is both a manage preview (layout markers, regions render their
+children) and an editor preview (prop stamps, `data-neo-component`), and the page carries that
+component's prop map, so click-to-field and `locate` work on the main canvas. Every other render
+of the canvas while the inspector is open (opening it, Cancel, a layout write) carries
+`inspect` without `live` (`Drupal.neoAlchemist.inspecting()`): the draft, still stamped.
+Nothing reaches the shared draft until Apply (the form's own submit). Unapplied changes are
+tracked from the form's `input`/`change` and `neoAlchemistFormEdited` (sent by
+`component-ajax-form.ts` for edits that raise no DOM event); while there are any, a selection
+change, a structural op (`operationExecute()`) or leaving the page asks first, with an inline
+Apply/Discard prompt in the dock or `beforeunload`. The dock's header holds the breadcrumb, the
+move ops and a ⋯ menu of the other verb ops (`_neo_alchemist_overlay_ops()`); Expand gives it the
+whole width. The canvas fits its frames to the column it is left (`Fit`, `component-parent.ts`),
+re-fitting on resize. The standalone edit page renders the same dock (`form_position: dock`).
+`component-parent.ts` wires whichever form an editor holds now (`bindForm()`, re-run on every
+attach), because the inspector swaps it per selection.
+
 **Taking the editor somewhere** — `Drupal.neoAlchemist.editor.focus({uuid, prop?, locate?})`
 (`components-parent.ts`) is the editor's public call for code outside it (a panel, a badge):
 it selects the component instance on the canvas (as the Layers panel does, aiming at the frame
-on show) and returns `false`, doing nothing, for a uuid the canvas does not show. With `prop` (a
-shape id) or `locate` (`{tag?, text?, src?, href?}` — something in the component's preview) it
-also opens the component's edit form and focuses that field. The request waits in the editor and
-is claimed by the edit form when it initializes (`takeFieldFocus()`, 20 s TTL, so an edit that
-never opened cannot hijack the next). A `prop` goes straight to `focusProp()`; a `locate` is sent
-to each edit preview frame on its first `size` message (`propLocate`), and the preview answers
-`propLocated` with the prop id of the nearest prop target from the first matching element — the
-same claims click-to-field uses, so there is no second mapping. Nothing found: the form stays open
-on the component, unfocused. The canvas carries no `data-neo-prop` (only edit previews have a
-prop map), which is why a caller holding a canvas element passes a `locate` rather than a prop.
-The preview script is built in both scopes, so a change to it needs the front build too.
+on show), which opens it in the inspector, and returns `false`, doing nothing, for a uuid the
+canvas does not show. With `prop` (a shape id) or `locate` (`{tag?, text?, src?, href?}` —
+something in the component's preview) it also focuses that field. The request waits in the
+editor and is claimed by the inspector's form when it is wired (`takeFieldFocus()`, 20 s TTL, so
+a request that never landed cannot hijack the next), or at once (`neoAlchemistFieldFocus`) when
+that component's form is already open. A `prop` goes straight to `focusProp()`; a `locate` is
+sent to the frames (`propLocate`) — on claiming, on a fresh frame's first `size` message and
+after an in-place render (`previewRefreshed`) — and the preview answers `propLocated` with the
+prop id of the nearest prop target from the first matching element, the same claims
+click-to-field uses, so there is no second mapping. Nothing found: the form stays open on the
+component, unfocused. Only the inspected component carries a prop map, which is why a caller
+holding a canvas element passes a `locate` rather than a prop. The preview script is built in
+both scopes, so a change to it needs the front build too.
 
 `src/js/panels.ts` holds the registry and the one record-level version every panel shares;
 `components-parent.ts` owns the toggles and positioning (`sidePanelToggle()`,
@@ -1237,10 +1262,11 @@ From [neo_alchemist.services.yml](neo_alchemist.services.yml):
   construction rather than by base-URL string compatibility.
 - **The editor chrome iterates the inventory.**
   `template_preprocess_neo_alchemist_overlay()` no longer names the eight ops; it projects
-  `EditorOpInventory::ops()` through `_neo_alchemist_overlay_ops()` into the three surfaces the
-  overlay template loops over — the bottom bar's verb group and positional group, and the two
-  outline edge clusters — deciding verb-vs-positional and top-vs-bottom edge from each record's
-  own `position`/`direction`, never from its id. Adding an op is a single inventory row, with no
+  `EditorOpInventory::ops()` through `_neo_alchemist_overlay_ops()` into the surfaces the
+  templates loop over — the two outline edge clusters, and the inspector header's move buttons
+  and ⋯ menu (every verb op but `edit`, which is the inspector itself) — deciding
+  verb-vs-positional and top-vs-bottom edge from each record's own `position`/`direction`, never
+  from its id. Adding an op is a single inventory row, with no
   preprocess or template edit; `EditorChromeIteratesInventoryTest` proves a synthetic row
   produces a button in the right place. The buttons carry an inert `<current>` placeholder URL
   (a `#type => link` needs a `#url` to render as an `<a>`, but the static chrome is reused across

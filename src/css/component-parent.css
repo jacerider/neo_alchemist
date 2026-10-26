@@ -319,3 +319,34 @@ form.neo-alchemist-manage--form:has(.neo-alchemist--form-layout) > .form--inner,
     padding-top: 1rem;
   }
 }
+
+/* The right dock: the inspector (neo-alchemist-manage.html.twig).
+ *
+ * A fixed width beside the canvas rather than a panel over it, so the preview
+ * keeps all of what it is given and fits itself to that (Fit). Expand gives
+ * the dock the whole width. The canvas is folded to nothing rather than
+ * hidden: a frame with no box flips every media query in its document, so it
+ * keeps its own width, out of sight.
+ */
+.neo-alchemist--dock {
+  width: 25rem;
+  max-width: calc(100vw - 4rem);
+}
+
+.neo-alchemist--dock-body.neo-alchemist-manage--form-scroll {
+  width: auto;
+  max-width: none;
+}
+
+.neo-alchemist-manage:has(.neo-alchemist--dock.is-expanded) {
+  .neo-alchemist--dock {
+    flex: 1 1 auto;
+    width: auto;
+    max-width: none;
+  }
+
+  .neo-alchemist-manage--canvas {
+    flex: 0 0 0;
+    visibility: hidden;
+  }
+}

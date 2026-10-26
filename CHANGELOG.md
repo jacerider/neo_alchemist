@@ -1,5 +1,40 @@
 # Changelog
 
+## Components are edited in a docked inspector, not a modal
+
+Editing a component used to open a full-screen modal with a second canvas of its own (zoom,
+size and view options again), its form floating over a third of that preview and Save/Cancel
+far from the fields. Over the canvas sat a breadcrumb bar and a bar of ops for the selection.
+
+Selecting a component now opens it in the inspector, a dock on the right of the layout editor.
+There is no Edit step, and no breadcrumb or ops bar. The inspector's header holds the
+breadcrumb (with its child menu), Move up/down and a ⋯ menu (Sort, Clone, Delete); Expand gives
+it the whole width. The form previews into the main canvas as you type, and clicking an element
+of the selected component focuses its field there, as it did in the modal. Nothing is written
+to the shared draft until **Apply**. **Cancel** throws the changes away, or closes the inspector
+when there are none. With changes not yet applied, selecting something else, moving, cloning or
+deleting the component asks first ("Apply changes to …?" Apply · Discard) inside the dock, and
+leaving the page asks too. Escape, the close button or a click on empty canvas closes the
+inspector. Enter on a Layers row moves focus into its first field. The standalone edit page uses
+the same dock.
+
+Zoom has a new **Fit** choice, the default for anyone who has not picked another: the frames
+keep their true widths and scale to the space the docks leave, re-fitting as the inspector opens
+and closes and the window resizes. 100 / 75 / 50 stay as fixed choices.
+
+Adding a component still opens the library and then its form in a modal; once saved, the new
+component opens in the inspector.
+
+For code: `InstanceComponentEditController` returns the form alone for `?dock=1` (form state
+`neo_alchemist_dock`). The layout preview takes `inspect` (render that instance with
+`setInspected(TRUE)`, a new flag that keeps it a layout render but stamps it as an editor
+preview, and ship its prop map) and `live` (overlay the user's scratch buffer).
+`InstanceComponentManageIframeCommand` takes query arguments. `_neo_alchemist_overlay_ops()`
+now returns `outline_ops`, `inspector_ops` and `inspector_menu`; the overlay template no longer
+renders the two bars, and `neo_alchemist_manage` has `dock`, `dock_ops`, `dock_menu` and
+`dock_close` variables. `Drupal.neoAlchemist.editor.focus()` opens the inspector rather than a
+modal.
+
 ## In Single mode the preview starts right under the header
 
 With one frame on screen the canvas still showed the frame's header card (icon, "Desktop",

@@ -25,7 +25,13 @@
     </div>
   {% endif %}
 
-  <div class="flex flex-col flex-auto relative overflow-hidden">
+  {#
+    Columns: the canvas, then the right dock (the inspector). The canvas owns
+    whatever width the docks leave it, and the preview fits itself to that
+    (Fit, component-parent.ts).
+  #}
+  <div class="neo-alchemist-manage--body flex flex-auto relative overflow-hidden">
+  <div class="neo-alchemist-manage--canvas flex flex-col flex-auto min-w-0 relative overflow-hidden">
 
     {#
       Layers panel. Built entirely from the structure data the preview iframes
@@ -160,6 +166,8 @@
       </div>
     {% endif %}
 
+  </div>
+
     {% if form and form_position == 'side' %}
       <div class="neo-alchemist-manage--form-wrapper neo-alchemist--form-side absolute flex flex-col rounded-lg shadow-lg overflow-hidden">
         {% if toolbar or toolbar_title %}
@@ -179,6 +187,46 @@
           {{ form|neo_class('neo-alchemist-manage--form p-0 pt-4')|neo_class('mt-0', 'inner_attributes') }}
         </div>
       </div>
+    {% endif %}
+
+    {#
+      The inspector: the selected component's form, docked on the right. In
+      the layout editor it opens and closes with the selection and its form is
+      loaded into the body (components-parent.ts); opened on its own, the edit
+      page renders it with its form. The header holds what acts on the
+      selection: where it sits (the breadcrumb, written by the editor), Move
+      up/down and a ⋯ menu. The prompt asks about unapplied changes in place,
+      with no dialog.
+    #}
+    {% if dock %}
+      <aside class="neo-alchemist--dock flex-none flex flex-col border-l bg-base-0 text-base-0-content z-40"{% if not (form and form_position == 'dock') %} hidden{% endif %} aria-label="{{ 'Inspector'|t }}" data-alchemist-ignore data-alchemist-nodrag>
+        <div class="neo-alchemist--dock-header flex-none flex items-center gap-2 border-b px-3 py-2">
+          <div class="neo-alchemist--dock-title flex flex-auto min-w-0 items-center gap-1 text-sm">
+            {%- if toolbar_title -%}
+              <span class="font-semibold">{{ toolbar_title }}</span>
+            {%- endif -%}
+          </div>
+          {% if dock_ops %}
+            <div class="neo-alchemist--dock-ops flex flex-none items-center gap-1">{{ dock_ops }}</div>
+          {% endif %}
+          {% if dock_menu %}
+            <div class="neo-alchemist--more neo-alchemist--dock-more relative flex-none">
+              <button type="button" class="neo-alchemist--more-toggle btn btn-xs btn-outline is-active:btn-primary" title="{{ 'More actions'|t }}" aria-expanded="false" aria-controls="{{ id }}-dock-menu">{{ icon('ellipsis-h') }}<span class="sr-only">{{ 'More actions'|t }}</span></button>
+              <div id="{{ id }}-dock-menu" class="neo-alchemist--more-menu absolute right-0 top-full mt-2 w-48 p-1 z-50 rounded-lg shadow-lg border bg-base-0 text-base-0-content" hidden>{{ dock_menu }}</div>
+            </div>
+          {% endif %}
+          <button type="button" class="neo-alchemist--dock-expand btn btn-xs btn-outline flex-none" title="{{ 'Expand'|t }}" aria-pressed="false">{{ icon('expand') }}<span class="sr-only">{{ 'Expand'|t }}</span></button>
+          {% if dock_close %}
+            <button type="button" class="neo-alchemist--dock-close btn btn-xs btn-outline flex-none" title="{{ 'Close'|t }}">{{ icon('times') }}<span class="sr-only">{{ 'Close'|t }}</span></button>
+          {% endif %}
+        </div>
+        <div class="neo-alchemist--dock-prompt flex-none border-b px-3 py-2 text-sm bg-warning-50 text-warning-900" role="alert" hidden></div>
+        <div id="{{ id }}-dock-body" class="neo-alchemist--dock-body neo-alchemist-manage--form-scroll flex flex-col flex-auto min-h-0 px-4">
+          {%- if form and form_position == 'dock' -%}
+            {{ form|neo_class('neo-alchemist-manage--form p-0 pt-4')|neo_class('mt-0', 'inner_attributes') }}
+          {%- endif -%}
+        </div>
+      </aside>
     {% endif %}
 
   </div>

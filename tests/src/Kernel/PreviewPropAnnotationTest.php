@@ -114,6 +114,25 @@ class PreviewPropAnnotationTest extends KernelTestBase {
   }
 
   /**
+   * The inspected instance is a layout render and an editor preview at once.
+   *
+   * The layout editor's inspector marks the component it has open so the
+   * canvas can answer a click with its field. That has to stay a page-builder
+   * canvas render — its overlays find components by their layout markers, and
+   * an instance preview renders a region as a placeholder instead of its
+   * children — while also being an editor preview, which stamps the props.
+   * Instance preview could do only the second, and the inspected component
+   * dropped out of the canvas's tree.
+   */
+  public function testInspectedIsBothCanvasAndEditorPreview(): void {
+    $inspected = $this->buildComponent(preview: TRUE)->setInspected(TRUE);
+    $this->assertTrue($inspected->isManagePreview(), 'Still the page-builder canvas render.');
+    $this->assertTrue($inspected->isEditorPreview(), 'And an editor preview, so its props are stamped.');
+    $this->assertFalse($inspected->isInstancePreview(), 'Not the single-component preview.');
+    $this->assertFalse($this->buildComponent()->setInspected(TRUE)->isEditorPreview(), 'Outside a preview the flag changes nothing.');
+  }
+
+  /**
    * Style shapes are never stamped, even in the editor preview.
    *
    * A style attribute decorates an element rather than owning it, and Twig

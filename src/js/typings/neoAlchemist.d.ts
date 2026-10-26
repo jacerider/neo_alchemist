@@ -173,8 +173,12 @@ declare namespace drupal {
       frames?: NeoAlchemistFrames;
       /** Brings stale frames up to the current render (component-ajax.ts). */
       refreshStale?: (iframes: HTMLIFrameElement[]) => void;
+      /** Re-renders frames in place, with optional query arguments (component-ajax.ts). */
+      refreshFrames?: (iframes: HTMLIFrameElement[], query?: Record<string, string>) => void;
       panels?: NeoAlchemistPanelRegistry;
       editor?: NeoAlchemistEditorApi;
+      /** The query a render for the inspector's component needs, else {} (components-parent.ts). */
+      inspecting?: () => Record<string, string>;
       /** A short message at the top of the editor that fades by itself. */
       toast?: (text: string, type?: 'status' | 'error') => void;
     };

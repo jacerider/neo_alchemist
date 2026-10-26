@@ -7,6 +7,10 @@
   // so showing a stale frame never cancels an edit's render, while an edit —
   // which renders the newer state — supersedes it.
   let staleController: AbortController | null = null;
+  // The query the last edit rendered with (the inspector's `inspect`). A stale
+  // frame brought up to date later has to show the same render, unapplied
+  // values included, or it would disagree with the frame beside it.
+  let lastQuery: Record<string, string> = {};
 
   /**
    * Reload every frame, spaced out.
@@ -46,7 +50,7 @@
    * landed they report again, and the editor rebuilds its outlines from that
    * (previewRefreshed in components-parent.ts).
    */
-  const deliver = (iframes: HTMLIFrameElement[], signal: AbortSignal): void => {
+  const deliver = (iframes: HTMLIFrameElement[], signal: AbortSignal, query: Record<string, string> = {}): void => {
     // Rendered for a frame other than desktop when one is being refreshed: the
     // desktop preview alone attaches the screenshot library, so its render
     // needs assets the other documents lack, while theirs needs nothing
@@ -63,6 +67,14 @@
       reloadAll(iframes);
       return;
     }
+    // Set for this one render only; the frames' own src stays as it was. An
+    // argument the last render carried and this one does not is dropped, so
+    // closing the inspector renders the draft alone again.
+    const target = new URL(url, window.location.origin);
+    target.searchParams.delete('inspect');
+    target.searchParams.delete('live');
+    Object.entries(query).forEach(([key, value]) => target.searchParams.set(key, value));
+    url = target.toString();
 
     fetch(url, { credentials: 'same-origin', signal: signal })
       .then(response => {
@@ -99,7 +111,8 @@
    * refreshStale() when it is shown again. The frame clears the mark itself
    * once it shows the current render — see markFresh() in component-child.ts.
    */
-  const refreshFrames = (iframes: HTMLIFrameElement[]): void => {
+  const refreshFrames = (iframes: HTMLIFrameElement[], query: Record<string, string> = {}): void => {
+    lastQuery = query;
     const frames = Drupal.neoAlchemist?.frames;
     const active = frames?.active(iframes[0].closest('.neo-alchemist-manage'));
     const targets = iframes.filter(iframe => !active || active.includes(iframe.dataset.size as NeoAlchemistFrameSize));
@@ -116,7 +129,7 @@
     staleController?.abort();
     controller?.abort();
     controller = new AbortController();
-    deliver(targets, controller.signal);
+    deliver(targets, controller.signal, query);
   };
 
   /**
@@ -128,11 +141,12 @@
     }
     staleController?.abort();
     staleController = new AbortController();
-    deliver(iframes, staleController.signal);
+    deliver(iframes, staleController.signal, lastQuery);
   };
 
   Drupal.neoAlchemist = Drupal.neoAlchemist || {};
   Drupal.neoAlchemist.refreshStale = refreshStale;
+  Drupal.neoAlchemist.refreshFrames = refreshFrames;
 
   if (Drupal.AjaxCommands) {
     /**
@@ -162,7 +176,12 @@
       if (!iframes.length) {
         return;
       }
-      refreshFrames(iframes);
+      // A layout write sends no query of its own; the render it asks for is
+      // still for whatever the inspector has open.
+      const query = response.query && typeof response.query === 'object' && Object.keys(response.query).length
+        ? response.query
+        : (Drupal.neoAlchemist?.inspecting?.() ?? {});
+      refreshFrames(iframes, query);
     } as drupal.Core.IAjaxCommand;
 
     Drupal.AjaxCommands.prototype.neoAlchemistToast = function (_ajax, response, _status) {

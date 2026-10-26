@@ -79,6 +79,12 @@ function neo_alchemist_theme(): array {
         // The trailing save group, re-rendered after every layout write.
         // @see \Drupal\neo_alchemist\ComponentManageHelper::buildDynamicOperations()
         'top_save' => [],
+        // The right dock (the inspector), its header buttons and ⋯ menu, and
+        // whether it can be closed (only where closing means deselecting).
+        'dock' => FALSE,
+        'dock_ops' => [],
+        'dock_menu' => [],
+        'dock_close' => FALSE,
         'bottom_start' => [],
         'bottom_end' => [],
         // Editor side panels: a list of {id, label, width, body}.
@@ -269,52 +275,34 @@ function template_preprocess_neo_alchemist_component_preview(&$variables) {
  * Implements hook_preprocess_HOOK() for neo_alchemist_overlay.
  */
 function template_preprocess_neo_alchemist_overlay(&$variables) {
-  $variables['close'] = [
-    '#type' => 'link',
-    '#title' => neo_icon_admin('Close', 'times')->iconOnly(),
-    '#url' => Url::fromRoute('<current>'),
-    '#tooltip' => t('Close'),
-    // Deselecting loses nothing, so it is a quiet icon in the bar's own text
-    // colour: the alert fill belongs to actions that destroy something.
-    '#attributes' => [
-      'class' => [
-        'neo-alchemist--close', 'inline-flex', 'items-center', 'justify-center', 'size-7', 'rounded',
-        'text-inherit', 'hover:text-inherit', 'opacity-75', 'transition', 'hover:opacity-100', 'hover:bg-base-0/10',
-      ],
-    ],
-  ];
-
   // The chrome is rendered once and reused across every selection, so it reads
   // the static op vocabulary and never the per-component op records. Iterating
   // the inventory here (and looping in the template) is what makes adding an op
   // a one-row change: no op is named in this function.
   $inventory = \Drupal::service('neo_alchemist.editor_op_inventory');
   assert($inventory instanceof EditorOpInventory);
-  $chrome = _neo_alchemist_overlay_ops($inventory->ops());
-  $variables['ops'] = $chrome['ops'];
-  $variables['position_ops'] = $chrome['position_ops'];
-  $variables['outline_ops'] = $chrome['outline_ops'];
+  $variables['outline_ops'] = _neo_alchemist_overlay_ops($inventory->ops())['outline_ops'];
 }
 
 /**
  * Builds the editor chrome's op render structures from the op inventory.
  *
- * The overlay chrome is rendered once and reused across every selection, so it
- * reads the static op vocabulary and never the per-component op records the
- * entity emits — permission and the resolved URL are decided per selection,
+ * The chrome is rendered once and reused across every selection, so it reads
+ * the static op vocabulary and never the per-component op records the entity
+ * emits — permission and the resolved URL are decided per selection,
  * client-side (opsSet()/operationExecute()). This iterates that vocabulary and
  * names no individual op, so adding a row to EditorOpInventory adds a button
- * with no edit to this function or neo-alchemist-overlay.html.twig.
+ * with no edit to this function or the templates.
  *
- * The decomposition the client used to infer by hyphenating an id is read off
- * each record instead. A verb op (edit/sort/clone/delete) carries neither a
- * position nor a direction and acts on the component itself. A positional op
- * carries one and places the component relative to its siblings; it appears
- * twice — on the outline, split into the two edge clusters, and again in the
- * fixed bottom bar (the outline copies sit off screen whenever the component
- * is taller than the viewport, so the bar is the always-visible route to them).
- * Which edge a positional op acts on is derived from its own fields: before/up
- * hang off the top, after/down off the bottom.
+ * Two surfaces, decided by each record's own fields:
+ * - The outline's edge clusters hold every positional op (a position or a
+ *   direction): before/up hang off the top, after/down off the bottom.
+ * - The inspector's header (neo-alchemist-manage.html.twig) acts on the
+ *   selection it is showing. Ops that carry a direction (move up/down) are its
+ *   buttons, kept in reach because the outline's copies sit off screen on a
+ *   component taller than the canvas. Verb ops (no position, no direction) go
+ *   in its ⋯ menu — all but `edit`, which is the inspector itself. Adding is
+ *   left to the outline and the + seams, which already say where.
  *
  * Every button's #url is a `<current>` placeholder. A #type link must carry a
  * #url to render as an <a>, but the client preventDefault()s the click and
@@ -325,16 +313,16 @@ function template_preprocess_neo_alchemist_overlay(&$variables) {
  *   The op records, in render order.
  *
  * @return array
- *   Render structures for the overlay template: `ops` (verb ops, the bottom
- *   bar's left group), `position_ops` (positional ops, its right group) and
- *   `outline_ops` (positional ops split into `top`/`bottom` edge clusters,
- *   each a list of ['verb' => …, 'link' => …]).
+ *   Render structures: `outline_ops` (split into `top`/`bottom` clusters, each
+ *   a list of ['verb' => …, 'link' => …]), `inspector_ops` (the header's
+ *   buttons) and `inspector_menu` (its ⋯ menu items), the last two keyed by op
+ *   id.
  */
 function _neo_alchemist_overlay_ops(array $ops): array {
   $build = [
-    'ops' => [],
-    'position_ops' => [],
     'outline_ops' => ['top' => [], 'bottom' => []],
+    'inspector_ops' => [],
+    'inspector_menu' => [],
   ];
   foreach ($ops as $op) {
     // The op labels are a fixed vocabulary declared once in EditorOpInventory;
@@ -345,16 +333,22 @@ function _neo_alchemist_overlay_ops(array $ops): array {
 
     // A verb op carries neither a position nor a direction.
     if ($op->position === NULL && $op->direction === NULL) {
-      $build['ops'][$op->id] = [
+      if ($op->verb === 'edit') {
+        continue;
+      }
+      // Delete is the one verb that destroys, and takes the alert colour.
+      $tone = $op->verb === 'delete'
+        ? ['text-alert-700', 'hover:bg-alert-50', 'hover:text-alert-800']
+        : ['text-inherit', 'hover:bg-base-100'];
+      $build['inspector_menu'][$op->id] = [
         '#type' => 'link',
-        '#title' => neo_icon_admin($label, $op->icon)->iconOnly(),
+        '#title' => neo_icon_admin($label, $op->icon),
         '#url' => Url::fromRoute('<current>'),
-        '#tooltip' => $label,
-        '#tooltip_options' => ['placement' => 'top'],
         '#attributes' => [
-          // Delete is the one verb that destroys, and takes the alert colour
-          // so it never looks like Edit beside it.
-          'class' => ['neo-alchemist--op', 'btn', $op->verb === 'delete' ? 'btn-alert' : 'btn-primary', 'btn-xs'],
+          'class' => [
+            'neo-alchemist--op', 'flex', 'w-full', 'items-center', 'gap-2', 'px-3', 'py-2', 'rounded', 'text-sm',
+            ...$tone,
+          ],
           'data-op' => $op->id,
         ],
       ];
@@ -386,23 +380,19 @@ function _neo_alchemist_overlay_ops(array $ops): array {
       ],
     ];
 
-    // In the bottom bar: labelled, because the bar has no edge context to say
-    // which plus is before and which is after. Add ops show their short label;
-    // the move ops declare none and show only their icon, with the full label
-    // kept for screen readers — an icon alone left them with no name at all.
-    // phpcs:ignore Drupal.Semantics.FunctionT.NotLiteralString
-    $title = $op->short !== NULL ? neo_icon_admin(t($op->short), $op->icon) : neo_icon_admin($label, $op->icon)->iconOnly();
-    $build['position_ops'][$op->id] = [
-      '#type' => 'link',
-      '#title' => $title,
-      '#url' => Url::fromRoute('<current>'),
-      '#tooltip' => $label,
-      '#tooltip_options' => ['placement' => 'top'],
-      '#attributes' => [
-        'class' => ['neo-alchemist--op', 'btn', 'btn-secondary', 'btn-xs'],
-        'data-op' => $op->id,
-      ],
-    ];
+    if ($op->direction !== NULL) {
+      $build['inspector_ops'][$op->id] = [
+        '#type' => 'link',
+        '#title' => neo_icon_admin($label, $op->icon)->iconOnly(),
+        '#url' => Url::fromRoute('<current>'),
+        '#tooltip' => $label,
+        '#tooltip_options' => ['placement' => 'bottom'],
+        '#attributes' => [
+          'class' => ['neo-alchemist--op', 'btn', 'btn-xs', 'btn-outline'],
+          'data-op' => $op->id,
+        ],
+      ];
+    }
   }
   return $build;
 }

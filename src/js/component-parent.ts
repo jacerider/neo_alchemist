@@ -10,6 +10,15 @@
    */
   const onFormRebuild: Array<() => void> = [];
 
+  /**
+   * Wires whichever form each editor holds now (bindForm() in init()).
+   *
+   * An editor's form is not always there from the start: the layout editor's
+   * inspector loads one per selection into its dock. So every attach asks each
+   * editor to wire a form it has not seen yet.
+   */
+  const formBinders: Array<() => void> = [];
+
   Drupal.behaviors.neoAlchemistComponentParent = {
     scale: 1,
 
@@ -17,6 +26,7 @@
       once('neo.alchemist.component.parent', '.neo-alchemist-manage').forEach(container => {
         init(container);
       });
+      formBinders.forEach(bind => bind());
       onFormRebuild.forEach(repaint => repaint());
     },
 
@@ -441,14 +451,27 @@
     const iframes = container.querySelectorAll('iframe');
     const wrapper = container.querySelector('.neo-alchemist-manage--wrapper') as HTMLElement;
     const messages = document.querySelector('.alchemist-messages');
-    const formWrapper = container.querySelector('.neo-alchemist-manage--form-wrapper') as HTMLElement;
+    let formWrapper!: HTMLElement;
     // The fields band, which is the only part of the form that scrolls. The
     // pane around it (--form-scroll) sizes the form and clips it; scrolling
     // that would move nothing. Falls back to the pane for any layout that has
     // not been re-themed to the three-band form.
-    const scroll = (container.querySelector('.neo-alchemist--form-body')
-      || container.querySelector('.neo-alchemist-manage--form-scroll')) as HTMLElement;
-    const form = container.querySelector('.neo-alchemist-manage--form') as HTMLIFrameElement;
+    let scroll!: HTMLElement;
+    let form!: HTMLElement;
+
+    /**
+     * Finds the form, and the boxes around it, as the editor holds them now.
+     *
+     * Re-read rather than kept: the inspector replaces its form with each
+     * selection.
+     */
+    function resolveForm(): void {
+      formWrapper = container.querySelector('.neo-alchemist-manage--form-wrapper') as HTMLElement;
+      scroll = (container.querySelector('.neo-alchemist--form-body')
+        || container.querySelector('.neo-alchemist-manage--form-scroll')) as HTMLElement;
+      form = container.querySelector('.neo-alchemist-manage--form') as HTMLElement;
+    }
+    resolveForm();
 
     /**
      * Records where the canvas sits so a refresh can restore it.
@@ -1075,7 +1098,7 @@
     // component-parent.css). The panel never widens itself to fit a field —
     // fields shrink to the pane, and Expand is the way to see one whole.
     const pane = container.querySelector('.neo-alchemist-manage--form-scroll') as HTMLElement;
-    if (pane) {
+    if (pane && formWrapper) {
       const expand = formWrapper.querySelector('.neo-alchemist-manage--expand') as HTMLElement;
       const collapse = formWrapper.querySelector('.neo-alchemist-manage--collapse') as HTMLElement;
       if (drag && expand && collapse) {
@@ -1222,6 +1245,12 @@
       // component-child.ts), which fires no load event to clear its slot by.
       previewRefreshed: function (data:any) {
         getIframe(data.size)?.closest('.neo-alchemist--iframe-wrapper')?.classList.remove('is-loading');
+        // A render in place sends no `size`, and the one the inspector asks for
+        // on opening is what carries the component's prop map: a locate the
+        // frame could not answer before can be answered now.
+        if (pendingLocate) {
+          getIframe(data.size)?.contentWindow?.postMessage({ type: 'propLocate', locate: pendingLocate }, window.location.origin);
+        }
       },
 
       prop: function (data:any) {
@@ -1348,19 +1377,32 @@
     // map their click-to-field uses and answer with `propLocated`. Each frame
     // is asked on its first `size` message — the first a fresh document sends,
     // by which point it has indexed its targets.
-    const requestedFocus = container.querySelector('.neo-alchemist-manage--form')
-      ? (Drupal.neoAlchemist?.editor?.takeFieldFocus?.() ?? null)
-      : null;
-    let pendingLocate: NeoAlchemistLocate | null = requestedFocus?.locate ?? null;
-    if (requestedFocus?.prop) {
-      const prop = requestedFocus.prop;
-      setTimeout(() => focusProp(prop));
-    }
-    if (pendingLocate) {
-      // Nothing found: the form stays open on the component, unfocused.
-      setTimeout(() => {
-        pendingLocate = null;
-      }, 10000);
+    let pendingLocate: NeoAlchemistLocate | null = null;
+
+    /**
+     * Takes up a field focus asked for along with the form now open.
+     *
+     * Asked for once per form: the inspector opens one per selection.
+     */
+    function claimRequestedFocus(): void {
+      const requestedFocus = Drupal.neoAlchemist?.editor?.takeFieldFocus?.() ?? null;
+      pendingLocate = requestedFocus?.locate ?? null;
+      if (requestedFocus?.prop) {
+        const prop = requestedFocus.prop;
+        setTimeout(() => focusProp(prop));
+      }
+      if (pendingLocate) {
+        const locate = pendingLocate;
+        // Frames that are already up have sent their first `size` message,
+        // which is where a fresh document is asked; ask them now.
+        iframes.forEach(iframe => iframe.contentWindow?.postMessage({ type: 'propLocate', locate: locate }, window.location.origin));
+        // Nothing found: the form stays open on the component, unfocused.
+        setTimeout(() => {
+          if (pendingLocate === locate) {
+            pendingLocate = null;
+          }
+        }, 10000);
+      }
     }
 
     /**
@@ -1696,7 +1738,7 @@
 
     // Reverse direction: focusing a form field highlights the preview
     // element(s) it controls.
-    if (form) {
+    function bindFocusTracking(): void {
       form.addEventListener('focusin', (e) => {
         if (suppressFocusin) {
           return;
@@ -2063,12 +2105,12 @@
       focusProp(ids[0], ids, label, next);
     }
 
-    if (form) {
-      onFormRebuild.push(renderArrayNav);
-      // The preview is right not to resend after a form-only rebuild, so the
-      // marks have to be put back from the report the parent already holds.
-      onFormRebuild.push(renderWeakProps);
+    onFormRebuild.push(renderArrayNav);
+    // The preview is right not to resend after a form-only rebuild, so the
+    // marks have to be put back from the report the parent already holds.
+    onFormRebuild.push(renderWeakProps);
 
+    function bindArrayNav(): void {
       form.addEventListener('click', (e: MouseEvent) => {
         const button = (e.target as HTMLElement).closest<HTMLElement>('[data-neo-alchemist-step]');
         if (!button) {
@@ -2077,7 +2119,9 @@
         e.preventDefault();
         stepArray(button);
       });
+    }
 
+    {
       // The canvas scrolls between the three frames, and which one is in view
       // decides whose report the form is showing.
       if (wrapper) {
@@ -2107,14 +2151,20 @@
     drag.style.paddingLeft = padding + 'px';
     drag.style.paddingRight = padding + 'px';
 
-    const scale:string = localStorage.getItem('neo-alchemist-scale') || '1';
+    // The zoom the editor chose: a fixed scale, or `fit` (the default), which
+    // scales the frames to the canvas column and follows it as the docks open
+    // and close and the window resizes. Only the choice is remembered; Fit's
+    // scale is worked out each time.
+    const storedScale = localStorage.getItem('neo-alchemist-scale') || 'fit';
+    const scale: string = ['fit', '1', '0.75', '0.5'].includes(storedScale) ? storedScale : 'fit';
     const scaleButtons = container.querySelectorAll('.neo-alchemist--scale');
     [
+      {size: 'fit', scale: 'fit'},
       {size: 'full', scale: '1'},
       {size: '75', scale: '0.75'},
       {size: '50', scale: '0.5'},
     ].forEach(data => {
-      once('neo.alchemist', '.neo-alchemist--scale[data-size="' + data.size + '"]').forEach(el => {
+      once('neo.alchemist', '.neo-alchemist--scale[data-size="' + data.size + '"]', container).forEach(el => {
         togglePressed(el, scale === data.scale);
         el.addEventListener('click', (e) => {
           e.preventDefault();
@@ -2128,6 +2178,9 @@
     });
 
     const scaleWrapper = container.querySelector('.neo-alchemist-manage--scale') as HTMLIFrameElement;
+    // Declared ahead of the first setScale(), which reads them.
+    let scaleChoice = scale;
+    let scaleApplied = '';
     setScale(scale);
 
     // Restore here, and not a line earlier: setScale() puts a transform on the
@@ -2138,7 +2191,60 @@
     // canvas is already in place when it appears, instead of being centred on
     // desktop and then jumping once every preview has loaded.
     restorePosition();
-    initTabs();
+
+    // The form this editor has wired. A new one (the inspector opening another
+    // component) is wired once; a rebuild of the same one is not.
+    let boundForm: HTMLElement | null = null;
+    function bindForm(): void {
+      resolveForm();
+      if (!form || form === boundForm) {
+        return;
+      }
+      if (boundForm) {
+        // The last form's highlight described fields that are gone.
+        hintedWrapper = null;
+        clearPropFocus();
+      }
+      boundForm = form;
+      initTabs();
+      bindFocusTracking();
+      bindArrayNav();
+      claimRequestedFocus();
+    }
+    bindForm();
+    formBinders.push(bindForm);
+    // A field asked for while the form is already open (components-parent.ts).
+    container.addEventListener('neoAlchemistFieldFocus', () => claimRequestedFocus());
+
+    // Fit follows the canvas column: a dock opening or closing, the window,
+    // and Compare changing what the row holds.
+    if (wrapper && typeof ResizeObserver !== 'undefined') {
+      let refitTimer: number | undefined;
+      new ResizeObserver(() => {
+        window.clearTimeout(refitTimer);
+        refitTimer = window.setTimeout(refit, 50);
+      }).observe(wrapper);
+    }
+    container.addEventListener('alchemistManageView', () => refit());
+
+    // The inspector's Expand: the dock takes the whole width, and the canvas
+    // folds away behind it until Collapse (component-parent.css).
+    const dock = container.querySelector<HTMLElement>('.neo-alchemist--dock');
+    const dockExpand = container.querySelector<HTMLElement>('.neo-alchemist--dock-expand');
+    if (dock && dockExpand) {
+      dockExpand.addEventListener('click', (e) => {
+        e.preventDefault();
+        const on = !dock.classList.contains('is-expanded');
+        dock.classList.toggle('is-expanded', on);
+        dockExpand.setAttribute('aria-pressed', on ? 'true' : 'false');
+        dockExpand.setAttribute('title', on ? Drupal.t('Collapse') : Drupal.t('Expand'));
+        const label = dockExpand.querySelector('.sr-only');
+        if (label) {
+          label.textContent = on ? Drupal.t('Collapse') : Drupal.t('Expand');
+        }
+      });
+    }
+
     scaleWrapper.addEventListener('transitionend', (event: TransitionEvent) => {
       // Check if the transition was specifically for transform
       if (event.propertyName === 'transform') {
@@ -2150,7 +2256,42 @@
         container.dispatchEvent(customEvent);
       }
     });
-    function setScale(scale: string): void {
+    /**
+     * The scale that fits the frames on screen into the canvas column.
+     *
+     * The frames keep their true widths, so breakpoints stay right; only the
+     * view of them shrinks. Never above 1: a frame is not blown up past its
+     * real size. Measured off the frame row's layout width, which a transform
+     * does not change, and only the frames taking room count (Single hides the
+     * others out of the row).
+     */
+    function fitScale(): string {
+      const row = scaleWrapper?.firstElementChild as HTMLElement | null;
+      const natural = row?.offsetWidth || 0;
+      const available = wrapper?.clientWidth || 0;
+      // Folded away (the dock expanded over it): keep what it had.
+      if (!natural || available < 160) {
+        return scaleApplied || '1';
+      }
+      return String(Math.min(1, Math.floor((available / natural) * 1000) / 1000));
+    }
+
+    /**
+     * Re-fits when the canvas column or the frames it shows change size.
+     */
+    function refit(): void {
+      if (scaleChoice !== 'fit' || !initialized) {
+        return;
+      }
+      if (fitScale() !== scaleApplied) {
+        setScale('fit');
+      }
+    }
+
+    function setScale(choice: string): void {
+      scaleChoice = choice;
+      const scale = choice === 'fit' ? fitScale() : choice;
+      scaleApplied = scale;
       if (scaleWrapper) {
         if (!initialized) {
           scaleWrapper.style.transformOrigin = 'top left';
@@ -2182,7 +2323,9 @@
         }
       }
 
-      localStorage.setItem('neo-alchemist-scale', scale);
+      localStorage.setItem('neo-alchemist-scale', choice);
+      // The scale applied, never the choice: the layout editor positions its
+      // outlines with it.
       const customEvent = new CustomEvent('alchemistManageScale', {
         bubbles: true,
         cancelable: true,
