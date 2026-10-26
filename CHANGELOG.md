@@ -1,5 +1,14 @@
 # Changelog
 
+## Layout editor edits stop rendering a preview they throw away
+
+After an edit, the layout editor rendered the preview once in the editor page and handed the
+markup to each frame. Each frame patched it into its document, then reloaded anyway, because
+the outlines are rebuilt from what a fresh document reports. Layout frames are now told to
+reload without that render or patch, which saves one server render and one patch per frame on
+every edit. The component edit form, including the one in the modal over the layout, still
+renders once and updates its previews in place.
+
 ## Edits refresh only the preview sizes on screen
 
 With one size shown, an edit used to re-render every loaded preview, the hidden ones

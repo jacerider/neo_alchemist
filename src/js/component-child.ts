@@ -1750,7 +1750,12 @@
     }
     const data = e.data;
     if (data && data.type === 'previewRefresh') {
-      refreshPreview(typeof data.html === 'string' ? data.html : null);
+      // A layout frame is told to reload instead (deliver() in
+      // component-ajax.ts), which components-child.ts does. Morphing first
+      // would fetch a render here for a document about to be thrown away.
+      if (!data.reload) {
+        refreshPreview(typeof data.html === 'string' ? data.html : null);
+      }
       return;
     }
     if (data && data.type === 'propLocate' && data.locate && typeof data.locate === 'object') {

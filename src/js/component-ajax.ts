@@ -41,8 +41,28 @@
    * The URL comes from a frame's own document rather than its src attribute
    * where possible, so a frame that has navigated since (a fallback reload)
    * still refreshes from where it actually is.
+   *
+   * Except the layout canvas's frames, which reload on a refresh
+   * (components-child.ts): the parent's overlay model rebuilds from what a
+   * fresh document reports, so the render here would be thrown away, and the
+   * morph it fed with it. Those are told to reload and nothing is fetched for
+   * them. They are the frames components-parent.ts registers as
+   * Drupal.neoAlchemist.iframes; the edit form's own canvas, which can sit in
+   * a modal over the layout, is not among them.
    */
-  const deliver = (iframes: HTMLIFrameElement[], signal: AbortSignal): void => {
+  const deliver = (frames: HTMLIFrameElement[], signal: AbortSignal): void => {
+    const layout = Object.values(Drupal.neoAlchemist?.iframes ?? {});
+    const iframes = frames.filter(iframe => {
+      if (!layout.includes(iframe)) {
+        return true;
+      }
+      iframe.contentWindow?.postMessage({ type: 'previewRefresh', reload: true }, window.location.origin);
+      return false;
+    });
+    if (!iframes.length) {
+      return;
+    }
+
     let url = '';
     try {
       url = iframes[0].contentWindow?.location.href || iframes[0].src;

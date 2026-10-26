@@ -94,7 +94,9 @@
     // rebuilds its entire overlay model from the structure and position data
     // a fresh document reports — which a markup swap would not re-send. Left
     // unhandled, the refresh was a silent no-op here: stale structure data,
-    // and a canvas that could no longer find its own components.
+    // and a canvas that could no longer find its own components. So the parent
+    // renders nothing for this frame and component-child.ts does not morph it
+    // (deliver() in component-ajax.ts).
     //
     // Staggered for the same reason the initial loads are: three documents
     // rebuilding at once re-request the same asset URLs, and Firefox will
