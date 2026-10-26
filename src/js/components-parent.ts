@@ -271,9 +271,22 @@
   //
   // Keying on the frame and seeding from whatever has already finished makes
   // the handshake independent of when this script runs relative to the loads.
-  // iframeReady() mirrors iframeHasLoaded() in component-parent.ts, which
-  // draws the same distinction for the same reason.
+  // Whether a frame has started or finished is Drupal.neoAlchemist.frames'
+  // call (component-parent.ts), the same one its stagger makes.
+  //
+  // Only frames that have started count. The canvas need not be using every
+  // size, and a frame waiting its turn — or never started at all — must not
+  // hold back the outlines of the ones that are there. A frame that finishes
+  // after the canvas is drawn joins it for its own size: see frameJoin().
+  const frames = Drupal.neoAlchemist.frames as NeoAlchemistFrames;
   const iframesLoaded = new Set<string>();
+  // The sizes the canvas is drawn for, or about to be: their positions have
+  // been asked for, in a round or as a join. ready() builds these only.
+  const framesDrawn = new Set<NeoAlchemistFrameSize>();
+  // Joined, and their positions not in yet.
+  const framesJoining = new Set<NeoAlchemistFrameSize>();
+  // The sizes the current position round waits on.
+  let positionRound: NeoAlchemistFrameSize[] = [];
   // Frames the sweep below released rather than the browser. Their report was
   // made while the document was still fetching, so the geometry it produced is
   // provisional and gets asked for again once the document does finish.
@@ -287,33 +300,18 @@
   const iframeLoadTimeout = 10000;
   const iframeSweepInterval = 1000;
 
-  function iframeReady(iframe: HTMLIFrameElement): boolean {
-    if (iframe.dataset.src) {
-      // Deferred, and not started yet.
-      return false;
-    }
-    try {
-      return iframe.contentDocument?.readyState === 'complete'
-        && !!iframe.contentWindow
-        && iframe.contentWindow.location.href !== 'about:blank';
-    }
-    catch (e) {
-      return false;
-    }
-  }
-
   /**
    * A frame's document state, or '' when there is not one to read.
    *
-   * The distinction iframeReady() cannot draw: `complete` means the load event
-   * fired, which waits on every subresource, while `interactive` means the DOM
-   * is built and nothing more. Interactive is the point a frame has geometry
-   * worth measuring and a listener in it to answer, and a frame that sits there
-   * is a frame waiting on something that is not coming.
+   * The distinction the frame's 'ready' state cannot draw: `complete` means
+   * the load event fired, which waits on every subresource, while
+   * `interactive` means the DOM is built and nothing more. Interactive is the
+   * point a frame has geometry worth measuring and a listener in it to answer,
+   * and a frame that sits there is a frame waiting on something that is not
+   * coming.
    */
-  function iframeState(iframe: HTMLIFrameElement): string {
-    if (iframe.dataset.src) {
-      // Deferred, and not started yet.
+  function iframeState(size: NeoAlchemistFrameSize, iframe: HTMLIFrameElement): string {
+    if (frames.state(size) === 'unloaded') {
       return '';
     }
     try {
@@ -327,12 +325,20 @@
     }
   }
 
-  function requestPositionData(): void {
-    Object.values(iframes).forEach(iframe => {
-      if (!iframe.contentWindow) {
-        return;
-      }
-      iframe.contentWindow.postMessage({
+  /**
+   * The frames a round waits on: the active ones that have started.
+   */
+  function framesStarted(): NeoAlchemistFrameSize[] {
+    return frames.active().filter(size => frames.state(size) !== 'unloaded');
+  }
+
+  function requestPositionData(round: NeoAlchemistFrameSize[]): void {
+    positionRound = round;
+    framesDrawn.clear();
+    framesJoining.clear();
+    round.forEach(size => {
+      framesDrawn.add(size);
+      iframes[size]?.contentWindow?.postMessage({
         type: 'getPositionData',
       }, "*");
     });
@@ -344,12 +350,11 @@
   /**
    * Spends a frame's one report, whoever decided the frame was done.
    */
-  function reportFrame(size: string, iframe: HTMLIFrameElement): void {
+  function reportFrame(size: NeoAlchemistFrameSize, iframe: HTMLIFrameElement): void {
     delete iframeStalledSince[size];
     if (iframesLoaded.has(size)) {
       return;
     }
-    iframesLoaded.add(size);
 
     if (size === 'desktop' && iframe.contentWindow) {
       // Request structure data from desktop iframe.
@@ -358,23 +363,50 @@
       }, "*");
     }
 
-    if (iframesLoaded.size === Object.keys(iframes).length) {
+    // A frame finishing for the first time on a canvas already drawn without
+    // it. Opening a round for it would tear the others down and wait on
+    // frames that have nothing new to say, so it joins instead. A frame that
+    // was drawn and has finished again was reloaded, and opens the round the
+    // others are about to report into.
+    if (framesDrawn.size && !iframesLoaded.size && !framesDrawn.has(size)) {
+      frameJoin(size, iframe);
+      return;
+    }
+    framesJoining.delete(size);
+    iframesLoaded.add(size);
+
+    const started = framesStarted();
+    if (started.every(startedSize => iframesLoaded.has(startedSize))) {
       iframesLoaded.clear();
       // All frames loaded.
-      requestPositionData();
+      requestPositionData(started);
     }
   }
 
-  function iframeLoaded(size: string, iframe: HTMLIFrameElement): void {
-    if (!iframe.contentWindow || !iframeReady(iframe)) {
+  /**
+   * Adds a frame to a canvas drawn without it.
+   *
+   * Only its own positions are asked for, and frameJoined() builds its size
+   * alone when they arrive, so the frames already drawn are not touched.
+   */
+  function frameJoin(size: NeoAlchemistFrameSize, iframe: HTMLIFrameElement): void {
+    framesDrawn.add(size);
+    framesJoining.add(size);
+    iframe.contentWindow?.postMessage({
+      type: 'getPositionData',
+    }, "*");
+  }
+
+  function iframeLoaded(size: NeoAlchemistFrameSize, iframe: HTMLIFrameElement): void {
+    if (!iframe.contentWindow || frames.state(size) !== 'ready' || !frames.active().includes(size)) {
       return;
     }
     // A frame the sweep had given up on has now finished for real. Its
     // report is already spent and the handshake will not come round again, so
-    // ask every frame for geometry directly: that is what the report would have
-    // done, and it corrects positions that were measured mid-load.
+    // ask every drawn frame for geometry directly: that is what the report
+    // would have done, and it corrects positions that were measured mid-load.
     if (iframesForced.delete(size)) {
-      requestPositionData();
+      requestPositionData(sizes.filter(drawnSize => framesDrawn.has(drawnSize)));
       return;
     }
     reportFrame(size, iframe);
@@ -386,7 +418,7 @@
    * A frame that never finishes must not hold the editor hostage. A preview
    * pulls whatever the page it renders pulls: web fonts from a third party, a
    * hero image, a video, an embed. Any one of them stalling keeps the load
-   * event from firing, and the count in reportFrame() then never reaches three,
+   * event from firing, and the count in reportFrame() then never completes,
    * so getPositionData is never sent. That left the editor with no outlines, no
    * hit targets and nothing to click, with nothing to recover it however long
    * you waited. Three previews all pulling the same stalled web font is how one
@@ -401,8 +433,12 @@
    * and every round is covered by the same few lines.
    */
   function sweepStalledIframes(): void {
-    Object.entries(iframes).forEach(([size, iframe]) => {
-      const state = iframeState(iframe);
+    const active = frames.active();
+    (Object.entries(iframes) as Array<[NeoAlchemistFrameSize, HTMLIFrameElement]>).forEach(([size, iframe]) => {
+      if (!active.includes(size)) {
+        return;
+      }
+      const state = iframeState(size, iframe);
       if (state === '' || state === 'loading') {
         // Early rather than stalled: a deferred frame waiting its turn in
         // staggerIframeLoads(), or a document still arriving. A frame that has
@@ -430,7 +466,7 @@
     });
   }
 
-  Object.entries(iframes).forEach(([size, iframe]) => {
+  (Object.entries(iframes) as Array<[NeoAlchemistFrameSize, HTMLIFrameElement]>).forEach(([size, iframe]) => {
     iframe.addEventListener('load', () => iframeLoaded(size, iframe));
     // Catch up on a frame that finished before this script ran. Its load event
     // is gone and is not coming back.
@@ -516,6 +552,10 @@
     positionData: function (data: any) {
       const size = data.size as 'desktop' | 'tablet' | 'mobile';
       positionData[size] = data.data;
+      if (framesJoining.delete(size)) {
+        frameJoined(size);
+        return;
+      }
       if (!positionWatchdog && !iframesFinished.size) {
         // A frame answering after its round was drawn without it. Place what it
         // has just reported rather than opening a fresh round, which would tear
@@ -524,7 +564,7 @@
         return;
       }
       iframesFinished.add(size);
-      if (iframesFinished.size === Object.keys(iframes).length) {
+      if (positionRound.every(roundSize => iframesFinished.has(roundSize))) {
         finishPositions();
       }
     },
@@ -555,9 +595,10 @@
       }
 
       sizes.forEach(size => {
-        if (size !== data.size) {
+        // A frame not drawn yet catches up from the event history on joining.
+        if (size !== data.size && framesDrawn.has(size)) {
           const iframe = iframes[size];
-          if (!iframe.contentWindow) {
+          if (!iframe?.contentWindow) {
             return;
           }
           iframe.contentWindow.postMessage({
@@ -876,8 +917,9 @@
   /**
    * We have all the elements and positions, we are ready to go.
    *
-   * This will be called once all iframes have sent position data. It can be
-   * called multiple times if the iframes are reloaded.
+   * This will be called once the drawn frames have sent position data. It can
+   * be called multiple times if the iframes are reloaded. A frame that joins
+   * later is built by frameJoined() instead.
    */
   let readyCount = 0;
 
@@ -886,97 +928,19 @@
     overlayState = {};
     // Clear existing elements. Outlines are rebuilt per uuid below, so stale
     // ones for nodes that no longer exist go with them.
-    container.querySelectorAll<HTMLElement>('.neo-alchemist--element, .neo-alchemist--event, .neo-alchemist--overlay').forEach(element => {
-      // Behaviours attached to an outline own state that outlives the node —
-      // a tooltip is a tippy instance held in a module-level list, not markup.
-      // Dropping the element without this runs ready() as a slow leak: every
-      // save would strand another set, and they are walked on every attach.
-      Drupal.detachBehaviors(element, drupalSettings, 'unload');
-      element.remove();
-    });
+    elementsRemove('.neo-alchemist--element, .neo-alchemist--event, .neo-alchemist--overlay');
     Object.keys(structureElements).forEach(key => delete structureElements[key]);
     Object.keys(overlayElements).forEach(key => delete overlayElements[key]);
     Object.keys(overlayTimeouts).forEach(key => clearTimeout(overlayTimeouts[key] || undefined));
     overlayTimeouts = {};
     ghostUuids = [];
 
-    // Build structure elements
-    const elementBase = container.querySelector('.neo-alchemist--element-base') as HTMLElement;
-    const eventBase = container.querySelector('.neo-alchemist--event-base') as HTMLElement;
-    Object.entries(structureData).forEach(([uuid, data]) => {
-      structureElements[uuid] = {} as Record<'desktop' | 'tablet' | 'mobile', HTMLElement>;
-      overlayElements[uuid] = {} as Record<'desktop' | 'tablet' | 'mobile', HTMLElement>;
-      sizes.forEach(size => {
-        const level = data.parents.length;
-        overlayElements[uuid][size] = buildOverlay(uuid, size, level);
-        const element = elementBase.cloneNode(true) as HTMLElement;
-        element.classList.remove('neo-alchemist--element-base');
-        element.classList.add('neo-alchemist--element');
-        element.setAttribute('data-uuid', uuid);
-        element.setAttribute('data-size', size);
-        element.setAttribute('data-level', level.toString());
-        if (debugElements) {
-          const debugColors = ['red', 'green', 'blue', 'magenta', 'cyan'];
-          element.style.border = `1px solid ${debugColors[level % debugColors.length]}`;
-        }
-        element.style.cursor = 'pointer';
-        element.style.zIndex = (20 + level).toString();
-        element.addEventListener('mouseenter', () => {
-          layerInteractSize = size;
-          if (hybrid && isInheritedComponent(uuid)) {
-            return;
-          }
-          // A customizable region is directly interactive at the top level.
-          if (layerLevel + 1 === level || (isEditableTop(uuid) && layerLevel === -1)) {
-            elementHover(uuid);
-          }
-        });
-        element.addEventListener('mouseleave', () => {
-          if (hybrid && isInheritedComponent(uuid)) {
-            return;
-          }
-          if (layerLevel + 1 === level || (isEditableTop(uuid) && layerLevel === -1)) {
-            elementBlur(uuid);
-          }
-        });
-        element.addEventListener('click', (e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          if (hybrid && isInheritedComponent(uuid)) {
-            return;
-          }
-          // The press that ended here was a pan, not a selection.
-          if (pointerDragged(e)) {
-            return;
-          }
-          elementFocus(uuid);
-        });
-        wrapper.appendChild(element);
-        structureElements[uuid][size] = element;
-        if (data.events) {
-          Object.keys(data.events).forEach(eventId => {
-            const eventTrigger = eventBase.cloneNode(true) as HTMLElement;
-            eventTrigger.classList.remove('neo-alchemist--event-base');
-            eventTrigger.classList.add('neo-alchemist--event');
-            eventTrigger.setAttribute('data-event-id', eventId);
-            eventTrigger.setAttribute('data-size', size);
-            eventTrigger.style.display = 'none';
-            eventTrigger.style.zIndex = '40';
-            if (debugElements) {
-              eventTrigger.style.border = '1px solid orange';
-              eventTrigger.style.display = '';
-            }
-            eventTrigger.addEventListener('mouseenter', () => {
-              layerInteractSize = size;
-              clearTimeout(passthroughTimeout || undefined);
-              container.classList.add('neo-alchemist--passthrough');
-            });
-            wrapper.appendChild(eventTrigger);
-            structureElements[eventId] = structureElements[eventId] || {} as Record<'desktop' | 'tablet' | 'mobile', HTMLElement>;
-            structureElements[eventId][size] = eventTrigger;
-          });
-        }
-      });
+    // Build structure elements. A size still joining is built when its
+    // positions arrive.
+    sizes.forEach(size => {
+      if (framesDrawn.has(size) && !framesJoining.has(size)) {
+        buildSize(size);
+      }
     });
 
     // Pick up the ops on the outlines just built.
@@ -1009,22 +973,149 @@
     }
 
     if (layerUuid) {
-      if (eventHistory && Object.keys(eventHistory).length > 0) {
-        Object.entries(eventHistory).forEach(([_eventGroup, eventInfo]) => {
-          eventInfo.events.forEach(eventType => {
-            Object.entries(iframes).forEach(([size, iframe]) => {
-              iframe.contentWindow?.postMessage({
-                type: 'doEvent',
-                size: size,
-                uuid: eventInfo.uuid,
-                eventType: eventType,
-              });
-            });
-          });
-        });
-      }
+      eventsReplay(sizes.filter(size => framesDrawn.has(size)));
       layerShow(layerUuid, true, true, false);
     }
+  }
+
+  /**
+   * Draws a frame that joined the canvas, leaving the others as they are.
+   */
+  function frameJoined(size: NeoAlchemistFrameSize): void {
+    if (!readyCount) {
+      // Nothing is drawn yet; ready() takes this size along with the rest.
+      return;
+    }
+    buildSize(size);
+    opButtonsBind();
+    elementsPosition();
+    if (layerUuid) {
+      eventsReplay([size]);
+      // Forced, so the new size's outlines and shades come up beside the
+      // others, which are redrawn where they already are.
+      layerShow(layerUuid, true, true, false);
+      return;
+    }
+    elementsToggle();
+    seamsShow(null);
+  }
+
+  /**
+   * Removes canvas elements along with what their behaviours hold.
+   */
+  function elementsRemove(selector: string): void {
+    container.querySelectorAll<HTMLElement>(selector).forEach(element => {
+      // Behaviours attached to an outline own state that outlives the node —
+      // a tooltip is a tippy instance held in a module-level list, not markup.
+      // Dropping the element without this runs ready() as a slow leak: every
+      // save would strand another set, and they are walked on every attach.
+      Drupal.detachBehaviors(element, drupalSettings, 'unload');
+      element.remove();
+    });
+  }
+
+  /**
+   * Build the hit targets, event triggers and outlines for one size.
+   *
+   * Whatever the size had goes first, so a frame drawn twice — joining while
+   * a round was still in flight — never leaves two sets behind.
+   */
+  function buildSize(size: NeoAlchemistFrameSize): void {
+    elementsRemove(`.neo-alchemist--element[data-size="${size}"], .neo-alchemist--event[data-size="${size}"], .neo-alchemist--overlay[data-size="${size}"]`);
+    const elementBase = container.querySelector('.neo-alchemist--element-base') as HTMLElement;
+    const eventBase = container.querySelector('.neo-alchemist--event-base') as HTMLElement;
+    Object.entries(structureData).forEach(([uuid, data]) => {
+      structureElements[uuid] = structureElements[uuid] || {} as Record<'desktop' | 'tablet' | 'mobile', HTMLElement>;
+      overlayElements[uuid] = overlayElements[uuid] || {} as Record<'desktop' | 'tablet' | 'mobile', HTMLElement>;
+      const level = data.parents.length;
+      overlayElements[uuid][size] = buildOverlay(uuid, size, level);
+      const element = elementBase.cloneNode(true) as HTMLElement;
+      element.classList.remove('neo-alchemist--element-base');
+      element.classList.add('neo-alchemist--element');
+      element.setAttribute('data-uuid', uuid);
+      element.setAttribute('data-size', size);
+      element.setAttribute('data-level', level.toString());
+      if (debugElements) {
+        const debugColors = ['red', 'green', 'blue', 'magenta', 'cyan'];
+        element.style.border = `1px solid ${debugColors[level % debugColors.length]}`;
+      }
+      element.style.cursor = 'pointer';
+      element.style.zIndex = (20 + level).toString();
+      element.addEventListener('mouseenter', () => {
+        layerInteractSize = size;
+        if (hybrid && isInheritedComponent(uuid)) {
+          return;
+        }
+        // A customizable region is directly interactive at the top level.
+        if (layerLevel + 1 === level || (isEditableTop(uuid) && layerLevel === -1)) {
+          elementHover(uuid);
+        }
+      });
+      element.addEventListener('mouseleave', () => {
+        if (hybrid && isInheritedComponent(uuid)) {
+          return;
+        }
+        if (layerLevel + 1 === level || (isEditableTop(uuid) && layerLevel === -1)) {
+          elementBlur(uuid);
+        }
+      });
+      element.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (hybrid && isInheritedComponent(uuid)) {
+          return;
+        }
+        // The press that ended here was a pan, not a selection.
+        if (pointerDragged(e)) {
+          return;
+        }
+        elementFocus(uuid);
+      });
+      wrapper.appendChild(element);
+      structureElements[uuid][size] = element;
+      if (data.events) {
+        Object.keys(data.events).forEach(eventId => {
+          const eventTrigger = eventBase.cloneNode(true) as HTMLElement;
+          eventTrigger.classList.remove('neo-alchemist--event-base');
+          eventTrigger.classList.add('neo-alchemist--event');
+          eventTrigger.setAttribute('data-event-id', eventId);
+          eventTrigger.setAttribute('data-size', size);
+          eventTrigger.style.display = 'none';
+          eventTrigger.style.zIndex = '40';
+          if (debugElements) {
+            eventTrigger.style.border = '1px solid orange';
+            eventTrigger.style.display = '';
+          }
+          eventTrigger.addEventListener('mouseenter', () => {
+            layerInteractSize = size;
+            clearTimeout(passthroughTimeout || undefined);
+            container.classList.add('neo-alchemist--passthrough');
+          });
+          wrapper.appendChild(eventTrigger);
+          structureElements[eventId] = structureElements[eventId] || {} as Record<'desktop' | 'tablet' | 'mobile', HTMLElement>;
+          structureElements[eventId][size] = eventTrigger;
+        });
+      }
+    });
+  }
+
+  /**
+   * Plays the remembered events (an opened tab, a toggled accordion) into
+   * frames, so they show the state the others do.
+   */
+  function eventsReplay(targets: NeoAlchemistFrameSize[]): void {
+    Object.values(eventHistory).forEach(eventInfo => {
+      eventInfo.events.forEach(eventType => {
+        targets.forEach(size => {
+          iframes[size]?.contentWindow?.postMessage({
+            type: 'doEvent',
+            size: size,
+            uuid: eventInfo.uuid,
+            eventType: eventType,
+          });
+        });
+      });
+    });
   }
 
   function elementHover(uuid: string): void {
@@ -2389,9 +2480,13 @@
   function centeredSize(): 'desktop' | 'tablet' | 'mobile' {
     const wrapperRect = wrapper.getBoundingClientRect();
     const center = wrapperRect.left + (wrapperRect.width / 2);
-    let best = layerInteractSize;
+    let best = framesDrawn.has(layerInteractSize) ? layerInteractSize : 'desktop';
     let bestDistance = Infinity;
     sizes.forEach(size => {
+      // A frame with no outlines has nothing to select in.
+      if (!framesDrawn.has(size) || !iframes[size]) {
+        return;
+      }
       const rect = getIframe(size).getBoundingClientRect();
       // Frames scrolled fully out of view are not what anyone is looking at.
       if (rect.right < wrapperRect.left || rect.left > wrapperRect.right) {

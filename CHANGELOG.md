@@ -1,5 +1,16 @@
 # Changelog
 
+## Canvas outlines no longer wait for every preview frame
+
+The layout canvas drew its outlines, hit targets and seams only once all three previews
+(desktop, tablet, mobile) had loaded, so one frame that never started left the editor with
+nothing to click. It now waits only for the frames that have started, and a frame that
+finishes later joins the canvas for its own size without redrawing the others. With all
+three frames the canvas behaves as before, except that desktop's outlines can appear before
+tablet's and mobile's do. Both editors share one record of each frame's state and of which
+frames the canvas is using, exposed as `Drupal.neoAlchemist.frames`. For now the canvas
+still uses all three frames. Nothing to configure.
+
 ## The neo-component skill documents listings in a component's `seo` declaration
 
 The skill's `seo` reference now covers `{{ loop.position }}`, which neo_seo added to `@each` for a

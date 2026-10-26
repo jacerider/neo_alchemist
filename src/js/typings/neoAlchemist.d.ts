@@ -133,11 +133,34 @@ interface NeoAlchemistPanelRegistry {
   dropdown(badge: HTMLElement, id: string, label: string): NeoAlchemistDropdown;
 }
 
+/**
+ * A preview frame's size.
+ */
+type NeoAlchemistFrameSize = 'desktop' | 'tablet' | 'mobile';
+
+/**
+ * Where a preview frame is. See frameState() in component-parent.ts.
+ */
+type NeoAlchemistFrameState = 'unloaded' | 'loading' | 'ready' | 'stale';
+
+/**
+ * The canvas's preview frames, as both editors see them.
+ */
+interface NeoAlchemistFrames {
+  /** The frame for a size, or null when the canvas has none. */
+  get(size: NeoAlchemistFrameSize): HTMLIFrameElement | null;
+  /** Where that frame is. */
+  state(size: NeoAlchemistFrameSize): NeoAlchemistFrameState;
+  /** The sizes the canvas is using: the frames it loads, waits on and outlines. */
+  active(): NeoAlchemistFrameSize[];
+}
+
 declare namespace drupal {
 
   export interface IDrupalStatic {
     neoAlchemist?: {
       iframes?: Record<'desktop' | 'tablet' | 'mobile', HTMLIFrameElement | null>
+      frames?: NeoAlchemistFrames;
       panels?: NeoAlchemistPanelRegistry;
       editor?: NeoAlchemistEditorApi;
     };

@@ -187,9 +187,57 @@
     }
   }
 
+  const frameSizes: NeoAlchemistFrameSize[] = ['desktop', 'tablet', 'mobile'];
+
+  function frameGet(size: NeoAlchemistFrameSize): HTMLIFrameElement | null {
+    return document.querySelector<HTMLIFrameElement>(`.neo-alchemist-manage iframe[data-size="${size}"]`);
+  }
+
+  /**
+   * Where a preview frame is, read off the frame itself.
+   *
+   * - unloaded: it still carries data-src — deferred, and not started.
+   *   staggerIframeLoads() is what starts it.
+   * - loading:  started, and its document has not finished.
+   * - ready:    its document has finished (iframeHasLoaded()).
+   * - stale:    loaded, but an edit since has not reached it. Nothing marks a
+   *   frame stale yet: every edit still refreshes every frame.
+   *
+   * Read from the frame rather than kept here, so the layout editor's outline
+   * handshake (components-parent.ts), which starts before init() below, gets
+   * the same answer the stagger does.
+   */
+  function frameState(iframe: HTMLIFrameElement | null): NeoAlchemistFrameState {
+    if (!iframe || iframe.dataset.src) {
+      return 'unloaded';
+    }
+    return iframeHasLoaded(iframe) ? 'ready' : 'loading';
+  }
+
+  /**
+   * The sizes the canvas is using: the frames it loads, waits on and outlines.
+   *
+   * Decided here and nowhere else, so nothing that loops over the frames has
+   * to assume there are three. Every frame, for now.
+   */
+  function framesActive(): NeoAlchemistFrameSize[] {
+    return frameSizes.filter(size => !!frameGet(size));
+  }
+
+  function frameIsActive(iframe: HTMLIFrameElement): boolean {
+    return framesActive().includes(iframe.dataset.size as NeoAlchemistFrameSize);
+  }
+
+  Drupal.neoAlchemist = Drupal.neoAlchemist || {};
+  Drupal.neoAlchemist.frames = {
+    get: frameGet,
+    state: size => frameState(frameGet(size)),
+    active: framesActive,
+  };
+
   function waitForAllIframesToLoad(iframes: NodeListOf<HTMLIFrameElement>): Promise<void> {
     if (iframes) {
-      const promises = Array.from(iframes).map((iframe) => {
+      const promises = Array.from(iframes).filter(frameIsActive).map((iframe) => {
         return new Promise<void>((resolve) => {
           if (iframeHasLoaded(iframe)) {
             resolve();
@@ -220,10 +268,11 @@
    * and third frames then read a warm cache, so this costs little.
    *
    * Frames opt in by carrying data-src instead of src — see
-   * neo-alchemist-manage.html.twig.
+   * neo-alchemist-manage.html.twig. One the canvas is not using stays as it
+   * is, unloaded.
    */
   function staggerIframeLoads(iframes: NodeListOf<HTMLIFrameElement>): void {
-    const deferred = Array.from(iframes).filter((iframe) => iframe.dataset.src && !iframe.getAttribute('src'));
+    const deferred = Array.from(iframes).filter((iframe) => frameState(iframe) === 'unloaded' && !iframe.getAttribute('src') && frameIsActive(iframe));
     if (!deferred.length) {
       return;
     }
@@ -2036,7 +2085,11 @@
      * Get the most visible iframe within the container
      */
     function getMostVisibleIframe(): HTMLElement | null {
-      const children = Array.from(iframes) as HTMLElement[];
+      // A frame the canvas is not using, or one laid out at no size at all, is
+      // not something anyone is looking at — and a zero-width rect inside the
+      // container would otherwise count as fully visible.
+      const children = Array.from(iframes)
+        .filter(iframe => frameIsActive(iframe) && iframe.getBoundingClientRect().width > 0) as HTMLElement[];
       const containerRect = container.getBoundingClientRect();
 
       let mostVisibleDiv: HTMLElement | null = null;
