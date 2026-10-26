@@ -68,6 +68,11 @@ final class PurgeInertDataForm extends ConfirmFormBase {
     if (!$this->count) {
       unset($form['actions']['submit']);
     }
+    else {
+      // Destructive: the alert colour, which neo_modal carries over to the
+      // footer button it draws in place of this one.
+      $form['actions']['submit']['#attributes']['class'][] = 'btn-alert';
+    }
     return $form;
   }
 

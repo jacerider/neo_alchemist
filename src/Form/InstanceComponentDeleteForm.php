@@ -97,6 +97,9 @@ class InstanceComponentDeleteForm extends EntityConfirmFormBase {
       $actions['submit']['#ajax']['callback'] = '::ajaxSubmit';
     }
     $actions['cancel']['#attributes']['data-neo-modal-close'] = '1';
+    // Destructive: the alert colour, which neo_modal carries over to the
+    // footer button it draws in place of this one.
+    $actions['submit']['#attributes']['class'][] = 'btn-alert';
     return $actions;
   }
 

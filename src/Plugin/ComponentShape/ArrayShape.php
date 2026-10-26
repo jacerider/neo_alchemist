@@ -550,10 +550,16 @@ class ArrayShape extends ChildrenShapeBase implements ComponentShapeInterablePlu
     }
 
     if (!$max || $count < $max) {
+      // "Add card", not "Add Card": the button is a sentence and the item
+      // title a noun in it. A leading acronym ("FAQ") keeps its case.
+      $addLabel = (string) $itemLabel;
+      if (preg_match('/^\p{Lu}\p{Ll}/u', $addLabel)) {
+        $addLabel = mb_strtolower(mb_substr($addLabel, 0, 1)) . mb_substr($addLabel, 1);
+      }
       $form['add'] = [
         '#type' => 'submit',
         '#value' => $this->t('Add @label', [
-          '@label' => $itemLabel,
+          '@label' => $addLabel,
         ]),
         '#op' => 'add',
         '#neo_size' => 'xs',

@@ -3,19 +3,14 @@
 %}
 {#
   The editor stamps data-node-type (what a thing is) and data-state (how it
-  relates to the selection) on every outline, and the variants below dress it
-  accordingly. Border width never varies: the label and the +/move clusters are
+  relates to the selection) on every outline; components-parent.css dresses
+  each state. Border width never varies: the label and the +/move clusters are
   anchored to this box with bottom/top-full, and the box is border-box with an
   inline width/height, so a wider border would resize the padding box and shift
-  all of them. Emphasis is an outline, which costs no layout.
+  all of them. Emphasis is an outline and a shadow, which cost no layout.
 #}
 {%
-  set overlay_classes = 'absolute border border-dashed shadow-lg border-base-200'
-    ~ ' data-[node-type=region]:border-base-400/80'
-    ~ ' data-[state=active]:border-base-400/50'
-    ~ ' data-[state=ghost]:border-base-400/50'
-    ~ ' data-[state=focus]:outline-2 data-[state=focus]:-outline-offset-1 data-[state=focus]:outline-primary-500'
-    ~ ' data-[node-type=region]:data-[state=focus]:border-base-400'
+  set overlay_classes = 'absolute border border-dashed'
 %}
 {%
   set element_classes = 'absolute'

@@ -75,8 +75,9 @@ class EditorChromeIteratesInventoryTest extends KernelTestBase {
    * The four verb ops project to the bottom bar's left group, in order.
    *
    * A verb op acts on the component itself; it carries neither a position nor a
-   * direction. Each is a primary button keyed by its op id and appears only in
-   * this group — never among the positional ops or on the outline.
+   * direction. Each is a filled button (alert for Delete, primary for the rest)
+   * keyed by its op id and appears only in this group — never among the
+   * positional ops or on the outline.
    */
   public function testVerbOpsProjectToTheBottomBarLeftGroup(): void {
     $chrome = $this->chrome($this->inventory()->ops());
@@ -92,7 +93,9 @@ class EditorChromeIteratesInventoryTest extends KernelTestBase {
       $this->assertSame('link', $button['#type'], "$id is a link");
       $this->assertSame($id, $button['#attributes']['data-op'], "$id data-op");
       $classes = $button['#attributes']['class'];
-      $this->assertContains('btn-primary', $classes, "$id is a primary button");
+      // Delete destroys, so it takes the alert colour; the rest are primary.
+      $fill = $id === 'delete' ? 'btn-alert' : 'btn-primary';
+      $this->assertContains($fill, $classes, "$id is a $fill button");
       $this->assertContains('neo-alchemist--op', $classes, "$id is an op");
       $placement = $button['#tooltip_options']['placement'];
       $this->assertSame('top', $placement, "$id tooltip on top");
@@ -170,7 +173,7 @@ class EditorChromeIteratesInventoryTest extends KernelTestBase {
     $this->assertFalse($positionOps['add-after']['#title']->isIconOnly(), 'add-after is labelled');
     $this->assertSame('Before', (string) $positionOps['add-before']['#title']->getText());
     $this->assertSame('After', (string) $positionOps['add-after']['#title']->getText());
-    foreach (['move-up' => 'Move Component Up', 'move-down' => 'Move Component Down'] as $id => $label) {
+    foreach (['move-up' => 'Move component up', 'move-down' => 'Move component down'] as $id => $label) {
       $this->assertTrue($positionOps[$id]['#title']->isIconOnly(), "$id shows only its icon");
       $this->assertSame($label, (string) $positionOps[$id]['#title']->getText(), "$id keeps its name for screen readers");
     }

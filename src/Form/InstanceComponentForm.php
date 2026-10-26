@@ -590,7 +590,7 @@ final class InstanceComponentForm extends ContentEntityForm {
 
     $markup = '';
     if (!empty($chip['title'])) {
-      $markup .= '<span class="uppercase tracking-tight opacity-75">' . Html::escape($chip['title']) . '</span>';
+      $markup .= '<span class="opacity-75">' . Html::escape($chip['title']) . '</span>';
     }
     $markup .= '<span class="font-semibold truncate">' . Html::escape($chip['value']) . '</span>';
 

@@ -36,3 +36,36 @@
 .neo-alchemist-manage[data-alchemist-single]:not([data-alchemist-single="mobile"]) :is(.neo-alchemist--element, .neo-alchemist--event, .neo-alchemist--overlay, .neo-alchemist--shade, .neo-alchemist--seam)[data-size="mobile"] {
   display: none !important;
 }
+
+/* Outlines (neo-alchemist-overlay.html.twig).
+ *
+ * An outline sits on whatever the component paints: a white hero, a brand-red
+ * band, a photo. One colour cannot read on all of them, and brand colour
+ * vanishes on a brand-coloured section, so every state is two tones: a dark
+ * line with a light edge. Neutral black and white on purpose: a scheme shade
+ * can equal the surface it sits on.
+ *
+ * Hover is the quiet one (a dashed dark line with a light halo); context
+ * (an ancestor, or a child region of the selection) is quieter still; the
+ * selection is a solid light ring inside a dark one. The overlay's inline
+ * `transition: all` animates between them.
+ */
+.neo-alchemist--overlay {
+  border-color: rgb(0 0 0 / 0.6);
+  box-shadow: 0 0 0 1px rgb(255 255 255 / 0.7);
+}
+
+.neo-alchemist--overlay:is([data-state='active'], [data-state='ghost']) {
+  border-color: rgb(0 0 0 / 0.35);
+  box-shadow: 0 0 0 1px rgb(255 255 255 / 0.4);
+}
+
+/* A 2px light ring straddling the border (from 1px inside to 1px outside),
+ * and a dark ring from there to 3px outside. */
+.neo-alchemist--overlay[data-state='focus'] {
+  border-style: solid;
+  border-color: transparent;
+  outline: 2px solid rgb(255 255 255);
+  outline-offset: -1px;
+  box-shadow: 0 0 0 3px rgb(0 0 0 / 0.85);
+}

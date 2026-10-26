@@ -271,8 +271,13 @@ function template_preprocess_neo_alchemist_overlay(&$variables) {
     '#title' => neo_icon_admin('Close', 'times')->iconOnly(),
     '#url' => Url::fromRoute('<current>'),
     '#tooltip' => t('Close'),
+    // Deselecting loses nothing, so it is a quiet icon in the bar's own text
+    // colour: the alert fill belongs to actions that destroy something.
     '#attributes' => [
-      'class' => ['neo-alchemist--close', 'btn', 'btn-alert', 'btn-xs'],
+      'class' => [
+        'neo-alchemist--close', 'inline-flex', 'items-center', 'justify-center', 'size-7', 'rounded',
+        'text-inherit', 'hover:text-inherit', 'opacity-75', 'transition', 'hover:opacity-100', 'hover:bg-base-0/10',
+      ],
     ],
   ];
 
@@ -344,7 +349,9 @@ function _neo_alchemist_overlay_ops(array $ops): array {
         '#tooltip' => $label,
         '#tooltip_options' => ['placement' => 'top'],
         '#attributes' => [
-          'class' => ['neo-alchemist--op', 'btn', 'btn-primary', 'btn-xs'],
+          // Delete is the one verb that destroys, and takes the alert colour
+          // so it never looks like Edit beside it.
+          'class' => ['neo-alchemist--op', 'btn', $op->verb === 'delete' ? 'btn-alert' : 'btn-primary', 'btn-xs'],
           'data-op' => $op->id,
         ],
       ];

@@ -61,6 +61,17 @@ class InstanceComponentResetForm extends EntityConfirmFormBase {
   /**
    * {@inheritdoc}
    */
+  protected function actions(array $form, FormStateInterface $form_state) {
+    $actions = parent::actions($form, $form_state);
+    // Destructive: the alert colour, which neo_modal carries over to the
+    // footer button it draws in place of this one.
+    $actions['submit']['#attributes']['class'][] = 'btn-alert';
+    return $actions;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
   public function getQuestion() {
     return $this->t('Reset the components on %label: %field_label?', [
       '%label' => $this->entity->label(),

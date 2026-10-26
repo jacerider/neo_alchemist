@@ -1,5 +1,24 @@
 # Changelog
 
+## Each colour in the canvas means one thing, and labels are sentence case
+
+The brand colour meant six things on the canvas: primary actions, destructive ones (Delete
+looked exactly like Edit), deselecting, the active toggles, the selection outline and the
+selected tile. Delete, and the Delete, Reset and Purge confirm buttons, now use the scheme's
+alert colour. The breadcrumb bar's × (deselect) is a quiet icon in the bar's text colour.
+
+Outlines no longer use the brand colour, which could vanish on a brand-coloured section. The
+selection is a light ring inside a dark one, which reads on light, dark, brand-coloured and
+photo sections. Hover is a dark dashed line with a light edge, visible on light sections where
+the old pale dashed border was not. Ancestors and child regions of the selection keep a fainter
+version of the hover line.
+
+Editor labels are sentence case: the Layers and side panel headers, the "Edit component"
+toolbar title, the style chips ("Color scheme"), the Default / Hide / Show chips, the op labels
+("Add component before", "Move component up") and an array's add button ("Add card").
+`EditorOpInventory` labels changed accordingly, so translations of the old strings need
+re-translating.
+
 ## The canvas meets contrast, text-size and keyboard requirements
 
 Several parts of the canvas and the component form failed WCAG contrast or sat below a

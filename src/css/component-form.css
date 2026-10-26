@@ -1,23 +1,21 @@
 .neo-alchemist--component-form {
 
-  /* The per-field state chips are set in caps here, and only here. Uppercase
-     plus tracking is what lets them read as a status marker rather than as two
-     more words competing with the field label beside them — but that is this
-     panel's editorial choice, not a property of the `inline_buttons_text`
-     style, so it stays out of neo_base where every other form would inherit
-     it. The style itself supplies the text/outline behaviour. */
+  /* The per-field state chips (Default / Hide / Show). Sentence case, like
+     every other label in the editor; the regular weight and the style's own
+     text colour are what keep them from competing with the field label. The
+     style itself supplies the text/outline behaviour. */
   legend .form--inline-min {
-    /* Caps plus tracking push the pair to within a rounding error of the row's
-       shrink-to-fit width, and `.form--inline`'s `flex-wrap: wrap` then breaks
-       it onto two lines. The pair is one toolbar and should stay on one line —
-       the panel has width to spare, it is the fractional max-content width that
-       does not. */
+    /* The pair can land within a rounding error of the row's shrink-to-fit
+       width, and `.form--inline`'s `flex-wrap: wrap` then breaks it onto two
+       lines. The pair is one toolbar and should stay on one line — the panel
+       has width to spare, it is the fractional max-content width that does
+       not. */
     @apply flex-nowrap;
 
     .option {
       /* 12px, the floor for text in editor chrome. The style's own `xs` size
-         is 10px, which caps plus tracking could only just carry. */
-      @apply uppercase tracking-wide text-xs;
+         is 10px. */
+      @apply text-xs;
     }
 
     /* The pressed chip (`Show` on a hidden field). The style fills it with the
