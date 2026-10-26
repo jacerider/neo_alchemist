@@ -18,14 +18,13 @@ use Drupal\neo_alchemist\Controller\InstanceComponentPreviewController;
 use Drupal\neo_alchemist\Controller\InstanceComponentPublishController;
 use Drupal\neo_alchemist\Controller\InstanceComponentResetController;
 use Drupal\neo_alchemist\Controller\InstanceComponentRevertController;
-use Drupal\neo_alchemist\Controller\InstanceComponentSortController;
 use Drupal\neo_alchemist\Form\PurgeInertDataForm;
 use Symfony\Component\Routing\Route;
 
 /**
  * The editor's route family, as one table.
  *
- * "An operation on a component in the editor" — edit, delete, sort, clone, add,
+ * "An operation on a component in the editor" — edit, delete, clone, add,
  * move, and the management landing itself — is registered across more than one
  * host scope: an entity that renders a component tree (the entity scope) and
  * the field-config editor under Manage fields (the field-UI scope). The block
@@ -132,7 +131,6 @@ final class EditorRouteFamily {
       'publish',
       'revert',
       'reset',
-      'sort',
       'add',
       'edit',
       'clone',
@@ -145,7 +143,6 @@ final class EditorRouteFamily {
       'manage',
       'preview',
       'library',
-      'sort',
       'purge',
       'add',
       'edit',
@@ -159,7 +156,6 @@ final class EditorRouteFamily {
       'manage',
       'preview',
       'library',
-      'sort',
       'add',
       'edit',
       'clone',
@@ -504,14 +500,6 @@ final class EditorRouteFamily {
         'params' => ['neo_field'],
         'defaults' => $action(InstanceComponentResetController::class, 'Reset'),
         'requirement' => ['_neo_component_field' => 'neo_field.reset'],
-        'admin_route' => TRUE,
-        'preview' => FALSE,
-      ],
-      'sort' => [
-        'path' => '/{neo_field}/sort',
-        'params' => ['neo_field'],
-        'defaults' => $controller(InstanceComponentSortController::class),
-        'requirement' => ['_neo_component_field' => 'neo_field.sort'],
         'admin_route' => TRUE,
         'preview' => FALSE,
       ],

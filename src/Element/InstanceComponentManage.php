@@ -57,7 +57,11 @@ class InstanceComponentManage extends RenderElementBase {
     $element['#iframe_start'] = [
       '#theme' => 'neo_alchemist_overlay',
     ];
-    $element['#top_start'] = ComponentManageHelper::buildNavigationOperations($neoField);
+    // One bar: Back · Layers · + Add lead it; the footer this used to need is
+    // gone.
+    $element['#top_start'] = ComponentManageHelper::buildNavigationOperations($neoField)
+      + ComponentManageHelper::buildLayersToggle()
+      + ComponentManageHelper::buildOperations($neoField, $element['#neo_modal'] ?? []);
     $element['#top_end'] = ComponentManageHelper::buildIframeOperations($neoField);
     // The save group trails the view controls, and is the part a write
     // re-renders (see ComponentManageHelper::buildDynamicOperations()).
@@ -70,15 +74,14 @@ class InstanceComponentManage extends RenderElementBase {
     $element['#dock_ops'] = $chrome['inspector_ops'];
     $element['#dock_menu'] = $chrome['inspector_menu'];
     $element['#dock_close'] = TRUE;
-    $element['#bottom_start'] = ComponentManageHelper::buildOperations($neoField, $element['#neo_modal'] ?? []);
-    $element['#bottom_end'] = ComponentManageHelper::buildLayersToggle();
 
-    // Side panels other modules add: their toggles sit left of Layers. With
-    // none accessible nothing here changes the editor.
+    // Side panels other modules add: tabs in the right dock beside the
+    // inspector, opened from their badge or a header toggle. With none
+    // accessible nothing here changes the editor.
     $sidePanels = ComponentManageHelper::buildSidePanels($neoField);
     $sidePanels['cacheability']->applyTo($element);
     if ($sidePanels['panels']) {
-      $element['#bottom_end'] = $sidePanels['toggles'] + $element['#bottom_end'];
+      $element['#top_start'] += $sidePanels['toggles'];
       $element['#side_panels'] = $sidePanels['panels'];
       $element['#attached']['drupalSettings']['neoAlchemist']['panels'] = $sidePanels['settings'];
       $element['#attached']['library'][] = 'neo_alchemist/panels';

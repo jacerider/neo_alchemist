@@ -159,8 +159,13 @@
    * moves in on open and back to the opening button on close. Clicking a
    * different button of the badge while it is open keeps it open and reports
    * that button to onToggle() — a badge with two parts shows the part clicked.
+   *
+   * A panel's own badge is the way to its panel instead: a click on its
+   * buttons opens the panel's tab in the editor's right dock, and the dropdown
+   * opens only when the panel's code asks for it (open(), or a scripted click
+   * on the badge).
    */
-  function dropdownCreate(badge: HTMLElement, id: string, label?: string): NeoAlchemistDropdown {
+  function dropdownCreate(badge: HTMLElement, id: string, label?: string, opensPanel: boolean = false): NeoAlchemistDropdown {
     const element = document.createElement('div');
     element.id = `neo-alchemist-dropdown-${id}`;
     element.className = 'neo-alchemist--dropdown absolute overflow-y-auto rounded-lg shadow-lg border bg-base-0 text-base-0-content text-sm z-50';
@@ -308,6 +313,12 @@
         return;
       }
       event.preventDefault();
+      // Only a person's click goes to the panel. A panel opens its dropdown by
+      // clicking the badge from script (neo_seo's score row does), and that
+      // has to reach the dropdown, not toggle the panel it came from.
+      if (opensPanel && event.isTrusted && !dropdown.isOpen() && Drupal.neoAlchemist?.editor?.openPanel?.(id)) {
+        return;
+      }
       if (!dropdown.isOpen()) {
         clicked = button;
         dropdown.open();
@@ -339,7 +350,7 @@
     }
     badged[id] = true;
     try {
-      definition.badge(badge, api(id), dropdownCreate(badge, id));
+      definition.badge(badge, api(id), dropdownCreate(badge, id, undefined, true));
     }
     catch (e) {
       console.error(e);

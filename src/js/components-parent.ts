@@ -63,7 +63,6 @@
    */
   interface Actions {
     library: (parentUuid: string | null, baseUrl: string) => void;
-    sort: (parentUuid: string | null, baseUrl: string) => void;
   }
 
   /**
@@ -74,7 +73,6 @@
    * none: selecting a component already opens it in the inspector.
    */
   interface Operations {
-    sort: (url: string) => void;
     delete: (url: string) => void;
     clone: (url: string) => void;
     add: (url: string) => void;
@@ -114,6 +112,18 @@
   });
   const sidePanelToggles = container.querySelectorAll<HTMLElement>('.neo-alchemist--sidepanel-toggle');
   let sidePanelOpenId: string | null = null;
+  // The left dock's tab: 'layers', or a side panel's id (leftTabSet()).
+  let leftTab = 'layers';
+  // Whether Layers was showing when a panel opened the left dock, so closing
+  // the panel goes back to how the dock was.
+  let leftOpenBeforePanel = false;
+  // Below this width an open right dock folds Layers to its rail, unless the
+  // rail's own button unfolded it (layersPosition()).
+  const LAYERS_RAIL_BELOW = 1400;
+  let layersRailUnfolded = false;
+  // The Layers row being dragged, and the row marked as where it would land.
+  let layersDragUuid: string | null = null;
+  let layersDropRow: HTMLElement | null = null;
   // The component edit form takes the right-hand side, which is where the
   // layers panel floats. Editing one component's props is not a moment for
   // navigating the tree, so the panel stays out of that view entirely.
@@ -816,12 +826,22 @@
 
     // Layers panel.
     layersTree?.addEventListener('keydown', layersKeydown);
+    layersDragInit();
     layersToggleButton?.addEventListener('click', (e) => {
       e.preventDefault();
-      layersPanelToggle(!layersPanelIsOpen());
+      // Showing a panel, the toggle brings Layers forward rather than hiding
+      // the dock.
+      layersPanelToggle(!layersPanelIsOpen() || leftTab !== 'layers');
     });
     layersCloseButton?.addEventListener('click', (e) => {
       e.preventDefault();
+      // Closing a panel closes the dock, without changing what is remembered
+      // about Layers.
+      if (leftTab !== 'layers') {
+        leftOpenBeforePanel = false;
+        sidePanelToggle(leftTab, false);
+        return;
+      }
       layersPanelToggle(false);
     });
     if (hasSideForm) {
@@ -843,12 +863,34 @@
         }
       });
     });
-    Object.entries(sidePanels).forEach(([id, panel]) => {
-      panel.querySelector('.neo-alchemist--sidepanel-close')?.addEventListener('click', (e) => {
+    layersPanel?.querySelectorAll<HTMLElement>('[data-left-tab]').forEach(tab => {
+      tab.addEventListener('click', (e) => {
         e.preventDefault();
-        sidePanelToggle(id, false);
+        const id = tab.dataset.leftTab || 'layers';
+        if (id === 'layers') {
+          layersPanelToggle(true);
+        }
+        else {
+          sidePanelToggle(id, true);
+        }
       });
     });
+    layersPanel?.querySelector('.neo-alchemist--layers-rail')?.addEventListener('click', (e) => {
+      e.preventDefault();
+      layersRailUnfolded = true;
+      layersPosition();
+    });
+    window.addEventListener('resize', () => layersPosition());
+    // A panel's badge opens its tab (panels.ts asks).
+    if (Drupal.neoAlchemist?.editor) {
+      Drupal.neoAlchemist.editor.openPanel = (id: string) => {
+        if (!sidePanels[id]) {
+          return false;
+        }
+        sidePanelToggle(id, !(leftTab === id && layersPanelIsOpen()));
+        return true;
+      };
+    }
 
     // Escape climbs out of the selection — component, then its region, then the
     // page — the same step clicking the dimmed area takes, so pressing it
@@ -920,6 +962,9 @@
       // component added from the library, which the selection moves to.
       if (detail.uuid === inspectorUuid) {
         inspectorApplied(detail.uuid);
+        return;
+      }
+      if (inspectorDirty) {
         return;
       }
       layerUuid = detail.uuid;
@@ -1047,7 +1092,7 @@
 
     elementsPosition();
     elementsToggle();
-    // Hide the root Add/Sort in hybrid mode until a region is focused. When a
+    // Hide the root Add in hybrid mode until a region is focused. When a
     // layer is restored below, layerShow() re-runs these.
     actionsToggle();
     actionLabelsSet(layerUuid);
@@ -1058,10 +1103,10 @@
     seamsShow(layerUuid);
     layersBuild();
     // An explicit choice wins, but only on the layout it was made on;
-    // otherwise whether this tree has regions decides. An open side panel
-    // keeps the spot: a layout save must not swap it for Layers.
-    const layersChoice = localStorage.getItem(layersStorageKey);
-    if (!sidePanelOpenId) {
+    // otherwise whether this tree has regions decides. Once: a layout write
+    // re-runs this, and must not undo what was chosen since.
+    if (!readyCount) {
+      const layersChoice = localStorage.getItem(layersStorageKey);
       layersPanelToggle(layersChoice ? layersChoice === 'open' : layersHasRegions(), true);
     }
     // Every ready() after the first follows a layout write (the previews
@@ -1957,16 +2002,17 @@
       inspectorClose();
       return;
     }
-    dock.hidden = false;
     if (uuid === inspectorUuid) {
+      dockVisibilitySync();
       return;
     }
     const data = structureData[uuid];
+    inspectorUuid = uuid;
+    dockVisibilitySync();
     if (data.type !== 'component') {
       // A region has no form of its own: the header's breadcrumb still says
       // where it is, and the body says what to do with it.
       inspectorEmpty(Drupal.t('Select a component in @region to edit it, or use the + between components to add one.', { '@region': String(data.data.label ?? '') }));
-      inspectorUuid = uuid;
       return;
     }
     inspectorLoad(uuid);
@@ -2032,12 +2078,12 @@
     inspectorUuid = null;
     inspectorDirty = false;
     inspectorPromptHide();
-    if (!dock.hidden || had) {
+    if (had) {
       Drupal.detachBehaviors(dockBody, drupalSettings, 'unload');
       dockBody.innerHTML = '';
     }
-    dock.hidden = true;
-    dock.classList.remove('is-expanded');
+    titleSet(null);
+    dockVisibilitySync();
   }
 
   /**
@@ -2391,6 +2437,11 @@
       + ' focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary-500';
     row.setAttribute('role', 'treeitem');
     row.setAttribute('data-uuid', uuid);
+    // A component can be dragged to a new place; a region is where things are
+    // dropped, never moved itself.
+    if (!inert && data.type === 'component') {
+      row.draggable = true;
+    }
     row.setAttribute('aria-level', String(data.parents.length + 1));
     // Indent by depth. The value is per-row, so it stays inline.
     row.style.paddingLeft = `${0.375 + (data.parents.length * 0.75)}rem`;
@@ -2483,6 +2534,23 @@
    * only keyboard route to a node.
    */
   function layersKeydown(e: KeyboardEvent): void {
+    // Alt+↑/↓ moves the focused component among its siblings: the keyboard
+    // half of dragging a row.
+    if (e.altKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown')
+      && e.target instanceof HTMLElement && e.target.classList.contains('neo-alchemist--layer')) {
+      e.preventDefault();
+      const uuid = e.target.dataset.uuid;
+      if (!uuid || structureData[uuid]?.type !== 'component') {
+        return;
+      }
+      if (uuid !== layerUuid) {
+        layerShowOffCanvas(uuid);
+      }
+      if (layerUuid === uuid) {
+        operationExecute(e.key === 'ArrowUp' ? 'move-up' : 'move-down');
+      }
+      return;
+    }
     const keys = ['ArrowDown', 'ArrowUp', 'Home', 'End', 'Enter', ' '];
     // Only a row's own keys: a region row's + button is a button, and Enter on
     // it must add, not edit.
@@ -2533,6 +2601,153 @@
    * region is enough to earn it, empty or not — that is where nesting starts,
    * and an empty region is exactly the thing that is hard to find on canvas.
    */
+  /**
+   * Layers drag-and-drop: drop a component before or after another, or into
+   * a region (at its end).
+   *
+   * One drop is one draft write, through the move route's `to` step
+   * (InstanceComponentMoveController), so it is one step to undo. The tree
+   * refuses a drop into the dragged component itself or under it, and hybrid
+   * layouts only take drops into their customizable regions; both are checked
+   * here too, so a refused drop never shows as allowed.
+   */
+  interface LayersDrop {
+    // The region it lands in (`ownerUuid--shapeId`), or null for the page.
+    container: string | null;
+    sibling: string | null;
+    position: 'before' | 'after' | null;
+  }
+
+  function layersDropAt(row: HTMLElement, clientY: number): LayersDrop | null {
+    const uuid = row.dataset.uuid;
+    const dragged = layersDragUuid;
+    const data = uuid ? structureData[uuid] : null;
+    if (!dragged || !uuid || !data || uuid === dragged || data.parents.includes(dragged) || row.dataset.inert) {
+      return null;
+    }
+    if (data.type === 'region') {
+      if (hybrid && !isCustomRegion(uuid)) {
+        return null;
+      }
+      return { container: uuid, sibling: null, position: null };
+    }
+    const container = data.parents[data.parents.length - 1] || null;
+    if (container && structureData[container]?.type !== 'region') {
+      return null;
+    }
+    if (hybrid && !(container && isCustomRegion(container))) {
+      return null;
+    }
+    const rect = row.getBoundingClientRect();
+    const position = clientY < rect.top + (rect.height / 2) ? 'before' : 'after';
+    // Dropping a component back where it already is writes nothing.
+    const siblings = container ? (structureData[container]?.children ?? []) : Object.keys(structureData).filter(key => !structureData[key].parents.length);
+    const from = structureData[dragged]?.parents.slice(-1)[0] || null;
+    if (from === container) {
+      const order = siblings.filter(key => key !== dragged);
+      const at = order.indexOf(uuid) + (position === 'after' ? 1 : 0);
+      if (siblings.indexOf(dragged) === at) {
+        return null;
+      }
+    }
+    return { container, sibling: uuid, position };
+  }
+
+  function layersDropMark(row: HTMLElement | null, drop: LayersDrop | null): void {
+    if (layersDropRow && layersDropRow !== row) {
+      layersDropRow.classList.remove('is-drop-before', 'is-drop-after', 'is-drop-into');
+    }
+    layersDropRow = row;
+    if (!row) {
+      return;
+    }
+    row.classList.toggle('is-drop-before', drop?.position === 'before');
+    row.classList.toggle('is-drop-after', drop?.position === 'after');
+    row.classList.toggle('is-drop-into', !!drop && drop.position === null);
+  }
+
+  function layersDrop(dragged: string, drop: LayersDrop): void {
+    const ops = structureData[dragged]?.data?.ops;
+    const base = ops?.['move-down']?.url || ops?.['move-up']?.url;
+    if (!base) {
+      return;
+    }
+    // The op records carry the step's URL; a drop is the same route with the
+    // `to` step in place of a direction.
+    const url = new URL(base, window.location.origin);
+    url.pathname = url.pathname.replace(/\/(up|down)$/, '/to');
+    const params: Record<string, string | null> = {
+      parent: structureData[dragged]?.parents.slice(-1)[0] || null,
+      target: drop.container ?? '',
+      before: drop.position === 'before' ? drop.sibling : null,
+      after: drop.position === 'after' ? drop.sibling : null,
+    };
+    const run = () => {
+      revealUuid = dragged;
+      revealUntil = Date.now() + 3000;
+      Drupal.ajax({
+        progress: ajaxProgress(),
+        url: appendParams(url.pathname + url.search, params),
+      }).execute();
+    };
+    // A drop moves the selection onto what was dropped, which would take the
+    // inspector off changes that are not applied yet.
+    if (inspectorGuard(inspectorLabel(), run)) {
+      return;
+    }
+    run();
+  }
+
+  function layersDragInit(): void {
+    if (!layersTree) {
+      return;
+    }
+    layersTree.addEventListener('dragstart', (e) => {
+      const row = (e.target as HTMLElement).closest<HTMLElement>('.neo-alchemist--layer');
+      if (!row?.draggable || !row.dataset.uuid) {
+        return;
+      }
+      layersDragUuid = row.dataset.uuid;
+      row.classList.add('is-dragging');
+      e.dataTransfer?.setData('text/plain', layersDragUuid);
+      if (e.dataTransfer) {
+        e.dataTransfer.effectAllowed = 'move';
+      }
+    });
+    layersTree.addEventListener('dragover', (e) => {
+      const row = (e.target as HTMLElement).closest<HTMLElement>('.neo-alchemist--layer');
+      const drop = row ? layersDropAt(row, e.clientY) : null;
+      layersDropMark(row, drop);
+      if (drop) {
+        e.preventDefault();
+        if (e.dataTransfer) {
+          e.dataTransfer.dropEffect = 'move';
+        }
+      }
+    });
+    layersTree.addEventListener('dragleave', (e) => {
+      if (!layersTree.contains(e.relatedTarget as Node)) {
+        layersDropMark(null, null);
+      }
+    });
+    layersTree.addEventListener('drop', (e) => {
+      const row = (e.target as HTMLElement).closest<HTMLElement>('.neo-alchemist--layer');
+      const dragged = layersDragUuid;
+      const drop = row ? layersDropAt(row, e.clientY) : null;
+      layersDropMark(null, null);
+      if (!dragged || !drop) {
+        return;
+      }
+      e.preventDefault();
+      layersDrop(dragged, drop);
+    });
+    layersTree.addEventListener('dragend', () => {
+      layersTree.querySelectorAll('.is-dragging').forEach(row => row.classList.remove('is-dragging'));
+      layersDropMark(null, null);
+      layersDragUuid = null;
+    });
+  }
+
   function layersHasRegions(): boolean {
     return Object.values(structureData).some(data => data.type === 'region');
   }
@@ -2545,58 +2760,104 @@
     if (!layersPanel || hasSideForm) {
       return;
     }
-    if (open) {
-      sidePanelToggle(null, false);
-    }
     layersPanel.style.display = open ? '' : 'none';
+    if (open && leftTab !== 'layers') {
+      leftTabSet('layers');
+    }
     // The toggle stays put either way — it is the one fixed way to reach the
     // tree — and reflects the state rather than disappearing into it.
-    layersToggleButton?.classList.toggle('is-active', open);
-    layersToggleButton?.setAttribute('aria-expanded', open ? 'true' : 'false');
+    layersToggleButton?.classList.toggle('is-active', open && leftTab === 'layers');
+    layersToggleButton?.setAttribute('aria-expanded', open && leftTab === 'layers' ? 'true' : 'false');
     if (!silent) {
       localStorage.setItem(layersStorageKey, open ? 'open' : 'closed');
     }
-    if (open) {
-      layersPosition();
-    }
+    layersRailUnfolded = false;
+    layersPosition();
   }
 
   /**
-   * Pin the floating panel between the breadcrumb and the bottom bar.
-   *
-   * Both of those slide in and out with the selection, so their heights are
-   * only counted while they are actually up.
+   * Fold Layers to an icon rail while the window is narrow and the inspector
+   * is open, and unfold it when the inspector closes. Not a choice about
+   * Layers, so nothing is remembered; the rail's own button unfolds it until
+   * then. A panel the editor opened in the left dock is never folded away.
    */
   function layersPosition(): void {
-    floatingPosition(layersPanel);
-    floatingPosition(sidePanelOpenId ? sidePanels[sidePanelOpenId] : null);
-  }
-
-  /**
-   * Pin a floating panel — Layers or a side panel — to the canvas's right edge.
-   */
-  function floatingPosition(panel: HTMLElement | null): void {
-    if (!panel || panel.style.display === 'none') {
+    if (!layersPanel) {
       return;
     }
-    // One spacing for everything that floats over the canvas: side panels,
-    // Layers and badge dropdowns (panels.ts). Set on the editor's root.
-    const gap = parseFloat(getComputedStyle(container).getPropertyValue('--neo-alchemist-floating-gap')) || 16;
-    const rect = wrapper.getBoundingClientRect();
-    panel.style.top = `${rect.top + gap}px`;
-    panel.style.bottom = `${(window.innerHeight - rect.bottom) + gap}px`;
-    panel.style.right = `${(window.innerWidth - rect.right) + gap}px`;
-    // Under the breadcrumb and ops bars, which own z-30, so a mid-transition
-    // overlap never puts the panel on top of them.
-    panel.style.zIndex = '29';
+    const dockOpen = !!dock && !dock.hidden;
+    if (!dockOpen) {
+      layersRailUnfolded = false;
+    }
+    const rail = leftTab === 'layers' && dockOpen && !layersRailUnfolded && window.innerWidth < LAYERS_RAIL_BELOW;
+    layersPanel.classList.toggle('is-rail', rail);
+    const railButton = layersPanel.querySelector<HTMLElement>('.neo-alchemist--layers-rail');
+    if (railButton) {
+      railButton.hidden = !rail;
+    }
   }
 
   /**
-   * Open one side panel (closing Layers and any other), or close them all.
+   * Show one tab of the left dock: Layers, or a side panel.
    *
-   * The panel's client is mounted on its first open, not at page load, so a
-   * panel nobody opens costs nothing. Closing keeps it mounted: reopening
-   * shows it as it was left.
+   * The left dock holds what belongs to the whole page, so nothing here
+   * touches the inspector or the selection. A panel's tab widens the dock to
+   * the panel's width. A panel's client is mounted on its first open, not at
+   * page load, so a panel nobody opens costs nothing; switching away keeps it
+   * mounted, so it comes back as it was left.
+   */
+  function leftTabSet(tab: string): void {
+    if (!layersPanel) {
+      return;
+    }
+    if (tab !== 'layers' && !sidePanels[tab]) {
+      tab = 'layers';
+    }
+    leftTab = tab;
+    sidePanelOpenId = tab === 'layers' ? null : tab;
+    layersPanel.querySelectorAll<HTMLElement>('[data-left-tab]').forEach(button => {
+      button.setAttribute('aria-selected', button.dataset.leftTab === tab ? 'true' : 'false');
+    });
+    layersPanel.querySelectorAll<HTMLElement>('[data-left-pane]').forEach(pane => {
+      pane.hidden = pane.dataset.leftPane !== tab;
+    });
+    layersPanel.style.width = tab === 'layers' ? '' : (sidePanels[tab].dataset.width || '24rem');
+    const layersShowing = tab === 'layers' && layersPanel.style.display !== 'none';
+    layersToggleButton?.classList.toggle('is-active', layersShowing);
+    layersToggleButton?.setAttribute('aria-expanded', layersShowing ? 'true' : 'false');
+    sidePanelToggles.forEach(toggle => {
+      const show = toggle.dataset.alchemistSidepanel === tab;
+      toggle.classList.toggle('is-active', show);
+      toggle.setAttribute('aria-expanded', show ? 'true' : 'false');
+    });
+    if (tab !== 'layers') {
+      const body = sidePanels[tab].querySelector<HTMLElement>('.neo-alchemist--sidepanel-body');
+      if (body) {
+        Drupal.neoAlchemist?.panels?.mount(tab, body);
+      }
+    }
+    layersPosition();
+  }
+
+  /**
+   * The inspector's dock is open exactly while there is a selection.
+   */
+  function dockVisibilitySync(): void {
+    if (!dock) {
+      return;
+    }
+    dock.hidden = !inspectorUuid;
+    if (dock.hidden) {
+      dock.classList.remove('is-expanded');
+    }
+    layersPosition();
+  }
+
+  /**
+   * Open a side panel's tab in the left dock, or close it.
+   *
+   * Opening shows the dock if it was closed; closing goes back to Layers if
+   * Layers was showing before, else closes the dock.
    *
    * @param id
    *   The panel to act on, or null for whichever is open.
@@ -2604,31 +2865,25 @@
    *   Whether to open it.
    */
   function sidePanelToggle(id: string | null, open: boolean): void {
-    if (hasSideForm) {
+    if (hasSideForm || !layersPanel) {
       return;
     }
-    Object.entries(sidePanels).forEach(([panelId, panel]) => {
-      const show = open && panelId === id;
-      panel.style.display = show ? '' : 'none';
-    });
-    sidePanelToggles.forEach(toggle => {
-      const show = open && toggle.dataset.alchemistSidepanel === id;
-      toggle.classList.toggle('is-active', show);
-      toggle.setAttribute('aria-expanded', show ? 'true' : 'false');
-    });
-    sidePanelOpenId = open ? id : null;
-    if (!open || !id || !sidePanels[id]) {
+    if (open && id) {
+      if (leftTab === 'layers') {
+        leftOpenBeforePanel = layersPanelIsOpen();
+      }
+      layersPanel.style.display = '';
+      leftTabSet(id);
       return;
     }
-    if (layersPanelIsOpen()) {
-      // Silent: making room for a panel is not a choice about Layers, so the
-      // remembered preference for this layout stands.
-      layersPanelToggle(false, true);
+    if (id && leftTab !== id) {
+      return;
     }
-    floatingPosition(sidePanels[id]);
-    const body = sidePanels[id].querySelector<HTMLElement>('.neo-alchemist--sidepanel-body');
-    if (body) {
-      Drupal.neoAlchemist?.panels?.mount(id, body);
+    leftTabSet('layers');
+    if (!leftOpenBeforePanel) {
+      layersPanel.style.display = 'none';
+      layersToggleButton?.classList.remove('is-active');
+      layersToggleButton?.setAttribute('aria-expanded', 'false');
     }
   }
 
@@ -2984,23 +3239,18 @@
   }
 
   /**
-   * Toggle the bottom toolbar Add/Sort in hybrid mode.
+   * Toggle the header's Add in hybrid mode.
    *
-   * Root add/sort is locked in hybrid mode, so these only make sense scoped to
-   * a customizable region — but, as in non-hybrid, the bar stays up while any
-   * layer *inside* that region is focused (a focused component's add/sort still
-   * targets its region). Show Add whenever the focus is inside a region, and
-   * Sort only when that region has something to reorder. Non-hybrid layouts
-   * keep the buttons always visible (untouched).
+   * Root add is locked in hybrid mode, so it only makes sense scoped to a
+   * customizable region — but it stays up while any layer *inside* that region
+   * is focused (a focused component's add still targets its region). Non-hybrid
+   * layouts keep it always visible (untouched).
    */
   function actionsToggle(): void {
     if (!hybrid || !actionButtons) return;
     const region = focusedCustomRegion(layerUuid);
-    const childCount = region ? (structureData[region]?.children?.length || 0) : 0;
     actionButtons.forEach(button => {
-      const action = button.dataset.action;
-      const visible = action === 'sort' ? (!!region && childCount >= 2) : !!region;
-      button.style.display = visible ? '' : 'none';
+      button.style.display = region ? '' : 'none';
     });
   }
 
@@ -3208,22 +3458,8 @@
   function actionLabelsSet(uuid: string | null): void {
     const target = resolveAddTarget(uuid);
     actionButtons.forEach(button => {
-      const label = button.querySelector<HTMLElement>('.neo-alchemist--action-label');
-      if (!label) {
-        return;
-      }
-      if (button.dataset.action === 'sort') {
-        label.textContent = target.uuid
-          ? Drupal.t('Reorder @target', { '@target': target.label })
-          : Drupal.t('Reorder page');
-        button.setAttribute('title', target.uuid
-          ? Drupal.t('Reorder the components in @target', { '@target': target.label })
-          : Drupal.t('Reorder the components on the page'));
-        return;
-      }
-      label.textContent = target.uuid
-        ? Drupal.t('Add to @target', { '@target': target.label })
-        : Drupal.t('Add to page');
+      // The label stays "Add": the header has no room for a sentence. Where
+      // it adds is said in the title, and shown on the canvas on hover.
       button.setAttribute('title', target.uuid
         ? Drupal.t('Add a component to the end of @target', { '@target': target.label })
         : Drupal.t('Add a component to the end of the page'));
@@ -3311,15 +3547,6 @@
         dialog: baseModalOptions,
       }).execute();
     },
-
-    sort: (parentUuid: string | null, baseUrl: string): void => {
-      Drupal.ajax({
-        progress: ajaxProgress(),
-        url: appendParams(baseUrl, { parent: parentUuid }),
-        dialogType: 'modal',
-        dialog: baseModalOptions,
-      }).execute();
-    },
   };
 
   function operationExecute(
@@ -3382,14 +3609,11 @@
    * The op record carries the URL the server generated for this component — for
    * an add it already names the before/after sibling, for a move the direction.
    * Where a parameter is genuinely client-side and the server could not know it
-   * in advance — the container a component sits in, the region a sort is scoped
-   * to, the focused component a sort highlights — it is appended here as a query
-   * parameter. The path itself is never built on the client.
+   * in advance — the container a component sits in — it is appended here as a
+   * query parameter. The path itself is never built on the client.
    */
   function operationRequestUrl(op: Op): string {
     switch (op.verb) {
-      case 'sort':
-        return appendParams(op.url, { uuid: layerUuid, parent: regionUuid });
       case 'add':
       case 'move':
         return appendParams(op.url, { parent: focusedParentUuid() });
@@ -3414,15 +3638,6 @@
    * request URL and only decides how the request is dispatched.
    */
   const operations: Operations = {
-    sort: (url: string): void => {
-      Drupal.ajax({
-        progress: ajaxProgress(),
-        url: url,
-        dialogType: 'modal',
-        dialog: baseModalOptions,
-      }).execute();
-    },
-
     delete: (url: string): void => {
       Drupal.ajax({
         progress: ajaxProgress(),

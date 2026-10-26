@@ -1699,7 +1699,6 @@ class Component extends ConfigEntityBase implements ComponentInterface {
     $permitted = [
       'edit' => $this->access('update'),
       'delete' => $this->access('delete'),
-      'sort' => $this->access('sort'),
       'clone' => $this->access('clone'),
       'add-before' => $this->access('create'),
       'add-after' => $this->access('create'),

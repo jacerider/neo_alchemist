@@ -10,7 +10,7 @@ use Drupal\Tests\UnitTestCase;
 use PHPUnit\Framework\Attributes\Group;
 
 /**
- * The eight editor ops are one declared table, not four derivations.
+ * The seven editor ops are one declared table, not four derivations.
  *
  * "An operation on a component in the editor" — edit, sort, clone, delete, add
  * before, add after, move up, move down — had its vocabulary derived four
@@ -46,16 +46,15 @@ final class EditorOpInventoryTest extends UnitTestCase {
   }
 
   /**
-   * The inventory declares exactly the eight ops the entity emits, in order.
+   * The inventory declares exactly the seven ops the entity emits, in order.
    *
-   * The eight are the keys of the entity's ops map. The order here is the order
-   * the chrome renders them: the four verb ops first (the bottom bar's "acting
-   * on the component itself" group), then the four positional ops.
+   * The seven are the keys of the entity's ops map. The order here is the
+   * order the chrome renders them: the three verb ops first (acting on the
+   * component itself), then the four positional ops.
    */
-  public function testDeclaresTheEightOps(): void {
+  public function testDeclaresTheSevenOps(): void {
     $this->assertSame([
       'edit',
-      'sort',
       'clone',
       'delete',
       'add-before',
@@ -104,7 +103,7 @@ final class EditorOpInventoryTest extends UnitTestCase {
   }
 
   /**
-   * The eight ops with the vocabulary the chrome renders today.
+   * The seven ops with the vocabulary the chrome renders today.
    *
    * @return array<string, array<string, string|null>>
    *   Op id => expected field values.
@@ -117,15 +116,6 @@ final class EditorOpInventoryTest extends UnitTestCase {
         'direction' => NULL,
         'rel' => 'edit',
         'label' => 'Edit',
-        'short' => NULL,
-        'icon' => NULL,
-      ],
-      'sort' => [
-        'verb' => 'sort',
-        'position' => NULL,
-        'direction' => NULL,
-        'rel' => 'sort',
-        'label' => 'Sort',
         'short' => NULL,
         'icon' => NULL,
       ],

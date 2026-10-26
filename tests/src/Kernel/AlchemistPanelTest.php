@@ -234,6 +234,7 @@ class AlchemistPanelTest extends HybridFieldKernelTestBase {
     $this->assertSame(['scale', 'size', 'view'], array_values(array_filter(array_keys($plain['#top_end']), static fn ($key) => $key[0] !== '#')), 'The top bar end holds only the scale, device and view controls.');
 
     \Drupal::state()->set(TestLabelPanel::BADGE_STATE_KEY, TRUE);
+    $this->assertArrayNotHasKey('sidepanel_' . self::PANEL, $this->sidePanels($item)['toggles'], 'A panel with a badge opens from it: no header toggle.');
     $badged = $this->manageElement($item);
     $children = array_values(array_filter(array_keys($badged['#top_end']), static fn ($key) => $key[0] !== '#'));
     $this->assertSame(['badges', 'scale', 'size', 'view'], $children, 'Badges come first, in the same container as the scale and device controls.');
@@ -246,8 +247,8 @@ class AlchemistPanelTest extends HybridFieldKernelTestBase {
   /**
    * The header's save group trails the bar and follows the draft.
    *
-   * Back leads on its own; the save group has a slot of its own, the one a
-   * write re-renders. With no draft it is quiet (no status, Revert or Save);
+   * Back, Layers and Add lead; the save group has a slot of its own, the one
+   * a write re-renders. With no draft it is quiet (no status, Revert or Save);
    * with one it says so in words, then offers a quiet Revert and Save, the one
    * filled button, in that order. Reset is never in the bar itself.
    */
@@ -256,7 +257,8 @@ class AlchemistPanelTest extends HybridFieldKernelTestBase {
     $children = static fn (array $build): array => array_values(array_filter(array_keys($build), static fn ($key) => $key[0] !== '#'));
 
     $quiet = $this->manageElement($item);
-    $this->assertSame(['back'], $children($quiet['#top_start']), 'Back leads on its own.');
+    $this->assertSame(['back', 'layers', 'add'], array_slice($children($quiet['#top_start']), 0, 3), 'Back, Layers and Add lead the bar.');
+    $this->assertArrayNotHasKey('#bottom_start', $quiet, 'There is no footer bar.');
     foreach (['status', 'revert', 'publish', 'reset'] as $key) {
       $this->assertNotContains($key, $children($quiet['#top_save']), "No draft: no $key in the bar.");
     }

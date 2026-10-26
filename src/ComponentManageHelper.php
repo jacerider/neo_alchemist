@@ -205,12 +205,14 @@ class ComponentManageHelper {
         'class' => ['btn-group', 'flush'],
       ],
     ];
-    // Resize.
+    // Resize. Icons alone: the bar has three groups to fit, and the devices
+    // read at a glance. The name stays for screen readers and in a tooltip.
     foreach ([
-      'desktop' => neo_icon_admin(t('Desktop'), 'desktop'),
-      'tablet' => neo_icon_admin(t('Tablet'), 'tablet'),
-      'mobile' => neo_icon_admin(t('Mobile'), 'mobile'),
-    ] as $key => $label) {
+      'desktop' => t('Desktop'),
+      'tablet' => t('Tablet'),
+      'mobile' => t('Mobile'),
+    ] as $key => $name) {
+      $label = neo_icon_admin($name, $key)->iconOnly();
       $build['size'][$key] = [
         '#type' => 'html_tag',
         '#tag' => 'button',
@@ -222,6 +224,7 @@ class ComponentManageHelper {
           'aria-pressed' => 'false',
         ],
       ];
+      (new Tooltip($name, ['placement' => 'bottom']))->applyTo($build['size'][$key]);
     }
 
     // View options: how the canvas shows the sizes. The panel always starts
@@ -317,30 +320,19 @@ class ComponentManageHelper {
       'displaceTop' => '0px',
       'displaceBottom' => '0px',
     ];
-    // These two act on whatever container the current selection resolves to,
-    // which is not something a fixed label can express. The editor rewrites
-    // the label text as the selection changes, so it always names its target —
-    // hence the class hook on the label span.
+    // Add acts on whatever container the current selection resolves to (the
+    // end of it), which is not something a fixed label can express, so the
+    // editor names it in the button's title as the selection changes. It sits
+    // in the header's leading group, and is not the bar's filled button: Save
+    // is.
     if ($instance->access('create')) {
       $build['add'] = [
         '#type' => 'link',
-        '#title' => neo_icon_admin(t('Add'))->addLabelClass('neo-alchemist--action-label'),
+        '#title' => neo_icon_admin(t('Add'), 'plus')->addLabelClass('neo-alchemist--action-label'),
         '#url' => $instance->toUrl('library'),
         '#attributes' => [
-          'class' => ['neo-alchemist--action', 'btn', 'btn-primary', 'btn-xs'],
-          'data-action' => 'library',
-        ],
-        '#modal' => $modalSettings,
-      ];
-    }
-    if ($instance->access('sort')) {
-      $build['sort'] = [
-        '#type' => 'link',
-        '#title' => neo_icon_admin(t('Sort'))->addLabelClass('neo-alchemist--action-label'),
-        '#url' => $instance->toUrl('sort'),
-        '#attributes' => [
           'class' => ['neo-alchemist--action', 'btn', 'btn-outline', 'btn-xs'],
-          'data-action' => 'sort',
+          'data-action' => 'library',
         ],
         '#modal' => $modalSettings,
       ];
@@ -349,12 +341,12 @@ class ComponentManageHelper {
   }
 
   /**
-   * Builds the toggle for the layers panel.
+   * Builds the toggle for the Layers dock.
    *
-   * Lives at the right of the bottom bar, opposite the Add/Sort actions, and
-   * stays put whether the panel is open or not — it is the one fixed way to
-   * reach the tree. Whether the panel starts open is decided per layout by
-   * layersHasRegions() in components-parent.ts.
+   * In the header's leading group, after Back, and stays put whether the dock
+   * is open or not — it is the one fixed way to reach the tree. Whether the
+   * dock starts open is decided per layout by layersHasRegions() in
+   * components-parent.ts.
    *
    * @return array
    *   The toggle.
@@ -370,6 +362,7 @@ class ComponentManageHelper {
           'class' => ['neo-alchemist--layers-toggle', 'btn', 'btn-outline', 'btn-xs', 'is-active:btn-primary'],
           'title' => t('Toggle the component tree'),
           'aria-expanded' => 'false',
+          'aria-controls' => 'neo-alchemist-layers',
         ],
       ],
     ];
@@ -378,10 +371,11 @@ class ComponentManageHelper {
   /**
    * Builds the editor side panels the current user may use on a field item.
    *
-   * Every piece the editor needs from the accessible AlchemistPanel plugins: a
-   * toggle per panel for the bottom bar (beside Layers), the panel boxes the
-   * template floats where Layers does, and the drupalSettings the client reads
-   * each panel's endpoint from. With no panel registered, or none accessible,
+   * Every piece the editor needs from the accessible AlchemistPanel plugins:
+   * the panels the template puts in the right dock as tabs beside the
+   * inspector, a badge (which opens its panel) or else a header toggle per
+   * panel, and the drupalSettings the client reads each panel's endpoint
+   * from. With no panel registered, or none accessible,
    * every list is empty and the editor is unchanged.
    *
    * @param \Drupal\neo_alchemist\Plugin\Field\FieldType\ComponentTreeItem $item
@@ -401,17 +395,6 @@ class ComponentManageHelper {
     foreach ($manager->accessiblePanels($item, \Drupal::currentUser(), $cacheability) as $id => $panel) {
       $definition = $panel->getPluginDefinition();
       $label = $panel->label();
-      $build['toggles']['sidepanel_' . $id] = [
-        '#type' => 'html_tag',
-        '#tag' => 'button',
-        '#value' => neo_icon_admin($label, $definition['icon'] ?? NULL)->render(),
-        '#attributes' => [
-          'type' => 'button',
-          'class' => ['neo-alchemist--sidepanel-toggle', 'btn', 'btn-outline', 'btn-xs', 'is-active:btn-primary'],
-          'data-alchemist-sidepanel' => $id,
-          'aria-expanded' => 'false',
-        ],
-      ];
       $build['panels'][] = [
         'id' => $id,
         'label' => $label,
@@ -432,6 +415,21 @@ class ComponentManageHelper {
             'data-alchemist-badge' => $id,
           ],
           'content' => $badge,
+        ];
+      }
+      else {
+        // A panel with a badge opens from it; one without gets a toggle in
+        // the header's leading group.
+        $build['toggles']['sidepanel_' . $id] = [
+          '#type' => 'html_tag',
+          '#tag' => 'button',
+          '#value' => neo_icon_admin($label, $definition['icon'] ?? NULL)->render(),
+          '#attributes' => [
+            'type' => 'button',
+            'class' => ['neo-alchemist--sidepanel-toggle', 'btn', 'btn-outline', 'btn-xs', 'is-active:btn-primary'],
+            'data-alchemist-sidepanel' => $id,
+            'aria-expanded' => 'false',
+          ],
         ];
       }
     }

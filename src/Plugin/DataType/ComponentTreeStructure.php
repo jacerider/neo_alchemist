@@ -352,6 +352,87 @@ class ComponentTreeStructure extends TypedData {
   }
 
   /**
+   * Moves a placed instance to a position in its own section or another one.
+   *
+   * Only the tuple that places the instance moves. Its own sections are keyed
+   * by its uuid, and its props by uuid too, so the subtree and the values go
+   * with it untouched. A section the move empties is left as an empty list,
+   * as a removal under EmptySectionPolicy::Preserve would.
+   *
+   * Refused, changing nothing, when the instance is not placed, when the
+   * target's owner is not placed in this tree, or when the target section
+   * belongs to the instance itself or to anything under it: that would hang
+   * the subtree from inside itself, detached from the tree.
+   *
+   * @param string $uuid
+   *   The UUID of the instance to move.
+   * @param string $parentUuid
+   *   The UUID of the target section's owner, or the root UUID.
+   * @param string|null $slot
+   *   The target slot. Required unless the target is the root.
+   * @param string|null $siblingUuid
+   *   An instance in the target section to place it next to. Without one, or
+   *   when it is not in that section, the instance goes at the end.
+   * @param string $position
+   *   Where it goes next to the sibling: 'before' or 'after'.
+   *
+   * @return bool
+   *   TRUE when the instance moved.
+   */
+  public function relocateComponent(string $uuid, string $parentUuid = self::ROOT_UUID, ?string $slot = NULL, ?string $siblingUuid = NULL, string $position = 'after'): bool {
+    $placed = $this->getIndex()[$uuid] ?? NULL;
+    if ($placed === NULL || ($parentUuid !== self::ROOT_UUID && $slot === NULL)) {
+      return FALSE;
+    }
+    // The owner of the target section must be placed in this tree, and must
+    // not be the instance or anything under it.
+    if ($parentUuid !== self::ROOT_UUID
+      && (!isset($this->getIndex()[$parentUuid]) || in_array($parentUuid, $this->getSubtreeUuids($uuid), TRUE))) {
+      return FALSE;
+    }
+
+    $fromParent = $placed['parent'] ?? self::ROOT_UUID;
+    $fromSlot = $placed['slot'];
+    $source = $fromParent === self::ROOT_UUID ? ($this->tree[self::ROOT_UUID] ?? []) : ($this->tree[$fromParent][$fromSlot] ?? []);
+    $tuple = NULL;
+    foreach ($source as $index => $item) {
+      if (($item['uuid'] ?? NULL) === $uuid) {
+        $tuple = $item;
+        unset($source[$index]);
+      }
+    }
+    if ($tuple === NULL) {
+      return FALSE;
+    }
+    if ($fromParent === self::ROOT_UUID) {
+      $this->tree[self::ROOT_UUID] = array_values($source);
+    }
+    else {
+      $this->tree[$fromParent][$fromSlot] = array_values($source);
+    }
+
+    // Read after writing the source back: the two are the same list when the
+    // instance only changes places within its section.
+    $target = $parentUuid === self::ROOT_UUID ? ($this->tree[self::ROOT_UUID] ?? []) : ($this->tree[$parentUuid][$slot] ?? []);
+    $at = count($target);
+    if ($siblingUuid !== NULL) {
+      $siblingIndex = array_search($siblingUuid, array_column($target, 'uuid'), TRUE);
+      if ($siblingIndex !== FALSE) {
+        $at = $position === 'before' ? $siblingIndex : $siblingIndex + 1;
+      }
+    }
+    array_splice($target, $at, 0, [$tuple]);
+    if ($parentUuid === self::ROOT_UUID) {
+      $this->tree[self::ROOT_UUID] = $target;
+    }
+    else {
+      $this->tree[$parentUuid][$slot] = $target;
+    }
+    $this->setValue(Json::encode($this->tree));
+    return TRUE;
+  }
+
+  /**
    * Add a component instance to the tree.
    *
    * @param string $uuid

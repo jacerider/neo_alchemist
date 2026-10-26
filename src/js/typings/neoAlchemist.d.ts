@@ -93,14 +93,19 @@ interface NeoAlchemistFocusTarget {
  */
 interface NeoAlchemistEditorApi {
   /**
-   * Selects the component on the canvas. With `prop` or `locate` it also
-   * opens the component's edit form and focuses that field (the form stays
-   * open on the component when nothing is found). False, doing nothing, for a
-   * uuid the canvas does not show.
+   * Selects the component on the canvas, which opens it in the inspector.
+   * With `prop` or `locate` it also focuses that field (the form stays open
+   * on the component when nothing is found). False, doing nothing, for a uuid
+   * the canvas does not show.
    */
   focus(target: NeoAlchemistFocusTarget): boolean;
   /** Edit-form internal: claims a focus request made in the last moments. */
   takeFieldFocus?(): Pick<NeoAlchemistFocusTarget, 'prop' | 'locate'> | null;
+  /**
+   * Opens a side panel's tab in the right dock, or closes it when it is the
+   * tab showing. False, doing nothing, for a panel the editor does not have.
+   */
+  openPanel?(id: string): boolean;
 }
 
 /**

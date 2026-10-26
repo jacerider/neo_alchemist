@@ -696,8 +696,9 @@ Hybrid mechanics:
 - **Locking** is ops-driven and server-side only:
   `ComponentInstanceBase::checkHybridAccess()` forbids `update`/`delete`/`clone`/`sort`
   on inherited instances (they get an "Inherited layout" badge) and `create` outside a
-  custom target (`ComponentTreeItem::isCustomTarget()`); the library/add/move/sort
-  routes enforce the same target checks. No JS changes — the editor chrome reads the
+  custom target (`ComponentTreeItem::isCustomTarget()`); the library/add/move routes
+  enforce the same target checks (a Layers drop, `move/…/to`, checks both its source and
+  its target). No JS changes — the editor chrome reads the
   per-op access booleans.
 - Since the rendered tree depends on the field config, `ComponentTreeHydrated`
   adds the field config as a cacheable dependency of every entity render.
@@ -864,9 +865,11 @@ entity returns to the field default instead of copy-on-writing the seeds.
 
 ### Editor side panels
 
-Any module can add a side panel to the layout editor: a toggle in the bottom bar beside
-Layers, a floating box where Layers floats (one of them open at a time), and **one key in
-the shared draft**, so what the panel drafts is saved, reverted, reset and published with the
+Any module can add a side panel to the layout editor: a tab in the left dock beside Layers
+(page-level, so independent of the selection; one tab showing at a time, widened to the
+panel's `width`), opened by the panel's top bar badge — a person's click
+on it; a scripted click still reaches the badge's dropdown — or, for a panel with no badge, a
+toggle in the header's leading group, and **one key in the shared draft**, so what the panel drafts is saved, reverted, reset and published with the
 layout rather than beside it. The existing Content / Style / Sources tabs are not panels and
 stay hardcoded. Entity scope only — a field default layout and a block host have no
 per-entity draft. Worked example: the fixture `TestLabelPanel` in
@@ -957,15 +960,14 @@ scale and device groups are evenly spaced — `#top_end` is never re-rendered, s
 half keeps it current. With no badge `#top_end` is exactly the iframe operations. The client registers `badge(element, api,
 dropdown)` beside `mount()`; it runs at **registration (editor load)**, not on panel open, with the
 same draft api. `dropdown` is neo_alchemist's: an element anchored under the badge, placed below
-the top bar by `--neo-alchemist-floating-gap` (set on the editor root, 16px; the same gap side
-panels and Layers float in from the canvas edge, read by `floatingPosition()`)
+the top bar by `--neo-alchemist-floating-gap` (set on the editor root, 16px)
 (`dropdown.element`, which the badge fills), toggled by any `<button>` in the badge, closed by Esc,
 a click elsewhere or focus moving into a preview frame; focus moves in on `open(focus?)` — to
 `focus`, else the first visible field, else the dropdown itself (never a row's button or a help
 badge) — and back to the opening button on `close()`; `isOpen()`, `onToggle(cb(open, trigger))`.
 It is centred under the badge and `setSize('md' | 'lg' | 'xl')` (384 / 520 / 760px, `md` by
 default) widens it, here or while open; either way it stays within the window less the floating
-gap, and clear of Layers or a side panel floating beside the badge — sliding sideways first and
+gap, and clear of the left dock beside the badge — sliding sideways first and
 narrowing only when the room is narrower than the size (re-placed on resize while open). Clicking another button of the same badge
 while open keeps it open and calls `onToggle(true, thatButton)`, so a badge with several parts can
 show the clicked part; clicking the current trigger closes it. `onDraftChange` listeners hear
@@ -1001,6 +1003,20 @@ re-fitting on resize. The standalone edit page renders the same dock (`form_posi
 `component-parent.ts` wires whichever form an editor holds now (`bindForm()`, re-run on every
 attach), because the inspector swaps it per selection.
 
+**One bar, two docks** — the layout editor's header is the only bar: Back · Layers · + Add lead
+it (`buildNavigationOperations()`, `buildLayersToggle()`, `buildOperations()`), the view
+controls and the save group trail it. Layers docks on the left (`#neo-alchemist-layers`,
+260px); below 1400px it folds to an icon rail while the right dock is open
+(`layersPosition()`). Its rows are the reorder tool: dragging a component row before or after
+another, or onto a region row (its end), is one request to the move route's `to` step
+(`InstanceComponentMoveController`, `target`/`before`/`after`, the source in `parent`), which
+calls `ComponentTreeItem::relocateComponent()` → `ComponentTreeStructure::relocateComponent()`
+(moves the placing tuple, subtree and props untouched; refuses a target inside the component
+or owned by nothing). Alt+↑/↓ on a focused row runs the move-up/down op. There is no Reorder
+page and no `sort` route or op; the `sort` *access* operation still gates moves. The left
+dock's tabs are Layers and each side panel (`leftTabSet()`); the right dock is the inspector
+alone, open exactly while something is selected (`dockVisibilitySync()`).
+
 **Taking the editor somewhere** — `Drupal.neoAlchemist.editor.focus({uuid, prop?, locate?})`
 (`components-parent.ts`) is the editor's public call for code outside it (a panel, a badge):
 it selects the component instance on the canvas (as the Layers panel does, aiming at the frame
@@ -1019,9 +1035,9 @@ holding a canvas element passes a `locate` rather than a prop. The preview scrip
 both scopes, so a change to it needs the front build too.
 
 `src/js/panels.ts` holds the registry and the one record-level version every panel shares;
-`components-parent.ts` owns the toggles and positioning (`sidePanelToggle()`,
-`floatingPosition()`). `mount()` runs lazily on first open (registration order does not
-matter); closing keeps the panel mounted. `onDraftChange` fires after any panel's write and
+`components-parent.ts` owns the left dock's tabs (`leftTabSet()`, `sidePanelToggle()`, and
+`Drupal.neoAlchemist.editor.openPanel(id)` for badges). `mount()` runs lazily on first open
+(registration order does not matter); switching tabs keeps the panel mounted. `onDraftChange` fires after any panel's write and
 after the previews refresh following a layout write (every `ready()` after the first) — the
 client re-reads the version first, so a panel never 409s against its own session's layout
 save. A 409 keeps the stale version: the message asks for a reload, and silently adopting the
@@ -1250,8 +1266,9 @@ From [neo_alchemist.services.yml](neo_alchemist.services.yml):
   location.
 - **The client reads the URL off the op** — `src/js/components-parent.ts` no longer builds
   editor request URLs by string-concatenation off `drupalSettings.neoAlchemist.baseUrl`. Each
-  per-component op (edit, sort, clone, delete, add-before/after, move-up/down) takes its URL
-  straight from the op record; the toolbar Add/Sort actions take theirs from the action link's
+  per-component op (edit, clone, delete, add-before/after, move-up/down) takes its URL
+  straight from the op record (a Layers drop swaps the move step for `to`); the header's Add
+  takes its own from the action link's
   own server-generated `href`; a seam insertion point takes its sibling component's
   add-before/add-after record URL. Where a parameter is genuinely client-side and the server
   could not know it in advance — the container an add/move lands in, the region and focused
@@ -1401,7 +1418,7 @@ From [neo_alchemist.services.yml](neo_alchemist.services.yml):
   entity's tree fields (the Layout route redirect/picker and the token image field
   lookup). Remove entries only; pair with `hook_entity_field_access()` to hide the same
   fields from rendering. Canonical consumer: `modules/neo_alchemist_taxonomy/`.
-- **An editor side panel** (a floating box beside Layers with its own key in the shared
+- **An editor side panel** (a tab in the left dock beside Layers, with its own key in the shared
   draft, applied to the entity on Publish) — an `#[AlchemistPanel]` plugin in
   `src/Plugin/AlchemistPanel/` extending `AlchemistPanelBase`, plus a library depending on
   `neo_alchemist/panels` that calls `Drupal.neoAlchemist.panels.register()`. See "Editor side

@@ -85,11 +85,11 @@ class EditorChromeIteratesInventoryTest extends KernelTestBase {
     $chrome = $this->chrome($this->inventory()->ops());
 
     $this->assertSame(
-      ['sort', 'clone', 'delete'],
+      ['clone', 'delete'],
       array_keys($chrome['inspector_menu']),
       'The verb ops but edit are the ⋯ menu, in inventory order.',
     );
-    $labels = ['sort' => 'Sort', 'clone' => 'Clone', 'delete' => 'Delete'];
+    $labels = ['clone' => 'Clone', 'delete' => 'Delete'];
     foreach ($labels as $id => $label) {
       $item = $chrome['inspector_menu'][$id];
       $this->assertSame('link', $item['#type'], "$id is a link");
@@ -180,7 +180,7 @@ class EditorChromeIteratesInventoryTest extends KernelTestBase {
       array_keys($chrome['inspector_ops']),
     );
     sort($inspector);
-    $this->assertSame(['clone', 'delete', 'move-down', 'move-up', 'sort'], $inspector, 'The inspector holds every verb op but edit, and the move ops.');
+    $this->assertSame(['clone', 'delete', 'move-down', 'move-up'], $inspector, 'The inspector holds every verb op but edit, and the move ops.');
 
     $outlineIds = [];
     foreach (['top', 'bottom'] as $edge) {

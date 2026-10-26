@@ -31,42 +31,49 @@
     (Fit, component-parent.ts).
   #}
   <div class="neo-alchemist-manage--body flex flex-auto relative overflow-hidden">
-  <div class="neo-alchemist-manage--canvas flex flex-col flex-auto min-w-0 relative overflow-hidden">
 
-    {#
-      Layers panel. Built entirely from the structure data the preview iframes
-      already report, so the whole tree — including regions that are empty or
-      scrolled out of view — is addressable without hunting on the canvas.
+  {#
+    The left dock holds what belongs to the whole page: Layers, and the side
+    panels other modules add (AlchemistPanelInterface — Search & social), as
+    tabs. Selection-specific things live in the right dock (the inspector).
 
-      Floats over the canvas rather than taking a column, so a flat page loses
-      no width to it. The editor pins it between the breadcrumb and the bottom
-      bar; see layersPosition() in components-parent.ts.
-    #}
-    <div class="neo-alchemist--layers fixed flex flex-col w-60 rounded-lg shadow-lg border overflow-hidden bg-base-0 text-base-0-content" style="display: none;" data-alchemist-ignore data-alchemist-nodrag>
-      <div class="flex flex-none items-center justify-between gap-2 px-3 py-2 bg-base-900 text-base-900-content text-sm font-semibold">
-        <span>{{ 'Layers'|t }}</span>
-        <button type="button" class="neo-alchemist--layers-close cursor-pointer opacity-60 hover:opacity-100 transition" title="{{ 'Hide layers'|t }}">{{ icon('times') }}</button>
-      </div>
+    Layers is built entirely from the structure data the preview frames
+    already report, so the whole tree — including regions that are empty or
+    scrolled out of view — is addressable, and reorderable by dragging,
+    without hunting on the canvas. A panel's body is its own build(), which
+    its client half mounts into on first open (panels.ts); a panel tab widens
+    the dock to the panel's width. The dock folds to an icon rail (`.is-rail`)
+    when the window is narrow and the inspector opens, while Layers is the tab
+    showing; see layersPosition() in components-parent.ts.
+  #}
+  <aside id="neo-alchemist-layers" class="neo-alchemist--layers flex-none flex flex-col border-r bg-base-0 text-base-0-content" style="display: none;" aria-label="{{ 'Page'|t }}" data-alchemist-ignore data-alchemist-nodrag>
+    <div class="neo-alchemist--layers-header flex flex-none items-center justify-between gap-2 border-b px-2 text-sm">
+      {% if side_panels %}
+        <div class="flex flex-auto items-end gap-1" role="tablist">
+          <button type="button" class="neo-alchemist--dock-tab relative px-2 py-2 text-xs font-medium aria-selected:font-semibold" role="tab" aria-selected="true" data-left-tab="layers">{{ 'Layers'|t }}</button>
+          {% for panel in side_panels %}
+            <button type="button" class="neo-alchemist--dock-tab relative px-2 py-2 text-xs font-medium aria-selected:font-semibold" role="tab" aria-selected="false" data-left-tab="{{ panel.id }}">{{ panel.label }}</button>
+          {% endfor %}
+        </div>
+      {% else %}
+        <span class="neo-alchemist--layers-title px-1 py-2 font-semibold">{{ 'Layers'|t }}</span>
+      {% endif %}
+      <button type="button" class="neo-alchemist--layers-close btn btn-xs btn-outline flex-none" title="{{ 'Hide'|t }}">{{ icon('times') }}<span class="sr-only">{{ 'Hide'|t }}</span></button>
+    </div>
+    <button type="button" class="neo-alchemist--layers-rail btn btn-xs btn-outline m-2" title="{{ 'Show layers'|t }}" hidden>{{ icon('sitemap') }}<span class="sr-only">{{ 'Show layers'|t }}</span></button>
+    <div class="neo-alchemist--left-pane flex flex-auto flex-col min-h-0" data-left-pane="layers" role="tabpanel">
       {# Not a tab stop itself: one row is (a roving tree, layersSelectionSet()). #}
       <div class="neo-alchemist--layers-tree flex-auto overflow-y-auto py-1" role="tree" aria-label="{{ 'Component layers'|t }}"></div>
     </div>
-
-    {#
-      Editor side panels other modules add (AlchemistPanelInterface). Each
-      floats where Layers does, and only one of them — or Layers — is open at a
-      time; see sidePanelToggle() in components-parent.ts. The body is the
-      panel's own build(), which its client half mounts into on first open.
-    #}
     {% for panel in side_panels %}
-      <div class="neo-alchemist--sidepanel fixed flex flex-col max-w-[calc(100vw-2rem)] rounded-lg shadow-lg border overflow-hidden bg-base-0 text-base-0-content" style="display: none; width: {{ panel.width }};" data-alchemist-sidepanel="{{ panel.id }}" role="region" aria-label="{{ panel.label }}" data-alchemist-ignore data-alchemist-nodrag>
-        <div class="flex flex-none items-center justify-between gap-2 px-3 py-2 bg-base-900 text-base-900-content text-sm font-semibold">
-          <span>{{ panel.label }}</span>
-          <button type="button" class="neo-alchemist--sidepanel-close cursor-pointer opacity-60 hover:opacity-100 transition" title="{{ 'Hide @label'|t({'@label': panel.label}) }}">{{ icon('times') }}</button>
-        </div>
+      <div class="neo-alchemist--sidepanel neo-alchemist--left-pane flex flex-auto flex-col min-h-0" data-alchemist-sidepanel="{{ panel.id }}" data-left-pane="{{ panel.id }}" data-width="{{ panel.width }}" role="tabpanel" aria-label="{{ panel.label }}" hidden>
         <div class="neo-alchemist--sidepanel-message flex-none border-b px-3 py-2 text-xs bg-warning-50 text-warning-900" role="alert" hidden></div>
         <div class="neo-alchemist--sidepanel-body flex-auto overflow-y-auto">{{ panel.body }}</div>
       </div>
     {% endfor %}
+  </aside>
+
+  <div class="neo-alchemist-manage--canvas flex flex-col flex-auto min-w-0 relative overflow-hidden">
 
     <div class="neo-alchemist-manage--wrapper relative flex-auto flex bg-base-100 overflow-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]" style="visibility: hidden">
       <div class="neo-alchemist-manage--drag flex items-start justify-center cursor-grab">
@@ -230,15 +237,4 @@
     {% endif %}
 
   </div>
-
-  {% if bottom_start or bottom_end %}
-    <div class="neo-alchemist-manage--bottom relative flex-none flex gap-4 w-full bg-default border-t px-4 py-2 shadow z-50" data-alchemist-offset-bottom>
-      {% if bottom_start %}
-        <div class="neo-alchemist-manage--bottom-start flex items-center gap-2">{{ bottom_start }}</div>
-      {% endif %}
-      {% if bottom_end %}
-        <div class="neo-alchemist-manage--bottom-end ml-auto flex items-center gap-2">{{ bottom_end }}</div>
-      {% endif %}
-    </div>
-  {% endif %}
 </div>

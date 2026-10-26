@@ -41,7 +41,6 @@ class ComponentFieldConfig extends NeoFieldConfig implements ComponentFieldConfi
       // AlchemistBlockFieldConfig defers the library rel here.
       'library' => Url::fromRoute("entity.{$entityTypeId}.field_ui.alchemist.library", $parameters, $options),
       'add' => Url::fromRoute("entity.{$entityTypeId}.field_ui.alchemist.add", $parameters),
-      'sort' => Url::fromRoute("entity.{$entityTypeId}.field_ui.alchemist.sort", $parameters),
       // The mirror image of the three below: purging stored entity data is
       // only meaningful for the field, never for a single entity.
       'purge' => Url::fromRoute("entity.{$entityTypeId}.field_ui.alchemist.purge", $parameters),

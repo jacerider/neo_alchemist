@@ -1,5 +1,35 @@
 # Changelog
 
+## Layers docks on the left and reorders by drag; the footer bar is gone
+
+Layers used to float over the canvas from a footer bar that also held Add, the Reorder page
+and the side panel toggles. Reordering had three routes: a Reorder page modal that listed
+components by UUID, a Sort op, and Move up/down.
+
+The editor now has one bar: Back · Layers · + Add lead it, the view controls and the save
+group trail it. Layers is a 260px dock on the left of the canvas, and the canvas fits its
+frames to what the docks leave. Below 1400px, opening the right dock folds Layers to an icon
+rail, and it unfolds when the dock closes. Drag a Layers row before or after another, or onto a
+region (it lands at the region's end) to move it, into or out of regions. Alt+↑ / Alt+↓ on a
+focused row moves it among its siblings. Each move is one write to the draft. Move up/down stay
+in the inspector header.
+
+The Reorder page and the Sort op are removed, with their route, controller, form, library and
+script (`InstanceComponentSortController`, `InstanceComponentSortForm`, `component-sort.ts`,
+the `sort` route in every scope and the `alchemist_sort` form handler). The `sort` access
+operation remains and still gates moving. Side panels (Search & social) are now tabs in the
+left dock beside Layers: what belongs to the whole page is on the left, the selection on the
+right, so a panel never needs a component selected and never closes the inspector. A panel's
+tab widens the dock to the panel's width, and ✕ closes the dock. A click on a panel's top bar
+badge (the SEO and Read scores) opens its tab; a panel's own code can still open the badge's
+dropdown. A panel with no badge gets a toggle in the header instead. The Desktop / Tablet /
+Mobile toggles are icons, with their names in tooltips.
+
+For code: the move route takes a `to` step (`?parent=…&target=owner--shape&before|after=uuid`)
+backed by the new `ComponentTreeItem::relocateComponent()` /
+`ComponentTreeStructure::relocateComponent()`. `neo_alchemist_manage` no longer has
+`bottom_start` / `bottom_end`. `Drupal.neoAlchemist.editor.openPanel(id)` opens a panel's tab.
+
 ## Components are edited in a docked inspector, not a modal
 
 Editing a component used to open a full-screen modal with a second canvas of its own (zoom,

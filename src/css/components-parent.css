@@ -69,3 +69,56 @@
   outline-offset: -1px;
   box-shadow: 0 0 0 3px rgb(0 0 0 / 0.85);
 }
+
+/* The left dock: Layers, and page-level panels as tabs beside it
+ * (neo-alchemist-manage.html.twig).
+ *
+ * A fixed width beside the canvas, which fits its frames to what is left; a
+ * panel's tab sets the panel's own width inline. Folded to an icon rail while
+ * the window is narrow and the inspector is open, Layers showing
+ * (layersPosition() in components-parent.ts): the tabs and tree go, the
+ * rail's own button brings them back.
+ */
+.neo-alchemist--layers {
+  width: 16.25rem;
+}
+
+.neo-alchemist--layers.is-rail {
+  width: auto;
+
+  .neo-alchemist--layers-header,
+  .neo-alchemist--left-pane {
+    display: none;
+  }
+}
+
+/* A row being dragged, and where it would land. The marks are drawn inside
+   the row, so they never shift the rows around them while dragging. */
+.neo-alchemist--layer.is-dragging {
+  opacity: 0.5;
+}
+
+.neo-alchemist--layer.is-drop-before {
+  box-shadow: inset 0 2px 0 rgb(var(--color-primary-600));
+}
+
+.neo-alchemist--layer.is-drop-after {
+  box-shadow: inset 0 -2px 0 rgb(var(--color-primary-600));
+}
+
+.neo-alchemist--layer.is-drop-into {
+  background: rgb(var(--color-primary-500) / 0.15);
+  box-shadow: inset 0 0 0 1px rgb(var(--color-primary-600));
+}
+
+/* The left dock's tabs (Layers, Search & social…): the same underline as the
+   component form's tabs. */
+.neo-alchemist--dock-tab[aria-selected='true']::after {
+  content: '';
+  position: absolute;
+  inset-inline: 0.5rem;
+  bottom: -1px;
+  height: 2px;
+  border-radius: 2px 2px 0 0;
+  background: rgb(var(--color-primary-500));
+}

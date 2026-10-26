@@ -326,7 +326,6 @@ class ComponentTreeItem extends FieldItemBase implements RenderableInterface, Co
       'publish' => $this->getEntity()->toUrl("alchemist.publish")->setRouteParameter('neo_field', $fieldKey),
       'revert' => $this->getEntity()->toUrl("alchemist.revert")->setRouteParameter('neo_field', $fieldKey),
       'reset' => $this->getEntity()->toUrl("alchemist.reset")->setRouteParameter('neo_field', $fieldKey),
-      'sort' => $this->getEntity()->toUrl("alchemist.sort")->setRouteParameter('neo_field', $fieldKey),
       // The caller names the panel: ->setRouteParameter('panel', $panelId).
       'panel' => $this->getEntity()->toUrl("alchemist.panel")->setRouteParameter('neo_field', $fieldKey),
       default => $this->getEntity()->toUrl("alchemist.manage")->setRouteParameter('neo_field', $fieldKey)
@@ -769,6 +768,30 @@ class ComponentTreeItem extends FieldItemBase implements RenderableInterface, Co
     }
     $this->getTreeStructure()->reorderComponents($componentInstanceIds, $parentUuid, $slot);
     return $this;
+  }
+
+  /**
+   * Moves a component to a position in its own container or another one.
+   *
+   * @param string $uuid
+   *   The UUID of the component to move.
+   * @param string|null $parentUuid
+   *   The UUID of the target container's owner; NULL or empty for the root.
+   * @param string|null $slot
+   *   The target slot (the region's shape id). Required unless the root.
+   * @param string|null $siblingUuid
+   *   A component in the target container to place it next to; without one
+   *   it goes at the end.
+   * @param string $position
+   *   Where it goes next to the sibling: 'before' or 'after'.
+   *
+   * @return bool
+   *   TRUE when it moved; FALSE for a move the tree refuses (into itself).
+   *
+   * @see \Drupal\neo_alchemist\Plugin\DataType\ComponentTreeStructure::relocateComponent()
+   */
+  public function relocateComponent(string $uuid, ?string $parentUuid = NULL, ?string $slot = NULL, ?string $siblingUuid = NULL, string $position = 'after'): bool {
+    return $this->getTreeStructure()->relocateComponent($uuid, $parentUuid ?: ComponentTreeStructure::ROOT_UUID, $slot ?: NULL, $siblingUuid ?: NULL, $position);
   }
 
   /**

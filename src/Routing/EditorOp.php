@@ -7,7 +7,7 @@ namespace Drupal\neo_alchemist\Routing;
 /**
  * One editor op, as a declared record rather than a parsed identifier.
  *
- * An op is an operation the editor offers on a component instance — edit, sort,
+ * An op is an operation the editor offers on a component instance — edit,
  * clone, delete, add before, add after, move up, move down. The client used to
  * infer what an op meant by splitting its identifier on a hyphen at runtime, so
  * "add-before" was two facts (a verb and a position) hidden inside one string.
@@ -25,7 +25,7 @@ final class EditorOp {
      */
     public readonly string $id,
     /**
-     * The action the op performs (edit, sort, clone, delete, add, move).
+     * The action the op performs (edit, clone, delete, add, move).
      */
     public readonly string $verb,
     /**

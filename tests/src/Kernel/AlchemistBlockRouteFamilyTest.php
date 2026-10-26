@@ -56,7 +56,6 @@ final class AlchemistBlockRouteFamilyTest extends KernelTestBase {
     'entity.neo_alchemist_block_host.field_ui.alchemist.manage',
     'entity.neo_alchemist_block_host.field_ui.alchemist.preview',
     'entity.neo_alchemist_block_host.field_ui.alchemist.library',
-    'entity.neo_alchemist_block_host.field_ui.alchemist.sort',
     'entity.neo_alchemist_block_host.field_ui.alchemist.add',
     'entity.neo_alchemist_block_host.field_ui.alchemist.edit',
     'entity.neo_alchemist_block_host.field_ui.alchemist.clone',

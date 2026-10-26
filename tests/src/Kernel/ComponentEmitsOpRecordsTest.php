@@ -52,11 +52,10 @@ class ComponentEmitsOpRecordsTest extends HybridFieldKernelTestBase {
   private const BLOCK_UUID = '11111111-1111-4111-8111-111111111111';
 
   /**
-   * The eight ops in the order the inventory declares them.
+   * The seven ops in the order the inventory declares them.
    */
   private const OP_IDS = [
     'edit',
-    'sort',
     'clone',
     'delete',
     'add-before',
@@ -175,7 +174,7 @@ class ComponentEmitsOpRecordsTest extends HybridFieldKernelTestBase {
   }
 
   /**
-   * Each scope emits all eight ops as records, each carrying its rel's URL.
+   * Each scope emits all seven ops as records, each carrying its rel's URL.
    *
    * The presence and shape of the inventory, and the URL each op resolves to,
    * are asserted for a real component instance in each host scope — the op
@@ -189,7 +188,7 @@ class ComponentEmitsOpRecordsTest extends HybridFieldKernelTestBase {
 
     foreach ($this->scopes() as $name => [$scope, $entityTypeId, $instance]) {
       $records = $instance->getEditorOps(FALSE, FALSE);
-      $this->assertSame(self::OP_IDS, array_keys($records), "$name: the eight ops, in inventory order");
+      $this->assertSame(self::OP_IDS, array_keys($records), "$name: the seven ops, in inventory order");
 
       foreach ($records as $id => $record) {
         $op = $inventory->getOp($id);
@@ -246,7 +245,6 @@ class ComponentEmitsOpRecordsTest extends HybridFieldKernelTestBase {
 
       $this->assertSame($instance->access('update'), $records['edit']['permitted'], "$name: edit ↔ update");
       $this->assertSame($instance->access('delete'), $records['delete']['permitted'], "$name: delete");
-      $this->assertSame($instance->access('sort'), $records['sort']['permitted'], "$name: sort");
       $this->assertSame($instance->access('clone'), $records['clone']['permitted'], "$name: clone");
       $this->assertSame($instance->access('create'), $records['add-before']['permitted'], "$name: add-before ↔ create");
       $this->assertSame($instance->access('create'), $records['add-after']['permitted'], "$name: add-after ↔ create");
@@ -311,7 +309,7 @@ class ComponentEmitsOpRecordsTest extends HybridFieldKernelTestBase {
     $data = Json::decode($attributes->offsetGet('data-component')->value());
     $this->assertIsArray($data);
     $this->assertArrayHasKey('ops', $data);
-    $this->assertSame(self::OP_IDS, array_keys($data['ops']), 'All eight records reach the attribute.');
+    $this->assertSame(self::OP_IDS, array_keys($data['ops']), 'All seven records reach the attribute.');
 
     $edit = $data['ops']['edit'];
     $this->assertSame(

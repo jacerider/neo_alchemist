@@ -34,7 +34,6 @@ use Drupal\neo_alchemist\Form\InstanceComponentForm;
 use Drupal\neo_alchemist\Form\InstanceComponentPublishForm;
 use Drupal\neo_alchemist\Form\InstanceComponentResetForm;
 use Drupal\neo_alchemist\Form\InstanceComponentRevertForm;
-use Drupal\neo_alchemist\Form\InstanceComponentSortForm;
 use Drupal\neo_alchemist\Plugin\DataType\ComponentTreeStructure;
 use Drupal\neo_alchemist\Plugin\Field\FieldType\ComponentTreeItem;
 use Drupal\neo_alchemist\Plugin\Field\NeoComponentTreeList;
@@ -85,9 +84,8 @@ function neo_alchemist_theme(): array {
         'dock_ops' => [],
         'dock_menu' => [],
         'dock_close' => FALSE,
-        'bottom_start' => [],
-        'bottom_end' => [],
-        // Editor side panels: a list of {id, label, width, body}.
+        // Editor side panels, tabs in the right dock: a list of
+        // {id, label, width, body}.
         // @see \Drupal\neo_alchemist\ComponentManageHelper::buildSidePanels()
         'side_panels' => [],
       ],
@@ -567,7 +565,6 @@ function neo_alchemist_entity_type_alter(array &$entity_types) {
               'alchemist_publish' => InstanceComponentPublishForm::class,
               'alchemist_revert' => InstanceComponentRevertForm::class,
               'alchemist_reset' => InstanceComponentResetForm::class,
-              'alchemist_sort' => InstanceComponentSortForm::class,
               'alchemist_edit' => InstanceComponentForm::class,
               'alchemist_delete' => InstanceComponentDeleteForm::class,
             ];

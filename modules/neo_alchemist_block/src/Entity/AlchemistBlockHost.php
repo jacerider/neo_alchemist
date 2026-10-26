@@ -36,7 +36,6 @@ use Drupal\Core\Entity\ContentEntityBase;
  *     "form" = {
  *       "alchemist" = "Drupal\neo_alchemist\Form\InstanceComponentForm",
  *       "alchemist_edit" = "Drupal\neo_alchemist\Form\InstanceComponentForm",
- *       "alchemist_sort" = "Drupal\neo_alchemist\Form\InstanceComponentSortForm",
  *       "alchemist_delete" = "Drupal\neo_alchemist\Form\InstanceComponentDeleteForm",
  *     },
  *   },
