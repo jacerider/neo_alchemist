@@ -30,6 +30,25 @@
   const id = new URLSearchParams(window.location.search).get('id');
   const size = new URLSearchParams(window.location.search).get('size');
 
+  /**
+   * Tells the editor this frame now shows the current render.
+   *
+   * An edit skips frames the canvas is not using and marks them stale
+   * (data-stale on the frame, see component-ajax.ts), and the editor will not
+   * draw outlines from a stale frame or count it in a round. Only the frame
+   * knows when that is over — a fresh document, or a refresh that has landed
+   * — so it clears the mark itself, before its load event can be heard.
+   */
+  const markFresh = (): void => {
+    try {
+      window.frameElement?.removeAttribute('data-stale');
+    }
+    catch (e) {
+      // Not embedded by the editor.
+    }
+  };
+  markFresh();
+
   // Elements mapped back to a prop field: stamped server-side on
   // attribute-carrying values (data-neo-prop) or claimed here from the prop
   // map's hints (data-neo-prop-target). The heuristic claim is the more
@@ -1281,6 +1300,8 @@
           element.replaceWith(next);
           Drupal.attachBehaviors(next, drupalSettings);
         }
+        markFresh();
+        window.parent.postMessage({ type: 'previewRefreshed', id: id, size: size }, window.location.origin);
       })
       .catch((error: unknown) => {
         if (error instanceof DOMException && error.name === 'AbortError') {

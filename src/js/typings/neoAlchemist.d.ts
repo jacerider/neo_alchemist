@@ -167,6 +167,8 @@ declare namespace drupal {
     neoAlchemist?: {
       iframes?: Record<'desktop' | 'tablet' | 'mobile', HTMLIFrameElement | null>
       frames?: NeoAlchemistFrames;
+      /** Brings stale frames up to the current render (component-ajax.ts). */
+      refreshStale?: (iframes: HTMLIFrameElement[]) => void;
       panels?: NeoAlchemistPanelRegistry;
       editor?: NeoAlchemistEditorApi;
     };

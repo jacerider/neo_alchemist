@@ -1,5 +1,15 @@
 # Changelog
 
+## Edits refresh only the preview sizes on screen
+
+With one size shown, an edit used to re-render every loaded preview, the hidden ones
+included. It now refreshes only the frames the canvas is using: the size on screen, plus
+desktop, which feeds the layer tree and the thumbnail. Each other loaded frame is marked as
+out of date. Showing it again refreshes it behind the loading indicator, and showing a size
+that is up to date is instant. In Compare every frame is on screen, so every frame is refreshed
+as before. The layout editor ignores position reports from an out-of-date frame and does not
+wait on one, so it cannot move the live outlines. Applies to both editors.
+
 ## The canvas shows one size at a time; Compare brings back all three
 
 The canvas used to load the desktop, tablet and mobile previews together and show them side by

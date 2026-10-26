@@ -326,10 +326,12 @@
   }
 
   /**
-   * The frames a round waits on: the active ones that have started.
+   * The frames a round waits on: the active ones that have started and are
+   * not stale. A stale frame has not been sent the edit, so it is not about
+   * to report; it joins once it has caught up.
    */
   function framesStarted(): NeoAlchemistFrameSize[] {
-    return frames.active().filter(size => frames.state(size) !== 'unloaded');
+    return frames.active().filter(size => !['unloaded', 'stale'].includes(frames.state(size)));
   }
 
   function requestPositionData(round: NeoAlchemistFrameSize[]): void {
@@ -593,6 +595,13 @@
     },
     positionUpdateData: function (data: any) {
       const size = data.size as 'desktop' | 'tablet' | 'mobile';
+      // Unasked, so it can come from a frame the canvas is not drawing, or one
+      // still showing a render from before the last edit. Taking it would
+      // place live outlines by a document that is out of date; the frame is
+      // asked again when it joins.
+      if (!framesDrawn.has(size) || frames.state(size) === 'stale') {
+        return;
+      }
       positionData[size] = data.data;
       elementsPosition();
       // Redraw the layer where it now is, but do not chase it with the

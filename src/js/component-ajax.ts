@@ -3,6 +3,10 @@
   // Supersedes an in-flight render when a newer edit arrives, so a burst of
   // typing costs one render rather than a queue of them.
   let controller: AbortController | null = null;
+  // The same for bringing stale frames up to date (refreshStale()). Kept apart
+  // so showing a stale frame never cancels an edit's render, while an edit —
+  // which renders the newer state — supersedes it.
+  let staleController: AbortController | null = null;
 
   /**
    * Reload every frame, spaced out.
@@ -25,7 +29,7 @@
   };
 
   /**
-   * Render the component once and hand the result to every frame.
+   * Render the component once and hand the result to the given frames.
    *
    * The three previews differ by their `size` query argument, but the server's
    * output differs only by the `data-size` attribute it stamps on the wrapper
@@ -38,7 +42,7 @@
    * where possible, so a frame that has navigated since (a fallback reload)
    * still refreshes from where it actually is.
    */
-  const refreshFrames = (iframes: HTMLIFrameElement[]): void => {
+  const deliver = (iframes: HTMLIFrameElement[], signal: AbortSignal): void => {
     let url = '';
     try {
       url = iframes[0].contentWindow?.location.href || iframes[0].src;
@@ -51,9 +55,7 @@
       return;
     }
 
-    controller?.abort();
-    controller = new AbortController();
-    fetch(url, { credentials: 'same-origin', signal: controller.signal })
+    fetch(url, { credentials: 'same-origin', signal: signal })
       .then(response => {
         if (!response.ok) {
           throw new Error(String(response.status));
@@ -77,6 +79,50 @@
         reloadAll(iframes);
       });
   };
+
+  /**
+   * Refresh the frames the canvas is using after an edit.
+   *
+   * Only the active frames (Drupal.neoAlchemist.frames, component-parent.ts)
+   * are refreshed: a frame the canvas is not showing would cost a render and
+   * a rebuild nobody sees, on every edit. Each other frame that has loaded is
+   * marked stale instead (data-stale), and is brought up to date by
+   * refreshStale() when it is shown again. The frame clears the mark itself
+   * once it shows the current render — see markFresh() in component-child.ts.
+   */
+  const refreshFrames = (iframes: HTMLIFrameElement[]): void => {
+    const frames = Drupal.neoAlchemist?.frames;
+    const active = frames?.active();
+    const targets = iframes.filter(iframe => !active || active.includes(iframe.dataset.size as NeoAlchemistFrameSize));
+    iframes.forEach(iframe => {
+      if (targets.includes(iframe) || !frames || frames.state(iframe.dataset.size as NeoAlchemistFrameSize) === 'unloaded') {
+        return;
+      }
+      iframe.dataset.stale = '';
+    });
+    if (!targets.length) {
+      return;
+    }
+    staleController?.abort();
+    controller?.abort();
+    controller = new AbortController();
+    deliver(targets, controller.signal);
+  };
+
+  /**
+   * Bring stale frames up to the current render, as an edit would have.
+   */
+  const refreshStale = (iframes: HTMLIFrameElement[]): void => {
+    if (!iframes.length) {
+      return;
+    }
+    staleController?.abort();
+    staleController = new AbortController();
+    deliver(iframes, staleController.signal);
+  };
+
+  Drupal.neoAlchemist = Drupal.neoAlchemist || {};
+  Drupal.neoAlchemist.refreshStale = refreshStale;
 
   if (Drupal.AjaxCommands) {
     /**

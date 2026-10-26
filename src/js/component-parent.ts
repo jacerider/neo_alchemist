@@ -200,8 +200,10 @@
    *   staggerIframeLoads() is what starts it.
    * - loading:  started, and its document has not finished.
    * - ready:    its document has finished (iframeHasLoaded()).
-   * - stale:    loaded, but an edit since has not reached it. Nothing marks a
-   *   frame stale yet: every edit still refreshes every frame.
+   * - stale:    loaded, but an edit since has not reached it: edits refresh
+   *   only the frames the canvas is using, and mark the rest (data-stale, see
+   *   refreshFrames() in component-ajax.ts). The frame clears the mark itself
+   *   once it shows the current render.
    *
    * Read from the frame rather than kept here, so the layout editor's outline
    * handshake (components-parent.ts), which starts before init() below, gets
@@ -211,7 +213,12 @@
     if (!iframe || iframe.dataset.src) {
       return 'unloaded';
     }
-    return iframeHasLoaded(iframe) ? 'ready' : 'loading';
+    if (!iframeHasLoaded(iframe)) {
+      // Loading wins over stale: a stale frame being reloaded is a document
+      // on its way, which the stagger must wait behind like any other.
+      return 'loading';
+    }
+    return iframe.dataset.stale !== undefined ? 'stale' : 'ready';
   }
 
   // How the canvas shows the sizes. Single, the default, shows one size at a
@@ -874,6 +881,20 @@
       container.dispatchEvent(new CustomEvent('alchemistManageView', {
         detail: { compare, visible: framesVisible() },
       }));
+      // After the event, which the layout editor answers by drawing any frame
+      // ready to be drawn: a stale one is not, and stays stale until its own
+      // document says otherwise. One render for every frame shown stale.
+      const stale = framesVisible()
+        .map(size => getIframe(size))
+        .filter((iframe): iframe is HTMLIFrameElement => !!iframe && frameState(iframe) === 'stale');
+      if (stale.length) {
+        if (Drupal.neoAlchemist?.refreshStale) {
+          Drupal.neoAlchemist.refreshStale(stale);
+        }
+        else {
+          stale.forEach(iframe => iframe.contentWindow?.location.reload());
+        }
+      }
     }
 
     /**
@@ -1164,6 +1185,12 @@
             }, window.location.origin);
           }
         }
+      },
+
+      // A frame took a refresh in place (refreshPreview() in
+      // component-child.ts), which fires no load event to clear its slot by.
+      previewRefreshed: function (data:any) {
+        getIframe(data.size)?.closest('.neo-alchemist--iframe-wrapper')?.classList.remove('is-loading');
       },
 
       prop: function (data:any) {
