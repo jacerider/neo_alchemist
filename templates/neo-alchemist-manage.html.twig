@@ -69,7 +69,7 @@
               set size_classes = 'neo-alchemist--iframe-size text-xs text-base-400 ml-auto'
             %}
             {%
-              set content_classes = 'border rounded bg-base-0'
+              set content_classes = 'relative border rounded bg-base-0'
             %}
             <div class="{{ wrap_classes }}" style="width:1538px">
               <div class="{{ header_classes}}">
@@ -93,6 +93,9 @@
                 {# data-src, not src: the previews are started one at a time by
                    staggerIframeLoads() in component-parent.ts. #}
                 <iframe class="neo-alchemist--iframe w-full" data-size="tablet" data-src="{{ src_tablet }}" frameborder="0"></iframe>
+                {# Shown while the canvas waits on this frame; see showSize() in
+                   component-parent.ts. #}
+                <div class="neo-alchemist--iframe-loading absolute inset-0 items-center justify-center gap-2 text-sm text-base-400">{{ icon('spinner') }}<span>{{ 'Loading preview…'|t }}</span></div>
               </div>
             </div>
             <div class="{{ wrap_classes }}" style="width:440px">
@@ -104,6 +107,9 @@
               </div>
               <div class="{{ content_classes }}">
                 <iframe class="neo-alchemist--iframe w-full" data-size="mobile" data-src="{{ src_mobile }}" frameborder="0"></iframe>
+                {# Shown while the canvas waits on this frame; see showSize() in
+                   component-parent.ts. #}
+                <div class="neo-alchemist--iframe-loading absolute inset-0 items-center justify-center gap-2 text-sm text-base-400">{{ icon('spinner') }}<span>{{ 'Loading preview…'|t }}</span></div>
               </div>
             </div>
           </div>

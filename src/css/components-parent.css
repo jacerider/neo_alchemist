@@ -26,3 +26,13 @@
     transition-duration: 0s !important;
   }
 }
+
+/* Single mode: a size the canvas is not showing keeps its outlines, hit
+ * targets, shades and seams (its frame is still loaded), but none of them may
+ * be seen or hit — they sit wherever the hidden frame does, which is over the
+ * frame that is shown. data-alchemist-single names the size on screen. */
+.neo-alchemist-manage[data-alchemist-single]:not([data-alchemist-single="desktop"]) :is(.neo-alchemist--element, .neo-alchemist--event, .neo-alchemist--overlay, .neo-alchemist--shade, .neo-alchemist--seam)[data-size="desktop"],
+.neo-alchemist-manage[data-alchemist-single]:not([data-alchemist-single="tablet"]) :is(.neo-alchemist--element, .neo-alchemist--event, .neo-alchemist--overlay, .neo-alchemist--shade, .neo-alchemist--seam)[data-size="tablet"],
+.neo-alchemist-manage[data-alchemist-single]:not([data-alchemist-single="mobile"]) :is(.neo-alchemist--element, .neo-alchemist--event, .neo-alchemist--overlay, .neo-alchemist--shade, .neo-alchemist--seam)[data-size="mobile"] {
+  display: none !important;
+}

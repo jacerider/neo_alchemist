@@ -501,9 +501,10 @@ Three things that shape the implementation:
 - **A prop is visible if *any* of its elements is.** `hero_s1` puts each slide's picture in a
   wholly `aria-hidden` stage and its copy in a separate live stack; requiring all of them would
   report every slide off screen.
-- **Reports are stored per frame size and never merged.** The three previews are three
-  renderings, each sitting wherever its own slider was left, and the two lazy ones are not
-  painting at all until scrolled to. The form renders the entry for the size on screen.
+- **Reports are stored per frame size and never merged.** Each preview is its own rendering,
+  sitting wherever its own slider was left. The canvas shows one size at a time unless the editor
+  turns on Compare (View options), and even then the frames scrolled out of view are not
+  painting. The form renders the entry for the size on screen.
 
 Both rules are documented for component authors in the **neo-component** skill
 ("Component JS inside the editor canvas") — that is the copy to update if the contract changes,

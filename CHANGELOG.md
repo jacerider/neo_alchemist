@@ -1,5 +1,20 @@
 # Changelog
 
+## The canvas shows one size at a time; Compare brings back all three
+
+The canvas used to load the desktop, tablet and mobile previews together and show them side by
+side. It now opens on **Desktop** alone, and only the desktop preview loads. The Tablet and
+Mobile buttons switch the canvas to that size. The first time each is shown, its preview loads
+in place behind a loading indicator. Desktop stays loaded, since it feeds the layer tree,
+the screenshot and the thumbnail. A new **View options** button beside the size buttons holds
+a **Compare** checkbox ("Show all sizes side by side"), which restores the three-up view. In
+Compare the size buttons scroll to their frame, as before. Each browser remembers Compare. The
+size shown is not remembered: the editor always opens on Desktop. Zoom and pan work in both
+modes, and in Single a zoom change re-centres the frame. Capturing a thumbnail from Tablet or
+Mobile switches to Desktop first. This applies to the layout editor and the single-component
+editor alike. Hidden frames stay laid out at their own width, so breakpoint scripts inside
+them do not rebuild while they are out of sight.
+
 ## Canvas outlines no longer wait for every preview frame
 
 The layout canvas drew its outlines, hit targets and seams only once all three previews

@@ -256,3 +256,47 @@ form.neo-alchemist-manage--form:has(.neo-alchemist--form-layout) > .form--inner,
     color: rgb(var(--color-base-0));
   }
 }
+
+/* A frame the canvas is not showing (Single mode, see showSize() in
+ * component-parent.ts).
+ *
+ * Not display:none: a frame without a box has a 0px viewport, so every media
+ * query in its document flips, and breakpoint scripts (carousels, animation
+ * observers) rebuild for a width nobody is looking at — then again when the
+ * frame comes back. Kept laid out at its own width instead, and taken out of
+ * the row, out of sight and out of reach.
+ */
+.neo-alchemist--iframe-wrapper.is-hidden {
+  position: absolute;
+  height: 0;
+  padding: 0;
+  overflow: hidden;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+/* A frame shown before its preview has reported in: its slot at its width,
+ * with something to say it is coming. */
+.neo-alchemist--iframe-loading {
+  display: none;
+}
+
+.neo-alchemist--iframe-wrapper.is-loading {
+  .neo-alchemist--iframe {
+    min-height: 60vh;
+  }
+
+  .neo-alchemist--iframe-loading {
+    display: flex;
+  }
+
+  .neo-alchemist--iframe-loading .icon {
+    animation: neo-alchemist-spin 1s linear infinite;
+  }
+}
+
+@keyframes neo-alchemist-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

@@ -214,18 +214,63 @@
     return iframeHasLoaded(iframe) ? 'ready' : 'loading';
   }
 
+  // How the canvas shows the sizes. Single, the default, shows one size at a
+  // time and always opens on desktop; Compare shows all of them side by side.
+  // Compare is remembered per browser, the size shown is not. Both are set by
+  // init() below, from the View options panel and the size buttons.
+  const compareStorageKey = 'neo-alchemist-compare';
+  let compare = compareStored();
+  let shownSize: NeoAlchemistFrameSize = 'desktop';
+
+  function compareStored(): boolean {
+    try {
+      return localStorage.getItem(compareStorageKey) === '1';
+    }
+    catch (e) {
+      return false;
+    }
+  }
+
+  function compareStore(value: boolean): void {
+    try {
+      if (value) {
+        localStorage.setItem(compareStorageKey, '1');
+      }
+      else {
+        localStorage.removeItem(compareStorageKey);
+      }
+    }
+    catch (e) {
+      // Not remembered, which is all that is lost.
+    }
+  }
+
+  /**
+   * The sizes on screen: every one in Compare, the shown one in Single.
+   */
+  function framesVisible(): NeoAlchemistFrameSize[] {
+    return frameSizes.filter(size => !!frameGet(size) && (compare || size === shownSize));
+  }
+
   /**
    * The sizes the canvas is using: the frames it loads, waits on and outlines.
    *
    * Decided here and nowhere else, so nothing that loops over the frames has
-   * to assume there are three. Every frame, for now.
+   * to assume there are three. The visible ones, and desktop always: it feeds
+   * the layer tree, the screenshot and the thumbnail, so it stays loaded even
+   * while another size is shown.
    */
   function framesActive(): NeoAlchemistFrameSize[] {
-    return frameSizes.filter(size => !!frameGet(size));
+    const visible = framesVisible();
+    return frameSizes.filter(size => !!frameGet(size) && (size === 'desktop' || visible.includes(size)));
   }
 
   function frameIsActive(iframe: HTMLIFrameElement): boolean {
     return framesActive().includes(iframe.dataset.size as NeoAlchemistFrameSize);
+  }
+
+  function frameIsVisible(iframe: HTMLIFrameElement): boolean {
+    return framesVisible().includes(iframe.dataset.size as NeoAlchemistFrameSize);
   }
 
   Drupal.neoAlchemist = Drupal.neoAlchemist || {};
@@ -233,6 +278,7 @@
     get: frameGet,
     state: size => frameState(frameGet(size)),
     active: framesActive,
+    visible: framesVisible,
   };
 
   function waitForAllIframesToLoad(iframes: NodeListOf<HTMLIFrameElement>): Promise<void> {
@@ -252,6 +298,13 @@
     return Promise.resolve();
   }
 
+  // Frames waiting their turn to start, in order.
+  const staggerQueue: HTMLIFrameElement[] = [];
+  // Frames that were waited on until the deadline and never finished. Waited
+  // out once, not before every start after it.
+  const staggerStalled = new WeakSet<HTMLIFrameElement>();
+  let staggerWaiting = false;
+
   /**
    * Starts the deferred previews one at a time, once the previous has loaded.
    *
@@ -268,56 +321,58 @@
    * and third frames then read a warm cache, so this costs little.
    *
    * Frames opt in by carrying data-src instead of src — see
-   * neo-alchemist-manage.html.twig. One the canvas is not using stays as it
-   * is, unloaded.
+   * neo-alchemist-manage.html.twig. Only frames the canvas is using start, so
+   * this runs again whenever that changes; a frame queued then waits behind
+   * any other still loading, however it was started.
    */
   function staggerIframeLoads(iframes: NodeListOf<HTMLIFrameElement>): void {
-    const deferred = Array.from(iframes).filter((iframe) => frameState(iframe) === 'unloaded' && !iframe.getAttribute('src') && frameIsActive(iframe));
-    if (!deferred.length) {
+    Array.from(iframes).forEach((iframe) => {
+      if (frameState(iframe) === 'unloaded' && frameIsActive(iframe) && !staggerQueue.includes(iframe)) {
+        staggerQueue.push(iframe);
+      }
+    });
+    staggerNext(iframes);
+  }
+
+  function staggerNext(iframes: NodeListOf<HTMLIFrameElement>): void {
+    if (staggerWaiting) {
       return;
     }
-
-    const start = (index: number): void => {
-      const iframe = deferred[index];
-      if (!iframe) {
-        return;
-      }
+    // Wait for whichever frame is loading first: desktop on open, which is
+    // usually still on about:blank here — frameState() reads that as loading
+    // rather than done, where readyState alone would not — or one an edit is
+    // reloading.
+    const busy = Array.from(iframes).find((iframe) => frameState(iframe) === 'loading' && !staggerStalled.has(iframe));
+    if (busy) {
+      staggerWaiting = true;
       let advanced = false;
-      const advance = () => {
+      const advance = (stalled: boolean) => {
         if (advanced) {
           return;
         }
         advanced = true;
-        start(index + 1);
-      };
-      iframe.addEventListener('load', advance, { once: true });
-      // A frame that never fires load must not strand the ones behind it.
-      setTimeout(advance, 10000);
-      iframe.src = iframe.dataset.src as string;
-      delete iframe.dataset.src;
-    };
-
-    // Wait for whichever frame was left eager (desktop) before starting. It is
-    // usually still on about:blank at this point, so ask iframeHasLoaded()
-    // rather than readyState — otherwise the chain starts immediately and the
-    // frames overlap after all, which is the whole thing being avoided.
-    const eager = Array.from(iframes).find((iframe) => iframe.getAttribute('src'));
-    if (!eager || iframeHasLoaded(eager)) {
-      start(0);
-    }
-    else {
-      let started = false;
-      const begin = () => {
-        if (started) {
-          return;
+        if (stalled) {
+          // A frame that never fires load must not strand the ones behind it.
+          staggerStalled.add(busy);
+          busy.addEventListener('load', () => staggerStalled.delete(busy), { once: true });
         }
-        started = true;
-        start(0);
+        staggerWaiting = false;
+        staggerNext(iframes);
       };
-      eager.addEventListener('load', begin, { once: true });
-      // Do not let a stalled first frame block the others indefinitely.
-      setTimeout(begin, 10000);
+      busy.addEventListener('load', () => advance(false), { once: true });
+      setTimeout(() => advance(true), 10000);
+      return;
     }
+    const next = staggerQueue.shift();
+    if (!next) {
+      return;
+    }
+    // Queued, but no longer wanted or already started.
+    if (frameState(next) === 'unloaded' && frameIsActive(next)) {
+      next.src = next.dataset.src as string;
+      delete next.dataset.src;
+    }
+    staggerNext(iframes);
   }
 
   function init(container:HTMLElement): void {
@@ -388,7 +443,15 @@
       }
       const left = parseInt(rawLeft || '0', 10);
       const top = parseInt(rawTop || '0', 10);
-      wrapper.scrollLeft = Number.isNaN(left) ? 0 : left;
+      if (!compare) {
+        // One frame on screen, always desktop on open, so a stored horizontal
+        // offset would only aim beside it: it was measured on whatever layout
+        // was showing when it was saved.
+        centerIframe(shownSize, 'auto');
+      }
+      else {
+        wrapper.scrollLeft = Number.isNaN(left) ? 0 : left;
+      }
       wrapper.scrollTop = Number.isNaN(top) ? 0 : top;
       return true;
     }
@@ -461,6 +524,11 @@
           : Date.now() + '-' + Math.random();
         captureButton.setAttribute('disabled', 'disabled');
         setButtonLabel(captureButton, Drupal.t('Composing thumbnail…'));
+        // The thumbnail is framed in the desktop preview, so that is the one
+        // that has to be on screen.
+        if (!compare && shownSize !== 'desktop') {
+          showSize('desktop');
+        }
         enterPreviewView();
         centerIframe('desktop', 'smooth');
         postToDesktop({ type: 'thumbnailCaptureStart' });
@@ -758,6 +826,171 @@
       }, 100);
     }
 
+    function frameWrap(size: string): HTMLElement | null {
+      return getIframe(size)?.closest<HTMLElement>('.neo-alchemist--iframe-wrapper') ?? null;
+    }
+
+    /**
+     * Lays the canvas out for the mode: in Single only the shown size's frame
+     * takes room, in Compare every frame does.
+     *
+     * The others are hidden in place rather than removed or given
+     * display:none — see .is-hidden in component-parent.css — so they keep
+     * their documents and their viewport width. data-alchemist-single tells
+     * the layout editor's CSS which size's outlines may show.
+     */
+    function viewLayout(): void {
+      const visible = framesVisible();
+      frameSizes.forEach(size => {
+        frameWrap(size)?.classList.toggle('is-hidden', !visible.includes(size));
+      });
+      if (compare) {
+        delete container.dataset.alchemistSingle;
+      }
+      else {
+        container.dataset.alchemistSingle = shownSize;
+      }
+      if (compareInput) {
+        compareInput.checked = compare;
+      }
+      focusButtonsSync();
+    }
+
+    /**
+     * Applies a change of mode or size: lays the canvas out, starts the frames
+     * it now uses that have not loaded — each in its slot with a loading
+     * indicator until it has — and tells the layout editor the frames moved.
+     */
+    function viewApply(): void {
+      viewLayout();
+      framesVisible().forEach(size => {
+        const iframe = getIframe(size);
+        const wrap = frameWrap(size);
+        if (iframe && wrap?.querySelector('.neo-alchemist--iframe-loading')) {
+          wrap.classList.toggle('is-loading', frameState(iframe) !== 'ready');
+        }
+      });
+      staggerIframeLoads(iframes);
+      container.dispatchEvent(new CustomEvent('alchemistManageView', {
+        detail: { compare, visible: framesVisible() },
+      }));
+    }
+
+    /**
+     * Puts a size on screen. In Single it becomes the one frame shown,
+     * centred; in Compare the canvas scrolls to it.
+     */
+    function showSize(size: NeoAlchemistFrameSize): void {
+      const iframe = getIframe(size);
+      if (!iframe) {
+        return;
+      }
+      if (compare) {
+        focusButtonsSync(size);
+        iframe.closest('.neo-alchemist--iframe-wrapper')?.scrollIntoView({
+          behavior: 'smooth',
+          block: 'start',
+          inline: 'center',
+        });
+      }
+      else {
+        shownSize = size;
+        viewApply();
+        centerIframe(size, 'auto');
+      }
+      savePositionWhenSettled();
+    }
+
+    /**
+     * Turns Compare on or off.
+     *
+     * On: every frame comes back, missing ones loading one at a time, and the
+     * frame that was on screen stays where it was. Off: back to Single on
+     * whichever size was most in view.
+     */
+    function compareSet(on: boolean): void {
+      if (on === compare) {
+        return;
+      }
+      if (on) {
+        const wrap = frameWrap(shownSize);
+        const before = wrap?.getBoundingClientRect().left ?? 0;
+        compare = true;
+        compareStore(true);
+        viewApply();
+        if (wrap && wrapper) {
+          wrapper.scrollLeft += wrap.getBoundingClientRect().left - before;
+        }
+        // Measured where the canvas has just been put back to.
+        focusButtonsSync();
+      }
+      else {
+        const size = (getMostVisibleIframe()?.dataset.size || shownSize) as NeoAlchemistFrameSize;
+        compare = false;
+        compareStore(false);
+        shownSize = size;
+        viewApply();
+        centerIframe(size, 'auto');
+      }
+      savePositionWhenSettled();
+    }
+
+    /**
+     * Marks the size button for what is on screen: the shown size in Single,
+     * else the given size, else the frame most in view.
+     */
+    function focusButtonsSync(size?: string | null): void {
+      const active = !compare ? shownSize : (size ?? getMostVisibleIframe()?.dataset.size ?? null);
+      container.querySelectorAll<HTMLElement>('.neo-alchemist--focus').forEach(button => {
+        button.classList.toggle('is-active', button.dataset.size === active);
+      });
+    }
+
+    // View options. Opens closed every time; only what it sets is remembered.
+    const viewToggle = container.querySelector<HTMLElement>('.neo-alchemist--view-toggle');
+    const viewPanel = container.querySelector<HTMLElement>('.neo-alchemist--view-panel');
+    const compareInput = container.querySelector<HTMLInputElement>('.neo-alchemist--compare');
+    if (viewToggle && viewPanel) {
+      const viewKey = (e: KeyboardEvent) => {
+        if (e.key === 'Escape') {
+          e.preventDefault();
+          viewPanelToggle(false);
+          viewToggle.focus();
+        }
+      };
+      const viewPointer = (e: PointerEvent) => {
+        if (!viewToggle.parentElement?.contains(e.target as Node)) {
+          viewPanelToggle(false);
+        }
+      };
+      // A click into a preview frame never reaches this document; it blurs it.
+      const viewBlur = () => {
+        window.setTimeout(() => {
+          if (document.activeElement instanceof HTMLIFrameElement) {
+            viewPanelToggle(false);
+          }
+        });
+      };
+      const viewPanelToggle = (open: boolean) => {
+        viewPanel.hidden = !open;
+        viewToggle.classList.toggle('is-active', open);
+        viewToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+        const method = open ? 'addEventListener' : 'removeEventListener';
+        document[method]('keydown', viewKey as EventListener, true);
+        document[method]('pointerdown', viewPointer as EventListener, true);
+        window[method]('blur', viewBlur);
+      };
+      viewToggle.addEventListener('click', (e) => {
+        e.preventDefault();
+        viewPanelToggle(viewPanel.hidden);
+      });
+    }
+    compareInput?.addEventListener('change', () => compareSet(compareInput.checked));
+
+    // Before anything measures the canvas: setScale() and restorePosition()
+    // below centre on a frame that has to be in its place already.
+    viewLayout();
+
     // Watch for errors.
     iframes.forEach(iframe => {
       if (iframe.dataset.size === 'desktop') {
@@ -767,6 +1000,10 @@
         }
       }
       iframe.onload = () => {
+        // Reported in, so the slot can stop saying it is coming.
+        if (iframeHasLoaded(iframe)) {
+          iframe.closest('.neo-alchemist--iframe-wrapper')?.classList.remove('is-loading');
+        }
         if (iframe.contentWindow) {
           const html = iframe.contentWindow.document.querySelector('html');
           if (html && !html.classList.contains('js') && wrapper) {
@@ -1852,6 +2089,10 @@
     scaleWrapper.addEventListener('transitionend', (event: TransitionEvent) => {
       // Check if the transition was specifically for transform
       if (event.propertyName === 'transform') {
+        if (!compare) {
+          centerIframe(shownSize, 'smooth');
+          savePositionWhenSettled();
+        }
         const customEvent = new CustomEvent('alchemistManageScaleEnd');
         container.dispatchEvent(customEvent);
       }
@@ -1871,8 +2112,10 @@
               centerIframe('desktop', 'auto');
             }
           }
-          else {
-            // Reset position each time scale is changed
+          else if (compare) {
+            // Reset position each time scale is changed. In Single the one
+            // frame is centred instead, once the transform has settled (the
+            // transitionend listener above).
             const rect = scaleWrapper.getBoundingClientRect();
             wrapper.scrollTo({
               top: 0,
@@ -1909,32 +2152,12 @@
       // offset is unchanged by this, so nothing moves on screen.
       restorePosition();
 
-      const focusButtons = container.querySelectorAll('.neo-alchemist--focus');
-      const mostVisibleSize = getMostVisibleIframe()?.getAttribute('data-size') || null;
-      [
-        {size: 'desktop', active: mostVisibleSize === 'desktop'},
-        {size: 'tablet', active: mostVisibleSize === 'tablet'},
-        {size: 'mobile', active: mostVisibleSize === 'mobile'},
-      ].forEach(data => {
-        once('neo.alchemist', '.neo-alchemist--focus[data-size="' + data.size + '"]').forEach(el => {
-          if (data.active) {
-            el.classList.add('is-active');
-          }
+      focusButtonsSync();
+      frameSizes.forEach(size => {
+        once('neo.alchemist', '.neo-alchemist--focus[data-size="' + size + '"]').forEach(el => {
           el.addEventListener('click', (e) => {
             e.preventDefault();
-            const iframe = getIframe(data.size as string);
-            if (iframe) {
-              focusButtons.forEach((el) => {
-                el.classList.remove('is-active');
-              });
-              el.classList.add('is-active');
-              iframe.closest('.neo-alchemist--iframe-wrapper')?.scrollIntoView({
-                behavior: 'smooth',
-                block: 'start',
-                inline: 'center',
-              });
-              savePositionWhenSettled();
-            }
+            showSize(size);
           });
         });
       });
@@ -2038,16 +2261,7 @@
             }
           });
           if (moved) {
-            focusButtons.forEach((el) => {
-              el.classList.remove('is-active');
-            });
-            const mostVisibleSize = getMostVisibleIframe()?.getAttribute('data-size') || null;
-            if (mostVisibleSize) {
-              const focusButton = container.querySelector('.neo-alchemist--focus[data-size="' + mostVisibleSize + '"]');
-              if (focusButton) {
-                focusButton.classList.add('is-active');
-              }
-            }
+            focusButtonsSync();
           }
         }
       }
@@ -2085,11 +2299,9 @@
      * Get the most visible iframe within the container
      */
     function getMostVisibleIframe(): HTMLElement | null {
-      // A frame the canvas is not using, or one laid out at no size at all, is
-      // not something anyone is looking at — and a zero-width rect inside the
-      // container would otherwise count as fully visible.
-      const children = Array.from(iframes)
-        .filter(iframe => frameIsActive(iframe) && iframe.getBoundingClientRect().width > 0) as HTMLElement[];
+      // A frame hidden in Single mode keeps its width (see .is-hidden in
+      // component-parent.css), so only its visibility says nobody is looking.
+      const children = Array.from(iframes).filter(frameIsVisible) as HTMLElement[];
       const containerRect = container.getBoundingClientRect();
 
       let mostVisibleDiv: HTMLElement | null = null;

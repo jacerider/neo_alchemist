@@ -153,6 +153,12 @@ interface NeoAlchemistFrames {
   state(size: NeoAlchemistFrameSize): NeoAlchemistFrameState;
   /** The sizes the canvas is using: the frames it loads, waits on and outlines. */
   active(): NeoAlchemistFrameSize[];
+  /**
+   * The sizes on screen: all of them in Compare, the shown one in Single. The
+   * canvas dispatches `alchemistManageView` on `.neo-alchemist-manage` once
+   * this has changed and the frames have moved.
+   */
+  visible(): NeoAlchemistFrameSize[];
 }
 
 declare namespace drupal {

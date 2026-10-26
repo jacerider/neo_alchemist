@@ -485,6 +485,29 @@
     layerShow(layerUuid, true, true);
   });
 
+  // The canvas changed which sizes it shows (component-parent.ts). Every frame
+  // may have moved, and a frame already loaded that it uses again has no load
+  // event coming to bring it into the outlines, so it joins from here.
+  container.addEventListener('alchemistManageView', () => {
+    const visible = frames.visible();
+    if (!visible.includes(layerInteractSize)) {
+      layerInteractSize = visible[0] ?? 'desktop';
+    }
+    frames.active().forEach(size => {
+      const iframe = iframes[size];
+      if (iframe && !framesDrawn.has(size)) {
+        iframeLoaded(size, iframe);
+      }
+    });
+    elementsPosition();
+    if (layerUuid) {
+      layerShow(layerUuid, true, true, false);
+    }
+    else {
+      seamsShow(null);
+    }
+  });
+
   // Handle postMessage communication
   window.addEventListener('message', (e) => {
     const data = e.data;
@@ -2480,11 +2503,13 @@
   function centeredSize(): 'desktop' | 'tablet' | 'mobile' {
     const wrapperRect = wrapper.getBoundingClientRect();
     const center = wrapperRect.left + (wrapperRect.width / 2);
-    let best = framesDrawn.has(layerInteractSize) ? layerInteractSize : 'desktop';
+    const visible = frames.visible();
+    const selectable = (size: NeoAlchemistFrameSize) => framesDrawn.has(size) && visible.includes(size) && !!iframes[size];
+    let best: NeoAlchemistFrameSize = selectable(layerInteractSize) ? layerInteractSize : (visible[0] ?? 'desktop');
     let bestDistance = Infinity;
     sizes.forEach(size => {
-      // A frame with no outlines has nothing to select in.
-      if (!framesDrawn.has(size) || !iframes[size]) {
+      // A frame with no outlines, or hidden, has nothing to select in.
+      if (!selectable(size)) {
         return;
       }
       const rect = getIframe(size).getBoundingClientRect();

@@ -213,6 +213,78 @@ class ComponentManageHelper {
         ],
       ];
     }
+
+    // View options: how the canvas shows the sizes. The panel always starts
+    // closed; component-parent.ts toggles it and remembers its settings.
+    $build['view'] = [
+      '#type' => 'html_tag',
+      '#tag' => 'div',
+      '#attributes' => [
+        'class' => ['neo-alchemist--view', 'relative'],
+      ],
+      'toggle' => [
+        '#type' => 'html_tag',
+        '#tag' => 'button',
+        '#value' => neo_icon_admin(t('View options'), 'sliders-h')->iconOnly()->render(),
+        '#attributes' => [
+          'type' => 'button',
+          'class' => ['neo-alchemist--view-toggle', 'btn', 'btn-xs', 'btn-outline', 'is-active:btn-primary'],
+          'title' => t('View options'),
+          'aria-expanded' => 'false',
+          'aria-controls' => 'neo-alchemist-view-options',
+        ],
+      ],
+      'panel' => [
+        '#type' => 'html_tag',
+        '#tag' => 'div',
+        '#attributes' => [
+          'id' => 'neo-alchemist-view-options',
+          'class' => [
+            'neo-alchemist--view-panel',
+            'absolute right-0 top-full mt-2 w-64 p-3 z-50',
+            'rounded-lg shadow-lg border bg-base-0 text-base-0-content',
+            'text-xs font-normal normal-case tracking-normal',
+          ],
+          'role' => 'dialog',
+          'aria-label' => t('View options'),
+          'hidden' => 'hidden',
+        ],
+        'compare' => [
+          '#type' => 'html_tag',
+          '#tag' => 'label',
+          '#attributes' => [
+            'class' => ['flex', 'items-start', 'gap-2', 'cursor-pointer'],
+          ],
+          'input' => [
+            '#type' => 'html_tag',
+            '#tag' => 'input',
+            '#attributes' => [
+              'type' => 'checkbox',
+              'class' => ['neo-alchemist--compare', 'mt-0.5'],
+            ],
+          ],
+          'text' => [
+            '#type' => 'html_tag',
+            '#tag' => 'span',
+            '#attributes' => [
+              'class' => ['flex', 'flex-col', 'gap-0.5'],
+            ],
+            'label' => [
+              '#type' => 'html_tag',
+              '#tag' => 'span',
+              '#value' => t('Compare'),
+              '#attributes' => ['class' => ['font-bold']],
+            ],
+            'description' => [
+              '#type' => 'html_tag',
+              '#tag' => 'span',
+              '#value' => t('Show all sizes side by side'),
+              '#attributes' => ['class' => ['text-base-500']],
+            ],
+          ],
+        ],
+      ],
+    ];
     return $build;
   }
 
