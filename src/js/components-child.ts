@@ -5,63 +5,88 @@
   // Components and regions are the two node kinds the editor tracks; ancestor
   // and child lookups have to consider both at once to stay in document order.
   const nodeSelector = '[data-component],[data-region]';
-  const components = document.querySelectorAll<HTMLElement>('[data-component]');
-  const regions = document.querySelectorAll<HTMLElement>('[data-region]');
-  const events: Record<string, HTMLElement> = {};
-  const eventsByParent: Record<string, Record<string, HTMLElement>> = {};
+  let events: Record<string, HTMLElement> = {};
+  let eventsByParent: Record<string, Record<string, HTMLElement>> = {};
   let updateTimeout: ReturnType<typeof setTimeout> | null = null;
-  let eventCount = 0;
   let broadcastSkip = false;
+  let watching = false;
+  // Elements already listened to. An edit updates this document in place
+  // (refreshPreview() in component-child.ts) rather than reloading it, so the
+  // same element is found again on every scan and must not be bound twice.
+  const bound = new WeakSet<HTMLElement>();
+  const mouseEvents = [
+    'mousedown', 'mouseup', 'click',
+    'mouseenter', 'mouseleave',
+    'mouseover', 'mouseout',
+  ] as const;
 
-  // Register events.
-  document.querySelectorAll<HTMLElement>('[data-event]').forEach(el => {
-    const component = el.closest('[data-component]') as HTMLElement | null;
-    if (!component) return;
-    const uuid = component.dataset.componentUuid;
-    if (!uuid) return;
-    const eventUuid = uuid + ':event:' + eventCount;
-    el.dataset.eventUuid = eventUuid;
-    eventsByParent[uuid] = eventsByParent[uuid] || {};
-    eventsByParent[uuid][eventUuid] = el;
-    events[eventUuid] = el;
-    const mouseEvents = [
-      'mousedown', 'mouseup', 'click',
-      'mouseenter', 'mouseleave',
-      'mouseover', 'mouseout',
-    ] as const;
-
-    mouseEvents.forEach(eventType => {
-      el?.addEventListener(eventType, (_e) => {
-        if (broadcastSkip) {
-          broadcastSkip = false;
-          return;
-        }
-        window.parent.postMessage({
-          type: 'onEvent',
-          size: size,
-          uuid: eventUuid,
-          eventType: eventType,
-        }, '*');
+  /**
+   * Finds the event triggers and region placeholders in the document as it
+   * is now.
+   *
+   * Run before every report rather than once at load: an edit morphs or
+   * replaces the markup in place, so triggers come and go without the
+   * document starting over. Event ids are numbered in document order on every
+   * scan, which is what a fresh load would give them, so the parent's event
+   * history keeps naming the same triggers.
+   */
+  function scan(): void {
+    events = {};
+    eventsByParent = {};
+    let eventCount = 0;
+    document.querySelectorAll<HTMLElement>('[data-event]').forEach(el => {
+      const component = el.closest('[data-component]') as HTMLElement | null;
+      if (!component) return;
+      const uuid = component.dataset.componentUuid;
+      if (!uuid) return;
+      const eventUuid = uuid + ':event:' + eventCount;
+      el.dataset.eventUuid = eventUuid;
+      eventsByParent[uuid] = eventsByParent[uuid] || {};
+      eventsByParent[uuid][eventUuid] = el;
+      events[eventUuid] = el;
+      eventCount++;
+      if (bound.has(el)) {
+        return;
+      }
+      bound.add(el);
+      mouseEvents.forEach(eventType => {
+        el.addEventListener(eventType, (_e) => {
+          if (broadcastSkip) {
+            broadcastSkip = false;
+            return;
+          }
+          window.parent.postMessage({
+            type: 'onEvent',
+            size: size,
+            // Read when it fires: a later scan may have renumbered it.
+            uuid: el.dataset.eventUuid,
+            eventType: eventType,
+          }, '*');
+        });
       });
     });
-    eventCount++;
-  });
 
-  // Empty customizable regions render a "[+] Add a component" placeholder.
-  // Focusing an empty region to use the toolbar Add is unreliable, so let the
-  // placeholder open the library for its region directly: post the region id
-  // (uuid--shape) up to the parent editor, which scopes the library to it.
-  document.querySelectorAll<HTMLElement>('[data-region-add]').forEach(el => {
-    el.addEventListener('click', (event) => {
-      event.preventDefault();
-      event.stopPropagation();
-      const region = el.closest('[data-region-uuid]') as HTMLElement | null;
-      const uuid = region?.dataset.regionUuid;
-      if (uuid) {
-        window.parent.postMessage({ type: 'regionAdd', uuid: uuid }, '*');
+    // Empty customizable regions render a "[+] Add a component" placeholder.
+    // Focusing an empty region to use the toolbar Add is unreliable, so let the
+    // placeholder open the library for its region directly: post the region id
+    // (uuid--shape) up to the parent editor, which scopes the library to it.
+    document.querySelectorAll<HTMLElement>('[data-region-add]').forEach(el => {
+      if (bound.has(el)) {
+        return;
       }
+      bound.add(el);
+      el.addEventListener('click', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        const region = el.closest('[data-region-uuid]') as HTMLElement | null;
+        const uuid = region?.dataset.regionUuid;
+        if (uuid) {
+          window.parent.postMessage({ type: 'regionAdd', uuid: uuid }, '*');
+        }
+      });
     });
-  });
+  }
+  scan();
 
   window.addEventListener('message', function(e) {
     const data = e.data;
@@ -88,25 +113,17 @@
   }
 
   // Events called from parent iframes.
+  //
+  // There is no previewRefresh handler here. An edit is patched into this
+  // document in place by component-child.ts, which then tells the editor, and
+  // the editor asks for structure and positions again as it would of a fresh
+  // document (previewRefreshed in components-parent.ts). The reload this used
+  // to do threw away a render the parent had already made, and staggered the
+  // three frames by 400ms each against an asset stampede that only a reload
+  // can cause.
   const onParent:any = {
-    // The layout preview reloads rather than swapping in place. It refreshes
-    // on saves and structural changes, not on every keystroke, and the parent
-    // rebuilds its entire overlay model from the structure and position data
-    // a fresh document reports — which a markup swap would not re-send. Left
-    // unhandled, the refresh was a silent no-op here: stale structure data,
-    // and a canvas that could no longer find its own components. So the parent
-    // renders nothing for this frame and component-child.ts does not morph it
-    // (deliver() in component-ajax.ts).
-    //
-    // Staggered for the same reason the initial loads are: three documents
-    // rebuilding at once re-request the same asset URLs, and Firefox will
-    // hand one of them an empty body.
-    previewRefresh: function (_data: any) {
-      const order = ['desktop', 'tablet', 'mobile'].indexOf(size || 'desktop');
-      window.setTimeout(() => window.location.reload(), Math.max(0, order) * 400);
-    },
-
     getStructureData: function (_data: any) {
+      scan();
       window.parent.postMessage({
         type: 'structureData',
         size: size,
@@ -114,9 +131,14 @@
       }, '*');
     },
     getPositionData: function (_data: any) {
-      // Watch for size changes.
-      watchChanges(document.body, updateCallback);
-      watchElementSize(document.body, updateCallback);
+      scan();
+      // Watch for size changes. Once: the document outlives an edit now, and
+      // every round asks again.
+      if (!watching) {
+        watching = true;
+        watchChanges(document.body, updateCallback);
+        watchElementSize(document.body, updateCallback);
+      }
       // Send initial position data.
       window.parent.postMessage({
         type: 'positionData',
@@ -147,7 +169,7 @@
   function getStructureData(): Record<string, any> {
     const data: Record<string, any> = {};
 
-    components.forEach(el => {
+    document.querySelectorAll<HTMLElement>('[data-component]').forEach(el => {
       const uuid = el.dataset.componentUuid;
       if (!uuid) return;
       const component = {
@@ -160,7 +182,7 @@
       data[uuid] = component;
     });
 
-    regions.forEach(el => {
+    document.querySelectorAll<HTMLElement>('[data-region]').forEach(el => {
       const uuid = el.dataset.regionUuid;
       if (!uuid) return;
       const region = {
@@ -198,14 +220,14 @@
   function getPositionData(): Record<string, DOMRect> {
     const data: Record<string, DOMRect> = {};
 
-    components.forEach(el => {
+    document.querySelectorAll<HTMLElement>('[data-component]').forEach(el => {
       const uuid = el.dataset.componentUuid;
       if (!uuid) return;
       const component = el.getBoundingClientRect();
       data[uuid] = component;
     });
 
-    regions.forEach(el => {
+    document.querySelectorAll<HTMLElement>('[data-region]').forEach(el => {
       const uuid = el.dataset.regionUuid;
       if (!uuid) return;
       const component = el.getBoundingClientRect();

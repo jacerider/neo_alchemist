@@ -997,7 +997,7 @@ The preview script is built in both scopes, so a change to it needs the front bu
 `components-parent.ts` owns the toggles and positioning (`sidePanelToggle()`,
 `floatingPosition()`). `mount()` runs lazily on first open (registration order does not
 matter); closing keeps the panel mounted. `onDraftChange` fires after any panel's write and
-after the previews reload following a layout write (every `ready()` after the first) — the
+after the previews refresh following a layout write (every `ready()` after the first) — the
 client re-reads the version first, so a panel never 409s against its own session's layout
 save. A 409 keeps the stale version: the message asks for a reload, and silently adopting the
 newer version would let the next write overwrite the colleague. Save / Revert / Reset /

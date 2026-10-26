@@ -1,5 +1,18 @@
 # Changelog
 
+## The layout editor updates its previews in place
+
+An edit in the layout editor used to reload every preview, one after another, 400ms apart, and
+rebuild the outlines from the new documents. The previews are now rendered once and updated in
+place, the way the component editor already did it. The editor then asks each preview for its
+structure and positions again, and redraws the outlines from that, so adding, moving and
+removing components keeps the outlines, insertion points, layer tree and selection right. In
+our tests with all three sizes shown, each edit cost one server render instead of three, no
+preview reloaded, and the outlines came back in about 0.2–0.4 s instead of about 1 s. Client-side
+state that lives outside the server's markup survives an edit: a slider moved with an inline
+transform stays where it was. A preview still reloads, as before, when an edit needs a script
+or stylesheet it has not loaded.
+
 ## Tablet and mobile previews update in place instead of reloading
 
 When the component editor showed more than one size, every edit reloaded the tablet and mobile

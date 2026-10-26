@@ -285,6 +285,11 @@
   const framesDrawn = new Set<NeoAlchemistFrameSize>();
   // Joined, and their positions not in yet.
   const framesJoining = new Set<NeoAlchemistFrameSize>();
+  // Frames whose document is new since they were last drawn — loaded, not
+  // updated in place. Only these need the event history played back into them
+  // (an opened tab, a toggled accordion): a document updated in place kept
+  // that state, and playing a toggle into it again would undo it.
+  const framesFresh = new Set<NeoAlchemistFrameSize>();
   // The sizes the current position round waits on.
   let positionRound: NeoAlchemistFrameSize[] = [];
   // Frames the sweep below released rather than the browser. Their report was
@@ -368,7 +373,7 @@
     // A frame finishing for the first time on a canvas already drawn without
     // it. Opening a round for it would tear the others down and wait on
     // frames that have nothing new to say, so it joins instead. A frame that
-    // was drawn and has finished again was reloaded, and opens the round the
+    // was drawn and reports again has taken an edit, and opens the round the
     // others are about to report into.
     if (framesDrawn.size && !iframesLoaded.size && !framesDrawn.has(size)) {
       frameJoin(size, iframe);
@@ -379,10 +384,36 @@
 
     const started = framesStarted();
     if (started.every(startedSize => iframesLoaded.has(startedSize))) {
-      iframesLoaded.clear();
-      // All frames loaded.
-      requestPositionData(started);
+      roundClose(started);
+      return;
     }
+    // Two edits close together can split one frame's reports across two
+    // rounds: its second lands after the first round closed and opens one the
+    // others, already reported, will not come back to. Every drawn frame keeps
+    // a live document now, so asking all of them after a moment is safe.
+    if (!roundTimeout) {
+      roundTimeout = setTimeout(() => {
+        roundTimeout = null;
+        if (iframesLoaded.size) {
+          // A frame still loading is left out; it joins once it reports.
+          roundClose(framesStarted().filter(startedSize => frames.state(startedSize, container) === 'ready'));
+        }
+      }, roundPatience);
+    }
+  }
+
+  // How long a round gathers reports before asking every frame anyway.
+  const roundPatience = 2000;
+  let roundTimeout: ReturnType<typeof setTimeout> | null = null;
+
+  function roundClose(round: NeoAlchemistFrameSize[]): void {
+    if (roundTimeout) {
+      clearTimeout(roundTimeout);
+      roundTimeout = null;
+    }
+    iframesLoaded.clear();
+    // All frames reported.
+    requestPositionData(round);
   }
 
   /**
@@ -407,6 +438,7 @@
     // report is already spent and the handshake will not come round again, so
     // ask every drawn frame for geometry directly: that is what the report
     // would have done, and it corrects positions that were measured mid-load.
+    framesFresh.add(size);
     if (iframesForced.delete(size)) {
       requestPositionData(sizes.filter(drawnSize => framesDrawn.has(drawnSize)));
       return;
@@ -429,9 +461,9 @@
    * Releasing gets the editor working on the geometry there is, and
    * iframeLoaded() corrects it if the document ever does finish.
    *
-   * A sweep rather than a timer armed per load, because a preview reloads
-   * itself (components-child.ts calls location.reload() after a save), which
-   * leaves the parent no navigation to arm against. Reading the state is cheap
+   * A sweep rather than a timer armed per load, because a preview can reload
+   * itself (fallbackReload() in component-child.ts, when an edit cannot be
+   * applied in place), which leaves the parent no navigation to arm against. Reading the state is cheap
    * and every round is covered by the same few lines.
    */
   function sweepStalledIframes(): void {
@@ -464,6 +496,7 @@
       }
       delete iframeStalledSince[size];
       iframesForced.add(size);
+      framesFresh.add(size);
       reportFrame(size, iframe);
     });
   }
@@ -563,6 +596,20 @@
   }
 
   const onChild:any = {
+    // A frame took an edit in place (refreshPreview() in component-child.ts):
+    // the layout equivalent of finishing a load, minus the new document. It
+    // reports as a loaded frame would, which asks it for structure (desktop)
+    // and positions again and rebuilds the outlines from the answers. The
+    // edit form's canvas sends the same message from its own frames, which
+    // can sit in a modal over this one, so only this canvas's id counts.
+    previewRefreshed: function (data: any) {
+      const size = data.size as NeoAlchemistFrameSize;
+      const iframe = iframes[size];
+      if (data.id !== container.id || !iframe || frames.state(size, container) !== 'ready' || !frames.active(container).includes(size)) {
+        return;
+      }
+      reportFrame(size, iframe);
+    },
     structureData: function (data: any) {
       structureData = data.data;
     },
@@ -615,7 +662,7 @@
       const eventType = data.eventType as string;
       const eventUuid = data.uuid as string;
       const eventData = getEventData(eventUuid);
-      // The tree this event belongs to is gone — the previews reload after a
+      // The tree this event belongs to is gone — the previews change under a
       // save, and the events they report can name a node the parent has not
       // heard of yet. getEventData() returns null for those, and reading
       // .type/.action/.group off it threw, taking the whole handler with it:
@@ -949,8 +996,8 @@
   /**
    * We have all the elements and positions, we are ready to go.
    *
-   * This will be called once the drawn frames have sent position data. It can
-   * be called multiple times if the iframes are reloaded. A frame that joins
+   * This will be called once the drawn frames have sent position data. It is
+   * called again after every edit, once the frames have taken it. A frame that joins
    * later is built by frameJoined() instead.
    */
   let readyCount = 0;
@@ -998,16 +1045,17 @@
       layersPanelToggle(layersChoice ? layersChoice === 'open' : layersHasRegions(), true);
     }
     // Every ready() after the first follows a layout write (the previews
-    // reload on its AJAX response), so the draft moved on under any side panel.
+    // refresh on its AJAX response), so the draft moved on under any side panel.
     readyCount++;
     if (readyCount > 1) {
       Drupal.neoAlchemist?.panels?.layoutChanged();
     }
 
     if (layerUuid) {
-      eventsReplay(sizes.filter(size => framesDrawn.has(size)));
+      eventsReplay(sizes.filter(size => framesDrawn.has(size) && framesFresh.has(size)));
       layerShow(layerUuid, true, true, false);
     }
+    framesDrawn.forEach(size => framesFresh.delete(size));
   }
 
   /**
@@ -1021,8 +1069,11 @@
     buildSize(size);
     opButtonsBind();
     elementsPosition();
+    const fresh = framesFresh.delete(size);
     if (layerUuid) {
-      eventsReplay([size]);
+      if (fresh) {
+        eventsReplay([size]);
+      }
       // Forced, so the new size's outlines and shades come up beside the
       // others, which are redrawn where they already are.
       layerShow(layerUuid, true, true, false);
