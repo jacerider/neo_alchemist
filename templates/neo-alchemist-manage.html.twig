@@ -1,4 +1,10 @@
-<div{% if id %} id="{{ id }}"{% endif %}{% if dev %} data-alchemist-dev{% endif %} class="neo-alchemist-manage fixed flex flex-col top-0 left-0 w-full h-full bg-base-300 z-0 modal:relative" style="--neo-alchemist-floating-gap: 16px;">
+{#
+  scheme--reset: the editor opens both as a page and inside a modal, and
+  neo_modal puts every modal's content in the reset scheme. Carrying it here as
+  well gives both the same button colours (neo_color's contrast-picked fills)
+  instead of the raw brand colour a page outside any scheme falls back to.
+#}
+<div{% if id %} id="{{ id }}"{% endif %}{% if dev %} data-alchemist-dev{% endif %} class="neo-alchemist-manage scheme--reset fixed flex flex-col top-0 left-0 w-full h-full bg-base-300 z-0 modal:relative" style="--neo-alchemist-floating-gap: 16px;">
   {% if top_start or top_end %}
     <div class="neo-alchemist-manage--top relative flex-none flex gap-4 w-full bg-default border-b px-4 py-2 shadow z-50" data-alchemist-offset-top>
       {% if top_start %}

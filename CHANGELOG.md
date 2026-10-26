@@ -1,5 +1,16 @@
 # Changelog
 
+## The editor's buttons look the same on the page and in the edit modal
+
+The editor's coloured buttons (the active zoom and size, the canvas ops, Add to page) were the
+raw brand colour when the editor was a page, and a different shade inside the component edit
+modal. neo_modal puts every modal's content in the reset colour scheme, whose button fills
+neo_color picks for contrast. The page editor sat in no scheme and fell back to the raw brand
+colour. The editor now carries the reset scheme itself, so both use the contrast-picked colours.
+Only primary-filled buttons change; every other colour in the editor stays the same. A matching
+fix in neo_theme gives an outline button that switches to a filled style a border in its fill
+colour, where it used to keep a dark outline inside a scheme.
+
 ## Previews tell components when an edit was applied in place
 
 When an edit is applied to a preview in place, every attribute and text the server renders goes
