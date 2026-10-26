@@ -1,5 +1,16 @@
 # Changelog
 
+## Previews tell components when an edit was applied in place
+
+When an edit is applied to a preview in place, every attribute and text the server renders goes
+back to what the server sent. A slider that marks its current slide with a class the template
+also renders, or writes "3 / 5" into a counter, therefore jumped back to its first slide. The
+preview now fires `neo-alchemist:refresh` on its root (`.neo-alchemist-preview`) after each
+in-place update, so a component can re-apply the state it keeps. It fires in the same task as
+the update, so nothing flickers. The neo-component skill documents this as rule 3 of
+"Component JS inside the editor canvas". Components that do not listen behave as before. Sites
+pick up the skill change with their next skill install (`drush neo:build:install`).
+
 ## The layout editor updates its previews in place
 
 An edit in the layout editor used to reload every preview, one after another, 400ms apart, and

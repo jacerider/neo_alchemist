@@ -992,7 +992,7 @@ When the component has interactive state (tabs, accordions), expose event hooks 
 
 ### Component JS inside the editor canvas
 
-Two rules for any component whose JS moves or hides its own content — a slideshow, a carousel, tabs, an accordion. Both exist because the editor preview is a **workspace**, not a page being viewed.
+Three rules for any component whose JS moves or hides its own content — a slideshow, a carousel, tabs, an accordion. All exist because the editor preview is a **workspace**, not a page being viewed.
 
 Detect the canvas from JS with `el.closest('.neo-alchemist-preview')` — the class the editor's own behavior binds to, so nothing needs plumbing through the yml or twig. (`neoIsPreview` is the twig-side equivalent.)
 
@@ -1053,6 +1053,25 @@ The consequence for you is that the marker has to be honest. Set it and then dec
 The event is the whole contract: the editor never learns what a carousel is, and the carousel never learns what the editor is. **Ignore it and the field simply has no outline** — no error, and nothing points at the wrong content.
 
 **What counts as hidden.** The editor already discounts anything clipped out of view, so a track slider with `overflow: hidden` needs no help to stay honest. What it cannot see from geometry alone is content that occupies a real box and is faded or flagged away — so it also treats `opacity: 0`, `visibility: hidden`, `[aria-hidden="true"]` and `[inert]` on the target **or any ancestor** as hidden. Hiding a panel with one of those is what makes your component legible to the editor; hiding it by moving it somewhere with a real box and full opacity is not.
+
+**3. Re-apply your state on `neo-alchemist:refresh`.** An edit is patched into the preview in place rather than re-rendering it: your nodes survive and your behavior does not run again, but every attribute and text the **server renders** is put back to what the server sent. Anything the twig renders and your JS then changes snaps back on every keystroke: the class marking the current slide, an `inert` on the hidden ones, the `1 / 5` you rewrote in a counter. State your JS keeps in attributes the server never renders (an inline `transform`, your own `data-*` init marker) is left alone. After each in-place update the editor fires `neo-alchemist:refresh` on the preview root (`.neo-alchemist-preview`); listen there and show what you were showing:
+
+```js
+Slider.prototype.bindRefresh = function () {
+  var self = this;
+  var root = this.el.closest('.neo-alchemist-preview');
+  if (!root) {
+    return;                             // not in the editor
+  }
+  root.addEventListener('neo-alchemist:refresh', function () {
+    if (self.el.isConnected) {
+      self.go(self.index);              // your own existing "show this one"
+    }
+  });
+};
+```
+
+It fires in the same task as the update, so nothing is painted in between and no transition plays. A refresh that changed the component's structure (an item added or removed) replaces the subtree instead and attaches behaviors to it afresh, and no event fires: the new instance starts from its first item, which is right for markup that is no longer the same.
 
 ### "N props unmatched in preview"
 

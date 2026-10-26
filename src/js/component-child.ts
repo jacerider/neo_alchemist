@@ -1301,6 +1301,12 @@
           indexPropTargets(element);
           refreshOverlays();
           scheduleItemsReport();
+          // The morph put back every attribute and text the server renders,
+          // which is state a widget may have moved on from — the class that
+          // marks its current slide, the "3 / 5" it wrote into a counter. Its
+          // nodes survived and no behavior runs again, so tell it to re-apply
+          // what it knows. Same task as the morph: nothing is painted between.
+          element.dispatchEvent(new CustomEvent('neo-alchemist:refresh'));
         }
         else {
           // Structure changed. Fall back to the replace this path has always
