@@ -100,9 +100,10 @@
   hover, which is what makes "where will this go?" answerable before clicking.
 
   The label only earns its space on the seam being acted on; otherwise a stack
-  of seams becomes a stack of words.
+  of seams becomes a stack of words. The 600 shade, not 500, because "Add
+  here" is text: white on a saturated 500 can fall under 4.5:1.
 #}
 <div class="neo-alchemist--seam-base group absolute flex items-center justify-center pointer-events-none" data-alchemist-ignore data-alchemist-nodrag>
   <div class="absolute inset-x-0 top-1/2 h-0.5 -translate-y-1/2 transition bg-primary-400 group-hover:bg-primary-500 group-[.is-target]:bg-primary-500"></div>
-  <button type="button" class="relative inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-2xs leading-snug cursor-pointer pointer-events-auto transition bg-primary-500 text-primary-500-content group-hover:scale-105 group-[.is-target]:opacity-100 group-[.is-target]:scale-105 group-[.is-target]:animate-pulse motion-reduce:group-[.is-target]:animate-none">{{ icon('plus') }}<span class="hidden group-hover:inline group-[.is-target]:inline">{{ 'Add here'|t }}</span></button>
+  <button type="button" class="relative inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs leading-snug cursor-pointer pointer-events-auto transition bg-primary-600 text-primary-600-content group-hover:scale-105 group-[.is-target]:opacity-100 group-[.is-target]:scale-105 group-[.is-target]:animate-pulse motion-reduce:group-[.is-target]:animate-none">{{ icon('plus') }}<span class="hidden group-hover:inline group-[.is-target]:inline">{{ 'Add here'|t }}</span></button>
 </div>

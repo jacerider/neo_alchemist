@@ -521,7 +521,8 @@ final class InstanceComponentForm extends ContentEntityForm {
       $build['page'] = [
         '#type' => 'html_tag',
         '#tag' => 'span',
-        '#attributes' => ['class' => ['text-xs', 'text-base-0-content/60', 'ml-2']],
+        // 75%, not less: the subtitle is real text and must keep 4.5:1.
+        '#attributes' => ['class' => ['text-xs', 'text-base-0-content/75', 'ml-2']],
         '#value' => $this->t('on @page', ['@page' => $entity->label()]),
       ];
     }
@@ -577,7 +578,7 @@ final class InstanceComponentForm extends ContentEntityForm {
   private function buildChip(array $chip): array {
     $classes = [
       'inline-flex', 'items-center', 'gap-1', 'max-w-full', 'cursor-pointer',
-      'rounded-2xl', 'border', 'px-2', 'py-px', 'text-2xs', 'leading-normal',
+      'rounded-2xl', 'border', 'px-2', 'py-px', 'text-xs', 'leading-normal',
       'transition',
     ];
     if ($chip['attention']) {
@@ -589,7 +590,7 @@ final class InstanceComponentForm extends ContentEntityForm {
 
     $markup = '';
     if (!empty($chip['title'])) {
-      $markup .= '<span class="uppercase tracking-tight opacity-60">' . Html::escape($chip['title']) . '</span>';
+      $markup .= '<span class="uppercase tracking-tight opacity-75">' . Html::escape($chip['title']) . '</span>';
     }
     $markup .= '<span class="font-semibold truncate">' . Html::escape($chip['value']) . '</span>';
 
@@ -669,7 +670,7 @@ final class InstanceComponentForm extends ContentEntityForm {
       $active = $key === $selected;
       $badge = ($key === 'sources' && $attention)
         ? 'badge bg-warning text-warning-content'
-        : 'badge bg-base-100 text-base-100-content/70';
+        : 'badge bg-base-100 text-base-100-content';
 
       $strip[$key] = [
         '#type' => 'html_tag',

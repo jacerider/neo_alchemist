@@ -149,7 +149,8 @@ class EditorChromeIteratesInventoryTest extends KernelTestBase {
    * viewport, so the fixed bar is the always-visible route to them. There they
    * are secondary buttons and labelled — the add ops with their short label,
    * because the bar has no edge context to say which plus is before and which
-   * is after; the move ops carry only their icon.
+   * is after; the move ops show only their icon, with their full label kept
+   * for screen readers (an icon alone gave them no accessible name).
    */
   public function testPositionalOpsAppearLabelledInTheBottomBar(): void {
     $positionOps = $this->chrome($this->inventory()->ops())['position_ops'];
@@ -164,14 +165,15 @@ class EditorChromeIteratesInventoryTest extends KernelTestBase {
       $classes = $button['#attributes']['class'];
       $this->assertContains('btn-secondary', $classes, "$id is secondary");
       $this->assertInstanceOf(IconElement::class, $button['#title']);
-      $this->assertFalse($button['#title']->isIconOnly(), "$id is labelled");
     }
-    $before = (string) $positionOps['add-before']['#title']->getText();
-    $after = (string) $positionOps['add-after']['#title']->getText();
-    $move = (string) $positionOps['move-up']['#title']->getText();
-    $this->assertSame('Before', $before);
-    $this->assertSame('After', $after);
-    $this->assertSame('', $move, 'Move ops carry no label.');
+    $this->assertFalse($positionOps['add-before']['#title']->isIconOnly(), 'add-before is labelled');
+    $this->assertFalse($positionOps['add-after']['#title']->isIconOnly(), 'add-after is labelled');
+    $this->assertSame('Before', (string) $positionOps['add-before']['#title']->getText());
+    $this->assertSame('After', (string) $positionOps['add-after']['#title']->getText());
+    foreach (['move-up' => 'Move Component Up', 'move-down' => 'Move Component Down'] as $id => $label) {
+      $this->assertTrue($positionOps[$id]['#title']->isIconOnly(), "$id shows only its icon");
+      $this->assertSame($label, (string) $positionOps[$id]['#title']->getText(), "$id keeps its name for screen readers");
+    }
   }
 
   /**

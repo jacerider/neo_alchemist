@@ -149,6 +149,10 @@ class ComponentManageHelper {
   /**
    * Builds the operations that change size of iframe.
    *
+   * The zoom and size controls are toggle buttons, not links: they change the
+   * view and go nowhere, and `aria-pressed` (kept in step with `.is-active` by
+   * component-parent.ts) is what tells a screen reader which one is on.
+   *
    * @param \Drupal\neo_alchemist\Plugin\Field\FieldType\ComponentTreeItem|Drupal\neo_alchemist\ComponentInterface $instance
    *   The field item.
    *
@@ -180,12 +184,14 @@ class ComponentManageHelper {
       '50' => neo_icon_admin(t('50%'), 'compress-arrows-alt'),
     ] as $key => $label) {
       $build['scale'][$key] = [
-        '#type' => 'link',
-        '#title' => $label,
-        '#url' => $instance->toUrl('collection'),
+        '#type' => 'html_tag',
+        '#tag' => 'button',
+        '#value' => $label->render(),
         '#attributes' => [
+          'type' => 'button',
           'class' => ['neo-alchemist--scale', 'btn', 'btn-xs', 'btn-outline', 'is-active:btn-primary'],
           'data-size' => $key,
+          'aria-pressed' => 'false',
         ],
       ];
     }
@@ -204,12 +210,14 @@ class ComponentManageHelper {
       'mobile' => neo_icon_admin(t('Mobile'), 'mobile'),
     ] as $key => $label) {
       $build['size'][$key] = [
-        '#type' => 'link',
-        '#title' => $label,
-        '#url' => $instance->toUrl('collection'),
+        '#type' => 'html_tag',
+        '#tag' => 'button',
+        '#value' => $label->render(),
         '#attributes' => [
+          'type' => 'button',
           'class' => ['neo-alchemist--focus', 'btn', 'btn-xs', 'btn-outline', 'is-active:btn-primary'],
           'data-size' => $key,
+          'aria-pressed' => 'false',
         ],
       ];
     }
@@ -586,7 +594,7 @@ class ComponentManageHelper {
           'class' => [
             'flex', 'items-center', 'justify-center', 'w-6', 'h-6',
             'rounded-full', 'border', 'bg-base-200', 'text-base-700',
-            'text-2xs', 'font-bold', 'leading-none', 'uppercase',
+            'text-xs', 'font-bold', 'leading-none', 'uppercase',
           ],
           'aria-hidden' => 'true',
         ],

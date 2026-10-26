@@ -1,5 +1,28 @@
 # Changelog
 
+## The canvas meets contrast, text-size and keyboard requirements
+
+Several parts of the canvas and the component form failed WCAG contrast or sat below a
+readable size: inactive form tabs (3.46:1), the pressed Show chip (3.88:1), the "on {page}"
+subtitle (4.03:1), the "(Hidden)" state (9.6px), and the Default / Hide / Show and style
+chips (10–11px). Every one is now at least 4.5:1 and 12px; field labels are 13px. The pressed
+chip and the seams' "Add here" use the primary 600 shade with its contrast-picked text colour.
+
+The zoom and size controls were links to the page itself: a middle-click opened the live page,
+and a screen reader could not tell which one was on. They are now buttons with `aria-pressed`.
+The bottom bar's Move up / Move down buttons had no accessible name and now keep their label for
+screen readers.
+
+Layers is now the keyboard route into the canvas, as a roving tree: Tab lands on one row (the
+selected one, else the first), the arrow keys move between rows and the canvas selection follows,
+and focus stays in the tree when an edit rebuilds it. Enter opens the selected component's edit
+form, as before. Enter on a region row's + button now adds a component instead of opening the
+edit form, and Space on a focused button presses it instead of starting a canvas pan.
+
+After Move up / Move down, the canvas scrolls to keep the moved component on screen, and it stays
+selected. An op's tooltip no longer stays on screen after the selection moves on or after the
+dialog it opened closes.
+
 ## The editor's buttons look the same on the page and in the edit modal
 
 The editor's coloured buttons (the active zoom and size, the canvas ops, Add to page) were the

@@ -32,7 +32,8 @@
         <span>{{ 'Layers'|t }}</span>
         <button type="button" class="neo-alchemist--layers-close cursor-pointer opacity-60 hover:opacity-100 transition" title="{{ 'Hide layers'|t }}">{{ icon('times') }}</button>
       </div>
-      <div class="neo-alchemist--layers-tree flex-auto overflow-y-auto py-1 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary-500" role="tree" aria-label="{{ 'Component layers'|t }}" tabindex="0"></div>
+      {# Not a tab stop itself: one row is (a roving tree, layersSelectionSet()). #}
+      <div class="neo-alchemist--layers-tree flex-auto overflow-y-auto py-1" role="tree" aria-label="{{ 'Component layers'|t }}"></div>
     </div>
 
     {#
@@ -156,7 +157,7 @@
           <div class="flex items-center gap-2 bg-base-950 px-3 py-2">
             {{ toolbar }}
             {% if toolbar_title %}
-              <span class="text-2xs uppercase tracking-widest font-semibold text-base-0/60">{{ toolbar_title }}</span>
+              <span class="text-xs uppercase tracking-widest font-semibold text-base-0/75">{{ toolbar_title }}</span>
             {% endif %}
           </div>
         {% endif %}

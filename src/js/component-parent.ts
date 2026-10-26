@@ -990,13 +990,24 @@
     }
 
     /**
+     * Marks a zoom or size toggle on or off.
+     *
+     * The class is what the button looks like; aria-pressed is what it says,
+     * and the two must never disagree.
+     */
+    function togglePressed(button: Element, on: boolean): void {
+      button.classList.toggle('is-active', on);
+      button.setAttribute('aria-pressed', on ? 'true' : 'false');
+    }
+
+    /**
      * Marks the size button for what is on screen: the shown size in Single,
      * else the given size, else the frame most in view.
      */
     function focusButtonsSync(size?: string | null): void {
       const active = !view.compare ? view.shown : (size ?? getMostVisibleIframe()?.dataset.size ?? null);
       container.querySelectorAll<HTMLElement>('.neo-alchemist--focus').forEach(button => {
-        button.classList.toggle('is-active', button.dataset.size === active);
+        togglePressed(button, button.dataset.size === active);
       });
     }
 
@@ -2117,15 +2128,10 @@
       {size: '50', scale: '0.5'},
     ].forEach(data => {
       once('neo.alchemist', '.neo-alchemist--scale[data-size="' + data.size + '"]').forEach(el => {
-        if (scale === data.scale) {
-          el.classList.add('is-active');
-        }
+        togglePressed(el, scale === data.scale);
         el.addEventListener('click', (e) => {
           e.preventDefault();
-          scaleButtons.forEach((el) => {
-            el.classList.remove('is-active');
-          });
-          el.classList.add('is-active');
+          scaleButtons.forEach((other) => togglePressed(other, other === el));
           setScale(data.scale);
           // Only on click. setScale() also runs during init, where saving would
           // overwrite the stored position with the default one.
@@ -2243,7 +2249,9 @@
       // in design tools, and unambiguous where a plain drag is not.
       let spacePan = false;
       document.addEventListener('keydown', (e) => {
-        if (e.key !== ' ' || e.repeat || isTyping(e.target)) {
+        // A focused control answers Space itself: a toggle presses, a Layers
+        // row selects. Taking it for a pan would leave them keyboard-dead.
+        if (e.key !== ' ' || e.repeat || isTyping(e.target) || isControl(e.target)) {
           return;
         }
         spacePan = true;
@@ -2256,6 +2264,11 @@
           spacePan = false;
         }
       });
+
+      function isControl(target: EventTarget | null): boolean {
+        return target instanceof Element
+          && !!target.closest('button, a[href], [role="treeitem"], [role="tab"], summary');
+      }
 
       function isTyping(target: EventTarget | null): boolean {
         if (!(target instanceof HTMLElement)) {

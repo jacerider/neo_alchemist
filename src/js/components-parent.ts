@@ -242,6 +242,10 @@
     return parents.length === 1 && isInheritedComponent(parents[0]);
   }
   let layerInteractSize: 'desktop' | 'tablet' | 'mobile' = 'desktop';
+  // A component just moved, which the canvas keeps on screen until the
+  // previews settle. See revealMoved().
+  let revealUuid: string | null = null;
+  let revealUntil = 0;
   let passthroughTimeout: ReturnType<typeof setTimeout> | null = null;
   let eventPendingStatus = false;
   let eventPendingHistory: Array<string> = [];
@@ -657,6 +661,7 @@
       // real positions, sending the canvas to the top, and again once they do,
       // bringing it back. The author never asked to move.
       layerShow(layerUuid, true, true, false);
+      revealMoved();
     },
     onEvent: function (data: any) {
       const eventType = data.eventType as string;
@@ -860,6 +865,14 @@
         crumbMenuClose();
       }
     });
+    // Deferred: the dialog hands focus back to its opener as it closes, and
+    // that focus is what reopens the opener's tooltip.
+    document.addEventListener('dialog:afterclose', () => setTimeout(opTooltipsHide, 50));
+
+    // A pan or wheel is the author choosing where to look, which ends any
+    // follow-the-move still pending.
+    wrapper.addEventListener('wheel', () => { revealUuid = null; }, { passive: true });
+    wrapper.addEventListener('mousedown', () => { revealUuid = null; });
 
     // Watch for component focus event
     const focusCallback = (event: CustomEvent<any>) => {
@@ -1054,6 +1067,7 @@
     if (layerUuid) {
       eventsReplay(sizes.filter(size => framesDrawn.has(size) && framesFresh.has(size)));
       layerShow(layerUuid, true, true, false);
+      revealMoved();
     }
     framesDrawn.forEach(size => framesFresh.delete(size));
   }
@@ -1820,6 +1834,18 @@
     openCrumbMenu = null;
   }
 
+  /**
+   * Take down any op tooltip that is up.
+   *
+   * A tooltip opens on hover or focus and closes on leave or blur, and an op
+   * can lose its reason to be pointed at without either: the selection moves
+   * on and hides it, or the dialog it opened closes and hands focus back to
+   * it. Both left the tooltip on screen with nothing under the pointer.
+   */
+  function opTooltipsHide(): void {
+    opButtons?.forEach(button => (button as any)._tippy?.hide());
+  }
+
   let opTimeout: ReturnType<typeof setTimeout> | null = null;
   function opsSet(uuid: string | null): void {
     if (!opButtons) return;
@@ -1827,6 +1853,7 @@
       clearTimeout(opTimeout);
       opTimeout = null;
     }
+    opTooltipsHide();
 
     // Find enabled buttons
     const enabledButtons: HTMLElement[] = [];
@@ -2029,6 +2056,8 @@
     if (!layersTree) {
       return;
     }
+    // Every edit rebuilds the rows; a keyboard user in the tree stays there.
+    const hadFocus = layersTree.contains(document.activeElement);
     layersTree.innerHTML = '';
     const roots = Object.keys(structureData).filter(uuid => structureData[uuid].parents.length === 0);
     if (!roots.length) {
@@ -2037,6 +2066,9 @@
     }
     roots.forEach(uuid => layersRowBuild(uuid, layersTree as HTMLElement));
     layersSelectionSet(layerUuid);
+    if (hadFocus) {
+      layersTree.querySelector<HTMLElement>('.neo-alchemist--layer[tabindex="0"]')?.focus({ preventScroll: true });
+    }
   }
 
   function layersRowBuild(uuid: string, parent: HTMLElement): void {
@@ -2050,7 +2082,8 @@
       + (inert
         // Locked by an inherited layout: context only, not a destination.
         ? ' opacity-45 cursor-default'
-        : ' cursor-pointer hover:bg-base-100 aria-selected:font-semibold aria-selected:bg-primary-500/15 aria-selected:shadow-[inset_2px_0_0_rgb(var(--color-primary-500))]');
+        : ' cursor-pointer hover:bg-base-100 aria-selected:font-semibold aria-selected:bg-primary-500/15 aria-selected:shadow-[inset_2px_0_0_rgb(var(--color-primary-500))]')
+      + ' focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary-500';
     row.setAttribute('role', 'treeitem');
     row.setAttribute('data-uuid', uuid);
     row.setAttribute('aria-level', String(data.parents.length + 1));
@@ -2116,14 +2149,26 @@
     if (!layersTree) {
       return;
     }
-    layersTree.querySelectorAll<HTMLElement>('.neo-alchemist--layer').forEach(row => {
+    const rows = Array.from(layersTree.querySelectorAll<HTMLElement>('.neo-alchemist--layer'));
+    // A roving tree: exactly one row is a tab stop — the selected one, else
+    // the first that can be selected — so Tab lands on the tree once and the
+    // arrows do the rest.
+    const stop = rows.find(row => !!uuid && row.dataset.uuid === uuid)
+      ?? rows.find(row => !row.dataset.inert);
+    rows.forEach(row => {
       const isCurrent = !!uuid && row.dataset.uuid === uuid;
       row.setAttribute('aria-selected', isCurrent ? 'true' : 'false');
-      row.setAttribute('tabindex', isCurrent ? '0' : '-1');
+      row.setAttribute('tabindex', row === stop ? '0' : '-1');
       if (isCurrent) {
         row.scrollIntoView({ block: 'nearest' });
       }
     });
+    // Keyboard focus follows the selection while it is in the tree, wherever
+    // the selection was changed from.
+    if (stop && layersTree.contains(document.activeElement) && document.activeElement !== stop
+      && document.activeElement?.classList.contains('neo-alchemist--layer')) {
+      stop.focus({ preventScroll: true });
+    }
   }
 
   /**
@@ -2134,7 +2179,9 @@
    */
   function layersKeydown(e: KeyboardEvent): void {
     const keys = ['ArrowDown', 'ArrowUp', 'Home', 'End', 'Enter', ' '];
-    if (!layersTree || !keys.includes(e.key)) {
+    // Only a row's own keys: a region row's + button is a button, and Enter on
+    // it must add, not edit.
+    if (!layersTree || !keys.includes(e.key) || !(e.target instanceof HTMLElement) || !e.target.classList.contains('neo-alchemist--layer')) {
       return;
     }
     const rows: HTMLElement[] = Array.from(layersTree.querySelectorAll<HTMLElement>('.neo-alchemist--layer:not([data-inert])'));
@@ -2143,13 +2190,15 @@
     }
     e.preventDefault();
     const current = rows.findIndex(row => row.dataset.uuid === layerUuid);
+    // With nothing selected, the first arrow selects the row that has focus.
+    const focused = rows.indexOf(e.target);
     let next = current;
     switch (e.key) {
       case 'ArrowDown':
-        next = current < 0 ? 0 : Math.min(current + 1, rows.length - 1);
+        next = current < 0 ? Math.max(focused, 0) : Math.min(current + 1, rows.length - 1);
         break;
       case 'ArrowUp':
-        next = current < 0 ? rows.length - 1 : Math.max(current - 1, 0);
+        next = current < 0 ? Math.max(focused, 0) : Math.max(current - 1, 0);
         break;
       case 'Home':
         next = 0;
@@ -2167,6 +2216,7 @@
     const uuid = rows[next]?.dataset.uuid;
     if (uuid) {
       layerShowOffCanvas(uuid);
+      rows[next].focus({ preventScroll: true });
     }
   }
 
@@ -2982,7 +3032,32 @@
     // how the request is dispatched; the URL comes from the record.
     const handler = operations[op.verb as keyof Operations];
     if (handler) {
+      if (op.verb === 'move') {
+        revealUuid = layerUuid;
+        revealUntil = Date.now() + 3000;
+      }
       handler(operationRequestUrl(op));
+    }
+  }
+
+  /**
+   * Keep a component that was just moved on screen.
+   *
+   * A move rebuilds the canvas around the selection without scrolling — right
+   * for an edit, where the author has not moved, but a move carries the
+   * component away from where they were looking. The previews report
+   * positions more than once while they settle (see positionUpdateData), so
+   * this follows each report for a few seconds, instantly: a smooth scroll
+   * would chase a target that is still moving.
+   */
+  function revealMoved(): void {
+    if (!revealUuid || revealUuid !== layerUuid || Date.now() > revealUntil) {
+      revealUuid = null;
+      return;
+    }
+    const element = structureElements[revealUuid]?.[layerInteractSize];
+    if (element) {
+      Drupal.behaviors.neoAlchemistComponentParent.scrollElementIntoView(element, wrapper, 100, 'instant', 'stay');
     }
   }
 

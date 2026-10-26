@@ -378,12 +378,13 @@ function _neo_alchemist_overlay_ops(array $ops): array {
 
     // In the bottom bar: labelled, because the bar has no edge context to say
     // which plus is before and which is after. Add ops show their short label;
-    // the move ops declare none and carry only their icon.
+    // the move ops declare none and show only their icon, with the full label
+    // kept for screen readers — an icon alone left them with no name at all.
     // phpcs:ignore Drupal.Semantics.FunctionT.NotLiteralString
-    $short = $op->short !== NULL ? t($op->short) : NULL;
+    $title = $op->short !== NULL ? neo_icon_admin(t($op->short), $op->icon) : neo_icon_admin($label, $op->icon)->iconOnly();
     $build['position_ops'][$op->id] = [
       '#type' => 'link',
-      '#title' => neo_icon_admin($short, $op->icon),
+      '#title' => $title,
       '#url' => Url::fromRoute('<current>'),
       '#tooltip' => $label,
       '#tooltip_options' => ['placement' => 'top'],

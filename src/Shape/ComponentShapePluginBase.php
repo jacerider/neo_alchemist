@@ -2567,7 +2567,9 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
       // to keep the legend the single label.
       $form['#title'] = $this->getTitle();
       if ($states) {
-        $form['#title'] = $this->t('@label <small class="font-normal">(@states)</small>', [
+        // A span at the legend's own 12px floor, not <small>, which shrank the
+        // state to under 10px.
+        $form['#title'] = $this->t('@label <span class="font-normal text-xs">(@states)</span>', [
           '@label' => $this->getTitle(),
           '@states' => implode(' & ', $states),
         ]);

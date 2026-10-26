@@ -15,25 +15,43 @@
     @apply flex-nowrap;
 
     .option {
-      @apply uppercase tracking-wide;
+      /* 12px, the floor for text in editor chrome. The style's own `xs` size
+         is 10px, which caps plus tracking could only just carry. */
+      @apply uppercase tracking-wide text-xs;
     }
+
+    /* The pressed chip (`Show` on a hidden field). The style fills it with the
+       500 shade, which white text does not reach 4.5:1 on for a saturated
+       brand; one step darker does, and its content colour is picked for it. */
+    input:checked + .option {
+      @apply bg-primary-600 text-primary-600-content;
+    }
+  }
+
+  /* Field labels at 13px: the 12px the shared form uses is the floor, which
+     leaves a label the same size as the chips beside it. */
+  .fieldset--legend {
+    font-size: 0.8125rem;
   }
 
   /* The active tab's underline. A pseudo-element rather than a border so it can
      sit ON the strip's own bottom border instead of stacking above it — which
-     is what makes the tab read as continuous with the pane below. */
+     is what makes the tab read as continuous with the pane below.
+
+     Inactive tabs keep the full content colour; fading them took the label
+     under 4.5:1. Weight and the underline carry which one is active. */
   .neo-alchemist--form-tabs {
 
     [role='tab'] {
-      @apply text-base-0-content/55;
-    }
-
-    [role='tab']:hover {
-      @apply text-default;
+      @apply text-default font-medium;
     }
 
     [role='tab'][aria-selected='true'] {
-      @apply text-default;
+      @apply font-semibold;
+    }
+
+    [role='tab'] .badge {
+      @apply text-xs;
     }
 
     [role='tab'][aria-selected='true']::after {
