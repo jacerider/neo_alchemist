@@ -1,5 +1,27 @@
 # Changelog
 
+## Save and Revert keep you in the editor, and the header says when there are unsaved changes
+
+Save and Revert used to send the editor to the entity's page, and the header showed Back, Reset,
+Revert and Save as four loud buttons on the leading side. Nothing said "unsaved changes" except
+that the buttons had appeared.
+
+The header now leads with Back and trails with the save group, after the view controls: an
+"Unsaved changes" status, a quiet (outline) Revert, and Save as the one filled button. Reset and
+Purge moved into a ⋯ menu at the trailing edge (Escape or a click elsewhere closes it). With no
+draft only ⋯ shows.
+
+Saving or reverting from the editor now closes the dialog, refreshes the previews and the
+header, and shows a short toast ("Saved", "Saved as Draft" when the save goes to a moderation
+state that does not publish, "Reverted to the last save"). A draft conflict is still reported
+inside the dialog. Opened as a page rather than a dialog, both forms still redirect as before.
+
+For code: the save group renders into a new `top_save` variable of `neo_alchemist_manage`,
+`.neo-alchemist-manage--top-save`. That is now what an editor write and the panel endpoint's
+`operations` re-render. `buildDynamicOperations()` returns only the save group, and Back comes
+from the new `buildNavigationOperations()`. `Drupal.neoAlchemist.toast(text, type)` and the
+`InstanceComponentManageToastCommand` AJAX command show a toast under the header.
+
 ## Each colour in the canvas means one thing, and labels are sentence case
 
 The brand colour meant six things on the canvas: primary actions, destructive ones (Delete

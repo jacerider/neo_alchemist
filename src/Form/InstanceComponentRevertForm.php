@@ -13,6 +13,8 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
  */
 class InstanceComponentRevertForm extends EntityConfirmFormBase {
 
+  use StayOnCanvasTrait;
+
   /**
    * The entity being edited.
    *
@@ -96,7 +98,7 @@ class InstanceComponentRevertForm extends EntityConfirmFormBase {
     $fieldItem = $this->fieldItem;
     $this->sharedDraftStore->delete($fieldItem);
     $form_state->setRedirectUrl($this->entity->toUrl());
-    $this->messenger()->addStatus($this->t('Components have been reverted successfully on %label: %field_label.', [
+    $this->reportOutcome($form_state, $this->t('Reverted to the last save'), $this->t('Components have been reverted successfully on %label: %field_label.', [
       '%label' => $this->entity->label(),
       '%field_label' => $fieldItem->getFieldDefinition()->getLabel(),
     ]));

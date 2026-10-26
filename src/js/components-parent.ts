@@ -851,6 +851,9 @@
       if (e.key !== 'Escape') {
         return;
       }
+      if (moreMenusClose(true)) {
+        return;
+      }
       if (openCrumbMenu) {
         crumbMenuClose();
         return;
@@ -865,6 +868,28 @@
         crumbMenuClose();
       }
     });
+    // The header's ⋯ menu. Delegated from the document: a write re-renders
+    // the save group it lives in. Its toggle flips it; any other click — one
+    // of its items, whose dialog is opening, or anywhere else — closes it.
+    document.addEventListener('click', (e) => {
+      const toggle = e.target instanceof Element ? e.target.closest<HTMLElement>('.neo-alchemist--more-toggle') : null;
+      const root = toggle?.closest<HTMLElement>('.neo-alchemist--more');
+      const menu = root?.querySelector<HTMLElement>('.neo-alchemist--more-menu');
+      if (!toggle || !menu) {
+        moreMenusClose();
+        return;
+      }
+      e.preventDefault();
+      const open = menu.hidden;
+      moreMenusClose();
+      if (open) {
+        menu.hidden = false;
+        toggle.classList.add('is-active');
+        toggle.setAttribute('aria-expanded', 'true');
+        menu.querySelector<HTMLElement>('a, button')?.focus();
+      }
+    });
+
     // Deferred: the dialog hands focus back to its opener as it closes, and
     // that focus is what reopens the opener's tooltip.
     document.addEventListener('dialog:afterclose', () => setTimeout(opTooltipsHide, 50));
@@ -1832,6 +1857,31 @@
       ?.querySelector('.neo-alchemist--crumb-toggle')
       ?.setAttribute('aria-expanded', 'false');
     openCrumbMenu = null;
+  }
+
+  /**
+   * Close any open ⋯ menu in the header.
+   *
+   * @param refocus
+   *   Return focus to the menu's toggle (Escape), so the keyboard is not left
+   *   on an item that just disappeared.
+   *
+   * @return
+   *   Whether a menu was open.
+   */
+  function moreMenusClose(refocus: boolean = false): boolean {
+    let closed = false;
+    container.querySelectorAll<HTMLElement>('.neo-alchemist--more-menu:not([hidden])').forEach(menu => {
+      menu.hidden = true;
+      const toggle = menu.closest('.neo-alchemist--more')?.querySelector<HTMLElement>('.neo-alchemist--more-toggle');
+      toggle?.classList.remove('is-active');
+      toggle?.setAttribute('aria-expanded', 'false');
+      if (refocus) {
+        toggle?.focus();
+      }
+      closed = true;
+    });
+    return closed;
   }
 
   /**

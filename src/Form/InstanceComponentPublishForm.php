@@ -19,6 +19,7 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
 class InstanceComponentPublishForm extends EntityConfirmFormBase {
 
   use DraftConflictMessageTrait;
+  use StayOnCanvasTrait;
 
   /**
    * The entity being edited.
@@ -201,11 +202,35 @@ class InstanceComponentPublishForm extends EntityConfirmFormBase {
     if ($moderationState && $this->entity->getEntityType()->hasLinkTemplate('latest-version') && !$this->entity->isDefaultRevision()) {
       $form_state->setRedirectUrl($this->entity->toUrl('latest-version'));
     }
-    $this->messenger()->addStatus($this->t('Components have been published successfully on %label: %field_label.', [
+    $this->reportOutcome($form_state, $this->savedToast($moderationState), $this->t('Components have been published successfully on %label: %field_label.', [
       '%label' => $this->entity->label(),
       '%field_label' => $fieldItem->getFieldDefinition()->getLabel(),
     ]));
     return $result;
+  }
+
+  /**
+   * The toast after a save: "Saved", or the state it was saved in.
+   *
+   * Saved into a state that does not publish (a Draft, a Review), the change
+   * is not live, and "Saved" alone would let the editor think it was.
+   *
+   * @param string|null $moderationState
+   *   The moderation state submitted with the save, if the entity has one.
+   *
+   * @return \Drupal\Core\StringTranslation\TranslatableMarkup
+   *   The toast.
+   */
+  protected function savedToast(?string $moderationState) {
+    if ($moderationState && \Drupal::hasService('content_moderation.moderation_information')) {
+      $workflow = \Drupal::service('content_moderation.moderation_information')->getWorkflowForEntity($this->entity);
+      $plugin = $workflow?->getTypePlugin();
+      $state = $plugin && $plugin->hasState($moderationState) ? $plugin->getState($moderationState) : NULL;
+      if ($state && method_exists($state, 'isPublishedState') && !$state->isPublishedState()) {
+        return $this->t('Saved as @state', ['@state' => $state->label()]);
+      }
+    }
+    return $this->t('Saved');
   }
 
 }

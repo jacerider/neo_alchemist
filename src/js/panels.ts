@@ -58,10 +58,10 @@
   }
 
   /**
-   * Swap in the re-rendered top-start toolbar, so Save/Revert follow hasDraft.
+   * Swap in the re-rendered save group, so Save/Revert follow hasDraft.
    */
   function operationsReplace(html: string): void {
-    const target = document.querySelector<HTMLElement>('.neo-alchemist-manage .neo-alchemist-manage--top-start');
+    const target = document.querySelector<HTMLElement>('.neo-alchemist-manage .neo-alchemist-manage--top-save');
     if (!target) {
       return;
     }

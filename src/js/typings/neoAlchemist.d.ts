@@ -175,6 +175,8 @@ declare namespace drupal {
       refreshStale?: (iframes: HTMLIFrameElement[]) => void;
       panels?: NeoAlchemistPanelRegistry;
       editor?: NeoAlchemistEditorApi;
+      /** A short message at the top of the editor that fades by itself. */
+      toast?: (text: string, type?: 'status' | 'error') => void;
     };
   }
 }

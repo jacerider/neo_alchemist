@@ -716,20 +716,7 @@
     }
 
     function showCaptureMessage(text: string, type: 'status' | 'error'): void {
-      const messagesWrapper = document.querySelector('.alchemist-messages');
-      if (!messagesWrapper) {
-        return;
-      }
-      const content = document.createElement('div');
-      content.classList.add('neo-alchemist--messages-content');
-      const message = document.createElement('div');
-      message.classList.add('messages', 'messages--' + type);
-      message.textContent = text;
-      content.appendChild(message);
-      messagesWrapper.appendChild(content);
-      setTimeout(() => {
-        fadeOutAndRemove(content);
-      }, type === 'error' ? 8000 : 4000);
+      toast(text, type);
     }
 
     /**
@@ -2414,6 +2401,42 @@
 
     initialized = true;
   };
+
+  /**
+   * Shows a short message at the top of the editor, then fades it out.
+   *
+   * The editor's own message area (html--neo-alchemist.html.twig), centred
+   * over the canvas rather than across the header, so a toast never hides the
+   * bar whose action it is reporting on. Errors stay twice as long.
+   */
+  function toast(text: string, type: 'status' | 'error' = 'status'): void {
+    const messagesWrapper = document.querySelector('.alchemist-messages');
+    if (!messagesWrapper) {
+      return;
+    }
+    messagesWrapper.classList.add('opacity-100');
+    messagesWrapper.classList.remove('invisible', 'opacity-0');
+    // Under the header bar, not over it: the bar is where the next action is.
+    const area = messagesWrapper.closest<HTMLElement>('.fixed');
+    const bar = document.querySelector<HTMLElement>('[data-alchemist-offset-top]');
+    if (area && bar) {
+      area.style.top = `${bar.getBoundingClientRect().bottom + 8}px`;
+    }
+    const content = document.createElement('div');
+    content.classList.add('neo-alchemist--messages-content');
+    const message = document.createElement('div');
+    message.classList.add('messages', 'messages--' + type);
+    message.setAttribute('role', type === 'error' ? 'alert' : 'status');
+    message.textContent = text;
+    content.appendChild(message);
+    messagesWrapper.appendChild(content);
+    setTimeout(() => {
+      fadeOutAndRemove(content);
+    }, type === 'error' ? 8000 : 4000);
+  }
+
+  Drupal.neoAlchemist = Drupal.neoAlchemist || {};
+  Drupal.neoAlchemist.toast = toast;
 
   /**
    * Fades out an element and moves it up 1rem while removing it from the DOM

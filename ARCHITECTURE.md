@@ -923,8 +923,8 @@ draft first — Reset discards panel data instead of publishing it.
 (`InstanceComponentPanelController`, GET|POST, `_neo_component_field: neo_field.update` +
 `_custom_access` = the manager's panel access + `_csrf_request_header_token`). GET →
 `{data, version, hasDraft}`. POST `{data, version}` → `{version, hasDraft, operations}`
-(`operations` is the re-rendered top-start toolbar HTML), or `409 {message, version}` on a
-stale version, or 400 on a malformed body. Field-UI and block scopes opt out in
+(`operations` is the re-rendered header save group HTML, `.neo-alchemist-manage--top-save`),
+or `409 {message, version}` on a stale version, or 400 on a malformed body. Field-UI and block scopes opt out in
 `SCOPE_DIVERGENCES`. `ComponentTreeItem::toUrl('panel')` gives the URL minus the panel id
 (`->setRouteParameter('panel', $id)`).
 

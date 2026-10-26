@@ -76,6 +76,9 @@ function neo_alchemist_theme(): array {
         'toolbar_title' => NULL,
         'top_start' => [],
         'top_end' => [],
+        // The trailing save group, re-rendered after every layout write.
+        // @see \Drupal\neo_alchemist\ComponentManageHelper::buildDynamicOperations()
+        'top_save' => [],
         'bottom_start' => [],
         'bottom_end' => [],
         // Editor side panels: a list of {id, label, width, body}.

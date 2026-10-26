@@ -437,13 +437,47 @@ class ComponentManageHelper {
   }
 
   /**
-   * Builds the operations that change state.
+   * Builds the header's leading group: the way out, and (later) navigation.
+   *
+   * Static for the life of the page, unlike the save group, which is
+   * re-rendered after every write (see buildDynamicOperations()).
    *
    * @param \Drupal\neo_alchemist\Plugin\Field\FieldType\ComponentTreeItem|Drupal\neo_alchemist\ComponentInterface $instance
    *   The field item.
    *
    * @return array
-   *   The operations.
+   *   The leading group's render array.
+   */
+  public static function buildNavigationOperations(ComponentTreeItem|ComponentInterface $instance): array {
+    return [
+      'back' => [
+        '#type' => 'link',
+        '#title' => neo_icon_admin(t('Back'), 'arrow-circle-left'),
+        '#url' => $instance->toUrl('collection'),
+        '#attributes' => [
+          'class' => ['btn', 'btn-xs', 'btn-outline'],
+        ],
+      ],
+    ];
+  }
+
+  /**
+   * Builds the header's save group: what follows the shared draft.
+   *
+   * Trails the header, after the view controls, in one order: an "Unsaved
+   * changes" status, a quiet Revert, Save (the one filled button in the bar —
+   * the action the header exists for), a ⋯ menu holding the rare and
+   * destructive Reset and Purge, then draft presence. With no draft only ⋯
+   * (and presence, which needs a draft) can appear, so the bar goes quiet.
+   *
+   * This is the part re-rendered after every write — by the AJAX helper's
+   * HtmlCommand and by panels.ts — into `.neo-alchemist-manage--top-save`.
+   *
+   * @param \Drupal\neo_alchemist\Plugin\Field\FieldType\ComponentTreeItem|Drupal\neo_alchemist\ComponentInterface $instance
+   *   The field item.
+   *
+   * @return array
+   *   The save group's render array.
    */
   public static function buildDynamicOperations(ComponentTreeItem|ComponentInterface $instance) {
     $build = [];
@@ -454,51 +488,66 @@ class ComponentManageHelper {
         'displaceBottom' => '0px',
       ],
     ];
-    $build['back'] = [
-      '#type' => 'link',
-      '#title' => neo_icon_admin(t('Back'), 'arrow-circle-left'),
-      '#url' => $instance->toUrl('collection'),
-      '#attributes' => [
-        'class' => ['btn', 'btn-xs', 'btn-outline'],
-      ],
-    ];
-    if ($instance->access('reset')) {
-      // Allow reset only for entity-based components.
-      $build['reset'] = [
-        '#type' => 'neo_modal_link',
-        '#title' => neo_icon_admin(t('Reset')),
-        '#url' => $instance->toUrl('reset'),
+    $canPublish = $instance->access('publish');
+    $canRevert = $instance->access('revert');
+    // The draft, not Save's access: Save is also offered on a forward revision
+    // with no draft, where nothing is unsaved.
+    $hasDraft = $instance instanceof ComponentTreeItem ? $instance->hasDraft() : $canRevert;
+    if ($hasDraft) {
+      // Said in words: the buttons appearing was the only sign of a draft.
+      $build['status'] = [
+        '#type' => 'html_tag',
+        '#tag' => 'span',
+        '#value' => t('Unsaved changes'),
         '#attributes' => [
-          'class' => ['use-ajax', 'btn', 'btn-xs', 'btn-alert'],
+          'class' => ['neo-alchemist--status', 'text-xs', 'text-base-0-content/75', 'whitespace-nowrap'],
+          'role' => 'status',
         ],
-        '#modal' => $modalSettings,
       ];
     }
-    if ($instance->access('revert')) {
+    if ($canRevert) {
       $build['revert'] = [
         '#type' => 'neo_modal_link',
         '#title' => neo_icon_admin(t('Revert')),
         '#url' => $instance->toUrl('revert'),
         '#attributes' => [
-          'class' => ['use-ajax', 'btn', 'btn-xs', 'btn-warning'],
+          'class' => ['use-ajax', 'btn', 'btn-xs', 'btn-outline'],
           'data-dialog-type' => 'modal',
         ],
         '#modal' => $modalSettings,
       ];
     }
-    if ($instance->access('publish')) {
+    if ($canPublish) {
       $build['publish'] = [
         '#type' => 'neo_modal_link',
         '#title' => neo_icon_admin(t('Save')),
         '#url' => $instance->toUrl('publish'),
         '#attributes' => [
-          'class' => ['use-ajax', 'btn', 'btn-xs', 'btn-success'],
+          'class' => ['use-ajax', 'btn', 'btn-xs', 'btn-primary'],
         ],
         '#modal' => $modalSettings,
       ];
     }
+
+    // The ⋯ menu: actions an editor reaches for rarely and must not hit by
+    // accident. Its open/close lives in components-parent.ts.
+    $more = [];
+    $itemClasses = [
+      'use-ajax', 'flex', 'w-full', 'items-center', 'gap-2', 'px-3', 'py-2', 'rounded',
+      'text-sm', 'text-alert-700', 'hover:bg-alert-50', 'hover:text-alert-800',
+    ];
+    if ($instance->access('reset')) {
+      // Allow reset only for entity-based components.
+      $more['reset'] = [
+        '#type' => 'neo_modal_link',
+        '#title' => neo_icon_admin(t('Reset')),
+        '#url' => $instance->toUrl('reset'),
+        '#attributes' => ['class' => $itemClasses],
+        '#modal' => $modalSettings,
+      ];
+    }
     if ($instance instanceof ComponentTreeItem && $instance->access('purge')) {
-      // The count decides whether the button appears at all — a locked field
+      // The count decides whether the item appears at all — a locked field
       // with nothing stored has nothing to offer. access('purge') covers mode
       // and permission, deliberately without querying rows.
       $field = $instance->getFieldDefinition();
@@ -508,17 +557,49 @@ class ComponentManageHelper {
         $field->getName(),
       );
       if ($count) {
-        $build['purge'] = [
+        $more['purge'] = [
           '#type' => 'neo_modal_link',
           '#title' => neo_icon_admin(t('Purge stored data (@count)', ['@count' => $count])),
           '#url' => $instance->toUrl('purge'),
-          '#attributes' => [
-            'class' => ['use-ajax', 'btn', 'btn-xs', 'btn-alert'],
-          ],
+          '#attributes' => ['class' => $itemClasses],
           '#modal' => $modalSettings,
         ];
       }
     }
+    if ($more) {
+      $menuId = Html::getUniqueId('neo-alchemist-more');
+      $build['more'] = [
+        '#type' => 'html_tag',
+        '#tag' => 'div',
+        '#attributes' => ['class' => ['neo-alchemist--more', 'relative']],
+        'toggle' => [
+          '#type' => 'html_tag',
+          '#tag' => 'button',
+          '#value' => neo_icon_admin(t('More actions'), 'ellipsis-h')->iconOnly()->render(),
+          '#attributes' => [
+            'type' => 'button',
+            'class' => ['neo-alchemist--more-toggle', 'btn', 'btn-xs', 'btn-outline', 'is-active:btn-primary'],
+            'title' => t('More actions'),
+            'aria-expanded' => 'false',
+            'aria-controls' => $menuId,
+          ],
+        ],
+        'menu' => [
+          '#type' => 'html_tag',
+          '#tag' => 'div',
+          '#attributes' => [
+            'id' => $menuId,
+            'class' => [
+              'neo-alchemist--more-menu',
+              'absolute', 'right-0', 'top-full', 'mt-2', 'w-56', 'p-1', 'z-50',
+              'rounded-lg', 'shadow-lg', 'border', 'bg-base-0', 'text-base-0-content',
+            ],
+            'hidden' => 'hidden',
+          ],
+        ] + $more,
+      ];
+    }
+
     // Presence: who else has been in this shared layout draft, and how
     // recently. Read from the draft's own last-editor/last-modified — no
     // heartbeat, no separate presence table — so it only appears when a

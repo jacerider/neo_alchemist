@@ -56,7 +56,7 @@ trait ComponentAjaxHelperTrait {
         ? $instance->getFieldItem()
         : $instance;
 
-      $selector = '#' . ComponentManageHelper::getId($item) . ' .neo-alchemist-manage--top-start';
+      $selector = '#' . ComponentManageHelper::getId($item) . ' .neo-alchemist-manage--top-save';
       $operations = ComponentManageHelper::buildDynamicOperations($item);
       $response->addCommand(new HtmlCommand($selector, $operations));
     }

@@ -57,11 +57,11 @@ class InstanceComponentManage extends RenderElementBase {
     $element['#iframe_start'] = [
       '#theme' => 'neo_alchemist_overlay',
     ];
-    $element['#top_start'] = [];
-    $element['#top_end'] = [];
-
-    $element['#top_start'] = ComponentManageHelper::buildDynamicOperations($neoField);
+    $element['#top_start'] = ComponentManageHelper::buildNavigationOperations($neoField);
     $element['#top_end'] = ComponentManageHelper::buildIframeOperations($neoField);
+    // The save group trails the view controls, and is the part a write
+    // re-renders (see ComponentManageHelper::buildDynamicOperations()).
+    $element['#top_save'] = ComponentManageHelper::buildDynamicOperations($neoField);
     $element['#bottom_start'] = ComponentManageHelper::buildOperations($neoField, $element['#neo_modal'] ?? []);
     $element['#bottom_end'] = ComponentManageHelper::buildLayersToggle();
 

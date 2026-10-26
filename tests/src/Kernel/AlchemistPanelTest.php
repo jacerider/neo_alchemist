@@ -231,16 +231,43 @@ class AlchemistPanelTest extends HybridFieldKernelTestBase {
     $item = $this->item($this->labelledEntity());
     $plain = $this->manageElement($item);
     $this->assertArrayNotHasKey('badges', $plain['#top_end'], 'No badge: the top bar is unchanged.');
-    $this->assertSame(['scale', 'size'], array_values(array_filter(array_keys($plain['#top_end']), static fn ($key) => $key[0] !== '#')), 'The top bar end holds only the scale and device controls.');
+    $this->assertSame(['scale', 'size', 'view'], array_values(array_filter(array_keys($plain['#top_end']), static fn ($key) => $key[0] !== '#')), 'The top bar end holds only the scale, device and view controls.');
 
     \Drupal::state()->set(TestLabelPanel::BADGE_STATE_KEY, TRUE);
     $badged = $this->manageElement($item);
     $children = array_values(array_filter(array_keys($badged['#top_end']), static fn ($key) => $key[0] !== '#'));
-    $this->assertSame(['badges', 'scale', 'size'], $children, 'Badges come first, in the same container as the scale and device controls.');
+    $this->assertSame(['badges', 'scale', 'size', 'view'], $children, 'Badges come first, in the same container as the scale and device controls.');
     $badge = $badged['#top_end']['badges']['badge_' . self::PANEL];
     $this->assertSame(self::PANEL, $badge['#attributes']['data-alchemist-badge']);
     $this->assertSame('button', $badge['content']['#tag']);
     $this->assertContains('neo_alchemist/panels', $badged['#attached']['library'], 'The badge client half loads with the editor.');
+  }
+
+  /**
+   * The header's save group trails the bar and follows the draft.
+   *
+   * Back leads on its own; the save group has a slot of its own, the one a
+   * write re-renders. With no draft it is quiet (no status, Revert or Save);
+   * with one it says so in words, then offers a quiet Revert and Save, the one
+   * filled button, in that order. Reset is never in the bar itself.
+   */
+  public function testSaveGroupTrailsAndFollowsTheDraft(): void {
+    $item = $this->item($this->labelledEntity());
+    $children = static fn (array $build): array => array_values(array_filter(array_keys($build), static fn ($key) => $key[0] !== '#'));
+
+    $quiet = $this->manageElement($item);
+    $this->assertSame(['back'], $children($quiet['#top_start']), 'Back leads on its own.');
+    foreach (['status', 'revert', 'publish', 'reset'] as $key) {
+      $this->assertNotContains($key, $children($quiet['#top_save']), "No draft: no $key in the bar.");
+    }
+
+    $this->store()->set($item, $this->defaultLayout());
+    $save = $this->manageElement($item)['#top_save'];
+    $this->assertSame(['status', 'revert', 'publish'], array_slice($children($save), 0, 3), 'A draft: status, Revert, Save, in that order.');
+    $this->assertSame('Unsaved changes', (string) $save['status']['#value']);
+    $this->assertContains('btn-primary', $save['publish']['#attributes']['class'], 'Save is the filled button.');
+    $this->assertContains('btn-outline', $save['revert']['#attributes']['class'], 'Revert is quiet.');
+    $this->assertNotContains('reset', $children($save), 'Reset lives in the ⋯ menu, not the bar.');
   }
 
   /**

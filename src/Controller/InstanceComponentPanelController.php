@@ -23,7 +23,7 @@ use Symfony\Component\HttpFoundation\Request;
  *
  * GET answers {data, version, hasDraft}. POST takes {data, version} and writes
  * the panel's key under the draft's version guard, answering {version,
- * hasDraft, operations} — operations being the re-rendered top-start toolbar,
+ * hasDraft, operations} — operations being the re-rendered header save group,
  * so the first write makes Save and Revert appear — or a 409 {message,
  * version} when a colleague moved the draft on.
  *

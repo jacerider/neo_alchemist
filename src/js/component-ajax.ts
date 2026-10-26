@@ -165,6 +165,10 @@
       refreshFrames(iframes);
     } as drupal.Core.IAjaxCommand;
 
+    Drupal.AjaxCommands.prototype.neoAlchemistToast = function (_ajax, response, _status) {
+      Drupal.neoAlchemist?.toast?.(String(response.message), response.type === 'error' ? 'error' : 'status');
+    } as drupal.Core.IAjaxCommand;
+
     Drupal.AjaxCommands.prototype.neoAlchemistComponentFocus = function (_ajax, response, _status) {
       const container = document.querySelector('.neo-alchemist-manage');
       if (container) {
