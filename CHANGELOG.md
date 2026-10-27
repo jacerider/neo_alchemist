@@ -1,5 +1,11 @@
 # Changelog
 
+## Header button groups keep their rounded ends while a tooltip shows
+
+Hovering Mobile, Redo or the Search & social button squared off the end of its group. Each
+tooltip was added inside the group, so the group's last button was no longer its last child.
+Those buttons' tooltips now go on the page body (`data-neo-tooltip-detach`).
+
 ## Side panels are their own panels, with their own buttons
 
 Search & social was a tab beside Layers, reached through the Layers button or the SEO/Read

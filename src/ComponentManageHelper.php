@@ -224,6 +224,9 @@ class ComponentManageHelper {
           'aria-pressed' => 'false',
         ],
       ];
+      // The tooltip goes on the body: left beside the button, it would be the
+      // group's last child and square off the last button's corners.
+      $build['size'][$key]['#attributes']['data-neo-tooltip-detach'] = 'true';
       (new Tooltip($name, ['placement' => 'bottom']))->applyTo($build['size'][$key]);
     }
 
@@ -422,6 +425,8 @@ class ComponentManageHelper {
           'aria-controls' => 'neo-alchemist-layers',
         ],
       ];
+      // On the body, not in the badge it is joined to (see the size toggles).
+      $toggle['#attributes']['data-neo-tooltip-detach'] = 'true';
       (new Tooltip($label, ['placement' => 'bottom']))->applyTo($toggle);
       // The badge's dropdown is added by panels.ts beside the badge content.
       $badge = $panel->badge($item);
@@ -531,6 +536,8 @@ class ComponentManageHelper {
         // What a shortcut that finds the button unavailable says.
         $build[$direction]['#attributes']['data-reason'] = (string) ($refused ?? $empty);
       }
+      // On the body, not in the group (see the size toggles).
+      $build[$direction]['#attributes']['data-neo-tooltip-detach'] = 'true';
       (new Tooltip((string) ($available ? $named : ($refused ?? $empty)), ['placement' => 'bottom']))->applyTo($build[$direction]);
     }
     return $build;
