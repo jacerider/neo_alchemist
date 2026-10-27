@@ -372,11 +372,13 @@ class ComponentManageHelper {
    * Builds the editor side panels the current user may use on a field item.
    *
    * Every piece the editor needs from the accessible AlchemistPanel plugins:
-   * the panels the template puts in the right dock as tabs beside the
-   * inspector, a badge (which opens its panel) or else a header toggle per
-   * panel, and the drupalSettings the client reads each panel's endpoint
-   * from. With no panel registered, or none accessible,
-   * every list is empty and the editor is unchanged.
+   * the panels the template puts in the left dock, each in place of Layers
+   * rather than as a tab beside it; a header button per panel, named for it;
+   * and the drupalSettings the client reads each panel's endpoint from. A
+   * panel with a badge gets its button at the head of the badge, joined to
+   * it, so the badge reads as that panel's (neo_seo: "Search & social", then
+   * its scores). With no panel registered, or none accessible, every list is
+   * empty and the editor is unchanged.
    *
    * @param \Drupal\neo_alchemist\Plugin\Field\FieldType\ComponentTreeItem $item
    *   The field item being edited.
@@ -405,32 +407,38 @@ class ComponentManageHelper {
         'label' => $label,
         'url' => $item->toUrl('panel')->setRouteParameter('panel', $id)->toString(),
       ];
+      // The panel's own button: its icon and name. The name gives way to a
+      // tooltip when the header runs out of room (headerFit() in
+      // components-parent.ts).
+      $toggle = [
+        '#type' => 'html_tag',
+        '#tag' => 'button',
+        '#value' => neo_icon_admin($label, $definition['icon'] ?? NULL)->render(),
+        '#attributes' => [
+          'type' => 'button',
+          'class' => ['neo-alchemist--sidepanel-toggle', 'btn', 'btn-outline', 'btn-xs', 'is-active:btn-primary'],
+          'data-alchemist-sidepanel' => $id,
+          'aria-expanded' => 'false',
+          'aria-controls' => 'neo-alchemist-layers',
+        ],
+      ];
+      (new Tooltip($label, ['placement' => 'bottom']))->applyTo($toggle);
       // The badge's dropdown is added by panels.ts beside the badge content.
       $badge = $panel->badge($item);
       if ($badge) {
         $build['badges']['badge_' . $id] = [
           '#type' => 'container',
           '#attributes' => [
-            'class' => ['neo-alchemist--badge', 'relative', 'flex', 'items-center', 'gap-2'],
+            'class' => ['neo-alchemist--badge', 'relative', 'flex', 'items-center'],
             'data-alchemist-badge' => $id,
           ],
+          'toggle' => $toggle,
           'content' => $badge,
         ];
       }
       else {
-        // A panel with a badge opens from it; one without gets a toggle in
-        // the header's leading group.
-        $build['toggles']['sidepanel_' . $id] = [
-          '#type' => 'html_tag',
-          '#tag' => 'button',
-          '#value' => neo_icon_admin($label, $definition['icon'] ?? NULL)->render(),
-          '#attributes' => [
-            'type' => 'button',
-            'class' => ['neo-alchemist--sidepanel-toggle', 'btn', 'btn-outline', 'btn-xs', 'is-active:btn-primary'],
-            'data-alchemist-sidepanel' => $id,
-            'aria-expanded' => 'false',
-          ],
-        ];
+        // Without a badge, the button joins the header's leading group.
+        $build['toggles']['sidepanel_' . $id] = $toggle;
       }
     }
     return $build;

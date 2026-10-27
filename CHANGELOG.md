@@ -1,5 +1,24 @@
 # Changelog
 
+## Side panels are their own panels, with their own buttons
+
+Search & social was a tab beside Layers, reached through the Layers button or the SEO/Read
+scores. When the inspector folded Layers to its rail on a narrow window, the tab went with it,
+and clicking a score opened the panel rather than the score's analysis, which then took a
+second click.
+
+Each side panel now has its own header button, named for it: at the head of its badge, joined
+to it, when it has one ("Search & social", then the SEO and Read scores), else in the header's
+leading group. The panel opens in the left dock in place of Layers, under its own title, and
+stays open while components are selected and edited; only Layers folds to the rail. The Layers
+button switches back. While the header is short of room, a panel button shows only its icon,
+with its name in a tooltip. A badge's buttons open its dropdown again, never the panel.
+
+For code: the left dock has no tabs (`leftPaneSet()`), and
+`Drupal.neoAlchemist.editor.openPanel()` is gone, along with `dropdownCreate()`'s `opensPanel`.
+A panel button is `.neo-alchemist--sidepanel-toggle[data-alchemist-sidepanel]` for every panel,
+badge or not.
+
 ## The breadcrumb is a bar over the canvas again
 
 The inspector's header held the breadcrumb beside Move up/down, ⋯, Expand and Close. At the

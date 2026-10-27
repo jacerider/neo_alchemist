@@ -109,7 +109,8 @@
   const layersTree = container.querySelector('.neo-alchemist--layers-tree') as HTMLElement | null;
   const layersToggleButton = container.querySelector('.neo-alchemist--layers-toggle') as HTMLElement | null;
   const layersCloseButton = container.querySelector('.neo-alchemist--layers-close') as HTMLElement | null;
-  // Editor side panels other modules add (AlchemistPanelInterface). Each floats
+  const layersTitle = container.querySelector('.neo-alchemist--layers-title') as HTMLElement | null;
+  // Editor side panels other modules add (AlchemistPanelInterface). Each shows
   // where Layers does, and only one of them — or Layers — is open at a time.
   // Their content is the panel's own; see panels.ts for the registry.
   const sidePanels: Record<string, HTMLElement> = {};
@@ -120,8 +121,8 @@
   });
   const sidePanelToggles = container.querySelectorAll<HTMLElement>('.neo-alchemist--sidepanel-toggle');
   let sidePanelOpenId: string | null = null;
-  // The left dock's tab: 'layers', or a side panel's id (leftTabSet()).
-  let leftTab = 'layers';
+  // What the left dock shows: 'layers', or a side panel's id (leftPaneSet()).
+  let leftPane = 'layers';
   // Whether Layers was showing when a panel opened the left dock, so closing
   // the panel goes back to how the dock was.
   let leftOpenBeforePanel = false;
@@ -839,15 +840,15 @@
       e.preventDefault();
       // Showing a panel, the toggle brings Layers forward rather than hiding
       // the dock.
-      layersPanelToggle(!layersPanelIsOpen() || leftTab !== 'layers');
+      layersPanelToggle(!layersPanelIsOpen() || leftPane !== 'layers');
     });
     layersCloseButton?.addEventListener('click', (e) => {
       e.preventDefault();
       // Closing a panel closes the dock, without changing what is remembered
       // about Layers.
-      if (leftTab !== 'layers') {
+      if (leftPane !== 'layers') {
         leftOpenBeforePanel = false;
-        sidePanelToggle(leftTab, false);
+        sidePanelToggle(leftPane, false);
         return;
       }
       layersPanelToggle(false);
@@ -865,21 +866,12 @@
       }
       toggle.addEventListener('click', (e) => {
         e.preventDefault();
+        // A button heading a panel's badge is the panel's, not the badge's:
+        // the badge's own handler (panels.ts) would toggle the panel again.
+        e.stopPropagation();
         const id = toggle.dataset.alchemistSidepanel;
         if (id) {
           sidePanelToggle(id, sidePanelOpenId !== id);
-        }
-      });
-    });
-    layersPanel?.querySelectorAll<HTMLElement>('[data-left-tab]').forEach(tab => {
-      tab.addEventListener('click', (e) => {
-        e.preventDefault();
-        const id = tab.dataset.leftTab || 'layers';
-        if (id === 'layers') {
-          layersPanelToggle(true);
-        }
-        else {
-          sidePanelToggle(id, true);
         }
       });
     });
@@ -888,17 +880,11 @@
       layersRailUnfolded = true;
       layersPosition();
     });
-    window.addEventListener('resize', () => layersPosition());
-    // A panel's badge opens its tab (panels.ts asks).
-    if (Drupal.neoAlchemist?.editor) {
-      Drupal.neoAlchemist.editor.openPanel = (id: string) => {
-        if (!sidePanels[id]) {
-          return false;
-        }
-        sidePanelToggle(id, !(leftTab === id && layersPanelIsOpen()));
-        return true;
-      };
-    }
+    window.addEventListener('resize', () => {
+      layersPosition();
+      headerFit();
+    });
+    headerFit();
 
     // Escape climbs out of the selection — component, then its region, then the
     // page — the same step clicking the dimmed area takes, so pressing it
@@ -2817,13 +2803,13 @@
       return;
     }
     layersPanel.style.display = open ? '' : 'none';
-    if (open && leftTab !== 'layers') {
-      leftTabSet('layers');
+    if (open && leftPane !== 'layers') {
+      leftPaneSet('layers');
     }
     // The toggle stays put either way — it is the one fixed way to reach the
     // tree — and reflects the state rather than disappearing into it.
-    layersToggleButton?.classList.toggle('is-active', open && leftTab === 'layers');
-    layersToggleButton?.setAttribute('aria-expanded', open && leftTab === 'layers' ? 'true' : 'false');
+    layersToggleButton?.classList.toggle('is-active', open && leftPane === 'layers');
+    layersToggleButton?.setAttribute('aria-expanded', open && leftPane === 'layers' ? 'true' : 'false');
     if (!silent) {
       localStorage.setItem(layersStorageKey, open ? 'open' : 'closed');
     }
@@ -2845,7 +2831,7 @@
     if (!dockOpen) {
       layersRailUnfolded = false;
     }
-    const rail = leftTab === 'layers' && dockOpen && !layersRailUnfolded && window.innerWidth < LAYERS_RAIL_BELOW;
+    const rail = leftPane === 'layers' && dockOpen && !layersRailUnfolded && window.innerWidth < LAYERS_RAIL_BELOW;
     layersPanel.classList.toggle('is-rail', rail);
     const railButton = layersPanel.querySelector<HTMLElement>('.neo-alchemist--layers-rail');
     if (railButton) {
@@ -2854,42 +2840,64 @@
   }
 
   /**
-   * Show one tab of the left dock: Layers, or a side panel.
+   * Drop the side panel buttons' names to their icons while the header has
+   * no room for them; the name stays in each button's tooltip. Measured
+   * rather than set at a width, because what the header holds varies by
+   * layout and by which modules add panels. Measured with nothing allowed to
+   * shrink or wrap (`.is-measuring`, never painted): short of room, the
+   * header squeezes its buttons onto two lines rather than overflowing.
+   */
+  function headerFit(): void {
+    const top = container.querySelector<HTMLElement>('.neo-alchemist-manage--top');
+    if (!top || !sidePanelToggles.length) {
+      return;
+    }
+    container.classList.remove('is-header-compact');
+    top.classList.add('is-measuring');
+    const overflows = top.scrollWidth > top.clientWidth;
+    top.classList.remove('is-measuring');
+    container.classList.toggle('is-header-compact', overflows);
+  }
+
+  /**
+   * Show one thing in the left dock: Layers, or a side panel.
    *
    * The left dock holds what belongs to the whole page, so nothing here
-   * touches the inspector or the selection. A panel's tab widens the dock to
-   * the panel's width. A panel's client is mounted on its first open, not at
-   * page load, so a panel nobody opens costs nothing; switching away keeps it
-   * mounted, so it comes back as it was left.
+   * touches the inspector or the selection. It is titled for what it shows,
+   * and a panel widens it to the panel's width. A panel's client is mounted on
+   * its first open, not at page load, so a panel nobody opens costs nothing;
+   * switching away keeps it mounted, so it comes back as it was left.
    */
-  function leftTabSet(tab: string): void {
+  function leftPaneSet(pane: string): void {
     if (!layersPanel) {
       return;
     }
-    if (tab !== 'layers' && !sidePanels[tab]) {
-      tab = 'layers';
+    if (pane !== 'layers' && !sidePanels[pane]) {
+      pane = 'layers';
     }
-    leftTab = tab;
-    sidePanelOpenId = tab === 'layers' ? null : tab;
-    layersPanel.querySelectorAll<HTMLElement>('[data-left-tab]').forEach(button => {
-      button.setAttribute('aria-selected', button.dataset.leftTab === tab ? 'true' : 'false');
+    leftPane = pane;
+    sidePanelOpenId = pane === 'layers' ? null : pane;
+    layersPanel.querySelectorAll<HTMLElement>('[data-left-pane]').forEach(element => {
+      element.hidden = element.dataset.leftPane !== pane;
     });
-    layersPanel.querySelectorAll<HTMLElement>('[data-left-pane]').forEach(pane => {
-      pane.hidden = pane.dataset.leftPane !== tab;
-    });
-    layersPanel.style.width = tab === 'layers' ? '' : (sidePanels[tab].dataset.width || '24rem');
-    const layersShowing = tab === 'layers' && layersPanel.style.display !== 'none';
+    layersPanel.style.width = pane === 'layers' ? '' : (sidePanels[pane].dataset.width || '24rem');
+    const title = pane === 'layers' ? Drupal.t('Layers') : (sidePanels[pane].dataset.label || '');
+    if (layersTitle) {
+      layersTitle.textContent = title;
+    }
+    layersPanel.setAttribute('aria-label', title);
+    const layersShowing = pane === 'layers' && layersPanel.style.display !== 'none';
     layersToggleButton?.classList.toggle('is-active', layersShowing);
     layersToggleButton?.setAttribute('aria-expanded', layersShowing ? 'true' : 'false');
     sidePanelToggles.forEach(toggle => {
-      const show = toggle.dataset.alchemistSidepanel === tab;
+      const show = toggle.dataset.alchemistSidepanel === pane;
       toggle.classList.toggle('is-active', show);
       toggle.setAttribute('aria-expanded', show ? 'true' : 'false');
     });
-    if (tab !== 'layers') {
-      const body = sidePanels[tab].querySelector<HTMLElement>('.neo-alchemist--sidepanel-body');
+    if (pane !== 'layers') {
+      const body = sidePanels[pane].querySelector<HTMLElement>('.neo-alchemist--sidepanel-body');
       if (body) {
-        Drupal.neoAlchemist?.panels?.mount(tab, body);
+        Drupal.neoAlchemist?.panels?.mount(pane, body);
       }
     }
     layersPosition();
@@ -2910,7 +2918,7 @@
   }
 
   /**
-   * Open a side panel's tab in the left dock, or close it.
+   * Open a side panel in the left dock, or close it.
    *
    * Opening shows the dock if it was closed; closing goes back to Layers if
    * Layers was showing before, else closes the dock.
@@ -2925,17 +2933,17 @@
       return;
     }
     if (open && id) {
-      if (leftTab === 'layers') {
+      if (leftPane === 'layers') {
         leftOpenBeforePanel = layersPanelIsOpen();
       }
       layersPanel.style.display = '';
-      leftTabSet(id);
+      leftPaneSet(id);
       return;
     }
-    if (id && leftTab !== id) {
+    if (id && leftPane !== id) {
       return;
     }
-    leftTabSet('layers');
+    leftPaneSet('layers');
     if (!leftOpenBeforePanel) {
       layersPanel.style.display = 'none';
       layersToggleButton?.classList.remove('is-active');

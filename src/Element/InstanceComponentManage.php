@@ -83,9 +83,9 @@ class InstanceComponentManage extends RenderElementBase {
     $element['#dock_menu'] = $chrome['inspector_menu'];
     $element['#dock_close'] = TRUE;
 
-    // Side panels other modules add: tabs in the right dock beside the
-    // inspector, opened from their badge or a header toggle. With none
-    // accessible nothing here changes the editor.
+    // Side panels other modules add: shown in the left dock in place of
+    // Layers, each opened by its own header button (at the head of its badge
+    // when it has one). With none accessible nothing here changes the editor.
     $sidePanels = ComponentManageHelper::buildSidePanels($neoField);
     $sidePanels['cacheability']->applyTo($element);
     if ($sidePanels['panels']) {

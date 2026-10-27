@@ -101,11 +101,6 @@ interface NeoAlchemistEditorApi {
   focus(target: NeoAlchemistFocusTarget): boolean;
   /** Edit-form internal: claims a focus request made in the last moments. */
   takeFieldFocus?(): Pick<NeoAlchemistFocusTarget, 'prop' | 'locate'> | null;
-  /**
-   * Opens a side panel's tab in the right dock, or closes it when it is the
-   * tab showing. False, doing nothing, for a panel the editor does not have.
-   */
-  openPanel?(id: string): boolean;
 }
 
 /**

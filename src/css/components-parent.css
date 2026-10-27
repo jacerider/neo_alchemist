@@ -70,14 +70,14 @@
   box-shadow: 0 0 0 3px rgb(0 0 0 / 0.85);
 }
 
-/* The left dock: Layers, and page-level panels as tabs beside it
+/* The left dock: Layers, or one page-level panel in its place
  * (neo-alchemist-manage.html.twig).
  *
  * A fixed width beside the canvas, which fits its frames to what is left; a
- * panel's tab sets the panel's own width inline. Folded to an icon rail while
- * the window is narrow and the inspector is open, Layers showing
- * (layersPosition() in components-parent.ts): the tabs and tree go, the
- * rail's own button brings them back.
+ * panel sets its own width inline. Layers folds to an icon rail while the
+ * window is narrow and the inspector is open (layersPosition() in
+ * components-parent.ts): the header and tree go, the rail's own button brings
+ * them back. A panel is never folded.
  */
 .neo-alchemist--layers {
   width: 16.25rem;
@@ -111,14 +111,35 @@
   box-shadow: inset 0 0 0 1px rgb(var(--color-primary-600));
 }
 
-/* The left dock's tabs (Layers, Search & social…): the same underline as the
-   component form's tabs. */
-.neo-alchemist--dock-tab[aria-selected='true']::after {
-  content: '';
+/* A panel's header button heads its badge (ComponentManageHelper::
+   buildSidePanels()), joined to it as the first button of a group: neo_seo's
+   reads "Search & social" then its scores. */
+.neo-alchemist--badge > .neo-alchemist--sidepanel-toggle:not(:last-child) {
+  border-start-end-radius: 0;
+  border-end-end-radius: 0;
+}
+
+.neo-alchemist--badge > .neo-alchemist--sidepanel-toggle + .btn,
+.neo-alchemist--badge > .neo-alchemist--sidepanel-toggle + * > .btn:first-child {
+  border-start-start-radius: 0;
+  border-end-start-radius: 0;
+  border-inline-start-width: 0;
+}
+
+/* The header at its natural width, for headerFit() to measure. */
+.neo-alchemist-manage--top.is-measuring,
+.neo-alchemist-manage--top.is-measuring * {
+  flex-shrink: 0 !important;
+  white-space: nowrap !important;
+}
+
+/* No room in the header: a panel button keeps its icon, and its name stays
+   for screen readers and in its tooltip (headerFit()). */
+.neo-alchemist-manage.is-header-compact .neo-alchemist--sidepanel-toggle .neo-icon-label {
   position: absolute;
-  inset-inline: 0.5rem;
-  bottom: -1px;
-  height: 2px;
-  border-radius: 2px 2px 0 0;
-  background: rgb(var(--color-primary-500));
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }

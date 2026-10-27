@@ -876,11 +876,14 @@ entity returns to the field default instead of copy-on-writing the seeds.
 
 ### Editor side panels
 
-Any module can add a side panel to the layout editor: a tab in the left dock beside Layers
-(page-level, so independent of the selection; one tab showing at a time, widened to the
-panel's `width`), opened by the panel's top bar badge — a person's click
-on it; a scripted click still reaches the badge's dropdown — or, for a panel with no badge, a
-toggle in the header's leading group, and **one key in the shared draft**, so what the panel drafts is saved, reverted, reset and published with the
+Any module can add a side panel to the layout editor: shown in the left dock in place of
+Layers, never as a tab beside it (page-level, so independent of the selection, and never folded
+to the rail; one thing showing at a time, titled for it and widened to the panel's `width`),
+opened by its own header button, named for it (`.neo-alchemist--sidepanel-toggle`) — at the
+head of the panel's top bar badge, joined to it, when it has one, else in the header's leading
+group. The name drops to the icon and a tooltip while the header is short of room
+(`headerFit()`). The badge itself is no way into the panel: its buttons open its dropdown. And
+**one key in the shared draft**, so what the panel drafts is saved, reverted, reset and published with the
 layout rather than beside it. The existing Content / Style / Sources tabs are not panels and
 stay hardcoded. Entity scope only — a field default layout and a block host have no
 per-entity draft. Worked example: the fixture `TestLabelPanel` in
@@ -1034,7 +1037,7 @@ calls `ComponentTreeItem::relocateComponent()` → `ComponentTreeStructure::relo
 (moves the placing tuple, subtree and props untouched; refuses a target inside the component
 or owned by nothing). Alt+↑/↓ on a focused row runs the move-up/down op. There is no Reorder
 page and no `sort` route or op; the `sort` *access* operation still gates moves. The left
-dock's tabs are Layers and each side panel (`leftTabSet()`); the right dock is the inspector
+dock shows Layers or one side panel (`leftPaneSet()`); the right dock is the inspector
 alone, open exactly while something is selected (`dockVisibilitySync()`).
 
 **Taking the editor somewhere** — `Drupal.neoAlchemist.editor.focus({uuid, prop?, locate?})`
@@ -1055,9 +1058,9 @@ holding a canvas element passes a `locate` rather than a prop. The preview scrip
 both scopes, so a change to it needs the front build too.
 
 `src/js/panels.ts` holds the registry and the one record-level version every panel shares;
-`components-parent.ts` owns the left dock's tabs (`leftTabSet()`, `sidePanelToggle()`, and
-`Drupal.neoAlchemist.editor.openPanel(id)` for badges). `mount()` runs lazily on first open
-(registration order does not matter); switching tabs keeps the panel mounted. `onDraftChange` fires after any panel's write and
+`components-parent.ts` owns the left dock (`leftPaneSet()`, `sidePanelToggle()`, and the panel
+buttons, whose click stops before the badge's handler). `mount()` runs lazily on first open
+(registration order does not matter); switching away keeps the panel mounted. `onDraftChange` fires after any panel's write and
 after the previews refresh following a layout write (every `ready()` after the first) — the
 client re-reads the version first, so a panel never 409s against its own session's layout
 save. A 409 keeps the stale version: the message asks for a reload, and silently adopting the
@@ -1438,7 +1441,8 @@ From [neo_alchemist.services.yml](neo_alchemist.services.yml):
   entity's tree fields (the Layout route redirect/picker and the token image field
   lookup). Remove entries only; pair with `hook_entity_field_access()` to hide the same
   fields from rendering. Canonical consumer: `modules/neo_alchemist_taxonomy/`.
-- **An editor side panel** (a tab in the left dock beside Layers, with its own key in the shared
+- **An editor side panel** (shown in the left dock in place of Layers, opened by its own header
+  button, with its own key in the shared
   draft, applied to the entity on Publish) — an `#[AlchemistPanel]` plugin in
   `src/Plugin/AlchemistPanel/` extending `AlchemistPanelBase`, plus a library depending on
   `neo_alchemist/panels` that calls `Drupal.neoAlchemist.panels.register()`. See "Editor side
