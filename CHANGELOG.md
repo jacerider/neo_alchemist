@@ -1,5 +1,10 @@
 # Changelog
 
+## Smaller breadcrumb text
+
+The breadcrumb bar's crumbs are 12px, the size of the Layers tree beside them, so more of a
+nested trail fits before it scrolls.
+
 ## The fixed zoom buttons drop their icons
 
 100%, 75% and 50% are text only; a percentage already says what it does, and the header is short
