@@ -1,5 +1,11 @@
 # Changelog
 
+## Apply closes the inspector
+
+Apply in the inspector now closes it and deselects the component, as the edit is done. It used
+to reload the same component's form. Undo, Redo and a move still leave the component open, and
+Apply in the "Apply changes to…?" prompt still moves on to the component that was clicked.
+
 ## Apply in the "Apply changes to…?" prompt applies
 
 With unapplied changes in the inspector, selecting another component asks "Apply changes to

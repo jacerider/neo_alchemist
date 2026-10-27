@@ -1976,6 +1976,10 @@
   let inspectorPending: (() => void) | null = null;
   // Set while an Apply is in flight, to run once it has landed.
   let inspectorAfterApply: (() => void) | null = null;
+  // Whether the form's Apply was pressed and has not landed yet. Undo, redo
+  // and a move send the same "saved" focus for the inspected component, and
+  // only an Apply closes the inspector.
+  let inspectorApplying = false;
   // Increments per form load, so a slow response for a component the
   // selection has since left is dropped rather than shown.
   let inspectorLoadToken = 0;
@@ -2001,9 +2005,25 @@
       }
       if (inspectorUuid && dockBody.querySelector('form')) {
         inspectorDirty = true;
+        // Typing again: an Apply that came back with errors is over. Not on
+        // `change`: pressing Apply blurs the field just edited, and its
+        // `change` lands after the press.
+        if (e.type === 'input') {
+          inspectorApplying = false;
+        }
       }
     };
     dockBody.addEventListener('input', markDirty);
+    // On mousedown, as Drupal sends a submit's AJAX (a key press on the
+    // button triggers one too), and in the capture phase so it is set before
+    // that runs. Not on click: the AJAX disables the button first, so there
+    // is no click. The prompt's Apply needs none of it: it runs what it was
+    // waiting for.
+    dockBody.addEventListener('mousedown', (e) => {
+      if ((e.target as HTMLElement).closest('.neo-alchemist--form-footer [data-drupal-selector="edit-submit"]')) {
+        inspectorApplying = true;
+      }
+    }, true);
     dockBody.addEventListener('change', markDirty);
     dockBody.addEventListener('neoAlchemistFormEdited', markDirty);
 
@@ -2083,6 +2103,7 @@
     }
     inspectorUuid = uuid;
     inspectorDirty = false;
+    inspectorApplying = false;
     const op = structureData[uuid]?.data?.ops?.edit;
     if (!op?.permitted) {
       inspectorEmpty(Drupal.t('This component cannot be edited here.'));
@@ -2144,6 +2165,7 @@
    */
   function inspectorDiscard(): void {
     inspectorDirty = false;
+    inspectorApplying = false;
     inspectorRefreshFrames(inspectorUuid && structureData[inspectorUuid]?.type === 'component' ? inspectorUuid : null);
   }
 
@@ -2169,6 +2191,8 @@
     if (uuid !== inspectorUuid) {
       return;
     }
+    const applied = inspectorApplying;
+    inspectorApplying = false;
     inspectorDirty = false;
     inspectorPromptHide();
     const then = inspectorAfterApply;
@@ -2177,7 +2201,14 @@
       then();
       return;
     }
-    // A fresh form, built from what was just applied.
+    // Applied: the edit is done, so the inspector closes and the component
+    // is let go.
+    if (applied) {
+      layerShow(null);
+      return;
+    }
+    // Saved some other way (undo, redo, a move): a fresh form, built from
+    // what was just written.
     inspectorLoad(uuid);
   }
 
