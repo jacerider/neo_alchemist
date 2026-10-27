@@ -2362,8 +2362,11 @@
     }
 
     scaleWrapper.addEventListener('transitionend', (event: TransitionEvent) => {
-      // Check if the transition was specifically for transform
-      if (event.propertyName === 'transform') {
+      // The row's own transform, and only that: the editor's canvas chrome
+      // lives inside the row, and its transitions bubble here too — a
+      // tooltip's entrance among them, which as a "zoom end" re-ran the
+      // selection and closed the tooltip it had just opened.
+      if (event.target === scaleWrapper && event.propertyName === 'transform') {
         anchorSettle();
         if (!view.compare) {
           // Sideways only: the vertical position is anchorHold()'s.

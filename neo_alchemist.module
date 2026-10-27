@@ -419,6 +419,9 @@ function _neo_alchemist_overlay_ops(array $ops): array {
         '#attributes' => [
           'class' => array_merge(['neo-alchemist--op', 'neo-alchemist--rail-button'], $danger ? ['is-danger'] : []),
           'data-op' => $op->id,
+          // On the body: inside the rail it was squeezed to the rail's width
+          // and scaled with the canvas.
+          'data-neo-tooltip-detach' => 'true',
         ] + $keys,
       ],
     ];

@@ -1,5 +1,13 @@
 # Changelog
 
+## The rail's tooltips stay open
+
+Hovering a button on the selection's rail opened its tooltip and closed it at once: the
+tooltip's own entrance animation ended inside the zooming preview row, and the editor took that
+for the end of a zoom and redrew the selection, closing every op tooltip. Only the row's own
+zoom counts now. The rail's tooltips also open on the page itself, on one line, rather than
+squeezed inside the rail.
+
 ## The canvas keeps its place when the preview re-fits
 
 Closing the inspector — deselecting a component — widens the canvas and the preview grows to fit
