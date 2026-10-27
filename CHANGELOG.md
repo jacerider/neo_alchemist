@@ -1,5 +1,11 @@
 # Changelog
 
+## A badge's dropdown keeps its light form inside the dark band
+
+The band's dark field, label and outline-button styles reached into a badge's dropdown, which
+opens inside the band: the SEO analysis showed a black keyphrase field, a white label on white,
+and an unreadable "Edit search & social". They now stop at a dropdown and at the ⋯ menu.
+
 ## Device, zoom and Compare float in a dock on the canvas
 
 How the canvas shows the page is no longer in the header. A dark dock at the bottom of the
