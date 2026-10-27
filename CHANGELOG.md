@@ -1,5 +1,11 @@
 # Changelog
 
+## The fixed zoom buttons drop their icons
+
+100%, 75% and 50% are text only; a percentage already says what it does, and the header is short
+of room. Fit keeps its icon. The group has one tooltip, "Zoom", rather than one per button, and
+is a labelled group for screen readers.
+
 ## View options joins the size group
 
 The view options toggle (Compare and the other canvas settings) sat apart from Desktop, Tablet and

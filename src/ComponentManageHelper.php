@@ -170,25 +170,32 @@ class ComponentManageHelper {
       ],
     ];
 
+    // One tooltip names the group; its buttons say the rest themselves.
     $build['scale'] = [
       '#type' => 'html_tag',
       '#tag' => 'div',
       '#attributes' => [
         'class' => ['btn-group', 'flush'],
+        'role' => 'group',
+        'aria-label' => t('Zoom'),
+        // On the body: inside the group it would square off 50%'s corners.
+        'data-neo-tooltip-detach' => 'true',
       ],
     ];
+    (new Tooltip(t('Zoom'), ['placement' => 'bottom']))->applyTo($build['scale']);
     // Scale. Fit, the default, scales the frames to the canvas column
-    // (component-parent.ts); the rest are fixed.
+    // (component-parent.ts); the rest are fixed. Only Fit has an icon: a
+    // percentage says what it does, and the bar is short of room.
     foreach ([
-      'fit' => neo_icon_admin(t('Fit'), 'arrows-alt-h'),
-      'full' => neo_icon_admin(t('100%'), 'expand'),
-      '75' => neo_icon_admin(t('75%'), 'compress'),
-      '50' => neo_icon_admin(t('50%'), 'compress-arrows-alt'),
+      'fit' => neo_icon_admin(t('Fit'), 'arrows-alt-h')->render(),
+      'full' => t('100%'),
+      '75' => t('75%'),
+      '50' => t('50%'),
     ] as $key => $label) {
       $build['scale'][$key] = [
         '#type' => 'html_tag',
         '#tag' => 'button',
-        '#value' => $label->render(),
+        '#value' => $label,
         '#attributes' => [
           'type' => 'button',
           'class' => ['neo-alchemist--scale', 'btn', 'btn-xs', 'btn-outline', 'is-active:btn-primary'],
