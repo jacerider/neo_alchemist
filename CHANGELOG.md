@@ -1,5 +1,15 @@
 # Changelog
 
+## What a write says shows as a toast under the header
+
+"Updated component Hero S5 successfully on Careers: Full." and the other messages Apply, Clone,
+Move and Delete leave were rendered by whatever came next, which was the inspector's form, at its
+top. The editor's AJAX response now sends them as toasts, which slide down under the header and
+fade after a few seconds (errors stay longer).
+
+For code: `ComponentAjaxHelperTrait::getComponentReponse()` drains the messenger into
+`InstanceComponentManageToastCommand`s, as plain text.
+
 ## Apply closes the inspector
 
 Apply in the inspector now closes it and deselects the component, as the edit is done. It used

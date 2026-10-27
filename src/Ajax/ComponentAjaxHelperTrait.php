@@ -2,6 +2,7 @@
 
 namespace Drupal\neo_alchemist\Ajax;
 
+use Drupal\Component\Render\PlainTextOutput;
 use Drupal\Core\Ajax\AjaxResponse;
 use Drupal\Core\Ajax\HtmlCommand;
 use Drupal\neo_alchemist\ComponentInstanceInterface;
@@ -49,6 +50,18 @@ trait ComponentAjaxHelperTrait {
 
     // Always add modal close command.
     $response->addCommand(new NeoModalCloseCommand());
+
+    // What the write said ("Updated component Hero S5 successfully…") goes up
+    // as toasts under the editor's header. Left in the messenger, it showed
+    // in whatever rendered next: the inspector's next form, at its top.
+    foreach ($this->messenger()->deleteAll() as $type => $messages) {
+      foreach ($messages as $message) {
+        $response->addCommand(new InstanceComponentManageToastCommand(
+          PlainTextOutput::renderFromHtml((string) $message),
+          $type === 'error' ? 'error' : 'status',
+        ));
+      }
+    }
 
     // Update dynamic operations if instance is provided.
     if ($instance !== NULL) {
