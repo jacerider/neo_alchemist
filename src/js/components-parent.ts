@@ -84,6 +84,16 @@
   if (!container) return;
   const wrapper = container.querySelector('.neo-alchemist-manage--wrapper') as HTMLElement;
   if (!wrapper) return;
+  // The canvas chrome — outlines, hit targets, shades, seams — is drawn on a
+  // layer inside the scaled frame row, in the frames' own (unscaled)
+  // coordinates, so the transform that zooms the frames carries it too. Drawn
+  // over the canvas in scaled coordinates instead, it could only be measured
+  // again once a zoom had finished, and trailed every refit by a beat: select
+  // a component, the inspector opens, the frames shrink, the border catches up.
+  const scaleBox = container.querySelector<HTMLElement>('.neo-alchemist-manage--scale');
+  const chrome = document.createElement('div');
+  chrome.className = 'neo-alchemist--chrome';
+  (scaleBox || wrapper).appendChild(chrome);
   const iframes = {} as Record<'desktop' | 'tablet' | 'mobile', HTMLIFrameElement>;
   // The inspector: the right dock the selected component's form loads into.
   // Its header carries the selection's ops.
@@ -205,10 +215,6 @@
   const debugElements = false;
   const actionButtons = container.querySelectorAll<HTMLElement>('.neo-alchemist--action');
   let opButtons:NodeListOf<HTMLElement> | null = null;
-  // The scale applied, which component-parent.ts announces with
-  // alchemistManageScale. Never read back from storage, which remembers the
-  // choice ('fit' among them), not the scale.
-  let scale: string = '1';
   let structureData: Record<string, ElementData> = {};
   let positionData = {} as Record<'desktop' | 'tablet' | 'mobile', Record<string, DOMRect>>;
   let overlayTimeouts = {} as Record<string, ReturnType<typeof setTimeout> | null>;
@@ -542,13 +548,11 @@
   });
   setInterval(sweepStalledIframes, iframeSweepInterval);
 
-  // Watch for scale changes
-  const scaleCallback = (event: CustomEvent<any>) => {
-    const detail = event.detail as { scale: string };
-    scale = detail.scale as string;
-  }
-  container.addEventListener('alchemistManageScale', scaleCallback as EventListener);
+  // A zoom moves nothing on the chrome layer — the transform carries it — but
+  // its counter-scale has to follow the zoom as it eases.
+  container.addEventListener('alchemistManageScale', invTrack);
   container.addEventListener('alchemistManageScaleEnd', () => {
+    invSync();
     elementsPosition();
     layerShow(layerUuid, true, true);
   });
@@ -1064,7 +1068,7 @@
       }
       layerBack();
     });
-    wrapper.appendChild(shade);
+    chrome.appendChild(shade);
     shadeElements[size][level] = shade;
     return shade;
   }
@@ -1084,10 +1088,12 @@
     overlay.setAttribute('data-node-type', structureData[uuid]?.type || 'component');
     overlay.style.zIndex = (15 + level).toString();
     overlay.style.opacity = '0';
-    overlay.style.transition = `all ${transitionSpeed}ms ease-in-out`;
+    // Fades only. Geometry changes at once: an outline that eased to a new
+    // rect visibly chased the component it marks.
+    overlay.style.transition = `opacity ${transitionSpeed}ms ease-in-out, border-color ${transitionSpeed}ms ease-in-out`;
     overlayLabel.style.opacity = '0';
     overlayActions.forEach(action => action.style.opacity = '0');
-    wrapper.appendChild(overlay);
+    chrome.appendChild(overlay);
     // The op buttons carry #tooltip, which is inert markup until a behaviour
     // turns it into a tippy instance. This outline is a clone of a prototype
     // that initialize() pulled out of the DOM before behaviours ever ran, so
@@ -1107,6 +1113,7 @@
   let readyCount = 0;
 
   function ready(): void {
+    invSync();
     // Reset overlay state
     overlayState = {};
     // Clear existing elements. Outlines are rebuilt per uuid below, so stale
@@ -1261,7 +1268,7 @@
         }
         elementFocus(uuid);
       });
-      wrapper.appendChild(element);
+      chrome.appendChild(element);
       structureElements[uuid][size] = element;
       if (data.events) {
         Object.keys(data.events).forEach(eventId => {
@@ -1281,7 +1288,7 @@
             clearTimeout(passthroughTimeout || undefined);
             container.classList.add('neo-alchemist--passthrough');
           });
-          wrapper.appendChild(eventTrigger);
+          chrome.appendChild(eventTrigger);
           structureElements[eventId] = structureElements[eventId] || {} as Record<'desktop' | 'tablet' | 'mobile', HTMLElement>;
           structureElements[eventId][size] = eventTrigger;
         });
@@ -1439,7 +1446,10 @@
         const shiftX = clamp(wrapperRect.left - (labelRect.left - appliedX), 0, Math.max(0, rect.width - labelRect.width));
         label.dataset.clampX = String(shiftX);
         label.dataset.clampY = String(shiftY);
-        label.style.transform = shiftX || shiftY ? `translate(${shiftX}px, ${shiftY}px)` : '';
+        // Read by the chip's transform after its counter-scale, so these are
+        // screen pixels (components-parent.css).
+        label.style.setProperty('--clamp-x', `${shiftX}px`);
+        label.style.setProperty('--clamp-y', `${shiftY}px`);
       });
     });
   }
@@ -1647,7 +1657,8 @@
         overlayLabel.style.opacity = '0';
         // Drop any clamp offset with the outline, so it does not reappear
         // shifted the next time this node is shown.
-        overlayLabel.style.transform = '';
+        overlayLabel.style.removeProperty('--clamp-x');
+        overlayLabel.style.removeProperty('--clamp-y');
         delete overlayLabel.dataset.clampX;
         delete overlayLabel.dataset.clampY;
         overlayActions.forEach(action => action.style.opacity = '0');
@@ -3244,15 +3255,15 @@
     if (isTail) {
       seam.setAttribute('data-tail', 'true');
     }
-    const height = 24;
     const absoluteRect = calculateIframeRect(
       size,
       new DOMRect(regionRect.left, y, regionRect.width, 0),
     );
+    // At the line; its height, and the centring on it, are screen pixels
+    // (components-parent.css).
     seam.style.left = `${absoluteRect.left}px`;
-    seam.style.top = `${absoluteRect.top - (height / 2)}px`;
+    seam.style.top = `${absoluteRect.top}px`;
     seam.style.width = `${absoluteRect.width}px`;
-    seam.style.height = `${height}px`;
     seam.style.zIndex = '28';
     const button = seam.querySelector<HTMLElement>('button');
     button?.addEventListener('click', (e) => {
@@ -3260,7 +3271,7 @@
       e.stopPropagation();
       seamAdd(parentUuid, siblingUuid, position);
     });
-    wrapper.appendChild(seam);
+    chrome.appendChild(seam);
     seamElements.push(seam);
   }
 
@@ -3924,28 +3935,77 @@
   };
 
   /**
-   * Calculate the relative position and size of a rect within the wrapper.
+   * The scale the chrome layer is drawn at on screen, mid-zoom included.
+   *
+   * Off the rendered box, not the scale announced: a zoom eases over a fifth
+   * of a second, and anything measured during it is measured at the scale on
+   * screen at that moment.
    */
-  function calculateIframeRect(size: 'desktop' | 'tablet' | 'mobile', rect: DOMRect, heightOffset: number = 0): DOMRect {
-    const scaleInt = parseFloat(scale);
-    const containerRect = getIframe(size).getBoundingClientRect();
-    const wrapperRect = wrapper.getBoundingClientRect();
+  function layerScale(): number {
+    const natural = scaleBox?.offsetWidth || 0;
+    const rendered = scaleBox?.getBoundingClientRect().width || 0;
+    return natural && rendered ? rendered / natural : 1;
+  }
+
+  /**
+   * Keeps the chrome's counter-scale in step with the scale on screen.
+   *
+   * --inv is what the chrome's strokes and chips multiply by to keep their
+   * screen size inside the scaled layer (components-parent.css).
+   */
+  function invSync(): void {
+    chrome.style.setProperty('--inv', String(Math.round((1 / layerScale()) * 10000) / 10000));
+  }
+
+  /**
+   * Runs invSync() every frame while a zoom eases. Set once to the target, a
+   * chip would swell and shrink again as the frames eased towards it.
+   */
+  let invFrame: number | null = null;
+  let invUntil = 0;
+  let invSettle: ReturnType<typeof setTimeout> | undefined;
+  function invTrack(): void {
+    invUntil = performance.now() + 600;
+    // Once more after the zoom, whatever happened to the frames in between:
+    // an interrupted transition sends no transitionend, and a hidden tab runs
+    // no animation frames.
+    clearTimeout(invSettle);
+    invSettle = setTimeout(invSync, 600);
+    if (invFrame !== null) {
+      return;
+    }
+    const tick = () => {
+      invSync();
+      invFrame = performance.now() < invUntil ? requestAnimationFrame(tick) : null;
+    };
+    tick();
+  }
+
+  /**
+   * A rect on screen, in the chrome layer's coordinates.
+   */
+  function calculateRect(rect: DOMRect, heightOffset: number = 0): DOMRect {
+    const origin = chrome.getBoundingClientRect();
+    const layer = layerScale();
     return new DOMRect(
-      wrapper.scrollLeft + containerRect.left + (rect.left * scaleInt) + window.scrollX - wrapperRect.left,
-      wrapper.scrollTop + containerRect.top + (rect.top * scaleInt) + window.scrollY - wrapperRect.top - heightOffset,
-      rect.width * scaleInt,
-      (rect.height * scaleInt) + (heightOffset * 2)
+      (rect.left - origin.left) / layer,
+      ((rect.top - origin.top) / layer) - heightOffset,
+      rect.width / layer,
+      (rect.height / layer) + (heightOffset * 2)
     );
   }
 
   /**
-   * Calculate the absolute position and size of a rect within the wrapper.
+   * A rect a frame reported, in the chrome layer's coordinates.
+   *
+   * The frame's rects are in its own unscaled pixels, which are the layer's:
+   * only the frame's offset in the row has to be found.
    */
-  function calculateRect(rect: DOMRect, heightOffset: number = 0): DOMRect {
-    const wrapperRect = wrapper.getBoundingClientRect();
+  function calculateIframeRect(size: 'desktop' | 'tablet' | 'mobile', rect: DOMRect, heightOffset: number = 0): DOMRect {
+    const frame = calculateRect(getIframe(size).getBoundingClientRect());
     return new DOMRect(
-      wrapper.scrollLeft + rect.left + window.scrollX - wrapperRect.left,
-      wrapper.scrollTop + rect.top + window.scrollY - wrapperRect.top - heightOffset,
+      frame.left + rect.left,
+      frame.top + rect.top - heightOffset,
       rect.width,
       rect.height + (heightOffset * 2)
     );
@@ -3955,8 +4015,9 @@
    * Create clip path for the shade
    */
   function createClipPath(el: HTMLElement, target: HTMLElement, container: HTMLElement, heightOffset: number = 0): void {
-    const rect = target.getBoundingClientRect();
-    const containerRect = container.getBoundingClientRect();
+    // In the layer's pixels, which are the shade's own.
+    const rect = calculateRect(target.getBoundingClientRect());
+    const containerRect = calculateRect(container.getBoundingClientRect());
     const top = rect.top - containerRect.top - heightOffset;
     const left = rect.left - containerRect.left;
     const right = left + rect.width;

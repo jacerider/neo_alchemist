@@ -4,7 +4,8 @@
 {#
   The editor stamps data-node-type (what a thing is) and data-state (how it
   relates to the selection) on every outline; components-parent.css dresses
-  each state. Border width never varies: the label and the +/move clusters are
+  each state. Border width never varies between states (only with the zoom,
+  to stay one screen pixel): the label and the +/move clusters are
   anchored to this box with bottom/top-full, and the box is border-box with an
   inline width/height, so a wider border would resize the padding box and shift
   all of them. Emphasis is an outline and a shadow, which cost no layout.
@@ -19,7 +20,7 @@
   set event_classes = 'absolute cursor-pointer'
 %}
 {%
-  set op_wrapper_classes = 'neo-alchemist--overlay-actions absolute flex items-center justify-center left-0 right-0 pointer-events-none transition'
+  set op_wrapper_classes = 'neo-alchemist--overlay-actions absolute flex items-center justify-center left-0 right-0 pointer-events-none transition-opacity'
 %}
 {%
   set op_add_classes = 'bg-primary-500 text-primary-500-content px-2 py-0.5 text-2xs transition pointer-events-auto hover:bg-primary-600 hover:text-primary-600-content'
@@ -49,12 +50,12 @@
     with no edit here. Move ops take the darker ramp, add ops the lighter one —
     keyed off the verb the record carries, not the op's name.
   #}
-  <div class="{{ op_wrapper_classes }} gap-0.5 bottom-full" data-alchemist-nodrag>
+  <div class="{{ op_wrapper_classes }} neo-alchemist--overlay-actions-top gap-0.5 bottom-full" data-alchemist-nodrag>
     {% for op in outline_ops.top %}
       {{ op.link|neo_class(['rounded-t-lg', op.verb == 'move' ? op_move_classes : op_add_classes]) }}
     {% endfor %}
   </div>
-  <div class="{{ op_wrapper_classes }} gap-0.5 top-full" data-alchemist-nodrag>
+  <div class="{{ op_wrapper_classes }} neo-alchemist--overlay-actions-bottom gap-0.5 top-full" data-alchemist-nodrag>
     {% for op in outline_ops.bottom %}
       {{ op.link|neo_class(['rounded-b-lg', op.verb == 'move' ? op_move_classes : op_add_classes]) }}
     {% endfor %}

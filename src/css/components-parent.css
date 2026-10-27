@@ -37,6 +37,21 @@
   display: none !important;
 }
 
+/* The chrome layer (components-parent.ts): inside the scaled frame row, so
+ * the transform that zooms the frames carries everything on it. Lengths that
+ * must keep their screen size multiply by --inv, the inverse of the scale on
+ * screen, which the editor keeps in step with the zoom as it eases.
+ */
+.neo-alchemist--chrome {
+  --inv: 1;
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 0;
+  height: 0;
+  z-index: 1;
+}
+
 /* Outlines (neo-alchemist-overlay.html.twig).
  *
  * An outline sits on whatever the component paints: a white hero, a brand-red
@@ -48,16 +63,17 @@
  * Hover is the quiet one (a dashed dark line with a light halo); context
  * (an ancestor, or a child region of the selection) is quieter still; the
  * selection is a solid light ring inside a dark one. The overlay's inline
- * `transition: all` animates between them.
+ * transition fades between them; its geometry never animates.
  */
 .neo-alchemist--overlay {
+  border-width: calc(1px * var(--inv));
   border-color: rgb(0 0 0 / 0.6);
-  box-shadow: 0 0 0 1px rgb(255 255 255 / 0.7);
+  box-shadow: 0 0 0 calc(1px * var(--inv)) rgb(255 255 255 / 0.7);
 }
 
 .neo-alchemist--overlay:is([data-state='active'], [data-state='ghost']) {
   border-color: rgb(0 0 0 / 0.35);
-  box-shadow: 0 0 0 1px rgb(255 255 255 / 0.4);
+  box-shadow: 0 0 0 calc(1px * var(--inv)) rgb(255 255 255 / 0.4);
 }
 
 /* A 2px light ring straddling the border (from 1px inside to 1px outside),
@@ -65,9 +81,46 @@
 .neo-alchemist--overlay[data-state='focus'] {
   border-style: solid;
   border-color: transparent;
-  outline: 2px solid rgb(255 255 255);
-  outline-offset: -1px;
-  box-shadow: 0 0 0 3px rgb(0 0 0 / 0.85);
+  outline: calc(2px * var(--inv)) solid rgb(255 255 255);
+  outline-offset: calc(-1px * var(--inv));
+  box-shadow: 0 0 0 calc(3px * var(--inv)) rgb(0 0 0 / 0.85);
+}
+
+/* The name chip, at its true size; then the clamp that keeps it on screen
+ * (labelsClamp()), in screen pixels because it comes after the counter-scale. */
+.neo-alchemist--overlay-label {
+  margin-bottom: calc(0.25rem * var(--inv));
+  transform-origin: 0 100%;
+  transform: scale(var(--inv)) translate(var(--clamp-x, 0px), var(--clamp-y, 0px));
+}
+
+.neo-alchemist--overlay-actions {
+  transform: scale(var(--inv));
+}
+
+.neo-alchemist--overlay-actions-top {
+  transform-origin: 50% 100%;
+}
+
+.neo-alchemist--overlay-actions-bottom {
+  transform-origin: 50% 0;
+}
+
+/* An insertion seam: positioned at its line, 24 screen pixels tall and
+ * centred on it. The button keeps its own transitions but not transform's,
+ * which the counter-scale changes every frame of a zoom. */
+.neo-alchemist--seam {
+  height: calc(24px * var(--inv));
+  margin-top: calc(-12px * var(--inv));
+}
+
+.neo-alchemist--seam > :first-child {
+  height: calc(2px * var(--inv));
+}
+
+.neo-alchemist--seam button {
+  transform: scale(var(--inv));
+  transition-property: color, background-color, opacity, scale;
 }
 
 /* The left dock: Layers, or one page-level panel in its place

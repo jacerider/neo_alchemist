@@ -1,5 +1,20 @@
 # Changelog
 
+## The selection's outline stays on the component while the canvas zooms
+
+Selecting a component opens the inspector, the canvas narrows and the preview shrinks to fit. The
+outline used to stay where it was until the shrinking had finished, then slide after it. It now
+shrinks with the component, and so does everything else drawn over the preview: hover outlines,
+the shading, the ＋ lines and the click targets. The same goes for every zoom change and for a
+component that changes size after an edit. Name chips, ops and line widths keep their size on
+screen at any zoom.
+
+For code: the canvas chrome lives on `.neo-alchemist--chrome` inside
+`.neo-alchemist-manage--scale` (now `relative`), in the frames' unscaled pixels;
+`calculateIframeRect()` / `calculateRect()` return layer coordinates. Chrome that keeps its screen
+size reads `--inv` (components-parent.css); the label clamp is `--clamp-x` / `--clamp-y`. The op
+clusters carry `neo-alchemist--overlay-actions-top/-bottom` and fade with `transition-opacity`.
+
 ## The editor's buttons say what they do when you hover them
 
 Hovering a button in the band or the preview dock shows the same styled tooltip everywhere, and it

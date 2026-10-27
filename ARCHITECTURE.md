@@ -1085,6 +1085,21 @@ page and no `sort` route or op; the `sort` *access* operation still gates moves.
 dock shows Layers or one side panel (`leftPaneSet()`); the right dock is the inspector
 alone, open exactly while something is selected (`dockVisibilitySync()`).
 
+**The canvas chrome** — outlines, hit targets (`.neo-alchemist--element`, `.neo-alchemist--event`),
+shades and insertion seams are drawn on one layer, `.neo-alchemist--chrome`, which
+`components-parent.ts` puts inside `.neo-alchemist-manage--scale`, the row `setScale()`
+transforms. They are positioned in the frames' own unscaled pixels (`calculateIframeRect()`: the
+frame's offset in the row plus the rect the frame reported), so a zoom or a refit moves nothing:
+the transform carries the chrome with the frames, mid-transition included, and nothing is measured
+again afterwards. Anything that must keep its screen size multiplies by `--inv`, the inverse of the
+scale on screen, set on the layer by `invSync()` — every animation frame while a zoom eases
+(`invTrack()`), and once more 600 ms later and on `alchemistManageScaleEnd`: stroke widths and
+offsets in `calc(… * var(--inv))`, the name chip, the op clusters and the seam's button
+`scale(var(--inv))`. The chip's on-screen clamp (`labelsClamp()`) is `--clamp-x/-y`, applied
+after that counter-scale so it stays in screen pixels. Outlines fade but never animate geometry.
+A screen rect enters the layer through `calculateRect()`, which divides by the scale actually
+rendered (`layerScale()`), not the one announced.
+
 **Taking the editor somewhere** — `Drupal.neoAlchemist.editor.focus({uuid, prop?, locate?})`
 (`components-parent.ts`) is the editor's public call for code outside it (a panel, a badge):
 it selects the component instance on the canvas (as the Layers panel does, aiming at the frame
