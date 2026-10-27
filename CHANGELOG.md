@@ -1,5 +1,17 @@
 # Changelog
 
+## The canvas keeps its place when the preview re-fits
+
+Closing the inspector — deselecting a component — widens the canvas and the preview grows to fit
+it. The canvas used to jump back to the top of the page when that finished, so deselecting near
+the bottom of a long page lost your place. It now keeps whatever was in the middle of the canvas
+there, through every zoom change, in Single and in Compare.
+
+For code: `anchorHold()` / `anchorSettle()` in component-parent.ts follow the scroll every
+animation frame while the transform eases (and once more at transitionend or 600 ms later);
+`centerIframe()` takes `top: null` to centre sideways only, and Compare's per-zoom reset no longer
+scrolls to the top.
+
 ## Drag a component on the canvas
 
 The rail beside a selected component leads with a grip. Drag it and a "Move here" line shows

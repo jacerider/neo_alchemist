@@ -2364,8 +2364,10 @@
     scaleWrapper.addEventListener('transitionend', (event: TransitionEvent) => {
       // Check if the transition was specifically for transform
       if (event.propertyName === 'transform') {
+        anchorSettle();
         if (!view.compare) {
-          centerIframe(view.shown, 'smooth');
+          // Sideways only: the vertical position is anchorHold()'s.
+          centerIframe(view.shown, 'smooth', null);
           savePositionWhenSettled();
         }
         const customEvent = new CustomEvent('alchemistManageScaleEnd');
@@ -2411,10 +2413,70 @@
       }
     }
 
+    /**
+     * Keeps what sits at the middle of the canvas there while the scale changes.
+     *
+     * The frames scale from their top left, so a page scrolled down slid away
+     * under every zoom — and the canvas refits whenever the inspector opens or
+     * closes, so deselecting near the bottom of a page dropped the editor back
+     * at its top. The middle of the view is remembered in the frames' own
+     * pixels before the transform changes, and the scroll follows it every
+     * animation frame while the transform eases, then once more when it ends
+     * (or 600 ms on: a hidden tab runs no frames, an interrupted transition
+     * sends no transitionend).
+     */
+    let anchorY: number | null = null;
+    let anchorFrame: number | null = null;
+    let anchorTimer: ReturnType<typeof setTimeout> | undefined;
+    function renderedScale(): number {
+      const natural = scaleWrapper?.offsetWidth || 0;
+      const rendered = scaleWrapper?.getBoundingClientRect().width || 0;
+      return natural && rendered ? rendered / natural : 1;
+    }
+    function scaleTop(): number {
+      return scaleWrapper.getBoundingClientRect().top - wrapper.getBoundingClientRect().top + wrapper.scrollTop;
+    }
+    function anchorApply(): void {
+      if (anchorY === null) {
+        return;
+      }
+      wrapper.scrollTop = scaleTop() + (anchorY * renderedScale()) - (wrapper.clientHeight / 2);
+    }
+    function anchorHold(): void {
+      if (!wrapper || !scaleWrapper) {
+        return;
+      }
+      // A zoom that interrupts another keeps the first one's anchor.
+      if (anchorY === null) {
+        anchorY = (wrapper.scrollTop + (wrapper.clientHeight / 2) - scaleTop()) / renderedScale();
+      }
+      if (anchorFrame === null) {
+        const follow = () => {
+          anchorApply();
+          anchorFrame = anchorY === null ? null : requestAnimationFrame(follow);
+        };
+        anchorFrame = requestAnimationFrame(follow);
+      }
+      clearTimeout(anchorTimer);
+      anchorTimer = setTimeout(anchorSettle, 600);
+    }
+    function anchorSettle(): void {
+      anchorApply();
+      anchorY = null;
+      if (anchorFrame !== null) {
+        cancelAnimationFrame(anchorFrame);
+        anchorFrame = null;
+      }
+      clearTimeout(anchorTimer);
+    }
+
     function setScale(choice: string): void {
       scaleChoice = choice;
       const scale = choice === 'fit' ? fitScale() : choice;
       scaleApplied = scale;
+      if (scaleWrapper && initialized && scale !== (scaleWrapper.style.transform.match(/scale\(([^)]+)\)/)?.[1] ?? '')) {
+        anchorHold();
+      }
       if (scaleWrapper) {
         if (!initialized) {
           scaleWrapper.style.transformOrigin = 'top left';
@@ -2430,12 +2492,12 @@
             }
           }
           else if (view.compare) {
-            // Reset position each time scale is changed. In Single the one
-            // frame is centred instead, once the transform has settled (the
+            // Back to the row's left edge each time the scale changes; the
+            // vertical position is anchorHold()'s. In Single the one frame is
+            // centred instead, once the transform has settled (the
             // transitionend listener above).
             const rect = scaleWrapper.getBoundingClientRect();
             wrapper.scrollTo({
-              top: 0,
               left: rect.left + wrapper.scrollLeft,
               behavior: 'smooth',
             });
@@ -2602,8 +2664,11 @@
 
     /**
      * Horizontally center a frame within the scrollable wrapper.
+     *
+     * @param top
+     *   Where to scroll vertically: the top by default, or null to stay.
      */
-    function centerIframe(size: string, behavior: ScrollBehavior = 'auto'): void {
+    function centerIframe(size: string, behavior: ScrollBehavior = 'auto', top: number | null = 0): void {
       const iframe = getIframe(size);
       if (!iframe || !wrapper) {
         return;
@@ -2615,7 +2680,7 @@
       const contentLeft = wrapRect.left - wrapperRect.left + wrapper.scrollLeft;
       const targetLeft = contentLeft + (wrapRect.width / 2) - (wrapper.clientWidth / 2);
       wrapper.scrollTo({
-        top: 0,
+        ...(top === null ? {} : { top }),
         left: Math.max(0, targetLeft),
         behavior,
       });
