@@ -1656,9 +1656,12 @@
         // The per-field state controls (Default / Hide) now render in the
         // legend, which precedes the body — so a plain "first control" query
         // lands on the Default toggle rather than the field the user asked
-        // for. Skip anything inside that options group.
+        // for. Skip anything inside that options group, and anything not
+        // rendered: a rich text field keeps its own textarea, hidden behind
+        // the editor, ahead of the editor's editable, and focusing a hidden
+        // control does nothing.
         const candidates = wrapper.querySelectorAll<HTMLElement>('input:not([type="hidden"]):not([disabled]), select, textarea, [contenteditable="true"], .ck-editor__editable');
-        const input = [...candidates].find(el => !el.closest('.form--inline-min')) || candidates[0];
+        const input = [...candidates].find(el => !el.closest('.form--inline-min') && el.getClientRects().length > 0) || candidates[0];
         if (input) {
           suppressFocusin = true;
           input.focus({ preventScroll: true });

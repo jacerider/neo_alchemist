@@ -19,6 +19,9 @@
       text?: string[];
       src?: string[];
       href?: string[];
+      // Rich text with every space removed (PreviewPropMapBuilder::blockText()),
+      // matched against an element's whole text: no one text node holds it.
+      block?: string[];
     };
   }
 
@@ -839,6 +842,18 @@
       }
     }
 
+    // An element's whole text with every space removed, for block hints; read
+    // lazily, as only rich text props ask.
+    let squashed: Array<[HTMLElement, string]> | null = null;
+    const bySquashedText = (block: string): HTMLElement[] => {
+      squashed = squashed || Array.from(scope.querySelectorAll<HTMLElement>('*'))
+        .map(el => [el, (el.textContent || '').replace(/\s+/g, '')] as [HTMLElement, string]);
+      const matches = squashed.filter(([, text]) => text === block).map(([el]) => el);
+      // The innermost: a wrapper holding only the rich text matches as well,
+      // and a single paragraph is the closer answer than the box around it.
+      return matches.filter(el => !matches.some(other => other !== el && el.contains(other)));
+    };
+
     // Document position, so a candidate list can be compared and paired in the
     // order the markup renders — which is the order the map lists rows in.
     const order = new Map<HTMLElement, number>();
@@ -894,6 +909,9 @@
             whole.push(img);
           }
         });
+      });
+      (hints.block || []).forEach(block => {
+        bySquashedText(block).forEach(el => bump(el, SIGNAL));
       });
       (hints.text || []).forEach(text => {
         (byText[text] || []).forEach(el => {
@@ -1003,7 +1021,7 @@
       // Tested array by array, not on the object: the builder runs array_filter
       // over the hint set, so a prop with nothing to look for arrives as `[]` —
       // which is perfectly truthy here.
-      if (!hints || !((hints.text || []).length || (hints.src || []).length || (hints.href || []).length)) {
+      if (!hints || !((hints.text || []).length || (hints.src || []).length || (hints.href || []).length || (hints.block || []).length)) {
         propOutcome.set(propId, 'hintless');
         return;
       }

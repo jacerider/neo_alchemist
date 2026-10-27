@@ -1,5 +1,17 @@
 # Changelog
 
+## Clicking rich text in the canvas opens its field
+
+Clicking a hero's summary, or any rich-text prop, on the canvas did nothing: the editor could not
+tell which field it came from, and the field's editor never took focus. Now the click focuses
+that field's text editor in the inspector, as clicking a title focuses its input.
+
+- The prop map gives rich text a `block` hint, its text with tags and every space removed, and
+  the preview matches it against an element's whole text. The `text` hint compared one text node
+  at a time, and skipped values past 300 characters.
+- Focusing a field skips controls that are not rendered, such as the textarea a rich-text editor
+  hides behind itself.
+
 ## Clone and Delete are buttons in the inspector header
 
 With the breadcrumb out of the inspector there is room for them, so the ⋯ menu that held Clone

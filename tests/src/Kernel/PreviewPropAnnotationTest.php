@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\Tests\neo_alchemist\Kernel;
 
+use Drupal\Core\Render\Markup;
 use Drupal\Core\Template\Attribute;
 use Drupal\KernelTests\KernelTestBase;
 use Drupal\neo_alchemist\Entity\Component;
@@ -51,6 +52,10 @@ class PreviewPropAnnotationTest extends KernelTestBase {
     // na_array_in_array's inner rows are links, whose shape resolves the
     // `link` field item.
     'link',
+    // na_markup's rich-text prop resolves the `text_long` field item, and
+    // that type's format to `filter`.
+    'filter',
+    'text',
     'neo_settings',
     'neo_alchemist',
     'neo_alchemist_test',
@@ -217,6 +222,59 @@ class PreviewPropAnnotationTest extends KernelTestBase {
     $this->assertSame('groups~links~0~value~0', $filedUnder['GROUP 0 LINK 0'] ?? NULL);
     $this->assertSame('groups~links~0~value~1', $filedUnder['GROUP 0 LINK 1'] ?? NULL, 'The second link of the first group stays in the first group.');
     $this->assertSame('groups~links~1~value~0', $filedUnder['GROUP 1 LINK 0'] ?? NULL);
+  }
+
+  /**
+   * Rich text gets a block hint: its whole text, with no tags or spaces.
+   *
+   * Rich text renders as elements of its own, several paragraphs say, so no
+   * one text node holds it and a text hint never matched: clicking a hero's
+   * summary in the canvas found no field. The block hint is compared with an
+   * element's whole text instead (component-child.ts), every space removed on
+   * both sides, entities decoded. It also outlives the text hint's length
+   * cap, which a few paragraphs pass.
+   */
+  public function testPropMapHintsRichTextAsBlock(): void {
+    // build() keeps only shapes the current user may update; see the note in
+    // testPropMapMarksStyleShapes().
+    $this->installEntitySchema('user');
+    $this->setUpCurrentUser([], [], TRUE);
+    $component = $this->buildMarkupComponent();
+
+    $props = [
+      'title' => 'Plain title',
+      'body' => Markup::create("<p>First &amp; one.</p>\n<p>Second\u{00A0}two.</p>"),
+    ];
+    $map = PreviewPropMapBuilder::build($component, ['#props' => $props]);
+    $this->assertSame(['First&one.Secondtwo.'], $map['props']['body']['hints']['block'] ?? NULL, 'Rich text is hinted by its whole text, squashed.');
+    $this->assertArrayNotHasKey('block', $map['props']['title']['hints'], 'A plain string keeps its text hint alone.');
+
+    $long = str_repeat('<p>' . str_repeat('word ', 20) . '</p>', 5);
+    $map = PreviewPropMapBuilder::build($component, ['#props' => ['body' => Markup::create($long)]]);
+    $this->assertArrayNotHasKey('text', $map['props']['body']['hints'], 'Premise: past the text cap, no text hint.');
+    $this->assertSame([str_repeat('word', 100)], $map['props']['body']['hints']['block'] ?? NULL, 'The block hint still holds.');
+  }
+
+  /**
+   * Builds the markup fixture in the editor preview flavor.
+   */
+  private function buildMarkupComponent(): Component {
+    $storage = $this->container->get('entity_type.manager')->getStorage('neo_component');
+    if (!$storage->load('na_markup')) {
+      Component::create([
+        'id' => 'na_markup',
+        'label' => 'Markup fixture',
+        'description' => 'Markup fixture',
+        'component' => 'neo_alchemist_test:na_markup',
+        'status' => TRUE,
+      ])->save();
+    }
+    $storage->resetCache(['na_markup']);
+    /** @var \Drupal\neo_alchemist\Entity\Component $component */
+    $component = $storage->load('na_markup');
+    $component->setPreview(TRUE);
+    $component->setInstancePreview(TRUE);
+    return $component;
   }
 
   /**

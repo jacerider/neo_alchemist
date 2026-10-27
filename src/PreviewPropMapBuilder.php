@@ -32,6 +32,14 @@ final class PreviewPropMapBuilder {
   private const MAX_TEXT_HINT_LENGTH = 300;
 
   /**
+   * Longest rich text worth a block hint, counted without its whitespace.
+   *
+   * Higher than the text cap: a summary of a few paragraphs is exactly what a
+   * block hint is for, and it is sent only for the inspected component.
+   */
+  private const MAX_BLOCK_HINT_LENGTH = 5000;
+
+  /**
    * Builds the prop map for an editor preview.
    *
    * @param \Drupal\neo_alchemist\ComponentInterface $component
@@ -63,7 +71,7 @@ final class PreviewPropMapBuilder {
         // focused, which costs no new hover target because it is resolved at
         // focus time rather than written into the markup.
         'style' => $shape instanceof ComponentShapeStylePluginInterface,
-        'hints' => ['text' => [], 'src' => [], 'href' => []],
+        'hints' => ['text' => [], 'src' => [], 'href' => [], 'block' => []],
       ];
     }
 
@@ -114,6 +122,12 @@ final class PreviewPropMapBuilder {
     }
     if (is_string($value) || $value instanceof MarkupInterface) {
       static::addHint($shapes, $namePath, $deltas, 'text', trim(strip_tags((string) $value)));
+      // Rich text renders as elements of its own (several paragraphs, say),
+      // so no one text node holds it and the text hint never matches. The
+      // block hint is matched against an element's whole text instead.
+      if ($value instanceof MarkupInterface || str_contains($value, '<')) {
+        static::addHint($shapes, $namePath, $deltas, 'block', static::blockText((string) $value));
+      }
       return;
     }
     if (!is_array($value)) {
@@ -222,7 +236,8 @@ final class PreviewPropMapBuilder {
    * exists rather than guessing past it.
    */
   private static function addHint(array &$shapes, array $namePath, array $deltas, string $type, ?string $hint): void {
-    if ($hint === NULL || $hint === '' || mb_strlen($hint) > self::MAX_TEXT_HINT_LENGTH) {
+    $max = $type === 'block' ? self::MAX_BLOCK_HINT_LENGTH : self::MAX_TEXT_HINT_LENGTH;
+    if ($hint === NULL || $hint === '' || mb_strlen($hint) > $max) {
       return;
     }
     $path = $namePath;
@@ -255,6 +270,20 @@ final class PreviewPropMapBuilder {
       }
       array_pop($path);
     }
+  }
+
+  /**
+   * The text of some HTML as the preview compares it: no tags, no whitespace.
+   *
+   * Whitespace goes entirely rather than being collapsed, because where it
+   * falls between block elements differs between the HTML and the DOM's
+   * textContent (component-child.ts squashes the same way). Every Unicode
+   * space counts, a non-breaking one included, as in JavaScript's \s, which
+   * PHP's \s alone does not match.
+   */
+  private static function blockText(string $html): string {
+    $text = html_entity_decode(strip_tags($html), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+    return (string) preg_replace('/[\s\p{Z}\x{FEFF}]+/u', '', $text);
   }
 
   /**

@@ -434,7 +434,9 @@ The form and the preview iframe address a field by one **shape id**
 (`ComponentShapePluginBase::id()` — `parentId~ownName[~delta]`), stamped as `data-neo-prop` on
 both sides. `src/js/component-parent.ts` owns the form half, `src/js/component-child.ts` the
 preview half; `PreviewPropMapBuilder` supplies the hints that map unstamped DOM (strings,
-images, links) back to a prop.
+images, links) back to a prop. Rich text (markup) also gets a `block` hint, its whole text with
+tags and every space removed, matched against an element's whole text (innermost wins): no one
+text node holds a few paragraphs, so the per-node `text` hint never matched it.
 
 One rule governs the highlight: **it is only drawn when it is true.** No climbing to an
 ancestor's other children, no outline on a target that is hidden, nothing when there is no
