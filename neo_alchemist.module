@@ -8,6 +8,7 @@
 declare(strict_types=1);
 
 use Drupal\neo_alchemist\Plugin\ComponentValue\ViewsValue;
+use Drupal\Component\Render\PlainTextOutput;
 use Drupal\Component\Utility\Html;
 use Drupal\Component\Utility\Unicode;
 use Drupal\Core\Access\AccessResult;
@@ -73,7 +74,16 @@ function neo_alchemist_theme(): array {
         'form' => [],
         'form_position' => 'footer',
         'toolbar_title' => NULL,
+        // The band: its title (the route's, unless a controller says), the
+        // leading group after it, the draft's status line under the title,
+        // the centre and the trailing group.
+        // @see template_preprocess_neo_alchemist_manage()
+        'top_title' => NULL,
         'top_start' => [],
+        // Re-rendered after every layout write.
+        // @see \Drupal\neo_alchemist\ComponentManageHelper::buildDraftStatus()
+        'top_status' => [],
+        'top_center' => [],
         'top_end' => [],
         // The trailing save group, re-rendered after every layout write.
         // @see \Drupal\neo_alchemist\ComponentManageHelper::buildDynamicOperations()
@@ -200,6 +210,14 @@ function template_preprocess_neo_alchemist_manage(&$variables) {
   // different controllers build these pages and only one of them attaches any
   // settings at all.
   $variables['dev'] = \Drupal::service('neo_alchemist.dev_mode')->isDevMode();
+  // The band names what is open: the page's own title, which is what the
+  // browser tab shows, unless the controller (a bare page, whose route title
+  // is generic) said otherwise.
+  if (empty($variables['top_title']) && ($route = \Drupal::routeMatch()->getRouteObject())) {
+    // Plain: a route title's placeholders come back emphasised.
+    $title = \Drupal::service('title_resolver')->getTitle(\Drupal::request(), $route);
+    $variables['top_title'] = $title === NULL ? NULL : PlainTextOutput::renderFromHtml((string) (is_array($title) ? \Drupal::service('renderer')->renderInIsolation($title) : $title));
+  }
   $iframeUrl = $variables['iframe_url'] ?? '';
   if ($iframeUrl) {
     $sizes = ['desktop', 'tablet', 'mobile'];

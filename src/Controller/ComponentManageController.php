@@ -47,21 +47,15 @@ final class ComponentManageController extends ControllerBase {
       '#form' => $this->entityFormBuilder()->getForm($neo_component, 'manage'),
     ];
 
-    $build['#top_start']['back'] = [
-      '#type' => 'link',
-      '#title' => neo_icon_admin($this->t('Back'), 'arrow-circle-left'),
-      '#url' => $neo_component->toUrl('collection'),
-      '#attributes' => [
-        'class' => ['btn', 'btn-xs'],
-      ],
-    ];
+    $title = 'Manage: ' . $neo_component->label();
+    $build['#top_title'] = $title;
+    $build['#top_start']['back'] = ComponentManageHelper::buildBackLink($neo_component->toUrl('collection'));
 
     $build['#top_start']['style'] = $this->entityFormBuilder()->getForm($neo_component, 'style');
 
     // Resize.
     $build['#top_end'] = ComponentManageHelper::buildIframeOperations($neo_component);
 
-    $title = 'Manage: ' . $neo_component->label();
     // The page renderer ignores its $title argument, so set the page title via
     // the page additions where template_preprocess_html() reads it for the
     // document <title>.

@@ -879,9 +879,9 @@ entity returns to the field default instead of copy-on-writing the seeds.
 Any module can add a side panel to the layout editor: shown in the left dock in place of
 Layers, never as a tab beside it (page-level, so independent of the selection, and never folded
 to the rail; one thing showing at a time, titled for it and widened to the panel's `width`),
-opened by its own header button, named for it (`.neo-alchemist--sidepanel-toggle`) — at the
-head of the panel's top bar badge, joined to it, when it has one, else in the header's leading
-group. The name drops to the icon and a tooltip while the header is short of room
+opened by its own pill, named for it (`.neo-alchemist--sidepanel-toggle`), in the band's centre
+after + Add and Layers — never joined to the panel's badge, which leads the band's trailing
+group on its own. The name drops to the icon and a tooltip while the band is short of room
 (`headerFit()`). The badge itself is no way into the panel: its buttons open its dropdown. And
 **one key in the shared draft**, so what the panel drafts is saved, reverted, reset and published with the
 layout rather than beside it. The existing Content / Style / Sources tabs are not panels and
@@ -944,8 +944,9 @@ draft first — Reset discards panel data instead of publishing it.
 **Route** — entity-scope op `panel`: `…/alchemist/{neo_field}/panel/{panel}`
 (`InstanceComponentPanelController`, GET|POST, `_neo_component_field: neo_field.update` +
 `_custom_access` = the manager's panel access + `_csrf_request_header_token`). GET →
-`{data, version, hasDraft}`. POST `{data, version}` → `{version, hasDraft, operations}`
-(`operations` is the re-rendered header save group HTML, `.neo-alchemist-manage--top-save`),
+`{data, version, hasDraft}`. POST `{data, version}` → `{version, hasDraft, operations, status}`
+(`operations` is the re-rendered band save group HTML, `.neo-alchemist-manage--top-save`;
+`status` the status line under the title, `.neo-alchemist-manage--top-status`),
 or `409 {message, version}` on a stale version, or 400 on a malformed body. Field-UI and block scopes opt out in
 `SCOPE_DIVERGENCES`. `ComponentTreeItem::toUrl('panel')` gives the URL minus the panel id
 (`->setRouteParameter('panel', $id)`).
@@ -973,13 +974,15 @@ Drupal.neoAlchemist.panels.register('my_panel', {
 **Top bar badges** — a panel may also return a `badge()` render array. `buildSidePanels()`
 collects them (`badges`, keyed `badge_{id}`, each wrapped in
 `div.neo-alchemist--badge[data-alchemist-badge={id}]`) in weight order, only for panels whose
-`access()` passes; `preRenderManage()` puts them first in `#top_end`, left of the scale and device
-controls, as children of the same flex container (`gap-2`, the top bar start's gap), so badges,
-scale and device groups are evenly spaced — `#top_end` is never re-rendered, so the badge's client
-half keeps it current. With no badge `#top_end` is exactly the iframe operations. The client registers `badge(element, api,
+`access()` passes; `preRenderManage()` puts them first in `#top_end` — the band's trailing
+group, before the view controls and Undo · Redo — as children of the same flex container, so
+everything there is evenly spaced. `#top_end` is never re-rendered, so the badge's client half
+keeps it current. A badge marks what it can do without (neo_seo: its score bars) with
+`.neo-alchemist--compact-hide`, which the band's last compact step hides. The client registers `badge(element, api,
 dropdown)` beside `mount()`; it runs at **registration (editor load)**, not on panel open, with the
 same draft api. `dropdown` is neo_alchemist's: an element anchored under the badge, placed below
-the top bar by `--neo-alchemist-floating-gap` (set on the editor root, 16px)
+the band (the bar and its breadcrumb row) by `--neo-alchemist-floating-gap` (set on the editor
+root, 16px)
 (`dropdown.element`, which the badge fills), toggled by any `<button>` in the badge, closed by Esc,
 a click elsewhere or focus moving into a preview frame; focus moves in on `open(focus?)` — to
 `focus`, else the first visible field, else the dropdown itself (never a row's button or a help
@@ -1017,18 +1020,32 @@ tracked from the form's `input`/`change` and `neoAlchemistFormEdited` (sent by
 change, a structural op (`operationExecute()`) or leaving the page asks first, with an inline
 Apply/Discard prompt in the dock or `beforeunload`. The dock's header holds the move ops as icons, then
 the other verb ops as labelled buttons, Delete in the alert outline (`_neo_alchemist_overlay_ops()`:
-`inspector_ops`, `inspector_verbs`), then Expand, which gives it the whole width, and Close. The breadcrumb is not in the dock, which has no room for a nested trail: it is a bar over
-the canvas column (`.neo-alchemist--crumbs`), always shown in the layout editor ("⌂ Page" with
-nothing selected), one line that scrolls sideways and keeps the current crumb in view
-(`titleSet()`); it folds away with the canvas on Expand. The standalone edit page has no bar and
-names its task in the dock's header. The canvas fits its frames to the column it is left (`Fit`, `component-parent.ts`),
+`inspector_ops`, `inspector_verbs`), then Expand, which gives it the whole width, and Close. The breadcrumb is not in the dock, which has no room for a nested trail: it is the band's
+second row, the full width of the editor (`.neo-alchemist--crumbs`), always shown in the layout
+editor ("⌂ Page" with nothing selected), one line that scrolls sideways and keeps the current
+crumb — the primary pill — in view (`titleSet()`); it stays on Expand, when it is the only way up
+and down the tree. The standalone edit page has no crumbs and names its task in the dock's
+header. The canvas fits its frames to the column it is left (`Fit`, `component-parent.ts`),
 re-fitting on resize. The standalone edit page renders the same dock (`form_position: dock`).
 `component-parent.ts` wires whichever form an editor holds now (`bindForm()`, re-run on every
 attach), because the inspector swaps it per selection.
 
-**One bar, two docks** — the layout editor's header is the only bar: Back · Layers · + Add lead
-it (`buildNavigationOperations()`, `buildLayersToggle()`, `buildOperations()`), the view
-controls and the save group trail it. Layers docks on the left (`#neo-alchemist-layers`,
+**The band, two docks** — every editor screen has one dark bar, the band (`neo-alchemist-
+manage.html.twig`, styled in `component-parent.css`). Leading: Back (`buildBackLink()`, an icon
+named in its tooltip), the screen's title (`top_title`, the route's unless a bare-page controller
+sets it) and, in the layout editor at entity scope, the status line under it
+(`buildDraftStatus()`: "Unsaved changes" / "All changes saved", then the presence chip; re-rendered
+after every write into `.neo-alchemist-manage--top-status`), then whatever else the screen puts in
+`top_start` (the component Manage page's style form, the SDC preview's neighbour selects).
+Centre (`top_center`): the light + Add pill (`buildOperations()`), Layers and one dark pill per
+side panel. Trailing: the panels' badges, the view controls, Undo · Redo (`top_end`) and the save
+group (`buildDynamicOperations()`: Save, then ⋯ holding Discard unsaved changes — Revert —, Reset
+and Purge). The leading and trailing groups share what the centre leaves, keeping it centred;
+`headerFit()` measures the band at its natural width and, while it lacks room, first lets the
+centre drift off-centre, then compacts step by step — the pills to their icons, + Add to "Add",
+the badges' `.neo-alchemist--compact-hide` parts — rerunning on resize and whenever the status
+line or save group re-renders. The breadcrumb bar is the band's second row, full width, so it
+stays when the inspector is expanded over the canvas. Layers docks on the left (`#neo-alchemist-layers`,
 260px); below 1400px it folds to an icon rail while the right dock is open
 (`layersPosition()`). Its rows are the reorder tool: dragging a component row before or after
 another, or onto a region row (its end), is one request to the move route's `to` step

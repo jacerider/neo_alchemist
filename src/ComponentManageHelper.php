@@ -7,6 +7,7 @@ use Drupal\Component\Utility\Html;
 use Drupal\Core\Cache\CacheableMetadata;
 use Drupal\Core\Plugin\Component as ComponentPlugin;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
+use Drupal\Core\Url;
 use Drupal\neo_alchemist\Plugin\Field\FieldType\ComponentTreeItem;
 use Drupal\neo_tooltip\Tooltip;
 
@@ -338,16 +339,28 @@ class ComponentManageHelper {
     ];
     // Add acts on whatever container the current selection resolves to (the
     // end of it), which is not something a fixed label can express, so the
-    // editor names it in the button's title as the selection changes. It sits
-    // in the header's leading group, and is not the bar's filled button: Save
-    // is.
+    // editor names it in the button's title as the selection changes. It leads
+    // the band's centre, the light pill on the dark band: building the page is
+    // what the editor is for. Save stays the one primary-coloured button. When
+    // the band runs short of room it says just "Add" (headerFit() in
+    // components-parent.ts).
     if ($instance->access('create')) {
       $build['add'] = [
         '#type' => 'link',
-        '#title' => neo_icon_admin(t('Add'), 'plus')->addLabelClass('neo-alchemist--action-label'),
+        '#title' => [
+          // The full name is the icon's label; the short one only shows (and
+          // only then reaches a screen reader) in place of it.
+          'full' => neo_icon_admin(t('Add component'), 'plus')->addLabelClass('neo-alchemist--add-full')->getRenderable(),
+          'short' => [
+            '#type' => 'html_tag',
+            '#tag' => 'span',
+            '#value' => t('Add'),
+            '#attributes' => ['class' => ['neo-alchemist--add-short']],
+          ],
+        ],
         '#url' => $instance->toUrl('library'),
         '#attributes' => [
-          'class' => ['neo-alchemist--action', 'btn', 'btn-outline', 'btn-xs'],
+          'class' => ['neo-alchemist--action', 'neo-alchemist--add', 'neo-alchemist--band-add'],
           'data-action' => 'library',
         ],
         '#modal' => $modalSettings,
@@ -359,8 +372,8 @@ class ComponentManageHelper {
   /**
    * Builds the toggle for the Layers dock.
    *
-   * In the header's leading group, after Back, and stays put whether the dock
-   * is open or not — it is the one fixed way to reach the tree. Whether the
+   * In the band's centre, after + Add, and stays put whether the dock is open
+   * or not — it is the one fixed way to reach the tree. Whether the
    * dock starts open is decided per layout by layersHasRegions() in
    * components-parent.ts.
    *
@@ -375,7 +388,7 @@ class ComponentManageHelper {
         '#value' => neo_icon_admin(t('Layers'), 'sitemap')->render(),
         '#attributes' => [
           'type' => 'button',
-          'class' => ['neo-alchemist--layers-toggle', 'btn', 'btn-outline', 'btn-xs', 'is-active:btn-primary'],
+          'class' => ['neo-alchemist--layers-toggle', 'neo-alchemist--band-pill'],
           'title' => t('Toggle the component tree'),
           'aria-expanded' => 'false',
           'aria-controls' => 'neo-alchemist-layers',
@@ -389,19 +402,19 @@ class ComponentManageHelper {
    *
    * Every piece the editor needs from the accessible AlchemistPanel plugins:
    * the panels the template puts in the left dock, each in place of Layers
-   * rather than as a tab beside it; a header button per panel, named for it;
-   * and the drupalSettings the client reads each panel's endpoint from. A
-   * panel with a badge gets its button at the head of the badge, joined to
-   * it, so the badge reads as that panel's (neo_seo: "Search & social", then
-   * its scores). With no panel registered, or none accessible, every list is
-   * empty and the editor is unchanged.
+   * rather than as a tab beside it; a band pill per panel, named for it, in
+   * the band's centre beside Layers; each panel's badge, which goes to the
+   * band's trailing group on its own (neo_seo: the SEO and Readability
+   * scores); and the drupalSettings the client reads each panel's endpoint
+   * from. With no panel registered, or none accessible, every list is empty
+   * and the editor is unchanged.
    *
    * @param \Drupal\neo_alchemist\Plugin\Field\FieldType\ComponentTreeItem $item
    *   The field item being edited.
    *
    * @return array
-   *   Keyed 'toggles' (a render array), 'panels' (the template's side_panels
-   *   list of {id, label, width, body}), 'settings' (the
+   *   Keyed 'toggles' and 'badges' (render arrays), 'panels' (the template's
+   *   side_panels list of {id, label, width, body}), 'settings' (the
    *   drupalSettings.neoAlchemist.panels map, id => {label, url}) and
    *   'cacheability' (the access decisions' CacheableMetadata).
    */
@@ -432,7 +445,7 @@ class ComponentManageHelper {
         '#value' => neo_icon_admin($label, $definition['icon'] ?? NULL)->render(),
         '#attributes' => [
           'type' => 'button',
-          'class' => ['neo-alchemist--sidepanel-toggle', 'btn', 'btn-outline', 'btn-xs', 'is-active:btn-primary'],
+          'class' => ['neo-alchemist--sidepanel-toggle', 'neo-alchemist--band-pill'],
           'data-alchemist-sidepanel' => $id,
           'aria-expanded' => 'false',
           'aria-controls' => 'neo-alchemist-layers',
@@ -441,7 +454,10 @@ class ComponentManageHelper {
       // On the body, not in the badge it is joined to (see the size toggles).
       $toggle['#attributes']['data-neo-tooltip-detach'] = 'true';
       (new Tooltip($label, ['placement' => 'bottom']))->applyTo($toggle);
+      $build['toggles']['sidepanel_' . $id] = $toggle;
       // The badge's dropdown is added by panels.ts beside the badge content.
+      // Apart from the panel's pill: a badge is read at a glance, the pill is
+      // a place to go.
       $badge = $panel->badge($item);
       if ($badge) {
         $build['badges']['badge_' . $id] = [
@@ -450,13 +466,8 @@ class ComponentManageHelper {
             'class' => ['neo-alchemist--badge', 'relative', 'flex', 'items-center'],
             'data-alchemist-badge' => $id,
           ],
-          'toggle' => $toggle,
           'content' => $badge,
         ];
-      }
-      else {
-        // Without a badge, the button joins the header's leading group.
-        $build['toggles']['sidepanel_' . $id] = $toggle;
       }
     }
     return $build;
@@ -476,15 +487,35 @@ class ComponentManageHelper {
    */
   public static function buildNavigationOperations(ComponentTreeItem|ComponentInterface $instance): array {
     return [
-      'back' => [
-        '#type' => 'link',
-        '#title' => neo_icon_admin(t('Back'), 'arrow-circle-left'),
-        '#url' => $instance->toUrl('collection'),
-        '#attributes' => [
-          'class' => ['btn', 'btn-xs', 'btn-outline'],
-        ],
+      'back' => static::buildBackLink($instance->toUrl('collection')),
+    ];
+  }
+
+  /**
+   * Builds the band's Back: an icon, named in its tooltip.
+   *
+   * The screen's title sits right after it, so the word "Back" next to that
+   * would only crowd it. Every screen's Back is this one, whatever it leads
+   * to.
+   *
+   * @param \Drupal\Core\Url $url
+   *   Where Back goes.
+   *
+   * @return array
+   *   The link's render array.
+   */
+  public static function buildBackLink(Url $url): array {
+    $build = [
+      '#type' => 'link',
+      '#title' => neo_icon_admin(t('Back'), 'arrow-left')->iconOnly(),
+      '#url' => $url,
+      '#attributes' => [
+        'class' => ['neo-alchemist--band-icon'],
+        'data-neo-tooltip-detach' => 'true',
       ],
     ];
+    (new Tooltip(t('Back'), ['placement' => 'bottom']))->applyTo($build);
+    return $build;
   }
 
   /**
@@ -535,7 +566,7 @@ class ComponentManageHelper {
         '#value' => neo_icon_admin($name, $direction)->iconOnly()->render(),
         '#attributes' => [
           'type' => 'button',
-          'class' => ['neo-alchemist--history', 'btn', 'btn-xs', 'btn-outline', 'aria-disabled:opacity-50'],
+          'class' => ['neo-alchemist--history', 'neo-alchemist--band-icon', 'aria-disabled:opacity-40'],
           'data-history' => $direction,
           'data-url' => $item->toUrl('history')->setRouteParameter('direction', $direction)->toString(),
           'aria-keyshortcuts' => $keys,
@@ -557,13 +588,68 @@ class ComponentManageHelper {
   }
 
   /**
-   * Builds the header's save group: what follows the shared draft.
+   * Builds the band's status line: where the shared draft stands.
    *
-   * Trails the header, after the view controls, in one order: an "Unsaved
-   * changes" status, a quiet Revert, Save (the one filled button in the bar —
-   * the action the header exists for), a ⋯ menu holding the rare and
-   * destructive Reset and Purge, then draft presence. With no draft only ⋯
-   * (and presence, which needs a draft) can appear, so the bar goes quiet.
+   * Under the screen's title, so it reads as part of what is open rather than
+   * as one more control: "Unsaved changes" with a warning dot while a draft
+   * exists, "All changes saved" otherwise, then the presence chip when a
+   * colleague last wrote the draft, since who else is in it belongs with
+   * where it stands. Only an entity's layout has a draft, so only it has the
+   * line.
+   *
+   * Re-rendered with the save group after every write, into
+   * `.neo-alchemist-manage--top-status` (see ComponentAjaxHelperTrait and
+   * panels.ts).
+   *
+   * @param \Drupal\neo_alchemist\Plugin\Field\FieldType\ComponentTreeItem $instance
+   *   The field item.
+   *
+   * @return array
+   *   The status line's render array.
+   */
+  public static function buildDraftStatus(ComponentTreeItem $instance): array {
+    $hasDraft = $instance->hasDraft();
+    $build = [
+      'status' => [
+        '#type' => 'html_tag',
+        '#tag' => 'span',
+        '#attributes' => [
+          'class' => ['neo-alchemist--status', 'flex', 'items-center', 'gap-1.5'],
+          'role' => 'status',
+        ],
+        'dot' => [
+          '#type' => 'html_tag',
+          '#tag' => 'span',
+          '#attributes' => [
+            'class' => [
+              'neo-alchemist--status-dot', 'size-2', 'rounded-full',
+              $hasDraft ? 'bg-warning-500' : 'bg-success-500',
+            ],
+            'aria-hidden' => 'true',
+          ],
+        ],
+        'label' => [
+          '#plain_text' => $hasDraft ? t('Unsaved changes') : t('All changes saved'),
+        ],
+      ],
+      // Per user and per write: never cached.
+      '#cache' => ['max-age' => 0],
+    ];
+    if ($presence = static::buildDraftPresence($instance)) {
+      $build['presence'] = $presence;
+    }
+    return $build;
+  }
+
+  /**
+   * Builds the band's save group: what commits or abandons the shared draft.
+   *
+   * Trails the band: Save (the one primary-coloured button — the action the
+   * editor exists for), then a ⋯ menu holding what an editor reaches for
+   * rarely and must not hit by accident: Discard unsaved changes (Revert),
+   * Reset and Purge. Where the draft stands is said by the status line under
+   * the title (buildDraftStatus()). With no draft only ⋯ can appear, and only
+   * when it holds Reset or Purge.
    *
    * This is the part re-rendered after every write — by the AJAX helper's
    * HtmlCommand and by panels.ts — into `.neo-alchemist-manage--top-save`.
@@ -583,61 +669,43 @@ class ComponentManageHelper {
         'displaceBottom' => '0px',
       ],
     ];
-    $canPublish = $instance->access('publish');
-    $canRevert = $instance->access('revert');
-    // The draft, not Save's access: Save is also offered on a forward revision
-    // with no draft, where nothing is unsaved.
-    $hasDraft = $instance instanceof ComponentTreeItem ? $instance->hasDraft() : $canRevert;
-    if ($hasDraft) {
-      // Said in words: the buttons appearing was the only sign of a draft.
-      $build['status'] = [
-        '#type' => 'html_tag',
-        '#tag' => 'span',
-        '#value' => t('Unsaved changes'),
-        '#attributes' => [
-          'class' => ['neo-alchemist--status', 'text-xs', 'text-base-0-content/75', 'whitespace-nowrap'],
-          'role' => 'status',
-        ],
-      ];
-    }
-    if ($canRevert) {
-      $build['revert'] = [
-        '#type' => 'neo_modal_link',
-        '#title' => neo_icon_admin(t('Revert')),
-        '#url' => $instance->toUrl('revert'),
-        '#attributes' => [
-          'class' => ['use-ajax', 'btn', 'btn-xs', 'btn-outline'],
-          'data-dialog-type' => 'modal',
-        ],
-        '#modal' => $modalSettings,
-      ];
-    }
-    if ($canPublish) {
+    if ($instance->access('publish')) {
       $build['publish'] = [
         '#type' => 'neo_modal_link',
-        '#title' => neo_icon_admin(t('Save')),
+        '#title' => neo_icon_admin(t('Save'), 'check'),
         '#url' => $instance->toUrl('publish'),
         '#attributes' => [
-          'class' => ['use-ajax', 'btn', 'btn-xs', 'btn-primary'],
+          'class' => ['use-ajax', 'btn', 'btn-xs', 'btn-primary', 'neo-alchemist--band-save'],
         ],
         '#modal' => $modalSettings,
       ];
     }
 
-    // The ⋯ menu: actions an editor reaches for rarely and must not hit by
-    // accident. Its open/close lives in components-parent.ts.
+    // The ⋯ menu. Its open/close lives in components-parent.ts.
     $more = [];
-    $itemClasses = [
-      'use-ajax', 'flex', 'w-full', 'items-center', 'gap-2', 'px-3', 'py-2', 'rounded',
-      'text-sm', 'text-alert-700', 'hover:bg-alert-50', 'hover:text-alert-800',
-    ];
+    $itemClasses = ['use-ajax', 'flex', 'w-full', 'items-center', 'gap-2', 'px-3', 'py-2', 'rounded', 'text-sm'];
+    $destructive = ['text-alert-700', 'hover:bg-alert-50', 'hover:text-alert-800'];
+    if ($instance->access('revert')) {
+      // Revert, said as what it does. Destructive too, but it only drops what
+      // has not been saved yet, so it is not dressed like Reset.
+      $more['revert'] = [
+        '#type' => 'neo_modal_link',
+        '#title' => neo_icon_admin(t('Discard unsaved changes'), 'undo-alt'),
+        '#url' => $instance->toUrl('revert'),
+        '#attributes' => [
+          'class' => array_merge($itemClasses, ['text-base-800', 'hover:bg-base-100']),
+          'data-dialog-type' => 'modal',
+        ],
+        '#modal' => $modalSettings,
+      ];
+    }
     if ($instance->access('reset')) {
       // Allow reset only for entity-based components.
       $more['reset'] = [
         '#type' => 'neo_modal_link',
         '#title' => neo_icon_admin(t('Reset')),
         '#url' => $instance->toUrl('reset'),
-        '#attributes' => ['class' => $itemClasses],
+        '#attributes' => ['class' => array_merge($itemClasses, $destructive)],
         '#modal' => $modalSettings,
       ];
     }
@@ -656,7 +724,7 @@ class ComponentManageHelper {
           '#type' => 'neo_modal_link',
           '#title' => neo_icon_admin(t('Purge stored data (@count)', ['@count' => $count])),
           '#url' => $instance->toUrl('purge'),
-          '#attributes' => ['class' => $itemClasses],
+          '#attributes' => ['class' => array_merge($itemClasses, $destructive)],
           '#modal' => $modalSettings,
         ];
       }
@@ -670,14 +738,16 @@ class ComponentManageHelper {
         'toggle' => [
           '#type' => 'html_tag',
           '#tag' => 'button',
-          '#value' => neo_icon_admin(t('More actions'), 'ellipsis-h')->iconOnly()->render(),
           '#attributes' => [
             'type' => 'button',
-            'class' => ['neo-alchemist--more-toggle', 'btn', 'btn-xs', 'btn-outline', 'is-active:btn-primary'],
+            'class' => ['neo-alchemist--more-toggle', 'neo-alchemist--band-icon'],
             'title' => t('More actions'),
             'aria-expanded' => 'false',
             'aria-controls' => $menuId,
           ],
+          // A renderable, not markup: the panel endpoint renders this group
+          // in isolation, outside any render context an eager render needs.
+          'icon' => neo_icon_admin(t('More actions'), 'ellipsis-h')->iconOnly()->getRenderable(),
         ],
         'menu' => [
           '#type' => 'html_tag',
@@ -686,23 +756,13 @@ class ComponentManageHelper {
             'id' => $menuId,
             'class' => [
               'neo-alchemist--more-menu',
-              'absolute', 'right-0', 'top-full', 'mt-2', 'w-56', 'p-1', 'z-50',
+              'absolute', 'right-0', 'top-full', 'mt-2', 'w-64', 'p-1', 'z-50',
               'rounded-lg', 'shadow-lg', 'border', 'bg-base-0', 'text-base-0-content',
             ],
             'hidden' => 'hidden',
           ],
         ] + $more,
       ];
-    }
-
-    // Presence: who else has been in this shared layout draft, and how
-    // recently. Read from the draft's own last-editor/last-modified — no
-    // heartbeat, no separate presence table — so it only appears when a
-    // colleague, not the current editor, last wrote the draft. It trails the
-    // actions rather than sitting among them: it is something to know, not
-    // something to press.
-    if ($instance instanceof ComponentTreeItem && ($presence = static::buildDraftPresence($instance))) {
-      $build['presence'] = $presence;
     }
     return $build;
   }
@@ -719,11 +779,11 @@ class ComponentManageHelper {
    * the draft: presence is about who *else* is here.
    *
    * The sentence is worth reading once, not worth a strip of toolbar forever,
-   * so it renders as a chip barely wider than a button: the colleague's
+   * so it renders as a chip in the band's status line: the colleague's
    * initials in an avatar, and the age abbreviated to "now" / "6m" / "3h".
    * Together those answer "is someone else in here, and just now?" at a
    * glance; the full sentence stays one hover away in the tooltip, and is what
-   * a screen reader announces.
+   * a screen reader announces. See buildDraftStatus().
    *
    * @param \Drupal\neo_alchemist\Plugin\Field\FieldType\ComponentTreeItem $instance
    *   The field item whose shared draft is being edited.
@@ -749,28 +809,28 @@ class ComponentManageHelper {
       '#type' => 'html_tag',
       '#tag' => 'div',
       '#attributes' => [
-        // The rule and left margin keep the chip from reading as one more
-        // button hung off the end of Save.
+        // In the band's status line, after the draft's state, set off by a
+        // rule: who else is in the draft belongs with where it stands.
         'class' => [
           'neo-alchemist--presence',
-          'flex', 'items-center', 'gap-2', 'ml-1', 'pl-3', 'border-l',
-          'text-xs', 'text-base-500', 'cursor-help',
+          'flex', 'items-center', 'gap-1.5', 'pl-2', 'border-l', 'border-base-700',
+          'text-xs', 'cursor-help',
         ],
         // Focusable, so the detail is reachable without a mouse: the tooltip
         // opens on focus as well as hover.
         'tabindex' => '0',
       ],
-      // The avatar carries the "who" at button height, so the chip sits on the
-      // toolbar's baseline without adding a row of text to it.
+      // The avatar carries the "who" at the status line's height, so the chip
+      // adds no row of text to it.
       'avatar' => [
         '#type' => 'html_tag',
         '#tag' => 'span',
         '#value' => static::draftUserInitials($name),
         '#attributes' => [
           'class' => [
-            'flex', 'items-center', 'justify-center', 'w-6', 'h-6',
-            'rounded-full', 'border', 'bg-base-200', 'text-base-700',
-            'text-xs', 'font-bold', 'leading-none', 'uppercase',
+            'flex', 'items-center', 'justify-center', 'size-5',
+            'rounded-full', 'bg-base-200', 'text-base-700',
+            'text-[10px]', 'font-bold', 'leading-none', 'uppercase',
           ],
           'aria-hidden' => 'true',
         ],

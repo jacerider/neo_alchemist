@@ -1,5 +1,30 @@
 # Changelog
 
+## The editor's header is one dark band
+
+Every editor screen opens with one dark bar, the band, in three parts. Leading: Back, the
+screen's title and, in the layout editor, where the draft stands ("Unsaved changes" or "All
+changes saved", with the presence chip after it). Centre: + Add component, the one light pill,
+then Layers and a pill for each side panel. Trailing: the panels' badges, the view controls,
+Undo and Redo, Save and ⋯. The breadcrumb bar becomes the band's second row, the full width of
+the editor, so it stays when the inspector is expanded.
+
+- Revert moves into ⋯ as "Discard unsaved changes", above Reset; the confirmation is unchanged.
+- A side panel's button is a pill of its own in the centre, no longer joined to its badge.
+- When the band runs short of room it first lets the centre drift off-centre, then shows the
+  pills as icons, then shortens + Add to "Add", then hides what badges mark
+  `.neo-alchemist--compact-hide`. It re-checks when the save group changes, not only on resize.
+- Choosing an item in ⋯ closes the menu behind its dialog.
+- Toasts and badge dropdowns open below the breadcrumb row.
+
+For code: the manage template takes `top_title` (the route's title unless a controller sets it),
+`top_status` and `top_center`. `ComponentManageHelper::buildDraftStatus()` builds the status
+line, re-rendered after every write into `.neo-alchemist-manage--top-status`; the panel
+endpoint returns it as `status`. `buildDynamicOperations()` no longer holds the status, Revert or
+presence. `buildBackLink()` is every screen's Back. Undo and Redo moved from `#top_start` to the
+end of `#top_end`; `buildSidePanels()` puts every panel's button in `toggles` and the badge
+container holds only its `content`.
+
 ## Clicking rich text in the canvas opens its field
 
 Clicking a hero's summary, or any rich-text prop, on the canvas did nothing: the editor could not

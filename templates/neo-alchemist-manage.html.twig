@@ -6,24 +6,54 @@
 #}
 <div{% if id %} id="{{ id }}"{% endif %}{% if dev %} data-alchemist-dev{% endif %} class="neo-alchemist-manage scheme--reset fixed flex flex-col top-0 left-0 w-full h-full bg-base-300 z-0 modal:relative" style="--neo-alchemist-floating-gap: 16px;">
   {#
-    One bar: navigation leads; the view controls and then the save group
-    trail. The save group's box is always rendered when the bar is, even
-    empty, because a write re-renders into it (top_save, see
-    ComponentManageHelper::buildDynamicOperations()).
+    The band: one dark bar for the whole editor. Leading, the way out and what
+    is open — Back, the screen's title and, under it, where the draft stands;
+    centred, what builds the page — + Add, Layers and a pill per side panel;
+    trailing, the panels' badges, the view controls, Undo · Redo and the save
+    group. The status line and the save group are re-rendered after every
+    write (top_status, top_save; see ComponentAjaxHelperTrait), so their boxes
+    are rendered whenever the band is, even empty. The leading and trailing
+    groups share the room left by the centre equally, which keeps the centre
+    centred; headerFit() in components-parent.ts compacts the band when that
+    room runs out.
   #}
-  {% if top_start or top_end or top_save %}
-    <div class="neo-alchemist-manage--top relative flex-none flex gap-4 w-full bg-default border-b px-4 py-2 shadow z-50" data-alchemist-offset-top>
-      {% if top_start %}
-        <div class="neo-alchemist-manage--top-start flex items-center gap-2">{{ top_start }}</div>
+  {% if top_start or top_center or top_end or top_save %}
+    <div class="neo-alchemist-manage--top relative flex-none flex items-center gap-4 w-full min-h-14 px-3 py-2 bg-base-900 text-base-900-content z-50" data-alchemist-offset-top>
+      <div class="neo-alchemist-manage--top-start flex flex-1 basis-0 min-w-0 items-center gap-3">
+        {{ top_start.back }}
+        {% if top_title %}
+          <div class="neo-alchemist-manage--identity min-w-0 max-w-80 shrink-0 flex flex-col justify-center{{ top_start.back ? ' border-l border-base-700 pl-3' }}">
+            <div class="neo-alchemist-manage--title truncate text-sm font-semibold leading-tight">{{ top_title }}</div>
+            {% if top_status %}
+              <div class="neo-alchemist-manage--top-status flex items-center gap-2 mt-0.5 text-xs text-base-900-content/75 whitespace-nowrap">{{ top_status }}</div>
+            {% endif %}
+          </div>
+        {% endif %}
+        {{ top_start|without('back') }}
+      </div>
+      {% if top_center %}
+        <div class="neo-alchemist-manage--top-center flex flex-none items-center gap-2">{{ top_center }}</div>
       {% endif %}
-      <div class="ml-auto flex items-center gap-4">
+      <div class="neo-alchemist-manage--top-trail flex flex-1 basis-0 min-w-0 items-center justify-end gap-3">
         {% if top_end %}
-          <div class="neo-alchemist-manage--top-end flex items-center gap-2">{{ top_end }}</div>
+          <div class="neo-alchemist-manage--top-end flex items-center gap-3">{{ top_end }}</div>
         {% endif %}
         <div class="neo-alchemist-manage--top-save flex items-center gap-2 empty:hidden">{{ top_save }}</div>
       </div>
     </div>
   {% endif %}
+
+  {#
+    The breadcrumb bar: where the selection sits, written by the layout editor
+    (titleSet() in components-parent.ts), which unhides it. The band's second
+    row, the full width of the editor, so the docks start below it and it
+    stays when the inspector is expanded over the canvas — the crumbs are then
+    the only way up and down the tree. Always there while that editor is, so
+    selecting never shifts anything.
+  #}
+  <nav class="neo-alchemist--crumbs flex-none bg-base-800 text-base-800-content border-t border-base-0/5 shadow z-40" aria-label="{{ 'Selection'|t }}" hidden data-alchemist-ignore data-alchemist-nodrag>
+    <div class="neo-alchemist--crumbs-trail flex items-center gap-1 h-10 overflow-x-auto px-3 text-xs [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"></div>
+  </nav>
 
   {#
     Columns: the canvas, then the right dock (the inspector). The canvas owns
@@ -67,17 +97,6 @@
   </aside>
 
   <div class="neo-alchemist-manage--canvas flex flex-col flex-auto min-w-0 relative overflow-hidden">
-
-    {#
-      The breadcrumb bar: where the selection sits, written by the layout
-      editor (titleSet() in components-parent.ts), which unhides it. Always
-      there while that editor is, so selecting never shifts the canvas. Above
-      the canvas rather than in the inspector, which has no room for a nested
-      trail; it goes with the canvas when the inspector is expanded.
-    #}
-    <nav class="neo-alchemist--crumbs flex-none bg-base-900 text-base-900-content shadow z-30" aria-label="{{ 'Selection'|t }}" hidden data-alchemist-ignore data-alchemist-nodrag>
-      <div class="neo-alchemist--crumbs-trail flex items-center gap-1 h-11 overflow-x-auto px-3 text-xs [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"></div>
-    </nav>
 
     <div class="neo-alchemist-manage--wrapper relative flex-auto flex bg-base-100 overflow-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]" style="visibility: hidden">
       <div class="neo-alchemist-manage--drag flex items-start justify-center cursor-grab">

@@ -72,8 +72,11 @@ trait ComponentAjaxHelperTrait {
       $selector = '#' . ComponentManageHelper::getId($item) . ' .neo-alchemist-manage--top-save';
       $operations = ComponentManageHelper::buildDynamicOperations($item);
       $response->addCommand(new HtmlCommand($selector, $operations));
-      // Undo and Redo name the step a write just made or took back.
+      // The status line follows the draft, and Undo and Redo name the step a
+      // write just made or took back.
       if (!$item->belongsToFieldConfig()) {
+        $selector = '#' . ComponentManageHelper::getId($item) . ' .neo-alchemist-manage--top-status';
+        $response->addCommand(new HtmlCommand($selector, ComponentManageHelper::buildDraftStatus($item)));
         $selector = '#' . ComponentManageHelper::getId($item) . ' .neo-alchemist-manage--top-history';
         $response->addCommand(new HtmlCommand($selector, ComponentManageHelper::buildHistoryOperations($item)));
       }

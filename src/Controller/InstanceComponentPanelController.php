@@ -103,10 +103,12 @@ final class InstanceComponentPanelController extends ControllerBase {
     // follows the version on rather than reading it as a colleague's.
     $this->editorHistory->noteWrite($neo_field, $versionBefore);
     $operations = ComponentManageHelper::buildDynamicOperations($neo_field);
+    $status = ComponentManageHelper::buildDraftStatus($neo_field);
     return new JsonResponse([
       'version' => $this->sharedDraftStore->version($neo_field),
       'hasDraft' => $neo_field->hasDraft(),
       'operations' => (string) $this->renderer->renderInIsolation($operations),
+      'status' => (string) $this->renderer->renderInIsolation($status),
     ]);
   }
 

@@ -884,6 +884,12 @@
       headerFit();
     });
     headerFit();
+    // A write re-renders the status line and the save group (Save and ⋯
+    // come and go with the draft), which changes what the band needs.
+    const bandObserver = new MutationObserver(() => headerFit());
+    container.querySelectorAll('.neo-alchemist-manage--top-status, .neo-alchemist-manage--top-save').forEach(part => {
+      bandObserver.observe(part, { childList: true });
+    });
 
     // Escape climbs out of the selection — component, then its region, then the
     // page — the same step clicking the dimmed area takes, so pressing it
@@ -920,6 +926,8 @@
     // The header's ⋯ menu. Delegated from the document: a write re-renders
     // the save group it lives in. Its toggle flips it; any other click — one
     // of its items, whose dialog is opening, or anywhere else — closes it.
+    // Captured: an item is a use-ajax link, whose handler stops the click
+    // before it would bubble here, leaving the menu open behind its dialog.
     document.addEventListener('click', (e) => {
       const toggle = e.target instanceof Element ? e.target.closest<HTMLElement>('.neo-alchemist--more-toggle') : null;
       const root = toggle?.closest<HTMLElement>('.neo-alchemist--more');
@@ -937,7 +945,7 @@
         toggle.setAttribute('aria-expanded', 'true');
         menu.querySelector<HTMLElement>('a, button')?.focus();
       }
-    });
+    }, true);
 
     // Undo and Redo. Delegated: a write re-renders the buttons. Inside a text
     // field the keys stay the field's own text undo; so they do while a
@@ -1726,7 +1734,7 @@
       if (index) {
         const sep = document.createElement('div');
         sep.className = 'flex-none opacity-50';
-        sep.textContent = '»';
+        sep.textContent = '›';
         sep.setAttribute('aria-hidden', 'true');
         crumbTrail.appendChild(sep);
       }
@@ -1753,16 +1761,17 @@
     // shown for context but are not clickable.
     const inert = hybrid && isInheritedComponent(crumbUuid);
     const crumb = document.createElement('div');
-    crumb.className = `neo-alchemist--crumb flex flex-none items-center whitespace-nowrap border border-base-900-content/25 px-1 rounded ${isCurrent ? 'bg-base-900-content/10' : ''}`;
+    // On the band's dark second row: ancestors are quiet chips, the current
+    // one the primary pill, so the selection reads at the end of the trail.
+    crumb.className = `neo-alchemist--crumb flex flex-none items-center whitespace-nowrap px-1.5 rounded-full ${isCurrent ? 'bg-primary-500 text-primary-500-content' : 'text-base-800-content/80 hover:bg-base-800-content/10 hover:text-base-800-content'}`;
     if (isCurrent) {
       crumb.setAttribute('aria-current', 'location');
     }
 
     const link = document.createElement((isCurrent || inert) ? 'div' : 'a');
-    link.className = `neo-alchemist--crumb-link flex items-center h-6 px-1 gap-1.5 text-base-900-content ${isCurrent ? 'font-semibold' : 'font-normal'}`;
+    link.className = `neo-alchemist--crumb-link flex items-center h-6 px-1 gap-1.5 text-inherit ${isCurrent ? 'font-semibold' : 'font-normal'}`;
     if (link instanceof HTMLAnchorElement) {
       link.href = '#';
-      link.classList.add('hover:underline');
       link.addEventListener('click', (e) => {
         e.preventDefault();
         e.stopPropagation();
@@ -1849,7 +1858,7 @@
     toggle.type = 'button';
     // The class is a hook, not styling — crumbMenuClose() finds the toggle
     // through it to put aria-expanded back.
-    toggle.className = 'neo-alchemist--crumb-toggle inline-flex items-center justify-center w-4.5 h-4.5 rounded-sm text-xs leading-none cursor-pointer transition hover:bg-base-900-content/15';
+    toggle.className = 'neo-alchemist--crumb-toggle inline-flex items-center justify-center w-4.5 h-4.5 rounded-full text-xs leading-none cursor-pointer transition hover:bg-black/15';
     toggle.setAttribute('aria-haspopup', 'true');
     toggle.setAttribute('aria-expanded', 'false');
     toggle.setAttribute('title', Drupal.t('Go to a child'));
@@ -2867,23 +2876,46 @@
   }
 
   /**
-   * Drop the side panel buttons' names to their icons while the header has
-   * no room for them; the name stays in each button's tooltip. Measured
-   * rather than set at a width, because what the header holds varies by
-   * layout and by which modules add panels. Measured with nothing allowed to
-   * shrink or wrap (`.is-measuring`, never painted): short of room, the
-   * header squeezes its buttons onto two lines rather than overflowing.
+   * Compact the band, one step at a time, while it has no room: first the
+   * panel pills drop their names to their icons (the name stays in each
+   * tooltip), then + Add says just "Add", then the badges drop whatever they
+   * mark `.neo-alchemist--compact-hide` (neo_seo: the score bars, keeping the
+   * numbers). Measured rather than set at a width, because what the band
+   * holds varies by layout, by which modules add panels and by the draft.
+   * Measured with nothing allowed to shrink or wrap (`.is-measuring`, never
+   * painted): short of room, the band squeezes its buttons onto two lines
+   * rather than overflowing.
+   *
+   * The centre is centred while each side has room for the wider of the two;
+   * short of that, before anything loses its name, the centre gives up being
+   * centred and takes the room the narrower side leaves (`.is-header-
+   * offcentre`).
    */
   function headerFit(): void {
     const top = container.querySelector<HTMLElement>('.neo-alchemist-manage--top');
-    if (!top || !sidePanelToggles.length) {
+    if (!top) {
       return;
     }
-    container.classList.remove('is-header-compact');
+    const steps = ['is-header-compact', 'is-header-compact-2', 'is-header-compact-3'];
+    container.classList.remove(...steps, 'is-header-offcentre');
     top.classList.add('is-measuring');
-    const overflows = top.scrollWidth > top.clientWidth;
+    const style = getComputedStyle(top);
+    const room = top.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight)
+      - (parseFloat(style.columnGap) || 0) * (top.children.length - 1);
+    const width = (selector: string) => top.querySelector<HTMLElement>(`:scope > ${selector}`)?.getBoundingClientRect().width ?? 0;
+    for (let step = 0; ; step++) {
+      const sides = [width('.neo-alchemist-manage--top-start'), width('.neo-alchemist-manage--top-trail')];
+      const centre = width('.neo-alchemist-manage--top-center');
+      if (2 * Math.max(...sides) + centre <= room) {
+        break;
+      }
+      if (sides[0] + sides[1] + centre <= room || step === steps.length) {
+        container.classList.add('is-header-offcentre');
+        break;
+      }
+      container.classList.add(steps[step]);
+    }
     top.classList.remove('is-measuring');
-    container.classList.toggle('is-header-compact', overflows);
   }
 
   /**

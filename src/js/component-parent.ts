@@ -2562,9 +2562,11 @@
     }
     messagesWrapper.classList.add('opacity-100');
     messagesWrapper.classList.remove('invisible', 'opacity-0');
-    // Under the header bar, not over it: the bar is where the next action is.
+    // Under the band, not over it: the band is where the next action is. The
+    // band is the bar plus, in the layout editor, its breadcrumb row.
     const area = messagesWrapper.closest<HTMLElement>('.fixed');
-    const bar = document.querySelector<HTMLElement>('[data-alchemist-offset-top]');
+    const bar = document.querySelector<HTMLElement>('.neo-alchemist--crumbs:not([hidden])')
+      ?? document.querySelector<HTMLElement>('[data-alchemist-offset-top]');
     if (area && bar) {
       area.style.top = `${bar.getBoundingClientRect().bottom + 8}px`;
     }

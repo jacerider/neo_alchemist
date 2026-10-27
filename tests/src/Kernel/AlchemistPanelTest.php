@@ -225,54 +225,56 @@ class AlchemistPanelTest extends HybridFieldKernelTestBase {
   }
 
   /**
-   * A panel's badge leads the top bar's end, left of the scale controls.
+   * A panel's pill sits in the band's centre; its badge leads the trail.
    */
-  public function testBadgeLeadsTheTopBar(): void {
+  public function testBadgeLeadsTheTrail(): void {
     $item = $this->item($this->labelledEntity());
+    $children = static fn (array $build): array => array_values(array_filter(array_keys($build), static fn ($key) => $key[0] !== '#'));
     $plain = $this->manageElement($item);
-    $this->assertArrayNotHasKey('badges', $plain['#top_end'], 'No badge: the top bar is unchanged.');
-    $this->assertSame(['scale', 'size'], array_values(array_filter(array_keys($plain['#top_end']), static fn ($key) => $key[0] !== '#')), 'The top bar end holds only the scale and device controls, view options last among the devices.');
+    $this->assertArrayNotHasKey('badges', $plain['#top_end'], 'No badge: the trail is unchanged.');
+    $this->assertSame(['scale', 'size', 'history'], $children($plain['#top_end']), 'The trail holds the scale and device controls, then Undo and Redo.');
     $this->assertArrayHasKey('view', $plain['#top_end']['size'], 'View options is part of the device group.');
+    $this->assertSame('sidepanel_' . self::PANEL, $children($plain['#top_center'])[2] ?? NULL, 'The panel has its pill in the centre, after Add and Layers.');
 
     \Drupal::state()->set(TestLabelPanel::BADGE_STATE_KEY, TRUE);
-    $this->assertArrayNotHasKey('sidepanel_' . self::PANEL, $this->sidePanels($item)['toggles'], 'A panel with a badge has its button in the badge, not the leading group.');
+    $this->assertArrayHasKey('sidepanel_' . self::PANEL, $this->sidePanels($item)['toggles'], 'A panel with a badge keeps its pill.');
     $badged = $this->manageElement($item);
-    $children = array_values(array_filter(array_keys($badged['#top_end']), static fn ($key) => $key[0] !== '#'));
-    $this->assertSame(['badges', 'scale', 'size'], $children, 'Badges come first, in the same container as the scale and device controls.');
+    $this->assertSame(['badges', 'scale', 'size', 'history'], $children($badged['#top_end']), 'Badges lead the trail, in the same container as what follows.');
     $badge = $badged['#top_end']['badges']['badge_' . self::PANEL];
     $this->assertSame(self::PANEL, $badge['#attributes']['data-alchemist-badge']);
-    $this->assertSame(['toggle', 'content'], array_values(array_filter(array_keys($badge), static fn ($key) => $key[0] !== '#')), "The panel's own button heads its badge.");
-    $this->assertSame(self::PANEL, $badge['toggle']['#attributes']['data-alchemist-sidepanel'], 'The button opens the panel.');
+    $this->assertSame(['content'], $children($badge), "The badge is apart from the panel's pill.");
     $this->assertSame('button', $badge['content']['#tag']);
     $this->assertContains('neo_alchemist/panels', $badged['#attached']['library'], 'The badge client half loads with the editor.');
   }
 
   /**
-   * The header's save group trails the bar and follows the draft.
+   * The band: Back leads, the centre builds, the save group follows the draft.
    *
-   * Back, Layers and Add lead; the save group has a slot of its own, the one
-   * a write re-renders. With no draft it is quiet (no status, Revert or Save);
-   * with one it says so in words, then offers a quiet Revert and Save, the one
-   * filled button, in that order. Reset is never in the bar itself.
+   * Back leads alone, before the title; + Add, Layers and the panel pills sit
+   * in the centre. The status line says where the draft stands either way.
+   * The save group has a slot of its own, the one a write re-renders: with no
+   * draft it is quiet (no Save, no Discard); with one it offers Save, the one
+   * filled button, then ⋯, which holds Discard unsaved changes (Revert).
    */
   public function testSaveGroupTrailsAndFollowsTheDraft(): void {
     $item = $this->item($this->labelledEntity());
     $children = static fn (array $build): array => array_values(array_filter(array_keys($build), static fn ($key) => $key[0] !== '#'));
 
     $quiet = $this->manageElement($item);
-    $this->assertSame(['back', 'layers', 'add'], array_slice($children($quiet['#top_start']), 0, 3), 'Back, Layers and Add lead the bar.');
+    $this->assertSame(['back'], $children($quiet['#top_start']), 'Back leads the band alone.');
+    $this->assertSame(['add', 'layers'], array_slice($children($quiet['#top_center']), 0, 2), 'Add, then Layers, lead the centre.');
     $this->assertArrayNotHasKey('#bottom_start', $quiet, 'There is no footer bar.');
-    foreach (['status', 'revert', 'publish', 'reset'] as $key) {
-      $this->assertNotContains($key, $children($quiet['#top_save']), "No draft: no $key in the bar.");
-    }
+    $this->assertSame('All changes saved', (string) $quiet['#top_status']['status']['label']['#plain_text']);
+    $this->assertNotContains('publish', $children($quiet['#top_save']), 'No draft: no Save.');
+    $this->assertArrayNotHasKey('revert', $quiet['#top_save']['more'] ?? [], 'No draft: nothing to discard.');
 
     $this->store()->set($item, $this->defaultLayout());
-    $save = $this->manageElement($item)['#top_save'];
-    $this->assertSame(['status', 'revert', 'publish'], array_slice($children($save), 0, 3), 'A draft: status, Revert, Save, in that order.');
-    $this->assertSame('Unsaved changes', (string) $save['status']['#value']);
+    $element = $this->manageElement($item);
+    $this->assertSame('Unsaved changes', (string) $element['#top_status']['status']['label']['#plain_text']);
+    $save = $element['#top_save'];
+    $this->assertSame(['publish', 'more'], $children($save), 'A draft: Save, then ⋯.');
     $this->assertContains('btn-primary', $save['publish']['#attributes']['class'], 'Save is the filled button.');
-    $this->assertContains('btn-outline', $save['revert']['#attributes']['class'], 'Revert is quiet.');
-    $this->assertNotContains('reset', $children($save), 'Reset lives in the ⋯ menu, not the bar.');
+    $this->assertSame('revert', $children($save['more']['menu'])[0], 'Discard unsaved changes leads the ⋯ menu.');
   }
 
   /**

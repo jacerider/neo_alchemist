@@ -57,22 +57,27 @@ class InstanceComponentManage extends RenderElementBase {
     $element['#iframe_start'] = [
       '#theme' => 'neo_alchemist_overlay',
     ];
-    // One bar: Back · Layers · + Add lead it; the footer this used to need is
-    // gone.
-    $element['#top_start'] = ComponentManageHelper::buildNavigationOperations($neoField)
-      + ComponentManageHelper::buildLayersToggle()
-      + ComponentManageHelper::buildOperations($neoField, $element['#neo_modal'] ?? []);
-    // Undo · Redo follow + Add. Only an entity's layout has a shared draft to
-    // step through; the wrapper stays put while a write re-renders inside it.
-    if (!$neoField->belongsToFieldConfig() && $neoField->access('update')) {
-      $element['#top_start']['history'] = [
-        '#type' => 'container',
-        '#attributes' => ['class' => ['neo-alchemist-manage--top-history', 'btn-group', 'flush']],
-      ] + ComponentManageHelper::buildHistoryOperations($neoField);
-    }
+    // The band (decision 28): Back, the title and the draft's status line
+    // lead; + Add, Layers and a pill per side panel sit in the centre; the
+    // view controls, the panels' badges, Undo · Redo and the save group trail.
+    $element['#top_start'] = ComponentManageHelper::buildNavigationOperations($neoField);
+    $element['#top_center'] = ComponentManageHelper::buildOperations($neoField, $element['#neo_modal'] ?? [])
+      + ComponentManageHelper::buildLayersToggle();
     $element['#top_end'] = ComponentManageHelper::buildIframeOperations($neoField);
-    // The save group trails the view controls, and is the part a write
-    // re-renders (see ComponentManageHelper::buildDynamicOperations()).
+    // Only an entity's layout has a shared draft: a status line to say where
+    // it stands, and Undo · Redo to step through it. Their wrappers stay put
+    // while a write re-renders inside them.
+    if (!$neoField->belongsToFieldConfig()) {
+      $element['#top_status'] = ComponentManageHelper::buildDraftStatus($neoField);
+      if ($neoField->access('update')) {
+        $element['#top_end']['history'] = [
+          '#type' => 'container',
+          '#attributes' => ['class' => ['neo-alchemist-manage--top-history', 'flex', 'items-center', 'gap-1']],
+        ] + ComponentManageHelper::buildHistoryOperations($neoField);
+      }
+    }
+    // The save group trails everything, and is the part a write re-renders
+    // (see ComponentManageHelper::buildDynamicOperations()).
     $element['#top_save'] = ComponentManageHelper::buildDynamicOperations($neoField);
     // The inspector docks on the right and opens with the selection
     // (components-parent.ts). Its header carries the selection's ops, from the
@@ -84,20 +89,20 @@ class InstanceComponentManage extends RenderElementBase {
     $element['#dock_close'] = TRUE;
 
     // Side panels other modules add: shown in the left dock in place of
-    // Layers, each opened by its own header button (at the head of its badge
-    // when it has one). With none accessible nothing here changes the editor.
+    // Layers, each opened by its own pill beside Layers. With none accessible
+    // nothing here changes the editor.
     $sidePanels = ComponentManageHelper::buildSidePanels($neoField);
     $sidePanels['cacheability']->applyTo($element);
     if ($sidePanels['panels']) {
-      $element['#top_start'] += $sidePanels['toggles'];
+      $element['#top_center'] += $sidePanels['toggles'];
       $element['#side_panels'] = $sidePanels['panels'];
       $element['#attached']['drupalSettings']['neoAlchemist']['panels'] = $sidePanels['settings'];
       $element['#attached']['library'][] = 'neo_alchemist/panels';
     }
-    // Panel badges lead the top bar's end, left of the scale controls. The
-    // top bar is never re-rendered, so their client halves keep them current.
-    // One container, one gap: the badges sit beside the scale and device
-    // groups rather than in a wrapper of their own.
+    // Panel badges lead the band's trailing group. The band is never
+    // re-rendered, so their client halves keep them current. One container,
+    // one gap: the badges sit beside what follows rather than in a wrapper of
+    // their own.
     if ($sidePanels['badges']) {
       $badges = [
         '#type' => 'container',

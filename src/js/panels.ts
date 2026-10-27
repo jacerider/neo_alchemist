@@ -58,10 +58,11 @@
   }
 
   /**
-   * Swap in the re-rendered save group, so Save/Revert follow hasDraft.
+   * Swap in a re-rendered part of the band — the save group, so Save and the
+   * ⋯ menu follow hasDraft, or the status line under the title.
    */
-  function operationsReplace(html: string): void {
-    const target = document.querySelector<HTMLElement>('.neo-alchemist-manage .neo-alchemist-manage--top-save');
+  function operationsReplace(html: string, part = 'top-save'): void {
+    const target = document.querySelector<HTMLElement>(`.neo-alchemist-manage .neo-alchemist-manage--${part}`);
     if (!target) {
       return;
     }
@@ -127,6 +128,9 @@
     messageShow(id, null);
     if (typeof body.operations === 'string') {
       operationsReplace(body.operations);
+    }
+    if (typeof body.status === 'string') {
+      operationsReplace(body.status, 'top-status');
     }
     const result = { version: body.version as number, hasDraft: !!body.hasDraft };
     notify({ reason: 'panel', panelId: id, ...result });
@@ -196,7 +200,8 @@
       });
     };
     /**
-     * Below the top bar, not the badge: as far under the bar as side panels
+     * Below the band, not the badge — the bar and its breadcrumb row, when the
+     * editor shows one: as far under it as side panels
      * float in from the canvas edge (--neo-alchemist-floating-gap). Centred
      * under the badge, within the room it has: the window less a gap each
      * side, less Layers or a side panel floating there. It slides sideways rather
@@ -204,7 +209,8 @@
      */
     const place = () => {
       const editor = badge.closest<HTMLElement>('.neo-alchemist-manage');
-      const bar = badge.closest<HTMLElement>('[data-alchemist-offset-top]');
+      const bar = editor?.querySelector<HTMLElement>('.neo-alchemist--crumbs:not([hidden])')
+        ?? badge.closest<HTMLElement>('[data-alchemist-offset-top]');
       const gap = editor ? parseFloat(getComputedStyle(editor).getPropertyValue('--neo-alchemist-floating-gap')) || 16 : 16;
       const badgeRect = badge.getBoundingClientRect();
       const below = bar ? bar.getBoundingClientRect().bottom - badgeRect.top : badge.offsetHeight;

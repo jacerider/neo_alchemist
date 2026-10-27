@@ -69,14 +69,9 @@ final class SdcPreviewManageController extends ControllerBase {
       '#form' => $this->entityFormBuilder()->getForm($entity, 'preview_value'),
     ];
 
-    $build['#top_start']['back'] = [
-      '#type' => 'link',
-      '#title' => neo_icon_admin($this->t('Back'), 'arrow-circle-left'),
-      '#url' => Url::fromRoute('neo_alchemist.sdc_preview_list'),
-      '#attributes' => [
-        'class' => ['btn', 'btn-xs'],
-      ],
-    ];
+    $title = 'Preview: ' . $entity->label();
+    $build['#top_title'] = $title;
+    $build['#top_start']['back'] = ComponentManageHelper::buildBackLink(Url::fromRoute('neo_alchemist.sdc_preview_list'));
 
     // Neighbor component selector (render a component above and/or below the
     // previewed one to test spacing between stacked components).
@@ -85,7 +80,6 @@ final class SdcPreviewManageController extends ControllerBase {
     // Resize / scale operations.
     $build['#top_end'] = ComponentManageHelper::buildIframeOperations($entity);
 
-    $title = 'Preview: ' . $entity->label();
     return $this->bareHtmlPageRenderer
       // The page renderer ignores its $title argument, so set the page title
       // via the page additions where template_preprocess_html() reads it for

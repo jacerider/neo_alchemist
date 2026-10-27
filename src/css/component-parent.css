@@ -383,3 +383,123 @@ form.neo-alchemist-manage--form:has(.neo-alchemist--form-layout) > .form--inner,
     animation-name: none;
   }
 }
+
+/* The band (neo-alchemist-manage.html.twig): the editor's one dark bar.
+ *
+ * Its controls are dressed here rather than with neo's button utilities,
+ * which pick their colours for a light surface: a quiet icon (Back, Undo,
+ * Redo, ⋯), a dark pill (Layers and each side panel, the primary fill while
+ * its dock shows), the light pill that leads the centre (+ Add) and Save,
+ * which keeps btn-primary's contrast-picked fill and only takes the band's
+ * shape. Anything else a screen puts in the band (the component Manage page's
+ * style form, the SDC preview's neighbour selects, the view controls) keeps
+ * its own markup, retuned to the dark surface through the button and field
+ * variables below.
+ */
+.neo-alchemist-manage--top {
+  font-size: var(--text-sm);
+
+  .btn-outline {
+    --btn-border-color: rgb(var(--color-base-700));
+    --btn-content-color: rgb(var(--color-base-900-content));
+    --btn-bg-color-hover: rgb(var(--color-base-700));
+    --btn-border-color-hover: rgb(var(--color-base-700));
+    --btn-content-color-hover: rgb(var(--color-base-700-content));
+  }
+
+  .form--inner {
+    background-color: transparent;
+    color: inherit;
+  }
+
+  :is(select, input[type='text'], input[type='search'], input[type='number'], .ts-control) {
+    background-color: rgb(var(--color-base-800));
+    border-color: rgb(var(--color-base-700));
+    color: rgb(var(--color-base-800-content));
+  }
+
+  label {
+    color: rgb(var(--color-base-900-content) / 0.75);
+  }
+}
+
+.neo-alchemist--band-icon {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: calc(var(--spacing) * 9);
+  height: calc(var(--spacing) * 9);
+  border-radius: var(--radius-lg);
+  color: rgb(var(--color-base-900-content) / 0.8);
+  transition: background-color 0.15s, color 0.15s;
+
+  &:hover,
+  &.is-active {
+    background-color: rgb(var(--color-base-800));
+    color: rgb(var(--color-base-800-content));
+  }
+}
+
+.neo-alchemist--band-pill,
+.neo-alchemist--band-add {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: calc(var(--spacing) * 1.5);
+  height: calc(var(--spacing) * 9);
+  padding-inline: calc(var(--spacing) * 3.5);
+  border: 1px solid transparent;
+  border-radius: 9999px;
+  font-size: var(--text-sm);
+  font-weight: 500;
+  white-space: nowrap;
+  transition: background-color 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.neo-alchemist--band-pill {
+  border-color: rgb(var(--color-base-700));
+  background-color: rgb(var(--color-base-800));
+  color: rgb(var(--color-base-800-content));
+
+  &:hover {
+    background-color: rgb(var(--color-base-700));
+  }
+
+  &.is-active {
+    border-color: rgb(var(--color-primary-500));
+    background-color: rgb(var(--color-primary-500));
+    color: rgb(var(--color-primary-500-content));
+  }
+}
+
+.neo-alchemist--band-add {
+  background-color: rgb(var(--color-base-0));
+  color: rgb(var(--color-base-900));
+  font-weight: 600;
+
+  &:hover {
+    background-color: rgb(var(--color-base-100));
+  }
+
+  .neo-icon {
+    color: rgb(var(--color-primary-500));
+  }
+}
+
+/* Its short name only stands in for the full one when the band is short of
+   room (headerFit() in components-parent.ts). */
+.neo-alchemist--add-short {
+  display: none;
+}
+
+.neo-alchemist--band-save {
+  display: inline-flex;
+  align-items: center;
+  gap: calc(var(--spacing) * 1.5);
+  height: calc(var(--spacing) * 9);
+  padding-inline: calc(var(--spacing) * 4);
+  border-radius: 9999px;
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
