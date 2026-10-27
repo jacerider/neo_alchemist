@@ -248,11 +248,85 @@
   }
 }
 
+.neo-alchemist--rail-grip {
+  cursor: grab;
+  touch-action: none;
+  color: rgb(255 255 255 / 0.7);
+}
+
 .neo-alchemist--rail-divider {
   width: 1rem;
   height: 1px;
   margin-block: 3px;
   background: rgb(255 255 255 / 0.2);
+}
+
+/* A drag on the canvas (canvasDrag* in components-parent.ts). A shield over the
+ * preview keeps the pointer from the frames, which would swallow its moves;
+ * the dragged outline goes dashed and the selection's ops step aside. The
+ * drop shows as a primary line at the edge it lands on, or the whole region it
+ * lands in. */
+.neo-alchemist--drag-shield {
+  position: absolute;
+  inset: 0;
+  z-index: 35;
+  cursor: grabbing;
+}
+
+.neo-alchemist-manage.is-canvas-dragging {
+  .neo-alchemist--overlay-actions {
+    display: none;
+  }
+
+  .neo-alchemist--overlay[data-state='focus'] {
+    box-shadow: none;
+    outline: calc(2px * var(--inv)) dashed rgb(17 17 17 / 0.6);
+    outline-offset: calc(-2px * var(--inv));
+  }
+}
+
+.neo-alchemist--drop-line {
+  position: absolute;
+  z-index: 40;
+  pointer-events: none;
+  border-radius: 9999px;
+  background: rgb(var(--color-primary-500));
+  box-shadow: 0 0 0 calc(1px * var(--inv)) rgb(255 255 255);
+
+  &[hidden] {
+    display: none;
+  }
+
+  span {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    padding: 0.25rem 0.625rem;
+    border-radius: 9999px;
+    background: rgb(var(--color-primary-500));
+    color: rgb(var(--color-primary-500-content));
+    font-size: var(--text-xs);
+    font-weight: 600;
+    white-space: nowrap;
+    box-shadow: 0 0 0 2px rgb(255 255 255);
+    transform: translate(-50%, -50%) scale(var(--inv));
+  }
+
+  &.is-vertical span {
+    display: none;
+  }
+}
+
+.neo-alchemist--drop-region {
+  position: absolute;
+  z-index: 39;
+  pointer-events: none;
+  background: rgb(var(--color-primary-500) / 0.12);
+  box-shadow: inset 0 0 0 calc(2px * var(--inv)) rgb(var(--color-primary-500));
+
+  &[hidden] {
+    display: none;
+  }
 }
 
 /* In Compare the selection is outlined on every frame, but its rail and knobs

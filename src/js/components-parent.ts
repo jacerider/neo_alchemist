@@ -159,6 +159,19 @@
   // The Layers row being dragged, and the row marked as where it would land.
   let layersDragUuid: string | null = null;
   let layersDropRow: HTMLElement | null = null;
+  // A drag on the canvas (canvasDragInit()): declared up here, with the
+  // other state, because the editor's init runs before the code below it.
+  let canvasDragUuid: string | null = null;
+  let canvasDropTarget: LayersDrop | null = null;
+  let canvasDragPoint: { x: number; y: number } | null = null;
+  let canvasDragScroll: number | null = null;
+  let canvasDragShield: HTMLElement | null = null;
+  const canvasDropLine = document.createElement('div');
+  canvasDropLine.className = 'neo-alchemist--drop-line';
+  canvasDropLine.hidden = true;
+  const canvasDropRegion = document.createElement('div');
+  canvasDropRegion.className = 'neo-alchemist--drop-region';
+  canvasDropRegion.hidden = true;
   // The component edit form takes the right-hand side, which is where the
   // layers panel floats. Editing one component's props is not a moment for
   // navigating the tree, so the panel stays out of that view entirely.
@@ -876,6 +889,7 @@
     // Layers panel.
     layersTree?.addEventListener('keydown', layersKeydown);
     layersDragInit();
+    canvasDragInit();
     layersToggleButton?.addEventListener('click', (e) => {
       e.preventDefault();
       // Showing a panel, the toggle brings Layers forward rather than hiding
@@ -2521,6 +2535,12 @@
       };
       divider.style.display = shown(divider.previousElementSibling, 'previousElementSibling') && shown(divider.nextElementSibling, 'nextElementSibling') ? '' : 'none';
     });
+    // The grip drags with the move op's route, so it goes where moving does.
+    const ops = uuid ? structureData[uuid]?.data?.ops : null;
+    const canMove = !!(ops?.['move-up']?.permitted || ops?.['move-down']?.permitted);
+    container.querySelectorAll<HTMLElement>('.neo-alchemist--rail-grip').forEach(grip => {
+      grip.style.display = canMove ? '' : 'none';
+    });
     dockMenuSet(false);
     if (dockMore) {
       dockMore.hidden = !dockMenu?.querySelector('[data-op]:not([style*="display: none"])');
@@ -2932,10 +2952,25 @@
   }
 
   function layersDropAt(row: HTMLElement, clientY: number): LayersDrop | null {
-    const uuid = row.dataset.uuid;
-    const dragged = layersDragUuid;
+    const rect = row.getBoundingClientRect();
+    return dropFor(layersDragUuid, row.dataset.uuid, clientY < rect.top + (rect.height / 2), !!row.dataset.inert);
+  }
+
+  /**
+   * Where a drag of one node onto another would land, or null if nowhere.
+   *
+   * The one rule for Layers and the canvas alike: before or after a component
+   * whose container is a region (or the page), into a region at its end;
+   * never into the dragged node or under it, only into customizable regions in
+   * a hybrid layout, and never back where it already is.
+   *
+   * @param first
+   *   Whether the pointer is on the first half of the target (its top, or its
+   *   left where siblings sit side by side): before rather than after.
+   */
+  function dropFor(dragged: string | null, uuid: string | undefined, first: boolean, inert: boolean = false): LayersDrop | null {
     const data = uuid ? structureData[uuid] : null;
-    if (!dragged || !uuid || !data || uuid === dragged || data.parents.includes(dragged) || row.dataset.inert) {
+    if (!dragged || !uuid || !data || uuid === dragged || data.parents.includes(dragged) || inert) {
       return null;
     }
     if (data.type === 'region') {
@@ -2951,8 +2986,7 @@
     if (hybrid && !(container && isCustomRegion(container))) {
       return null;
     }
-    const rect = row.getBoundingClientRect();
-    const position = clientY < rect.top + (rect.height / 2) ? 'before' : 'after';
+    const position = first ? 'before' : 'after';
     // Dropping a component back where it already is writes nothing.
     const siblings = container ? (structureData[container]?.children ?? []) : Object.keys(structureData).filter(key => !structureData[key].parents.length);
     const from = structureData[dragged]?.parents.slice(-1)[0] || null;
@@ -3009,6 +3043,168 @@
       return;
     }
     run();
+  }
+
+  /**
+   * Dragging the selection on the canvas, from its rail's grip.
+   *
+   * The drop is the same as a Layers drop (dropFor(), then layersDrop(): one
+   * request to the move route's `to` step). Targets are found from the rects
+   * the frame being interacted with reported, deepest first, so a component
+   * inside a region offers before/after it and the region's empty space offers
+   * the region. A shield over the preview keeps the pointer's moves from the
+   * frames; near the canvas's top or bottom edge the canvas scrolls.
+   */
+  function canvasDragInit(): void {
+    canvasDropLine.innerHTML = `<span>${escapeHtml(Drupal.t('Move here'))}</span>`;
+    chrome.append(canvasDropLine, canvasDropRegion);
+    chrome.addEventListener('pointerdown', (e) => {
+      const grip = e.target instanceof Element ? e.target.closest<HTMLElement>('.neo-alchemist--rail-grip') : null;
+      if (!grip || !layerUuid || e.button !== 0) {
+        return;
+      }
+      e.preventDefault();
+      e.stopPropagation();
+      canvasDragStart(layerUuid);
+    });
+  }
+
+  function canvasDragStart(uuid: string): void {
+    canvasDragUuid = uuid;
+    canvasDropTarget = null;
+    opTooltipsHide();
+    container.classList.add('is-canvas-dragging');
+    canvasDragShield = document.createElement('div');
+    canvasDragShield.className = 'neo-alchemist--drag-shield';
+    (wrapper.closest('.neo-alchemist-manage--preview') ?? wrapper).appendChild(canvasDragShield);
+    window.addEventListener('pointermove', canvasDragMove);
+    window.addEventListener('pointerup', canvasDragEnd);
+    window.addEventListener('pointercancel', canvasDragCancel);
+    document.addEventListener('keydown', canvasDragKey, true);
+  }
+
+  function canvasDragMove(e: PointerEvent): void {
+    canvasDragPoint = { x: e.clientX, y: e.clientY };
+    canvasDropFind();
+    // Near an edge the canvas scrolls, faster the nearer, and keeps finding
+    // the drop under the still pointer as the page moves beneath it.
+    const edge = wrapper.getBoundingClientRect();
+    const reach = 60;
+    const speed = e.clientY < edge.top + reach
+      ? -Math.ceil((edge.top + reach - e.clientY) / 4)
+      : (e.clientY > edge.bottom - reach ? Math.ceil((e.clientY - (edge.bottom - reach)) / 4) : 0);
+    if (speed && canvasDragScroll === null) {
+      const step = () => {
+        const current = canvasDragPoint ? wrapper.getBoundingClientRect() : null;
+        if (!current || !canvasDragUuid || !canvasDragPoint) {
+          canvasDragScroll = null;
+          return;
+        }
+        const y = canvasDragPoint.y;
+        const delta = y < current.top + reach ? -Math.ceil((current.top + reach - y) / 4) : (y > current.bottom - reach ? Math.ceil((y - (current.bottom - reach)) / 4) : 0);
+        if (!delta) {
+          canvasDragScroll = null;
+          return;
+        }
+        wrapper.scrollTop += delta;
+        canvasDropFind();
+        canvasDragScroll = requestAnimationFrame(step);
+      };
+      canvasDragScroll = requestAnimationFrame(step);
+    }
+  }
+
+  /**
+   * The drop under the pointer, marked on the canvas.
+   */
+  function canvasDropFind(): void {
+    const size = layerInteractSize;
+    const positions = positionData[size];
+    const point = canvasDragPoint;
+    canvasDropTarget = null;
+    canvasDropLine.hidden = true;
+    canvasDropRegion.hidden = true;
+    if (!positions || !point || !canvasDragUuid || !getIframe(size)) {
+      return;
+    }
+    // The pointer in the frame's own pixels, which are the layer's.
+    const frame = calculateRect(getIframe(size).getBoundingClientRect());
+    const at = calculateRect(new DOMRect(point.x, point.y, 0, 0));
+    const x = at.left - frame.left;
+    const y = at.top - frame.top;
+    const under = Object.keys(positions)
+      .filter(uuid => {
+        const rect = positions[uuid];
+        return structureData[uuid] && x >= rect.left && x <= rect.left + rect.width && y >= rect.top && y <= rect.top + rect.height;
+      })
+      .sort((a, b) => structureData[b].parents.length - structureData[a].parents.length);
+    for (const uuid of under) {
+      const rect = positions[uuid];
+      const container = structureData[uuid].parents.slice(-1)[0] || null;
+      const siblings = container ? (structureData[container]?.children ?? []) : Object.keys(structureData).filter(key => !structureData[key].parents.length);
+      // Side by side (a grid's cards) when a sibling shares this one's top.
+      const sideways = siblings.some(other => other !== uuid && positions[other] && Math.abs(positions[other].top - rect.top) < 4);
+      const first = sideways ? x < rect.left + (rect.width / 2) : y < rect.top + (rect.height / 2);
+      const drop = dropFor(canvasDragUuid, uuid, first, hybrid && isInheritedComponent(uuid));
+      if (!drop) {
+        continue;
+      }
+      canvasDropTarget = drop;
+      const box = calculateIframeRect(size, rect);
+      if (drop.position === null) {
+        Object.assign(canvasDropRegion.style, { left: `${box.left}px`, top: `${box.top}px`, width: `${box.width}px`, height: `${box.height}px` });
+        canvasDropRegion.hidden = false;
+        return;
+      }
+      const thick = 'calc(3px * var(--inv))';
+      canvasDropLine.classList.toggle('is-vertical', sideways);
+      if (sideways) {
+        const left = drop.position === 'before' ? box.left : box.left + box.width;
+        Object.assign(canvasDropLine.style, { left: `${left}px`, top: `${box.top}px`, width: thick, height: `${box.height}px`, transform: 'translateX(-50%)' });
+      }
+      else {
+        const top = drop.position === 'before' ? box.top : box.top + box.height;
+        Object.assign(canvasDropLine.style, { left: `${box.left}px`, top: `${top}px`, width: `${box.width}px`, height: thick, transform: 'translateY(-50%)' });
+      }
+      canvasDropLine.hidden = false;
+      return;
+    }
+  }
+
+  function canvasDragEnd(): void {
+    const dragged = canvasDragUuid;
+    const drop = canvasDropTarget;
+    canvasDragCancel();
+    if (dragged && drop) {
+      layersDrop(dragged, drop);
+    }
+  }
+
+  function canvasDragCancel(): void {
+    canvasDragUuid = null;
+    canvasDropTarget = null;
+    canvasDragPoint = null;
+    if (canvasDragScroll !== null) {
+      cancelAnimationFrame(canvasDragScroll);
+      canvasDragScroll = null;
+    }
+    canvasDropLine.hidden = true;
+    canvasDropRegion.hidden = true;
+    canvasDragShield?.remove();
+    canvasDragShield = null;
+    container.classList.remove('is-canvas-dragging');
+    window.removeEventListener('pointermove', canvasDragMove);
+    window.removeEventListener('pointerup', canvasDragEnd);
+    window.removeEventListener('pointercancel', canvasDragCancel);
+    document.removeEventListener('keydown', canvasDragKey, true);
+  }
+
+  function canvasDragKey(e: KeyboardEvent): void {
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      e.stopPropagation();
+      canvasDragCancel();
+    }
   }
 
   function layersDragInit(): void {

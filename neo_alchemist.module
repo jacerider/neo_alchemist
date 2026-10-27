@@ -37,6 +37,7 @@ use Drupal\neo_alchemist\Form\InstanceComponentResetForm;
 use Drupal\neo_alchemist\Form\InstanceComponentRevertForm;
 use Drupal\neo_alchemist\Plugin\DataType\ComponentTreeStructure;
 use Drupal\neo_alchemist\Plugin\Field\FieldType\ComponentTreeItem;
+use Drupal\neo_tooltip\Tooltip;
 use Drupal\neo_alchemist\Plugin\Field\NeoComponentTreeList;
 use Drupal\neo_alchemist\Routing\EditorOpInventory;
 use Drupal\neo_alchemist\Routing\EditorRouteFamily;
@@ -303,6 +304,22 @@ function template_preprocess_neo_alchemist_overlay(&$variables) {
   $chrome = _neo_alchemist_overlay_ops($inventory->ops());
   $variables['outline_ops'] = $chrome['outline_ops'];
   $variables['outline_rail'] = $chrome['outline_rail'];
+  // The rail's grip: not an op, a way to run the move op's `to` step by
+  // dragging (canvasDragStart() in components-parent.ts). A button, never a
+  // link, which the browser would drag as a URL.
+  $label = t('Drag to move');
+  $variables['outline_grip'] = [
+    '#type' => 'html_tag',
+    '#tag' => 'button',
+    '#attributes' => [
+      'type' => 'button',
+      'class' => ['neo-alchemist--rail-button', 'neo-alchemist--rail-grip'],
+      'aria-label' => $label,
+      'data-neo-tooltip-detach' => 'true',
+    ],
+    'icon' => neo_icon_admin($label, 'grip-dots-vertical')->iconOnly()->getRenderable(),
+  ];
+  (new Tooltip($label, ['placement' => 'right']))->applyTo($variables['outline_grip']);
 }
 
 /**

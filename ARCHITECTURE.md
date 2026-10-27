@@ -1114,7 +1114,14 @@ name the op and its shortcut. `railsPlace()` brings it just inside the visible p
 component (`.is-rail-inside`, `--rail-x`) when the canvas leaves no room outside; Fit
 (`fitScale()` in component-parent.ts) leaves a 48px gutter beside the frames so that is rare. In
 Compare only the frame being interacted with (`data-alchemist-interact`, `interactSizeSet()`)
-shows the rail and knobs. An op's `keys` (EditorOp, e.g. `Mod+d`, `Delete Backspace`,
+shows the rail and knobs. The rail leads with a grip (`outline_grip`, shown while a move op is
+permitted): dragging it (`canvasDragStart()`…`canvasDragEnd()`) finds the drop under the pointer
+from the rects the interacted frame reported, deepest node first, through the same rule Layers
+uses (`dropFor()`; before/after by the half of the target under the pointer — left/right where
+siblings sit side by side — or into a region), marks it (`.neo-alchemist--drop-line` "Move here",
+or `.neo-alchemist--drop-region`), and drops through `layersDrop()`: one request to the move
+route's `to` step. A `.neo-alchemist--drag-shield` over the preview keeps the pointer from the
+frames during the drag; within 60px of the canvas's top or bottom it scrolls; Esc cancels. An op's `keys` (EditorOp, e.g. `Mod+d`, `Delete Backspace`,
 `Alt+ArrowUp`) travel as `data-op-keys`; one document keydown handler runs the op whose keys
 match, never while typing or a dialog is open, and `opKeysLabel()` writes them for the keyboard in
 use. **Delete is immediate**: the client sends `immediate=1` and the session's request-header

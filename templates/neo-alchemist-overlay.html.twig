@@ -65,6 +65,7 @@
   #}
   {% if outline_rail %}
     <div class="neo-alchemist--overlay-actions neo-alchemist--rail transition-opacity" role="toolbar" aria-label="{{ 'Component'|t }}" data-alchemist-nodrag>
+      {{- outline_grip -}}
       {%- for item in outline_rail -%}
         {%- if item.divider -%}<span class="neo-alchemist--rail-divider" aria-hidden="true"></span>{%- endif -%}
         {{ item.link }}

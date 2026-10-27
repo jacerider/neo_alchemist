@@ -1,5 +1,17 @@
 # Changelog
 
+## Drag a component on the canvas
+
+The rail beside a selected component leads with a grip. Drag it and a "Move here" line shows
+where the component will land, before or after another component (beside it, for cards side by
+side), or a whole region lights up to drop into. Release to move it; Esc cancels. Near the top or
+bottom of the canvas it scrolls. It drops wherever Layers would allow, and it is one step to
+undo.
+
+For code: `outline_grip` (template_preprocess_neo_alchemist_overlay()); Layers' drop rule is now
+`dropFor()`, shared by `layersDropAt()` and the canvas drag (`canvasDrag*` in
+components-parent.ts), which drops through `layersDrop()`.
+
 ## The selection's rail: move, duplicate and delete beside the component
 
 - **A dark rail beside the selected component** holds Move up, Move down, Duplicate and Delete.
