@@ -881,8 +881,9 @@ Layers, never as a tab beside it (page-level, so independent of the selection, a
 to the rail; one thing showing at a time, titled for it and widened to the panel's `width`),
 opened by its own pill, named for it (`.neo-alchemist--sidepanel-toggle`), in the band's centre
 after + Add and Layers — never joined to the panel's badge, which leads the band's trailing
-group on its own. The name drops to the icon and a tooltip while the band is short of room
-(`headerFit()`). The badge itself is no way into the panel: its buttons open its dropdown. And
+group on its own. The pill's tooltip is the panel's optional `description` (what it is for,
+never its name); while the band is short of room the name drops to the icon and leads the
+tooltip in bold (`headerFit()`, `tipFill()`). The badge itself is no way into the panel: its buttons open its dropdown. And
 **one key in the shared draft**, so what the panel drafts is saved, reverted, reset and published with the
 layout rather than beside it. The existing Content / Style / Sources tabs are not panels and
 stay hardcoded. Entity scope only — a field default layout and a block host have no
@@ -892,7 +893,7 @@ per-entity draft. Worked example: the fixture `TestLabelPanel` in
 **Server half** — a plugin in `src/Plugin/AlchemistPanel/` of any module:
 
 ```php
-#[AlchemistPanel(id: 'my_panel', label: new TranslatableMarkup('SEO'), icon: 'search', weight: 0, width: '24rem')]
+#[AlchemistPanel(id: 'my_panel', label: new TranslatableMarkup('SEO'), icon: 'search', weight: 0, width: '24rem', description: new TranslatableMarkup('Edit how this page appears in search results'))]
 final class MyPanel extends AlchemistPanelBase {
   // access(ComponentTreeItem $item, AccountInterface $account): AccessResultInterface
   //   Base: update access to the host entity. Narrow it here.
@@ -1056,7 +1057,13 @@ and Purge). The leading and trailing groups share what the centre leaves, keepin
 centre drift off-centre, then compacts step by step — the pills to their icons, + Add to "Add",
 the badges' `.neo-alchemist--compact-hide` parts — rerunning on resize and whenever the status
 line or save group re-renders. The breadcrumb bar is the band's second row, full width, so it
-stays when the inspector is expanded over the canvas. How the canvas shows the page is not in the
+stays when the inspector is expanded over the canvas. Band and dock buttons carry a neo tooltip,
+never a native `title`, and it says what the button does, never its visible label: the
+description sits in `data-alchemist-tip` (`ComponentManageHelper::applyBandTip()`; Add's is
+rewritten as the selection changes), and `tipFill()` in `component-parent.ts` sets the content
+as the tooltip opens — leading with the name in bold (`data-alchemist-tip-name`) while the
+label is hidden, or `data-alchemist-tip-active` for the shown device and Compare. How the canvas
+shows the page is not in the
 band: the preview dock (`buildIframeOperations()`, template variable `preview`) floats at the
 bottom of the preview area (`.neo-alchemist-manage--preview`: the scrolling canvas plus the
 dock, which is what the Manage page's Form / Split / Preview View size) on every screen with a

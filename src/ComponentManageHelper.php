@@ -188,12 +188,14 @@ class ComponentManageHelper {
       ],
     ];
     foreach ([
-      'desktop' => t('Desktop'),
-      'tablet' => t('Tablet'),
-      'mobile' => t('Mobile'),
-    ] as $key => $name) {
+      'desktop' => [t('Desktop'), t('Preview at desktop width'), t('Previewing at desktop width')],
+      'tablet' => [t('Tablet'), t('Preview at tablet width'), t('Previewing at tablet width')],
+      'mobile' => [t('Mobile'), t('Preview at mobile width'), t('Previewing at mobile width')],
+    ] as $key => [$name, $tip, $shown]) {
       // The name is the label; the dock shows it only on the shown size
-      // (component-parent.css), and the tooltip says it on the rest.
+      // (component-parent.css). The tooltip says what the button does, which
+      // names the size too, so the icon-only ones need nothing more; the shown
+      // one's says so (component-parent.ts swaps it in as it opens).
       $build['size'][$key] = [
         '#type' => 'html_tag',
         '#tag' => 'button',
@@ -202,11 +204,13 @@ class ComponentManageHelper {
           'class' => ['neo-alchemist--focus', 'neo-alchemist--dock-device'],
           'data-size' => $key,
           'aria-pressed' => 'false',
+          'data-alchemist-tip' => (string) $tip,
+          'data-alchemist-tip-active' => (string) $shown,
           'data-neo-tooltip-detach' => 'true',
         ],
         'icon' => neo_icon_admin($name, $key)->addLabelClass('neo-alchemist--dock-device-label')->getRenderable(),
       ];
-      (new Tooltip($name, ['placement' => 'top']))->applyTo($build['size'][$key]);
+      (new Tooltip($tip, ['placement' => 'top']))->applyTo($build['size'][$key]);
     }
 
     $build['divider_zoom'] = static::buildDockDivider();
@@ -246,9 +250,10 @@ class ComponentManageHelper {
         'aria-haspopup' => 'true',
         'aria-expanded' => 'false',
         'aria-controls' => 'neo-alchemist-zoom-menu',
-        'title' => t('Zoom'),
+        'data-neo-tooltip-detach' => 'true',
       ],
     ];
+    (new Tooltip(t('Choose a zoom level'), ['placement' => 'top']))->applyTo($build['scale']['value']);
     $build['scale']['in'] = $steps['in'];
     $build['scale']['menu'] = [
       '#type' => 'html_tag',
@@ -291,10 +296,13 @@ class ComponentManageHelper {
         'type' => 'button',
         'class' => ['neo-alchemist--compare', 'neo-alchemist--dock-device'],
         'aria-pressed' => 'false',
-        'title' => t('Show all sizes side by side'),
+        'data-alchemist-tip' => (string) t('Show all sizes side by side'),
+        'data-alchemist-tip-active' => (string) t('Showing all sizes side by side'),
+        'data-neo-tooltip-detach' => 'true',
       ],
       'icon' => neo_icon_admin(t('Compare'), 'columns')->getRenderable(),
     ];
+    (new Tooltip(t('Show all sizes side by side'), ['placement' => 'top']))->applyTo($build['compare']);
     return $build;
   }
 
@@ -336,7 +344,7 @@ class ComponentManageHelper {
     ];
     // Add acts on whatever container the current selection resolves to (the
     // end of it), which is not something a fixed label can express, so the
-    // editor names it in the button's title as the selection changes. It leads
+    // editor says it in the button's tooltip as the selection changes. It leads
     // the band's centre, the light pill on the dark band: building the page is
     // what the editor is for. Save stays the one primary-coloured button. When
     // the band runs short of room it says just "Add" (headerFit() in
@@ -362,6 +370,7 @@ class ComponentManageHelper {
         ],
         '#modal' => $modalSettings,
       ];
+      static::applyBandTip($build['add'], t('Add a component to the end of the page'), t('Add component'));
     }
     return $build;
   }
@@ -378,7 +387,7 @@ class ComponentManageHelper {
    *   The toggle.
    */
   public static function buildLayersToggle() {
-    return [
+    $build = [
       'layers' => [
         '#type' => 'html_tag',
         '#tag' => 'button',
@@ -386,12 +395,38 @@ class ComponentManageHelper {
         '#attributes' => [
           'type' => 'button',
           'class' => ['neo-alchemist--layers-toggle', 'neo-alchemist--band-pill'],
-          'title' => t('Toggle the component tree'),
           'aria-expanded' => 'false',
           'aria-controls' => 'neo-alchemist-layers',
         ],
       ],
     ];
+    static::applyBandTip($build['layers'], t('See every component on the page and drag to reorder them'), t('Layers'));
+    return $build;
+  }
+
+  /**
+   * Gives a band-centre button its tooltip: what it does, not what it says.
+   *
+   * The label already names the button, so the tooltip only describes it, and
+   * a button with no description has none. While the band is short of room and
+   * the label is hidden, component-parent.ts puts the name back on top of the
+   * tooltip as it opens. It reads both from the attributes set here, so Add can
+   * rewrite its description as the selection changes.
+   *
+   * @param array $build
+   *   The button's render array.
+   * @param string|\Stringable $tip
+   *   What the button does; empty for no tooltip while the label shows.
+   * @param string|\Stringable $name
+   *   The button's label.
+   */
+  protected static function applyBandTip(array &$build, string|\Stringable $tip, string|\Stringable $name): void {
+    $tip = (string) $tip;
+    $build['#attributes']['data-alchemist-tip'] = $tip;
+    $build['#attributes']['data-alchemist-tip-name'] = (string) $name;
+    // On the body: the band's stacking context would hold it under the crumbs.
+    $build['#attributes']['data-neo-tooltip-detach'] = 'true';
+    (new Tooltip($tip, ['placement' => 'bottom']))->applyTo($build);
   }
 
   /**
@@ -433,9 +468,9 @@ class ComponentManageHelper {
         'label' => $label,
         'url' => $item->toUrl('panel')->setRouteParameter('panel', $id)->toString(),
       ];
-      // The panel's own button: its icon and name. The name gives way to a
-      // tooltip when the header runs out of room (headerFit() in
-      // components-parent.ts).
+      // The panel's own button: its icon and name, and the panel's description
+      // as its tooltip. The name gives way to the tooltip when the header runs
+      // out of room (headerFit() in components-parent.ts).
       $toggle = [
         '#type' => 'html_tag',
         '#tag' => 'button',
@@ -448,9 +483,7 @@ class ComponentManageHelper {
           'aria-controls' => 'neo-alchemist-layers',
         ],
       ];
-      // On the body, not in the badge it is joined to (see the size toggles).
-      $toggle['#attributes']['data-neo-tooltip-detach'] = 'true';
-      (new Tooltip($label, ['placement' => 'bottom']))->applyTo($toggle);
+      static::applyBandTip($toggle, $definition['description'] ?? '', $label);
       $build['toggles']['sidepanel_' . $id] = $toggle;
       // The badge's dropdown is added by panels.ts beside the badge content.
       // Apart from the panel's pill: a badge is read at a glance, the pill is
@@ -738,9 +771,9 @@ class ComponentManageHelper {
           '#attributes' => [
             'type' => 'button',
             'class' => ['neo-alchemist--more-toggle', 'neo-alchemist--band-icon'],
-            'title' => t('More actions'),
             'aria-expanded' => 'false',
             'aria-controls' => $menuId,
+            'data-neo-tooltip-detach' => 'true',
           ],
           // A renderable, not markup: the panel endpoint renders this group
           // in isolation, outside any render context an eager render needs.
@@ -760,6 +793,7 @@ class ComponentManageHelper {
           ],
         ] + $more,
       ];
+      (new Tooltip(t('More actions'), ['placement' => 'bottom']))->applyTo($build['more']['toggle']);
     }
     return $build;
   }

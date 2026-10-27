@@ -1011,6 +1011,43 @@
     }
 
     /**
+     * Fills a band or dock button's tooltip as it opens.
+     *
+     * The tooltip says what the button does, never its label, from
+     * data-alchemist-tip (ComponentManageHelper::applyBandTip()). Two things
+     * only the moment of opening knows: whether the label is on screen —
+     * headerFit() hides it as the band narrows, and then the name leads the
+     * tooltip in bold — and whether a device button is the one shown, which
+     * says so instead (data-alchemist-tip-active). Read then rather than kept
+     * in step, so neither headerFit() nor the size toggles need to know.
+     * Capture, so it runs before the tooltip's own mouseenter and focus.
+     */
+    function tipFill(event: Event): void {
+      const button = (event.target as Element | null)?.closest<HTMLElement>('[data-alchemist-tip]');
+      const tip = (button as any)?._tippy;
+      if (!button || !tip || !container.contains(button)) {
+        return;
+      }
+      const text = (button.classList.contains('is-active') && button.dataset.alchemistTipActive) || button.dataset.alchemistTip || '';
+      const name = button.dataset.alchemistTipName;
+      // A label is hidden either clipped to 1px (the narrow band's panel and
+      // Layers labels) or not displayed (Add's full name, for "Add").
+      const named = [...button.querySelectorAll<HTMLElement>('.neo-icon-label')].some(label => label.offsetWidth > 1);
+      if (!name || named) {
+        tip.setContent(text);
+        return;
+      }
+      const content = document.createElement('span');
+      const strong = document.createElement('strong');
+      strong.className = 'block';
+      strong.textContent = name;
+      content.append(strong, text);
+      tip.setContent(content);
+    }
+    container.addEventListener('mouseover', tipFill, true);
+    container.addEventListener('focusin', tipFill, true);
+
+    /**
      * Marks the size button for what is on screen: the shown size in Single,
      * else the given size, else the frame most in view.
      */

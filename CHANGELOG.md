@@ -1,5 +1,25 @@
 # Changelog
 
+## The editor's buttons say what they do when you hover them
+
+Hovering a button in the band or the preview dock shows the same styled tooltip everywhere, and it
+explains the button rather than repeating its name.
+
+- **Add component:** "Add a component to the end of Body", following the selection.
+- **Layers:** "See every component on the page and drag to reorder them".
+- **A side panel's button:** the panel's description, if it has one.
+- **Desktop, Tablet, Mobile:** "Preview at tablet width"; the one shown says "Previewing at
+  tablet width". Compare works the same way.
+- **The zoom value:** "Choose a zoom level".
+- When the band is short of room and a button drops its label, the tooltip names it in bold
+  first.
+- The browser's own hover text (Layers' "Toggle the component tree", ⋯, Zoom, Compare) is gone.
+
+For code: `#[AlchemistPanel]` takes an optional `description` (TranslatableMarkup). Band
+buttons carry `data-alchemist-tip` and `data-alchemist-tip-name`
+(`ComponentManageHelper::applyBandTip()`), and dock toggles `data-alchemist-tip-active`;
+`tipFill()` in `component-parent.ts` sets the tooltip content as it opens.
+
 ## The inspector opens with a band that says who the component is and where it sits
 
 The inspector's header is a band in the theme's primary tint. Its top row leads with a link to

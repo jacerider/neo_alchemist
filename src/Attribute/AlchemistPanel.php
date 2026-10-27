@@ -35,6 +35,10 @@ final class AlchemistPanel extends AttributeBase {
    *   (optional) Toggle order; lower sits further left.
    * @param string $width
    *   (optional) The floating panel's CSS width.
+   * @param \Drupal\Core\StringTranslation\TranslatableMarkup|null $description
+   *   (optional) What the panel is for, in a phrase: "Edit how this page
+   *   appears in search results". The toggle's tooltip, which never repeats
+   *   the label; without one the toggle has no tooltip while its label shows.
    */
   public function __construct(
     public readonly string $id,
@@ -42,6 +46,7 @@ final class AlchemistPanel extends AttributeBase {
     public readonly ?string $icon = NULL,
     public readonly int $weight = 0,
     public readonly string $width = '24rem',
+    public readonly ?TranslatableMarkup $description = NULL,
   ) {}
 
 }

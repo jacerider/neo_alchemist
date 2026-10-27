@@ -3660,9 +3660,10 @@
   function actionLabelsSet(uuid: string | null): void {
     const target = resolveAddTarget(uuid);
     actionButtons.forEach(button => {
-      // The label stays "Add": the header has no room for a sentence. Where
-      // it adds is said in the title, and shown on the canvas on hover.
-      button.setAttribute('title', target.uuid
+      // The label stays "Add component": the band has no room for a sentence.
+      // Where it adds is said in the tooltip (component-parent.ts reads this
+      // as it opens), and shown on the canvas on hover.
+      button.setAttribute('data-alchemist-tip', target.uuid
         ? Drupal.t('Add a component to the end of @target', { '@target': target.label })
         : Drupal.t('Add a component to the end of the page'));
     });
