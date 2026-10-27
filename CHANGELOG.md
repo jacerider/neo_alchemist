@@ -1,5 +1,10 @@
 # Changelog
 
+## View options joins the size group
+
+The view options toggle (Compare and the other canvas settings) sat apart from Desktop, Tablet and
+Mobile, though it is about the same thing. It is now the last button of their group.
+
 ## Header button groups keep their rounded ends while a tooltip shows
 
 Hovering Mobile, Redo or the Search & social button squared off the end of its group. Each

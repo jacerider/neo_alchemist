@@ -231,8 +231,11 @@ class ComponentManageHelper {
     }
 
     // View options: how the canvas shows the sizes. The panel always starts
-    // closed; component-parent.ts toggles it and remembers its settings.
-    $build['view'] = [
+    // closed; component-parent.ts toggles it and remembers its settings. The
+    // last part of the size group, since it is about the sizes: its wrapper
+    // is no `.btn`, so the group squares the Mobile button's right side and
+    // the toggle squares its own left.
+    $build['size']['view'] = [
       '#type' => 'html_tag',
       '#tag' => 'div',
       '#attributes' => [
@@ -244,7 +247,10 @@ class ComponentManageHelper {
         '#value' => neo_icon_admin(t('View options'), 'sliders-h')->iconOnly()->render(),
         '#attributes' => [
           'type' => 'button',
-          'class' => ['neo-alchemist--view-toggle', 'btn', 'btn-xs', 'btn-outline', 'is-active:btn-primary'],
+          'class' => [
+            'neo-alchemist--view-toggle', 'btn', 'btn-xs', 'btn-outline', 'is-active:btn-primary',
+            'md:rounded-l-none', 'md:border-l-0',
+          ],
           'title' => t('View options'),
           'aria-expanded' => 'false',
           'aria-controls' => 'neo-alchemist-view-options',
