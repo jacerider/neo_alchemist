@@ -705,7 +705,10 @@ class ComponentManageHelper {
         '#title' => neo_icon_admin(t('Save'), 'check'),
         '#url' => $instance->toUrl('publish'),
         '#attributes' => [
-          'class' => ['use-ajax', 'btn', 'btn-xs', 'btn-primary', 'neo-alchemist--band-save'],
+          // A band pill in the primary colour, as an active toggle and the
+          // preview dock's shown size are: not the theme's .btn, whose border
+          // and glow set it apart from everything else on the band.
+          'class' => ['use-ajax', 'neo-alchemist--band-pill', 'is-primary', 'neo-alchemist--band-save'],
         ],
         '#modal' => $modalSettings,
       ];

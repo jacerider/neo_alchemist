@@ -1,5 +1,11 @@
 # Changelog
 
+## Save looks like the editor's other primary buttons
+
+The header's Save is the same flat primary pill as an active Layers or Search & social button
+and the preview dock's shown size, instead of the theme's raised button with its own border and
+glow. It still darkens on hover.
+
 ## One colour all the way round a hovered component
 
 A hovered component's outline is the same 2px primary line as the ＋ seams above and below it,

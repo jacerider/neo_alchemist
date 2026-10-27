@@ -276,7 +276,7 @@ class AlchemistPanelTest extends HybridFieldKernelTestBase {
     $this->assertSame('Unsaved changes', (string) $element['#top_status']['status']['label']['#plain_text']);
     $save = $element['#top_save'];
     $this->assertSame(['publish', 'more'], $children($save), 'A draft: Save, then ⋯.');
-    $this->assertContains('btn-primary', $save['publish']['#attributes']['class'], 'Save is the filled button.');
+    $this->assertContains('is-primary', $save['publish']['#attributes']['class'], 'Save is the primary pill.');
     $this->assertSame('revert', $children($save['more']['menu'])[0], 'Discard unsaved changes leads the ⋯ menu.');
   }
 

@@ -488,10 +488,17 @@ form.neo-alchemist-manage--form:has(.neo-alchemist--form-layout) > .form--inner,
     background-color: rgb(var(--color-base-700));
   }
 
-  &.is-active {
+  /* A toggle that is on, and Save: the band's one primary action. */
+  &:is(.is-active, .is-primary) {
     border-color: rgb(var(--color-primary-500));
     background-color: rgb(var(--color-primary-500));
     color: rgb(var(--color-primary-500-content));
+  }
+
+  &.is-primary:is(:hover, :focus-visible) {
+    border-color: rgb(var(--color-primary-600));
+    background-color: rgb(var(--color-primary-600));
+    color: rgb(var(--color-primary-600-content));
   }
 }
 
@@ -516,13 +523,6 @@ form.neo-alchemist-manage--form:has(.neo-alchemist--form-layout) > .form--inner,
 }
 
 .neo-alchemist--band-save {
-  display: inline-flex;
-  align-items: center;
-  gap: calc(var(--spacing) * 1.5);
-  height: calc(var(--spacing) * 9);
-  padding-inline: calc(var(--spacing) * 4);
-  border-radius: 9999px;
-  font-size: var(--text-sm);
   font-weight: 600;
 }
 
