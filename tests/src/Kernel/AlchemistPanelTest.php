@@ -231,15 +231,18 @@ class AlchemistPanelTest extends HybridFieldKernelTestBase {
     $item = $this->item($this->labelledEntity());
     $plain = $this->manageElement($item);
     $this->assertArrayNotHasKey('badges', $plain['#top_end'], 'No badge: the top bar is unchanged.');
-    $this->assertSame(['scale', 'size', 'view'], array_values(array_filter(array_keys($plain['#top_end']), static fn ($key) => $key[0] !== '#')), 'The top bar end holds only the scale, device and view controls.');
+    $this->assertSame(['scale', 'size'], array_values(array_filter(array_keys($plain['#top_end']), static fn ($key) => $key[0] !== '#')), 'The top bar end holds only the scale and device controls, view options last among the devices.');
+    $this->assertArrayHasKey('view', $plain['#top_end']['size'], 'View options is part of the device group.');
 
     \Drupal::state()->set(TestLabelPanel::BADGE_STATE_KEY, TRUE);
-    $this->assertArrayNotHasKey('sidepanel_' . self::PANEL, $this->sidePanels($item)['toggles'], 'A panel with a badge opens from it: no header toggle.');
+    $this->assertArrayNotHasKey('sidepanel_' . self::PANEL, $this->sidePanels($item)['toggles'], 'A panel with a badge has its button in the badge, not the leading group.');
     $badged = $this->manageElement($item);
     $children = array_values(array_filter(array_keys($badged['#top_end']), static fn ($key) => $key[0] !== '#'));
-    $this->assertSame(['badges', 'scale', 'size', 'view'], $children, 'Badges come first, in the same container as the scale and device controls.');
+    $this->assertSame(['badges', 'scale', 'size'], $children, 'Badges come first, in the same container as the scale and device controls.');
     $badge = $badged['#top_end']['badges']['badge_' . self::PANEL];
     $this->assertSame(self::PANEL, $badge['#attributes']['data-alchemist-badge']);
+    $this->assertSame(['toggle', 'content'], array_values(array_filter(array_keys($badge), static fn ($key) => $key[0] !== '#')), "The panel's own button heads its badge.");
+    $this->assertSame(self::PANEL, $badge['toggle']['#attributes']['data-alchemist-sidepanel'], 'The button opens the panel.');
     $this->assertSame('button', $badge['content']['#tag']);
     $this->assertContains('neo_alchemist/panels', $badged['#attached']['library'], 'The badge client half loads with the editor.');
   }
