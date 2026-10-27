@@ -1,5 +1,10 @@
 # Changelog
 
+## One colour all the way round a hovered component
+
+A hovered component's outline is the same 2px primary line as the ＋ seams above and below it,
+on all four sides, instead of red top and bottom and a dark hairline at the sides.
+
 ## The rail's tooltips stay open
 
 Hovering a button on the selection's rail opened its tooltip and closed it at once: the
