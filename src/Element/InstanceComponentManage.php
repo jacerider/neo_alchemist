@@ -62,6 +62,14 @@ class InstanceComponentManage extends RenderElementBase {
     $element['#top_start'] = ComponentManageHelper::buildNavigationOperations($neoField)
       + ComponentManageHelper::buildLayersToggle()
       + ComponentManageHelper::buildOperations($neoField, $element['#neo_modal'] ?? []);
+    // Undo · Redo follow + Add. Only an entity's layout has a shared draft to
+    // step through; the wrapper stays put while a write re-renders inside it.
+    if (!$neoField->belongsToFieldConfig() && $neoField->access('update')) {
+      $element['#top_start']['history'] = [
+        '#type' => 'container',
+        '#attributes' => ['class' => ['neo-alchemist-manage--top-history', 'btn-group', 'flush']],
+      ] + ComponentManageHelper::buildHistoryOperations($neoField);
+    }
     $element['#top_end'] = ComponentManageHelper::buildIframeOperations($neoField);
     // The save group trails the view controls, and is the part a write
     // re-renders (see ComponentManageHelper::buildDynamicOperations()).

@@ -53,6 +53,7 @@ final class InstanceComponentMoveController extends ControllerBase {
       $sibling = $request->query->get('before') ?: $request->query->get('after');
       $position = $request->query->get('before') ? 'before' : 'after';
       if ($neo_field->relocateComponent($neo_component->uuid(), $targetUuid ?: NULL, $targetShape ?: NULL, $sibling ? (string) $sibling : NULL, $position)) {
+        $neo_field->describeStep($this->t('Move @label', ['@label' => $neo_component->label()]), $neo_component->uuid());
         $neo_field->saveComponents();
         $this->moveMessage($neo_field, $neo_component);
       }
@@ -82,6 +83,8 @@ final class InstanceComponentMoveController extends ControllerBase {
       [$uuids[$index1], $uuids[$index2]] = [$uuids[$index2], $uuids[$index1]];
       // Perform the swap.
       $neo_field->reorderComponents($uuids, $parentUuid, $shapeId);
+      $label = $direction === 'up' ? $this->t('Move @label up', ['@label' => $neo_component->label()]) : $this->t('Move @label down', ['@label' => $neo_component->label()]);
+      $neo_field->describeStep($label, $neo_component->uuid());
       $neo_field->saveComponents();
       $this->moveMessage($neo_field, $neo_component);
     }

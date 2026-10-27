@@ -10,6 +10,7 @@ use Drupal\Core\Render\RendererInterface;
 use Drupal\Core\Session\AccountInterface;
 use Drupal\neo_alchemist\ComponentManageHelper;
 use Drupal\neo_alchemist\EditorState\DraftConflictException;
+use Drupal\neo_alchemist\EditorState\EditorHistory;
 use Drupal\neo_alchemist\EditorState\SharedDraftStore;
 use Drupal\neo_alchemist\Form\DraftConflictMessageTrait;
 use Drupal\neo_alchemist\Panel\AlchemistPanelManager;
@@ -40,6 +41,7 @@ final class InstanceComponentPanelController extends ControllerBase {
     private readonly SharedDraftStore $sharedDraftStore,
     private readonly AlchemistPanelManager $panelManager,
     private readonly RendererInterface $renderer,
+    private readonly EditorHistory $editorHistory,
   ) {}
 
   /**
@@ -50,6 +52,7 @@ final class InstanceComponentPanelController extends ControllerBase {
       $container->get('neo_alchemist.shared_draft_store'),
       $container->get('plugin.manager.neo_alchemist_panel'),
       $container->get('renderer'),
+      $container->get('neo_alchemist.editor_history'),
     );
   }
 
@@ -83,6 +86,7 @@ final class InstanceComponentPanelController extends ControllerBase {
     if (!is_array($payload) || !array_key_exists('data', $payload) || ($version !== NULL && !is_int($version))) {
       return new JsonResponse(['message' => (string) $this->t('Expected a JSON body of {data, version}.')], 400);
     }
+    $versionBefore = $this->sharedDraftStore->version($neo_field);
     try {
       $this->sharedDraftStore->setPanel($neo_field, $panel, $payload['data'], $version);
     }
@@ -95,6 +99,9 @@ final class InstanceComponentPanelController extends ControllerBase {
         'version' => $conflict->getStoredVersion(),
       ], 409);
     }
+    // A panel write is no undo step, but it is this editor's own: the history
+    // follows the version on rather than reading it as a colleague's.
+    $this->editorHistory->noteWrite($neo_field, $versionBefore);
     $operations = ComponentManageHelper::buildDynamicOperations($neo_field);
     return new JsonResponse([
       'version' => $this->sharedDraftStore->version($neo_field),

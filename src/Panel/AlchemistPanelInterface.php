@@ -95,4 +95,23 @@ interface AlchemistPanelInterface extends PluginInspectionInterface {
    */
   public function publish(ComponentTreeItem $item, ContentEntityInterface $entity, mixed $data): void;
 
+  /**
+   * Whether the panel's drafted data is an edit, not values it computed.
+   *
+   * Data the panel works out for itself (a score) is no change of the
+   * editor's: undo that brings the layout back to the saved one deletes the
+   * draft when no panel holds an edit, so the editor goes quiet.
+   *
+   * @param \Drupal\neo_alchemist\Plugin\Field\FieldType\ComponentTreeItem $item
+   *   The field item being edited.
+   * @param mixed $data
+   *   What the panel last wrote to its draft key.
+   *
+   * @return bool
+   *   TRUE when the data holds something the editor changed.
+   *
+   * @see \Drupal\neo_alchemist\EditorState\EditorHistory
+   */
+  public function isEdited(ComponentTreeItem $item, mixed $data): bool;
+
 }

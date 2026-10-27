@@ -7,6 +7,7 @@ namespace Drupal\neo_alchemist\Entity;
 use Drupal\Core\Access\AccessResult;
 use Drupal\Core\Entity\ContentEntityInterface;
 use Drupal\Core\Session\AccountInterface;
+use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\Core\Url;
 use Drupal\neo_alchemist\ComponentFieldConfigInterface;
 use Drupal\neo_alchemist\Routing\EditorOp;
@@ -381,14 +382,20 @@ abstract class ComponentInstanceBase extends Component implements ComponentInsta
    * {@inheritDoc}
    */
   public function save() {
-    return $this->getFieldItem()->saveComponents();
+    $label = $this->isNew() ? new TranslatableMarkup('Add @label', ['@label' => $this->label()]) : new TranslatableMarkup('Edit @label', ['@label' => $this->label()]);
+    return $this->getFieldItem()->describeStep($label, $this->uuid(), FALSE)->saveComponents();
   }
 
   /**
    * {@inheritDoc}
    */
   public function delete() {
-    return $this->getFieldItem()->removeComponent($this->uuid())->saveComponents();
+    // The step names the component even though the component goes: undoing it
+    // brings this uuid back, and that is what gets selected.
+    return $this->getFieldItem()
+      ->describeStep(new TranslatableMarkup('Delete @label', ['@label' => $this->label()]), $this->uuid())
+      ->removeComponent($this->uuid())
+      ->saveComponents();
   }
 
   /**

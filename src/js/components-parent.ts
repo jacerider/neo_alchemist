@@ -946,6 +946,29 @@
       }
     });
 
+    // Undo and Redo. Delegated: a write re-renders the buttons. Inside a text
+    // field the keys stay the field's own text undo; so they do while a
+    // dialog is open, whose form is the thing being typed into.
+    document.addEventListener('click', (e) => {
+      const button = e.target instanceof Element ? e.target.closest<HTMLElement>('.neo-alchemist--history') : null;
+      if (button?.dataset.history) {
+        e.preventDefault();
+        historyRun(button.dataset.history);
+      }
+    });
+    document.addEventListener('keydown', (e) => {
+      if (!(e.metaKey || e.ctrlKey) || e.altKey) {
+        return;
+      }
+      const key = e.key.toLowerCase();
+      const direction = key === 'z' ? (e.shiftKey ? 'redo' : 'undo') : (key === 'y' && e.ctrlKey && !e.shiftKey ? 'redo' : null);
+      if (!direction || isTextEntry(e.target) || document.body.classList.contains('has-neo-modal')) {
+        return;
+      }
+      e.preventDefault();
+      historyRun(direction);
+    });
+
     // Deferred: the dialog hands focus back to its opener as it closes, and
     // that focus is what reopens the opener's tooltip.
     document.addEventListener('dialog:afterclose', () => setTimeout(opTooltipsHide, 50));
@@ -957,7 +980,13 @@
 
     // Watch for component focus event
     const focusCallback = (event: CustomEvent<any>) => {
-      const detail = event.detail as { uuid: string };
+      const detail = event.detail as { uuid: string; reveal?: boolean };
+      if (detail.reveal) {
+        // Undo and redo can land anywhere on the page: take the canvas there,
+        // the inspected component included.
+        revealUuid = detail.uuid;
+        revealUntil = Date.now() + 3000;
+      }
       // Sent after a component's form saved: the inspector's Apply, or a
       // component added from the library, which the selection moves to.
       if (detail.uuid === inspectorUuid) {
@@ -3580,6 +3609,51 @@
       }
       handler(operationRequestUrl(op));
     }
+  }
+
+  /**
+   * Undo or redo the current user's last step.
+   *
+   * The server names the step and hands back the component it acted on, which
+   * its focus command selects and, asked to reveal, revealMoved() keeps on
+   * screen. Unapplied
+   * inspector changes are asked about first, as for any structural op.
+   */
+  function historyRun(direction: string): void {
+    const button = container.querySelector<HTMLElement>(`.neo-alchemist--history[data-history="${direction}"]`);
+    if (!button?.dataset.url) {
+      return;
+    }
+    if (button.getAttribute('aria-disabled') === 'true') {
+      if (button.dataset.reason) {
+        Drupal.neoAlchemist?.toast?.(button.dataset.reason, 'status');
+      }
+      return;
+    }
+    if (inspectorGuard(inspectorLabel(), () => historyRun(direction))) {
+      return;
+    }
+    Drupal.ajax({
+      progress: ajaxProgress(),
+      url: button.dataset.url,
+    }).execute();
+  }
+
+  /**
+   * Whether a key press belongs to a text field rather than the canvas.
+   */
+  function isTextEntry(target: EventTarget | null): boolean {
+    if (!(target instanceof HTMLElement)) {
+      return false;
+    }
+    if (target.isContentEditable) {
+      return true;
+    }
+    if (target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement) {
+      return true;
+    }
+    return target instanceof HTMLInputElement
+      && !['button', 'checkbox', 'radio', 'submit', 'reset', 'range', 'color', 'file', 'image'].includes(target.type);
   }
 
   /**

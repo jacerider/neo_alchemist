@@ -41,11 +41,19 @@ class InstanceComponentRevertForm extends EntityConfirmFormBase {
   protected $sharedDraftStore;
 
   /**
+   * The undo history, held the same way as the draft store.
+   *
+   * @var \Drupal\neo_alchemist\EditorState\EditorHistory
+   */
+  protected $editorHistory;
+
+  /**
    * {@inheritdoc}
    */
   public static function create(ContainerInterface $container) {
     $form = parent::create($container);
     $form->sharedDraftStore = $container->get('neo_alchemist.shared_draft_store');
+    $form->editorHistory = $container->get('neo_alchemist.editor_history');
     return $form;
   }
 
@@ -97,6 +105,9 @@ class InstanceComponentRevertForm extends EntityConfirmFormBase {
   public function submitForm(array &$form, FormStateInterface $form_state) {
     $fieldItem = $this->fieldItem;
     $this->sharedDraftStore->delete($fieldItem);
+    // Nothing is left to step back through. A colleague's history goes stale
+    // with the draft's version, and is refused on their next undo.
+    $this->editorHistory->clear($fieldItem);
     $form_state->setRedirectUrl($this->entity->toUrl());
     $this->reportOutcome($form_state, $this->t('Reverted to the last save'), $this->t('Components have been reverted successfully on %label: %field_label.', [
       '%label' => $this->entity->label(),

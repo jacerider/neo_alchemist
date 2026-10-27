@@ -125,6 +125,29 @@ class AlchemistPanelManager extends DefaultPluginManager {
   }
 
   /**
+   * Whether any panel's drafted data is an edit.
+   *
+   * A panel this site no longer has counts as one: nothing can say its data
+   * is safe to drop.
+   *
+   * @param \Drupal\neo_alchemist\Plugin\Field\FieldType\ComponentTreeItem $item
+   *   The field item being edited.
+   * @param array $panelData
+   *   Panel id => drafted data, as the shared draft store holds it.
+   *
+   * @return bool
+   *   TRUE when some panel holds an edit.
+   */
+  public function edited(ComponentTreeItem $item, array $panelData): bool {
+    foreach ($panelData as $panelId => $data) {
+      if (!$this->hasDefinition((string) $panelId) || $this->panel((string) $panelId)->isEdited($item, $data)) {
+        return TRUE;
+      }
+    }
+    return FALSE;
+  }
+
+  /**
    * Instantiates a panel.
    */
   public function panel(string $panelId): AlchemistPanelInterface {

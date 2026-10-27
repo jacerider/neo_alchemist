@@ -787,6 +787,17 @@ edit no longer depends on whether a uuid happened to reach a shared key function
   one editor's unsaved, in-progress form values driving their own preview iframe: per-user
   by construction (private tempstore, plus the current user folded into its key), its own
   key prefix, disposable. Not a draft in the collaborative sense.
+- **The undo history** (`EditorHistory`, `neo_alchemist.editor_history`) is kept in the
+  same per-user store under its own `neo_alchemist_history` key: undo and redo stacks of
+  whole-layout snapshots (cap 50 each) and the draft version this user's last write left.
+  `ComponentTreeItem::saveComponents()` records every layout draft write, named by
+  `describeStep()` ("Delete Hero S5"; unnamed writes are "Edit layout"), with the layout
+  before it: the draft, else `savedValue()`, read from storage because the entity a form
+  round-trip hands back already carries the edit. Undo and redo write a snapshot back with
+  the version guard. A version that moved on means a colleague wrote in between, so the step
+  is refused (`DraftConflictException`) and the history cleared. Restoring the saved layout
+  deletes the draft unless a panel holds an edit. Save, Revert and Reset clear the history.
+  Panel writes are not steps (`noteWrite()`).
 
 A third store rides the same seam but sits **outside** the collaborative draft model: the
 **SDC preview workspace** (`SdcPreviewStore`, `neo_alchemist.sdc_preview_store`) holds a
@@ -912,6 +923,11 @@ changed, so publishing keeps the entity's own value, and a hybrid list stays unc
 "layout value **or** panel data", which is what makes Save/Revert appear after the first
 panel write. `delete()` removes the whole record, so Revert discards panel data. Legacy
 records (no `panels` key) read as having none.
+
+**Edits vs computed data** — `isEdited($item, $data)` says whether a panel's drafted data
+is something the editor changed. `AlchemistPanelBase` answers TRUE for any data. A panel
+that drafts values it works out for itself (neo_seo's scores) overrides it, so undo back
+to the saved layout can delete a draft holding only those.
 
 **Publish handoff** — `ComponentTreeItem::saveComponents()`'s commit path reads
 `panels()` **before** `delete($expectedVersion)` consumes the draft, then, after the

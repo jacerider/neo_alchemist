@@ -1,5 +1,35 @@
 # Changelog
 
+## Undo and redo in the layout editor
+
+Every change in the layout editor wrote straight to the shared draft, and the only way back was
+Revert, which threw the whole draft away.
+
+The header now has Undo and Redo after + Add. Each layout write is one step: an add, a delete,
+a clone, a move (the inspector's ↑/↓ or a Layers drag) and an inspector Apply. A step's name is
+in the button's tooltip ("Undo Delete Hero S5"), and the toast after it says what happened
+("Undid Delete Hero S5"). The canvas then selects the component the step acted on and scrolls to
+it, so a deleted component comes back selected. ⌘Z / ⇧⌘Z (Ctrl+Z / Ctrl+Shift+Z / Ctrl+Y) work
+outside text fields; inside one they stay the field's own undo. With unapplied changes in the
+inspector, Undo asks Apply or Discard first.
+
+History is per user, and up to 50 steps each way are kept on the server, so it survives a
+reload. Save, Revert and Reset clear it. If someone else wrote the draft since your last step,
+Undo and Redo are refused ("Jane edited this layout since your last change") and your history
+is cleared, so their work is never undone for them. Undoing back to the saved layout deletes the
+draft, so "Unsaved changes" goes away; Redo brings the draft back. Search & social edits are not
+steps, and undo never changes them. A draft that holds a panel edit stays a draft.
+
+For code: `EditorHistory` (`neo_alchemist.editor_history`) records each draft write from
+`ComponentTreeItem::saveComponents()`. Name the next write with
+`ComponentTreeItem::describeStep($label, $uuid)`; an unnamed write is "Edit layout". The new
+`history` op (`/{neo_field}/history/{undo|redo}`) is entity scope only.
+`ComponentTreeItem::savedValue()` reads the saved layout from storage.
+`AlchemistPanelInterface` gains `isEdited($item, $data)`, which `AlchemistPanelBase` answers
+TRUE for any data. A panel overrides it so values it only computed (a score) don't keep a draft
+alive. A panel that implements the interface without extending the base must add it.
+`InstanceComponentManageFocusCommand` takes `$reveal` to scroll the canvas to the component.
+
 ## Layers docks on the left and reorders by drag; the footer bar is gone
 
 Layers used to float over the canvas from a footer bar that also held Add, the Reorder page

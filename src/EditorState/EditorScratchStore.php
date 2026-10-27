@@ -28,6 +28,9 @@ use Drupal\neo_alchemist\Plugin\Field\FieldType\ComponentTreeItem;
  * The buffer is disposable by design (an unsaved form's contents), so it is
  * never migrated: unlike the shared draft, losing it on a key-space change is
  * correct behaviour, not data loss.
+ *
+ * The same holds for the other per-user editor state kept here, the undo
+ * history (history()): it is one person's way back through the shared draft.
  */
 final class EditorScratchStore {
 
@@ -35,6 +38,11 @@ final class EditorScratchStore {
    * The key prefix distinguishing scratch keys from any other key space.
    */
   protected const KEY_PREFIX = 'neo_alchemist_scratch';
+
+  /**
+   * The key prefix for a user's undo history (history()).
+   */
+  protected const HISTORY_KEY_PREFIX = 'neo_alchemist_history';
 
   /**
    * The cache-tag prefix for the buffer's preview.
@@ -129,6 +137,65 @@ final class EditorScratchStore {
       $this->scope($item),
       $item->getFieldDefinition()->getName(),
       $uuid,
+      (int) $this->currentUser->id(),
+    ]);
+  }
+
+  /**
+   * Reads this user's undo history for an entity/field's shared draft.
+   *
+   * Per user, like the buffer, and durable the same way (it survives a
+   * reload). EditorHistory owns its shape and its rules; this only keeps it.
+   *
+   * @param \Drupal\neo_alchemist\Plugin\Field\FieldType\ComponentTreeItem $item
+   *   The field item the draft belongs to.
+   *
+   * @return array
+   *   The history: `undo` and `redo` step lists and the draft `version` this
+   *   user's last write left; empty lists and version 0 when there is none.
+   *
+   * @see \Drupal\neo_alchemist\EditorState\EditorHistory
+   */
+  public function history(ComponentTreeItem $item): array {
+    $value = $this->store->get($this->historyKey($item));
+    return (is_array($value) ? $value : []) + ['undo' => [], 'redo' => [], 'version' => 0];
+  }
+
+  /**
+   * Stores this user's undo history for an entity/field's shared draft.
+   *
+   * @param \Drupal\neo_alchemist\Plugin\Field\FieldType\ComponentTreeItem $item
+   *   The field item the draft belongs to.
+   * @param array $history
+   *   The history (see history()).
+   */
+  public function setHistory(ComponentTreeItem $item, array $history): void {
+    $this->store->set($this->historyKey($item), $history);
+  }
+
+  /**
+   * Forgets this user's undo history for an entity/field's shared draft.
+   *
+   * @param \Drupal\neo_alchemist\Plugin\Field\FieldType\ComponentTreeItem $item
+   *   The field item the draft belongs to.
+   */
+  public function clearHistory(ComponentTreeItem $item): void {
+    $this->store->delete($this->historyKey($item));
+  }
+
+  /**
+   * Builds the per-user storage key for the undo history.
+   *
+   * Unlike a buffer's key there is no instance uuid to disambiguate, so the
+   * entity type and the language go in, as they do in the shared draft's.
+   */
+  protected function historyKey(ComponentTreeItem $item): string {
+    return implode('.', [
+      self::HISTORY_KEY_PREFIX,
+      $item->getEntity()->getEntityTypeId(),
+      $this->scope($item),
+      $item->getFieldDefinition()->getName(),
+      $item->getEntity()->language()->getId(),
       (int) $this->currentUser->id(),
     ]);
   }

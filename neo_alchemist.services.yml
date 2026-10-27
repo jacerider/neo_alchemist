@@ -70,6 +70,12 @@ services:
     class: Drupal\neo_alchemist\EditorState\EditorScratchStore
     arguments: ['@neo_alchemist.editor_state.private_tempstore', '@current_user', '@cache_tags.invalidator']
 
+  # Per-user undo and redo over the shared layout draft: whole-tree snapshots
+  # kept in the scratch store, written back through the draft store's guard.
+  neo_alchemist.editor_history:
+    class: Drupal\neo_alchemist\EditorState\EditorHistory
+    arguments: ['@neo_alchemist.shared_draft_store', '@neo_alchemist.editor_scratch_store', '@plugin.manager.neo_alchemist_panel']
+
   # The two halves of a component value editor: one builds the prop panel, the
   # other reads the submission back out of it. Both value editors — the
   # on-page instance form and the SDC preview workspace — go through these, so

@@ -87,4 +87,13 @@ final class TestLabelPanel extends AlchemistPanelBase {
     }
   }
 
+  /**
+   * {@inheritdoc}
+   *
+   * A drafted `seen` count is the panel's own bookkeeping, not an edit.
+   */
+  public function isEdited(ComponentTreeItem $item, mixed $data): bool {
+    return is_array($data) && array_diff_key($data, ['seen' => TRUE]) !== [];
+  }
+
 }

@@ -462,6 +462,73 @@ class ComponentManageHelper {
   }
 
   /**
+   * Builds the header's Undo and Redo buttons.
+   *
+   * Icons with the step named in a tooltip ("Undo Delete Hero S5"). A button
+   * with nothing to do, or refused because a colleague wrote the draft since
+   * this editor's last step, stays focusable and says why in its tooltip
+   * rather than going dead: aria-disabled, not disabled. Re-rendered with the
+   * save group after every write (see ComponentAjaxHelperTrait), into
+   * `.neo-alchemist-manage--top-history`.
+   *
+   * @param \Drupal\neo_alchemist\Plugin\Field\FieldType\ComponentTreeItem $item
+   *   The field item being edited.
+   *
+   * @return array
+   *   The two buttons' render array.
+   *
+   * @see \Drupal\neo_alchemist\EditorState\EditorHistory
+   */
+  public static function buildHistoryOperations(ComponentTreeItem $item): array {
+    $state = \Drupal::service('neo_alchemist.editor_history')->state($item);
+    $refused = $state['refused'] !== NULL
+      ? t('@editor edited this layout since your last change', ['@editor' => static::draftUserName($state['refused'])])
+      : NULL;
+    $build = [
+      // Per user and per write: never cached.
+      '#cache' => ['max-age' => 0],
+    ];
+    foreach ([
+      'undo' => [
+        t('Undo'),
+        t('Undo @step', ['@step' => (string) $state['undo']]),
+        t('Nothing to undo'),
+        'Meta+Z Control+Z',
+      ],
+      'redo' => [
+        t('Redo'),
+        t('Redo @step', ['@step' => (string) $state['redo']]),
+        t('Nothing to redo'),
+        'Meta+Shift+Z Control+Shift+Z Control+Y',
+      ],
+    ] as $direction => [$name, $named, $empty, $keys]) {
+      $available = $state[$direction] !== NULL;
+      $build[$direction] = [
+        '#type' => 'html_tag',
+        '#tag' => 'button',
+        '#value' => neo_icon_admin($name, $direction)->iconOnly()->render(),
+        '#attributes' => [
+          'type' => 'button',
+          'class' => ['neo-alchemist--history', 'btn', 'btn-xs', 'btn-outline', 'aria-disabled:opacity-50'],
+          'data-history' => $direction,
+          'data-url' => $item->toUrl('history')->setRouteParameter('direction', $direction)->toString(),
+          'aria-keyshortcuts' => $keys,
+        ],
+      ];
+      if ($available) {
+        $build[$direction]['#attributes']['data-step'] = (string) $state[$direction];
+      }
+      else {
+        $build[$direction]['#attributes']['aria-disabled'] = 'true';
+        // What a shortcut that finds the button unavailable says.
+        $build[$direction]['#attributes']['data-reason'] = (string) ($refused ?? $empty);
+      }
+      (new Tooltip((string) ($available ? $named : ($refused ?? $empty)), ['placement' => 'bottom']))->applyTo($build[$direction]);
+    }
+    return $build;
+  }
+
+  /**
    * Builds the header's save group: what follows the shared draft.
    *
    * Trails the header, after the view controls, in one order: an "Unsaved

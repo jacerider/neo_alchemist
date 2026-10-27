@@ -23,6 +23,7 @@ final class InstanceComponentCloneController extends ControllerBase {
    */
   public function __invoke(ComponentInstanceInterface $neo_component) {
     $newNeoComponent = $neo_component->createDuplicate();
+    $newNeoComponent->getFieldItem()->describeStep($this->t('Clone @label', ['@label' => $neo_component->label()]), $newNeoComponent->uuid());
     $newNeoComponent->save();
 
     $fieldItem = $neo_component->getFieldItem();

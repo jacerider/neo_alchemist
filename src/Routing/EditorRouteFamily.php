@@ -10,6 +10,7 @@ use Drupal\neo_alchemist\Controller\InstanceComponentAddController;
 use Drupal\neo_alchemist\Controller\InstanceComponentCloneController;
 use Drupal\neo_alchemist\Controller\InstanceComponentDeleteController;
 use Drupal\neo_alchemist\Controller\InstanceComponentEditController;
+use Drupal\neo_alchemist\Controller\InstanceComponentHistoryController;
 use Drupal\neo_alchemist\Controller\InstanceComponentLibraryController;
 use Drupal\neo_alchemist\Controller\InstanceComponentManageController;
 use Drupal\neo_alchemist\Controller\InstanceComponentMoveController;
@@ -103,8 +104,8 @@ final class EditorRouteFamily {
    *   single entity's stored draft/published pair; a field's shared default
    *   layout has no per-entity draft to publish, revert or reset, so the ops
    *   are meaningless in the field-UI scope. `panel` — an editor side panel's
-   *   read/write of its key in that draft — is entity-only for the same
-   *   reason.
+   *   read/write of its key in that draft — and `history` — undo and redo
+   *   over it — are entity-only for the same reason.
    * - `purge` is a field-UI-scope member the entity and block scopes both opt
    *   out of. Purging removes the per-entity layout rows a now-locked field no
    *   longer renders (@see \Drupal\neo_alchemist\Form\PurgeInertDataForm), so
@@ -137,6 +138,7 @@ final class EditorRouteFamily {
       'delete',
       'move',
       'panel',
+      'history',
     ],
     self::SCOPE_FIELD_UI => [
       self::OP_BASE,
@@ -202,6 +204,10 @@ final class EditorRouteFamily {
     'panel' => [
       self::SCOPE_FIELD_UI => 'Editor panels draft into the per-entity draft, which a shared default layout does not have.',
       self::SCOPE_BLOCK => 'Editor panels draft into the per-entity draft, which a null-storage block host does not have.',
+    ],
+    'history' => [
+      self::SCOPE_FIELD_UI => 'Undo and redo step through the per-entity draft, which a shared default layout does not have.',
+      self::SCOPE_BLOCK => 'Undo and redo step through the per-entity draft, which a null-storage block host does not have.',
     ],
     'purge' => [
       self::SCOPE_ENTITY => 'Purge clears the field-wide per-entity layout rows a locked field no longer renders — a decision about the field across every entity, never about one entity.',
@@ -569,6 +575,19 @@ final class EditorRouteFamily {
           'panel' => '[a-z0-9_]+',
         ],
         'methods' => ['GET', 'POST'],
+        'admin_route' => TRUE,
+        'preview' => FALSE,
+      ],
+      // Undo or redo the current user's last step over the shared draft.
+      // @see \Drupal\neo_alchemist\EditorState\EditorHistory
+      'history' => [
+        'path' => '/{neo_field}/history/{direction}',
+        'params' => ['neo_field'],
+        'defaults' => $action(InstanceComponentHistoryController::class, 'Undo'),
+        'requirement' => [
+          '_neo_component_field' => 'neo_field.update',
+          'direction' => 'undo|redo',
+        ],
         'admin_route' => TRUE,
         'preview' => FALSE,
       ],

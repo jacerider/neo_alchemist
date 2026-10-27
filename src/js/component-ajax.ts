@@ -196,6 +196,7 @@
           cancelable: true,
           detail: {
             uuid: response.uuid,
+            reveal: !!response.reveal,
           }
         });
         // Dispatch the event on the element

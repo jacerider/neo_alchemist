@@ -9,7 +9,9 @@ use Drupal\Component\Serialization\Json;
 use Drupal\Core\Access\AccessResult;
 use Drupal\Core\Entity\ContentEntityInterface;
 use Drupal\Core\Entity\EntityChangedInterface;
+use Drupal\Core\Entity\FieldableEntityInterface;
 use Drupal\Core\Entity\RevisionableInterface;
+use Drupal\Core\Entity\RevisionableStorageInterface;
 use Drupal\Core\Field\Attribute\FieldType;
 use Drupal\Core\Field\FieldDefinitionInterface;
 use Drupal\Core\Field\FieldItemBase;
@@ -25,6 +27,7 @@ use Drupal\neo_alchemist\ComponentInstanceInterface;
 use Drupal\neo_alchemist\ComponentInterface;
 use Drupal\neo_alchemist\ComponentSizesInterface;
 use Drupal\neo_alchemist\EditorState\DraftConflictException;
+use Drupal\neo_alchemist\EditorState\EditorHistory;
 use Drupal\neo_alchemist\EditorState\SharedDraftStore;
 use Drupal\neo_alchemist\EmptySectionPolicy;
 use Drupal\neo_alchemist\Entity\Component;
@@ -90,6 +93,17 @@ class ComponentTreeItem extends FieldItemBase implements RenderableInterface, Co
    * @var int|null
    */
   protected ?int $loadedDraftVersion = NULL;
+
+  /**
+   * How the next draft write is named in the undo history, or NULL.
+   *
+   * `label` and `uuid`, set by whoever is about to write (describeStep()) and
+   * consumed by that write. A write nobody described is still a step, named
+   * after the layout.
+   *
+   * @var array|null
+   */
+  protected ?array $historyStep = NULL;
 
   /**
    * Flag to indicate if the item is in preview mode.
@@ -328,6 +342,8 @@ class ComponentTreeItem extends FieldItemBase implements RenderableInterface, Co
       'reset' => $this->getEntity()->toUrl("alchemist.reset")->setRouteParameter('neo_field', $fieldKey),
       // The caller names the panel: ->setRouteParameter('panel', $panelId).
       'panel' => $this->getEntity()->toUrl("alchemist.panel")->setRouteParameter('neo_field', $fieldKey),
+      // The caller names the direction: undo or redo.
+      'history' => $this->getEntity()->toUrl("alchemist.history")->setRouteParameter('neo_field', $fieldKey),
       default => $this->getEntity()->toUrl("alchemist.manage")->setRouteParameter('neo_field', $fieldKey)
     };
   }
@@ -954,7 +970,15 @@ class ComponentTreeItem extends FieldItemBase implements RenderableInterface, Co
     }
     else {
       if ($this->isDraft()) {
-        $this->getSharedDraftStore()->set($this, $this->getValue(), $this->loadedDraftVersion);
+        // Every layout draft write is an undo step: what the layout was just
+        // before it, and the version it was at.
+        $drafts = $this->getSharedDraftStore();
+        $before = $drafts->get($this) ?? $this->savedValue();
+        $versionBefore = $drafts->version($this);
+        $drafts->set($this, $this->getValue(), $this->loadedDraftVersion);
+        $step = $this->historyStep ?? ['label' => (string) t('Edit layout'), 'uuid' => NULL];
+        $this->historyStep = NULL;
+        $this->getEditorHistory()->record($this, $before, $versionBefore, $step['label'], $step['uuid']);
         return SAVED_UPDATED;
       }
       // Editor panels' drafted data goes live with the layout, so it is read
@@ -963,6 +987,7 @@ class ComponentTreeItem extends FieldItemBase implements RenderableInterface, Co
       // touched the entity and before anything is saved.
       $panelData = $this->getSharedDraftStore()->panels($this);
       $this->getSharedDraftStore()->delete($this, $this->loadedDraftVersion);
+      $this->getEditorHistory()->clear($this);
       $entity = $this->getEntity();
       $fieldName = $this->getFieldDefinition()->getName();
       $list = $this->getParent();
@@ -987,6 +1012,64 @@ class ComponentTreeItem extends FieldItemBase implements RenderableInterface, Co
       }
       return (int) $entity->save();
     }
+  }
+
+  /**
+   * Names the next draft write in the undo history.
+   *
+   * @param string|\Stringable $label
+   *   What the write does, as Undo and Redo name it ("Delete Hero S5").
+   * @param string|null $uuid
+   *   The component it acts on, selected again after undo and redo.
+   * @param bool $overwrite
+   *   (optional) FALSE keeps a name a caller further out already gave the
+   *   write: a clone saves through the instance, which would otherwise name
+   *   it an add. Defaults to TRUE.
+   *
+   * @return self
+   *   The current instance for chaining.
+   */
+  public function describeStep(string|\Stringable $label, ?string $uuid = NULL, bool $overwrite = TRUE): self {
+    if ($overwrite || $this->historyStep === NULL) {
+      $this->historyStep = ['label' => (string) $label, 'uuid' => $uuid];
+    }
+    return $this;
+  }
+
+  /**
+   * The layout as saved, before any draft: what the editor opens with none.
+   *
+   * Read from storage, the way the route param converter reads it (the latest
+   * revision, an empty item for an empty field): the entity this item hangs
+   * off may already carry the edit, once a form round-trip has rebuilt it.
+   *
+   * @return array
+   *   The saved item value.
+   *
+   * @see \Drupal\neo_alchemist\Routing\FieldParamConverter::convert()
+   */
+  public function savedValue(): array {
+    $entity = $this->getEntity();
+    if ($entity->isNew()) {
+      return [];
+    }
+    $storage = \Drupal::entityTypeManager()->getStorage($entity->getEntityTypeId());
+    // Clears the static entity and revision caches before it loads.
+    $saved = $storage->loadUnchanged($entity->id());
+    if ($storage instanceof RevisionableStorageInterface && $entity->getEntityType()->isRevisionable()) {
+      $latest = $storage->getLatestRevisionId($entity->id());
+      if ($latest !== NULL && $saved instanceof RevisionableInterface && $saved->getRevisionId() !== $latest) {
+        $saved = $storage->loadRevision($latest);
+      }
+    }
+    if (!$saved instanceof FieldableEntityInterface) {
+      return [];
+    }
+    $list = clone $saved->get($this->getFieldDefinition()->getName());
+    if ($list->isEmpty()) {
+      $list->appendItem([]);
+    }
+    return $list->first()->getValue();
   }
 
   /**
@@ -1240,6 +1323,16 @@ class ComponentTreeItem extends FieldItemBase implements RenderableInterface, Co
    */
   protected function getSharedDraftStore(): SharedDraftStore {
     return \Drupal::service('neo_alchemist.shared_draft_store');
+  }
+
+  /**
+   * Gets the undo history, reached through the container like the draft store.
+   *
+   * @return \Drupal\neo_alchemist\EditorState\EditorHistory
+   *   The editor history.
+   */
+  protected function getEditorHistory(): EditorHistory {
+    return \Drupal::service('neo_alchemist.editor_history');
   }
 
   /**

@@ -35,8 +35,8 @@ class EditorRouteFamilyTest extends HybridFieldKernelTestBase {
   /**
    * The entity scope declares its fourteen ops, in order.
    *
-   * Publish/revert/reset/panel are here and purge is not — an entity has a
-   * per-entity draft to publish but no field-wide stored data to purge.
+   * Publish/revert/reset/panel/history are here and purge is not — an entity
+   * has a per-entity draft to publish but no field-wide stored data to purge.
    */
   public function testEntityScopeDeclaresItsFamily(): void {
     $names = array_keys($this->family()->build(
@@ -60,6 +60,7 @@ class EditorRouteFamilyTest extends HybridFieldKernelTestBase {
       'entity.node.alchemist.delete',
       'entity.node.alchemist.move',
       'entity.node.alchemist.panel',
+      'entity.node.alchemist.history',
     ], $names);
   }
 
