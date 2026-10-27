@@ -1,5 +1,21 @@
 # Changelog
 
+## A calmer look for hovering and selecting on the canvas
+
+- **Hover:** a solid hairline (dark, with a white edge) and the name in a white chip.
+- **Selected:** a dark ring with a white inner edge and a soft glow in the theme's primary
+  colour; the name is a black tab joined to the ring.
+- **The rest of the page** sits under a light white veil instead of being blurred, so it stays
+  readable.
+- **Adding:** round ＋ buttons on the selection's top and bottom edges, which open to "Add
+  component before" / "Add component after" when hovered. The ＋ between components when
+  hovering is the same button, opening to "Add here". Move down is a dark round button beside it.
+
+For code: outline strokes are box-shadows/outlines (no border; the overlay is `absolute` only);
+the chip is `.neo-alchemist--chip`; outline ops render as `.neo-alchemist--knob` with
+`-add`/`-move`; an add op's title keeps its label (`.neo-alchemist--knob-label`) and drops its
+tooltip; the shade loses `backdrop-blur-sm`.
+
 ## The selection's outline stays on the component while the canvas zooms
 
 Selecting a component opens the inspector, the canvas narrows and the preview shrinks to fit. The

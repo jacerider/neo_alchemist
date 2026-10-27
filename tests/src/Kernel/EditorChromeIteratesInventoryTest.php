@@ -111,8 +111,9 @@ class EditorChromeIteratesInventoryTest extends KernelTestBase {
    * The before/up ops hang off the top edge, after/down off the bottom —
    * derived from each op's own position/direction, not the spelling of its id.
    * Within a
-   * cluster the add op precedes the move op, as the outline renders them today,
-   * and each outline button is icon-only with its tooltip on its own edge.
+   * cluster the add op precedes the move op, as the outline renders them today.
+   * An add knob carries its label, revealed on hover, and so no tooltip; a
+   * move knob is icon-only with its tooltip on its own edge.
    */
   public function testPositionalOpsSplitIntoTheTwoEdgeClusters(): void {
     $outline = $this->chrome($this->inventory()->ops())['outline_ops'];
@@ -137,7 +138,12 @@ class EditorChromeIteratesInventoryTest extends KernelTestBase {
         $button = $item['link'];
         $classes = $button['#attributes']['class'];
         $this->assertContains('neo-alchemist--op', $classes);
-        $this->assertTrue($button['#title']->isIconOnly(), 'Outline icon only.');
+        if ($item['verb'] === 'add') {
+          $this->assertFalse($button['#title']->isIconOnly(), 'An add knob carries its label.');
+          $this->assertArrayNotHasKey('#tooltip', $button, 'An add knob needs no tooltip.');
+          continue;
+        }
+        $this->assertTrue($button['#title']->isIconOnly(), 'A move knob is icon only.');
         $placement = $button['#tooltip_options']['placement'];
         $this->assertSame($edge, $placement, 'Tooltip on the op edge.');
       }

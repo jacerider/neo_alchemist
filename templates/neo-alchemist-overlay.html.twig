@@ -1,17 +1,20 @@
+{#
+  A veil, not a blur: the page around the selection stays readable, and a
+  backdrop filter repainted the whole canvas on every scroll frame.
+#}
 {%
-  set shade_classes = 'absolute bg-base-0/60 backdrop-blur-sm'
+  set shade_classes = 'absolute bg-base-0/60'
 %}
 {#
   The editor stamps data-node-type (what a thing is) and data-state (how it
   relates to the selection) on every outline; components-parent.css dresses
-  each state. Border width never varies between states (only with the zoom,
-  to stay one screen pixel): the label and the +/move clusters are
-  anchored to this box with bottom/top-full, and the box is border-box with an
-  inline width/height, so a wider border would resize the padding box and shift
-  all of them. Emphasis is an outline and a shadow, which cost no layout.
+  each state. Strokes are inset shadows and outlines, never a border: they
+  cost no layout, so the label and the knob clusters anchored to this box stay
+  put whatever the state, and a shadow's width is not snapped to a whole pixel
+  before the zoom scales it (a 1px border at 63% drew as a hairline).
 #}
 {%
-  set overlay_classes = 'absolute border border-dashed'
+  set overlay_classes = 'absolute'
 %}
 {%
   set element_classes = 'absolute'
@@ -21,12 +24,6 @@
 %}
 {%
   set op_wrapper_classes = 'neo-alchemist--overlay-actions absolute flex items-center justify-center left-0 right-0 pointer-events-none transition-opacity'
-%}
-{%
-  set op_add_classes = 'bg-primary-500 text-primary-500-content px-2 py-0.5 text-2xs transition pointer-events-auto hover:bg-primary-600 hover:text-primary-600-content'
-%}
-{%
-  set op_move_classes = 'bg-primary-600 text-primary-600-content px-2 py-0.5 text-2xs transition pointer-events-auto hover:bg-primary-700 hover:text-primary-700-content'
 %}
 {#
   The breadcrumb and the selection's ops used to be two bars over the canvas.
@@ -46,18 +43,19 @@
      what must not start a pan. The outline itself is transparent chrome. #}
   {#
     Both clusters loop over the op inventory rather than naming ops: adding a
-    positional op to EditorOpInventory places a button on the edge it acts on
-    with no edit here. Move ops take the darker ramp, add ops the lighter one —
-    keyed off the verb the record carries, not the op's name.
+    positional op to EditorOpInventory places a knob on the edge it acts on
+    with no edit here. Add knobs are primary, move knobs dark — keyed off the
+    verb the record carries, not the op's name. The clusters straddle their
+    edge (components-parent.css).
   #}
   <div class="{{ op_wrapper_classes }} neo-alchemist--overlay-actions-top gap-0.5 bottom-full" data-alchemist-nodrag>
     {% for op in outline_ops.top %}
-      {{ op.link|neo_class(['rounded-t-lg', op.verb == 'move' ? op_move_classes : op_add_classes]) }}
+      {{ op.link|neo_class(['neo-alchemist--knob', op.verb == 'move' ? 'neo-alchemist--knob-move' : 'neo-alchemist--knob-add']) }}
     {% endfor %}
   </div>
   <div class="{{ op_wrapper_classes }} neo-alchemist--overlay-actions-bottom gap-0.5 top-full" data-alchemist-nodrag>
     {% for op in outline_ops.bottom %}
-      {{ op.link|neo_class(['rounded-b-lg', op.verb == 'move' ? op_move_classes : op_add_classes]) }}
+      {{ op.link|neo_class(['neo-alchemist--knob', op.verb == 'move' ? 'neo-alchemist--knob-move' : 'neo-alchemist--knob-add']) }}
     {% endfor %}
   </div>
 </div>
@@ -70,10 +68,10 @@
   hover, which is what makes "where will this go?" answerable before clicking.
 
   The label only earns its space on the seam being acted on; otherwise a stack
-  of seams becomes a stack of words. The 600 shade, not 500, because "Add
-  here" is text: white on a saturated 500 can fall under 4.5:1.
+  of seams becomes a stack of words. The button is the outline's add knob, so
+  adding looks the same wherever it is offered.
 #}
 <div class="neo-alchemist--seam-base group absolute flex items-center justify-center pointer-events-none" data-alchemist-ignore data-alchemist-nodrag>
   <div class="absolute inset-x-0 top-1/2 h-0.5 -translate-y-1/2 transition bg-primary-400 group-hover:bg-primary-500 group-[.is-target]:bg-primary-500"></div>
-  <button type="button" class="relative inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs leading-snug cursor-pointer pointer-events-auto transition bg-primary-600 text-primary-600-content group-hover:scale-105 group-[.is-target]:opacity-100 group-[.is-target]:scale-105 group-[.is-target]:animate-pulse motion-reduce:group-[.is-target]:animate-none">{{ icon('plus') }}<span class="hidden group-hover:inline group-[.is-target]:inline">{{ 'Add here'|t }}</span></button>
+  <button type="button" class="neo-alchemist--knob neo-alchemist--knob-add relative group-[.is-target]:animate-pulse motion-reduce:group-[.is-target]:animate-none">{{ icon('plus') }}<span class="neo-alchemist--knob-label">{{ 'Add here'|t }}</span></button>
 </div>

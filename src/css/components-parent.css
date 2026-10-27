@@ -56,34 +56,33 @@
  *
  * An outline sits on whatever the component paints: a white hero, a brand-red
  * band, a photo. One colour cannot read on all of them, and brand colour
- * vanishes on a brand-coloured section, so every state is two tones: a dark
- * line with a light edge. Neutral black and white on purpose: a scheme shade
- * can equal the surface it sits on.
+ * vanishes on a brand-coloured section, so every line is two tones: dark with
+ * a light edge. Neutral black and white on purpose: a scheme shade can equal
+ * the surface it sits on. The primary colour only glows around a selection,
+ * where losing it on a brand band costs nothing.
  *
- * Hover is the quiet one (a dashed dark line with a light halo); context
- * (an ancestor, or a child region of the selection) is quieter still; the
- * selection is a solid light ring inside a dark one. The overlay's inline
- * transition fades between them; its geometry never animates.
+ * Hover is a solid hairline inside the box; context (an ancestor, or a child
+ * region of the selection) is a fainter dashed one; the selection is a 2px
+ * dark ring with a white inner edge. Inset shadows and outlines, never a
+ * border (see the template). They fade; their geometry never animates.
  */
 .neo-alchemist--overlay {
-  border-width: calc(1px * var(--inv));
-  border-color: rgb(0 0 0 / 0.6);
-  box-shadow: 0 0 0 calc(1px * var(--inv)) rgb(255 255 255 / 0.7);
+  box-shadow:
+    inset 0 0 0 calc(1px * var(--inv)) rgb(0 0 0 / 0.8),
+    inset 0 0 0 calc(2px * var(--inv)) rgb(255 255 255 / 0.75);
 }
 
 .neo-alchemist--overlay:is([data-state='active'], [data-state='ghost']) {
-  border-color: rgb(0 0 0 / 0.35);
-  box-shadow: 0 0 0 calc(1px * var(--inv)) rgb(255 255 255 / 0.4);
+  box-shadow: none;
+  outline: calc(1px * var(--inv)) dashed rgb(0 0 0 / 0.45);
+  outline-offset: calc(-1px * var(--inv));
 }
 
-/* A 2px light ring straddling the border (from 1px inside to 1px outside),
- * and a dark ring from there to 3px outside. */
 .neo-alchemist--overlay[data-state='focus'] {
-  border-style: solid;
-  border-color: transparent;
-  outline: calc(2px * var(--inv)) solid rgb(255 255 255);
-  outline-offset: calc(-1px * var(--inv));
-  box-shadow: 0 0 0 calc(3px * var(--inv)) rgb(0 0 0 / 0.85);
+  box-shadow:
+    inset 0 0 0 calc(2px * var(--inv)) rgb(17 17 17),
+    inset 0 0 0 calc(3.5px * var(--inv)) rgb(255 255 255),
+    0 0 0 calc(3px * var(--inv)) rgb(var(--color-primary-500) / 0.3);
 }
 
 /* The name chip, at its true size; then the clamp that keeps it on screen
@@ -94,20 +93,112 @@
   transform: scale(var(--inv)) translate(var(--clamp-x, 0px), var(--clamp-y, 0px));
 }
 
-.neo-alchemist--overlay-actions {
-  transform: scale(var(--inv));
+.neo-alchemist--chip {
+  display: inline-flex;
+  align-items: center;
+  height: 1.375rem;
+  padding-inline: 0.5rem;
+  border-radius: 0.375rem;
+  background: rgb(255 255 255);
+  color: rgb(17 17 17);
+  font-weight: 600;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.3);
 }
 
+.neo-alchemist--overlay[data-node-type='region'] .neo-alchemist--chip {
+  background: rgb(var(--color-base-200));
+}
+
+/* The selection's name is a tab joined to its ring. */
+.neo-alchemist--overlay[data-state='focus'] {
+  .neo-alchemist--overlay-label {
+    margin-bottom: 0;
+  }
+
+  .neo-alchemist--chip {
+    border-radius: 0.375rem 0.375rem 0 0;
+    background: rgb(17 17 17);
+    color: rgb(255 255 255);
+    box-shadow: none;
+  }
+}
+
+/* The knob clusters straddle the edge they act on. */
 .neo-alchemist--overlay-actions-top {
-  transform-origin: 50% 100%;
+  top: 0;
+  bottom: auto;
+  transform-origin: 50% 0;
+  transform: scale(var(--inv)) translateY(-50%);
 }
 
 .neo-alchemist--overlay-actions-bottom {
-  transform-origin: 50% 0;
+  top: auto;
+  bottom: 0;
+  transform-origin: 50% 100%;
+  transform: scale(var(--inv)) translateY(50%);
+}
+
+/* A knob: an outline op, or a seam's add. Round, with a white ring that keeps
+ * it legible on any section; an add knob opens to its label on hover and
+ * focus, a move knob stays an icon named in its tooltip. */
+.neo-alchemist--knob {
+  cursor: pointer;
+  pointer-events: auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  min-width: 1.625rem;
+  height: 1.625rem;
+  padding-inline: 0.375rem;
+  border-radius: 9999px;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+  box-shadow: 0 0 0 2px rgb(255 255 255), 0 2px 6px rgb(0 0 0 / 0.3);
+  transition: background-color 0.12s, color 0.12s, gap 0.16s;
+
+  &:is(:hover, :focus-visible) {
+    gap: 0.25rem;
+  }
+}
+
+.neo-alchemist--knob-add {
+  background: rgb(var(--color-primary-500));
+  color: rgb(var(--color-primary-500-content));
+
+  &:is(:hover, :focus-visible) {
+    background: rgb(var(--color-primary-600));
+    color: rgb(var(--color-primary-600-content));
+  }
+}
+
+.neo-alchemist--knob-move {
+  background: rgb(17 17 17);
+  color: rgb(255 255 255);
+
+  &:is(:hover, :focus-visible) {
+    background: rgb(var(--color-base-700));
+  }
+}
+
+.neo-alchemist--knob-label {
+  max-width: 0;
+  overflow: hidden;
+  transition: max-width 0.16s ease;
+}
+
+:is(.neo-alchemist--knob:is(:hover, :focus-visible), .neo-alchemist--seam:hover .neo-alchemist--knob, .neo-alchemist--seam.is-target .neo-alchemist--knob) {
+  gap: 0.25rem;
+
+  .neo-alchemist--knob-label {
+    max-width: 12rem;
+  }
 }
 
 /* An insertion seam: positioned at its line, 24 screen pixels tall and
- * centred on it. The button keeps its own transitions but not transform's,
+ * centred on it. Its knob transitions colours and its label, never transform,
  * which the counter-scale changes every frame of a zoom. */
 .neo-alchemist--seam {
   height: calc(24px * var(--inv));
@@ -120,7 +211,6 @@
 
 .neo-alchemist--seam button {
   transform: scale(var(--inv));
-  transition-property: color, background-color, opacity, scale;
 }
 
 /* The left dock: Layers, or one page-level panel in its place

@@ -1090,7 +1090,7 @@
     overlay.style.opacity = '0';
     // Fades only. Geometry changes at once: an outline that eased to a new
     // rect visibly chased the component it marks.
-    overlay.style.transition = `opacity ${transitionSpeed}ms ease-in-out, border-color ${transitionSpeed}ms ease-in-out`;
+    overlay.style.transition = `opacity ${transitionSpeed}ms ease-in-out`;
     overlayLabel.style.opacity = '0';
     overlayActions.forEach(action => action.style.opacity = '0');
     chrome.appendChild(overlay);
@@ -1514,14 +1514,10 @@
    */
   function overlayLabelSet(overlay: HTMLElement, data: ElementData): void {
     const overlayLabel = overlay.querySelector('.neo-alchemist--overlay-label') as HTMLElement;
-    // Colour alone carries the type here — the chip and the outline it sits on
-    // both shift for a region, so a marker would only repeat what is already
-    // being said.
-    const chipClasses = data.type === 'region'
-      ? 'bg-base-400 text-base-0'
-      : 'bg-base-500 text-base-500-content';
-    let html = `<span class="inline-flex items-center rounded-sm px-1.5 py-0.5 ${chipClasses}">`
-      + `${escapeHtml(String(data.data.label ?? ''))}</span>`;
+    // The chip is dressed by the outline's state and node type
+    // (components-parent.css): white beside a hover, a black tab joined to a
+    // selection, a region's a shade greyer.
+    let html = `<span class="neo-alchemist--chip">${escapeHtml(String(data.data.label ?? ''))}</span>`;
     (data.data.warnings || []).forEach((warning: string) => {
       html += ` <span class="badge rounded-sm bg-warning-500 text-warning-500-content">${warning}</span>`;
     });

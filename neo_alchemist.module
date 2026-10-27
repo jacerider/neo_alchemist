@@ -381,22 +381,29 @@ function _neo_alchemist_overlay_ops(array $ops): array {
       ? 'top'
       : 'bottom';
 
-    // On the outline: icon only, anchored to the edge it acts on. The template
-    // adds the rounded corner and the add/move colour ramp per cluster, keyed
-    // off the verb travelling with the record.
+    // On the outline: a round knob on the edge it acts on, the template
+    // picking the add/move colour off the verb travelling with the record. An
+    // add knob opens to its label on hover and focus (components-parent.css),
+    // so it needs no tooltip to say it; a move knob stays an icon, named in
+    // its tooltip on its own edge.
+    $link = [
+      '#type' => 'link',
+      '#title' => $op->verb === 'add'
+        ? neo_icon_admin($label, $op->icon)->addLabelClass('neo-alchemist--knob-label')
+        : neo_icon_admin($label, $op->icon)->iconOnly(),
+      '#url' => Url::fromRoute('<current>'),
+      '#attributes' => [
+        'class' => ['neo-alchemist--op'],
+        'data-op' => $op->id,
+      ],
+    ];
+    if ($op->verb !== 'add') {
+      $link['#tooltip'] = $label;
+      $link['#tooltip_options'] = ['placement' => $edge];
+    }
     $build['outline_ops'][$edge][] = [
       'verb' => $op->verb,
-      'link' => [
-        '#type' => 'link',
-        '#title' => neo_icon_admin($label, $op->icon)->iconOnly(),
-        '#url' => Url::fromRoute('<current>'),
-        '#tooltip' => $label,
-        '#tooltip_options' => ['placement' => $edge],
-        '#attributes' => [
-          'class' => ['neo-alchemist--op'],
-          'data-op' => $op->id,
-        ],
-      ],
+      'link' => $link,
     ];
 
     if ($op->direction !== NULL) {

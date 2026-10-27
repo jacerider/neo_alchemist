@@ -1099,6 +1099,15 @@ offsets in `calc(… * var(--inv))`, the name chip, the op clusters and the seam
 after that counter-scale so it stays in screen pixels. Outlines fade but never animate geometry.
 A screen rect enters the layer through `calculateRect()`, which divides by the scale actually
 rendered (`layerScale()`), not the one announced.
+The look is `components-parent.css`, keyed off the outline's `data-state` and `data-node-type`:
+strokes are inset shadows and outlines, never a border (a border width snaps to a whole pixel
+before the zoom scales it); hover a two-tone hairline, context (`active`, `ghost`) a dashed
+outline, the selection (`focus`) a dark ring with a white inner edge and a primary glow. The name
+is `.neo-alchemist--chip` — white beside a hover, a black tab joined to the selection. The rest
+of the page sits under a white veil (the shade), no blur. The outline ops are
+`.neo-alchemist--knob`s straddling their edge: add knobs primary, carrying their label
+(`.neo-alchemist--knob-label`, opened on hover/focus) and so no tooltip; move knobs dark,
+icon-only, with a tooltip. The insertion seam's button is the same add knob ("Add here").
 
 **Taking the editor somewhere** — `Drupal.neoAlchemist.editor.focus({uuid, prop?, locate?})`
 (`components-parent.ts`) is the editor's public call for code outside it (a panel, a badge):
