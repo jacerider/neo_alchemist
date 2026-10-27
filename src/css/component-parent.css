@@ -327,10 +327,14 @@ form.neo-alchemist-manage--form:has(.neo-alchemist--form-layout) > .form--inner,
  * the dock the whole width. The canvas is folded to nothing rather than
  * hidden: a frame with no box flips every media query in its document, so it
  * keeps its own width, out of sight.
+ *
+ * Its band shares the canvas's base-100, so a shadow cast over the canvas
+ * keeps the two apart.
  */
 .neo-alchemist--dock {
   width: 25rem;
   max-width: calc(100vw - 4rem);
+  box-shadow: -4px 0 16px -4px rgb(0 0 0 / 0.18);
 }
 
 .neo-alchemist--dock-body.neo-alchemist-manage--form-scroll {
@@ -655,13 +659,13 @@ form.neo-alchemist-manage--form:has(.neo-alchemist--form-layout) > .form--inner,
   }
 }
 
-/* The inspector's band (neo-alchemist-manage.html.twig): the dock's header in
- * the primary tint — who the component is, where it sits and what can be done
- * to it. The name and chips are the form's own, moved up into it (bindForm()
- * in component-parent.ts) and dressed for it here.
+/* The inspector's band (neo-alchemist-manage.html.twig): the dock's header on
+ * base-100 — who the component is, where it sits and what can be done to it.
+ * The name and chips are the form's own, moved up into it (bindForm() in
+ * component-parent.ts) and dressed for it here.
  */
 .neo-alchemist--dock-band {
-  background-color: rgb(var(--color-primary-100));
+  background-color: rgb(var(--color-base-100));
   color: rgb(var(--color-base-900));
 }
 
@@ -741,7 +745,7 @@ form.neo-alchemist-manage--form:has(.neo-alchemist--form-layout) > .form--inner,
   background: none;
 }
 
-/* The selection's actions, lifted off the tint. */
+/* The selection's actions, lifted off the band. */
 .neo-alchemist--dock-actions {
   :is(.btn-outline, .btn-outline-alert) {
     --btn-bg-transparent: rgb(var(--color-base-0) / 0.7);

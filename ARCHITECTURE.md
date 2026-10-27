@@ -1019,8 +1019,9 @@ Nothing reaches the shared draft until Apply (the form's own submit). Unapplied 
 tracked from the form's `input`/`change` and `neoAlchemistFormEdited` (sent by
 `component-ajax-form.ts` for edits that raise no DOM event); while there are any, a selection
 change, a structural op (`operationExecute()`) or leaving the page asks first, with an inline
-Apply/Discard prompt in the dock or `beforeunload`. The dock's header is the inspector's band, in the
-primary tint (`.neo-alchemist--dock-band`): a top row with "‹ Parent" (the parent the breadcrumb
+Apply/Discard prompt in the dock or `beforeunload`. The dock's header is the inspector's band, on the
+canvas's base-100 (`.neo-alchemist--dock-band`; the dock casts a shadow over the canvas to keep
+the two apart): a top row with "‹ Parent" (the parent the breadcrumb
 shows — component, region or "‹ Page", which clears the selection; disabled for an inherited
 parent in a hybrid layout), Expand, which gives the dock the whole width, and Close; then the
 form's name with its "?" help and its summary chips, which `dockBandFill()` (component-parent.ts)

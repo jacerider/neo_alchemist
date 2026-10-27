@@ -22,9 +22,9 @@ buttons carry `data-alchemist-tip` and `data-alchemist-tip-name`
 
 ## The inspector opens with a band that says who the component is and where it sits
 
-The inspector's header is a band in the theme's primary tint. Its top row leads with a link to
-the component's parent ("‹ Body", or "‹ Page", which clears the selection), then Expand and
-Close. Below: the component's name, larger, with its "?" help; where it sits ("2 of 3 in List
+The inspector's header is a band on the canvas's own background (`base-100`), and the inspector
+casts a shadow over the canvas so the two stay apart. Its top row leads with a link to the
+component's parent ("‹ Body", or "‹ Page", which clears the selection), then Expand and Close. Below: the component's name, larger, with its "?" help; where it sits ("2 of 3 in List
 S5", "1 of 2 in Sidebar", "2 of 4 on Careers"); its summary chips; then Move up and down,
 Duplicate and Delete. The form below starts at its tabs.
 
