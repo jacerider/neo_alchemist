@@ -99,7 +99,6 @@
   }
   const dockBody = dock?.querySelector('.neo-alchemist--dock-body') as HTMLElement | null;
   const dockPrompt = dock?.querySelector('.neo-alchemist--dock-prompt') as HTMLElement | null;
-  const dockMore = dock?.querySelector('.neo-alchemist--dock-more') as HTMLElement | null;
   // Scoped to this layout. A single global preference leaked a choice made on
   // a nested layout onto every flat one, which is exactly what the depth
   // default exists to avoid.
@@ -2331,11 +2330,6 @@
     opButtons.forEach(button => {
       button.style.display = enabledSet.has(button) ? '' : 'none';
     });
-    // ⋯ with nothing permitted inside it is a menu that opens on nothing.
-    if (dockMore) {
-      dockMore.hidden = !Array.from(dockMore.querySelectorAll<HTMLElement>('.neo-alchemist--op'))
-        .some(button => button.style.display !== 'none');
-    }
   }
 
   // let layerTimeout: ReturnType<typeof setTimeout> | null = null;

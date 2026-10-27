@@ -19,7 +19,8 @@ use PHPUnit\Framework\Attributes\Group;
  * EditorOpInventory::ops() and names no op: _neo_alchemist_overlay_ops() is
  * the seam that projects the op vocabulary into the render surfaces the
  * templates loop over — the two outline edge clusters (`outline_ops`), and the
- * inspector header's buttons (`inspector_ops`) and ⋯ menu (`inspector_menu`).
+ * inspector header's move buttons (`inspector_ops`) and verb buttons
+ * (`inspector_verbs`).
  *
  * These assert that projection against the strings the chrome renders today
  * (an independent, hand-authored source of truth), and that a row added to the
@@ -65,7 +66,7 @@ class EditorChromeIteratesInventoryTest extends KernelTestBase {
    *   The op records, in render order.
    *
    * @return array
-   *   The `outline_ops`, `inspector_ops` and `inspector_menu` render
+   *   The `outline_ops`, `inspector_ops` and `inspector_verbs` render
    *   structures.
    */
   private function chrome(array $ops): array {
@@ -73,30 +74,30 @@ class EditorChromeIteratesInventoryTest extends KernelTestBase {
   }
 
   /**
-   * The verb ops but Edit project to the inspector's ⋯ menu, in order.
+   * The verb ops but Edit project to the inspector's verb buttons, in order.
    *
    * A verb op acts on the component itself; it carries neither a position nor
-   * a direction. Edit is the inspector itself, so it has no item. Each item is
-   * labelled, keyed by its op id, and appears only in the menu — never among
-   * the inspector's buttons or on the outline. Delete destroys, so it takes the
-   * alert colour.
+   * a direction. Edit is the inspector itself, so it has no button. Each is a
+   * labelled button keyed by its op id, never among the move buttons or on the
+   * outline. Delete destroys, so it takes the alert outline.
    */
-  public function testVerbOpsProjectToTheInspectorMenu(): void {
+  public function testVerbOpsProjectToTheInspectorButtons(): void {
     $chrome = $this->chrome($this->inventory()->ops());
 
     $this->assertSame(
       ['clone', 'delete'],
-      array_keys($chrome['inspector_menu']),
-      'The verb ops but edit are the ⋯ menu, in inventory order.',
+      array_keys($chrome['inspector_verbs']),
+      'The verb ops but edit are the verb buttons, in inventory order.',
     );
     $labels = ['clone' => 'Clone', 'delete' => 'Delete'];
     foreach ($labels as $id => $label) {
-      $item = $chrome['inspector_menu'][$id];
+      $item = $chrome['inspector_verbs'][$id];
       $this->assertSame('link', $item['#type'], "$id is a link");
       $this->assertSame($id, $item['#attributes']['data-op'], "$id data-op");
       $classes = $item['#attributes']['class'];
       $this->assertContains('neo-alchemist--op', $classes, "$id is an op");
-      $this->assertSame($id === 'delete', in_array('text-alert-700', $classes, TRUE), "$id alert colour only on delete");
+      $this->assertContains('btn', $classes, "$id is a button");
+      $this->assertSame($id === 'delete', in_array('btn-outline-alert', $classes, TRUE), "$id alert outline only on delete");
       $this->assertInstanceOf(IconElement::class, $item['#title'], "$id icon");
       $this->assertFalse($item['#title']->isIconOnly(), "$id is labelled");
       $this->assertSame($label, (string) $item['#title']->getText(), "$id label");
@@ -176,7 +177,7 @@ class EditorChromeIteratesInventoryTest extends KernelTestBase {
     $chrome = $this->chrome($this->inventory()->ops());
 
     $inspector = array_merge(
-      array_keys($chrome['inspector_menu']),
+      array_keys($chrome['inspector_verbs']),
       array_keys($chrome['inspector_ops']),
     );
     sort($inspector);
@@ -202,10 +203,10 @@ class EditorChromeIteratesInventoryTest extends KernelTestBase {
    * This is the whole point of the ticket, shown rather than assumed: a
    * synthetic verb op and a synthetic positional op are appended to the real
    * inventory and handed to the same builder the preprocess calls. The verb op
-   * becomes an item in the inspector's ⋯ menu; the positional op becomes an
-   * inspector button and sits on the outline edge its direction names — with
-   * no change to _neo_alchemist_overlay_ops() or the templates, which loop over
-   * whatever the inventory contains.
+   * becomes a verb button in the inspector's header; the positional op
+   * becomes an inspector button and sits on the outline edge its direction
+   * names — with no change to _neo_alchemist_overlay_ops() or the templates,
+   * which loop over whatever the inventory contains.
    */
   public function testAddingAnInventoryRowAddsButton(): void {
     $ops = $this->inventory()->ops();
@@ -232,9 +233,9 @@ class EditorChromeIteratesInventoryTest extends KernelTestBase {
 
     $chrome = $this->chrome($ops);
 
-    // The new verb op is an item in the inspector's ⋯ menu.
-    $this->assertArrayHasKey('duplicate', $chrome['inspector_menu']);
-    $newVerb = $chrome['inspector_menu']['duplicate']['#attributes']['data-op'];
+    // The new verb op is a verb button in the inspector's header.
+    $this->assertArrayHasKey('duplicate', $chrome['inspector_verbs']);
+    $newVerb = $chrome['inspector_verbs']['duplicate']['#attributes']['data-op'];
     $this->assertSame('duplicate', $newVerb);
     $this->assertArrayNotHasKey('duplicate', $chrome['inspector_ops']);
 

@@ -205,7 +205,7 @@
       the layout editor it opens and closes with the selection and its form is
       loaded into the body (components-parent.ts); opened on its own, the edit
       page renders it with its form. The header holds what acts on the
-      selection, Move up/down and a ⋯ menu, then Expand and Close; where the
+      selection, Move up/down, Clone and Delete, then Expand and Close; where the
       selection sits is the canvas's breadcrumb bar. The edit page, with no
       canvas, names its task in the header instead. The prompt asks about
       unapplied changes in place, with no dialog.
@@ -216,11 +216,8 @@
           {% if dock_ops %}
             <div class="neo-alchemist--dock-ops flex flex-none items-center gap-1">{{ dock_ops }}</div>
           {% endif %}
-          {% if dock_menu %}
-            <div class="neo-alchemist--more neo-alchemist--dock-more relative flex-none">
-              <button type="button" class="neo-alchemist--more-toggle btn btn-xs btn-outline is-active:btn-primary" title="{{ 'More actions'|t }}" aria-expanded="false" aria-controls="{{ id }}-dock-menu">{{ icon('ellipsis-h') }}<span class="sr-only">{{ 'More actions'|t }}</span></button>
-              <div id="{{ id }}-dock-menu" class="neo-alchemist--more-menu absolute left-0 top-full mt-2 w-48 p-1 z-50 rounded-lg shadow-lg border bg-base-0 text-base-0-content" hidden>{{ dock_menu }}</div>
-            </div>
+          {% if dock_verbs %}
+            <div class="neo-alchemist--dock-verbs flex flex-none items-center gap-1">{{ dock_verbs }}</div>
           {% endif %}
           <div class="neo-alchemist--dock-title flex flex-auto min-w-0 items-center gap-1 text-sm">
             {%- if toolbar_title -%}

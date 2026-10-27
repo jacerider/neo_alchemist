@@ -78,14 +78,14 @@ function neo_alchemist_theme(): array {
         // The trailing save group, re-rendered after every layout write.
         // @see \Drupal\neo_alchemist\ComponentManageHelper::buildDynamicOperations()
         'top_save' => [],
-        // The right dock (the inspector), its header buttons and ⋯ menu, and
+        // The right dock (the inspector), its move and verb buttons, and
         // whether it can be closed (only where closing means deselecting).
         'dock' => FALSE,
         'dock_ops' => [],
-        'dock_menu' => [],
+        'dock_verbs' => [],
         'dock_close' => FALSE,
-        // Editor side panels, tabs in the right dock: a list of
-        // {id, label, width, body}.
+        // Editor side panels, shown in the left dock in place of Layers: a
+        // list of {id, label, width, body}.
         // @see \Drupal\neo_alchemist\ComponentManageHelper::buildSidePanels()
         'side_panels' => [],
       ],
@@ -298,8 +298,9 @@ function template_preprocess_neo_alchemist_overlay(&$variables) {
  * - The inspector's header (neo-alchemist-manage.html.twig) acts on the
  *   selection it is showing. Ops that carry a direction (move up/down) are its
  *   buttons, kept in reach because the outline's copies sit off screen on a
- *   component taller than the canvas. Verb ops (no position, no direction) go
- *   in its ⋯ menu — all but `edit`, which is the inspector itself. Adding is
+ *   component taller than the canvas. Verb ops (no position, no direction) are
+ *   labelled buttons after them — all but `edit`, which is the inspector
+ *   itself. Adding is
  *   left to the outline and the + seams, which already say where.
  *
  * Every button's #url is a `<current>` placeholder. A #type link must carry a
@@ -313,14 +314,14 @@ function template_preprocess_neo_alchemist_overlay(&$variables) {
  * @return array
  *   Render structures: `outline_ops` (split into `top`/`bottom` clusters, each
  *   a list of ['verb' => …, 'link' => …]), `inspector_ops` (the header's
- *   buttons) and `inspector_menu` (its ⋯ menu items), the last two keyed by op
- *   id.
+ *   move buttons) and `inspector_verbs` (its verb buttons), the last two keyed
+ *   by op id.
  */
 function _neo_alchemist_overlay_ops(array $ops): array {
   $build = [
     'outline_ops' => ['top' => [], 'bottom' => []],
     'inspector_ops' => [],
-    'inspector_menu' => [],
+    'inspector_verbs' => [],
   ];
   foreach ($ops as $op) {
     // The op labels are a fixed vocabulary declared once in EditorOpInventory;
@@ -334,18 +335,16 @@ function _neo_alchemist_overlay_ops(array $ops): array {
       if ($op->verb === 'edit') {
         continue;
       }
-      // Delete is the one verb that destroys, and takes the alert colour.
-      $tone = $op->verb === 'delete'
-        ? ['text-alert-700', 'hover:bg-alert-50', 'hover:text-alert-800']
-        : ['text-inherit', 'hover:bg-base-100'];
-      $build['inspector_menu'][$op->id] = [
+      // A labelled button in the inspector's header, after the move ops.
+      // Delete is the one verb that destroys, and takes the alert outline.
+      $build['inspector_verbs'][$op->id] = [
         '#type' => 'link',
         '#title' => neo_icon_admin($label, $op->icon),
         '#url' => Url::fromRoute('<current>'),
         '#attributes' => [
           'class' => [
-            'neo-alchemist--op', 'flex', 'w-full', 'items-center', 'gap-2', 'px-3', 'py-2', 'rounded', 'text-sm',
-            ...$tone,
+            'neo-alchemist--op', 'btn', 'btn-xs',
+            $op->verb === 'delete' ? 'btn-outline-alert' : 'btn-outline',
           ],
           'data-op' => $op->id,
         ],

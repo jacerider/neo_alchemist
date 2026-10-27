@@ -1,5 +1,13 @@
 # Changelog
 
+## Clone and Delete are buttons in the inspector header
+
+With the breadcrumb out of the inspector there is room for them, so the ⋯ menu that held Clone
+and Delete is gone: they sit after Move up/down as labelled buttons, Delete in the alert outline.
+
+For code: `_neo_alchemist_overlay_ops()` returns `inspector_verbs` (labelled `btn` links) in place
+of `inspector_menu`, and the manage element's `#dock_menu` is now `#dock_verbs`.
+
 ## What a write says shows as a toast under the header
 
 "Updated component Hero S5 successfully on Careers: Full." and the other messages Apply, Clone,

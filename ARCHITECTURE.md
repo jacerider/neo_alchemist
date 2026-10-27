@@ -1015,9 +1015,9 @@ Nothing reaches the shared draft until Apply (the form's own submit). Unapplied 
 tracked from the form's `input`/`change` and `neoAlchemistFormEdited` (sent by
 `component-ajax-form.ts` for edits that raise no DOM event); while there are any, a selection
 change, a structural op (`operationExecute()`) or leaving the page asks first, with an inline
-Apply/Discard prompt in the dock or `beforeunload`. The dock's header holds the move ops and a ⋯
-menu of the other verb ops (`_neo_alchemist_overlay_ops()`), then Expand, which gives it the whole
-width. The breadcrumb is not in the dock, which has no room for a nested trail: it is a bar over
+Apply/Discard prompt in the dock or `beforeunload`. The dock's header holds the move ops as icons, then
+the other verb ops as labelled buttons, Delete in the alert outline (`_neo_alchemist_overlay_ops()`:
+`inspector_ops`, `inspector_verbs`), then Expand, which gives it the whole width, and Close. The breadcrumb is not in the dock, which has no room for a nested trail: it is a bar over
 the canvas column (`.neo-alchemist--crumbs`), always shown in the layout editor ("⌂ Page" with
 nothing selected), one line that scrolls sideways and keeps the current crumb in view
 (`titleSet()`); it folds away with the canvas on Expand. The standalone edit page has no bar and
@@ -1304,7 +1304,7 @@ From [neo_alchemist.services.yml](neo_alchemist.services.yml):
   `template_preprocess_neo_alchemist_overlay()` no longer names the eight ops; it projects
   `EditorOpInventory::ops()` through `_neo_alchemist_overlay_ops()` into the surfaces the
   templates loop over — the two outline edge clusters, and the inspector header's move buttons
-  and ⋯ menu (every verb op but `edit`, which is the inspector itself) — deciding
+  and verb buttons (every verb op but `edit`, which is the inspector itself) — deciding
   verb-vs-positional and top-vs-bottom edge from each record's own `position`/`direction`, never
   from its id. Adding an op is a single inventory row, with no
   preprocess or template edit; `EditorChromeIteratesInventoryTest` proves a synthetic row

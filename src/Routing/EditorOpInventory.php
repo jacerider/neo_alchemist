@@ -39,9 +39,9 @@ final class EditorOpInventory {
    * The seven ops, keyed by identifier, in the order the chrome renders them.
    *
    * The three verb ops come first (acting on the component itself: the
-   * inspector, and its ⋯ menu), then the four positional ops. An op is
-   * positional exactly when it carries a position or a direction, so the
-   * chrome's groups are derivable from the table without a separate flag.
+   * inspector, and its header's verb buttons), then the four positional ops.
+   * An op is positional exactly when it carries a position or a direction, so
+   * the chrome's groups are derivable from the table without a separate flag.
    *
    * `icon` is NULL for the verb ops: the chrome passes no explicit icon for
    * them, letting neo_icon_admin() derive one from the label, so an icon here
