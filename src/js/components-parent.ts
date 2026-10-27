@@ -86,9 +86,17 @@
   if (!wrapper) return;
   const iframes = {} as Record<'desktop' | 'tablet' | 'mobile', HTMLIFrameElement>;
   // The inspector: the right dock the selected component's form loads into.
-  // Its header carries the breadcrumb and the selection's ops.
+  // Its header carries the selection's ops.
   const dock = container.querySelector('.neo-alchemist--dock') as HTMLElement | null;
-  const dockTitle = dock?.querySelector('.neo-alchemist--dock-title') as HTMLElement | null;
+  // The breadcrumb bar over the canvas: where the selection sits. Only this
+  // editor writes a trail, so only this editor shows the bar.
+  const crumbBar = container.querySelector('.neo-alchemist--crumbs') as HTMLElement | null;
+  const crumbTrail = crumbBar?.querySelector('.neo-alchemist--crumbs-trail') as HTMLElement | null;
+  if (crumbBar) {
+    crumbBar.hidden = false;
+    // A menu is placed once, under its toggle; it would not follow the trail.
+    crumbTrail?.addEventListener('scroll', () => crumbMenuClose());
+  }
   const dockBody = dock?.querySelector('.neo-alchemist--dock-body') as HTMLElement | null;
   const dockPrompt = dock?.querySelector('.neo-alchemist--dock-prompt') as HTMLElement | null;
   const dockMore = dock?.querySelector('.neo-alchemist--dock-more') as HTMLElement | null;
@@ -1131,6 +1139,8 @@
     seamPreviewOnly = false;
     seamsShow(layerUuid);
     layersBuild();
+    // The trail's menus list what the tree holds, so they follow every write.
+    titleSet(layerUuid);
     // An explicit choice wins, but only on the layout it was made on;
     // otherwise whether this tree has regions decides. Once: a layout write
     // re-runs this, and must not undo what was chosen since.
@@ -1404,9 +1414,7 @@
    */
   function labelsClamp(): void {
     const wrapperRect = wrapper.getBoundingClientRect();
-    // Clamp to the space actually left over, not the raw canvas edge: the
-    // breadcrumb bar covers the top of the canvas whenever anything is
-    // focused, which is exactly when chips are on screen.
+    // Clamp to the canvas's own top edge, which the breadcrumb bar sits above.
     const clampTop = wrapperRect.top;
     Object.entries(overlayElements).forEach(([uuid, bySize]) => {
       if (!overlayState[uuid]) {
@@ -1715,28 +1723,31 @@
    *
    * Each crumb also carries its own children, so the trail navigates in both
    * directions. Climbing out was already possible; getting back down meant
-   * hunting for the node on the canvas again.
+   * hunting for the node on the canvas again. With nothing selected the trail
+   * is the page alone, whose menu lists the top level.
+   *
+   * One line: a long trail scrolls sideways, kept at its end so the current
+   * crumb is the one in view.
    */
   function titleSet(uuid: string | null): void {
     crumbMenuClose();
-    if (!dockTitle) {
+    if (!crumbTrail) {
       return;
     }
-    dockTitle.innerHTML = '';
-    if (!uuid || !structureData[uuid]) {
-      return;
-    }
-    const trail: Array<string | null> = [null, ...structureData[uuid].parents, uuid];
+    crumbTrail.innerHTML = '';
+    const current = uuid && structureData[uuid] ? uuid : null;
+    const trail: Array<string | null> = current ? [null, ...structureData[current].parents, current] : [null];
     trail.forEach((crumbUuid, index) => {
       if (index) {
         const sep = document.createElement('div');
+        sep.className = 'flex-none opacity-50';
         sep.textContent = '»';
-        sep.style.opacity = '0.5';
         sep.setAttribute('aria-hidden', 'true');
-        dockTitle.appendChild(sep);
+        crumbTrail.appendChild(sep);
       }
-      dockTitle.appendChild(crumbBuild(crumbUuid, crumbUuid === uuid));
+      crumbTrail.appendChild(crumbBuild(crumbUuid, crumbUuid === current));
     });
+    crumbTrail.scrollLeft = crumbTrail.scrollWidth;
   }
 
   /**
@@ -1757,10 +1768,13 @@
     // shown for context but are not clickable.
     const inert = hybrid && isInheritedComponent(crumbUuid);
     const crumb = document.createElement('div');
-    crumb.className = 'neo-alchemist--crumb relative flex min-w-0 items-center whitespace-nowrap border px-1 rounded';
+    crumb.className = `neo-alchemist--crumb flex flex-none items-center whitespace-nowrap border border-base-900-content/25 px-1 rounded ${isCurrent ? 'bg-base-900-content/10' : ''}`;
+    if (isCurrent) {
+      crumb.setAttribute('aria-current', 'location');
+    }
 
     const link = document.createElement((isCurrent || inert) ? 'div' : 'a');
-    link.className = `neo-alchemist--crumb-link flex min-w-0 items-center h-6 px-1 gap-1.5 text-base-0-content ${isCurrent ? 'font-semibold' : 'font-normal'}`;
+    link.className = `neo-alchemist--crumb-link flex items-center h-6 px-1 gap-1.5 text-base-900-content ${isCurrent ? 'font-semibold' : 'font-normal'}`;
     if (link instanceof HTMLAnchorElement) {
       link.href = '#';
       link.classList.add('hover:underline');
@@ -1773,8 +1787,11 @@
     if (data) {
       // No type marker in the trail. A crumb answers "where am I", and the
       // kind of each ancestor is not part of that answer.
+      // A long name stops at 12rem; the whole of it is in the title.
       const text = document.createElement('span');
+      text.className = 'truncate max-w-48';
       text.textContent = String(data.data.label ?? '');
+      text.setAttribute('title', text.textContent);
       link.appendChild(text);
       (data.data.warnings || []).forEach((warning: string) => {
         link.appendChild(badgeBuild(warning, 'warning'));
@@ -1786,6 +1803,12 @@
     else {
       link.innerHTML = '<i class="neo-icon neo-icon-font icon-regular-home"></i>';
       link.setAttribute('title', Drupal.t('Whole page'));
+      // Named only when it is the whole trail: further along, the icon says it.
+      if (isCurrent) {
+        const text = document.createElement('span');
+        text.textContent = Drupal.t('Page');
+        link.appendChild(text);
+      }
     }
     crumb.appendChild(link);
 
@@ -1825,7 +1848,7 @@
    */
   function badgeBuild(markup: string, kind: 'warning' | 'alert'): HTMLElement {
     const badge = document.createElement('span');
-    badge.className = `badge rounded-sm bg-${kind}-500 text-${kind}-500-content`;
+    badge.className = `badge flex-none rounded-sm bg-${kind}-500 text-${kind}-500-content`;
     badge.innerHTML = markup;
     return badge;
   }
@@ -1841,14 +1864,16 @@
     toggle.type = 'button';
     // The class is a hook, not styling — crumbMenuClose() finds the toggle
     // through it to put aria-expanded back.
-    toggle.className = 'neo-alchemist--crumb-toggle inline-flex items-center justify-center w-4.5 h-4.5 rounded-sm text-xs leading-none cursor-pointer transition hover:bg-base-100';
+    toggle.className = 'neo-alchemist--crumb-toggle inline-flex items-center justify-center w-4.5 h-4.5 rounded-sm text-xs leading-none cursor-pointer transition hover:bg-base-900-content/15';
     toggle.setAttribute('aria-haspopup', 'true');
     toggle.setAttribute('aria-expanded', 'false');
     toggle.setAttribute('title', Drupal.t('Go to a child'));
     toggle.textContent = '▾';
 
     const menu = document.createElement('div');
-    menu.className = 'neo-alchemist--crumb-menu absolute top-full left-0 mt-1.5 z-50 min-w-48 max-h-72 overflow-y-auto p-1 rounded-md shadow-lg border bg-base-0 text-base-0-content';
+    // Fixed, placed under the toggle on open: the trail scrolls sideways, and a
+    // scroller clips anything absolute inside it.
+    menu.className = 'neo-alchemist--crumb-menu fixed z-50 min-w-48 max-h-72 overflow-y-auto p-1 rounded-md shadow-lg border bg-base-0 text-base-0-content';
     menu.hidden = true;
     menu.setAttribute('role', 'menu');
 
@@ -1884,6 +1909,9 @@
       const open = !menu.hidden;
       crumbMenuClose();
       if (!open) {
+        const rect = toggle.getBoundingClientRect();
+        menu.style.top = `${rect.bottom + 6}px`;
+        menu.style.left = `${rect.left}px`;
         menu.hidden = false;
         toggle.setAttribute('aria-expanded', 'true');
         openCrumbMenu = menu;
@@ -2039,8 +2067,8 @@
     inspectorUuid = uuid;
     dockVisibilitySync();
     if (data.type !== 'component') {
-      // A region has no form of its own: the header's breadcrumb still says
-      // where it is, and the body says what to do with it.
+      // A region has no form of its own: the breadcrumb bar still says where
+      // it is, and the body says what to do with it.
       inspectorEmpty(Drupal.t('Select a component in @region to edit it, or use the + between components to add one.', { '@region': String(data.data.label ?? '') }));
       return;
     }
@@ -2111,7 +2139,6 @@
       Drupal.detachBehaviors(dockBody, drupalSettings, 'unload');
       dockBody.innerHTML = '';
     }
-    titleSet(null);
     dockVisibilitySync();
   }
 

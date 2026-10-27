@@ -1012,9 +1012,13 @@ Nothing reaches the shared draft until Apply (the form's own submit). Unapplied 
 tracked from the form's `input`/`change` and `neoAlchemistFormEdited` (sent by
 `component-ajax-form.ts` for edits that raise no DOM event); while there are any, a selection
 change, a structural op (`operationExecute()`) or leaving the page asks first, with an inline
-Apply/Discard prompt in the dock or `beforeunload`. The dock's header holds the breadcrumb, the
-move ops and a ⋯ menu of the other verb ops (`_neo_alchemist_overlay_ops()`); Expand gives it the
-whole width. The canvas fits its frames to the column it is left (`Fit`, `component-parent.ts`),
+Apply/Discard prompt in the dock or `beforeunload`. The dock's header holds the move ops and a ⋯
+menu of the other verb ops (`_neo_alchemist_overlay_ops()`), then Expand, which gives it the whole
+width. The breadcrumb is not in the dock, which has no room for a nested trail: it is a bar over
+the canvas column (`.neo-alchemist--crumbs`), always shown in the layout editor ("⌂ Page" with
+nothing selected), one line that scrolls sideways and keeps the current crumb in view
+(`titleSet()`); it folds away with the canvas on Expand. The standalone edit page has no bar and
+names its task in the dock's header. The canvas fits its frames to the column it is left (`Fit`, `component-parent.ts`),
 re-fitting on resize. The standalone edit page renders the same dock (`form_position: dock`).
 `component-parent.ts` wires whichever form an editor holds now (`bindForm()`, re-run on every
 attach), because the inspector swaps it per selection.

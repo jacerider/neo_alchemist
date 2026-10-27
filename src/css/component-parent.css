@@ -338,6 +338,14 @@ form.neo-alchemist-manage--form:has(.neo-alchemist--form-layout) > .form--inner,
   max-width: none;
 }
 
+/* The form's header band pulls itself up by the form's top padding to sit
+ * flush under the toolbar (InstanceComponentForm::buildHeader()). Only the
+ * edit page renders that padding (pt-4); a form the editor loads into the dock
+ * arrives without it, and its header slid under the dock's own. */
+.neo-alchemist--dock-body > form {
+  padding-top: 1rem;
+}
+
 .neo-alchemist-manage:has(.neo-alchemist--dock.is-expanded) {
   .neo-alchemist--dock {
     flex: 1 1 auto;

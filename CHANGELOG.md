@@ -1,5 +1,21 @@
 # Changelog
 
+## The breadcrumb is a bar over the canvas again
+
+The inspector's header held the breadcrumb beside Move up/down, ⋯, Expand and Close. At the
+inspector's width a nested trail (⌂ » Insight Body » Body » Text) ran into the buttons, and a
+locked ancestor's badge was drawn over its neighbours.
+
+The breadcrumb is now a dark bar across the top of the canvas column, between Layers and the
+inspector. It is always there in the layout editor, reading "⌂ Page" with nothing selected, so
+selecting never shifts the canvas; the Page crumb's menu lists the top-level components. A long
+name stops at 12rem (the full name is its tooltip), and a trail too long for the bar scrolls
+sideways, kept at its end so the selected component stays in view. Expand hides it with the
+canvas. The inspector's header is actions only: Move up/down and ⋯, then Expand and Close.
+
+Also fixed: the selected component's title row slid under the inspector's header, because a form
+loaded into the inspector arrived without the top padding its header band pulls itself up by.
+
 ## Undo and redo in the layout editor
 
 Every change in the layout editor wrote straight to the shared draft, and the only way back was

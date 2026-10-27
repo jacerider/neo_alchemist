@@ -75,6 +75,17 @@
 
   <div class="neo-alchemist-manage--canvas flex flex-col flex-auto min-w-0 relative overflow-hidden">
 
+    {#
+      The breadcrumb bar: where the selection sits, written by the layout
+      editor (titleSet() in components-parent.ts), which unhides it. Always
+      there while that editor is, so selecting never shifts the canvas. Above
+      the canvas rather than in the inspector, which has no room for a nested
+      trail; it goes with the canvas when the inspector is expanded.
+    #}
+    <nav class="neo-alchemist--crumbs flex-none bg-base-900 text-base-900-content shadow z-30" aria-label="{{ 'Selection'|t }}" hidden data-alchemist-ignore data-alchemist-nodrag>
+      <div class="neo-alchemist--crumbs-trail flex items-center gap-1 h-11 overflow-x-auto px-3 text-sm [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"></div>
+    </nav>
+
     <div class="neo-alchemist-manage--wrapper relative flex-auto flex bg-base-100 overflow-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]" style="visibility: hidden">
       <div class="neo-alchemist-manage--drag flex items-start justify-center cursor-grab">
         {{ iframe_start }}
@@ -201,27 +212,28 @@
       the layout editor it opens and closes with the selection and its form is
       loaded into the body (components-parent.ts); opened on its own, the edit
       page renders it with its form. The header holds what acts on the
-      selection: where it sits (the breadcrumb, written by the editor), Move
-      up/down and a ⋯ menu. The prompt asks about unapplied changes in place,
-      with no dialog.
+      selection, Move up/down and a ⋯ menu, then Expand and Close; where the
+      selection sits is the canvas's breadcrumb bar. The edit page, with no
+      canvas, names its task in the header instead. The prompt asks about
+      unapplied changes in place, with no dialog.
     #}
     {% if dock %}
       <aside class="neo-alchemist--dock flex-none flex flex-col border-l bg-base-0 text-base-0-content z-40"{% if not (form and form_position == 'dock') %} hidden{% endif %} aria-label="{{ 'Inspector'|t }}" data-alchemist-ignore data-alchemist-nodrag>
         <div class="neo-alchemist--dock-header flex-none flex items-center gap-2 border-b px-3 py-2">
-          <div class="neo-alchemist--dock-title flex flex-auto min-w-0 items-center gap-1 text-sm">
-            {%- if toolbar_title -%}
-              <span class="font-semibold">{{ toolbar_title }}</span>
-            {%- endif -%}
-          </div>
           {% if dock_ops %}
             <div class="neo-alchemist--dock-ops flex flex-none items-center gap-1">{{ dock_ops }}</div>
           {% endif %}
           {% if dock_menu %}
             <div class="neo-alchemist--more neo-alchemist--dock-more relative flex-none">
               <button type="button" class="neo-alchemist--more-toggle btn btn-xs btn-outline is-active:btn-primary" title="{{ 'More actions'|t }}" aria-expanded="false" aria-controls="{{ id }}-dock-menu">{{ icon('ellipsis-h') }}<span class="sr-only">{{ 'More actions'|t }}</span></button>
-              <div id="{{ id }}-dock-menu" class="neo-alchemist--more-menu absolute right-0 top-full mt-2 w-48 p-1 z-50 rounded-lg shadow-lg border bg-base-0 text-base-0-content" hidden>{{ dock_menu }}</div>
+              <div id="{{ id }}-dock-menu" class="neo-alchemist--more-menu absolute left-0 top-full mt-2 w-48 p-1 z-50 rounded-lg shadow-lg border bg-base-0 text-base-0-content" hidden>{{ dock_menu }}</div>
             </div>
           {% endif %}
+          <div class="neo-alchemist--dock-title flex flex-auto min-w-0 items-center gap-1 text-sm">
+            {%- if toolbar_title -%}
+              <span class="truncate font-semibold">{{ toolbar_title }}</span>
+            {%- endif -%}
+          </div>
           <button type="button" class="neo-alchemist--dock-expand btn btn-xs btn-outline flex-none" title="{{ 'Expand'|t }}" aria-pressed="false">{{ icon('expand') }}<span class="sr-only">{{ 'Expand'|t }}</span></button>
           {% if dock_close %}
             <button type="button" class="neo-alchemist--dock-close btn btn-xs btn-outline flex-none" title="{{ 'Close'|t }}">{{ icon('times') }}<span class="sr-only">{{ 'Close'|t }}</span></button>
