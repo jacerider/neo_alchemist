@@ -777,6 +777,15 @@
     seamBase.remove();
 
     // The inspector's close: deselecting, as Escape at the top level does.
+    // "‹ Parent" in the inspector's band: the step up the breadcrumb takes.
+    dock?.querySelector<HTMLElement>('.neo-alchemist--dock-parent')?.addEventListener('click', (e) => {
+      e.preventDefault();
+      const button = e.currentTarget as HTMLElement;
+      if (button.getAttribute('aria-disabled') === 'true') {
+        return;
+      }
+      layerShowOffCanvas(button.dataset.target || null);
+    });
     dock?.querySelector('.neo-alchemist--dock-close')?.addEventListener('click', (e) => {
       e.preventDefault();
       layerShow(null);
@@ -1741,6 +1750,65 @@
       crumbTrail.appendChild(crumbBuild(crumbUuid, crumbUuid === current));
     });
     crumbTrail.scrollLeft = crumbTrail.scrollWidth;
+    dockBandSet(current);
+  }
+
+  /**
+   * Says where the selection sits in the inspector's band.
+   *
+   * "‹ Parent" selects the parent the breadcrumb shows — a component, a
+   * region, or the page, which clears the selection — and the position counts
+   * the selection among that parent's children: "2 of 3 in List S5", "1 of 2
+   * in Sidebar", "2 of 4 on Careers". An inherited parent in a hybrid layout
+   * is shown but not offered, as in the breadcrumb.
+   */
+  function dockBandSet(uuid: string | null): void {
+    const parentButton = container.querySelector<HTMLElement>('.neo-alchemist--dock-parent');
+    const position = container.querySelector<HTMLElement>('.neo-alchemist--dock-position');
+    if (!parentButton || !position) {
+      return;
+    }
+    const data = uuid ? structureData[uuid] : null;
+    parentButton.hidden = !data;
+    position.hidden = !data;
+    if (!uuid || !data) {
+      return;
+    }
+    const parent = data.parents.length ? data.parents[data.parents.length - 1] : null;
+    const parentLabel = parent ? String(structureData[parent]?.data?.label ?? '') : Drupal.t('Page');
+    const label = parentButton.querySelector<HTMLElement>('.neo-alchemist--dock-parent-label');
+    if (label) {
+      label.textContent = parentLabel;
+    }
+    parentButton.dataset.target = parent ?? '';
+    parentButton.title = parent ? Drupal.t('Select @label', { '@label': parentLabel }) : Drupal.t('Back to the whole page');
+    if (parent && hybrid && isInheritedComponent(parent)) {
+      parentButton.setAttribute('aria-disabled', 'true');
+    }
+    else {
+      parentButton.removeAttribute('aria-disabled');
+    }
+    const siblings = parent
+      ? (structureData[parent]?.children || [])
+      : Object.keys(structureData).filter(key => structureData[key].parents.length === 0);
+    const args = {
+      '@index': String(siblings.indexOf(uuid) + 1),
+      '@count': String(siblings.length),
+    };
+    position.textContent = parent
+      ? Drupal.t('@index of @count in @parent', { ...args, '@parent': parentLabel })
+      : (drupalSettings.neoAlchemist?.pageLabel
+        ? Drupal.t('@index of @count on @page', { ...args, '@page': drupalSettings.neoAlchemist.pageLabel })
+        : Drupal.t('@index of @count on the page', args));
+  }
+
+  /**
+   * Empties the band's name and chips while the inspector has no form for
+   * them: a form on its way, or none to load.
+   */
+  function dockBandClear(): void {
+    container.querySelector('.neo-alchemist--dock-identity')?.replaceChildren();
+    container.querySelector('.neo-alchemist--dock-chips')?.replaceChildren();
   }
 
   /**
@@ -2095,6 +2163,16 @@
     }
     Drupal.detachBehaviors(dockBody, drupalSettings, 'unload');
     dockBody.innerHTML = '';
+    dockBandClear();
+    // No form to name it, so the band names it itself: a region, or a
+    // component this editor may not open.
+    const label = inspectorUuid ? String(structureData[inspectorUuid]?.data?.label ?? '') : '';
+    if (label) {
+      const name = document.createElement('span');
+      name.className = 'neo-alchemist--form-identity-name font-bold';
+      name.textContent = label;
+      container.querySelector('.neo-alchemist--dock-identity')?.replaceChildren(name);
+    }
     const note = document.createElement('p');
     note.className = 'py-6 text-sm text-base-0-content/75';
     note.textContent = text;
@@ -2120,6 +2198,7 @@
     const token = ++inspectorLoadToken;
     Drupal.detachBehaviors(dockBody, drupalSettings, 'unload');
     dockBody.innerHTML = '';
+    dockBandClear();
     dockBody.setAttribute('aria-busy', 'true');
     const ajax: any = Drupal.ajax({
       url: appendParams(op.url, { dock: '1' }),

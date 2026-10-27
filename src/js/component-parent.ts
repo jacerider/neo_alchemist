@@ -1515,10 +1515,14 @@
         return;
       }
 
-      // Delegated on the form rather than bound to the strip and the chips
-      // themselves: the refresh replaces the whole header, and a listener on
-      // an element that gets swapped out goes with it.
-      form.addEventListener('click', event => {
+      // Delegated rather than bound to the strip and the chips themselves:
+      // the refresh replaces the whole header, and a listener on an element
+      // that gets swapped out goes with it. On the dock when there is one,
+      // since the chips are moved up into its band (dockBandFill()); the last
+      // form's listener goes with the last form.
+      tabsListener?.abort();
+      tabsListener = new AbortController();
+      (form.closest<HTMLElement>('.neo-alchemist--dock') ?? form).addEventListener('click', event => {
         const tab = (event.target as HTMLElement).closest<HTMLElement>('[data-neo-alchemist-tab]');
         if (tab && tab.dataset.neoAlchemistTab) {
           setTab(tab.dataset.neoAlchemistTab);
@@ -1555,7 +1559,7 @@
           scrollPropIntoView(target, scroller);
         }
         flashElement(target);
-      });
+      }, { signal: tabsListener.signal });
 
       const selected = strip.querySelector<HTMLElement>('[aria-selected="true"][data-neo-alchemist-tab]');
       setTab(selected?.dataset.neoAlchemistTab || 'content');
@@ -2245,8 +2249,13 @@
     // The form this editor has wired. A new one (the inspector opening another
     // component) is wired once; a rebuild of the same one is not.
     let boundForm: HTMLElement | null = null;
+    // The tabs' and chips' delegated click listener, replaced with each form.
+    let tabsListener: AbortController | null = null;
     function bindForm(): void {
       resolveForm();
+      // Every attach, not only a new form's: a refresh re-renders the header
+      // inside the same form.
+      dockBandFill();
       if (!form || form === boundForm) {
         return;
       }
@@ -2261,6 +2270,26 @@
       bindArrayNav();
       claimRequestedFocus();
     }
+    /**
+     * Moves the form's name and summary chips up into the inspector's band.
+     *
+     * The band (neo-alchemist-manage.html.twig) is the dock's own, and outlives
+     * every form loaded into it; the form renders the name and chips in its
+     * header, and re-renders them on every refresh. A header that has just
+     * been rendered still holds its name, so that is when both move up — a
+     * per-field refresh deeper in the form leaves the band alone.
+     */
+    function dockBandFill(): void {
+      const band = form?.closest('.neo-alchemist--dock')?.querySelector<HTMLElement>('.neo-alchemist--dock-band');
+      const identity = form?.querySelector<HTMLElement>('.neo-alchemist--form-identity');
+      if (!band || !identity) {
+        return;
+      }
+      const chips = form?.querySelector<HTMLElement>('.neo-alchemist--form-chips');
+      band.querySelector('.neo-alchemist--dock-identity')?.replaceChildren(identity);
+      band.querySelector('.neo-alchemist--dock-chips')?.replaceChildren(...(chips ? [chips] : []));
+    }
+
     bindForm();
     formBinders.push(bindForm);
     // A field asked for while the form is already open (components-parent.ts).

@@ -63,7 +63,8 @@ final class EditorOpInventory {
       'position' => NULL,
       'direction' => NULL,
       'rel' => 'clone',
-      'label' => 'Clone',
+      // Said the way an editor says it; the op, route and verb stay `clone`.
+      'label' => 'Duplicate',
       'short' => NULL,
       'icon' => NULL,
     ],

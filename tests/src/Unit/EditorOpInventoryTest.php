@@ -124,7 +124,7 @@ final class EditorOpInventoryTest extends UnitTestCase {
         'position' => NULL,
         'direction' => NULL,
         'rel' => 'clone',
-        'label' => 'Clone',
+        'label' => 'Duplicate',
         'short' => NULL,
         'icon' => NULL,
       ],

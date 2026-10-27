@@ -1,5 +1,24 @@
 # Changelog
 
+## The inspector opens with a band that says who the component is and where it sits
+
+The inspector's header is a band in the theme's primary tint. Its top row leads with a link to
+the component's parent ("‹ Body", or "‹ Page", which clears the selection), then Expand and
+Close. Below: the component's name, larger, with its "?" help; where it sits ("2 of 3 in List
+S5", "1 of 2 in Sidebar", "2 of 4 on Careers"); its summary chips; then Move up and down,
+Duplicate and Delete. The form below starts at its tabs.
+
+- Clone is called Duplicate, and so is its Undo step ("Undo Duplicate Hero S5"). The op, route
+  and permissions are unchanged.
+- A region, or a component the editor may not open, is named in the band too.
+- The parent link is disabled for an inherited parent in a hybrid layout, as its crumb is.
+- The standalone edit page's band shows the task and the name, with no parent link or position.
+
+For code: the form header's name and chips get `neo-alchemist--form-identity(-name/-page)` and
+are moved into the dock's `.neo-alchemist--dock-identity` / `.neo-alchemist--dock-chips` on
+every attach of a freshly rendered header (`dockBandFill()`); the tabs' and chips' click handler
+is delegated on the dock. The layout editor passes `drupalSettings.neoAlchemist.pageLabel`.
+
 ## A badge's dropdown keeps its light form inside the dark band
 
 The band's dark field, label and outline-button styles reached into a badge's dropdown, which

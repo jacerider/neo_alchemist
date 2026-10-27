@@ -1018,9 +1018,19 @@ Nothing reaches the shared draft until Apply (the form's own submit). Unapplied 
 tracked from the form's `input`/`change` and `neoAlchemistFormEdited` (sent by
 `component-ajax-form.ts` for edits that raise no DOM event); while there are any, a selection
 change, a structural op (`operationExecute()`) or leaving the page asks first, with an inline
-Apply/Discard prompt in the dock or `beforeunload`. The dock's header holds the move ops as icons, then
-the other verb ops as labelled buttons, Delete in the alert outline (`_neo_alchemist_overlay_ops()`:
-`inspector_ops`, `inspector_verbs`), then Expand, which gives it the whole width, and Close. The breadcrumb is not in the dock, which has no room for a nested trail: it is the band's
+Apply/Discard prompt in the dock or `beforeunload`. The dock's header is the inspector's band, in the
+primary tint (`.neo-alchemist--dock-band`): a top row with "‹ Parent" (the parent the breadcrumb
+shows — component, region or "‹ Page", which clears the selection; disabled for an inherited
+parent in a hybrid layout), Expand, which gives the dock the whole width, and Close; then the
+form's name with its "?" help and its summary chips, which `dockBandFill()` (component-parent.ts)
+moves up from the form's header each time a freshly rendered header is attached — the tab and
+chip clicks are therefore delegated on the dock, behind an AbortController per form; then the
+position (`dockBandSet()` in components-parent.ts: "2 of 3 in List S5", "1 of 2 in Sidebar", "2
+of 4 on Careers" from `drupalSettings.neoAlchemist.pageLabel`); then the move ops as icons and
+the other verb ops as labelled buttons — Duplicate (the `clone` op's label) and Delete in the
+alert outline (`_neo_alchemist_overlay_ops()`: `inspector_ops`, `inspector_verbs`). A region, or
+a component the editor may not open, has no form: the band names it itself. The standalone edit
+page's band has its task name in the top row and no parent link or position. The breadcrumb is not in the dock, which has no room for a nested trail: it is the band's
 second row, the full width of the editor (`.neo-alchemist--crumbs`), always shown in the layout
 editor ("⌂ Page" with nothing selected), one line that scrolls sideways and keeps the current
 crumb — the primary pill — in view (`titleSet()`); it stays on Expand, when it is the only way up

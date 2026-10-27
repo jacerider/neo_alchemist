@@ -52,6 +52,11 @@ class InstanceComponentManage extends RenderElementBase {
     $element['#attached']['library'][] = 'neo_alchemist/components.parent';
     $element['#attached']['drupalSettings']['neoAlchemist']['baseUrl'] = $neoField->toUrl()->toString();
     $element['#attached']['drupalSettings']['neoAlchemist']['hybrid'] = $neoField->isHybridScope();
+    // What the inspector's band counts a top-level component on ("2 of 4 on
+    // Careers"); a field's default layout has no page of its own.
+    if (!$neoField->belongsToFieldConfig() && ($page = $neoField->getEntity()?->label())) {
+      $element['#attached']['drupalSettings']['neoAlchemist']['pageLabel'] = (string) $page;
+    }
     $element['#id'] = ComponentManageHelper::getId($neoField);
     $element['#iframe_url'] = $neoField->toUrl('preview');
     $element['#iframe_start'] = [

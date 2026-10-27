@@ -89,7 +89,7 @@ class EditorChromeIteratesInventoryTest extends KernelTestBase {
       array_keys($chrome['inspector_verbs']),
       'The verb ops but edit are the verb buttons, in inventory order.',
     );
-    $labels = ['clone' => 'Clone', 'delete' => 'Delete'];
+    $labels = ['clone' => 'Duplicate', 'delete' => 'Delete'];
     foreach ($labels as $id => $label) {
       $item = $chrome['inspector_verbs'][$id];
       $this->assertSame('link', $item['#type'], "$id is a link");

@@ -654,3 +654,100 @@ form.neo-alchemist-manage--form:has(.neo-alchemist--form-layout) > .form--inner,
     }
   }
 }
+
+/* The inspector's band (neo-alchemist-manage.html.twig): the dock's header in
+ * the primary tint — who the component is, where it sits and what can be done
+ * to it. The name and chips are the form's own, moved up into it (bindForm()
+ * in component-parent.ts) and dressed for it here.
+ */
+.neo-alchemist--dock-band {
+  background-color: rgb(var(--color-primary-100));
+  color: rgb(var(--color-base-900));
+}
+
+.neo-alchemist--dock-parent {
+  cursor: pointer;
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  gap: calc(var(--spacing) * 1);
+  height: calc(var(--spacing) * 7);
+  padding-inline: calc(var(--spacing) * 1.5) calc(var(--spacing) * 2.5);
+  border-radius: 9999px;
+  color: rgb(var(--color-primary-700));
+  font-size: var(--text-xs);
+  font-weight: 600;
+  transition: background-color 0.15s;
+
+  &:hover:not([aria-disabled='true']) {
+    background-color: rgb(var(--color-base-0) / 0.6);
+  }
+
+  &[aria-disabled='true'] {
+    cursor: default;
+    opacity: 0.6;
+  }
+
+  &[hidden] {
+    display: none;
+  }
+}
+
+.neo-alchemist--dock-band-icon {
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: calc(var(--spacing) * 7.5);
+  height: calc(var(--spacing) * 7.5);
+  border-radius: var(--radius-lg);
+  color: rgb(var(--color-base-500));
+  transition: background-color 0.15s, color 0.15s;
+
+  &:hover,
+  &[aria-pressed='true'] {
+    background-color: rgb(var(--color-base-0) / 0.6);
+    color: rgb(var(--color-base-900));
+  }
+}
+
+.neo-alchemist--dock-identity {
+  .neo-alchemist--form-identity-name {
+    font-size: var(--text-xl);
+    line-height: 1.2;
+  }
+
+  /* Where it sits says more than which page it is on, and is said below. */
+  .neo-alchemist--form-identity-page {
+    display: none;
+  }
+}
+
+.neo-alchemist--dock-position {
+  margin-top: calc(var(--spacing) * -1.5);
+  color: rgb(var(--color-base-500));
+
+  &[hidden] {
+    display: none;
+  }
+}
+
+/* The chips row was a recessed strip of the form's header; in the band it is
+   just the chips. */
+.neo-alchemist--dock-chips .neo-alchemist--form-chips {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+}
+
+/* The selection's actions, lifted off the tint. */
+.neo-alchemist--dock-actions {
+  :is(.btn-outline, .btn-outline-alert) {
+    --btn-bg-transparent: rgb(var(--color-base-0) / 0.7);
+  }
+
+  .btn-outline {
+    --btn-border-color: rgb(var(--color-primary-200));
+  }
+}

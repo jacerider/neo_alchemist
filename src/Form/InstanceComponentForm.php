@@ -477,17 +477,20 @@ final class InstanceComponentForm extends ContentEntityForm {
     // `my-form-item`; the header sets its own rhythm. No `gap-x` either: the
     // help badge brings its own `margin-inline-start`, so a gap would stack on
     // top of it and leave the badge floating away from the name.
+    // The docked inspector moves this into its band, above the chips and the
+    // component's actions (bindForm() in component-parent.ts), and says where
+    // the component sits in place of "on @page".
     $build = [
       '#type' => 'container',
       '#attributes' => [
-        'class' => ['flex', 'flex-wrap', 'items-baseline', 'my-0'],
+        'class' => ['neo-alchemist--form-identity', 'flex', 'flex-wrap', 'items-baseline', 'my-0'],
       ],
     ];
 
     $build['name'] = [
       '#type' => 'html_tag',
       '#tag' => 'span',
-      '#attributes' => ['class' => ['font-bold', 'leading-tight']],
+      '#attributes' => ['class' => ['neo-alchemist--form-identity-name', 'font-bold', 'leading-tight']],
       '#value' => $label,
     ];
 
@@ -522,7 +525,7 @@ final class InstanceComponentForm extends ContentEntityForm {
         '#type' => 'html_tag',
         '#tag' => 'span',
         // 75%, not less: the subtitle is real text and must keep 4.5:1.
-        '#attributes' => ['class' => ['text-xs', 'text-base-0-content/75', 'ml-2']],
+        '#attributes' => ['class' => ['neo-alchemist--form-identity-page', 'text-xs', 'text-base-0-content/75', 'ml-2']],
         '#value' => $this->t('on @page', ['@page' => $entity->label()]),
       ];
     }
