@@ -112,7 +112,8 @@
 }
 
 /* The band at its natural width, for headerFit() to measure: the leading and
-   trailing groups at their content's width rather than sharing what is left. */
+   trailing groups at their content's width, neither growing into nor sharing
+   what is left. */
 .neo-alchemist-manage--top.is-measuring,
 .neo-alchemist-manage--top.is-measuring * {
   flex-shrink: 0 !important;
@@ -120,7 +121,7 @@
 }
 
 .neo-alchemist-manage--top.is-measuring > * {
-  flex-basis: auto !important;
+  flex: none !important;
   min-width: auto !important;
 }
 

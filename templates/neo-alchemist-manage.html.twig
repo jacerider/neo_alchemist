@@ -9,7 +9,7 @@
     The band: one dark bar for the whole editor. Leading, the way out and what
     is open — Back, the screen's title and, under it, where the draft stands;
     centred, what builds the page — + Add, Layers and a pill per side panel;
-    trailing, the panels' badges, the view controls, Undo · Redo and the save
+    trailing, the panels' badges, Undo · Redo and the save
     group. The status line and the save group are re-rendered after every
     write (top_status, top_save; see ComponentAjaxHelperTrait), so their boxes
     are rendered whenever the band is, even empty. The leading and trailing
@@ -17,7 +17,7 @@
     centred; headerFit() in components-parent.ts compacts the band when that
     room runs out.
   #}
-  {% if top_start or top_center or top_end or top_save %}
+  {% if top_start or top_center or top_end or top_save or top_title %}
     <div class="neo-alchemist-manage--top relative flex-none flex items-center gap-4 w-full min-h-14 px-3 py-2 bg-base-900 text-base-900-content z-50" data-alchemist-offset-top>
       <div class="neo-alchemist-manage--top-start flex flex-1 basis-0 min-w-0 items-center gap-3">
         {{ top_start.back }}
@@ -35,9 +35,8 @@
         <div class="neo-alchemist-manage--top-center flex flex-none items-center gap-2">{{ top_center }}</div>
       {% endif %}
       <div class="neo-alchemist-manage--top-trail flex flex-1 basis-0 min-w-0 items-center justify-end gap-3">
-        {% if top_end %}
-          <div class="neo-alchemist-manage--top-end flex items-center gap-3">{{ top_end }}</div>
-        {% endif %}
+        {# Always there: a client may mount a badge into it (the SDC preview's audit). #}
+        <div class="neo-alchemist-manage--top-end flex items-center gap-3 empty:hidden">{{ top_end }}</div>
         <div class="neo-alchemist-manage--top-save flex items-center gap-2 empty:hidden">{{ top_save }}</div>
       </div>
     </div>
@@ -98,6 +97,8 @@
 
   <div class="neo-alchemist-manage--canvas flex flex-col flex-auto min-w-0 relative overflow-hidden">
 
+    {# The preview area: the scrolling canvas, with the dock floating over it. #}
+    <div class="neo-alchemist-manage--preview relative flex flex-auto min-h-0">
     <div class="neo-alchemist-manage--wrapper relative flex-auto flex bg-base-100 overflow-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]" style="visibility: hidden">
       <div class="neo-alchemist-manage--drag flex items-start justify-center cursor-grab">
         {{ iframe_start }}
@@ -106,7 +107,7 @@
           {# <div class="flex flex-col gap-4"> #}
           <div class="flex items-start justify-center gap-12 px-16">
             {%
-              set wrap_classes = 'neo-alchemist--iframe-wrapper py-16 flex flex-col gap-2'
+              set wrap_classes = 'neo-alchemist--iframe-wrapper pt-16 pb-28 flex flex-col gap-2'
             %}
             {#
               The header card names the frame; Single mode hides it and most of
@@ -173,6 +174,19 @@
         </div>
         {{ iframe_end }}
       </div>
+    </div>
+
+    {#
+      The preview dock: device, zoom and Compare, floating at the bottom of
+      the canvas, apart from the band — they change how the page is looked
+      at, not the page. It goes when the canvas does (Expand, Form View). The
+      frames leave room for it below themselves (pb-28).
+    #}
+    {% if preview %}
+      <div class="neo-alchemist--preview-dock-slot absolute inset-x-0 bottom-6 z-30 flex justify-center pointer-events-none" data-alchemist-ignore data-alchemist-nodrag>
+        {{ preview }}
+      </div>
+    {% endif %}
     </div>
 
     {% if form and form_position == 'footer' %}

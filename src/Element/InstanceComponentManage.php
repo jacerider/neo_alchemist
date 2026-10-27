@@ -59,11 +59,13 @@ class InstanceComponentManage extends RenderElementBase {
     ];
     // The band (decision 28): Back, the title and the draft's status line
     // lead; + Add, Layers and a pill per side panel sit in the centre; the
-    // view controls, the panels' badges, Undo · Redo and the save group trail.
+    // panels' badges, Undo · Redo and the save group trail.
     $element['#top_start'] = ComponentManageHelper::buildNavigationOperations($neoField);
     $element['#top_center'] = ComponentManageHelper::buildOperations($neoField, $element['#neo_modal'] ?? [])
       + ComponentManageHelper::buildLayersToggle();
-    $element['#top_end'] = ComponentManageHelper::buildIframeOperations($neoField);
+    $element['#top_end'] = [];
+    // Device, zoom and Compare float on the canvas, apart from the band.
+    $element['#preview'] = ComponentManageHelper::buildIframeOperations($neoField);
     // Only an entity's layout has a shared draft: a status line to say where
     // it stands, and Undo · Redo to step through it. Their wrappers stay put
     // while a write re-renders inside them.

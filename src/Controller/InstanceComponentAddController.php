@@ -66,7 +66,7 @@ final class InstanceComponentAddController extends ControllerBase {
       'after' => $request->query->get('after'),
     ]);
 
-    $build['#top_end'] = ComponentManageHelper::buildIframeOperations($instance);
+    $build['#preview'] = ComponentManageHelper::buildIframeOperations($instance);
 
     if ($this->isAjax()) {
       return $build;

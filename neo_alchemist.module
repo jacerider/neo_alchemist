@@ -85,6 +85,10 @@ function neo_alchemist_theme(): array {
         'top_status' => [],
         'top_center' => [],
         'top_end' => [],
+        // The preview dock, floating at the bottom of the canvas: device,
+        // zoom and Compare.
+        // @see \Drupal\neo_alchemist\ComponentManageHelper::buildIframeOperations()
+        'preview' => [],
         // The trailing save group, re-rendered after every layout write.
         // @see \Drupal\neo_alchemist\ComponentManageHelper::buildDynamicOperations()
         'top_save' => [],

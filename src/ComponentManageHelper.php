@@ -148,174 +148,171 @@ class ComponentManageHelper {
   }
 
   /**
-   * Builds the operations that change size of iframe.
+   * Builds the preview dock: how the canvas shows the page.
    *
-   * The zoom and size controls are toggle buttons, not links: they change the
-   * view and go nowhere, and `aria-pressed` (kept in step with `.is-active` by
-   * component-parent.ts) is what tells a screen reader which one is on.
+   * A dark pill floating at the bottom of the canvas, apart from the band:
+   * these controls change how the page is looked at, not the page. Device
+   * (Desktop, Tablet, Mobile — the shown one named, the others icons with
+   * tooltips), then zoom (− and + step through 50%, 75%, 100% and Fit; the
+   * value opens a menu of all four), then Compare (every size side by side).
+   *
+   * The zoom presets and the devices are toggle buttons, not links: they
+   * change the view and go nowhere, and `aria-pressed` (kept in step with
+   * `.is-active` by component-parent.ts) is what tells a screen reader which
+   * one is on. component-parent.ts drives all of it and remembers the choices.
    *
    * @param \Drupal\neo_alchemist\Plugin\Field\FieldType\ComponentTreeItem|Drupal\neo_alchemist\ComponentInterface $instance
    *   The field item.
    *
    * @return array
-   *   The operations.
+   *   The dock's render array.
    */
   public static function buildIframeOperations(ComponentTreeItem|ComponentInterface $instance) {
     $build = [
       '#type' => 'html_tag',
       '#tag' => 'div',
       '#attributes' => [
-        // The same gap as the top bar's start, between every group here —
-        // panel badges included, which lead this container.
-        'class' => ['flex items-center gap-2'],
+        'class' => ['neo-alchemist--preview-dock'],
+        'role' => 'toolbar',
+        'aria-label' => t('Preview'),
       ],
     ];
-
-    // One tooltip names the group; its buttons say the rest themselves.
-    $build['scale'] = [
-      '#type' => 'html_tag',
-      '#tag' => 'div',
-      '#attributes' => [
-        'class' => ['btn-group', 'flush'],
-        'role' => 'group',
-        'aria-label' => t('Zoom'),
-        // On the body: inside the group it would square off 50%'s corners.
-        'data-neo-tooltip-detach' => 'true',
-      ],
-    ];
-    (new Tooltip(t('Zoom'), ['placement' => 'bottom']))->applyTo($build['scale']);
-    // Scale. Fit, the default, scales the frames to the canvas column
-    // (component-parent.ts); the rest are fixed. Only Fit has an icon: a
-    // percentage says what it does, and the bar is short of room.
-    foreach ([
-      'fit' => neo_icon_admin(t('Fit'), 'arrows-alt-h')->render(),
-      'full' => t('100%'),
-      '75' => t('75%'),
-      '50' => t('50%'),
-    ] as $key => $label) {
-      $build['scale'][$key] = [
-        '#type' => 'html_tag',
-        '#tag' => 'button',
-        '#value' => $label,
-        '#attributes' => [
-          'type' => 'button',
-          'class' => ['neo-alchemist--scale', 'btn', 'btn-xs', 'btn-outline', 'is-active:btn-primary'],
-          'data-size' => $key,
-          'aria-pressed' => 'false',
-        ],
-      ];
-    }
 
     $build['size'] = [
       '#type' => 'html_tag',
       '#tag' => 'div',
       '#attributes' => [
-        'class' => ['btn-group', 'flush'],
+        'class' => ['flex', 'items-center', 'gap-0.5'],
+        'role' => 'group',
+        'aria-label' => t('Size'),
       ],
     ];
-    // Resize. Icons alone: the bar has three groups to fit, and the devices
-    // read at a glance. The name stays for screen readers and in a tooltip.
     foreach ([
       'desktop' => t('Desktop'),
       'tablet' => t('Tablet'),
       'mobile' => t('Mobile'),
     ] as $key => $name) {
-      $label = neo_icon_admin($name, $key)->iconOnly();
+      // The name is the label; the dock shows it only on the shown size
+      // (component-parent.css), and the tooltip says it on the rest.
       $build['size'][$key] = [
         '#type' => 'html_tag',
         '#tag' => 'button',
-        '#value' => $label->render(),
         '#attributes' => [
           'type' => 'button',
-          'class' => ['neo-alchemist--focus', 'btn', 'btn-xs', 'btn-outline', 'is-active:btn-primary'],
+          'class' => ['neo-alchemist--focus', 'neo-alchemist--dock-device'],
+          'data-size' => $key,
+          'aria-pressed' => 'false',
+          'data-neo-tooltip-detach' => 'true',
+        ],
+        'icon' => neo_icon_admin($name, $key)->addLabelClass('neo-alchemist--dock-device-label')->getRenderable(),
+      ];
+      (new Tooltip($name, ['placement' => 'top']))->applyTo($build['size'][$key]);
+    }
+
+    $build['divider_zoom'] = static::buildDockDivider();
+    $build['scale'] = [
+      '#type' => 'html_tag',
+      '#tag' => 'div',
+      '#attributes' => [
+        'class' => ['neo-alchemist--zoom', 'relative', 'flex', 'items-center'],
+        'role' => 'group',
+        'aria-label' => t('Zoom'),
+      ],
+    ];
+    $steps = [];
+    foreach (['out' => [t('Zoom out'), 'minus', -1], 'in' => [t('Zoom in'), 'plus', 1]] as $key => [$name, $icon, $step]) {
+      $steps[$key] = [
+        '#type' => 'html_tag',
+        '#tag' => 'button',
+        '#attributes' => [
+          'type' => 'button',
+          'class' => ['neo-alchemist--zoom-step', 'neo-alchemist--dock-icon', 'aria-disabled:opacity-40'],
+          'data-step' => (string) $step,
+          'data-neo-tooltip-detach' => 'true',
+        ],
+        'icon' => neo_icon_admin($name, $icon)->iconOnly()->getRenderable(),
+      ];
+      (new Tooltip($name, ['placement' => 'top']))->applyTo($steps[$key]);
+    }
+    // − · the zoom in force, which opens the presets · +.
+    $build['scale']['out'] = $steps['out'];
+    $build['scale']['value'] = [
+      '#type' => 'html_tag',
+      '#tag' => 'button',
+      '#value' => t('Fit'),
+      '#attributes' => [
+        'type' => 'button',
+        'class' => ['neo-alchemist--zoom-value'],
+        'aria-haspopup' => 'true',
+        'aria-expanded' => 'false',
+        'aria-controls' => 'neo-alchemist-zoom-menu',
+        'title' => t('Zoom'),
+      ],
+    ];
+    $build['scale']['in'] = $steps['in'];
+    $build['scale']['menu'] = [
+      '#type' => 'html_tag',
+      '#tag' => 'div',
+      '#attributes' => [
+        'id' => 'neo-alchemist-zoom-menu',
+        'class' => ['neo-alchemist--zoom-menu'],
+        'role' => 'group',
+        'aria-label' => t('Zoom'),
+        'hidden' => 'hidden',
+      ],
+    ];
+    // Fit, the default, scales the frames to the canvas column
+    // (component-parent.ts); the rest are fixed. The order − and + step in.
+    foreach ([
+      'fit' => t('Fit'),
+      'full' => t('100%'),
+      '75' => t('75%'),
+      '50' => t('50%'),
+    ] as $key => $label) {
+      $build['scale']['menu'][$key] = [
+        '#type' => 'html_tag',
+        '#tag' => 'button',
+        '#value' => $label,
+        '#attributes' => [
+          'type' => 'button',
+          'class' => ['neo-alchemist--scale'],
           'data-size' => $key,
           'aria-pressed' => 'false',
         ],
       ];
-      // The tooltip goes on the body: left beside the button, it would be the
-      // group's last child and square off the last button's corners.
-      $build['size'][$key]['#attributes']['data-neo-tooltip-detach'] = 'true';
-      (new Tooltip($name, ['placement' => 'bottom']))->applyTo($build['size'][$key]);
     }
 
-    // View options: how the canvas shows the sizes. The panel always starts
-    // closed; component-parent.ts toggles it and remembers its settings. The
-    // last part of the size group, since it is about the sizes: its wrapper
-    // is no `.btn`, so the group squares the Mobile button's right side and
-    // the toggle squares its own left.
-    $build['size']['view'] = [
+    $build['divider_compare'] = static::buildDockDivider();
+    // Compare: every size side by side, or one at a time.
+    $build['compare'] = [
       '#type' => 'html_tag',
-      '#tag' => 'div',
+      '#tag' => 'button',
       '#attributes' => [
-        'class' => ['neo-alchemist--view', 'relative'],
+        'type' => 'button',
+        'class' => ['neo-alchemist--compare', 'neo-alchemist--dock-device'],
+        'aria-pressed' => 'false',
+        'title' => t('Show all sizes side by side'),
       ],
-      'toggle' => [
-        '#type' => 'html_tag',
-        '#tag' => 'button',
-        '#value' => neo_icon_admin(t('View options'), 'sliders-h')->iconOnly()->render(),
-        '#attributes' => [
-          'type' => 'button',
-          'class' => [
-            'neo-alchemist--view-toggle', 'btn', 'btn-xs', 'btn-outline', 'is-active:btn-primary',
-            'md:rounded-l-none', 'md:border-l-0',
-          ],
-          'title' => t('View options'),
-          'aria-expanded' => 'false',
-          'aria-controls' => 'neo-alchemist-view-options',
-        ],
-      ],
-      'panel' => [
-        '#type' => 'html_tag',
-        '#tag' => 'div',
-        '#attributes' => [
-          'id' => 'neo-alchemist-view-options',
-          'class' => [
-            'neo-alchemist--view-panel',
-            'absolute right-0 top-full mt-2 w-64 p-3 z-50',
-            'rounded-lg shadow-lg border bg-base-0 text-base-0-content',
-            'text-xs font-normal normal-case tracking-normal',
-          ],
-          'role' => 'dialog',
-          'aria-label' => t('View options'),
-          'hidden' => 'hidden',
-        ],
-        'compare' => [
-          '#type' => 'html_tag',
-          '#tag' => 'label',
-          '#attributes' => [
-            'class' => ['flex', 'items-start', 'gap-2', 'cursor-pointer'],
-          ],
-          'input' => [
-            '#type' => 'html_tag',
-            '#tag' => 'input',
-            '#attributes' => [
-              'type' => 'checkbox',
-              'class' => ['neo-alchemist--compare', 'mt-0.5'],
-            ],
-          ],
-          'text' => [
-            '#type' => 'html_tag',
-            '#tag' => 'span',
-            '#attributes' => [
-              'class' => ['flex', 'flex-col', 'gap-0.5'],
-            ],
-            'label' => [
-              '#type' => 'html_tag',
-              '#tag' => 'span',
-              '#value' => t('Compare'),
-              '#attributes' => ['class' => ['font-bold']],
-            ],
-            'description' => [
-              '#type' => 'html_tag',
-              '#tag' => 'span',
-              '#value' => t('Show all sizes side by side'),
-              '#attributes' => ['class' => ['text-base-500']],
-            ],
-          ],
-        ],
-      ],
+      'icon' => neo_icon_admin(t('Compare'), 'columns')->getRenderable(),
     ];
     return $build;
+  }
+
+  /**
+   * Builds a rule between the preview dock's groups.
+   *
+   * @return array
+   *   The rule's render array.
+   */
+  protected static function buildDockDivider(): array {
+    return [
+      '#type' => 'html_tag',
+      '#tag' => 'span',
+      '#attributes' => [
+        'class' => ['neo-alchemist--dock-divider'],
+        'aria-hidden' => 'true',
+      ],
+    ];
   }
 
   /**

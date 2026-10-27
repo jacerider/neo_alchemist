@@ -1,5 +1,23 @@
 # Changelog
 
+## Device, zoom and Compare float in a dock on the canvas
+
+How the canvas shows the page is no longer in the header. A dark dock at the bottom of the
+canvas holds Desktop, Tablet and Mobile (the shown size named, the others icons with tooltips),
+then zoom, then Compare. Zoom steps with − and + through 50%, 75%, 100% and Fit; its value opens
+a menu of all four. Compare is a toggle, replacing View options, whose only setting it was. The
+choices are remembered as before. The dock goes with the canvas on Expand and in the Manage
+page's Form View, and the frames leave room for it below them.
+
+- Every editor button that is not a `.btn` now says `cursor: pointer` itself, since Tailwind
+  no longer gives buttons one: the band's icons and pills, the dock, the zoom presets, the
+  field browser's rows and trigger, and the SDC preview's audit badge.
+
+For code: `ComponentManageHelper::buildIframeOperations()` returns the dock, which every screen
+passes as the template's new `preview` variable rather than `top_end`. The canvas and the dock
+share `.neo-alchemist-manage--preview`, which Form / Split / Preview View now size. The band's
+`.neo-alchemist-manage--top-end` box is always rendered, so a client can mount a badge there.
+
 ## The editor's header is one dark band
 
 Every editor screen opens with one dark bar, the band, in three parts. Leading: Back, the

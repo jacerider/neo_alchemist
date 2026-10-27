@@ -78,7 +78,7 @@ final class SdcPreviewManageController extends ControllerBase {
     $build['#top_start']['context'] = $this->entityFormBuilder()->getForm($entity, 'preview_context');
 
     // Resize / scale operations.
-    $build['#top_end'] = ComponentManageHelper::buildIframeOperations($entity);
+    $build['#preview'] = ComponentManageHelper::buildIframeOperations($entity);
 
     return $this->bareHtmlPageRenderer
       // The page renderer ignores its $title argument, so set the page title

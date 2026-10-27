@@ -229,17 +229,20 @@ class AlchemistPanelTest extends HybridFieldKernelTestBase {
    */
   public function testBadgeLeadsTheTrail(): void {
     $item = $this->item($this->labelledEntity());
-    $children = static fn (array $build): array => array_values(array_filter(array_keys($build), static fn ($key) => $key[0] !== '#'));
+    // As strings: PHP makes the zoom presets' numeric keys ('75', '50') ints.
+    $children = static fn (array $build): array => array_map('strval', array_values(array_filter(array_keys($build), static fn ($key) => ((string) $key)[0] !== '#')));
     $plain = $this->manageElement($item);
     $this->assertArrayNotHasKey('badges', $plain['#top_end'], 'No badge: the trail is unchanged.');
-    $this->assertSame(['scale', 'size', 'history'], $children($plain['#top_end']), 'The trail holds the scale and device controls, then Undo and Redo.');
-    $this->assertArrayHasKey('view', $plain['#top_end']['size'], 'View options is part of the device group.');
+    $this->assertSame(['history'], $children($plain['#top_end']), 'The trail holds Undo and Redo.');
+    $this->assertSame(['size', 'divider_zoom', 'scale', 'divider_compare', 'compare'], $children($plain['#preview']), 'Device, zoom and Compare float in the preview dock instead.');
+    $this->assertSame(['out', 'value', 'in', 'menu'], $children($plain['#preview']['scale']), 'Zoom steps with − and +, its value opening the presets.');
+    $this->assertSame(['fit', 'full', '75', '50'], $children($plain['#preview']['scale']['menu']));
     $this->assertSame('sidepanel_' . self::PANEL, $children($plain['#top_center'])[2] ?? NULL, 'The panel has its pill in the centre, after Add and Layers.');
 
     \Drupal::state()->set(TestLabelPanel::BADGE_STATE_KEY, TRUE);
     $this->assertArrayHasKey('sidepanel_' . self::PANEL, $this->sidePanels($item)['toggles'], 'A panel with a badge keeps its pill.');
     $badged = $this->manageElement($item);
-    $this->assertSame(['badges', 'scale', 'size', 'history'], $children($badged['#top_end']), 'Badges lead the trail, in the same container as what follows.');
+    $this->assertSame(['badges', 'history'], $children($badged['#top_end']), 'Badges lead the trail, in the same container as what follows.');
     $badge = $badged['#top_end']['badges']['badge_' . self::PANEL];
     $this->assertSame(self::PANEL, $badge['#attributes']['data-alchemist-badge']);
     $this->assertSame(['content'], $children($badge), "The badge is apart from the panel's pill.");

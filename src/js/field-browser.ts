@@ -141,7 +141,7 @@
       Object.entries(this.extra).forEach(([value, label]) => {
         const row = document.createElement('button');
         row.type = 'button';
-        row.className = 'neo-field-browser--extra form-item-border form-item-border-radius px-3 py-1 text-sm';
+        row.className = 'neo-field-browser--extra form-item-border form-item-border-radius px-3 py-1 text-sm cursor-pointer';
         row.dataset.value = value;
         row.textContent = label;
         row.addEventListener('click', () => this.markSelected(row, label, t('Special')));
@@ -216,7 +216,7 @@
         }
         const btn = document.createElement('button');
         btn.type = 'button';
-        btn.className = 'hover:underline';
+        btn.className = 'hover:underline cursor-pointer';
         btn.textContent = crumb.label + (crumb.entity ? ` (${crumb.entity})` : '');
         btn.addEventListener('click', () => this.loadPane(crumb.path, i > 0 ? i - 1 : undefined));
         this.crumbBar.append(btn);
@@ -298,7 +298,7 @@
     private refRow(ref: Ref, col: HTMLElement): HTMLElement {
       const row = document.createElement('button');
       row.type = 'button';
-      row.className = 'neo-field-browser--ref flex items-center justify-between gap-2 w-full text-left px-3 py-2 text-sm hover:bg-primary-500 hover:text-primary-500-content';
+      row.className = 'neo-field-browser--ref flex items-center justify-between gap-2 w-full text-left px-3 py-2 text-sm hover:bg-primary-500 hover:text-primary-500-content cursor-pointer';
       const text = document.createElement('span');
       text.className = 'truncate';
       text.innerHTML = `<span>${escapeHtml(ref.label)}</span> <span class="opacity-60">→ ${escapeHtml(ref.target)}</span>`;
@@ -336,7 +336,7 @@
           hits.forEach(hit => {
             const row = document.createElement('button');
             row.type = 'button';
-            row.className = 'block w-full text-left px-3 py-2 text-sm hover:bg-primary-500 hover:text-primary-500-content';
+            row.className = 'block w-full text-left px-3 py-2 text-sm hover:bg-primary-500 hover:text-primary-500-content cursor-pointer';
             row.innerHTML = `<div class="truncate">${escapeHtml(hit.label)}</div><div class="text-xs opacity-60 truncate">${escapeHtml(hit.path)}</div>`;
             row.addEventListener('click', () => this.markSelected(row, hit.label, hit.path));
             row.addEventListener('dblclick', () => {
@@ -438,7 +438,7 @@
 
         const trigger = document.createElement('button');
         trigger.type = 'button';
-        trigger.className = 'neo-field-select--trigger form-item-bg form-item-border form-item-border-radius grow text-left py-2 px-3 min-w-0';
+        trigger.className = 'neo-field-select--trigger form-item-bg form-item-border form-item-border-radius grow text-left py-2 px-3 min-w-0 cursor-pointer';
         let browser: FieldBrowser | null = null;
         trigger.addEventListener('click', () => {
           browser = browser || new FieldBrowser(input, trigger);

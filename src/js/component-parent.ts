@@ -900,8 +900,8 @@
       else {
         container.dataset.alchemistSingle = view.shown;
       }
-      if (compareInput) {
-        compareInput.checked = view.compare;
+      if (compareToggle) {
+        togglePressed(compareToggle, view.compare);
       }
       focusButtonsSync();
     }
@@ -1021,46 +1021,54 @@
       });
     }
 
-    // View options. Opens closed every time; only what it sets is remembered.
-    const viewToggle = container.querySelector<HTMLElement>('.neo-alchemist--view-toggle');
-    const viewPanel = container.querySelector<HTMLElement>('.neo-alchemist--view-panel');
-    const compareInput = container.querySelector<HTMLInputElement>('.neo-alchemist--compare');
-    if (viewToggle && viewPanel) {
-      const viewKey = (e: KeyboardEvent) => {
-        if (e.key === 'Escape') {
-          e.preventDefault();
-          viewPanelToggle(false);
-          viewToggle.focus();
-        }
-      };
-      const viewPointer = (e: PointerEvent) => {
-        if (!viewToggle.parentElement?.contains(e.target as Node)) {
-          viewPanelToggle(false);
-        }
-      };
-      // A click into a preview frame never reaches this document; it blurs it.
-      const viewBlur = () => {
-        window.setTimeout(() => {
-          if (document.activeElement instanceof HTMLIFrameElement) {
-            viewPanelToggle(false);
-          }
-        });
-      };
-      const viewPanelToggle = (open: boolean) => {
-        viewPanel.hidden = !open;
-        viewToggle.classList.toggle('is-active', open);
-        viewToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
-        const method = open ? 'addEventListener' : 'removeEventListener';
-        document[method]('keydown', viewKey as EventListener, true);
-        document[method]('pointerdown', viewPointer as EventListener, true);
-        window[method]('blur', viewBlur);
-      };
-      viewToggle.addEventListener('click', (e) => {
+    // The dock's zoom presets: a menu off the zoom value. Opens closed every
+    // time; only the zoom it sets is remembered.
+    const zoomValue = container.querySelector<HTMLElement>('.neo-alchemist--zoom-value');
+    const zoomMenu = container.querySelector<HTMLElement>('.neo-alchemist--zoom-menu');
+    const compareToggle = container.querySelector<HTMLElement>('.neo-alchemist--compare');
+    const zoomMenuToggle = (open: boolean) => {
+      if (!zoomValue || !zoomMenu) {
+        return;
+      }
+      zoomMenu.hidden = !open;
+      zoomValue.classList.toggle('is-active', open);
+      zoomValue.setAttribute('aria-expanded', open ? 'true' : 'false');
+      const method = open ? 'addEventListener' : 'removeEventListener';
+      document[method]('keydown', zoomMenuKey as EventListener, true);
+      document[method]('pointerdown', zoomMenuPointer as EventListener, true);
+      window[method]('blur', zoomMenuBlur);
+      if (open) {
+        zoomMenu.querySelector<HTMLElement>('.is-active, button')?.focus();
+      }
+    };
+    const zoomMenuKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
         e.preventDefault();
-        viewPanelToggle(viewPanel.hidden);
+        zoomMenuToggle(false);
+        zoomValue?.focus();
+      }
+    };
+    const zoomMenuPointer = (e: PointerEvent) => {
+      if (!zoomValue?.parentElement?.contains(e.target as Node)) {
+        zoomMenuToggle(false);
+      }
+    };
+    // A click into a preview frame never reaches this document; it blurs it.
+    const zoomMenuBlur = () => {
+      window.setTimeout(() => {
+        if (document.activeElement instanceof HTMLIFrameElement) {
+          zoomMenuToggle(false);
+        }
       });
-    }
-    compareInput?.addEventListener('change', () => compareSet(compareInput.checked));
+    };
+    zoomValue?.addEventListener('click', (e) => {
+      e.preventDefault();
+      zoomMenuToggle(!!zoomMenu?.hidden);
+    });
+    compareToggle?.addEventListener('click', (e) => {
+      e.preventDefault();
+      compareSet(!view.compare);
+    });
 
     // Before anything measures the canvas: setScale() and restorePosition()
     // below centre on a frame that has to be in its place already.
@@ -1119,6 +1127,9 @@
       }
     }
 
+    // The preview area — the canvas and the dock floating over it — is what
+    // Form / Split / Preview View size, so the dock goes with the canvas.
+    const preview = wrapper.closest<HTMLElement>('.neo-alchemist-manage--preview') ?? wrapper;
     const active: string = localStorage.getItem('neo-alchemist-size') || 'split';
     [
       {id: 'expand', contentHeight: '0%', formHeight: '100%', hideIframe: true, hideForm: false, active: active === 'expand'},
@@ -1128,10 +1139,10 @@
       once('neo.alchemist', '.neo-alchemist-manage--size-' + data.id, container).forEach(el => {
         if (data.active) {
           el.classList.add('is-active');
-          wrapper.style.height = data.contentHeight;
+          preview.style.height = data.contentHeight;
           formWrapper.style.height = data.formHeight;
         }
-        wrapper.style.transition = 'all 500ms';
+        preview.style.transition = 'all 500ms';
         formWrapper.style.transition = 'all 500ms';
         el.addEventListener('click', (e) => {
           e.preventDefault();
@@ -1141,9 +1152,9 @@
           });
           localStorage.setItem('neo-alchemist-size', data.id);
           el.classList.add('is-active');
-          wrapper.style.height = data.contentHeight;
-          wrapper.style.transform = data.hideIframe ? 'scale(0.5)' : '';
-          wrapper.style.opacity = data.hideIframe ? '0' : '';
+          preview.style.height = data.contentHeight;
+          preview.style.transform = data.hideIframe ? 'scale(0.5)' : '';
+          preview.style.opacity = data.hideIframe ? '0' : '';
           formWrapper.style.height = data.formHeight;
           formWrapper.style.transform = data.hideForm ? 'scale(0.5)' : '';
           formWrapper.style.opacity = data.hideForm ? '0' : '';
@@ -2160,18 +2171,42 @@
     // scale is worked out each time.
     const storedScale = localStorage.getItem('neo-alchemist-scale') || 'fit';
     const scale: string = ['fit', '1', '0.75', '0.5'].includes(storedScale) ? storedScale : 'fit';
-    const scaleButtons = container.querySelectorAll('.neo-alchemist--scale');
-    [
-      {size: 'fit', scale: 'fit'},
-      {size: 'full', scale: '1'},
-      {size: '75', scale: '0.75'},
+    const scaleButtons = container.querySelectorAll<HTMLElement>('.neo-alchemist--scale');
+    // Smallest to largest: the order the dock's − and + step through.
+    const scaleSteps = [
       {size: '50', scale: '0.5'},
-    ].forEach(data => {
+      {size: '75', scale: '0.75'},
+      {size: 'full', scale: '1'},
+      {size: 'fit', scale: 'fit'},
+    ];
+    /**
+     * Says the zoom in force on the dock's value, and stops − and + at the
+     * ends of the steps.
+     */
+    const zoomValueSync = () => {
+      const active = [...scaleButtons].find(button => button.classList.contains('is-active'));
+      if (zoomValue && active) {
+        zoomValue.textContent = active.textContent?.trim() ?? '';
+      }
+      const index = scaleSteps.findIndex(step => step.size === active?.dataset.size);
+      container.querySelectorAll<HTMLElement>('.neo-alchemist--zoom-step').forEach(step => {
+        const next = index + Number(step.dataset.step);
+        if (next < 0 || next >= scaleSteps.length) {
+          step.setAttribute('aria-disabled', 'true');
+        }
+        else {
+          step.removeAttribute('aria-disabled');
+        }
+      });
+    };
+    scaleSteps.forEach(data => {
       once('neo.alchemist', '.neo-alchemist--scale[data-size="' + data.size + '"]', container).forEach(el => {
         togglePressed(el, scale === data.scale);
         el.addEventListener('click', (e) => {
           e.preventDefault();
           scaleButtons.forEach((other) => togglePressed(other, other === el));
+          zoomValueSync();
+          zoomMenuToggle(false);
           setScale(data.scale);
           // Only on click. setScale() also runs during init, where saving would
           // overwrite the stored position with the default one.
@@ -2179,6 +2214,18 @@
         });
       });
     });
+    // − and + press the preset next to the one in force.
+    once('neo.alchemist', '.neo-alchemist--zoom-step', container).forEach(step => {
+      step.addEventListener('click', (e) => {
+        e.preventDefault();
+        const active = [...scaleButtons].find(button => button.classList.contains('is-active'));
+        const next = scaleSteps[scaleSteps.findIndex(data => data.size === active?.dataset.size) + Number(step.dataset.step)];
+        if (next) {
+          container.querySelector<HTMLElement>('.neo-alchemist--scale[data-size="' + next.size + '"]')?.click();
+        }
+      });
+    });
+    zoomValueSync();
 
     const scaleWrapper = container.querySelector('.neo-alchemist-manage--scale') as HTMLIFrameElement;
     // Declared ahead of the first setScale(), which reads them.

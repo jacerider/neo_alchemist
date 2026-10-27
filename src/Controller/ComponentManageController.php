@@ -54,7 +54,7 @@ final class ComponentManageController extends ControllerBase {
     $build['#top_start']['style'] = $this->entityFormBuilder()->getForm($neo_component, 'style');
 
     // Resize.
-    $build['#top_end'] = ComponentManageHelper::buildIframeOperations($neo_component);
+    $build['#preview'] = ComponentManageHelper::buildIframeOperations($neo_component);
 
     // The page renderer ignores its $title argument, so set the page title via
     // the page additions where template_preprocess_html() reads it for the

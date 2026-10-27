@@ -975,7 +975,7 @@ Drupal.neoAlchemist.panels.register('my_panel', {
 collects them (`badges`, keyed `badge_{id}`, each wrapped in
 `div.neo-alchemist--badge[data-alchemist-badge={id}]`) in weight order, only for panels whose
 `access()` passes; `preRenderManage()` puts them first in `#top_end` — the band's trailing
-group, before the view controls and Undo · Redo — as children of the same flex container, so
+group, before Undo · Redo — as children of the same flex container, so
 everything there is evenly spaced. `#top_end` is never re-rendered, so the badge's client half
 keeps it current. A badge marks what it can do without (neo_seo: its score bars) with
 `.neo-alchemist--compact-hide`, which the band's last compact step hides. The client registers `badge(element, api,
@@ -1038,14 +1038,24 @@ sets it) and, in the layout editor at entity scope, the status line under it
 after every write into `.neo-alchemist-manage--top-status`), then whatever else the screen puts in
 `top_start` (the component Manage page's style form, the SDC preview's neighbour selects).
 Centre (`top_center`): the light + Add pill (`buildOperations()`), Layers and one dark pill per
-side panel. Trailing: the panels' badges, the view controls, Undo · Redo (`top_end`) and the save
+side panel. Trailing: the panels' badges, Undo · Redo (`top_end`, always rendered so a client
+can mount a badge there — the SDC preview's audit) and the save
 group (`buildDynamicOperations()`: Save, then ⋯ holding Discard unsaved changes — Revert —, Reset
 and Purge). The leading and trailing groups share what the centre leaves, keeping it centred;
 `headerFit()` measures the band at its natural width and, while it lacks room, first lets the
 centre drift off-centre, then compacts step by step — the pills to their icons, + Add to "Add",
 the badges' `.neo-alchemist--compact-hide` parts — rerunning on resize and whenever the status
 line or save group re-renders. The breadcrumb bar is the band's second row, full width, so it
-stays when the inspector is expanded over the canvas. Layers docks on the left (`#neo-alchemist-layers`,
+stays when the inspector is expanded over the canvas. How the canvas shows the page is not in the
+band: the preview dock (`buildIframeOperations()`, template variable `preview`) floats at the
+bottom of the preview area (`.neo-alchemist-manage--preview`: the scrolling canvas plus the
+dock, which is what the Manage page's Form / Split / Preview View size) on every screen with a
+canvas — Desktop · Tablet · Mobile (`.neo-alchemist--focus`, the shown one named), then zoom (−
+and + step 50 → 75 → 100 → Fit by pressing the preset next to the one in force; the value opens
+the presets, `.neo-alchemist--scale`, in a menu above the dock), then Compare
+(`.neo-alchemist--compare`, a pressed toggle). Storage keys and behaviour are those of the old
+header controls (`component-parent.ts`). The frames leave room for the dock below themselves
+(`pb-28`). Layers docks on the left (`#neo-alchemist-layers`,
 260px); below 1400px it folds to an icon rail while the right dock is open
 (`layersPosition()`). Its rows are the reorder tool: dragging a component row before or after
 another, or onto a region row (its end), is one request to the move route's `to` step

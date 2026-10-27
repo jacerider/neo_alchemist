@@ -73,7 +73,7 @@ final class InstanceComponentEditController extends ControllerBase {
       'neo_component_instance' => $neo_component,
     ]);
 
-    $build['#top_end'] = ComponentManageHelper::buildIframeOperations($neo_component);
+    $build['#preview'] = ComponentManageHelper::buildIframeOperations($neo_component);
 
     if ($this->isAjax()) {
       return $build;
