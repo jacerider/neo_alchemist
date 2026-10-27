@@ -58,6 +58,19 @@
       {{ op.link|neo_class(['neo-alchemist--knob', op.verb == 'move' ? 'neo-alchemist--knob-move' : 'neo-alchemist--knob-add']) }}
     {% endfor %}
   </div>
+  {#
+    The rail: the selection's moves and verbs, outside its left edge, or just
+    inside it when the canvas leaves no room (railsPlace()). Faded in with the
+    knobs, as an op cluster.
+  #}
+  {% if outline_rail %}
+    <div class="neo-alchemist--overlay-actions neo-alchemist--rail transition-opacity" role="toolbar" aria-label="{{ 'Component'|t }}" data-alchemist-nodrag>
+      {%- for item in outline_rail -%}
+        {%- if item.divider -%}<span class="neo-alchemist--rail-divider" aria-hidden="true"></span>{%- endif -%}
+        {{ item.link }}
+      {%- endfor -%}
+    </div>
+  {% endif %}
 </div>
 <div class="neo-alchemist--element-base {{ element_classes }}" data-alchemist-ignore></div>
 <div class="neo-alchemist--event-base {{ event_classes }}" data-alchemist-ignore></div>

@@ -2379,7 +2379,7 @@
      * view of them shrinks. Never above 1: a frame is not blown up past its
      * real size. Measured off the frame row's layout width, which a transform
      * does not change, and only the frames taking room count (Single hides the
-     * others out of the row).
+     * others out of the row). Leaves a gutter beside the frames for the rail.
      */
     function fitScale(): string {
       const row = scaleWrapper?.firstElementChild as HTMLElement | null;
@@ -2389,7 +2389,14 @@
       if (!natural || available < 160) {
         return scaleApplied || '1';
       }
-      return String(Math.min(1, Math.floor((available / natural) * 1000) / 1000));
+      // And room beside the frames for a selection's rail: at least `gutter`
+      // on each side once scaled, which the row's own padding gives above
+      // three-quarter scale and this gives below it.
+      const style = window.getComputedStyle(row as HTMLElement);
+      const padding = (parseFloat(style.paddingLeft) || 0) + (parseFloat(style.paddingRight) || 0);
+      const gutter = 48;
+      const fit = Math.min(available / natural, (available - (gutter * 2)) / Math.max(1, natural - padding));
+      return String(Math.max(0.05, Math.min(1, Math.floor(fit * 1000) / 1000)));
     }
 
     /**
@@ -2668,7 +2675,7 @@
    * over the canvas rather than across the header, so a toast never hides the
    * bar whose action it is reporting on. Errors stay twice as long.
    */
-  function toast(text: string, type: 'status' | 'error' = 'status'): void {
+  function toast(text: string, type: 'status' | 'error' = 'status', action?: { label: string; run: () => void }): void {
     const messagesWrapper = document.querySelector('.alchemist-messages');
     if (!messagesWrapper) {
       return;
@@ -2689,11 +2696,24 @@
     message.classList.add('messages', 'messages--' + type);
     message.setAttribute('role', type === 'error' ? 'alert' : 'status');
     message.textContent = text;
+    // One thing to do about it, such as Undo after a delete: it closes the
+    // message, and the message waits longer for it.
+    if (action) {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'neo-alchemist--toast-action';
+      button.textContent = action.label;
+      button.addEventListener('click', () => {
+        action.run();
+        fadeOutAndRemove(content);
+      });
+      message.appendChild(button);
+    }
     content.appendChild(message);
     messagesWrapper.appendChild(content);
     setTimeout(() => {
       fadeOutAndRemove(content);
-    }, type === 'error' ? 8000 : 4000);
+    }, type === 'error' || action ? 8000 : 4000);
   }
 
   Drupal.neoAlchemist = Drupal.neoAlchemist || {};

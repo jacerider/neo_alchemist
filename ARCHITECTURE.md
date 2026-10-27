@@ -1024,13 +1024,13 @@ canvas's base-100 (`.neo-alchemist--dock-band`; the dock casts a shadow over the
 the two apart): a top row with "‹ Parent" (the parent the breadcrumb
 shows — component, region or "‹ Page", which clears the selection; disabled for an inherited
 parent in a hybrid layout), Expand, which gives the dock the whole width, and Close; then the
-form's name with its "?" help and its summary chips, which `dockBandFill()` (component-parent.ts)
+form's name with its "?" help — and, floated right of it, a ⋯ whose menu holds the selection's moves
+and verbs (`_neo_alchemist_overlay_ops()`: `inspector_menu`, the rail's items labelled, each with
+its shortcut; shown by `opsSet()` while any is permitted) — and its summary chips, which `dockBandFill()` (component-parent.ts)
 moves up from the form's header each time a freshly rendered header is attached — the tab and
 chip clicks are therefore delegated on the dock, behind an AbortController per form; then the
 position (`dockBandSet()` in components-parent.ts: "2 of 3 in List S5", "1 of 2 in Sidebar", "2
-of 4 on Careers" from `drupalSettings.neoAlchemist.pageLabel`); then the move ops as icons and
-the other verb ops as labelled buttons — Duplicate (the `clone` op's label) and Delete in the
-alert outline (`_neo_alchemist_overlay_ops()`: `inspector_ops`, `inspector_verbs`). A region, or
+of 4 on Careers" from `drupalSettings.neoAlchemist.pageLabel`). A region, or
 a component the editor may not open, has no form: the band names it itself. The standalone edit
 page's band has its task name in the top row and no parent link or position. The breadcrumb is not in the dock, which has no room for a nested trail: it is the band's
 second row, the full width of the editor (`.neo-alchemist--crumbs`), always shown in the layout
@@ -1105,9 +1105,22 @@ before the zoom scales it); hover a two-tone hairline, context (`active`, `ghost
 outline, the selection (`focus`) a dark ring with a white inner edge and a primary glow. The name
 is `.neo-alchemist--chip` — white beside a hover, a black tab joined to the selection. The rest
 of the page sits under a white veil (the shade), no blur. The outline ops are
-`.neo-alchemist--knob`s straddling their edge: add knobs primary, carrying their label
-(`.neo-alchemist--knob-label`, opened on hover/focus) and so no tooltip; move knobs dark,
-icon-only, with a tooltip. The insertion seam's button is the same add knob ("Add here").
+`.neo-alchemist--knob`s straddling their edge — the inserting ops only: primary, carrying their
+label (`.neo-alchemist--knob-label`, opened on hover/focus) and so no tooltip. The insertion
+seam's button is the same add knob ("Add here"). Everything else that changes the tree is on the
+**rail** (`outline_rail`): a dark column outside the selection's left edge — the moves, a rule,
+then the verbs but `edit` (Duplicate, then Delete, neutral until hovered) — icons whose tooltips
+name the op and its shortcut. `railsPlace()` brings it just inside the visible part of the
+component (`.is-rail-inside`, `--rail-x`) when the canvas leaves no room outside; Fit
+(`fitScale()` in component-parent.ts) leaves a 48px gutter beside the frames so that is rare. In
+Compare only the frame being interacted with (`data-alchemist-interact`, `interactSizeSet()`)
+shows the rail and knobs. An op's `keys` (EditorOp, e.g. `Mod+d`, `Delete Backspace`,
+`Alt+ArrowUp`) travel as `data-op-keys`; one document keydown handler runs the op whose keys
+match, never while typing or a dialog is open, and `opKeysLabel()` writes them for the keyboard in
+use. **Delete is immediate**: the client sends `immediate=1` and the session's request-header
+token (`/session/token`) to the delete route, `InstanceComponentDeleteController` checks the
+token against `CsrfRequestHeaderAccessCheck::TOKEN_KEY` and deletes, and the toast offers Undo
+(`toast(text, type, action)`); any other request to the route still gets the confirm form.
 
 **Taking the editor somewhere** — `Drupal.neoAlchemist.editor.focus({uuid, prop?, locate?})`
 (`components-parent.ts`) is the editor's public call for code outside it (a panel, a badge):
@@ -1372,9 +1385,9 @@ From [neo_alchemist.services.yml](neo_alchemist.services.yml):
 - **The editor chrome iterates the inventory.**
   `template_preprocess_neo_alchemist_overlay()` no longer names the eight ops; it projects
   `EditorOpInventory::ops()` through `_neo_alchemist_overlay_ops()` into the surfaces the
-  templates loop over — the two outline edge clusters, and the inspector header's move buttons
-  and verb buttons (every verb op but `edit`, which is the inspector itself) — deciding
-  verb-vs-positional and top-vs-bottom edge from each record's own `position`/`direction`, never
+  templates loop over — the outline's edge knobs (the ops with a position), the rail and the
+  inspector's ⋯ menu (the moves, then every verb op but `edit`, which is the inspector itself) —
+  deciding the surface and the edge from each record's own `position`/`direction`, never
   from its id. Adding an op is a single inventory row, with no
   preprocess or template edit; `EditorChromeIteratesInventoryTest` proves a synthetic row
   produces a button in the right place. The buttons carry an inert `<current>` placeholder URL

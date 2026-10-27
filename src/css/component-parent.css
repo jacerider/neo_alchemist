@@ -745,13 +745,73 @@ form.neo-alchemist-manage--form:has(.neo-alchemist--form-layout) > .form--inner,
   background: none;
 }
 
-/* The selection's actions, lifted off the band. */
-.neo-alchemist--dock-actions {
-  :is(.btn-outline, .btn-outline-alert) {
-    --btn-bg-transparent: rgb(var(--color-base-0) / 0.7);
+/* The selection's ops, in a menu off the ⋯ beside its name. */
+.neo-alchemist--dock-menu {
+  position: absolute;
+  top: calc(100% + 0.25rem);
+  right: 0;
+  z-index: 20;
+  width: 13rem;
+  padding: 0.25rem;
+  border-radius: 0.625rem;
+  background: rgb(var(--color-base-0));
+  color: rgb(var(--color-base-0-content));
+  box-shadow: 0 12px 32px rgb(0 0 0 / 0.18), 0 0 0 1px rgb(var(--color-base-200));
+
+  &[hidden] {
+    display: none;
+  }
+}
+
+.neo-alchemist--menu-item {
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  width: 100%;
+  padding: 0.5rem 0.625rem;
+  border-radius: 0.375rem;
+  font-size: var(--text-sm);
+  text-decoration: none;
+  color: inherit;
+
+  &:is(:hover, :focus-visible) {
+    background: rgb(var(--color-base-100));
+    color: inherit;
   }
 
-  .btn-outline {
-    --btn-border-color: rgb(var(--color-primary-200));
+  &.is-danger {
+    color: rgb(var(--color-alert-500));
+  }
+
+  /* The shortcut, named by the editor (opKeysLabel()). */
+  &[data-op-keys-label]::after {
+    content: attr(data-op-keys-label);
+    margin-inline-start: auto;
+    font-size: var(--text-xs);
+    color: rgb(var(--color-base-400));
+  }
+}
+
+.neo-alchemist--dock-menu-divider {
+  margin: 0.25rem 0.375rem;
+  border: 0;
+  border-top: 1px solid rgb(var(--color-base-200));
+}
+
+/* A message's one action, such as Undo after a delete (toast() in
+ * component-parent.ts). The messages area lets the pointer through, so the
+ * button takes it back. */
+.neo-alchemist--toast-action {
+  cursor: pointer;
+  pointer-events: auto;
+  margin-inline-start: 0.75rem;
+  padding: 0.125rem 0.625rem;
+  border-radius: 9999px;
+  font-weight: 600;
+  background: rgb(0 0 0 / 0.1);
+
+  &:is(:hover, :focus-visible) {
+    background: rgb(0 0 0 / 0.2);
   }
 }

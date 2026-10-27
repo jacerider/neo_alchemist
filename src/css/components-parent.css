@@ -197,6 +197,72 @@
   }
 }
 
+/* The rail (neo-alchemist-overlay.html.twig): the selection's moves and verbs
+ * in a dark column outside its left edge, at their true size. On a component
+ * shorter than the rail it hangs below. When the canvas leaves no room outside
+ * the edge, railsPlace() marks the outline and the rail comes just inside. */
+.neo-alchemist--rail {
+  position: absolute;
+  top: 0;
+  right: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  border-radius: 10px;
+  background: rgb(17 17 17);
+  box-shadow: 0 2px 8px rgb(0 0 0 / 0.35);
+  pointer-events: none;
+  transform-origin: 100% 0;
+  transform: scale(var(--inv)) translateX(-8px);
+}
+
+.neo-alchemist--overlay.is-rail-inside .neo-alchemist--rail {
+  right: auto;
+  left: 0;
+  transform-origin: 0 0;
+  transform: scale(var(--inv)) translate(calc(8px + var(--rail-x, 0px)), 8px);
+}
+
+.neo-alchemist--rail-button {
+  cursor: pointer;
+  pointer-events: auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 0.4375rem;
+  color: rgb(255 255 255);
+  transition: background-color 0.12s, color 0.12s;
+
+  &:is(:hover, :focus-visible) {
+    background: rgb(255 255 255 / 0.18);
+  }
+
+  /* Delete is neutral until reached for. */
+  &.is-danger:is(:hover, :focus-visible) {
+    background: rgb(var(--color-alert-500));
+    color: rgb(var(--color-alert-500-content));
+  }
+}
+
+.neo-alchemist--rail-divider {
+  width: 1rem;
+  height: 1px;
+  margin-block: 3px;
+  background: rgb(255 255 255 / 0.2);
+}
+
+/* In Compare the selection is outlined on every frame, but its rail and knobs
+ * only show on the frame being interacted with (interactSizeSet()). */
+.neo-alchemist-manage[data-alchemist-interact='desktop'] .neo-alchemist--overlay:not([data-size='desktop']) .neo-alchemist--overlay-actions,
+.neo-alchemist-manage[data-alchemist-interact='tablet'] .neo-alchemist--overlay:not([data-size='tablet']) .neo-alchemist--overlay-actions,
+.neo-alchemist-manage[data-alchemist-interact='mobile'] .neo-alchemist--overlay:not([data-size='mobile']) .neo-alchemist--overlay-actions {
+  display: none;
+}
+
 /* An insertion seam: positioned at its line, 24 screen pixels tall and
  * centred on it. Its knob transitions colours and its label, never transform,
  * which the counter-scale changes every frame of a zoom. */

@@ -87,12 +87,11 @@ class InstanceComponentManage extends RenderElementBase {
     // (see ComponentManageHelper::buildDynamicOperations()).
     $element['#top_save'] = ComponentManageHelper::buildDynamicOperations($neoField);
     // The inspector docks on the right and opens with the selection
-    // (components-parent.ts). Its header carries the selection's ops, from the
-    // op inventory like the outline's.
+    // (components-parent.ts). Its ⋯ menu carries the selection's ops, from the
+    // op inventory like the outline's rail.
     $chrome = _neo_alchemist_overlay_ops(\Drupal::service('neo_alchemist.editor_op_inventory')->ops());
     $element['#dock'] = TRUE;
-    $element['#dock_ops'] = $chrome['inspector_ops'];
-    $element['#dock_verbs'] = $chrome['inspector_verbs'];
+    $element['#dock_menu'] = $chrome['inspector_menu'];
     $element['#dock_close'] = TRUE;
 
     // Side panels other modules add: shown in the left dock in place of

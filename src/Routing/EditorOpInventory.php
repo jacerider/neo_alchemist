@@ -46,7 +46,9 @@ final class EditorOpInventory {
    * `icon` is NULL for the verb ops: the chrome passes no explicit icon for
    * them, letting neo_icon_admin() derive one from the label, so an icon here
    * would change what renders. `short` is an abbreviated label for the two add
-   * ops, from when a bar showed them; the rest have none.
+   * ops, from when a bar showed them; the rest have none. `keys` are the
+   * shortcuts that run an op on the selection (EditorOp::$keys); the editor
+   * binds them and names them in the op's tooltip and menu item.
    */
   private const OPS = [
     'edit' => [
@@ -57,6 +59,7 @@ final class EditorOpInventory {
       'label' => 'Edit',
       'short' => NULL,
       'icon' => NULL,
+      'keys' => NULL,
     ],
     'clone' => [
       'verb' => 'clone',
@@ -67,6 +70,7 @@ final class EditorOpInventory {
       'label' => 'Duplicate',
       'short' => NULL,
       'icon' => NULL,
+      'keys' => 'Mod+d',
     ],
     'delete' => [
       'verb' => 'delete',
@@ -76,6 +80,7 @@ final class EditorOpInventory {
       'label' => 'Delete',
       'short' => NULL,
       'icon' => NULL,
+      'keys' => 'Delete Backspace',
     ],
     'add-before' => [
       'verb' => 'add',
@@ -85,6 +90,7 @@ final class EditorOpInventory {
       'label' => 'Add component before',
       'short' => 'Before',
       'icon' => 'plus',
+      'keys' => NULL,
     ],
     'add-after' => [
       'verb' => 'add',
@@ -94,6 +100,7 @@ final class EditorOpInventory {
       'label' => 'Add component after',
       'short' => 'After',
       'icon' => 'plus',
+      'keys' => NULL,
     ],
     'move-up' => [
       'verb' => 'move',
@@ -103,6 +110,7 @@ final class EditorOpInventory {
       'label' => 'Move component up',
       'short' => NULL,
       'icon' => 'arrow-up',
+      'keys' => 'Alt+ArrowUp',
     ],
     'move-down' => [
       'verb' => 'move',
@@ -112,6 +120,7 @@ final class EditorOpInventory {
       'label' => 'Move component down',
       'short' => NULL,
       'icon' => 'arrow-down',
+      'keys' => 'Alt+ArrowDown',
     ],
   ];
 
@@ -152,6 +161,7 @@ final class EditorOpInventory {
       $spec['label'],
       $spec['short'],
       $spec['icon'],
+      $spec['keys'],
     );
   }
 

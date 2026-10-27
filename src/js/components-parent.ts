@@ -98,6 +98,23 @@
   // The inspector: the right dock the selected component's form loads into.
   // Its header carries the selection's ops.
   const dock = container.querySelector('.neo-alchemist--dock') as HTMLElement | null;
+  // The ⋯ beside the inspected component's name: its ops, as a menu.
+  const dockMore = dock?.querySelector<HTMLElement>('.neo-alchemist--dock-more') ?? null;
+  const dockMoreToggle = dockMore?.querySelector<HTMLElement>('.neo-alchemist--dock-more-toggle') ?? null;
+  const dockMenu = dockMore?.querySelector<HTMLElement>('.neo-alchemist--dock-menu') ?? null;
+  const isMac = /Mac|iPhone|iPad/.test(navigator.userAgent);
+  // The session's request-header token, fetched once, for the one op that
+  // writes without a dialog's form token: Delete.
+  let csrfToken: Promise<string> | null = null;
+  function sessionToken(): Promise<string> {
+    csrfToken ??= fetch(Drupal.url('session/token'), { credentials: 'same-origin' }).then(response => {
+      if (!response.ok) {
+        throw new Error('No session token');
+      }
+      return response.text();
+    });
+    return csrfToken;
+  }
   // The breadcrumb bar over the canvas: where the selection sits. Only this
   // editor writes a trail, so only this editor shows the bar.
   const crumbBar = container.querySelector('.neo-alchemist--crumbs') as HTMLElement | null;
@@ -277,6 +294,16 @@
     return parents.length === 1 && isInheritedComponent(parents[0]);
   }
   let layerInteractSize: 'desktop' | 'tablet' | 'mobile' = 'desktop';
+  /**
+   * The frame being interacted with, which alone shows the selection's rail
+   * and knobs (components-parent.css): in Compare they would otherwise repeat
+   * on every frame.
+   */
+  function interactSizeSet(size: 'desktop' | 'tablet' | 'mobile'): void {
+    layerInteractSize = size;
+    container.setAttribute('data-alchemist-interact', size);
+  }
+  container.setAttribute('data-alchemist-interact', layerInteractSize);
   // A component just moved, which the canvas keeps on screen until the
   // previews settle. See revealMoved().
   let revealUuid: string | null = null;
@@ -553,6 +580,7 @@
   container.addEventListener('alchemistManageScale', invTrack);
   container.addEventListener('alchemistManageScaleEnd', () => {
     invSync();
+    railsPlace();
     elementsPosition();
     layerShow(layerUuid, true, true);
   });
@@ -563,7 +591,7 @@
   container.addEventListener('alchemistManageView', () => {
     const visible = frames.visible(container);
     if (!visible.includes(layerInteractSize)) {
-      layerInteractSize = visible[0] ?? 'desktop';
+      interactSizeSet(visible[0] ?? 'desktop');
     }
     frames.active(container).forEach(size => {
       const iframe = iframes[size];
@@ -983,6 +1011,54 @@
       historyRun(direction);
     });
 
+    // The selection's shortcuts, read off the rail's buttons (their op's
+    // `keys`), so the inventory names them and nothing here does. Typing
+    // keeps them, as it keeps ⌘Z; so does a key a Layers row already took.
+    document.addEventListener('keydown', (e) => {
+      if (!layerUuid || e.defaultPrevented || isTextEntry(e.target) || document.body.classList.contains('has-neo-modal')) {
+        return;
+      }
+      const combo = [
+        e.metaKey || e.ctrlKey ? 'Mod' : '',
+        e.altKey ? 'Alt' : '',
+        e.shiftKey ? 'Shift' : '',
+        e.key.length === 1 ? e.key.toLowerCase() : e.key,
+      ].filter(Boolean).join('+');
+      const button = Array.from(container.querySelectorAll<HTMLElement>('.neo-alchemist--rail [data-op-keys]'))
+        .find(candidate => (candidate.dataset.opKeys ?? '').split(' ').includes(combo));
+      if (!button?.dataset.op) {
+        return;
+      }
+      e.preventDefault();
+      operationExecute(button.dataset.op);
+    });
+
+    // The inspector's ⋯: an item runs its op (opButtonsBind()) and closes the
+    // menu; Esc or a press anywhere else closes it. Capture, as for the band's
+    // ⋯: a use-ajax link stops the click before it bubbles.
+    dockMoreToggle?.addEventListener('click', (e) => {
+      e.preventDefault();
+      dockMenuSet(!!dockMenu?.hidden);
+    });
+    dockMenu?.querySelectorAll<HTMLElement>('[data-op-keys]').forEach(item => {
+      item.dataset.opKeysLabel = opKeysLabel(item.dataset.opKeys ?? '');
+    });
+    document.addEventListener('click', (e) => {
+      if (!dockMenu || dockMenu.hidden) {
+        return;
+      }
+      const target = e.target instanceof Element ? e.target : null;
+      if (target?.closest('.neo-alchemist--dock-menu [data-op]') || !dockMore?.contains(target)) {
+        dockMenuSet(false);
+      }
+    }, true);
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && dockMenu && !dockMenu.hidden) {
+        dockMenuSet(false);
+        dockMoreToggle?.focus();
+      }
+    });
+
     // Deferred: the dialog hands focus back to its opener as it closes, and
     // that focus is what reopens the opener's tooltip.
     document.addEventListener('dialog:afterclose', () => setTimeout(opTooltipsHide, 50));
@@ -1098,8 +1174,13 @@
     // turns it into a tippy instance. This outline is a clone of a prototype
     // that initialize() pulled out of the DOM before behaviours ever ran, so
     // nothing has processed it and nothing else will — every copy of the +/move
-    // cluster would sit there permanently untooltipped.
+    // cluster would sit there permanently untooltipped. A rail button's
+    // tooltip names its shortcut too, as this keyboard writes it.
     Drupal.attachBehaviors(overlay, drupalSettings);
+    overlay.querySelectorAll<HTMLElement>('[data-op-keys]').forEach(button => {
+      const tip = (button as HTMLElement & { _tippy?: { props: { content: unknown }; setContent: (content: string) => void } })._tippy;
+      tip?.setContent(`${String(tip.props.content)} (${opKeysLabel(button.dataset.opKeys ?? '')})`);
+    });
     return overlay;
   }
 
@@ -1239,7 +1320,7 @@
       element.style.cursor = 'pointer';
       element.style.zIndex = (20 + level).toString();
       element.addEventListener('mouseenter', () => {
-        layerInteractSize = size;
+        interactSizeSet(size);
         if (hybrid && isInheritedComponent(uuid)) {
           return;
         }
@@ -1284,7 +1365,7 @@
             eventTrigger.style.display = '';
           }
           eventTrigger.addEventListener('mouseenter', () => {
-            layerInteractSize = size;
+            interactSizeSet(size);
             clearTimeout(passthroughTimeout || undefined);
             container.classList.add('neo-alchemist--passthrough');
           });
@@ -1422,6 +1503,7 @@
    * corner as soon as that corner returns.
    */
   function labelsClamp(): void {
+    railsPlace();
     const wrapperRect = wrapper.getBoundingClientRect();
     // Clamp to the canvas's own top edge, which the breadcrumb bar sits above.
     const clampTop = wrapperRect.top;
@@ -1606,6 +1688,7 @@
     }
     setTimeout(() => {
       shadeShowLevel(uuid, size);
+      railsPlace();
     });
   }
 
@@ -2424,6 +2507,72 @@
     const enabledSet = new Set(enabledButtons);
     opButtons.forEach(button => {
       button.style.display = enabledSet.has(button) ? '' : 'none';
+    });
+    // A rule between moves and verbs only where both sides kept a button; the
+    // ⋯ only when its menu has an item.
+    container.querySelectorAll<HTMLElement>('.neo-alchemist--rail-divider, .neo-alchemist--dock-menu-divider').forEach(divider => {
+      const shown = (from: Element | null, step: 'previousElementSibling' | 'nextElementSibling'): boolean => {
+        for (let node = from; node; node = node[step]) {
+          if (node instanceof HTMLElement && node.dataset.op && node.style.display !== 'none') {
+            return true;
+          }
+        }
+        return false;
+      };
+      divider.style.display = shown(divider.previousElementSibling, 'previousElementSibling') && shown(divider.nextElementSibling, 'nextElementSibling') ? '' : 'none';
+    });
+    dockMenuSet(false);
+    if (dockMore) {
+      dockMore.hidden = !dockMenu?.querySelector('[data-op]:not([style*="display: none"])');
+    }
+  }
+
+  /**
+   * An op's shortcut as this keyboard writes it: the first of its keys.
+   */
+  function opKeysLabel(keys: string): string {
+    const names: Record<string, string> = {
+      Mod: isMac ? '⌘' : 'Ctrl',
+      Alt: isMac ? '⌥' : 'Alt',
+      Shift: isMac ? '⇧' : 'Shift',
+      ArrowUp: '↑',
+      ArrowDown: '↓',
+      Delete: isMac ? '⌫' : 'Delete',
+      Backspace: '⌫',
+    };
+    return (keys.split(' ')[0] ?? '').split('+').map(part => names[part] ?? part.toUpperCase()).join(isMac ? '' : '+');
+  }
+
+  /**
+   * Opens or closes the inspector's ⋯ menu of the selection's ops.
+   */
+  function dockMenuSet(open: boolean): void {
+    if (!dockMenu || !dockMoreToggle || dockMenu.hidden === !open) {
+      return;
+    }
+    dockMenu.hidden = !open;
+    dockMoreToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+    if (open) {
+      dockMenu.querySelector<HTMLElement>('[data-op]:not([style*="display: none"])')?.focus();
+    }
+  }
+
+  /**
+   * Brings a selection's rail just inside its left edge where the canvas
+   * leaves no room for it outside.
+   */
+  function railsPlace(): void {
+    const edge = wrapper.getBoundingClientRect().left;
+    container.querySelectorAll<HTMLElement>('.neo-alchemist--overlay[data-state="focus"]').forEach(overlay => {
+      const rail = overlay.querySelector<HTMLElement>('.neo-alchemist--rail');
+      if (!rail) {
+        return;
+      }
+      const room = overlay.getBoundingClientRect().left - edge;
+      const inside = room < rail.getBoundingClientRect().width + 8;
+      overlay.classList.toggle('is-rail-inside', inside);
+      // Inside the part of the component on screen, when its edge is not.
+      overlay.style.setProperty('--rail-x', `${inside ? Math.max(0, -room) : 0}px`);
     });
   }
 
@@ -3372,7 +3521,7 @@
    * whichever frame they are actually looking at instead.
    */
   function layerShowOffCanvas(uuid: string | null): void {
-    layerInteractSize = centeredSize();
+    interactSizeSet(centeredSize());
     layerShow(uuid);
   }
 
@@ -3893,17 +4042,36 @@
    * request URL and only decides how the request is dispatched.
    */
   const operations: Operations = {
+    // At once, with the step it made one Undo away: the editor's history is
+    // the safety net, not a dialog to click through. The request carries the
+    // session's request-header token, which the controller checks before
+    // deleting; without one (it could not be fetched) the confirm form opens
+    // as before.
     delete: (url: string): void => {
-      Drupal.ajax({
-        progress: ajaxProgress(),
-        url: url,
-        dialogType: 'modal',
-        dialog: {
-          ...baseModalOptions,
-          width: 'auto',
-          height: 'auto',
-        },
-      }).execute();
+      const label = String(structureData[layerUuid ?? '']?.data?.label ?? '');
+      sessionToken().then(token => {
+        const request = Drupal.ajax({
+          progress: ajaxProgress(),
+          url: `${url}${url.includes('?') ? '&' : '?'}immediate=1&token=${encodeURIComponent(token)}`,
+        }).execute() as unknown as PromiseLike<unknown> | undefined;
+        Promise.resolve(request).then(() => {
+          Drupal.neoAlchemist?.toast?.(Drupal.t('Deleted @label', { '@label': label }), 'status', {
+            label: Drupal.t('Undo'),
+            run: () => historyRun('undo'),
+          });
+        }, () => {});
+      }, () => {
+        Drupal.ajax({
+          progress: ajaxProgress(),
+          url: url,
+          dialogType: 'modal',
+          dialog: {
+            ...baseModalOptions,
+            width: 'auto',
+            height: 'auto',
+          },
+        }).execute();
+      });
     },
 
     clone: (url: string): void => {
@@ -3966,7 +4134,10 @@
     // an interrupted transition sends no transitionend, and a hidden tab runs
     // no animation frames.
     clearTimeout(invSettle);
-    invSettle = setTimeout(invSync, 600);
+    invSettle = setTimeout(() => {
+      invSync();
+      railsPlace();
+    }, 600);
     if (invFrame !== null) {
       return;
     }

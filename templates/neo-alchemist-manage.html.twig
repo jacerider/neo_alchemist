@@ -266,21 +266,29 @@
               <button type="button" class="neo-alchemist--dock-close neo-alchemist--dock-band-icon flex-none" title="{{ 'Close'|t }}">{{ icon('times') }}<span class="sr-only">{{ 'Close'|t }}</span></button>
             {% endif %}
           </div>
-          <div class="neo-alchemist--dock-identity empty:hidden"></div>
+          {#
+            The name, and the selection's ops in a ⋯ beside it: the same ops as
+            the rail on the canvas, kept in reach when the canvas is not (Expand)
+            and for the keyboard. Shown by opsSet() when any is permitted.
+          #}
+          <div class="flex items-start gap-2">
+            <div class="neo-alchemist--dock-identity flex-auto min-w-0 empty:hidden"></div>
+            {% if dock_menu %}
+              <div class="neo-alchemist--dock-more relative flex-none" hidden>
+                <button type="button" class="neo-alchemist--dock-more-toggle neo-alchemist--dock-band-icon" title="{{ 'More actions'|t }}" aria-haspopup="menu" aria-expanded="false" aria-controls="{{ id }}-dock-menu">{{ icon('ellipsis-h') }}<span class="sr-only">{{ 'More actions'|t }}</span></button>
+                <div id="{{ id }}-dock-menu" class="neo-alchemist--dock-menu" role="menu" aria-label="{{ 'Component actions'|t }}" hidden>
+                  {%- for item in dock_menu -%}
+                    {%- if item.divider -%}<hr class="neo-alchemist--dock-menu-divider" aria-hidden="true">{%- endif -%}
+                    {{ item.link }}
+                  {%- endfor -%}
+                </div>
+              </div>
+            {% endif %}
+          </div>
           {% if dock_close %}
             <div class="neo-alchemist--dock-position text-xs" hidden></div>
           {% endif %}
           <div class="neo-alchemist--dock-chips empty:hidden"></div>
-          {% if dock_ops or dock_verbs %}
-            <div class="neo-alchemist--dock-actions flex flex-wrap items-center gap-1.5">
-              {% if dock_ops %}
-                <div class="neo-alchemist--dock-ops flex flex-none items-center gap-1.5">{{ dock_ops }}</div>
-              {% endif %}
-              {% if dock_verbs %}
-                <div class="neo-alchemist--dock-verbs flex flex-none items-center gap-1.5">{{ dock_verbs }}</div>
-              {% endif %}
-            </div>
-          {% endif %}
         </div>
         <div class="neo-alchemist--dock-prompt flex-none border-b px-3 py-2 text-sm bg-warning-50 text-warning-900" role="alert" hidden></div>
         <div id="{{ id }}-dock-body" class="neo-alchemist--dock-body neo-alchemist-manage--form-scroll flex flex-col flex-auto min-h-0 px-4">

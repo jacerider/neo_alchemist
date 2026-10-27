@@ -57,6 +57,13 @@ final class EditorOp {
      * The op's icon name, or NULL to let neo_icon_admin() derive one.
      */
     public readonly ?string $icon,
+    /**
+     * The keyboard shortcuts that run the op on the selection, else NULL.
+     *
+     * Space-separated, each `Modifier+Key` with KeyboardEvent.key names; `Mod`
+     * is ⌘ on a Mac and Ctrl elsewhere ("Mod+d", "Delete Backspace").
+     */
+    public readonly ?string $keys = NULL,
   ) {}
 
 }

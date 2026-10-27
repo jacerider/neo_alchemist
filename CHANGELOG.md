@@ -1,5 +1,25 @@
 # Changelog
 
+## The selection's rail: move, duplicate and delete beside the component
+
+- **A dark rail beside the selected component** holds Move up, Move down, Duplicate and Delete.
+  Its tooltips name each action and its shortcut. When there is no room beside the component, it
+  moves just inside its edge, and Fit now leaves room for it beside the preview.
+- **Shortcuts:** ⌘D / Ctrl+D duplicates, Delete or Backspace deletes, ⌥↑ / Alt+↑ and ⌥↓ / Alt+↓
+  move. Never while typing in a field.
+- **Delete is immediate**, with "Deleted Hero S4 · Undo" to take it back. No more confirmation
+  dialog in the editor.
+- **The inspector's band** loses its row of buttons: a ⋯ beside the component's name holds the
+  same actions, for when the preview is hidden or out of reach.
+- In Compare, only the frame you are working in shows the rail and the ＋ buttons.
+
+For code: `EditorOp` gains `keys` (inventory: `Mod+d`, `Delete Backspace`, `Alt+ArrowUp`,
+`Alt+ArrowDown`). `_neo_alchemist_overlay_ops()` returns `outline_ops` (the add knobs only),
+`outline_rail` and `inspector_menu` in place of `inspector_ops` / `inspector_verbs`; the manage
+template's `dock_ops` / `dock_verbs` are now `dock_menu`. The delete route deletes at once when
+asked with `immediate=1` and a valid request-header token (`token`), else shows the confirm form.
+`Drupal.neoAlchemist.toast()` takes an optional `{label, run}` action.
+
 ## A calmer look for hovering and selecting on the canvas
 
 - **Hover:** a solid hairline (dark, with a white edge) and the name in a white chip.
