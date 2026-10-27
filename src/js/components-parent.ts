@@ -2151,7 +2151,9 @@
    * Submit the inspector's form, then run `then` once it has applied.
    */
   function inspectorApply(then: (() => void) | null = null): void {
-    const submit = dockBody?.querySelector<HTMLElement>('.neo-alchemist--form-footer [type="submit"]:not(.js-hide)');
+    // By its selector: the footer also holds the preview's Refresh, a submit
+    // too and ahead of Apply, so "the first submit" pressed Refresh.
+    const submit = dockBody?.querySelector<HTMLElement>('.neo-alchemist--form-footer [data-drupal-selector="edit-submit"]');
     if (!submit) {
       return;
     }

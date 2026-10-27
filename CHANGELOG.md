@@ -1,5 +1,12 @@
 # Changelog
 
+## Apply in the "Apply changes to…?" prompt applies
+
+With unapplied changes in the inspector, selecting another component asks "Apply changes to
+{component}?". Its Apply pressed the form's hidden Refresh button, the first submit in the form
+footer, instead of Apply, so nothing was applied and the prompt stayed. It now presses Apply,
+then moves on to the component that was clicked.
+
 ## Smaller breadcrumb text
 
 The breadcrumb bar's crumbs are 12px, the size of the Layers tree beside them, so more of a
