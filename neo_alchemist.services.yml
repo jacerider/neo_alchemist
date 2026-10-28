@@ -323,6 +323,11 @@ services:
     tags:
       - { name: event_subscriber }
 
+  neo_alchemist.views_ajax_slot_subscriber:
+    class: Drupal\neo_alchemist\EventSubscriber\ViewsAjaxSlotSubscriber
+    tags:
+      - { name: event_subscriber }
+
   neo_alchemist.entity_access_checker:
     class: Drupal\neo_alchemist\Access\EntityComponentAccessCheck
     tags:
