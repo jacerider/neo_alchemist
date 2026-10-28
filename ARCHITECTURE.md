@@ -918,7 +918,11 @@ fails is not listed, read, written or published.
 **Draft storage** — the `SharedDraftStore` record gains `panels: {panelId: data}`.
 `panels()` / `getPanel()` read it; `setPanel($item, $id, $data, $expectedVersion)` writes
 one key under the same optimistic version guard as a tree write (NULL data removes the
-key). Both writes go through one private `writeEdit()` (version bump, last editor,
+key). The record also keeps a `layout_version` (and `layout_editor`) that only `set()` moves: the
+component form round-trips `draftLayoutVersion()` and `set()` / `layoutConflict()` guard on
+it, so a panel's write — the SEO analysis saves its scores after every layout write — never
+makes an open component form stale. Publish (`delete()`) and `setPanel()` keep `version`. A
+record without a layout version reads its `version`. Both writes go through one private `writeEdit()` (version bump, last editor,
 contributors) and `writeRecord()`, so `set()` carries `panels` through untouched rather
 than writing a fresh record. A panel write with no layout draft creates a record whose
 `value` is NULL — deliberately **not** a snapshot of the current layout: the layout has not

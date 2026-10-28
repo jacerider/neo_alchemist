@@ -1,5 +1,22 @@
 # Changelog
 
+## Apply no longer fails after the SEO scores update
+
+Choosing Apply in the inspector could do nothing: the change was refused as a colleague's
+conflict naming yourself, with the message out of sight at the top of the form. The SEO
+analysis saves its scores beside the draft after every layout change, and that write made any
+component form opened just before it look out of date. A component's form now checks only
+whether the layout itself changed since it opened, so a panel's write (yours or a colleague's)
+never refuses it; a colleague's layout change still does, and Publish still checks the whole
+draft.
+
+For code: `SharedDraftStore` records `layout_version` / `layout_editor`, moved by `set()` only;
+`set()` and the new `layoutConflict()` guard on them, while `delete()` (publish) and
+`setPanel()` keep `version`. A record without a layout version reads its `version`.
+`ComponentTreeItem::draftLayoutVersion()` / `draftLayoutConflict()` are what
+`InstanceComponentForm` round-trips and checks. `DraftConflictMessageTrait::draftVersionField()`
+now takes the version itself.
+
 ## Save looks like the editor's other primary buttons
 
 The header's Save is the same flat primary pill as an active Layers or Search & social button

@@ -1151,9 +1151,9 @@ class ComponentTreeItem extends FieldItemBase implements RenderableInterface, Co
   /**
    * The conflict a save carrying $loadedVersion would hit, or NULL if clear.
    *
-   * The read-only pre-check the editor and publish forms run while validating,
-   * so a stale save is refused with a form-level error rather than throwing
-   * mid-submit. It delegates to the store, which owns the comparison and the
+   * The read-only pre-check the publish form runs while validating, so a stale
+   * publish is refused with a form-level error rather than throwing mid-submit
+   * (the component form checks the layout: draftLayoutConflict()). It delegates to the store, which owns the comparison and the
    * last-editor attribution the write-time guard uses too.
    *
    * @param int|null $loadedVersion
@@ -1167,12 +1167,40 @@ class ComponentTreeItem extends FieldItemBase implements RenderableInterface, Co
   }
 
   /**
+   * The draft layout's own version, which only a layout write moves.
+   *
+   * What the component form round-trips: a panel's write (the SEO scores
+   * after every layout write) moves draftVersion() but not this, so it never
+   * makes an open form stale.
+   *
+   * @return int
+   *   The current layout version, or 0 when no draft is stored.
+   */
+  public function draftLayoutVersion(): int {
+    return $this->getSharedDraftStore()->layoutVersion($this);
+  }
+
+  /**
+   * As draftConflict(), for a layout save carrying the layout version.
+   *
+   * @param int|null $loadedVersion
+   *   The layout version the session loaded, or NULL for no check.
+   *
+   * @return \Drupal\neo_alchemist\EditorState\DraftConflictException|null
+   *   The refusal a layout save would raise, or NULL when it would be clear.
+   */
+  public function draftLayoutConflict(?int $loadedVersion): ?DraftConflictException {
+    return $this->getSharedDraftStore()->layoutConflict($this, $loadedVersion);
+  }
+
+  /**
    * Carries the version this session loaded onto the item for the next write.
    *
    * The save path hands this to the shared draft store, which refuses the write
-   * when the stored version has moved past it. Passing NULL leaves the write
-   * unguarded: a structural op with no form round-trip, or a non-session
-   * caller.
+   * when the stored version has moved past it: a draft save compares it with
+   * the layout version (draftLayoutVersion()), a publish with the draft's
+   * (draftVersion()). Passing NULL leaves the write unguarded: a structural op
+   * with no form round-trip, or a non-session caller.
    *
    * @param int|null $version
    *   The loaded version, or NULL to leave the next write unguarded.

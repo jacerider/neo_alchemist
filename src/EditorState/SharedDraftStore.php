@@ -44,7 +44,9 @@ use Drupal\neo_alchemist\Plugin\Field\FieldType\ComponentTreeItem;
  *
  * Editor side panels (AlchemistPanelInterface) draft into the same record, one
  * key each under 'panels', so their data is versioned, reverted, reset and
- * published with the layout rather than beside it.
+ * published with the layout rather than beside it. The layout keeps a version
+ * of its own as well, which only a tree write moves: what a component save
+ * guards on, so a panel's write never refuses one (see set()).
  *
  * Unlike the disposable scratch buffer, a draft is unpublished editor work on a
  * live site: if this store's backend ever changes, existing drafts must be
@@ -125,30 +127,36 @@ final class SharedDraftStore {
    * separate presence table or heartbeat.
    *
    * When $expectedVersion is given, the write is optimistically guarded: if the
-   * stored version is ahead of the one the session loaded, a colleague wrote
-   * the draft in the meantime, so the write is refused rather than allowed to
-   * overwrite their work with a stale copy. Passing NULL (the default) writes
-   * unguarded — the per-user scratch buffer and non-session callers do not
-   * carry a version.
+   * stored layout version is ahead of the one the session loaded, a colleague
+   * wrote the layout in the meantime, so the write is refused rather than
+   * allowed to overwrite their work with a stale copy. Passing NULL (the
+   * default) writes unguarded — the per-user scratch buffer and non-session
+   * callers do not carry a version.
+   *
+   * The guard is the layout version (layoutVersion()), not the draft's: a
+   * panel's write never touches the layout this replaces, so it is no reason
+   * to refuse it. The SEO analysis writes its scores after every layout write,
+   * and against the draft's version that made every form opened just before
+   * it stale — the editor's own next save was refused as a colleague's.
    *
    * @param \Drupal\neo_alchemist\Plugin\Field\FieldType\ComponentTreeItem $item
    *   The field item the draft belongs to.
    * @param array $value
    *   The draft content to store.
    * @param int|null $expectedVersion
-   *   The draft version the session loaded, or NULL to write unguarded.
+   *   The layout version the session loaded, or NULL to write unguarded.
    *
    * @throws \Drupal\neo_alchemist\EditorState\DraftConflictException
-   *   When $expectedVersion is behind the stored version.
+   *   When $expectedVersion is behind the stored layout version.
    */
   public function set(ComponentTreeItem $item, array $value, ?int $expectedVersion = NULL): void {
     $record = $this->record($item);
-    if ($conflict = $this->conflictFromRecord($expectedVersion, $record)) {
+    if ($conflict = $this->layoutConflictFromRecord($expectedVersion, $record)) {
       throw $conflict;
     }
     // The editor panels' data rides along untouched: a tree write replaces the
     // layout, never what a panel drafted beside it.
-    $this->writeEdit($item, $record, $value, $record['panels'] ?? []);
+    $this->writeEdit($item, $record, $value, $record['panels'] ?? [], TRUE);
   }
 
   /**
@@ -216,7 +224,7 @@ final class SharedDraftStore {
     else {
       $panels[$panelId] = $data;
     }
-    $this->writeEdit($item, $record, $record['value'] ?? NULL, $panels);
+    $this->writeEdit($item, $record, $record['value'] ?? NULL, $panels, FALSE);
   }
 
   /**
@@ -224,7 +232,8 @@ final class SharedDraftStore {
    *
    * The write increments the version, records the current user as the last
    * editor with the current time, and adds them to the contributor set — for a
-   * tree write and a panel write alike.
+   * tree write and a panel write alike. Only a tree write moves the layout
+   * version and its editor; a panel write carries them over as they were.
    *
    * @param \Drupal\neo_alchemist\Plugin\Field\FieldType\ComponentTreeItem $item
    *   The field item the draft belongs to.
@@ -234,17 +243,22 @@ final class SharedDraftStore {
    *   The layout value to store, or NULL when the layout has no draft.
    * @param array $panels
    *   The panel data to store.
+   * @param bool $layout
+   *   Whether this writes the layout (set()) rather than a panel's data.
    */
-  private function writeEdit(ComponentTreeItem $item, ?array $record, ?array $value, array $panels): void {
+  private function writeEdit(ComponentTreeItem $item, ?array $record, ?array $value, array $panels, bool $layout): void {
     $uid = (int) $this->currentUser->id();
     $contributors = $record['contributors'] ?? [];
     if (!in_array($uid, $contributors, TRUE)) {
       $contributors[] = $uid;
     }
+    $layoutVersion = $this->layoutVersionOf($record);
     $this->writeRecord($item, [
       'value' => $value,
       'version' => (int) ($record['version'] ?? 0) + 1,
+      'layout_version' => $layout ? $layoutVersion + 1 : $layoutVersion,
       'last_editor' => $uid,
+      'layout_editor' => $layout ? $uid : $this->layoutEditorOf($record),
       'last_modified' => $this->time->getRequestTime(),
       'contributors' => $contributors,
       'panels' => $panels,
@@ -340,6 +354,24 @@ final class SharedDraftStore {
   }
 
   /**
+   * The conflict a layout write at $expectedVersion would hit, or NULL.
+   *
+   * The pre-check for set(), as conflict() is for publish: the component form
+   * calls it while validating, with the layout version it loaded.
+   *
+   * @param \Drupal\neo_alchemist\Plugin\Field\FieldType\ComponentTreeItem $item
+   *   The field item the draft belongs to.
+   * @param int|null $expectedVersion
+   *   The layout version the session loaded, or NULL for no check.
+   *
+   * @return \Drupal\neo_alchemist\EditorState\DraftConflictException|null
+   *   The refusal a layout write would raise, or NULL when it would be clear.
+   */
+  public function layoutConflict(ComponentTreeItem $item, ?int $expectedVersion): ?DraftConflictException {
+    return $this->layoutConflictFromRecord($expectedVersion, $this->record($item));
+  }
+
+  /**
    * Builds the conflict for a carried version against an already-read record.
    *
    * The check is strictly-behind: a write at the current stored version is
@@ -357,12 +389,44 @@ final class SharedDraftStore {
    *   The refusal, or NULL when the carried version is at or ahead of stored.
    */
   private function conflictFromRecord(?int $expectedVersion, ?array $record): ?DraftConflictException {
-    $storedVersion = (int) ($record['version'] ?? 0);
+    $lastEditor = $record['last_editor'] ?? NULL;
+    return $this->conflictAt($expectedVersion, (int) ($record['version'] ?? 0), $lastEditor === NULL ? NULL : (int) $lastEditor);
+  }
+
+  /**
+   * As conflictFromRecord(), against the layout version and its editor.
+   */
+  private function layoutConflictFromRecord(?int $expectedVersion, ?array $record): ?DraftConflictException {
+    return $this->conflictAt($expectedVersion, $this->layoutVersionOf($record), $this->layoutEditorOf($record));
+  }
+
+  /**
+   * The strictly-behind comparison both guards share.
+   */
+  private function conflictAt(?int $expectedVersion, int $storedVersion, ?int $lastEditor): ?DraftConflictException {
     if ($expectedVersion === NULL || $expectedVersion >= $storedVersion) {
       return NULL;
     }
-    $lastEditor = $record['last_editor'] ?? NULL;
-    return new DraftConflictException($expectedVersion, $storedVersion, $lastEditor === NULL ? NULL : (int) $lastEditor);
+    return new DraftConflictException($expectedVersion, $storedVersion, $lastEditor);
+  }
+
+  /**
+   * A record's layout version: its own, else its draft version.
+   *
+   * A record written before the layout had a version of its own falls back to
+   * the draft's, which is what a form opened then round-tripped — so the
+   * change refuses no save that was clear before it.
+   */
+  private function layoutVersionOf(?array $record): int {
+    return (int) ($record['layout_version'] ?? $record['version'] ?? 0);
+  }
+
+  /**
+   * A record's last layout editor, falling back as layoutVersionOf() does.
+   */
+  private function layoutEditorOf(?array $record): ?int {
+    $editor = array_key_exists('layout_editor', $record ?? []) ? $record['layout_editor'] : ($record['last_editor'] ?? NULL);
+    return $editor === NULL ? NULL : (int) $editor;
   }
 
   /**
@@ -401,6 +465,22 @@ final class SharedDraftStore {
    */
   public function version(ComponentTreeItem $item): int {
     return (int) ($this->record($item)['version'] ?? 0);
+  }
+
+  /**
+   * The layout's version counter, incremented by set() and nothing else.
+   *
+   * What the component form carries and set() guards on; version() moves with
+   * panel writes too.
+   *
+   * @param \Drupal\neo_alchemist\Plugin\Field\FieldType\ComponentTreeItem $item
+   *   The field item the draft belongs to.
+   *
+   * @return int
+   *   The current layout version, or 0 when no draft is stored.
+   */
+  public function layoutVersion(ComponentTreeItem $item): int {
+    return $this->layoutVersionOf($this->record($item));
   }
 
   /**

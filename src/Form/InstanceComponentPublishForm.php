@@ -96,7 +96,7 @@ class InstanceComponentPublishForm extends EntityConfirmFormBase {
     // on submit so a stale publish — someone edited the draft while the
     // publisher sat here — is refused rather than releasing a version they
     // never saw.
-    $form['draft_version'] = $this->draftVersionField($this->fieldItem);
+    $form['draft_version'] = $this->draftVersionField($this->fieldItem->draftVersion());
     return $form;
   }
 

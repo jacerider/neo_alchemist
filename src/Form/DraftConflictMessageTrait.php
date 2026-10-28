@@ -31,21 +31,23 @@ trait DraftConflictMessageTrait {
   /**
    * The hidden field that round-trips the loaded shared-draft version.
    *
-   * Its value is the draft version at the moment the form opened; a hidden
-   * field keeps that loaded value across the form's own refreshes (submitted
-   * input wins over #default_value on rebuild), so a refresh does not silently
-   * advance it to a version the editor never saw.
+   * Its value is the version at the moment the form opened; a hidden field
+   * keeps that loaded value across the form's own refreshes (submitted input
+   * wins over #default_value on rebuild), so a refresh does not silently
+   * advance it to a version the editor never saw. Which version is the
+   * form's to say: the layout's for a component save, the draft's for
+   * publish.
    *
-   * @param \Drupal\neo_alchemist\Plugin\Field\FieldType\ComponentTreeItem $fieldItem
-   *   The field item whose draft is being edited.
+   * @param int $version
+   *   The version loaded.
    *
    * @return array
    *   The hidden form element.
    */
-  protected function draftVersionField(ComponentTreeItem $fieldItem): array {
+  protected function draftVersionField(int $version): array {
     return [
       '#type' => 'hidden',
-      '#default_value' => $fieldItem->draftVersion(),
+      '#default_value' => $version,
     ];
   }
 

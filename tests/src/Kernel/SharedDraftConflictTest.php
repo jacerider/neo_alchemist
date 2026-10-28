@@ -139,6 +139,77 @@ class SharedDraftConflictTest extends HybridFieldKernelTestBase {
   }
 
   /**
+   * A panel's write does not make a layout save stale.
+   *
+   * The SEO analysis writes its scores beside the draft after every layout
+   * write. Against the draft's version, the form opened just before that
+   * write was refused on its next save, naming its own editor. The layout
+   * save guards on the layout version, which a panel write carries over.
+   */
+  public function testPanelWriteDoesNotRefuseLayoutSave(): void {
+    $item = $this->fieldItem();
+    $store = $this->store(new MemoryEditorStateStore());
+    $this->container->get('current_user')->setAccount(new UserSession(['uid' => 101]));
+
+    $store->set($item, ['tree' => '{"a":1}', 'props' => '[]'], 0);
+    $loaded = $store->layoutVersion($item);
+    $store->setPanel($item, 'neo_seo', ['seo_score' => 42]);
+    $this->assertSame(2, $store->version($item), 'Premise: the panel write moved the draft version.');
+    $this->assertSame($loaded, $store->layoutVersion($item), 'The panel write left the layout version.');
+    $this->assertNull($store->layoutConflict($item, $loaded), 'The layout save is not refused.');
+
+    $store->set($item, ['tree' => '{"b":2}', 'props' => '[]'], $loaded);
+    $this->assertSame(['seo_score' => 42], $store->getPanel($item, 'neo_seo'), 'The layout save kept the panel data.');
+    $this->assertNotNull($store->conflict($item, 2), 'Publish still guards the whole draft.');
+  }
+
+  /**
+   * A colleague's layout write still refuses, naming them, not a panel writer.
+   */
+  public function testLayoutConflictNamesTheLayoutEditor(): void {
+    $item = $this->fieldItem();
+    $store = $this->store(new MemoryEditorStateStore());
+    $currentUser = $this->container->get('current_user');
+
+    $currentUser->setAccount(new UserSession(['uid' => 101]));
+    $store->set($item, ['tree' => '{"a":1}', 'props' => '[]'], 0);
+    // The second session's own panel write lands after the colleague's layout
+    // write; the colleague is who moved the layout.
+    $currentUser->setAccount(new UserSession(['uid' => 102]));
+    $store->setPanel($item, 'neo_seo', ['seo_score' => 42]);
+
+    $conflict = $store->layoutConflict($item, 0);
+    $this->assertNotNull($conflict, 'A layout save behind the layout version is refused.');
+    $this->assertSame(101, $conflict->getLastEditorUid(), 'The refusal names who changed the layout.');
+    $this->expectException(DraftConflictException::class);
+    $store->set($item, ['tree' => '{"b":2}', 'props' => '[]'], 0);
+  }
+
+  /**
+   * A record written before the layout version existed reads its version.
+   *
+   * A form opened then round-tripped the draft version, so the fallback keeps
+   * its save clear.
+   */
+  public function testRecordWithoutLayoutVersionFallsBackToTheVersion(): void {
+    $item = $this->fieldItem();
+    $memory = new MemoryEditorStateStore();
+    $store = $this->store($memory);
+    $store->set($item, ['tree' => '{"a":1}', 'props' => '[]']);
+    // The record as an older release wrote it: no layout version yet.
+    $key = (new \ReflectionMethod($store, 'key'))->invoke($store, $item);
+    $record = $memory->get($key);
+    unset($record['layout_version'], $record['layout_editor']);
+    $record['version'] = 5;
+    $memory->set($key, $record);
+
+    $this->assertSame(5, $store->layoutVersion($item), 'The layout version reads the draft version.');
+    $this->assertNull($store->layoutConflict($item, 5), 'A save at that version is clear.');
+    $store->setPanel($item, 'neo_seo', ['seo_score' => 42]);
+    $this->assertSame(5, $store->layoutVersion($item), 'A panel write then stores it as it was.');
+  }
+
+  /**
    * An unguarded write (no carried version) is never refused.
    *
    * NULL is the default and means "not version-checked": the per-user scratch

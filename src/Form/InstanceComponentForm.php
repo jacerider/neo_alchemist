@@ -256,10 +256,11 @@ final class InstanceComponentForm extends ContentEntityForm {
       '#default_value' => $this->instance->uuid(),
     ];
 
-    // The shared draft's version at the moment this form opened, round-tripped
-    // so a save against a draft a colleague has since moved past is refused —
-    // optimistic conflict detection, caught at edit time.
-    $form['draft_version'] = $this->draftVersionField($this->instance->getFieldItem());
+    // The draft layout's version at the moment this form opened, round-tripped
+    // so a save against a layout a colleague has since moved past is refused —
+    // optimistic conflict detection, caught at edit time. The layout's, not
+    // the draft's: a panel's write (the SEO scores) changes nothing this saves.
+    $form['draft_version'] = $this->draftVersionField($this->instance->getFieldItem()->draftLayoutVersion());
 
     // Assigned in this order because top-level render order is array order and
     // the Sources accordion belongs between the two panel elements.
@@ -860,7 +861,7 @@ final class InstanceComponentForm extends ContentEntityForm {
     // set once validation has finished.
     if (($trigger['#type'] ?? NULL) === 'submit' && ($trigger['#op'] ?? NULL) !== 'refresh') {
       $fieldItem = $this->instance->getFieldItem();
-      if ($conflict = $fieldItem->draftConflict((int) $form_state->getValue('draft_version'))) {
+      if ($conflict = $fieldItem->draftLayoutConflict((int) $form_state->getValue('draft_version'))) {
         $this->surfaceDraftConflict($conflict, $fieldItem, $form, $form_state);
       }
     }
