@@ -23,8 +23,9 @@ use Drupal\neo_alchemist\Plugin\Field\FieldType\ComponentTreeItem;
  * chose over any client-side merge, diff or keep-mine UI, so the whole
  * affordance is one message and a link.
  *
- * It leans on $this->entityTypeManager, to name the last editor, and the string
- * translation helper every EntityForm carries.
+ * It leans on $this->entityTypeManager, to name the last editor, and on the
+ * string translation helper and currentUser() every form and controller
+ * carries.
  */
 trait DraftConflictMessageTrait {
 
@@ -86,7 +87,6 @@ trait DraftConflictMessageTrait {
    *   The message, with a reload link when the editor URL can be built.
    */
   protected function draftConflictMessage(DraftConflictException $conflict, ComponentTreeItem $fieldItem) {
-    $editor = $this->draftConflictEditorName($conflict->getLastEditorUid());
     $reload = NULL;
     try {
       $reload = $fieldItem->toUrl()->toString();
@@ -95,6 +95,17 @@ trait DraftConflictMessageTrait {
       // No reload link when the editor URL cannot be built; the message still
       // tells the editor to reload.
     }
+    // The editor's own write, from another tab or window: naming them as the
+    // colleague who changed it reads as a mistake.
+    if ($conflict->getLastEditorUid() !== NULL && $conflict->getLastEditorUid() === (int) $this->currentUser()->id()) {
+      if ($reload === NULL) {
+        return $this->t('You changed this layout in another tab or window since this opened, so this save was not applied. Reload the editor to pick up that version, then reapply your change.');
+      }
+      return $this->t('You changed this layout in another tab or window since this opened, so this save was not applied. <a href=":reload">Reload the editor</a> to pick up that version, then reapply your change.', [
+        ':reload' => $reload,
+      ]);
+    }
+    $editor = $this->draftConflictEditorName($conflict->getLastEditorUid());
     if ($reload === NULL) {
       return $this->t('@editor changed this layout while you were working, so your save was not applied and their work is intact. Reload the editor to pick up their version, then reapply your change.', [
         '@editor' => $editor,

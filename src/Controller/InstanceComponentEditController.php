@@ -44,12 +44,12 @@ final class InstanceComponentEditController extends ControllerBase {
     // dock (components-parent.ts). Its preview is that editor's own canvas,
     // so nothing here renders frames.
     if ($this->isAjax() && $request->query->get('dock')) {
-      $form = $this->entityFormBuilder()->getForm($neo_component->getTargetEntity(), 'alchemist_edit', [
+      // The form carries the dock's class itself (InstanceComponentForm::
+      // buildForm()), so its rebuilds keep it.
+      return $this->entityFormBuilder()->getForm($neo_component->getTargetEntity(), 'alchemist_edit', [
         'neo_component_instance' => $neo_component,
         'neo_alchemist_dock' => TRUE,
       ]);
-      $form['#attributes']['class'][] = 'neo-alchemist-manage--form';
-      return $form;
     }
 
     // Opened on its own: the same inspector, docked beside a canvas of the

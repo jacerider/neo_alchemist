@@ -19,6 +19,7 @@ use Drupal\Core\Render\Element;
 use Drupal\Core\Render\Markup;
 use Drupal\neo_alchemist\Plugin\ComponentShape\StyleToggleShape;
 use Drupal\neo_alchemist\Shape\ComponentShapeStylePluginInterface;
+use Drupal\neo_alchemist\Ajax\InstanceComponentManageApplyRefusedCommand;
 use Drupal\neo_alchemist\Ajax\InstanceComponentManageIframeCommand;
 use Drupal\neo_alchemist\Ajax\ComponentAjaxFormHelperTrait;
 use Drupal\neo_alchemist\ComponentManageHelper;
@@ -35,7 +36,9 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
  */
 final class InstanceComponentForm extends ContentEntityForm {
 
-  use ComponentAjaxFormHelperTrait;
+  use ComponentAjaxFormHelperTrait {
+    ajaxSubmit as protected helperAjaxSubmit;
+  }
   use DraftConflictMessageTrait;
   use IconTrait;
 
@@ -195,6 +198,13 @@ final class InstanceComponentForm extends ContentEntityForm {
 
     $form['#attributes']['class'][] = 'neo-alchemist--component-form';
     $form['#attached']['library'][] = 'neo_alchemist/component.form';
+    // The dock's layout hangs off this class (it gives the form its height,
+    // so the body scrolls). Here and not in the controller that loads it: a
+    // rebuild — an Apply refused with a message — re-renders the form alone,
+    // and without it the form overflowed the dock, message and all.
+    if ($form_state->get('neo_alchemist_dock')) {
+      $form['#attributes']['class'][] = 'neo-alchemist-manage--form';
+    }
 
     // Claimed in an #after_build because neo_back sets `#theme` from a THEME
     // form alter, which runs after every module alter — there is no alter this
@@ -935,6 +945,20 @@ final class InstanceComponentForm extends ContentEntityForm {
       $actions['submit']['#ajax']['callback'] = '::ajaxSubmit';
     }
     return $actions;
+  }
+
+  /**
+   * The Apply's AJAX response, saying so when it was refused.
+   *
+   * A refused Apply re-renders the form with its message and nothing else,
+   * which left the inspector waiting on it (see the command).
+   */
+  public function ajaxSubmit(array &$form, FormStateInterface $form_state) {
+    $response = $this->helperAjaxSubmit($form, $form_state);
+    if ($form_state->hasAnyErrors() && $response instanceof AjaxResponse) {
+      $response->addCommand(new InstanceComponentManageApplyRefusedCommand($this->instance->uuid()));
+    }
+    return $response;
   }
 
   /**

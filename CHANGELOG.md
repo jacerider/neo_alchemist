@@ -1,5 +1,20 @@
 # Changelog
 
+## A refused Apply says so
+
+When an Apply could not be saved — a field error, or the layout changed since the form opened —
+the inspector's "Apply changes to…?" prompt stayed up and nothing seemed to happen: the message
+was out of sight at the top of the form, which had lost the dock's layout. The prompt now
+closes, the message is shown at the top of the form and a toast says the changes were not
+applied; you stay on the component with your changes still unapplied. Moving on afterwards no
+longer happens by itself on the next unrelated save, Discard puts the form back clean, and a
+conflict with your own change in another tab says so instead of naming you as a colleague.
+
+For code: `InstanceComponentForm::ajaxSubmit()` adds `InstanceComponentManageApplyRefusedCommand`
+(`neoAlchemistApplyRefused` → `alchemistManageApplyRefused`) when the form has errors;
+`inspectorApplyRefused()` handles it. The form, not `InstanceComponentEditController`, adds
+`neo-alchemist-manage--form` when docked. `draftConflictMessage()` reads `currentUser()`.
+
 ## Apply no longer fails after the SEO scores update
 
 Choosing Apply in the inspector could do nothing: the change was refused as a colleague's

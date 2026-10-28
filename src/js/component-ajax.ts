@@ -188,6 +188,14 @@
       Drupal.neoAlchemist?.toast?.(String(response.message), response.type === 'error' ? 'error' : 'status');
     } as drupal.Core.IAjaxCommand;
 
+    // A component's Apply was refused: its form came back with the message.
+    Drupal.AjaxCommands.prototype.neoAlchemistApplyRefused = function (_ajax, response, _status) {
+      document.querySelector('.neo-alchemist-manage')?.dispatchEvent(new CustomEvent('alchemistManageApplyRefused', {
+        bubbles: true,
+        detail: { uuid: response.uuid },
+      }));
+    } as drupal.Core.IAjaxCommand;
+
     Drupal.AjaxCommands.prototype.neoAlchemistComponentFocus = function (_ajax, response, _status) {
       const container = document.querySelector('.neo-alchemist-manage');
       if (container) {

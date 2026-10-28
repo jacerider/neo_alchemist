@@ -1103,6 +1103,11 @@
       layerUuid = detail.uuid;
     }
     container.addEventListener('alchemistManageComponentFocus', focusCallback as EventListener);
+    container.addEventListener('alchemistManageApplyRefused', ((event: CustomEvent<{ uuid: string }>) => {
+      if (event.detail.uuid === inspectorUuid) {
+        inspectorApplyRefused();
+      }
+    }) as EventListener);
 
     inspectorInit();
     layersPosition();
@@ -2404,6 +2409,23 @@
   }
 
   /**
+   * The Apply was refused: the form is back, with its message.
+   *
+   * The changes are still unapplied, so the inspector stays on them. What the
+   * prompt was waiting on is dropped — it would otherwise fire on the next
+   * unrelated save — and the message, rendered at the top of the form, is
+   * brought into view: the form is usually scrolled to the field just edited.
+   */
+  function inspectorApplyRefused(): void {
+    inspectorApplying = false;
+    inspectorAfterApply = null;
+    inspectorPromptHide();
+    const message = dockBody?.querySelector<HTMLElement>('[data-drupal-messages], .messages--error, .form-item--error-message');
+    message?.scrollIntoView({ block: 'nearest' });
+    Drupal.neoAlchemist?.toast?.(Drupal.t('Changes to @label were not applied.', { '@label': inspectorLabel() }), 'error');
+  }
+
+  /**
    * Whether an action has to wait for the prompt. When it does, the prompt is
    * shown and the action runs once it is answered.
    */
@@ -2442,8 +2464,11 @@
       if (pending) {
         pending();
       }
-      // Discarding without moving on: the same component, reloaded clean.
-      if (inspectorUuid && structureData[inspectorUuid]?.type === 'component' && !dockBody?.querySelector('form')) {
+      // Discarding without moving on: the same component, reloaded clean. Not
+      // when what was waiting already reloaded it (or is about to: an op's
+      // response does), but always without one — the form still holds the
+      // discarded values.
+      else if (inspectorUuid && structureData[inspectorUuid]?.type === 'component') {
         inspectorLoad(inspectorUuid);
       }
     });
