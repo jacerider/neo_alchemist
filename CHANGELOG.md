@@ -1,5 +1,17 @@
 # Changelog
 
+## Undo takes back changes you have not applied
+
+With changes typed into the inspector but not applied, Undo asked "Apply changes to…?" — and
+Apply then undid the very change it had just applied, while the step you meant to undo stayed.
+Undo now simply discards the unapplied changes, as the latest thing you did, and says so; it is
+available while there are any, even when there is no other history. Redo waits until you apply
+or discard them (applying would clear what it was going to redo), and its tooltip says why.
+
+For code: `historyRun()` no longer goes through `inspectorGuard()`; `inspectorUndo()` discards
+and reloads the form, and `historySync()` (run on every dirty change and on every re-render of
+`.neo-alchemist-manage--top-history`) adjusts the buttons' `aria-disabled`, reason and tooltip.
+
 ## A refused Apply says so
 
 When an Apply could not be saved — a field error, or the layout changed since the form opened —

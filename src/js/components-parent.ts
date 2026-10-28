@@ -2189,7 +2189,7 @@
         return;
       }
       if (inspectorUuid && dockBody.querySelector('form')) {
-        inspectorDirty = true;
+        inspectorDirtySet(true);
         // Typing again: an Apply that came back with errors is over. Not on
         // `change`: pressing Apply blurs the field just edited, and its
         // `change` lands after the press.
@@ -2211,6 +2211,11 @@
     }, true);
     dockBody.addEventListener('change', markDirty);
     dockBody.addEventListener('neoAlchemistFormEdited', markDirty);
+    // A write re-renders Undo and Redo as the server sees them.
+    const historyGroup = container.querySelector('.neo-alchemist-manage--top-history');
+    if (historyGroup) {
+      new MutationObserver(() => historySync()).observe(historyGroup, { childList: true });
+    }
 
     // Cancel: throw the unapplied changes away. With none, it closes the
     // inspector instead, as there is nothing else for it to undo.
@@ -2286,7 +2291,7 @@
     note.className = 'py-6 text-sm text-base-0-content/75';
     note.textContent = text;
     dockBody.appendChild(note);
-    inspectorDirty = false;
+    inspectorDirtySet(false);
   }
 
   /**
@@ -2297,7 +2302,7 @@
       return;
     }
     inspectorUuid = uuid;
-    inspectorDirty = false;
+    inspectorDirtySet(false);
     inspectorApplying = false;
     const op = structureData[uuid]?.data?.ops?.edit;
     if (!op?.permitted) {
@@ -2336,7 +2341,7 @@
     const had = inspectorUuid;
     inspectorLoadToken++;
     inspectorUuid = null;
-    inspectorDirty = false;
+    inspectorDirtySet(false);
     inspectorPromptHide();
     if (had) {
       Drupal.detachBehaviors(dockBody, drupalSettings, 'unload');
@@ -2360,7 +2365,7 @@
    * Throw away the unapplied changes: the canvas goes back to the draft.
    */
   function inspectorDiscard(): void {
-    inspectorDirty = false;
+    inspectorDirtySet(false);
     inspectorApplying = false;
     inspectorRefreshFrames(inspectorUuid && structureData[inspectorUuid]?.type === 'component' ? inspectorUuid : null);
   }
@@ -2389,7 +2394,7 @@
     }
     const applied = inspectorApplying;
     inspectorApplying = false;
-    inspectorDirty = false;
+    inspectorDirtySet(false);
     inspectorPromptHide();
     const then = inspectorAfterApply;
     inspectorAfterApply = null;
@@ -2492,6 +2497,68 @@
    */
   function inspectorLabel(): string {
     return String((inspectorUuid && structureData[inspectorUuid]?.data?.label) || Drupal.t('this component'));
+  }
+
+  function inspectorDirtySet(dirty: boolean): void {
+    inspectorDirty = dirty;
+    historySync();
+  }
+
+  /**
+   * Undo and Redo while the inspector has unapplied changes.
+   *
+   * Those changes are the latest edit, so Undo discards them (historyRun())
+   * and is offered even with no history to undo; Redo waits, as applying them
+   * would clear it. The server renders the buttons after every write, so what
+   * it said is kept on each button and put back once the form is clean.
+   */
+  function historySync(): void {
+    const label = inspectorLabel();
+    container.querySelectorAll<HTMLElement>('.neo-alchemist--history[data-history]').forEach(button => {
+      button.dataset.historyOwn ??= JSON.stringify({
+        disabled: button.getAttribute('aria-disabled'),
+        reason: button.dataset.reason ?? null,
+        tip: button.dataset.tippyContent ?? '',
+      });
+      let { disabled, reason, tip } = JSON.parse(button.dataset.historyOwn) as { disabled: string | null; reason: string | null; tip: string };
+      if (inspectorDirty) {
+        if (button.dataset.history === 'undo') {
+          disabled = reason = null;
+          tip = Drupal.t('Discard changes to @label', { '@label': label });
+        }
+        else {
+          disabled = 'true';
+          tip = reason = Drupal.t('Apply or discard your changes to @label first', { '@label': label });
+        }
+      }
+      if (disabled === null) {
+        button.removeAttribute('aria-disabled');
+      }
+      else {
+        button.setAttribute('aria-disabled', disabled);
+      }
+      if (reason === null) {
+        delete button.dataset.reason;
+      }
+      else {
+        button.dataset.reason = reason;
+      }
+      button.dataset.tippyContent = tip;
+      (button as any)._tippy?.setContent(tip);
+    });
+  }
+
+  /**
+   * Undo with unapplied changes: discard them.
+   */
+  function inspectorUndo(): void {
+    const label = inspectorLabel();
+    inspectorPromptHide();
+    inspectorDiscard();
+    if (inspectorUuid) {
+      inspectorLoad(inspectorUuid);
+    }
+    Drupal.neoAlchemist?.toast?.(Drupal.t('Discarded changes to @label', { '@label': label }), 'status');
   }
 
   /**
@@ -4167,21 +4234,25 @@
    *
    * The server names the step and hands back the component it acted on, which
    * its focus command selects and, asked to reveal, revealMoved() keeps on
-   * screen. Unapplied
-   * inspector changes are asked about first, as for any structural op.
+   * screen. Unapplied inspector changes are not asked about, as a structural
+   * op's are: applying them would make them the step Undo took back, and
+   * clear the step Redo was to restore.
    */
   function historyRun(direction: string): void {
     const button = container.querySelector<HTMLElement>(`.neo-alchemist--history[data-history="${direction}"]`);
     if (!button?.dataset.url) {
       return;
     }
+    // Unapplied changes are the latest edit: Undo takes them back, and Redo
+    // waits for them (historySync() says so on the button).
+    if (inspectorDirty && direction === 'undo') {
+      inspectorUndo();
+      return;
+    }
     if (button.getAttribute('aria-disabled') === 'true') {
       if (button.dataset.reason) {
         Drupal.neoAlchemist?.toast?.(button.dataset.reason, 'status');
       }
-      return;
-    }
-    if (inspectorGuard(inspectorLabel(), () => historyRun(direction))) {
       return;
     }
     Drupal.ajax({

@@ -1028,6 +1028,10 @@ error, a layout conflict) comes back as the form with its message followed by
 `InstanceComponentManageApplyRefusedCommand`: the inspector drops the prompt and whatever was
 waiting on it, brings the message into view and toasts (`inspectorApplyRefused()`). The form
 adds `neo-alchemist-manage--form` itself when docked, so a rebuild keeps the dock's layout.
+Undo is not one of the guarded actions: with unapplied changes it discards them
+(`inspectorUndo()`) — they are the latest edit — and Redo waits until they are applied or
+discarded, since applying would clear it. `historySync()` shows that on the buttons (Undo
+enabled even with no history), keeping what the server rendered on each button to put back.
 The dock's header is the inspector's band, on the
 canvas's base-100 (`.neo-alchemist--dock-band`; the dock casts a shadow over the canvas to keep
 the two apart): a top row with "‹ Parent" (the parent the breadcrumb
