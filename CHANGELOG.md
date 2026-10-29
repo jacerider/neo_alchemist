@@ -1,5 +1,48 @@
 # Changelog
 
+## 2.0: a new layout editor
+
+**2.0 replaces the layout editor's interface. What is stored does not change:** there are no
+update hooks and no configuration or schema changes, and components, layouts and drafts read the
+same in 1.x and 2.0. The entries from here down to "The canvas meets contrast, text-size and
+keyboard requirements" make up the release. Editors will notice:
+
+- One dark header band: Back, the page's title and where its draft stands; + Add, Layers and the
+  side panels in the centre; Undo · Redo and Save trailing. Save and Revert keep you in the editor.
+- A component is edited in an inspector docked on the right, not a modal, and Apply closes it.
+- Layers docks on the left and reorders by drag. The Reorder page and the footer bar are gone.
+- A rail beside the selected component moves, duplicates and deletes it, and its grip drags it.
+- Undo and Redo take back layout edits, each editor's own.
+- Device, zoom and Compare float in a dock at the bottom of the canvas.
+
+### Moving a site to 2.0
+
+```
+composer require 'jacerider/neo_alchemist:^2.0' -W
+drush cr
+```
+
+Then rebuild the site's assets. A site with neo_seo moves it in the same command
+(`'jacerider/neo_seo:^2.0'`): 2.0 conflicts with neo_seo 1.x, whose Search & social button and
+score pills were built for the old header. neo_commerce and neo_search need their releases that
+allow neo_alchemist 2.
+
+Going back is the same command with `^1.0`. Nothing in the database needs undoing, and a draft
+started in either version opens in the other.
+
+### For code
+
+- Removed: the `neo_alchemist/component.sort` library, `InstanceComponentSortController`,
+  `InstanceComponentSortForm`, the `sort` route in every scope and the `alchemist_sort` form
+  handler. The `sort` access operation remains.
+- `neo_alchemist_manage` no longer has `bottom_start` / `bottom_end`, and adds `top_center`,
+  `top_title`, `top_status`, `top_save`, `preview`, `dock`, `dock_close` and `dock_menu`. The
+  overlay template drops `ops`, `position_ops` and the top and bottom panels they filled, and
+  adds `outline_rail` and `inspector_menu`. A theme overriding either template needs to start
+  again from the new one.
+- `AlchemistPanelInterface` adds `isEdited()`. `AlchemistPanelBase` implements it, so only a
+  panel that implements the interface directly must add it.
+
 ## Undo takes back changes you have not applied
 
 With changes typed into the inspector but not applied, Undo asked "Apply changes to…?" — and

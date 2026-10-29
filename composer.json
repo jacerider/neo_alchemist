@@ -20,5 +20,8 @@
     "drupal/core": "^10.3 || ^11",
     "jacerider/neo": "^1",
     "jacerider/neo_tooltip": "^1"
+  },
+  "conflict": {
+    "jacerider/neo_seo": "<2"
   }
 }
