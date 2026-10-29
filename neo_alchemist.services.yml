@@ -180,6 +180,11 @@ services:
   neo_alchemist.page_heading:
     class: Drupal\neo_alchemist\PageHeading
     arguments: ['@plugin.manager.sdc', '@renderer']
+  # Which component's image is offered neo_image's priority grant. neo_image
+  # is optional: without it the grant service is NULL and nothing is granted.
+  neo_alchemist.page_priority:
+    class: Drupal\neo_alchemist\PagePriority
+    arguments: ['@neo_alchemist.page_heading', '@plugin.manager.sdc', '@?neo_image.priority']
 
   neo_alchemist.sdc_thumbnail_writer:
     class: Drupal\neo_alchemist\SdcThumbnailWriter

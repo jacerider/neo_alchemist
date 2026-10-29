@@ -91,6 +91,8 @@ Key fields:
 - **`status`** — `stable`, `beta`, `experimental`, or `deprecated`.
 - **`libraryOverrides.dependencies`** — attach Drupal libraries (e.g. `neo/library.alpine` for Alpine.js).
 - **`neo_install: true`** — for components shipped by a **module**; see below.
+- **`priority: false`** — this component never takes the page's priority image; see
+  "The page's priority image" below.
 
 ## Shipping a component from a module (`neo_install`)
 
@@ -896,6 +898,7 @@ Remember the resolved value is scheme-specific: if you hardcode a hex from one s
 | `heading` | `<div{{ heading.size }}>` wrapper with `component-supertitle`/`component-title`/`component-subtitle` children — **all three, each `{% if %}`-guarded**. Full rules and the required guard: "Rendering a `heading`: all three parts, always" below |
 | `markup` | `{{ description }}` wrapped in `<div class="prose max-w-none">` |
 | `image` | `{{ neo_image_style(img.src, {focal: {width: 1200, height: 575}}, img.alt) }}` or `neo_image()` for responsive |
+| `image` (**priority**) | Nothing to write — see "The page's priority image" below. Never hard-code `priority: true` in a template: it would take priority wherever the component is placed |
 | `image` (**SVG**, e.g. a logo) | Image styles can't rasterize an SVG, so the original file is emitted and the size op only sets HTML `width`/`height` attributes — which the theme's base reset (`img{height:auto}` in `@layer base`) then overrides. A viewBox-only SVG has no intrinsic size, so it collapses to 0×0. **Size it with a CSS class** (utilities win over the base layer): `{{ neo_image_style(logo.src, {scale: {height: 30}}, logo.alt, '', {class: ['h-7', 'w-auto']}) }}` |
 | `icon` | `{{ icon(name) }}` — add modifiers: `|icon_class('text-3xl')`, `|icon_only`, `|icon_library('regular')` |
 | `link` | `<a{{ item.button_style }} href="{{ neo_uri(item.link.uri, item.link.options) }}">{{ item.link.title }}</a>` |
@@ -975,6 +978,46 @@ acceptable is dropping a part entirely.
 other two. Temporarily add `supertitle`/`subtitle` to the prop's `examples:`, run
 `drush neo:alchemist:render <provider>:<name> --html`, confirm all three appear, then
 revert the examples.
+
+### The page's priority image
+
+The image a page paints first and largest (its LCP) should load at once. Alchemist does
+this for you: **the first component of the page's layout** — the first that renders, by
+tree position, in the layout the entity's full page shows — has its **first image rendered
+through `neo_image()` / `neo_image_style()`** given neo_image's `priority`: `loading="eager"`,
+`fetchpriority="high"`, and `<link rel="preload">` tags in the page head matching what each
+viewport paints. Images later on the page, and every image in the header, mega menu
+panels and other blocks, are left as they are. "First image" includes the component's
+children (a section whose first child is a hero hands it to the hero's image). It is
+decided from the tree, so it is the same on a render-cached page, and moving a component
+to the top in the editor moves it after Save.
+
+What that asks of a component:
+
+- **Render the image with `neo_image()` / `neo_image_style()`.** A CSS
+  `background-image` (or `neo_image_style_url()` in a `style=""`) is invisible to this —
+  the browser finds it late and nothing can preload it. A full-bleed hero is an `<img>`
+  (or `<picture>`) with `object-cover`, not a background.
+- **Leave `priority` out of the image's options** for the image that should take it.
+  An image that must never take it says `priority: false` in its options — e.g. slides
+  2+ of a slideshow, a hidden tab panel's image — and the grant passes to the next image
+  in the component:
+  `{{ neo_image(slide.image.src, {sm: {...}, lg: {...}, priority: loop.first ? null : false}, slide.image.alt) }}`
+  A priority image also replaces any `loading="lazy"` you pass, so slide 1 needs no
+  special casing beyond that.
+- **Declare `priority: false` at the top of `.component.yml`** when the component's
+  images are never the page's LCP — decorative art, an alert bar or a short band that
+  can lead a page with its image below the fold. When such a component comes first,
+  **no image on the page** gets priority (it is not handed further down). Placed later,
+  the key changes nothing.
+
+```yaml
+neo: true
+priority: false   # this component's images are never the page's main image
+```
+
+Requires neo_image; without it nothing changes. Check a page with
+`curl -s <url> | grep -o '<link rel="preload" as="image"[^>]*>'`.
 
 ### Preview-mode hooks
 

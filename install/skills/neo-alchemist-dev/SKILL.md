@@ -369,6 +369,22 @@ print `<{{ heading.tag }}>…</{{ heading.tag }}>`; the default heading twig doe
 - Tests: `PageHeadingTest` (kernel; fixtures `na_heading_tag`, `na_heading_optout`,
   `na_heading_literal`), `HeadingTagTest`, `ComponentTwigLinterTest`.
 
+## The page's priority image
+
+`PagePriority` (`neo_alchemist.page_priority`) gives neo_image's priority grant
+(`@?neo_image.priority` — optional; absent, nothing happens) to the first root component
+that renders in the first page-content tree (`PageHeading::isPageContent()` /
+`pageItems()`, so header blocks and mega menu panels never take part).
+`ComponentTreeHydrated::renderify()` asks `grants()` and wraps that one build in
+`PagePriority::wrap()` (`#pre_render` grants, `#post_render` withdraws); the first neo_image
+inside that is not `priority: false` claims it in preprocess. Decided from the tree, never
+by counting renders, so it lives in the entity's render-cache entry with the preloads it
+produces. `priority: false` at the top of a `.component.yml` declines it for the page when
+that component comes first. ⚠ An image inside a separately render-cached element (a views
+row, an embedded entity) claims only on that element's cache miss and keeps the preload in
+its own cache entry. Tests: `PagePriorityTest` (fixtures `na_priority_image`,
+`na_priority_optout`).
+
 ## Writing trees in code: the stored format
 
 A tree item stores `tree` (structure, JSON) and `props` (JSON), and `props` holds one

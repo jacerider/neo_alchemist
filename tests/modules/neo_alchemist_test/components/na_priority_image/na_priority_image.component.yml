@@ -1,0 +1,22 @@
+$schema: 'https://git.drupalcode.org/project/drupal/-/raw/10.1.x/core/modules/sdc/src/metadata.schema.json'
+name: 'NA priority image fixture'
+description: >
+  Two neo_image renders of one source, told apart by their alt text, and a
+  region for children: which image of which component claims the page's
+  priority grant is read off the markup. Needs neo_image (its Twig function).
+status: stable
+neo: true
+props:
+  type: object
+  properties:
+    label:
+      type: string
+      title: Label
+      examples: 'EXAMPLE'
+    src:
+      type: string
+      title: Source
+      examples: 'public://priority-test.png'
+    body:
+      type: region
+      title: Body

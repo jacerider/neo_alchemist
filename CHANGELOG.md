@@ -1,5 +1,27 @@
 # Changelog
 
+## The first component's image loads first
+
+**With neo_image installed, the page's first component now has its first image given
+neo_image's `priority`**: `loading="eager"`, `fetchpriority="high"` and preload links in the
+page head matching what each viewport paints. That image is usually the page's largest
+contentful paint, which until now the browser found late. Nobody has to do anything: the
+first component that renders in the layout of an entity's full page takes it, children
+included, and the first image rendered through `neo_image()` / `neo_image_style()` inside it
+claims it. Header blocks, mega menu panels and other view modes never do.
+
+It is decided from the tree, so a render-cached page carries the same image's preloads, and
+moving another component to the top moves priority after Save. A component whose
+`.component.yml` declares `priority: false` declines it: when it comes first, no image on
+the page has priority. An image that should never take it says `priority: false` in its own
+neo_image options, and the next image in the component claims it instead.
+
+**Check after updating:** the claim goes to the first image the component's template
+*renders*, not the first one shown. A template that renders an image it hides first — a
+desktop-only variant before the mobile one, a logo or icon before the hero — should give
+that image `priority: false`. A CSS `background-image` cannot take priority; render the image
+with `neo_image()` and `object-cover` instead.
+
 ## Admin icons survive an icon library rendering inline SVG
 
 **Three icons in the editor and its admin pages no longer depend on the icon

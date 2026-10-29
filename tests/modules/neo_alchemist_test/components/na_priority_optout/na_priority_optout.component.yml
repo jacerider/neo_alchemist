@@ -1,0 +1,22 @@
+$schema: 'https://git.drupalcode.org/project/drupal/-/raw/10.1.x/core/modules/sdc/src/metadata.schema.json'
+name: 'NA priority opt-out fixture'
+description: >
+  The priority image fixture, declaring `priority: false`: when it comes
+  first on a page, no image on the page is given priority.
+status: stable
+neo: true
+priority: false
+props:
+  type: object
+  properties:
+    label:
+      type: string
+      title: Label
+      examples: 'EXAMPLE'
+    src:
+      type: string
+      title: Source
+      examples: 'public://priority-test.png'
+    body:
+      type: region
+      title: Body

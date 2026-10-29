@@ -11,6 +11,7 @@ use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\Core\TypedData\Attribute\DataType;
 use Drupal\Core\TypedData\TypedData;
 use Drupal\neo_alchemist\ComponentFieldConfigInterface;
+use Drupal\neo_alchemist\PagePriority;
 use Drupal\neo_alchemist\Shape\ComponentShapeRegionPluginInterface;
 use Drupal\neo_alchemist\Plugin\Field\FieldType\ComponentTreeItem;
 
@@ -171,6 +172,11 @@ class ComponentTreeHydrated extends TypedData implements RenderableInterface {
       $uuids = array_keys($renderable);
       $first = reset($uuids);
       $last = end($uuids);
+      // The page's first component is offered neo_image's priority grant,
+      // decided here from the tree so the decision is cached with it.
+      $priority = $component_subtree_uuid === ComponentTreeStructure::ROOT_UUID
+        && $first !== FALSE
+        && \Drupal::service('neo_alchemist.page_priority')->grants($item, (string) $first, $cacheableMetadata);
       foreach ($renderable as $component_instance_uuid => $instance) {
         $component_instance = $component_instances[$component_instance_uuid];
         if (!empty($component_instance['slots'])) {
@@ -187,6 +193,9 @@ class ComponentTreeHydrated extends TypedData implements RenderableInterface {
         $isFirst = $first === $component_instance_uuid;
         $isLast = $last === $component_instance_uuid;
         $build[$component_subtree_uuid][$component_instance_uuid] = $instance->toRenderable($isFirst, $isLast);
+        if ($priority && $isFirst) {
+          $build[$component_subtree_uuid][$component_instance_uuid] = PagePriority::wrap($build[$component_subtree_uuid][$component_instance_uuid]);
+        }
       }
     }
     return $build;

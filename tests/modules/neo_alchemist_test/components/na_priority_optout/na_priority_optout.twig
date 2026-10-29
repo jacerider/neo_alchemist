@@ -1,0 +1,9 @@
+{#
+  Minimal on purpose: the first image may claim the grant, the second must
+  not, as one claim spends it.
+#}
+<div{{ attributes }}>
+  {{ neo_image_style(src, {scale: {width: 100}}, label ~ ' first') }}
+  {{ neo_image_style(src, {scale: {width: 50}}, label ~ ' second') }}
+  <div class="na-body">{{ body }}</div>
+</div>

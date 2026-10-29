@@ -255,7 +255,7 @@ final class PageHeading {
    * @return \Drupal\neo_alchemist\Plugin\Field\FieldType\ComponentTreeItem[]
    *   The trees that hold components, keyed by field name.
    */
-  private function pageItems(ContentEntityInterface $entity, ?CacheableMetadata $cacheability = NULL): array {
+  public function pageItems(ContentEntityInterface $entity, ?CacheableMetadata $cacheability = NULL): array {
     $items = [];
     foreach ($this->pageFields($entity) as $fieldName) {
       if (!$entity->hasField($fieldName)) {

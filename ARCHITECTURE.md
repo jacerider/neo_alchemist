@@ -1222,6 +1222,18 @@ Publish are full page navigations, so a panel sees them as a fresh mount.
   the H1, `neo_alchemist_block_view_page_title_block_alter()` denies the page title block,
   which is otherwise the page's sr-only H1. Pure source checks live in
   [src/HeadingTag.php](src/HeadingTag.php); the twig linter reports a literal `<h1>`.
+- **The page's priority image.** [src/PagePriority.php](src/PagePriority.php)
+  (`neo_alchemist.page_priority`) hands neo_image's priority grant (`neo_image.priority`,
+  an optional service — without neo_image nothing happens) to the first root component
+  that renders in the first page-content tree (the same trees `PageHeading` reads, in
+  display order). `ComponentTreeHydrated::renderify()` asks `grants()` with the root's
+  first renderable uuid and wraps that component's build in `PagePriority::wrap()`: a
+  `#pre_render` that grants and a `#post_render` that withdraws, so the first neo_image
+  rendered inside it (children included) that is not `priority: false` claims it. The
+  choice is made from the tree, not by counting renders, so it is stored in the same
+  entity render-cache entry as the preload links it produces. A component whose
+  `.component.yml` declares `priority: false` declines when it comes first: the page gets
+  no priority image.
 - **CLI caution:** `neo:alchemist:render` renders the component subtree directly (via
   `renderer` in a `RenderContext`), *not* through `renderBarePage`, because the page path
   invokes `hook_page_attachments`/`neo_build_page_top` which assume an HTTP request/route
