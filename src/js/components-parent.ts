@@ -1972,7 +1972,10 @@
       });
     }
     else {
-      link.innerHTML = '<i class="neo-icon neo-icon-font icon-regular-home"></i>';
+      // Rendered on the server (InstanceComponentManage), so it shows however
+      // the icon library renders. The literal is a fallback for a page
+      // rendered before the setting existed.
+      link.innerHTML = drupalSettings.neoAlchemist?.homeIcon || '<i class="neo-icon neo-icon-font icon-regular-home"></i>';
       link.setAttribute('title', Drupal.t('Whole page'));
       // Named only when it is the whole trail: further along, the icon says it.
       if (isCurrent) {

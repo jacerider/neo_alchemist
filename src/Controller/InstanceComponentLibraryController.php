@@ -118,7 +118,14 @@ final class InstanceComponentLibraryController extends ControllerBase {
         foreach ($instances as $instance) {
           $labels[] = $instance->label();
         }
-        $access['#markup'] = '<div class="badge bg-alert text-alert-content px-2">' . $this->adminIcon($this->t('Limited access by:') . ' ' . implode(', ', $labels), 'lock')->iconOnly() . '</div>';
+        // The icon element goes in whole rather than concatenated: a string
+        // built around it would be XSS-filtered, which strips an inline SVG
+        // icon to nothing.
+        $access = [
+          '#prefix' => '<div class="badge bg-alert text-alert-content px-2">',
+          '#markup' => $this->adminIcon($this->t('Limited access by:') . ' ' . implode(', ', $labels), 'lock')->iconOnly(),
+          '#suffix' => '</div>',
+        ];
       }
       $components[$group][$component->id()] = [
         'label' => $component->label(),

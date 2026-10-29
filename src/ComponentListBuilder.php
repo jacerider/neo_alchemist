@@ -311,7 +311,14 @@ final class ComponentListBuilder extends ConfigEntityListBuilder {
     // The source SDC has been removed but the config entity remains. Flag it so
     // it can be recognised and deleted from the list.
     if (!$entity->getComponent()) {
-      $row['label']['data']['missing']['#markup'] = '<div class="text-alert"><small>' . $this->adminIcon($this->t('Missing component: @id — the source component no longer exists. Delete this entry to clean it up.', ['@id' => $entity->getComponentId()]), 'exclamation-triangle')->render() . '</small></div>';
+      // The icon element is markup of its own and goes in whole: a string
+      // built around it would be XSS-filtered, which strips an inline SVG
+      // icon to nothing.
+      $row['label']['data']['missing'] = [
+        '#prefix' => '<div class="text-alert"><small>',
+        '#markup' => $this->adminIcon($this->t('Missing component: @id — the source component no longer exists. Delete this entry to clean it up.', ['@id' => $entity->getComponentId()]), 'exclamation-triangle'),
+        '#suffix' => '</small></div>',
+      ];
     }
     $row['label']['data']['source'] = $this->buildSourceLine($entity);
 
@@ -359,7 +366,11 @@ final class ComponentListBuilder extends ConfigEntityListBuilder {
       foreach ($instances as $instance) {
         $labels[] = $instance->label();
       }
-      $row['access']['data']['#markup'] = '<div class="text-alert">' . $this->adminIcon($this->t('Limited access by:') . ' ' . implode(', ', $labels), 'lock')->iconOnly()->asTooltip() . '</div>';
+      $row['access']['data'] = [
+        '#prefix' => '<div class="text-alert">',
+        '#markup' => $this->adminIcon($this->t('Limited access by:') . ' ' . implode(', ', $labels), 'lock')->iconOnly()->asTooltip(),
+        '#suffix' => '</div>',
+      ];
     }
     else {
       $row['access']['data']['#markup'] = $this->adminIcon('Allow', 'check-circle')->iconOnly()->asTooltip();

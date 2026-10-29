@@ -3,9 +3,11 @@
 namespace Drupal\neo_alchemist\Element;
 
 use Drupal\Core\Render\Attribute\RenderElement;
+use Drupal\Core\Render\BubbleableMetadata;
 use Drupal\Core\Render\Element\RenderElementBase;
 use Drupal\neo_alchemist\ComponentManageHelper;
 use Drupal\neo_alchemist\Plugin\Field\FieldType\ComponentTreeItem;
+use Drupal\neo_icon\IconElement;
 
 /**
  * Provides a render element for instance component manager.
@@ -116,6 +118,18 @@ class InstanceComponentManage extends RenderElementBase {
       ] + $sidePanels['badges'];
       $element['#top_end'] = ['badges' => $badges] + $element['#top_end'];
     }
+
+    // The breadcrumb's whole-page crumb is built in the browser, but its icon
+    // is rendered here, so it is whatever the icon library renders (inline SVG
+    // included) rather than a font class written in script. What rendering it
+    // bubbled, its library and cache tag, is merged onto the element last:
+    // the side panels' cacheability above replaces #cache outright.
+    $homeIcon = (new IconElement(NULL, 'home', 'regular'))->getRenderable();
+    $homeIconMarkup = (string) \Drupal::service('renderer')->renderInIsolation($homeIcon);
+    BubbleableMetadata::createFromRenderArray($element)
+      ->merge(BubbleableMetadata::createFromRenderArray($homeIcon))
+      ->applyTo($element);
+    $element['#attached']['drupalSettings']['neoAlchemist']['homeIcon'] = $homeIconMarkup;
 
     return $element;
   }

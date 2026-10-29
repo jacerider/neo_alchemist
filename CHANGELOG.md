@@ -1,5 +1,16 @@
 # Changelog
 
+## Admin icons survive an icon library rendering inline SVG
+
+**Three icons in the editor and its admin pages no longer depend on the icon
+library rendering as a font.** The component list's "missing component" note
+and its limited-access cell, and the component library's limited-access badge,
+built their markup as a string around the icon, which Drupal XSS-filters: an
+inline SVG icon came out empty. They now hand the icon to the renderer whole.
+The breadcrumb's whole-page crumb wrote a font icon's class in script; its icon
+is rendered on the server now and passed in `drupalSettings.neoAlchemist.homeIcon`.
+In a font-mode library all four look as they did.
+
 ## 2.0: a new layout editor
 
 **2.0 replaces the layout editor's interface. What is stored does not change:** there are no
