@@ -1,5 +1,13 @@
 # Changelog
 
+## Render one component instance by its uuid
+
+**`ComponentTreeItem::renderComponent($uuid)` renders a single instance of a tree** with the
+markup it has in a full render: its regions' children, its first/last position among the
+siblings that render, the page's image priority and the tree's cacheability. It renders
+nothing for an unknown uuid, or when the instance or an ancestor is unpublished or denies
+access. Modules can now refresh one component over ajax without rebuilding the page.
+
 ## A binding can follow something other than the first referenced entity
 
 **`hook_neo_alchemist_reference_alter()` lets a module choose which entity a field binding

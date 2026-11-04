@@ -160,4 +160,105 @@ class ComponentTreeHydratedTest extends HybridFieldKernelTestBase {
     $this->assertContains('na_access_sentinel', $build['#cache']['tags'] ?? [], 'The access decision\'s cacheability was captured, so the hidden component is re-evaluated when its dependencies change.');
   }
 
+  /**
+   * It renders a single instance identically to its markup in the full tree.
+   */
+  public function testRenderComponentMatchesFullRender(): void {
+    $this->grantAnonymousView();
+    $item = $this->nestedItem();
+
+    $full = $this->renderMarkup($item->toRenderable());
+    $single = $this->renderMarkup($item->renderComponent('sibling'));
+
+    $this->assertStringContainsString('SIBLING', $single);
+    $this->assertStringNotContainsString('CHILD', $single, 'Only the asked-for instance renders.');
+    $this->assertStringContainsString(trim($single), $full, 'The instance renders as it does inside the full tree.');
+  }
+
+  /**
+   * It renders an instance nested in another instance's region.
+   */
+  public function testRenderComponentNested(): void {
+    $this->grantAnonymousView();
+    $item = $this->nestedItem();
+
+    $host = $this->renderMarkup($item->renderComponent('host'));
+    $child = $this->renderMarkup($item->renderComponent('child'));
+
+    $this->assertStringContainsString('CHILD', $host, 'A host renders its region\'s children.');
+    $this->assertStringContainsString('CHILD', $child);
+    $this->assertStringContainsString(trim($child), $this->renderMarkup($item->toRenderable()));
+  }
+
+  /**
+   * It returns an empty render array for an unknown uuid.
+   */
+  public function testRenderComponentUnknown(): void {
+    $this->grantAnonymousView();
+    $build = $this->nestedItem()->renderComponent('nope');
+
+    $this->assertSame('', trim($this->renderMarkup($build)));
+    $this->assertArrayNotHasKey('#type', $build);
+  }
+
+  /**
+   * It respects the instance's and its ancestors' access rules.
+   */
+  public function testRenderComponentAccess(): void {
+    $this->grantAnonymousView();
+    $this->container->get('config.factory')
+      ->getEditable('neo_alchemist.neo_component.na_region_host')
+      ->set('settings.access', [
+        'access-forbid' => [
+          'plugin_id' => 'na_cache_tag_access',
+          'plugin_settings' => ['forbid' => TRUE, 'tag' => 'na_access_sentinel'],
+        ],
+      ])
+      ->save();
+    $this->container->get('entity_type.manager')->getStorage('neo_component')->resetCache(['na_region_host']);
+    $item = $this->nestedItem();
+
+    $this->assertSame('', trim($this->renderMarkup($item->renderComponent('host'))), 'A forbidden instance renders nothing.');
+    $child = $item->renderComponent('child');
+    $this->assertSame('', trim($this->renderMarkup($child)), 'A child of a forbidden instance renders nothing.');
+    $this->assertContains('na_access_sentinel', $child['#cache']['tags'] ?? []);
+    $this->assertStringContainsString('SIBLING', $this->renderMarkup($item->renderComponent('sibling')));
+  }
+
+  /**
+   * A host with a child in its region, and a sibling leaf.
+   */
+  private function nestedItem(): ComponentTreeItem {
+    return $this->buildItem(
+      [
+        ComponentTreeStructure::ROOT_UUID => [
+          ['uuid' => 'host', 'component' => 'na_region_host'],
+          ['uuid' => 'sibling', 'component' => 'na_leaf'],
+        ],
+        'host' => ['body' => [['uuid' => 'child', 'component' => 'na_leaf']]],
+      ],
+      [
+        'host' => ['status' => TRUE, 'props' => []],
+        'child' => $this->leafProps('CHILD'),
+        'sibling' => $this->leafProps('SIBLING'),
+      ],
+    );
+  }
+
+  /**
+   * Lets the anonymous test user view test entities.
+   */
+  private function grantAnonymousView(): void {
+    Role::create(['id' => RoleInterface::ANONYMOUS_ID, 'label' => 'Anonymous'])
+      ->grantPermission('view test entity')
+      ->save();
+  }
+
+  /**
+   * Renders a build to markup.
+   */
+  private function renderMarkup(array $build): string {
+    return (string) $this->container->get('renderer')->renderInIsolation($build);
+  }
+
 }

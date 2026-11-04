@@ -11,6 +11,7 @@ use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\Core\TypedData\Attribute\DataType;
 use Drupal\Core\TypedData\TypedData;
 use Drupal\neo_alchemist\ComponentFieldConfigInterface;
+use Drupal\neo_alchemist\ComponentInterface;
 use Drupal\neo_alchemist\PagePriority;
 use Drupal\neo_alchemist\Shape\ComponentShapeRegionPluginInterface;
 use Drupal\neo_alchemist\Plugin\Field\FieldType\ComponentTreeItem;
@@ -178,27 +179,159 @@ class ComponentTreeHydrated extends TypedData implements RenderableInterface {
         && $first !== FALSE
         && \Drupal::service('neo_alchemist.page_priority')->grants($item, (string) $first, $cacheableMetadata);
       foreach ($renderable as $component_instance_uuid => $instance) {
-        $component_instance = $component_instances[$component_instance_uuid];
-        if (!empty($component_instance['slots'])) {
-          $shapes = $instance->getPropShapesAll(NULL, TRUE);
-          foreach ($component_instance['slots'] as $slot => $children) {
-            $shape = $shapes[$slot] ?? NULL;
-            if ($shape instanceof ComponentShapeRegionPluginInterface) {
-              // When we have slot values for a shape that acts as a region, we
-              // pass these as values to the region shape.
-              $shape->setFieldItemValue(array_keys($children));
-            }
-          }
-        }
         $isFirst = $first === $component_instance_uuid;
-        $isLast = $last === $component_instance_uuid;
-        $build[$component_subtree_uuid][$component_instance_uuid] = $instance->toRenderable($isFirst, $isLast);
-        if ($priority && $isFirst) {
-          $build[$component_subtree_uuid][$component_instance_uuid] = PagePriority::wrap($build[$component_subtree_uuid][$component_instance_uuid]);
-        }
+        $build[$component_subtree_uuid][$component_instance_uuid] = $this->renderInstance(
+          $instance,
+          $component_instances[$component_instance_uuid],
+          $isFirst,
+          $last === $component_instance_uuid,
+          $priority && $isFirst,
+        );
       }
     }
     return $build;
+  }
+
+  /**
+   * Renders one component instance from the tree, by its uuid.
+   *
+   * The markup is the instance's markup in a full render of the tree: its
+   * regions hold their children, its position among the siblings that render
+   * is the same, and the page's first component keeps its image priority. It
+   * renders nothing when the uuid is not in the tree, when the instance or
+   * one of its ancestors is unpublished outside a draft, or when the instance
+   * or one of its ancestors denies view access.
+   *
+   * @param string $uuid
+   *   The component instance uuid.
+   *
+   * @return array
+   *   A render array carrying the tree's cacheability, empty when the
+   *   instance would not render.
+   */
+  public function renderComponent(string $uuid): array {
+    $item = $this->getParent();
+    assert($item instanceof ComponentTreeItem);
+    $cacheableMetadata = $this->getCacheability();
+    $build = [];
+
+    $path = $this->locate($this->getValue(), $uuid);
+    if ($path !== NULL) {
+      ['siblings' => $siblings, 'ancestors' => $ancestors, 'container' => $container] = $path;
+      $allowed = TRUE;
+      foreach ($ancestors as $ancestorUuid) {
+        $allowed = $allowed && $this->allowed($item, $ancestorUuid, $cacheableMetadata);
+      }
+      $renderable = [];
+      foreach (array_keys($siblings) as $siblingUuid) {
+        if ($this->allowed($item, (string) $siblingUuid, $cacheableMetadata)) {
+          $renderable[] = (string) $siblingUuid;
+        }
+      }
+      if ($allowed && in_array($uuid, $renderable, TRUE)) {
+        $isFirst = reset($renderable) === $uuid;
+        $priority = $isFirst
+          && $container === ComponentTreeStructure::ROOT_UUID
+          && \Drupal::service('neo_alchemist.page_priority')->grants($item, $uuid, $cacheableMetadata);
+        $build = $this->renderInstance(
+          $item->getComponent($uuid),
+          $siblings[$uuid],
+          $isFirst,
+          end($renderable) === $uuid,
+          $priority,
+        );
+      }
+    }
+    $cacheableMetadata->applyTo($build);
+    return $build;
+  }
+
+  /**
+   * Renders one instance, handing its regions their children first.
+   *
+   * @param \Drupal\neo_alchemist\ComponentInterface $instance
+   *   The component instance.
+   * @param array $hydrated
+   *   The instance's entry in the hydrated tree.
+   * @param bool $isFirst
+   *   Whether it is the first of its siblings that render.
+   * @param bool $isLast
+   *   Whether it is the last of its siblings that render.
+   * @param bool $priority
+   *   Whether it carries the page's image priority.
+   *
+   * @return array
+   *   The render array.
+   */
+  private function renderInstance(ComponentInterface $instance, array $hydrated, bool $isFirst, bool $isLast, bool $priority): array {
+    if (!empty($hydrated['slots'])) {
+      $shapes = $instance->getPropShapesAll(NULL, TRUE);
+      foreach ($hydrated['slots'] as $slot => $children) {
+        $shape = $shapes[$slot] ?? NULL;
+        if ($shape instanceof ComponentShapeRegionPluginInterface) {
+          // When we have slot values for a shape that acts as a region, we
+          // pass these as values to the region shape.
+          $shape->setFieldItemValue(array_keys($children));
+        }
+      }
+    }
+    $build = $instance->toRenderable($isFirst, $isLast);
+    return $priority ? PagePriority::wrap($build) : $build;
+  }
+
+  /**
+   * Whether an instance renders for the current user, recording why.
+   */
+  private function allowed(ComponentTreeItem $item, string $uuid, CacheableMetadata $cacheableMetadata): bool {
+    $instance = $item->getComponent($uuid);
+    if (!$instance) {
+      return FALSE;
+    }
+    $cacheableMetadata->addCacheableDependency($instance);
+    $accessResult = $instance->access('view', NULL, TRUE);
+    $cacheableMetadata->addCacheableDependency($accessResult);
+    return $accessResult->isAllowed();
+  }
+
+  /**
+   * Finds an instance in the hydrated tree.
+   *
+   * @param array $hydrated
+   *   A level of the hydrated tree: container uuid => instances.
+   * @param string $uuid
+   *   The instance to find.
+   * @param string[] $ancestors
+   *   The instances above this level.
+   *
+   * @return array|null
+   *   `siblings` (the instances sharing its container, keyed by uuid, in
+   *   order), `ancestors` (uuids, outermost first) and `container` (the
+   *   parent uuid, or the root uuid); NULL when it is not in the tree.
+   */
+  private function locate(array $hydrated, string $uuid, array $ancestors = []): ?array {
+    foreach ($hydrated as $container => $instances) {
+      if (!is_array($instances)) {
+        continue;
+      }
+      if (array_key_exists($uuid, $instances)) {
+        return [
+          'siblings' => $instances,
+          'ancestors' => $ancestors,
+          'container' => $container,
+        ];
+      }
+      foreach ($instances as $instanceUuid => $entry) {
+        foreach ($entry['slots'] ?? [] as $children) {
+          if (is_array($children) && $children) {
+            $found = $this->locate([$instanceUuid => $children], $uuid, [...$ancestors, $instanceUuid]);
+            if ($found) {
+              return $found;
+            }
+          }
+        }
+      }
+    }
+    return NULL;
   }
 
   /**

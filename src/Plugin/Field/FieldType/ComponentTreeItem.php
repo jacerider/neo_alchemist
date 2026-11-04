@@ -1339,6 +1339,23 @@ class ComponentTreeItem extends FieldItemBase implements RenderableInterface, Co
   }
 
   /**
+   * Renders one component instance of this tree, as the full tree would.
+   *
+   * @param string $uuid
+   *   The component instance uuid.
+   *
+   * @return array
+   *   The render array, empty when the instance would not render.
+   *
+   * @see \Drupal\neo_alchemist\Plugin\DataType\ComponentTreeHydrated::renderComponent()
+   */
+  public function renderComponent(string $uuid): array {
+    $hydrated = $this->get('hydrated');
+    assert($hydrated instanceof ComponentTreeHydrated);
+    return $hydrated->renderComponent($uuid);
+  }
+
+  /**
    * Gets the shared draft store.
    *
    * The field item is not a service — it is created by the field system — so it

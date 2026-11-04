@@ -1206,6 +1206,16 @@ Publish are full page navigations, so a panel sees them as a fresh mount.
 
 ## Render pipeline
 
+**Rendering one instance.** `ComponentTreeItem::renderComponent($uuid)` (backed by
+`ComponentTreeHydrated::renderComponent()`) renders a single instance of a tree the way the
+full render does: the same `renderInstance()` step `renderify()` uses (regions handed their
+children, then `Component::toRenderable($isFirst, $isLast)`), with first/last taken among the
+siblings that pass access, the page's image priority kept for the root's first instance, and
+the tree's cacheability applied. It returns `[]` for an unknown uuid, an unpublished
+instance or ancestor outside a draft, or an instance or ancestor that denies `view`. Use it to
+re-render part of a page over ajax (neo_commerce re-renders variation-bound components this
+way) instead of rebuilding the whole tree.
+
 `Component::toRenderable()` ([src/Entity/Component.php:1277](src/Entity/Component.php)) returns:
 
 ```php
