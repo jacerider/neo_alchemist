@@ -437,8 +437,17 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
 
   /**
    * {@inheritdoc}
+   *
+   * A child shape records into its root's metadata. Component::getPropValues()
+   * merges only the root prop shapes, and the shapes inside an array row or an
+   * object are separate instances, so anything a child recorded on its own
+   * object (a row link's access decision, the entity a token read) never
+   * reached the render array.
    */
   public function getCacheableMetadata(): CacheableMetadata {
+    if (!$this->isRoot()) {
+      return $this->getRootShape()->getCacheableMetadata();
+    }
     if (!isset($this->cacheableMetadata)) {
       $this->cacheableMetadata = new CacheableMetadata();
     }

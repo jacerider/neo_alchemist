@@ -1,0 +1,34 @@
+$schema: 'https://git.drupalcode.org/project/drupal/-/raw/10.1.x/core/modules/sdc/src/metadata.schema.json'
+name: 'NA links fixture'
+description: >
+  A buttons-style array of rows, each holding a link, beside a lone link.
+  Each row's link is a child shape built per delta, so anything it records
+  about its own value (the link access decision, a token's entity) has to
+  reach the component from below the root. The lone link is the control: it
+  is a root shape, which the component has always merged.
+status: stable
+neo: true
+props:
+  type: object
+  properties:
+    links:
+      type: array
+      title: Links
+      examples:
+        -
+          link:
+            uri: 'internal:/'
+            title: 'Example row link'
+      items:
+        type: object
+        title: Row
+        properties:
+          link:
+            type: link
+            title: Link
+    link:
+      type: link
+      title: Link
+      examples:
+        uri: 'internal:/'
+        title: 'Example link'

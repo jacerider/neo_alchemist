@@ -1,0 +1,8 @@
+{#
+  Minimal on purpose. The tests read resolved values and cacheability rather
+  than markup, so this only has to render without erroring.
+#}
+<div{{ attributes }}>
+  {% for row in links %}<a href="{{ row.link.uri }}">{{ row.link.title }}</a>{% endfor %}
+  <a href="{{ link.uri }}">{{ link.title }}</a>
+</div>

@@ -411,6 +411,12 @@ A prop's value is built by running its enabled ComponentValue plugins across pha
 → **modify** at render (`modifyValue`), driven by
 `ComponentShapePluginBase::getDefaultValue()` / `buildRenderValue()`.
 
+**A child shape records cacheability into its root.** `getCacheableMetadata()` on a non-root
+shape returns the root's object, because `Component::getPropValues()` merges only root
+shapes: what an array row's link or an object's child recorded (a `LinkAccess` decision, an
+entity a token read) used to stay on the child and never reach the render array. Pinned by
+`ChildShapeCacheabilityTest`.
+
 **Groups declare a plugin's role**, and are the source of truth other code queries — they are
 not just prop-form tabs. Defined in
 [neo_alchemist.neo_component_value_groups.yml](neo_alchemist.neo_component_value_groups.yml):
