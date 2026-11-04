@@ -1266,15 +1266,18 @@ class ComponentTreeItem extends FieldItemBase implements RenderableInterface, Co
       // properties.
       $this->values = $values;
       // Assign the values to the contained properties.
+      // Both are JSON objects keyed by uuid. An empty PHP array would encode
+      // as a JSON list (`[]`), which the props property rejects: a field
+      // default whose components were all deleted ends up exactly like that.
       if (array_key_exists('tree', $values)) {
         if (is_array($values['tree'])) {
-          $values['tree'] = Json::encode($values['tree']);
+          $values['tree'] = $values['tree'] === [] ? '{}' : Json::encode($values['tree']);
         }
         $this->set('tree', $values['tree'], FALSE);
       }
       if (array_key_exists('props', $values)) {
         if (is_array($values['props'])) {
-          $values['props'] = Json::encode($values['props']);
+          $values['props'] = $values['props'] === [] ? '{}' : Json::encode($values['props']);
         }
         $this->set('props', $values['props'], FALSE);
       }

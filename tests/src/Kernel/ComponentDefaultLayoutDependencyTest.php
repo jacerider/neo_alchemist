@@ -152,6 +152,13 @@ final class ComponentDefaultLayoutDependencyTest extends HybridFieldKernelTestBa
     );
     $this->assertSame([], $defaults['props']);
     $this->assertSame([], $this->declaredComponentIds());
+
+    // The emptied default must still seed a new entity: empty `props` used
+    // to encode as a JSON list, which the props property rejects, breaking
+    // every entity created for the bundle (including the placeholder the
+    // component editor builds on save).
+    $entity = $this->createTestEntity();
+    $this->assertSame('{}', $entity->get(self::FIELD_NAME)->first()->get('props')->getValue());
   }
 
   /**

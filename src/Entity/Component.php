@@ -329,6 +329,31 @@ class Component extends ConfigEntityBase implements ComponentInterface {
 
   /**
    * {@inheritdoc}
+   *
+   * Rebuilt from the exported values rather than cloned. EntityBase clones
+   * the object and then nulls its id, which this class's typed string id
+   * rejects, and a cloned object would still carry the source's memoised
+   * prop shapes, slots and filters, each bound to the source. The duplicate
+   * resolves its own from the copied settings instead. It carries no id:
+   * save() gives every new component a unique one from its SDC name
+   * (`hero_s2_3`).
+   *
+   * The thumbnail is a neo_config_file parented to the source and named
+   * after it; carrying the reference over would let a save of the duplicate
+   * re-parent the source's file, so the duplicate starts on the SDC's default
+   * thumbnail until one is captured for it.
+   */
+  public function createDuplicate() {
+    $values = $this->toArray();
+    unset($values['id'], $values['uuid'], $values['dependencies'], $values['_core']);
+    $values['thumbnail'] = '';
+    return \Drupal::entityTypeManager()
+      ->getStorage($this->getEntityTypeId())
+      ->create($values);
+  }
+
+  /**
+   * {@inheritdoc}
    */
   public function getDescription(): string {
     return $this->description;

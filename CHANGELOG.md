@@ -1,5 +1,20 @@
 # Changelog
 
+## Duplicating a component, and a field default emptied by deletions
+
+**`Component::createDuplicate()` works.** It used to throw a TypeError, because core nulls the
+id of a cloned entity and a component's id is a typed string. It now rebuilds a clean, unsaved
+component from the source's values, the same way the Clone button always has: no id (save()
+generates one from the SDC name), a new uuid, and no thumbnail, so the source's thumbnail file
+stays with the source. The Clone button now uses it.
+
+**A field whose default layout lost all its components no longer breaks new entities.**
+Deleting the last component a field's default layout places leaves that default with empty
+`props`. That was stored as a JSON list rather than an object, which the props property
+rejects, so creating any entity of that bundle failed, including the placeholder the editor
+builds when a component of that bundle is saved. An empty tree or props map is now stored as
+`{}`.
+
 ## Render one component instance by its uuid
 
 **`ComponentTreeItem::renderComponent($uuid)` renders a single instance of a tree** with the
