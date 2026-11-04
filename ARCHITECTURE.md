@@ -1306,7 +1306,9 @@ From [neo_alchemist.services.yml](neo_alchemist.services.yml):
   iterate, through [ChildrenMatchSourceInterface](src/ChildrenMatch/ChildrenMatchSourceInterface.php). See
   "Children-match pseudo-fields" above.
 - **Matchers** — `neo_alchemist.matcher_field` → `MatcherField` (resolves a stored field key
-  against an entity) and `neo_alchemist.matcher_reference` → `MatcherReference` (lists and
+  against an entity; at each reference step of the key it follows the first referenced
+  entity unless `hook_neo_alchemist_reference_alter()` substitutes another — the seam
+  neo_commerce uses to follow a product's selected variation) and `neo_alchemist.matcher_reference` → `MatcherReference` (lists and
   follows entity reference fields). Both are `final`; unit tests build a real one over mocked
   services rather than doubling them.
 - **Plugin managers** — `plugin.manager.neo_component_{prop_def,shape,value,value_group,group,size,slot,filter,filter_options,access}`, and
@@ -1509,6 +1511,12 @@ From [neo_alchemist.services.yml](neo_alchemist.services.yml):
   `preRenderValue()` (and optionally `getGenerationExamples()`/`onGenerateTwig()`); add a
   matching entry to `neo_alchemist.neo_component_prop_defs.yml` (schema + `examples` +
   `twig`); `drush cr`.
+- **A binding that follows a different referenced entity** — implement
+  `hook_neo_alchemist_reference_alter()` (see `neo_alchemist.api.php`). `MatcherField`
+  invokes it, for modules only, at every reference step of a stored field key, with the
+  reference field and the prop's `CacheableMetadata`; set `$target` to the entity the walk
+  should continue from (or NULL to stop) and add the cacheability that choice depends on.
+  The `hook_neo_alchemist_ENTITY_TYPE_load` hooks only see an entity; they cannot swap it.
 - **A component audit check** — a class implementing `ComponentAuditCheckInterface`,
   registered as a service tagged `neo_alchemist.component_audit_check`. It is handed each
   render's `\DOMDocument` and a `ComponentAuditContext`, and returns `{message, element?}`

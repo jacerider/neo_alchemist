@@ -1,5 +1,15 @@
 # Changelog
 
+## A binding can follow something other than the first referenced entity
+
+**`hook_neo_alchemist_reference_alter()` lets a module choose which entity a field binding
+walks through.** A prop bound through a reference, such as `variations > field_media` on a
+product, has always followed the first referenced entity. Every value provider that resolves
+a stored field key (`entity`, `entity_has_value`, headings, render fields, the field value
+access rule) now asks this hook at each reference step, so a module can substitute another
+entity and add the cacheability its choice depends on. neo_commerce uses it to follow the
+variation the shopper selected. Nothing changes for a site with no implementation.
+
 ## Commerce support moved to neo_commerce
 
 **A site that lays out Commerce products with Alchemist now needs neo_commerce enabled.**

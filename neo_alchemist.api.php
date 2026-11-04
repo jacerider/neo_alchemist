@@ -9,6 +9,8 @@ use Drupal\Core\Cache\Cache;
 use Drupal\Core\Cache\CacheableMetadata;
 use Drupal\Core\Datetime\DrupalDateTime;
 use Drupal\Core\Entity\ContentEntityInterface;
+use Drupal\Core\Entity\EntityInterface;
+use Drupal\Core\Field\EntityReferenceFieldItemListInterface;
 use Drupal\neo_alchemist\Shape\ComponentShapePluginInterface;
 use Drupal\neo_alchemist\Entity\Component;
 
@@ -210,6 +212,41 @@ function hook_neo_alchemist_preview_entity_alter(?ContentEntityInterface &$entit
       $entity = \Drupal::entityTypeManager()->getStorage('taxonomy_term')->load(reset($ids));
     }
   }
+}
+
+/**
+ * Alters which entity a field binding follows through a reference field.
+ *
+ * When a value provider binds a prop through a reference path, for example
+ * `variations.field_media` on a product, the walk follows the first
+ * referenced entity (delta 0). This hook lets a module substitute the entity
+ * the walk continues from: Commerce's selected variation instead of the first
+ * one, the current translation, the newest revision. Set $target to NULL to
+ * end the walk with no value.
+ *
+ * Add whatever the choice depends on to $cacheability (a cache context for a
+ * query argument, the substitute's tags): it is the cacheability of the prop
+ * being resolved, and so of the component that renders it. Invoked for
+ * modules only, once per reference step, every time a binding resolves, so
+ * return early for fields you do not own.
+ *
+ * @param \Drupal\Core\Entity\EntityInterface|null $target
+ *   The entity the walk continues from, by reference. Starts as the field's
+ *   first referenced entity, or NULL when it has none.
+ * @param \Drupal\Core\Field\EntityReferenceFieldItemListInterface $field
+ *   The reference field being walked through; getEntity() is its host.
+ * @param \Drupal\Core\Cache\CacheableMetadata $cacheability
+ *   The cacheability of the value being resolved.
+ *
+ * @see \Drupal\neo_alchemist\Match\MatcherField::getEntityField()
+ */
+function hook_neo_alchemist_reference_alter(?EntityInterface &$target, EntityReferenceFieldItemListInterface $field, CacheableMetadata $cacheability): void {
+  // Example: follow the newest referenced entity instead of the first.
+  if ($field->getName() !== 'field_related' || $field->isEmpty()) {
+    return;
+  }
+  $entities = $field->referencedEntities();
+  $target = end($entities) ?: NULL;
 }
 
 /**
