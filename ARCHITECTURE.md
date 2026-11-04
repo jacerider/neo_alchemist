@@ -1522,8 +1522,8 @@ From [neo_alchemist.services.yml](neo_alchemist.services.yml):
   matching entry to `neo_alchemist.neo_component_prop_defs.yml` (schema + `examples` +
   `twig`); `drush cr`.
 - **A binding that follows a different referenced entity** — implement
-  `hook_neo_alchemist_reference_alter()` (see `neo_alchemist.api.php`). `MatcherField`
-  invokes it, for modules only, at every reference step of a stored field key, with the
+  `hook_neo_alchemist_reference_alter()` (see `neo_alchemist.api.php`). `MatcherField` and
+  `MatcherReference` invoke it (through `MatcherBase::referencedEntity()`), for modules only, at every reference step of a stored field key, with the
   reference field and the prop's `CacheableMetadata`; set `$target` to the entity the walk
   should continue from (or NULL to stop) and add the cacheability that choice depends on.
   The `hook_neo_alchemist_ENTITY_TYPE_load` hooks only see an entity; they cannot swap it.

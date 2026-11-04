@@ -228,7 +228,10 @@ function hook_neo_alchemist_preview_entity_alter(?ContentEntityInterface &$entit
  * query argument, the substitute's tags): it is the cacheability of the prop
  * being resolved, and so of the component that renders it. Invoked for
  * modules only, once per reference step, every time a binding resolves, so
- * return early for fields you do not own.
+ * return early for fields you do not own. Both matchers ask it: field keys
+ * resolved by MatcherField (entity, headings, render fields) and reference
+ * paths walked by MatcherReference (entity_reference lists such as a
+ * gallery bound to `variations.field_media:entity`).
  *
  * @param \Drupal\Core\Entity\EntityInterface|null $target
  *   The entity the walk continues from, by reference. Starts as the field's
@@ -238,7 +241,7 @@ function hook_neo_alchemist_preview_entity_alter(?ContentEntityInterface &$entit
  * @param \Drupal\Core\Cache\CacheableMetadata $cacheability
  *   The cacheability of the value being resolved.
  *
- * @see \Drupal\neo_alchemist\Match\MatcherField::getEntityField()
+ * @see \Drupal\neo_alchemist\Match\MatcherBase::referencedEntity()
  */
 function hook_neo_alchemist_reference_alter(?EntityInterface &$target, EntityReferenceFieldItemListInterface $field, CacheableMetadata $cacheability): void {
   // Example: follow the newest referenced entity instead of the first.

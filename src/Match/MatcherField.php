@@ -301,38 +301,6 @@ final class MatcherField extends MatcherBase {
   }
 
   /**
-   * Resolves the entity a reference path step continues through.
-   *
-   * A path such as `variations.field_media` follows the first referenced
-   * entity unless a module says otherwise through
-   * hook_neo_alchemist_reference_alter(), which can substitute any entity
-   * (or NULL to stop the walk) and add the cacheability its choice depends
-   * on.
-   *
-   * @param \Drupal\Core\Field\EntityReferenceFieldItemListInterface $field
-   *   The reference field being walked through.
-   * @param \Drupal\Core\Cache\CacheableMetadata|null $cacheableMetadata
-   *   The cacheability collected for the value, if the caller tracks it.
-   *
-   * @return \Drupal\Core\Entity\EntityInterface|null
-   *   The entity to continue the walk from.
-   */
-  private function referencedEntity(
-    EntityReferenceFieldItemListInterface $field,
-    ?CacheableMetadata $cacheableMetadata,
-  ): ?EntityInterface {
-    $target = $field->entity;
-    $cacheability = $cacheableMetadata ?? new CacheableMetadata();
-    $this->moduleHandler->alter(
-      'neo_alchemist_reference',
-      $target,
-      $field,
-      $cacheability,
-    );
-    return $target instanceof EntityInterface ? $target : NULL;
-  }
-
-  /**
    * Retrieves the value of a field from a content entity.
    *
    * @param \Drupal\Core\Entity\EntityInterface $entity

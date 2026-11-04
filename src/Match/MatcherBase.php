@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace Drupal\neo_alchemist\Match;
 
+use Drupal\Core\Cache\CacheableMetadata;
 use Drupal\Core\Entity\EntityFieldManagerInterface;
+use Drupal\Core\Entity\EntityInterface;
 use Drupal\Core\Entity\EntityTypeBundleInfoInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Entity\Plugin\DataType\ConfigEntityAdapter;
@@ -12,6 +14,7 @@ use Drupal\Core\Entity\Plugin\DataType\EntityAdapter;
 use Drupal\Core\Entity\TypedData\EntityDataDefinition;
 use Drupal\Core\Entity\TypedData\EntityDataDefinitionInterface;
 use Drupal\Core\Extension\ModuleHandlerInterface;
+use Drupal\Core\Field\EntityReferenceFieldItemListInterface;
 use Drupal\Core\Field\FieldDefinitionInterface;
 use Drupal\Core\Field\FieldItemInterface;
 use Drupal\Core\Field\TypedData\FieldItemDataDefinitionInterface;
@@ -248,6 +251,38 @@ abstract class MatcherBase {
       $key .= ':' . $propertyName;
     }
     return $key;
+  }
+
+  /**
+   * Resolves the entity a reference path step continues through.
+   *
+   * A path such as `variations.field_media` follows the first referenced
+   * entity unless a module says otherwise through
+   * hook_neo_alchemist_reference_alter(), which can substitute any entity
+   * (or NULL to stop the walk) and add the cacheability its choice depends
+   * on.
+   *
+   * @param \Drupal\Core\Field\EntityReferenceFieldItemListInterface $field
+   *   The reference field being walked through.
+   * @param \Drupal\Core\Cache\CacheableMetadata|null $cacheableMetadata
+   *   The cacheability collected for the value, if the caller tracks it.
+   *
+   * @return \Drupal\Core\Entity\EntityInterface|null
+   *   The entity to continue the walk from.
+   */
+  protected function referencedEntity(
+    EntityReferenceFieldItemListInterface $field,
+    ?CacheableMetadata $cacheableMetadata,
+  ): ?EntityInterface {
+    $target = $field->entity;
+    $cacheability = $cacheableMetadata ?? new CacheableMetadata();
+    $this->moduleHandler->alter(
+      'neo_alchemist_reference',
+      $target,
+      $field,
+      $cacheability,
+    );
+    return $target instanceof EntityInterface ? $target : NULL;
   }
 
 }

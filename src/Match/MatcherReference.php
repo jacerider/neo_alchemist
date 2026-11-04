@@ -246,7 +246,11 @@ final class MatcherReference extends MatcherBase {
         return $value;
       }
       if (!empty($path)) {
-        $value = $this->recurseReferenceField($field->entity, $path, $cacheableMetadata);
+        $target = $this->referencedEntity($field, $cacheableMetadata);
+        if (!$target instanceof ContentEntityInterface) {
+          return $value;
+        }
+        $value = $this->recurseReferenceField($target, $path, $cacheableMetadata);
       }
       else {
         $value = $field;
