@@ -944,20 +944,6 @@ neo_alchemist.neo_component_slot.entity_display:
       type: string
       label: Display
 
-neo_alchemist.neo_component_slot.product_variation_field:
-  type: mapping
-  label: 'Product variation field slot provider'
-  mapping:
-    bundle:
-      type: string
-      label: Bundle
-    display:
-      type: string
-      label: Display
-    field:
-      type: string
-      label: Field
-
 neo_alchemist.neo_component_slot.views_header:
   type: mapping
   label: Views header slot provider
