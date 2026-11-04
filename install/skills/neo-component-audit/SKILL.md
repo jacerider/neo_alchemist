@@ -144,7 +144,7 @@ judge the result.
 `legacy_section_carrier`, `channel_aware_inner_spacing`, `unguarded_heading_title`,
 `literal_h1`, `mismatched_tag_condition`, `addclass_multi_arg`, `non_collapsing_surface`,
 `orphan_content_token`, `href_without_target`, `unguarded_link_access`,
-`dynamic_classes`, `undeclared_var`.
+`unused_link_title`, `dynamic_classes`, `undeclared_var`.
 
 **Everything the audit reports is a defect too**, with one judgment call: an
 image the audit flags for a missing `alt` may be decoration, and the fix is then
@@ -173,6 +173,15 @@ Three lint issues worth expanding, because the fix is not obvious from the messa
   still carries a title worth rendering. That is the whole point: the item
   shows, the anchor does not. Menu-fed props are exempt and not reported;
   `MenuValue` access-filters the tree before it reaches Twig.
+- **`unused_link_title`** — a `link` prop whose title the Twig never prints,
+  typically a whole-card link where the heading is the label. Change the prop to
+  `type: url` (same field and value, no title input), and if the Twig read
+  `.title` only to show an arrow or icon, gate that on `.access` instead. The
+  change is safe for saved content: both types store a `link` field, so card
+  links keep their `uri` and the old title is just ignored. But the saved
+  component config still records the old type until `drush cr` re-derives it,
+  so export `neo_alchemist.neo_component.<id>` afterwards or the next
+  `drush cim` restores `link`.
 
 ## Step 4 — migrate pre-`gap` carriers
 

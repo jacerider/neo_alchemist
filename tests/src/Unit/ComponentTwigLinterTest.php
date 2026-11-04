@@ -492,6 +492,88 @@ final class ComponentTwigLinterTest extends UnitTestCase {
   }
 
   /**
+   * A card link whose title only gates an arrow is reported.
+   *
+   * The shape list_s2 shipped with: a sibling CTA loop printing the same
+   * `item.link.title` expression must not clear the card loop.
+   */
+  public function testUnusedLinkTitleIsReported(): void {
+    $twig = <<<'TWIG'
+      {% for item in items %}
+        {% if item.link and item.link.access %}<a href="{{ neo_uri(item.link.uri) }}" target="{{ item.link.target }}">{% endif %}
+        {% if item.link and item.link.title %}<span>→</span>{% endif %}
+      {% endfor %}
+      {% for item in links %}
+        <a href="{{ neo_uri(item.link.uri) }}">{{ item.link.title }}</a>
+      {% endfor %}
+      TWIG;
+    $props = $this->linkProps();
+    $this->assertSame(['items[].link'], $this->linter->unusedLinkTitles($twig, $props));
+    $yml = ['props' => ['properties' => $props]];
+    $findings = $this->linter->lint($twig, $yml, ['items', 'links'], []);
+    $this->assertCount(1, $this->checks($findings, 'unused_link_title'));
+  }
+
+  /**
+   * A printed title, or one assigned for later, is in use.
+   */
+  public function testUsedLinkTitleIsNotReported(): void {
+    $props = $this->linkProps();
+    $printed = '{% for item in items %}<a title="{{ item.link.title }}" href="{{ neo_uri(item.link.uri) }}">x</a>{% endfor %}';
+    $set = '{% for item in items %}{% set label = item.link.title|default("More") %}<a href="{{ neo_uri(item.link.uri) }}">{{ label }}</a>{% endfor %}';
+    $this->assertSame([], $this->linter->unusedLinkTitles($printed, $props));
+    $this->assertSame([], $this->linter->unusedLinkTitles($set, $props));
+  }
+
+  /**
+   * A link, or its loop item, handed on whole may be printed elsewhere.
+   */
+  public function testLinkPassedWholeIsNotReported(): void {
+    $props = $this->linkProps();
+    $link = '{% for item in items %}{% set target = item.link.access ? item.link : null %}<a href="{{ neo_uri(target.uri) }}">x</a>{% endfor %}';
+    $item = '{% for item in items %}{{ cards.card(item) }}{% endfor %}';
+    $include = '{% for item in items %}<a href="{{ neo_uri(item.link.uri) }}">{{ include("front:label") }}</a>{% endfor %}';
+    $this->assertSame([], $this->linter->unusedLinkTitles($link, $props));
+    $this->assertSame([], $this->linter->unusedLinkTitles($item, $props));
+    $this->assertSame([], $this->linter->unusedLinkTitles($include, $props));
+  }
+
+  /**
+   * An include that cannot see the context does not excuse the link.
+   */
+  public function testIsolatedIncludeStillReports(): void {
+    $twig = '{% for item in items %}<a href="{{ neo_uri(item.link.uri) }}">{{ include("front:monogram", {text: item.title}, with_context = false) }}</a>{% endfor %}';
+    $this->assertSame(['items[].link'], $this->linter->unusedLinkTitles($twig, $this->linkProps()));
+  }
+
+  /**
+   * Top-level links are checked; `url` props and unlooped arrays are not.
+   */
+  public function testUnusedLinkTitleScope(): void {
+    $props = ['cta' => ['type' => 'link'], 'more' => ['type' => 'url']];
+    $twig = '<a href="{{ neo_uri(cta.uri) }}">x</a><a href="{{ neo_uri(more.uri) }}">y</a>';
+    $this->assertSame(['cta'], $this->linter->unusedLinkTitles($twig, $props));
+    $this->assertSame([], $this->linter->unusedLinkTitles('{{ items|length }}', $this->linkProps()));
+  }
+
+  /**
+   * An `items[].link` and `links[].link` prop map.
+   *
+   * @return array
+   *   The raw `props.properties` map.
+   */
+  private function linkProps(): array {
+    $array = static fn (): array => [
+      'type' => 'array',
+      'items' => [
+        'type' => 'object',
+        'properties' => ['link' => ['type' => 'link']],
+      ],
+    ];
+    return ['items' => $array(), 'links' => $array()];
+  }
+
+  /**
    * Returns the findings matching a check id.
    *
    * @param array $findings

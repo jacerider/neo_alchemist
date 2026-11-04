@@ -153,8 +153,8 @@ Alchemist extends SDC with custom "shapes" — reusable prop definitions from [n
 - `remote_video` — YouTube/Vimeo oEmbed `{src, thumbnail, thumbnail_width, thumbnail_height, title}`. Render inline with `neo_oembed(src)` or as a lightbox (see render table).
 - `video` — **local** video file `{src, poster, mime, width, height}` (Drupal's video media type; `remote_video` is the oEmbed one). `poster` comes from the media thumbnail and is only set when a real (non-generic) thumbnail exists — guard it. Typical render: `<video autoplay muted loop playsinline>` for background video. `examples: { src: 'theme://videos/placeholder.mp4' }`. `video-uri` is the bare-URL variant (mp4/webm/ogg/mov).
 - `icon` — icon machine name (rendered via `icon(name)` Twig function). Find valid names with `drush neo:icon:list <search>` (e.g. `drush neo:icon:list arrow`) — don't guess, invalid names render nothing. **Strip the library prefix that `neo:icon:list` prints.** The command lists names like `regular-chevron-left`, but `icon()` wants the bare name: `icon('chevron-left')` renders — `icon('regular-chevron-left')` renders **nothing** (silently, no error). So from a listed name drop the leading `regular-`/`solid-`/`light-`/etc. segment. To force a specific library, use the `|icon_library('name')` filter, not a name prefix.
-- `link` — button-style link `{uri, title, options, icon, target, access}`. Usually paired with a `button_style`.
-- `url` — similar to link but for anchor-style links.
+- `link` — button-style link `{uri, title, options, icon, target, access}`. Usually paired with a `button_style`. Pick it only when the template **prints** the title (button text, a "Read more" label).
+- `url` — the same value and field as `link`, minus the title input. Use it whenever the link text is never shown — above all a **whole-card link**, where the card is the anchor and its heading is the label. A `link` there asks editors for text nothing renders, and anything gated on `.title` (an arrow, an icon) vanishes when they leave it blank; gate on `.access` instead. `drush neo:alchemist:validate` reports this as `unused_link_title`.
 - `email`, `telephone`, `uri` — single-value string types (`uri` accepts `internal:/` URIs; render through `neo_uri()`). `telephone` and `icon` ship no usable default (their prop-defs carry a singular `example:` key SDC ignores) — always provide your own `examples:`.
 - `address` — postal address object (needs the contrib `address` module; fields `given_name`/`family_name`/`organization`/`address_line1-3`/`locality`/`administrative_area`/`postal_code`/`country_code`, all strings).
 - `menu` — editable list of nav items `{title, description, icon, url}` (each item's `url` is a full `url` shape, so it keeps `target`/`access`; use `item.title` for the label). Prefer this for navigation over a hand-rolled `array` of links. When fed by the `menu` value provider, items also carry runtime keys the schema doesn't list: `in_active_trail`/`is_expanded`/`is_collapsed`, nested `below` children, and — with `neo_alchemist_menu` enabled — `region: true` + `content` (a render array) on **component region** items: render with `{% if item.region %}{{ item.content }}{% endif %}` instead of a link. Mega menu reference: [web/themes/front/components/header_s1/header_s1.twig](web/themes/front/components/header_s1/header_s1.twig) and the **neo-alchemist-menu** skill.
@@ -1267,8 +1267,9 @@ wrote? `validate --all` — and see the **neo-component-audit** skill.)
 - **`drush neo:alchemist:validate <provider>:<name>`** — static lint. Flags missing
   `neo: true`, props with no `examples`, unknown prop types, `{% if/for %}` references
   to props that aren't declared, dynamically-assembled Tailwind classes that won't
-  compile, and (in scheme-bearing components) numbered role shades like
-  `text-primary-500` that never adapt to schemes. Exits non-zero on hard errors.
+  compile, `link` props whose title is never printed (use `url`), and (in
+  scheme-bearing components) numbered role shades like `text-primary-500` that
+  never adapt to schemes. Exits non-zero on hard errors.
 - **`drush neo:alchemist:render <provider>:<name>`** — renders the component headlessly
   from its `examples` and reports PASS/FAIL, surfacing Twig/render errors as a message
   instead of a white screen. Add `--html` to print the markup, `--scheme=<id>` to render

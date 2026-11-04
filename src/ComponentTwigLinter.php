@@ -134,6 +134,13 @@ final class ComponentTwigLinter {
       ];
     }
 
+    foreach ($this->unusedLinkTitles($twig, $rawProps) as $path) {
+      $findings[] = [
+        'check' => 'unused_link_title',
+        'message' => sprintf('`%s` is a `link`, but the Twig never prints its title — editors are asked for link text that nothing shows. Declare it `type: url`, which has no title input, then `drush cr` (re-derives the saved component) and export its config. A title read only in a condition (`{%% if x.title %%}`) is using the editor\'s text as a flag; gate on `.access` instead.', $path),
+      ];
+    }
+
     return array_merge(
       $findings,
       $this->spacingFindings($twig, $rawProps),
@@ -523,6 +530,165 @@ final class ComponentTwigLinter {
       }
     }
     return array_keys($found);
+  }
+
+  /**
+   * Link props whose title the template never prints.
+   *
+   * A `link` asks the editor for link text; a `url` is the same value without
+   * that input. A whole-card link — the card is the anchor, its heading is the
+   * label — has no use for the text, so declaring it a `link` asks editors to
+   * fill in a field nothing shows. Worse, a template that gates something on
+   * `.title` (an arrow, an icon) then hides it whenever the editor leaves that
+   * invisible field empty.
+   *
+   * A title read only inside an {% if %} / {% elseif %} condition counts as
+   * unused: that is the flag case above. Any other read counts as used —
+   * printed, assigned in a {% set %}, or passed to a function.
+   *
+   * Two shapes are checked: a top-level `link` prop, and a `link` child of an
+   * `array` prop's items, read inside a `{% for v in <array> %}` loop over it.
+   * Each loop is scanned on its own body, so a sibling loop printing
+   * `item.link.title` over a different array does not clear this one. The
+   * check stays silent rather than guess when:
+   * - the link, or a loop item holding it, is used whole (`{% set t = x %}`,
+   *   a macro or include argument) — the title may be printed elsewhere;
+   * - an include or embed inherits the context (no `with_context = false` /
+   *   `only`) — the included template can read the title;
+   * - an array prop has no loop over it, or the link is never referenced.
+   * Links nested deeper (inside an `object` prop, or an array of arrays) are
+   * not checked.
+   *
+   * @param string $twig
+   *   The Twig source.
+   * @param array $rawProps
+   *   The raw `props.properties` map.
+   *
+   * @return string[]
+   *   Prop paths (`link`, `items[].link`) whose title is unused, in prop
+   *   order.
+   */
+  public function unusedLinkTitles(string $twig, array $rawProps): array {
+    $twig = $this->stripComments($twig);
+    $found = [];
+    foreach ($rawProps as $name => $prop) {
+      if (!is_array($prop)) {
+        continue;
+      }
+      $name = (string) $name;
+      $type = $prop['type'] ?? NULL;
+      if ($type === 'link') {
+        if ($this->linkTitleUnused($twig, [$name])) {
+          $found[] = $name;
+        }
+        continue;
+      }
+      $children = $prop['items']['properties'] ?? NULL;
+      if ($type !== 'array' || !is_array($children)) {
+        continue;
+      }
+      $bodies = $this->loopBodies($twig, $name);
+      if (!$bodies) {
+        continue;
+      }
+      foreach ($children as $child => $childProp) {
+        if (!is_array($childProp) || ($childProp['type'] ?? NULL) !== 'link') {
+          continue;
+        }
+        $unused = TRUE;
+        foreach ($bodies as [$var, $body]) {
+          if (!$this->linkTitleUnused($body, [$var, (string) $child])) {
+            $unused = FALSE;
+            break;
+          }
+        }
+        if ($unused) {
+          $found[] = $name . '[].' . $child;
+        }
+      }
+    }
+    return $found;
+  }
+
+  /**
+   * Whether a link expression's title goes unread in a stretch of Twig.
+   *
+   * @param string $twig
+   *   The Twig source to scan, comments already stripped.
+   * @param string[] $parts
+   *   The link expression split on `.` — `['link']` or `['item', 'link']`.
+   *
+   * @return bool
+   *   TRUE only when the link is referenced and its title provably unused.
+   */
+  private function linkTitleUnused(string $twig, array $parts): bool {
+    $expr = preg_quote(implode('.', $parts), '/');
+    if (!preg_match('/(?<![\w.])' . $expr . '(?!\w)/', $twig)) {
+      return FALSE;
+    }
+    // An include or embed that inherits the context can read anything.
+    if (preg_match_all('/\binclude\s*\(((?:[^()]++|\((?1)\))*)\)/', $twig, $calls)) {
+      foreach ($calls[1] as $args) {
+        if (!preg_match('/\bwith_context\s*=\s*false\b/i', $args)) {
+          return FALSE;
+        }
+      }
+    }
+    if (preg_match_all('/\{%-?\s*(?:include|embed)\b((?:(?!%\}).)*)%\}/s', $twig, $tags)) {
+      foreach ($tags[1] as $args) {
+        if (!preg_match('/\bonly\b/', $args)) {
+          return FALSE;
+        }
+      }
+    }
+    // Conditions are the one place a title read does not count.
+    $rest = (string) preg_replace('/\{%-?\s*(?:if|elseif)\b(?:(?!%\}).)*%\}/s', '', $twig);
+    if (preg_match('/(?<![\w.])' . $expr . '\.title(?!\w)/', $rest)) {
+      return FALSE;
+    }
+    // Used whole — the link itself, or the loop item that holds it.
+    for ($i = 1; $i <= count($parts); $i++) {
+      $prefix = preg_quote(implode('.', array_slice($parts, 0, $i)), '/');
+      if (preg_match('/(?<![\w.])' . $prefix . '(?![\w.])/', $rest)) {
+        return FALSE;
+      }
+    }
+    return TRUE;
+  }
+
+  /**
+   * The body of every `{% for v in <collection> %}` loop, with its variable.
+   *
+   * @param string $twig
+   *   The Twig source, comments already stripped.
+   * @param string $collection
+   *   The prop name looped over.
+   *
+   * @return array<int, array{0: string, 1: string}>
+   *   Pairs of [loop variable, body source], in source order.
+   */
+  private function loopBodies(string $twig, string $collection): array {
+    $open = '/\{%-?\s*for\s+(?:\w+\s*,\s*)?(\w+)\s+in\s+'
+      . preg_quote($collection, '/') . '(?![\w.])(?:(?!%\}).)*%\}/s';
+    if (!preg_match_all($open, $twig, $loops, PREG_SET_ORDER | PREG_OFFSET_CAPTURE)) {
+      return [];
+    }
+    $bodies = [];
+    foreach ($loops as $loop) {
+      $start = $loop[0][1] + strlen($loop[0][0]);
+      $end = strlen($twig);
+      preg_match_all('/\{%-?\s*(for|endfor)\b/', $twig, $tags, PREG_SET_ORDER | PREG_OFFSET_CAPTURE, $start);
+      $depth = 1;
+      foreach ($tags as $tag) {
+        $depth += $tag[1][0] === 'for' ? 1 : -1;
+        if ($depth === 0) {
+          $end = $tag[0][1];
+          break;
+        }
+      }
+      $bodies[] = [$loop[1][0], substr($twig, $start, $end - $start)];
+    }
+    return $bodies;
   }
 
   /**
