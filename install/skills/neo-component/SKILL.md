@@ -649,7 +649,7 @@ guests</strong> seated.</p>` (use `:value` to skip a field's display prefix/suff
 | `entity_field` | one field of the host (or a referenced) entity | full formatter config, like Manage Display |
 | `entity_query_pager` | the pager for a **paging** query prop | renders nothing unless a prop actually paginated — tick "Enable paging" on the `entity_query` provider, or call `$event->setPagerElement()` from an `event` subscriber that ran its own `->pager()` |
 | `form` | any form class by FQCN + up to 2 args (raw / prop / filter) | **no validation** — a typo'd class is a WSOD at render |
-| `product_variation_field` | a Commerce variation field, AJAX variation-aware | commerce product components only |
+| `product_variation_field` | a Commerce variation field in a chosen display, swapped on variation change | provided by **neo_commerce**; commerce product components only |
 | `views` | a whole view display | maps its contextual args to component **filters** |
 | `views_header` / `views_pager` / `views_exposed_filters` | pieces of the view bound via the `views` **value** provider | the decompose-a-view pattern: one prop yields rows, slots surface header/pager/exposed form as separately-themeable items |
 

@@ -1,5 +1,15 @@
 # Changelog
 
+## Commerce support moved to neo_commerce
+
+**A site that lays out Commerce products with Alchemist now needs neo_commerce enabled.**
+Core no longer carries any Commerce code: the `product_variation_field` slot, the
+`commerce_product` view alter that drops Commerce's injected `variation_*` fields when a
+product has a component tree, and the wrapper a tree field gets on a variation all moved to
+neo_commerce. The slot keeps its plugin id, so saved components resolve again as soon as
+neo_commerce is enabled; until then the slot is missing and the product renders Commerce's
+injected variation fields alongside the tree.
+
 ## The first component's image loads first
 
 **With neo_image installed, the page's first component now has its first image given

@@ -12,8 +12,8 @@ use Drupal\neo_alchemist\Slot\ComponentSlotPluginBase;
 /**
  * A slot plugin with one settings field, for driving the slot form.
  *
- * Every shipped slot plugin needs views, block, commerce or a host entity
- * type before it will build a settings form, which makes none of them usable
+ * Every shipped slot plugin needs views, block or a host entity type
+ * before it will build a settings form, which makes none of them usable
  * for testing the form's own staging behaviour. This one carries a single
  * textfield so a test can commit a value, cancel over it, and see which won.
  */

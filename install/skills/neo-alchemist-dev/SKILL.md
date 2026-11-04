@@ -203,21 +203,21 @@ Mechanics the "Where to add X" bullet doesn't cover:
   `onAdd()/onUpdate()/onRemove()` fire from `Component::preSave()/preDelete()` —
   `MediaValue::onRemove()` deletes the `neo_config_file` behind a config-hosted image.
 
-### ComponentSlot (12 plugins)
+### ComponentSlot (11 plugins)
 
 `block` · `block_plugin` · `entity` · `entity_display` · `entity_field` ·
-`entity_query_pager` · `form` · `product_variation_field` · `views` · `views_header` ·
-`views_pager` · `views_exposed_filters`. Stored as
+`entity_query_pager` · `form` · `views` · `views_header` · `views_pager` ·
+`views_exposed_filters`. Stored as
 `settings.slots.<slot>.plugins.<uuid> = {plugin, key?, settings}`. Availability is
-PHP-side only (the info.yml declares none of views/block/commerce): static
+PHP-side only (the info.yml declares neither views nor block): static
 `isApplicable(ComponentInterface)` gates `entity_display`/`entity_field` (needs a target
 entity type), `entity_query_pager` (`hasPropShapeWithPlugin('entity_query')`, or any prop
 already registering a pager), the
 `ViewsSlotBase` three (`hasPropShapeWithPlugin('views')` — they consume the executed-view
-context the `views` **value** provider registers, via `getPropShapeContexts('views')`),
-and `product_variation_field` (`commerce_product` target; the class simply fails to load
-without commerce). `isApplicable()` narrows the *add* picker only — nothing re-checks it
-against saved config, so a slot outlives the prop it was placed for and must guard itself
+context the `views` **value** provider registers, via `getPropShapeContexts('views')`).
+Core holds **no Commerce code**: `product_variation_field`, the `commerce_product` view
+alter and the variation tree-field wrapper live in neo_commerce. `isApplicable()` narrows
+the *add* picker only — nothing re-checks it against saved config, so a slot outlives the prop it was placed for and must guard itself
 at render time. `entity_query_pager` does: it renders only the pager named by the
 `entity_query_pager` prop-shape context (an `int` element id, published by
 `EntityQueryValue` when `paging` is on, or by an `event` subscriber calling
