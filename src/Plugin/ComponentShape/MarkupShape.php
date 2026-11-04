@@ -8,6 +8,7 @@ use Drupal\Core\Render\Markup;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\neo_alchemist\Attribute\ComponentShape;
 use Drupal\neo_alchemist\Shape\ComponentShapePluginBase;
+use Drupal\neo_alchemist\Shape\ShapeTokenReplacer;
 
 /**
  * Plugin implementation of the neo_component_shape.
@@ -24,6 +25,13 @@ use Drupal\neo_alchemist\Shape\ComponentShapePluginBase;
   text_markup: TRUE,
 )]
 class MarkupShape extends ComponentShapePluginBase {
+
+  /**
+   * {@inheritdoc}
+   */
+  protected function getTokenContext(): ?string {
+    return ShapeTokenReplacer::MARKUP;
+  }
 
   /**
    * {@inheritDoc}

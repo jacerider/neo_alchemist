@@ -411,6 +411,33 @@ A prop's value is built by running its enabled ComponentValue plugins across pha
 → **modify** at render (`modifyValue`), driven by
 `ComponentShapePluginBase::getDefaultValue()` / `buildRenderValue()`.
 
+**Tokens in free text need no plugin.** `buildRenderValue()` passes every free-text value
+through [ShapeTokenReplacer](src/Shape/ShapeTokenReplacer.php) after `preRenderValue()` and
+before the modifiers (`formatted_text` renders markup, after which there is no text left to
+replace in). A shape opts in by returning a context from `getTokenContext()`:
+`StringShape` (plain, but not an `enum`: that is an option key), `MarkupShape` (markup),
+`UriShape` (uri). `UrlShapeTrait::preRenderValue()` also replaces a `url` / `link`'s uri and
+title itself: a `url` holds both in one value, and a link resolved from its Default Value is
+built without its `uri` / `title` child shapes. Linkit rebuilds a link's URL from the field
+item, query string included, so a uri whose tokens were replaced goes to it on a copy of the
+item carrying the resolved uri: Linkit still substitutes (a file's URL for a file link) and
+copies back the resolved query rather than the raw tokens.
+It runs on every site's saved content, so it is guarded:
+
+- Only tokens of a **registered type** are touched. Core's scanner reads any
+  `[word:anything]` as a token and its `clear` option removes them all, which would eat an
+  editor's "[Note: call ahead]". A registered token that resolves to nothing is removed.
+- Escaping follows the destination: plain text via `replacePlain()` (Twig escapes it),
+  markup via `replace()` (a token value is HTML-escaped inside trusted HTML), and in a uri a
+  token in the query or fragment is URL-encoded while one in the path stays raw.
+- Tokens resolve against `getContextEntity()` plus the global types. An unsaved placeholder
+  host is not data, so its tokens clear instead of reading a throwaway entity.
+- Values without a `[` return before the service is even fetched.
+
+The entity and the token metadata are added to the shape's cacheability, which for a child
+shape is the root's (next paragraph). The `token` / `link_title` / `link_uri` modifiers still
+apply their own templates afterwards; a value they produce has no tokens left to find.
+
 **A child shape records cacheability into its root.** `getCacheableMetadata()` on a non-root
 shape returns the root's object, because `Component::getPropValues()` merges only root
 shapes: what an array row's link or an object's child recorded (a `LinkAccess` decision, an

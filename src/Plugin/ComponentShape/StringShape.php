@@ -9,6 +9,7 @@ use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\Core\Template\Attribute;
 use Drupal\neo_alchemist\Attribute\ComponentShape;
 use Drupal\neo_alchemist\Shape\ComponentShapePluginBase;
+use Drupal\neo_alchemist\Shape\ShapeTokenReplacer;
 use Drupal\neo_alchemist\Drush\Generators\NeoComponentTwig;
 
 /**
@@ -38,6 +39,15 @@ use Drupal\neo_alchemist\Drush\Generators\NeoComponentTwig;
   text_keys: TRUE,
 )]
 class StringShape extends ComponentShapePluginBase {
+
+  /**
+   * {@inheritdoc}
+   *
+   * An enum's value is an option key, not text.
+   */
+  protected function getTokenContext(): ?string {
+    return array_key_exists('enum', $this->getSchema()) ? NULL : ShapeTokenReplacer::PLAIN;
+  }
 
   /**
    * {@inheritDoc}

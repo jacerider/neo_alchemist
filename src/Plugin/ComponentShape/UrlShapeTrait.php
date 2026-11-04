@@ -9,6 +9,7 @@ use Drupal\Core\Template\Attribute;
 use Drupal\neo\NeoLinkitFormatterTrait;
 use Drupal\neo_alchemist\LinkAccess;
 use Drupal\neo_alchemist\NonLinkingUri;
+use Drupal\neo_alchemist\Shape\ShapeTokenReplacer;
 
 /**
  * Shared URL-shape behavior.
@@ -95,11 +96,34 @@ trait UrlShapeTrait {
    */
   protected function preRenderValue(mixed $value, Attribute $attributes): mixed {
     $value = parent::preRenderValue($value, $attributes);
+    $tokenized = FALSE;
+    if (is_array($value)) {
+      // Here rather than only on a link's uri and title child shapes: a url
+      // holds both in one value, and a link resolved from its default value is
+      // built without its children. Where the children did run, their values
+      // hold no tokens left to find.
+      foreach (['uri' => ShapeTokenReplacer::URI, 'title' => ShapeTokenReplacer::PLAIN] as $key => $context) {
+        if (isset($value[$key]) && is_string($value[$key])) {
+          $value[$key] = $this->replaceTokens($value[$key], $context);
+        }
+      }
+      // The field item still holds the uri as authored, tokens and all.
+      $authored = $this->getFieldItem()->uri;
+      $tokenized = is_string($authored) && str_contains($authored, '[') && ($value['uri'] ?? NULL) !== $authored;
+    }
     if (!empty($value)) {
       // Check if we have Linkit data attributes in options['attributes'].
       // The Neo Link widget stores them there, but getLinkitUrl() expects
       // them directly in options for proper entity URL substitution.
+      //
+      // Linkit builds its URL from the field item, query string included, so
+      // a uri whose tokens were replaced goes to it on a copy of the item:
+      // the stored one would put the raw tokens back.
       $fieldItem = $this->getFieldItem();
+      if ($tokenized) {
+        $fieldItem = clone $fieldItem;
+        $fieldItem->set('uri', $value['uri'], FALSE);
+      }
       if ($url = $this->getLinkitUrl($fieldItem)) {
         $value['uri'] = $url->toString();
       }

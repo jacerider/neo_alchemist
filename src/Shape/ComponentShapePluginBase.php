@@ -1930,6 +1930,11 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
   private function buildRenderValue(mixed $value, Attribute $attributes): mixed {
     $value = $this->resolveValue($value);
     $value = $this->preRenderValue($value, $attributes);
+    // Before the modifiers: formatted_text renders markup, after which there
+    // is no text left to replace in.
+    if (($context = $this->getTokenContext()) && (is_string($value) || $value instanceof MarkupInterface)) {
+      $value = $this->replaceTokens($value, $context);
+    }
     foreach ($this->getValueCollection()->getAllowedInstances('modify') as $instance) {
       $value = $instance->modifyValue($value);
     }
@@ -1969,6 +1974,37 @@ abstract class ComponentShapePluginBase extends PluginBase implements ComponentS
    */
   protected function preRenderValue(mixed $value, Attribute $attributes): mixed {
     return $value;
+  }
+
+  /**
+   * How this shape's rendered value takes tokens, NULL when it takes none.
+   *
+   * Only free text takes tokens: an option key, a number or an entity id is
+   * not prose, and a token there would be a value nobody chose.
+   *
+   * @return string|null
+   *   A ShapeTokenReplacer context constant, or NULL.
+   */
+  protected function getTokenContext(): ?string {
+    return NULL;
+  }
+
+  /**
+   * Replaces the registered tokens in a free-text value.
+   *
+   * @param string|\Drupal\Component\Render\MarkupInterface $value
+   *   The value.
+   * @param string $context
+   *   A ShapeTokenReplacer context constant.
+   *
+   * @return string|\Drupal\Component\Render\MarkupInterface
+   *   The value with its tokens replaced.
+   */
+  protected function replaceTokens(string|MarkupInterface $value, string $context): string|MarkupInterface {
+    if (!str_contains((string) $value, '[')) {
+      return $value;
+    }
+    return \Drupal::service('neo_alchemist.shape_token_replacer')->replace($value, $context, $this);
   }
 
   /**

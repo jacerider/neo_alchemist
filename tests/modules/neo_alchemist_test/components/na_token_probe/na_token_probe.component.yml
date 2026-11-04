@@ -1,0 +1,54 @@
+$schema: 'https://git.drupalcode.org/project/drupal/-/raw/10.1.x/core/modules/sdc/src/metadata.schema.json'
+name: 'NA token fixture'
+description: >
+  One prop of each free-text kind that takes tokens with no value plugin
+  attached: a string, a markup body, a link, a url, and a buttons-style array
+  of links (whose uri and title are child shapes built per row), plus an enum
+  string, which is an option key and takes none.
+status: stable
+neo: true
+props:
+  type: object
+  properties:
+    text:
+      type: string
+      title: Text
+      examples: 'Example text'
+    choice:
+      type: string
+      title: Choice
+      enum:
+        - one
+        - two
+      examples: one
+    body:
+      type: markup
+      title: Body
+      examples: '<p>Example body</p>'
+    link:
+      type: link
+      title: Link
+      examples:
+        uri: 'internal:/'
+        title: 'Example link'
+    url:
+      type: url
+      title: Url
+      examples:
+        uri: 'internal:/'
+        title: 'Example url'
+    links:
+      type: array
+      title: Links
+      examples:
+        -
+          link:
+            uri: 'internal:/'
+            title: 'Example row link'
+      items:
+        type: object
+        title: Row
+        properties:
+          link:
+            type: link
+            title: Link

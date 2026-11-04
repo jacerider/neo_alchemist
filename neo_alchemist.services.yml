@@ -13,6 +13,12 @@ services:
     class: Drupal\neo_alchemist\ComponentPreviewBuilder
     arguments: ['@entity_type.manager', '@plugin.manager.sdc']
 
+  # Replaces registered tokens in every free-text value a shape renders. The
+  # token module is optional: without it the entity type id is the token type.
+  neo_alchemist.shape_token_replacer:
+    class: Drupal\neo_alchemist\Shape\ShapeTokenReplacer
+    arguments: ['@token', '@?token.entity_mapper']
+
   # The editor-state store seam and its two adapters. The seam describes only
   # read/write/delete of a keyed value; the sharing semantics live in the store
   # built on top (below), not in the seam. The production adapter is backed by

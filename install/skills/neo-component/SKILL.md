@@ -619,6 +619,14 @@ token-aware — the dynamic-CTA pattern), `formatted_text` ⊕ (text-format rend
 markup; always runs last, so a `token` template on a markup prop renders its HTML),
 `media_image_size` (editor-selectable size variants on an image prop).
 
+**Plain tokens need no modifier.** Any string, markup, link or url value an editor or a
+saved default holds takes registered tokens as it renders: a button linking to
+`internal:/inquiry?room=[node:nid]`, a heading "Reserve [node:title]". Query and fragment
+tokens are URL-encoded, markup tokens HTML-escaped; a registered token that resolves to
+nothing is removed, and bracketed text of no registered type (`[Note: …]`) is left alone.
+Enum strings and style props take none. Reach for the `token` modifier only to compose a
+template around the value (`[value]`) or to fill a value from a template.
+
 Tokens resolve against the entity the value stands for: the host entity, or, on a child
 of a row an `entity_query` / `entity_reference` provider filled, **that row's entity**.
 So a modifier attached to a row child in the provider's "Shape Fields" composes per-item
