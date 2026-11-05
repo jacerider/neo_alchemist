@@ -304,7 +304,9 @@ function template_preprocess_neo_alchemist_overlay(&$variables) {
       'aria-label' => $label,
       'data-neo-tooltip-detach' => 'true',
     ],
-    'icon' => neo_icon_admin($label, 'grip-dots-vertical')->iconOnly()->getRenderable(),
+    // grip-vertical, not grip-dots-vertical: only the Pro icon sets have the
+    // latter, and a site on the free set would show an empty grip.
+    'icon' => neo_icon_admin($label, 'grip-vertical')->iconOnly()->getRenderable(),
   ];
   (new Tooltip($label, ['placement' => 'right']))->applyTo($variables['outline_grip']);
 }
