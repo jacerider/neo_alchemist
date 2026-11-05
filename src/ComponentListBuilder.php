@@ -160,13 +160,20 @@ final class ComponentListBuilder extends ConfigEntityListBuilder {
         '#type' => 'container',
         '#attributes' => [
           'id' => $groupAnchor,
-          'class' => ['neo-alchemist-list-group', 'scroll-mt-neo'],
+          // The other groups are tables, spaced by their wrapper's
+          // `mt-6 first:mt-0`; this one has no wrapper, so it carries those
+          // itself.
+          'class' => [
+            'neo-alchemist-list-group',
+            'scroll-mt-neo',
+            'mt-6',
+            'first:mt-0',
+          ],
         ],
         'heading' => $this->buildCaption($definition['label'], $definition['description']),
         'subgroups' => [
           '#type' => 'container',
           '#attributes' => [
-            'id' => $groupAnchor,
             'class' => ['flex', 'flex-col', 'gap-4', 'py-4'],
           ],
         ],
