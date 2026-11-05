@@ -108,15 +108,25 @@ final class ComponentTwigLinter {
 
     // Only components that declare a scheme prop are flagged: they are the
     // ones explicitly designed to be recolored. A numbered shade elsewhere
-    // may well be a deliberate raw-brand mark.
+    // may well be a deliberate raw-brand mark. One inside a scheme-bearing
+    // component can be too (a badge on a photo, not on the scheme's
+    // surface), so the yml's `fixed_shades` names the classes that are meant
+    // not to adapt. Only those exact classes are excused: a new numbered
+    // shade still warns.
     $hasScheme = (bool) array_filter(
       $rawProps,
       static fn ($p) => is_array($p) && (($p['type'] ?? NULL) === 'scheme'),
     );
-    if ($hasScheme && ($shades = $this->numberedRoleShadeClasses($twig))) {
+    $fixed = is_array($rawYml)
+      ? (array) ($rawYml['fixed_shades'] ?? [])
+      : [];
+    $shades = $hasScheme
+      ? array_diff($this->numberedRoleShadeClasses($twig), $fixed)
+      : [];
+    if ($shades) {
       $findings[] = [
         'check' => 'numbered_role_shade',
-        'message' => sprintf('Twig uses numbered role shade(s) `%s` — these never adapt to the component\'s scheme(s). Adaptive alternatives: bare tokens (`text-primary`), hover steps (`hover:text-primary-hover`), link tokens (`text-link` / `hover:text-link-hover`), or `.btn*` classes. Keep a numbered shade only for deliberate raw-brand marks (decor).', implode('`, `', $shades)),
+        'message' => sprintf('Twig uses numbered role shade(s) `%s` — these never adapt to the component\'s scheme(s). Adaptive alternatives: bare tokens (`text-primary`), hover steps (`hover:text-primary-hover`), link tokens (`text-link` / `hover:text-link-hover`), or `.btn*` classes. Keep a numbered shade only for deliberate raw-brand marks (decor), and list those under `fixed_shades:` in the .component.yml.', implode('`, `', $shades)),
       ];
     }
 

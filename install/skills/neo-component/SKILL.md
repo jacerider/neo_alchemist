@@ -866,8 +866,11 @@ them literally in the twig/yml.
   (`text-primary-600`) always stay the raw brand ramp. That asymmetry is why a
   hand-picked shade that looks right in one scheme breaks under the others —
   and `drush neo:alchemist:validate` warns about numbered role shades in any
-  component that declares a `scheme` prop (advisory: deliberate raw-brand decor
-  is fine).
+  component that declares a `scheme` prop. Deliberate raw-brand decor is fine
+  (a badge sitting on a photo rather than the scheme's surface): list those
+  exact classes under a top-level `fixed_shades:` key in the `.component.yml`,
+  with a comment saying why, and the warning drops them. A shade the list does
+  not name still warns.
 - Every color has an adaptive **hover step**: `text-primary hover:text-primary-hover`
   is the scheme-safe replacement for the old `text-primary-500 hover:text-primary-600`
   idiom. The `-hover` token is the next perceptibly different pick in every scheme
@@ -1272,11 +1275,13 @@ You don't need a browser to confirm a component works. Three commands close the 
 wrote? `validate --all` — and see the **neo-component-audit** skill.)
 
 - **`drush neo:alchemist:validate <provider>:<name>`** — static lint. Flags missing
-  `neo: true`, props with no `examples`, unknown prop types, `{% if/for %}` references
+  `neo: true`, props with no `examples` (`region` props are exempt: the editor
+  fills them), unknown prop types, `{% if/for %}` references
   to props that aren't declared, dynamically-assembled Tailwind classes that won't
   compile, `link` props whose title is never printed (use `url`), and (in
   scheme-bearing components) numbered role shades like `text-primary-500` that
-  never adapt to schemes. Exits non-zero on hard errors.
+  never adapt to schemes, other than those declared in `fixed_shades`. Exits
+  non-zero on hard errors.
 - **`drush neo:alchemist:render <provider>:<name>`** — renders the component headlessly
   from its `examples` and reports PASS/FAIL, surfacing Twig/render errors as a message
   instead of a white screen. Add `--html` to print the markup, `--scheme=<id>` to render

@@ -201,6 +201,33 @@ final class ComponentTwigLinterTest extends UnitTestCase {
   }
 
   /**
+   * A scheme-bearing component may declare its deliberate fixed shades.
+   */
+  public function testFixedShadesAreExcused(): void {
+    $props = ['props' => ['properties' => ['scheme' => ['type' => 'scheme']]]];
+    $twig = '<span class="bg-primary-500/85 text-accent-500"></span>'
+      . '<a class="hover:text-primary-600">x</a>';
+
+    $findings = $this->linter->lint($twig, $props, ['scheme'], []);
+    $this->assertCount(1, $this->messages($findings, 'numbered_role_shade'));
+
+    // Only the listed classes are excused; a shade the yml does not name
+    // still warns, and the message names only that one.
+    $yml = $props + ['fixed_shades' => ['bg-primary-500', 'text-accent-500']];
+    $messages = $this->messages(
+      $this->linter->lint($twig, $yml, ['scheme'], []),
+      'numbered_role_shade',
+    );
+    $this->assertCount(1, $messages);
+    $this->assertStringContainsString('hover:text-primary-600', $messages[0]);
+    $this->assertStringNotContainsString('text-accent-500', $messages[0]);
+
+    $yml['fixed_shades'][] = 'hover:text-primary-600';
+    $findings = $this->linter->lint($twig, $yml, ['scheme'], []);
+    $this->assertSame([], $this->checks($findings, 'numbered_role_shade'));
+  }
+
+  /**
    * A migrated component reports nothing.
    */
   public function testGapPropSatisfiesTheCarrierCheck(): void {

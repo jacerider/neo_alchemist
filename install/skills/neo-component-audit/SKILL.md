@@ -24,7 +24,9 @@ Three kinds of drift, and only the first is mechanical:
    first and let it do the work — it is cheap and exhaustive.
 2. **Needs judgment.** A numbered role shade may be a contrast bug or a
    deliberate raw-brand mark; only reading the design tells you which. The lint
-   reports, you decide.
+   reports, you decide. A deliberate one goes in the component's
+   `fixed_shades:` list (with a comment saying why), so the next sweep stays
+   quiet about it.
 3. **Invisible to a Twig sweep.** A `link` prop that stopped resolving, a
    provider that now filters unpublished content. These live in saved config
    and in the module's behaviour, not in the component files, and they are the

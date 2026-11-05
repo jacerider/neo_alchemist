@@ -348,7 +348,10 @@ final class NeoAlchemistCommands extends DrushCommands {
       if ($types && $unknown) {
         $errors[] = sprintf('Prop `%s` uses unknown type(s): %s. Run `drush neo:alchemist:shapes`.', $name, implode(', ', $unknown));
       }
-      if (!array_key_exists('examples', $prop) || $prop['examples'] === [] || $prop['examples'] === NULL) {
+      // A region is filled with components in the editor; there is no value
+      // an example could give it, so it is not asked for one.
+      $isRegion = ($prop['ref'] ?? NULL) === 'region';
+      if (!$isRegion && (!array_key_exists('examples', $prop) || $prop['examples'] === [] || $prop['examples'] === NULL)) {
         $warnings[] = sprintf('Prop `%s` has no `examples` — the editor preview and defaults will be empty.', $name);
       }
     }
