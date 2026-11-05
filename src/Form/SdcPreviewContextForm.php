@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Drupal\neo_alchemist\Form;
 
 use Drupal\Core\Ajax\AjaxResponse;
+use Drupal\Core\Ajax\ReplaceCommand;
 use Drupal\Core\Entity\EntityForm;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\neo_alchemist\Ajax\InstanceComponentManageIframeCommand;
@@ -91,34 +92,31 @@ final class SdcPreviewContextForm extends EntityForm {
     $context = $this->sdcPreviewStore->getContext($this->entity);
     $options = $this->getComponentOptions();
 
-    $form['context'] = [
-      '#type' => 'container',
-      '#tree' => TRUE,
-      '#neo_align' => 'inline',
-      '#neo_size' => 'min',
+    $form['context'] = ComponentManageHelper::buildBandPopover(
+      'neo-component-context-trigger',
+      $this->t('Neighbors'),
+      'layer-group',
+      count(array_filter($context)),
+      $this->t('Neighbor components'),
+    ) + ['#tree' => TRUE];
+    // Each neighbor goes on its own row, as the preview styles do.
+    $neighbors = [
+      'above' => $this->icon('Above', 'arrow-to-top'),
+      'below' => $this->icon('Below', 'arrow-to-bottom'),
     ];
-    $form['context']['above'] = [
-      '#type' => 'select',
-      '#title' => $this->icon('Above', 'arrow-to-top'),
-      '#options' => $options,
-      '#default_value' => $context['above'] ?? '',
-      '#neo_align' => 'inline',
-      '#neo_size' => 'xs',
-      '#ajax' => [
-        'callback' => '::ajaxContext',
-      ],
-    ];
-    $form['context']['below'] = [
-      '#type' => 'select',
-      '#title' => $this->icon('Below', 'arrow-to-bottom'),
-      '#options' => $options,
-      '#default_value' => $context['below'] ?? '',
-      '#neo_align' => 'inline',
-      '#neo_size' => 'xs',
-      '#ajax' => [
-        'callback' => '::ajaxContext',
-      ],
-    ];
+    foreach ($neighbors as $key => $title) {
+      $form['context'][$key] = [
+        '#type' => 'select',
+        '#title' => $title,
+        '#options' => $options,
+        '#default_value' => $context[$key] ?? '',
+        '#neo_align' => 'inline',
+        '#neo_size' => 'xs',
+        '#ajax' => [
+          'callback' => '::ajaxContext',
+        ],
+      ];
+    }
 
     return $form;
   }
@@ -147,6 +145,10 @@ final class SdcPreviewContextForm extends EntityForm {
     $above = $form_state->getValue(['context', 'above']) ?: NULL;
     $below = $form_state->getValue(['context', 'below']) ?: NULL;
     $this->sdcPreviewStore->setContext($this->entity, $above, $below);
+    $response->addCommand(new ReplaceCommand(
+      '#neo-component-context-trigger .neo-alchemist--band-popover-count',
+      ComponentManageHelper::buildBandPopoverCount(count(array_filter([$above, $below]))),
+    ));
     if ($manageId = $form_state->get('neo_component_manage_id')) {
       $response->addCommand(new InstanceComponentManageIframeCommand('#' . $manageId . ' iframe'));
     }

@@ -549,6 +549,93 @@ class ComponentManageHelper {
   }
 
   /**
+   * Builds a band button that opens a panel of preview controls.
+   *
+   * The band's preview controls (a saved component's preview styles, an SDC
+   * preview's neighbors) used to sit in the band as inline selects, wrapping
+   * into several rows. Each set is now one button, named and counted, that
+   * opens a neo_modal popover attached beneath it.
+   *
+   * The popover is appended inside the form rather than to <body>: its
+   * controls submit over AJAX as they change, and Drupal serializes an
+   * element's own form, so a control moved out of it would send nothing.
+   *
+   * @param string $id
+   *   The button's HTML id; the popover attaches to it.
+   * @param string|\Drupal\Component\Render\MarkupInterface $label
+   *   The button text.
+   * @param string $icon
+   *   The button's neo_icon name.
+   * @param int $count
+   *   How many of the panel's controls are set; 0 hides the count.
+   * @param string|\Drupal\Component\Render\MarkupInterface $title
+   *   The panel's heading.
+   *
+   * @return array
+   *   A neo_modal element. Add the panel's controls as its children.
+   *
+   * @see \Drupal\neo_alchemist\Form\ComponentStyleForm
+   * @see \Drupal\neo_alchemist\Form\SdcPreviewContextForm
+   */
+  public static function buildBandPopover(string $id, string|MarkupInterface $label, string $icon, int $count, string|MarkupInterface $title): array {
+    return [
+      '#type' => 'neo_modal',
+      '#title' => [
+        '#type' => 'html_tag',
+        '#tag' => 'button',
+        '#attributes' => [
+          'type' => 'button',
+          'id' => $id,
+          'class' => ['neo-alchemist--band-pill', 'neo-alchemist--band-popover'],
+        ],
+        'label' => neo_icon_admin($label, $icon)->getRenderable(),
+        'count' => static::buildBandPopoverCount($count),
+      ],
+      '#wrapper_attributes' => [
+        'class' => ['neo-alchemist--band-popover-wrapper'],
+      ],
+      '#modal' => [
+        'title' => $title,
+        'attach' => '#' . $id,
+        'attachPlacement' => 'bottom-start',
+        'appendToClosest' => 'form',
+        // A light panel: the band's dark retuning skips anything inside
+        // .neo-alchemist--dropdown, as it does for the band's other menus.
+        'modalClasses' => 'neo-alchemist--dropdown neo-alchemist--band-popover-panel',
+        'headerInContent' => TRUE,
+        // The preview stays in view while its styles change.
+        'backdrop' => FALSE,
+        'bodyLock' => FALSE,
+        'inputFocus' => FALSE,
+        'width' => '440px',
+      ],
+    ];
+  }
+
+  /**
+   * Builds the count on a band popover's button.
+   *
+   * Separate so an AJAX response can replace it when the count changes.
+   *
+   * @param int $count
+   *   The count; 0 hides it.
+   *
+   * @return array
+   *   The count's render array.
+   */
+  public static function buildBandPopoverCount(int $count): array {
+    return [
+      '#type' => 'html_tag',
+      '#tag' => 'span',
+      '#value' => (string) $count,
+      '#attributes' => [
+        'class' => ['neo-alchemist--band-popover-count'],
+        'data-count' => (string) $count,
+      ],
+    ];
+  }
+
+  /**
    * Builds the header's Undo and Redo buttons.
    *
    * Icons with the step named in a tooltip ("Undo Delete Hero S5"). A button

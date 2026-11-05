@@ -155,4 +155,25 @@ class StyleToggleShapeTest extends KernelTestBase {
     $this->assertFalse($this->load()->getPropValues()['toggle']);
   }
 
+  /**
+   * A preview override counts only while it differs from the saved value.
+   *
+   * The Styles panel marks and counts overridden styles. The form stores a
+   * checkbox's value as a string ("0"/"1") while the saved value of an on/off
+   * style resolves to a boolean, so the comparison has to see past the type;
+   * an override set back to the saved value no longer changes anything.
+   */
+  public function testPreviewOverrideComparesWithSavedValue(): void {
+    $component = $this->load();
+    $shape = $component->getPropShapes()['toggle'];
+    $this->assertInstanceOf(StyleToggleShape::class, $shape);
+    $store = $this->container->get('neo_alchemist.sdc_preview_store');
+
+    $this->assertFalse($shape->isPreviewOverridden(), 'Nothing stored.');
+    $store->setStyle($component, $shape->id(), '0');
+    $this->assertTrue($shape->isPreviewOverridden(), 'Off differs from the example on.');
+    $store->setStyle($component, $shape->id(), '1');
+    $this->assertFalse($shape->isPreviewOverridden(), 'On is the saved value again.');
+  }
+
 }

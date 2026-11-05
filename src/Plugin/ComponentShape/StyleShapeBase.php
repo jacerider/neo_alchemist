@@ -94,6 +94,35 @@ abstract class StyleShapeBase extends ComponentShapePluginBase implements Compon
   }
 
   /**
+   * Whether a preview override changes what this style renders.
+   *
+   * A developer's preview override (the saved component editor's Styles
+   * panel) can be set back to the value the component already has; that is
+   * still stored, but it no longer changes anything, so it does not count.
+   *
+   * @return bool
+   *   TRUE when a stored preview value differs from the configured value.
+   */
+  public function isPreviewOverridden(): bool {
+    if ($this->getComponent()->getScope() !== 'config') {
+      return FALSE;
+    }
+    $preview = \Drupal::service('neo_alchemist.sdc_preview_store')
+      ->getStyle($this->getComponent(), $this->id());
+    if ($preview === NULL) {
+      return FALSE;
+    }
+    // The configured value, before buildValue() swaps the override in. An
+    // unset style resolves to [] and an on/off style to a bool; the stored
+    // override is the form's scalar, so compare both as strings.
+    $saved = parent::buildValue();
+    if (is_bool($saved)) {
+      $saved = (int) $saved;
+    }
+    return (string) $preview !== (is_scalar($saved) ? (string) $saved : '');
+  }
+
+  /**
    * {@inheritDoc}
    */
   public static function onGeneration(array &$prop, array $vars, Interviewer $ir, NeoComponentPropGeneratorInterface $generator, array $parents) {

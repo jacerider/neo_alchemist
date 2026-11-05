@@ -6,21 +6,21 @@ namespace Drupal\neo_alchemist\Form;
 
 use Drupal\Core\Ajax\AjaxResponse;
 use Drupal\Core\Ajax\CssCommand;
+use Drupal\Core\Ajax\InvokeCommand;
+use Drupal\Core\Ajax\ReplaceCommand;
 use Drupal\Core\Entity\EntityForm;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\neo_alchemist\Ajax\InstanceComponentManageIframeCommand;
 use Drupal\neo_alchemist\ComponentManageHelper;
+use Drupal\neo_alchemist\Plugin\ComponentShape\StyleShapeBase;
 use Drupal\neo_alchemist\Plugin\ComponentShape\StyleToggleShape;
 use Drupal\neo_alchemist\Shape\ComponentShapeStylePluginInterface;
-use Drupal\neo_icon\IconTrait;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
  * Component form.
  */
 final class ComponentStyleForm extends EntityForm {
-
-  use IconTrait;
 
   /**
    * The entity.
@@ -59,7 +59,6 @@ final class ComponentStyleForm extends EntityForm {
     $form['#attached']['library'][] = 'neo_alchemist/component.ajax';
     $form['#neo_style'] = 'default';
     $form['#neo_size'] = 'xs';
-    $form['#attributes']['class'][] = 'border-l-2 pl-2';
     return $form;
   }
 
@@ -71,97 +70,80 @@ final class ComponentStyleForm extends EntityForm {
     $form['#id'] = 'neo-component-style-form';
     $form['#neo_entity_form'] = FALSE;
 
-    $form['styles'] = [
-      '#type' => 'container',
-      '#tree' => TRUE,
-      '#neo_align' => 'inline',
-      '#neo_size' => 'min',
-    ];
     $shapes = array_filter($this->entity->getPropShapes(), fn ($shape) => $shape->access('manage_value'));
+    $controls = [];
+    $overridden = 0;
     foreach ($shapes as $propName => $shape) {
-      if ($shape instanceof StyleToggleShape) {
-        if (!$shape->access('update')) {
-          continue;
-        }
-        // An on/off style has no options to list, so a select would offer
-        // nothing but "- Default -".
-        $form['styles'][$propName] = [
-          '#type' => 'checkbox',
-          '#title' => $shape->getTitle(),
-          '#default_value' => (bool) $shape->getValue(),
-          '#description' => $shape->getDescription(),
-          '#shape_id' => $shape->id(),
-          '#neo_align' => 'inline',
-          '#neo_size' => 'xs',
-          '#ajax' => [
-            'callback' => '::ajaxStyle',
-          ],
-        ];
+      if (!$shape instanceof ComponentShapeStylePluginInterface || !$shape->access('update')) {
         continue;
       }
-      if ($shape instanceof ComponentShapeStylePluginInterface) {
-        if (!$shape->access('update')) {
+      if ($shape instanceof StyleToggleShape) {
+        // An on/off style has no options to list, so a select would offer
+        // nothing but "- Default -".
+        $control = [
+          '#type' => 'checkbox',
+          '#default_value' => (bool) $shape->getValue(),
+        ];
+      }
+      else {
+        $options = $shape->getFieldOptions();
+        if (!$options) {
           continue;
         }
-        $options = $shape->getFieldOptions();
         if (!$shape->isRequired()) {
           $options = array_merge(['' => $this->t('- Default -')], $options);
         }
-        if ($options) {
-          $form['styles'][$propName] = [
-            '#type' => 'select',
-            '#title' => $shape->getTitle(),
-            '#options' => $options,
-            '#default_value' => $shape->getValue(),
-            '#description' => $shape->getDescription(),
-            '#shape_id' => $shape->id(),
-            '#neo_align' => 'inline',
-            '#neo_size' => 'xs',
-            '#ajax' => [
-              'callback' => '::ajaxStyle',
-            ],
-          ];
-        }
+        $control = [
+          '#type' => 'select',
+          '#options' => $options,
+          '#default_value' => $shape->getValue(),
+        ];
       }
+      $isOverridden = $shape instanceof StyleShapeBase && $shape->isPreviewOverridden();
+      $overridden += (int) $isOverridden;
+      $controls[$propName] = $control + [
+        '#title' => $shape->getTitle(),
+        '#description' => $shape->getDescription(),
+        '#shape_id' => $shape->id(),
+        '#neo_align' => 'inline',
+        '#neo_size' => 'xs',
+        '#wrapper_attributes' => [
+          'class' => array_filter([
+            'neo-component-style-form--row',
+            $isOverridden ? 'is-overridden' : NULL,
+          ]),
+          'data-neo-style-row' => $propName,
+        ],
+        '#ajax' => [
+          'callback' => '::ajaxStyle',
+        ],
+      ];
+    }
+    if (!$controls) {
+      return $form;
     }
 
+    $form['styles'] = ComponentManageHelper::buildBandPopover(
+      'neo-component-style-trigger',
+      $this->t('Styles'),
+      'palette',
+      $overridden,
+      $this->t('Preview styles'),
+    ) + ['#tree' => TRUE];
+    $form['styles'] += $controls;
+
+    // Cloned into the panel's footer by the popover's smart actions.
     $form['styles']['reset'] = [
-      '#type' => 'html_tag',
-      '#tag' => 'div',
-      '#attributes' => [
-        'class' => ['neo-component-style-form--reset flex items-center gap-2'],
-      ],
-    ];
-
-    $form['styles']['reset']['alert'] = [
-      '#type' => 'neo_icon',
-      '#title' => 'Alert',
-      '#icon' => 'exclamation-triangle',
-      '#icon_only' => TRUE,
-      '#icon_attributes' => [
-        'class' => 'text-alert text-sm',
-      ],
-      '#tooltip' => $this->t('The component is being previewed with style overrides. You can click the @icon button to reset the preview styles.', [
-        '@icon' => $this->icon('Reset Preview Styles', 'undo')->iconOnly(),
-      ]),
-    ];
-
-    $form['styles']['reset']['reset'] = [
       '#type' => 'submit',
-      '#value' => $this->icon('Reset Preview Styles', 'undo')->iconOnly(),
-      '#description' => $this->t('Reset Preview Styles'),
-      '#neo_size' => 'xs',
+      '#value' => $this->t('Reset overrides'),
+      '#limit_validation_errors' => [],
       '#submit' => ['::submitReset'],
       '#attributes' => [
-        'class' => ['neo-component-style-form--reset'],
+        'class' => ['neo-component-style-form--reset', 'btn', 'btn-xs'],
       ],
     ];
-
     if (!$this->sdcPreviewStore->hasStyles($this->entity)) {
       $form['styles']['reset']['#attributes']['style'] = 'display: none;';
-    }
-    elseif (!$form_state->get('neo_component_style_changed')) {
-      $form_state->set('neo_component_style_changed', TRUE);
     }
 
     return $form;
@@ -181,7 +163,9 @@ final class ComponentStyleForm extends EntityForm {
       $shapeId = $trigger['#shape_id'] ?? NULL;
       $shapeValue = $form_state->getValue($trigger['#parents'], NULL);
       if ($shapeId && $shapeValue !== NULL) {
-        $this->sdcPreviewStore->setStyle($this->entity, $shapeId, $shapeValue);
+        // A checkbox (an on/off style) submits an int; the store keeps the
+        // form's values as strings.
+        $this->sdcPreviewStore->setStyle($this->entity, $shapeId, (string) $shapeValue);
         $response->addCommand(new InstanceComponentManageIframeCommand('#' . $manageId . ' iframe'));
       }
     }
@@ -189,6 +173,26 @@ final class ComponentStyleForm extends EntityForm {
     $response->addCommand(new CssCommand('.neo-component-style-form--reset', [
       'display' => '',
     ]));
+
+    // The style just changed may now match the saved one, or differ from it,
+    // so the count and every row's marker are recomputed rather than bumped.
+    $overridden = 0;
+    foreach ($this->entity->getPropShapes() as $propName => $shape) {
+      if (!$shape instanceof StyleShapeBase) {
+        continue;
+      }
+      $isOverridden = $shape->isPreviewOverridden();
+      $overridden += (int) $isOverridden;
+      $response->addCommand(new InvokeCommand(
+        '[data-neo-style-row="' . $propName . '"]',
+        'toggleClass',
+        ['is-overridden', $isOverridden],
+      ));
+    }
+    $response->addCommand(new ReplaceCommand(
+      '#neo-component-style-trigger .neo-alchemist--band-popover-count',
+      ComponentManageHelper::buildBandPopoverCount($overridden),
+    ));
 
     return $response;
   }
