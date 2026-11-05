@@ -187,7 +187,9 @@
   // A field focus asked for along with an edit, claimed by the edit form when
   // it opens (component-parent.ts). Stale after a while: an edit that never
   // opened must not hijack the next one.
-  let fieldFocus: { prop?: string; locate?: NeoAlchemistLocate; at: number } | null = null;
+  // A focus queued from a preview click names the component it was made on,
+  // so selecting another one before the form arrives drops it.
+  let fieldFocus: { prop?: string; locate?: NeoAlchemistLocate; uuid?: string; at: number } | null = null;
   const FIELD_FOCUS_TTL = 20000;
 
   /**
@@ -218,7 +220,20 @@
       if (!pending || Date.now() - pending.at > FIELD_FOCUS_TTL) {
         return null;
       }
+      if (pending.uuid && pending.uuid !== inspectorUuid) {
+        return null;
+      }
       return { prop: pending.prop, locate: pending.locate };
+    },
+    queueFieldFocus(prop, label) {
+      if (!inspectorUuid || dockBody?.getAttribute('aria-busy') !== 'true') {
+        return false;
+      }
+      // The last click wins: the form focuses one field.
+      fieldFocus = { prop, uuid: inspectorUuid, at: Date.now() };
+      inspectorSkeletonLabel = label;
+      inspectorSkeletonFill();
+      return true;
     },
   };
 
@@ -2171,6 +2186,9 @@
   // Increments per form load, so a slow response for a component the
   // selection has since left is dropped rather than shown.
   let inspectorLoadToken = 0;
+  // The loading skeleton's delay, and the clicked prop it names.
+  let inspectorSkeletonTimer = 0;
+  let inspectorSkeletonLabel = '';
 
   function inspectorInit(): void {
     if (!dock || !dockBody) {
@@ -2278,6 +2296,8 @@
     if (!dockBody) {
       return;
     }
+    inspectorSkeletonCancel();
+    dockBody.removeAttribute('aria-busy');
     Drupal.detachBehaviors(dockBody, drupalSettings, 'unload');
     dockBody.innerHTML = '';
     dockBandClear();
@@ -2295,6 +2315,53 @@
     note.textContent = text;
     dockBody.appendChild(note);
     inspectorDirtySet(false);
+  }
+
+  /**
+   * Fills the dock while a component's form loads.
+   *
+   * Grey bars shaped like fields, so the wait reads as loading rather than as
+   * an empty inspector, and, once a prop has been clicked in the preview, the
+   * field the form will open on. The form's response replaces it wholesale.
+   */
+  function inspectorSkeletonShow(): void {
+    if (!dockBody) {
+      return;
+    }
+    const skeleton = document.createElement('div');
+    skeleton.className = 'neo-alchemist--dock-skeleton';
+    skeleton.setAttribute('aria-hidden', 'true');
+    const label = document.createElement('p');
+    label.className = 'neo-alchemist--dock-skeleton-label';
+    skeleton.appendChild(label);
+    [40, 100, 30, 100, 55, 70].forEach(width => {
+      const bar = document.createElement('span');
+      bar.className = 'neo-alchemist--dock-skeleton-bar';
+      bar.style.width = width + '%';
+      skeleton.appendChild(bar);
+    });
+    dockBody.replaceChildren(skeleton);
+    inspectorSkeletonFill();
+  }
+
+  /**
+   * Names the queued field on the skeleton, when there is one showing.
+   */
+  function inspectorSkeletonFill(): void {
+    const label = dockBody?.querySelector<HTMLElement>('.neo-alchemist--dock-skeleton-label');
+    if (!label) {
+      return;
+    }
+    label.textContent = inspectorSkeletonLabel
+      ? Drupal.t('Opening @field…', { '@field': inspectorSkeletonLabel })
+      : '';
+    label.style.display = inspectorSkeletonLabel ? '' : 'none';
+  }
+
+  function inspectorSkeletonCancel(): void {
+    window.clearTimeout(inspectorSkeletonTimer);
+    inspectorSkeletonTimer = 0;
+    inspectorSkeletonLabel = '';
   }
 
   /**
@@ -2317,6 +2384,14 @@
     dockBody.innerHTML = '';
     dockBandClear();
     dockBody.setAttribute('aria-busy', 'true');
+    // A fast form swaps straight in; a slow one shows the skeleton.
+    inspectorSkeletonCancel();
+    inspectorSkeletonTimer = window.setTimeout(() => {
+      inspectorSkeletonTimer = 0;
+      if (token === inspectorLoadToken) {
+        inspectorSkeletonShow();
+      }
+    }, 150);
     const ajax: any = Drupal.ajax({
       url: appendParams(op.url, { dock: '1' }),
       wrapper: dockBody.id,
@@ -2328,8 +2403,21 @@
       if (token !== inspectorLoadToken) {
         return;
       }
+      inspectorSkeletonCancel();
       dockBody.removeAttribute('aria-busy');
+      // Gone before the response inserts anything: a response that inserts
+      // no form must not leave the skeleton promising one.
+      dockBody.querySelector('.neo-alchemist--dock-skeleton')?.remove();
       return success.call(this, response, status);
+    };
+    // Left up, the skeleton would claim a form is still coming.
+    const error = ajax.error;
+    ajax.error = function (this: any, ...args: any[]) {
+      if (token === inspectorLoadToken) {
+        dockBody.removeAttribute('aria-busy');
+        inspectorEmpty(Drupal.t('The form could not be loaded. Select the component again to retry.'));
+      }
+      return error.apply(this, args);
     };
     ajax.execute();
     // The frames render with this component's prop markers and map, so a
@@ -2343,6 +2431,8 @@
     }
     const had = inspectorUuid;
     inspectorLoadToken++;
+    inspectorSkeletonCancel();
+    dockBody.removeAttribute('aria-busy');
     inspectorUuid = null;
     inspectorDirtySet(false);
     inspectorPromptHide();

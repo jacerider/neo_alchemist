@@ -1363,6 +1363,16 @@
 
       prop: function (data:any) {
         if (typeof data.propId === 'string' && data.propId) {
+          const title = typeof data.title === 'string' ? data.title : '';
+          // The inspector is still loading this component's form: outline the
+          // prop now and let the form focus its field when it binds.
+          if (!resolvePropWrapper(data.propId)
+            && Drupal.neoAlchemist?.editor?.queueFieldFocus?.(data.propId, title)) {
+            hintProp(null);
+            setActiveProp(data.propId, null, title);
+            postPropFocus();
+            return;
+          }
           focusProp(data.propId);
           return;
         }
@@ -1524,6 +1534,11 @@
      * (heading~title → heading).
      */
     function resolvePropWrapper(propId: string): HTMLElement | null {
+      // The inspector empties the dock on each selection, which leaves the
+      // last form detached until the next one binds.
+      if (!form?.isConnected) {
+        resolveForm();
+      }
       if (!form) {
         return null;
       }

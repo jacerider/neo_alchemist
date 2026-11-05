@@ -442,7 +442,9 @@
       // A click on nothing in particular is a deselect: it already blurs the
       // form field, so the outline has to go with it rather than being left
       // pointing at a prop no longer being edited.
-      post('prop', { propId: target ? propIdOf(target) : null });
+      const propId = target ? propIdOf(target) : null;
+      // The title lets the editor name the field while its form still loads.
+      post('prop', { propId, title: propId ? (propMap?.props[propId]?.title || '') : '' });
     });
   };
 

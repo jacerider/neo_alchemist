@@ -101,6 +101,12 @@ interface NeoAlchemistEditorApi {
   focus(target: NeoAlchemistFocusTarget): boolean;
   /** Edit-form internal: claims a focus request made in the last moments. */
   takeFieldFocus?(): Pick<NeoAlchemistFocusTarget, 'prop' | 'locate'> | null;
+  /**
+   * Edit-form internal: holds a prop clicked in the preview while the selected
+   * component's form is still loading, for the form to claim when it binds.
+   * False when no form is loading, so the click is the form's to handle.
+   */
+  queueFieldFocus?(prop: string, label: string): boolean;
 }
 
 /**
