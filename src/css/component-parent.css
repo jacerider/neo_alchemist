@@ -237,6 +237,7 @@ form.neo-alchemist-manage--form:has(.neo-alchemist--form-layout) > .form--inner,
     font-size: 0.7rem;
     font-weight: 700;
     text-transform: uppercase;
+    white-space: nowrap;
     color: rgb(var(--color-base-500));
   }
 

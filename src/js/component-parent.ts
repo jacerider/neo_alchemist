@@ -572,6 +572,10 @@
     let captureRequestId = '';
     let captureToolbar: HTMLElement | null = null;
     let captureButtonLabel = captureButton ? getButtonLabel(captureButton) : '';
+    // Where the saved component editor's capture lands: 'component' (its own
+    // neo_config_file) or 'folder' (the SDC's thumbnail.png). Only offered
+    // when the button carries the folder endpoint, i.e. in local development.
+    let captureTarget = 'component';
     if (captureButton) {
       captureButton.addEventListener('click', (e) => {
         e.preventDefault();
@@ -585,6 +589,7 @@
         captureRequestId = window.crypto && 'randomUUID' in window.crypto
           ? window.crypto.randomUUID()
           : Date.now() + '-' + Math.random();
+        captureTarget = captureButton.dataset.captureTarget || 'component';
         captureButton.setAttribute('disabled', 'disabled');
         setButtonLabel(captureButton, Drupal.t('Composing thumbnail…'));
         // The thumbnail is framed in the desktop preview, so that is the one
@@ -687,6 +692,35 @@
       widthGroup.appendChild(slider);
       widthGroup.appendChild(readout);
       bar.appendChild(widthGroup);
+
+      const shared = captureButton ? captureButton.dataset.captureShared : undefined;
+      if (shared) {
+        const targetGroup = document.createElement('div');
+        targetGroup.className = 'neo-alchemist-capture-toolbar__group';
+        const targetLabel = document.createElement('span');
+        targetLabel.className = 'neo-alchemist-capture-toolbar__label';
+        targetLabel.textContent = Drupal.t('Save to');
+        targetGroup.appendChild(targetLabel);
+        const targetButtons = document.createElement('div');
+        targetButtons.className = 'btn-group';
+        ([
+          [Drupal.t('This component'), 'component'],
+          [Drupal.formatPlural(parseInt(shared, 10), 'Component folder (1 component)', 'Component folder (@count components)'), 'folder'],
+        ] as [string, string][]).forEach(([label, value]) => {
+          const b = document.createElement('button');
+          b.type = 'button';
+          b.className = 'btn btn-xs' + (value === captureTarget ? ' is-active' : '');
+          b.textContent = label;
+          b.addEventListener('click', () => {
+            targetButtons.querySelectorAll('button').forEach(el => el.classList.remove('is-active'));
+            b.classList.add('is-active');
+            captureTarget = value;
+          });
+          targetButtons.appendChild(b);
+        });
+        targetGroup.appendChild(targetButtons);
+        bar.appendChild(targetGroup);
+      }
 
       const actions = document.createElement('div');
       actions.className = 'neo-alchemist-capture-toolbar__group neo-alchemist-capture-toolbar__actions';
@@ -819,8 +853,10 @@
      *
      * Used by the raw-SDC preview workspace, where the image belongs beside
      * the .component.yml — so it travels with the component in git — rather
-     * than in a config file. Unlike attachThumbnail() this needs no save step:
-     * the server writes the file and core picks it up on the next request.
+     * than in a config file, and by the saved component editor when the
+     * folder is picked as the target. Unlike attachThumbnail() this needs no
+     * save step: the server writes the file and core picks it up on the next
+     * request.
      *
      * The button only carries a URL when the server has already decided the
      * write is possible, so an error here is genuinely exceptional.
@@ -842,9 +878,33 @@
         }
         captureButtonLabel = Drupal.t('Re-capture thumbnail');
         resetCaptureButton();
-        showCaptureMessage(Drupal.t('Thumbnail written to @path', {
-          '@path': result.path || 'thumbnail.png',
-        }), 'status');
+        // On the saved component editor, a thumbnail of its own would keep
+        // overriding the folder one, so it is removed (kept off on save).
+        const formElement = captureButton ? captureButton.closest('form') as HTMLElement | null : null;
+        const removeButton = formElement ? formElement.querySelector('[name="thumbnail_remove_button"]') : null;
+        const markFolderSource = () => {
+          const source = document.querySelector('.neo-alchemist--thumbnail-source');
+          if (source) {
+            source.textContent = Drupal.t('From the component folder (shared).');
+          }
+        };
+        if (formElement && removeButton) {
+          removeButton.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
+          // The removal rebuilds the field, description included, so the
+          // source is only marked once the upload input is back.
+          waitForElement(formElement, 'input[type="file"][name="files[thumbnail]"]', 15000)
+            .then(markFolderSource, () => {});
+        }
+        else {
+          markFolderSource();
+        }
+        showCaptureMessage(removeButton
+          ? Drupal.t('Thumbnail written to @path. Save the component so it uses it instead of its own.', {
+            '@path': result.path || 'thumbnail.png',
+          })
+          : Drupal.t('Thumbnail written to @path', {
+            '@path': result.path || 'thumbnail.png',
+          }), 'status');
         // Every capture writes the same filename, so the preview only updates
         // if it takes the cache-busted URL the server just handed back.
         const preview = document.querySelector('.neo-alchemist--thumbnail-preview') as HTMLImageElement | null;
@@ -1383,8 +1443,9 @@
         // The raw-SDC preview workspace has no managed-file element and no
         // config entity to hang the image on — it posts the PNG straight into
         // the component's own directory instead.
+        // The saved component editor offers the folder too, when picked.
         const captureUrl = captureButton.dataset.captureUrl;
-        if (captureUrl) {
+        if (captureUrl && (!captureButton.dataset.filename || captureTarget === 'folder')) {
           uploadThumbnail(captureUrl, data.blob);
           return;
         }

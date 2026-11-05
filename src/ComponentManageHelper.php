@@ -6,6 +6,7 @@ use Drupal\Component\Render\MarkupInterface;
 use Drupal\Component\Utility\Html;
 use Drupal\Core\Cache\CacheableMetadata;
 use Drupal\Core\Plugin\Component as ComponentPlugin;
+use Drupal\Core\Render\BubbleableMetadata;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\Core\Url;
 use Drupal\neo_alchemist\Plugin\Field\FieldType\ComponentTreeItem;
@@ -98,6 +99,38 @@ class ComponentManageHelper {
    */
   public static function placeholderThumbnailUri(): string {
     return \Drupal::service('extension.list.module')->getPath('neo_alchemist') . '/images/thumbnail.jpg';
+  }
+
+  /**
+   * Points a capture button at the endpoint that writes the SDC's thumbnail.
+   *
+   * The CSRF token is not in this URL yet: RouteProcessorCsrf leaves a
+   * placeholder and registers a #lazy_builder in the URL's bubbleable
+   * metadata. That metadata only bubbles inside an active render context, and
+   * the SDC preview form is built before ComponentPageRenderer::
+   * renderBarePage() opens the root context that would replace the
+   * placeholder, so it is attached to the element by hand or the token stays a
+   * dead hash and every capture 403s.
+   *
+   * @param array $element
+   *   The capture button.
+   * @param string $component
+   *   The SDC component id.
+   *
+   * @return array
+   *   The button, carrying the URL as data-capture-url.
+   */
+  public static function withThumbnailCaptureUrl(array $element, string $component): array {
+    $generated = Url::fromRoute('neo_alchemist.sdc_thumbnail_capture', [
+      'component' => $component,
+    ])->toString(TRUE);
+    $element['#attributes']['data-capture-url'] = $generated->getGeneratedUrl();
+    // Merge rather than apply the GeneratedUrl directly: applyTo() replaces
+    // #attached wholesale.
+    BubbleableMetadata::createFromRenderArray($element)
+      ->merge($generated)
+      ->applyTo($element);
+    return $element;
   }
 
   /**

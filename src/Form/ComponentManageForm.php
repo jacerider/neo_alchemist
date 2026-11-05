@@ -12,8 +12,10 @@ use Drupal\Core\Entity\EntityInterface;
 use Drupal\Core\Entity\EntityTypeBundleInfoInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Form\FormStateInterface;
+use Drupal\Core\Render\Markup;
 use Drupal\Core\Render\Element;
 use Drupal\neo_alchemist\ComponentInterface;
+use Drupal\neo_alchemist\ComponentManageHelper;
 use Drupal\neo_alchemist\Shape\ComponentShapeStylePluginInterface;
 use Drupal\neo_alchemist\ComponentSizePluginManager;
 use Drupal\neo_alchemist\Value\ComponentValueGroupPluginManager;
@@ -69,16 +71,25 @@ final class ComponentManageForm extends EntityForm {
   protected $permissionHandler;
 
   /**
+   * The SDC thumbnail writer.
+   *
+   * @var \Drupal\neo_alchemist\SdcThumbnailWriter
+   */
+  protected $thumbnailWriter;
+
+  /**
    * {@inheritdoc}
    */
   public static function create(ContainerInterface $container) {
-    return new static(
+    $form = new static(
       $container->get('entity_type.bundle.info'),
       $container->get('entity_type.manager'),
       $container->get('plugin.manager.neo_component_size'),
       $container->get('plugin.manager.neo_component_value_group'),
       $container->get('user.permissions')
     );
+    $form->thumbnailWriter = $container->get('neo_alchemist.sdc_thumbnail_writer');
+    return $form;
   }
 
   /**
@@ -101,6 +112,89 @@ final class ComponentManageForm extends EntityForm {
     $this->componentValueSizeManager = $component_value_size_manager;
     $this->componentValueGroupManager = $component_value_group_manager;
     $this->permissionHandler = $permission_handler;
+  }
+
+  /**
+   * Builds the thumbnail field and its capture button.
+   *
+   * A capture lands on this component (a neo_config_file, kept when the form
+   * is saved) or, during local development, in the SDC's own directory as
+   * thumbnail.png, which every component built from the SDC falls back to.
+   * The capture toolbar offers the choice; the button carries what it needs:
+   * the folder endpoint, how many components share the folder, and which
+   * target to start on. The folder is the default only for the SDC's sole
+   * component, where nothing else could pick its thumbnail up.
+   *
+   * @param \Drupal\neo_alchemist\ComponentInterface $entity
+   *   The component.
+   *
+   * @return array
+   *   The thumbnail elements.
+   */
+  protected function buildThumbnailForm(ComponentInterface $entity): array {
+    $thumbnailId = $entity->getThumbnailId();
+    $defaultThumbnail = $entity->getDefaultThumbnail();
+    $filename = Html::getClass('component-' . $entity->id());
+    $elements['thumbnail'] = [
+      '#type' => 'neo_config_file',
+      '#title' => $this->t('Thumbnail'),
+      '#filename' => $filename,
+      '#extensions' => ['png'],
+      '#dependencies' => [
+        $entity->getConfigDependencyKey() => [
+          $entity->getConfigDependencyName(),
+        ],
+      ],
+      '#default_value' => $thumbnailId,
+    ];
+    if (!$thumbnailId && $defaultThumbnail) {
+      $elements['thumbnail']['#field_prefix'] = [
+        '#theme' => 'image',
+        '#uri' => ComponentManageHelper::sdcThumbnailUri($entity->getComponent()),
+        '#attributes' => [
+          // How the capture JS swaps in a re-captured folder thumbnail, which
+          // keeps its filename and so needs the server's cache-busted URL.
+          'class' => ['neo-alchemist--thumbnail-preview'],
+          'style' => 'display: block; max-width: 80px; max-height: 80px',
+        ],
+        '#prefix' => '<div class="flex items-center justify-center pr-2">',
+        '#suffix' => '</div>',
+      ];
+    }
+    // A string, not a render array: the element hands its description to
+    // file_upload_help, which prints it as text beside the upload limits.
+    $source = match (TRUE) {
+      (bool) $thumbnailId => $this->t('Captured for this component.'),
+      (bool) $defaultThumbnail => $this->t('From the component folder (shared).'),
+      default => $this->t('Placeholder. No thumbnail captured yet.'),
+    };
+    $elements['thumbnail']['#description'] = Markup::create('<span class="neo-alchemist--thumbnail-source">' . Html::escape((string) $source) . '</span>');
+
+    $capture = [
+      '#type' => 'button',
+      '#value' => $thumbnailId ? $this->t('Re-capture thumbnail') : $this->t('Capture thumbnail'),
+      '#id' => 'neo-alchemist-thumbnail-capture-button',
+      '#attributes' => [
+        'class' => ['btn', 'btn-xs', 'mt-2'],
+        'data-filename' => $filename,
+      ],
+    ];
+    $componentId = $entity->getComponentId();
+    if ($this->thumbnailWriter->isWritable($componentId)) {
+      // Every saved component of the SDC counts, whatever its group: they all
+      // fall back to the same thumbnail.png.
+      $shared = (int) $this->entityTypeManager->getStorage('neo_component')
+        ->getQuery()
+        ->accessCheck(FALSE)
+        ->condition('component', $componentId)
+        ->count()
+        ->execute();
+      $capture = ComponentManageHelper::withThumbnailCaptureUrl($capture, $componentId);
+      $capture['#attributes']['data-capture-shared'] = max(1, $shared);
+      $capture['#attributes']['data-capture-target'] = $shared > 1 ? 'component' : 'folder';
+    }
+    $elements['thumbnail_capture'] = $capture;
+    return $elements;
   }
 
   /**
@@ -156,40 +250,7 @@ final class ComponentManageForm extends EntityForm {
       '#neo_size' => 'sm',
     ];
 
-    $thumbnailId = $entity->getThumbnailId();
-    $form['thumbnail'] = [
-      '#type' => 'neo_config_file',
-      '#title' => $this->t('Thumbnail'),
-      '#filename' => Html::getClass('component-' . $entity->id()),
-      '#extensions' => ['png'],
-      '#dependencies' => [
-        $entity->getConfigDependencyKey() => [
-          $entity->getConfigDependencyName(),
-        ],
-      ],
-      '#default_value' => $thumbnailId,
-    ];
-    if (!$thumbnailId && ($thumbnail = $entity->getDefaultThumbnail())) {
-      $form['thumbnail']['#field_prefix'] = [
-        '#theme' => 'image',
-        '#uri' => $thumbnail,
-        '#attributes' => [
-          'style' => 'display: block; max-width: 80px; max-height: 80px',
-        ],
-        '#prefix' => '<div class="flex items-center justify-center pr-2">',
-        '#suffix' => '</div>',
-      ];
-    }
-
-    $form['thumbnail_capture'] = [
-      '#type' => 'button',
-      '#value' => $thumbnailId ? $this->t('Re-capture thumbnail') : $this->t('Capture thumbnail'),
-      '#id' => 'neo-alchemist-thumbnail-capture-button',
-      '#attributes' => [
-        'class' => ['btn', 'btn-xs', 'mt-2'],
-        'data-filename' => Html::getClass('component-' . $entity->id()),
-      ],
-    ];
+    $form += $this->buildThumbnailForm($entity);
 
     if ($entity->getTargetEntityTypeId()) {
       $form['entity_preview'] = [

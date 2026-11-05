@@ -8,7 +8,6 @@ use Drupal\Core\Ajax\AjaxResponse;
 use Drupal\Core\Entity\EntityForm;
 use Drupal\Core\Entity\EntityInterface;
 use Drupal\Core\Form\FormStateInterface;
-use Drupal\Core\Render\BubbleableMetadata;
 use Drupal\Core\Url;
 use Drupal\neo_alchemist\Ajax\InstanceComponentManageIframeCommand;
 use Drupal\neo_alchemist\ComponentManageHelper;
@@ -242,22 +241,7 @@ final class SdcPreviewForm extends EntityForm {
     ];
 
     if (!$reason) {
-      // The CSRF token is not in this URL yet — RouteProcessorCsrf leaves a
-      // placeholder and registers a #lazy_builder in the URL's bubbleable
-      // metadata. That metadata only bubbles inside an active render context,
-      // and this form is built before ComponentPageRenderer::renderBarePage()
-      // opens the root context that would replace the placeholder, so it has
-      // to be attached to this element by hand or the token stays a dead hash
-      // and every capture 403s.
-      $generated = Url::fromRoute('neo_alchemist.sdc_thumbnail_capture', [
-        'component' => $componentId,
-      ])->toString(TRUE);
-      $element['#attributes']['data-capture-url'] = $generated->getGeneratedUrl();
-      // Merge rather than apply the GeneratedUrl directly: applyTo() replaces
-      // #attached wholesale.
-      BubbleableMetadata::createFromRenderArray($element)
-        ->merge($generated)
-        ->applyTo($element);
+      $element = ComponentManageHelper::withThumbnailCaptureUrl($element, $componentId);
     }
 
     $actions['thumbnail_capture'] = $element;
