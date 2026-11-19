@@ -26,7 +26,21 @@ final class OptionFilter extends ComponentFilterPluginBase {
   public function buildForm(array $form, FormStateInterface $form_state, $is_default_form = FALSE): array {
     $form = parent::buildForm($form, $form_state, $is_default_form);
     $form['value']['#type'] = 'select';
-    $form['value']['#title'] = $this->t('Select an option');
+    // The filter's own name, carried invisibly. Both consuming forms already
+    // show it on the wrapper around this element - a fieldset in the
+    // placement's Sources tab, the "Default Value" fieldset on the component's
+    // own form - so a visible label repeats it. The generic "Select an option"
+    // that used to sit here repeated the position of the control rather than
+    // its meaning, giving every options filter two headings and no extra
+    // information: "Course source" above "Select an option" above the select.
+    //
+    // It is not dropped, because core can only word a #required error as
+    // "@name field is required." when the element has a #title, and without
+    // one it raises an error carrying no message at all.
+    //
+    // @see \Drupal\neo_alchemist\Plugin\ComponentFilter\EntityFilter::buildForm()
+    $form['value']['#title'] = $this->filter->label();
+    $form['value']['#title_display'] = 'invisible';
     $form['value']['#options'] = $this->getPluginDefinition()['options'];
     return $form;
   }
