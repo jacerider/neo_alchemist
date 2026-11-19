@@ -255,6 +255,19 @@ final class InstanceComponentForm extends ContentEntityForm {
     $form['#parents'] = [];
     $form['#id'] = ComponentValuePanelBuilder::FORM_ID;
     $form['#attributes']['class'][] = ComponentValuePanelBuilder::FORM_ID;
+    // The browser must not pre-validate this form. Its three sections are tab
+    // panes and the two that are not open are `display: none`, so a
+    // `#required` control inside one is present, empty and unfocusable. A
+    // browser asked to validate that refuses to submit and has nowhere to
+    // show the message, which reaches the builder as a Save button that does
+    // nothing at all: no error, no response, no clue which tab to open.
+    //
+    // Nothing is lost by turning it off. `#required` is enforced server-side
+    // either way, and Drupal's own error names the field.
+    //
+    // @see ::markFormPane()
+    // @see \Drupal\Core\Form\FormValidator::doValidateForm()
+    $form['#attributes']['novalidate'] = 'novalidate';
     $form['#neo_style'] = 'default';
     $form['#neo_size'] = 'sm';
 
