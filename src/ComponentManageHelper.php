@@ -5,6 +5,7 @@ namespace Drupal\neo_alchemist;
 use Drupal\Component\Render\MarkupInterface;
 use Drupal\Component\Utility\Html;
 use Drupal\Core\Cache\CacheableMetadata;
+use Drupal\Core\Entity\RevisionableInterface;
 use Drupal\Core\Plugin\Component as ComponentPlugin;
 use Drupal\Core\Render\BubbleableMetadata;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
@@ -741,11 +742,28 @@ class ComponentManageHelper {
    * Builds the band's status line: where the shared draft stands.
    *
    * Under the screen's title, so it reads as part of what is open rather than
-   * as one more control: "Unsaved changes" with a warning dot while a draft
-   * exists, "All changes saved" otherwise, then the presence chip when a
-   * colleague last wrote the draft, since who else is in it belongs with
-   * where it stands. Only an entity's layout has a draft, so only it has the
-   * line.
+   * as one more control, then the presence chip when a colleague last wrote
+   * the draft, since who else is in it belongs with where it stands. Only an
+   * entity's layout has a draft, so only it has the line.
+   *
+   * Three states, not two, and the third is the one worth explaining:
+   *
+   * - **Unsaved changes** — a shared draft exists.
+   * - **Saved, not published** — no draft, but the revision being edited is
+   *   not the default one. Content moderation puts a node here routinely: the
+   *   layout is saved, and it is sitting in a workflow state that is not live.
+   * - **All changes saved** — nothing unsaved and nothing unpublished.
+   *
+   * The middle state used to read "All changes saved", which contradicted the
+   * Save button standing right beside it — ::buildDynamicOperations() offers
+   * Save on exactly `hasDraft() || !isDefaultRevision()`, so a moderated node
+   * with a forward revision showed "All changes saved" next to a button saying
+   * there was something to save. Editors read that as a broken button and
+   * pressed it repeatedly; what it actually wanted was the workflow state in
+   * the publish dialog moved to Published.
+   *
+   * The green dot therefore means precisely "Save is not being offered", which
+   * is what keeps the two in step.
    *
    * Re-rendered with the save group after every write, into
    * `.neo-alchemist-manage--top-status` (see ComponentAjaxHelperTrait and
@@ -756,9 +774,21 @@ class ComponentManageHelper {
    *
    * @return array
    *   The status line's render array.
+   *
+   * @see \Drupal\neo_alchemist\Plugin\Field\FieldType\ComponentTreeItem::access()
+   * @see ::buildDynamicOperations()
    */
   public static function buildDraftStatus(ComponentTreeItem $instance): array {
     $hasDraft = $instance->hasDraft();
+    // Saved, but not the live revision. Mirrors the second half of the publish
+    // access rule rather than calling it: access() also tests update
+    // permission, and a status line that changed wording with the reader's
+    // permissions would say the content is published to one editor and not to
+    // another.
+    $entity = $instance->getEntity();
+    $unpublished = !$hasDraft
+      && $entity instanceof RevisionableInterface
+      && !$entity->isDefaultRevision();
     $build = [
       'status' => [
         '#type' => 'html_tag',
@@ -773,13 +803,17 @@ class ComponentManageHelper {
           '#attributes' => [
             'class' => [
               'neo-alchemist--status-dot', 'size-2', 'rounded-full',
-              $hasDraft ? 'bg-warning-500' : 'bg-success-500',
+              $hasDraft || $unpublished ? 'bg-warning-500' : 'bg-success-500',
             ],
             'aria-hidden' => 'true',
           ],
         ],
         'label' => [
-          '#plain_text' => $hasDraft ? t('Unsaved changes') : t('All changes saved'),
+          '#plain_text' => match (TRUE) {
+            $hasDraft => t('Unsaved changes'),
+            $unpublished => t('Saved, not published'),
+            default => t('All changes saved'),
+          },
         ],
       ],
       // Per user and per write: never cached.
