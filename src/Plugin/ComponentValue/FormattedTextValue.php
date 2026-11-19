@@ -156,12 +156,40 @@ final class FormattedTextValue extends ComponentValuePluginBase implements Conta
 
   /**
    * Form element #after_build callback.
+   *
+   * Hides the text-format controls: the format is decided by this plugin's own
+   * configuration, so the selector, its guidelines and its help link are noise
+   * on a component form.
+   *
+   * Every key is checked before it is written to. Writing `#access` to a key
+   * that does not exist CREATES an element there, and an element born in
+   * #after_build never passed through FormBuilder::doBuildForm(), so it
+   * carries no `#parents`. Nothing notices until the form has an error:
+   * FormErrorHandler then walks the whole tree and FormState::getError()
+   * reads `#parents` off every element it meets, so the stray one turns one
+   * real validation message into three — the error, plus "Undefined array key
+   * #parents" and "foreach() argument must be of type array|object, null
+   * given".
+   *
+   * `help` is the key that bit: core's TextFormat element stopped building an
+   * `$element['format']['help']` child, so this method had been conjuring one
+   * on every component form carrying a formatted-text prop. The guard covers
+   * every key this method touches, the wrapper included, rather than that one,
+   * because the next key core drops would fail exactly the same way.
+   *
+   * @see \Drupal\filter\Element\TextFormat::processFormat()
+   * @see \Drupal\Core\Form\FormErrorHandler::setElementErrorsFromFormState()
    */
   public static function afterBuild(array $element, FormStateInterface $form_state): array {
+    if (!isset($element[0]['format'])) {
+      return $element;
+    }
     $element[0]['format']['#attributes']['class'][] = 'hidden';
-    $element[0]['format']['guidelines']['#access'] = FALSE;
-    $element[0]['format']['help']['#access'] = FALSE;
-    $element[0]['format']['format']['#access'] = FALSE;
+    foreach (['guidelines', 'help', 'format'] as $key) {
+      if (isset($element[0]['format'][$key])) {
+        $element[0]['format'][$key]['#access'] = FALSE;
+      }
+    }
     return $element;
   }
 
