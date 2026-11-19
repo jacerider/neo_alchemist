@@ -74,6 +74,19 @@ final class EntityFilter extends ComponentFilterPluginBase implements ContainerF
 
   /**
    * {@inheritdoc}
+   *
+   * No `entity_preview` key. The preview entities are deliberately NOT
+   * configuration: ::configurationValidate() writes them to state and unsets
+   * the submitted value, because they are a per-environment editing
+   * convenience and their ids do not survive a deploy. Declaring the key here
+   * put it back, since ::setConfiguration() merges these defaults under the
+   * stored settings — so every filter saved since carried `entity_preview:
+   * null` into config, where the schema has no entry for it and every later
+   * save of that component warned about it.
+   *
+   * @see ::configurationValidate()
+   * @see ::getEntityPreviews()
+   * @see neo_alchemist_update_11011()
    */
   public function defaultConfiguration() {
     return [
@@ -85,7 +98,6 @@ final class EntityFilter extends ComponentFilterPluginBase implements ContainerF
       'bundles' => [],
       'include' => [],
       'exclude' => [],
-      'entity_preview' => NULL,
     ];
   }
 

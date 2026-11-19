@@ -1199,3 +1199,63 @@ function neo_alchemist_update_11010() {
   $config->set('description_from_content', TRUE)->save();
   return (string) t('Pages without a description of their own are now described by their first rich text (neo_alchemist settings: description_from_content).');
 }
+
+/**
+ * Strip the stray `entity_preview` key out of saved entity filter settings.
+ *
+ * EntityFilter keeps its preview entities in state, not in configuration:
+ * ::configurationValidate() writes them there and unsets the submitted value,
+ * because the ids are a per-environment editing convenience that does not
+ * survive a deploy. ::defaultConfiguration() nevertheless declared
+ * `entity_preview => NULL`, and ComponentFilterPluginBase::setConfiguration()
+ * merges those defaults under the stored settings — so the key was written
+ * back into config on every save.
+ *
+ * The schema for `neo_alchemist.neo_component_filter.entity` has no entry for
+ * it, so each affected component raised a "missing schema" warning every time
+ * it was saved. Dropping the default stops new ones; this clears the ones
+ * already stored, which setConfiguration() would otherwise keep preserving.
+ *
+ * Idempotent: a filter without the key is left untouched, so re-running costs
+ * a read and nothing else.
+ */
+function neo_alchemist_update_11011() {
+  $storage = \Drupal::entityTypeManager()->getStorage('neo_component');
+  $cleaned = [];
+
+  foreach ($storage->loadMultiple() as $component) {
+    $settings = $component->get('settings');
+    if (!isset($settings['filters']) || !is_array($settings['filters'])) {
+      continue;
+    }
+    $changed = FALSE;
+    foreach ($settings['filters'] as $uuid => $filter) {
+      // Only the entity filter ever declared the key. Checking the plugin id
+      // as well as the key keeps this from touching a different plugin that
+      // legitimately stores settings under that name.
+      if (($filter['plugin_id'] ?? NULL) !== 'entity') {
+        continue;
+      }
+      if (!is_array($filter['plugin_settings'] ?? NULL)) {
+        continue;
+      }
+      if (!array_key_exists('entity_preview', $filter['plugin_settings'])) {
+        continue;
+      }
+      unset($settings['filters'][$uuid]['plugin_settings']['entity_preview']);
+      $changed = TRUE;
+    }
+    if ($changed) {
+      $component->set('settings', $settings)->save();
+      $cleaned[] = $component->id();
+    }
+  }
+
+  if (!$cleaned) {
+    return (string) t('No saved entity filter carried the stray entity_preview key.');
+  }
+  return (string) t('Removed the stray entity_preview key from @count component(s): @list. Their preview entities are unaffected — those live in state.', [
+    '@count' => count($cleaned),
+    '@list' => implode(', ', $cleaned),
+  ]);
+}
