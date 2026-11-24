@@ -2399,8 +2399,20 @@
         return;
       }
       const chips = form?.querySelector<HTMLElement>('.neo-alchemist--form-chips');
-      band.querySelector('.neo-alchemist--dock-identity')?.replaceChildren(identity);
+      const identitySlot = band.querySelector<HTMLElement>('.neo-alchemist--dock-identity');
+      if (identitySlot) {
+        // The outgoing name's help tooltip is discarded with it.
+        Drupal.detachBehaviors(identitySlot, drupalSettings, 'unload');
+        identitySlot.replaceChildren(identity);
+      }
       band.querySelector('.neo-alchemist--dock-chips')?.replaceChildren(...(chips ? [chips] : []));
+      // The name's help badge (buildIdentity() in InstanceComponentForm) is a
+      // tooltip. The form arrives by AJAX and this behavior can run before
+      // neoTooltip's, so by the time that one searches the form for
+      // `.use-neo-tooltip` the badge has already left it, and the ? did
+      // nothing. Attaching here covers either order: once() skips a badge that
+      // was already wired.
+      Drupal.behaviors.neoTooltip?.attach(identity, drupalSettings);
     }
 
     bindForm();

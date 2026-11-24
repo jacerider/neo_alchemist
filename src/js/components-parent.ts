@@ -1931,7 +1931,13 @@
    * them: a form on its way, or none to load.
    */
   function dockBandClear(): void {
-    container.querySelector('.neo-alchemist--dock-identity')?.replaceChildren();
+    const identity = container.querySelector<HTMLElement>('.neo-alchemist--dock-identity');
+    if (identity) {
+      // The name moved up out of the form, so detaching the dock body does not
+      // reach its help tooltip (dockBandFill() in component-parent.ts).
+      Drupal.detachBehaviors(identity, drupalSettings, 'unload');
+      identity.replaceChildren();
+    }
     container.querySelector('.neo-alchemist--dock-chips')?.replaceChildren();
   }
 
