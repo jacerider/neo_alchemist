@@ -901,12 +901,17 @@ form.neo-alchemist-manage--form:has(.neo-alchemist--form-layout) > .form--inner,
   background: none;
 }
 
-/* The selection's ops, in a menu off the ⋯ beside its name. */
+/* The selection's ops, in a menu off the ⋯ beside its name.
+ *
+ * It drops down over the form below the band, and the form's header (the tab
+ * strip) is itself `z-20` and comes later in the dock — so at an equal 20 the
+ * header painted over the menu's lower half. 50 matches the toolbar's own
+ * More actions menu. */
 .neo-alchemist--dock-menu {
   position: absolute;
   top: calc(100% + 0.25rem);
   right: 0;
-  z-index: 20;
+  z-index: 50;
   width: 13rem;
   padding: 0.25rem;
   border-radius: 0.625rem;
