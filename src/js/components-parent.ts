@@ -1559,6 +1559,11 @@
    * Show overlay for the given component/region UUID.
    */
   function overlayShow(uuid: string, state: OverlayState = 'hover', force: boolean = false): void {
+    // A hover that ended a moment ago still has its hide queued. Crossing a
+    // parent on the way to a child and clicking at once selects the child and
+    // lights the parent as context, and that queued hide must not then take
+    // the parent's outline and shade down again.
+    clearTimeout(overlayTimeouts[uuid] || undefined);
     if (!force && overlayState[uuid] && overlayState[uuid] === state) {
       return;
     }
