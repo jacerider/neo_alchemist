@@ -1,5 +1,27 @@
 # Changelog
 
+## Protected components, and moving a field to hybrid
+
+**An access rule that denies "Create or Remove" now denies deleting and cloning too.** Rules
+were only consulted for view, update and create, and the editor asks about delete and clone by
+their own names, so a Protected component could not be edited but could still be deleted or
+duplicated by the same user. Moving a component is still not governed by a rule.
+
+**`drush neo:alchemist:hybrid-convert <entity type> <field>`** carries layouts saved in custom
+mode over to a field that has been made hybrid. Turning "allow custom" off and flagging a
+region hides every layout the field's entities saved before: those rows hold a whole tree
+under uuids of their own, and hybrid mode looks for region content under the uuids of the
+field default layout. The command matches each row's locked structure to the default by
+component and position and re-keys the region content. It is a dry run unless `--apply` is
+given, converts every revision and translation row, and leaves alone (and reports, with a
+non-zero exit) any row whose locked structure differs from the default: another component at
+the root, an extra one, or content in a region that is not customizable. A row's own prop
+values on a locked component are dropped, as hybrid mode always renders the default's.
+`--bundle` limits it to one bundle.
+
+Order: flag the regions, turn "allow custom" off, then run the command. Until it runs, the
+old rows stay in the database and simply do not render.
+
 ## One click to the thing you can edit
 
 **A click on the canvas now lands on the first component under the pointer that has something

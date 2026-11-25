@@ -692,6 +692,12 @@ the Field-UI Alchemist routes in config scope) and the **per-entity stored value
   but entities own the *content* of flagged regions. This is the mode for
   header/body/footer pages where creators build only the body.
 
+Moving a field from custom to hybrid strands the rows saved while it was custom: each holds
+a whole tree under its own uuids, and the merge below reads region content under the
+default layout's. `drush neo:alchemist:hybrid-convert` (`HybridConversion`, over the pure
+`ComponentTreeStructure::convertToHybridStorage()`) re-keys them, matching locked structure
+by component and position and refusing a row that differs.
+
 Hybrid mechanics:
 
 - **The flag** is the `region_custom` ComponentValue plugin

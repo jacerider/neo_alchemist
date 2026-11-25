@@ -15,6 +15,7 @@ use Drupal\Core\Render\RendererInterface;
 use Drupal\neo_alchemist\ComponentUsage;
 use Drupal\neo_alchemist\DanglingComponentData;
 use Drupal\neo_alchemist\EmptySectionPolicy;
+use Drupal\neo_alchemist\HybridConversion;
 use Drupal\neo_alchemist\Plugin\DataType\ComponentTreeStructure;
 use Drush\Attributes as CLI;
 use Drush\Commands\AutowireTrait;
@@ -48,8 +49,60 @@ final class NeoAlchemistIntegrityCommands extends DrushCommands {
     private readonly CacheTagsInvalidatorInterface $cacheTagsInvalidator,
     #[Autowire(service: 'renderer')]
     private readonly RendererInterface $renderer,
+    #[Autowire(service: 'neo_alchemist.hybrid_conversion')]
+    private readonly HybridConversion $hybridConversion,
   ) {
     parent::__construct();
+  }
+
+  /**
+   * Carries layouts stored in custom mode over to a field made hybrid.
+   *
+   * Making a field hybrid hides every layout its entities saved while it was
+   * fully customizable. This rewrites those rows into the region content
+   * hybrid mode reads. A dry run unless --apply is given.
+   */
+  #[CLI\Command(name: 'neo:alchemist:hybrid-convert', aliases: ['neoa-hybrid'])]
+  #[CLI\Argument(name: 'entityTypeId', description: 'The entity type, e.g. node or commerce_product.')]
+  #[CLI\Argument(name: 'fieldName', description: 'The component tree field.')]
+  #[CLI\Option(name: 'bundle', description: 'Limit to one bundle. Every bundle carrying the field otherwise.')]
+  #[CLI\Option(name: 'apply', description: 'Write the converted rows. Without it nothing is changed.')]
+  #[CLI\FieldLabels(labels: [
+    'bundle' => 'Bundle',
+    'entity_id' => 'Entity',
+    'revision_id' => 'Revision',
+    'langcode' => 'Language',
+    'status' => 'Status',
+    'detail' => 'Detail',
+  ])]
+  #[CLI\DefaultFields(fields: ['bundle', 'entity_id', 'langcode', 'status', 'detail'])]
+  #[CLI\Usage(name: 'drush neo:alchemist:hybrid-convert node field_layout', description: 'Report what converting would do. Exits non-zero when a stored layout does not match the default and would be left unrendered.')]
+  #[CLI\Usage(name: 'drush neo:alchemist:hybrid-convert node field_layout --apply', description: 'Convert the rows that match.')]
+  public function hybridConvert(
+    string $entityTypeId,
+    string $fieldName,
+    array $options = [
+      'bundle' => self::REQ,
+      'apply' => FALSE,
+      'format' => 'table',
+    ],
+  ): CommandResult {
+    $apply = !empty($options['apply']);
+    $rows = $this->hybridConversion->convert($entityTypeId, $fieldName, $options['bundle'] ?: NULL, $apply);
+    $count = array_count_values(array_column($rows, 'status'));
+    $converted = $count['converted'] ?? 0;
+    $this->io()->note(sprintf(
+      '%s %d row(s); %d already converted; %d left alone because their structure differs from the default layout.',
+      $apply ? 'Converted' : 'Would convert',
+      $converted,
+      $count['already'] ?? 0,
+      $count['mismatch'] ?? 0,
+    ));
+    if (!$apply && $converted) {
+      $this->io()->note('Nothing was changed. Re-run with --apply to write.');
+    }
+    $failed = !empty($count['mismatch']) || !empty($count['skipped']);
+    return CommandResult::dataWithExitCode(new RowsOfFields($rows), $failed ? self::EXIT_FAILURE : self::EXIT_SUCCESS);
   }
 
   /**

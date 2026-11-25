@@ -1250,4 +1250,91 @@ class ComponentTreeStructure extends TypedData {
     ];
   }
 
+  /**
+   * Converts an entity's stored full layout into its hybrid storage subset.
+   *
+   * A field in custom mode stores the whole tree under the entity's own
+   * uuids; hybrid mode reads region content under the uuid of the owner in
+   * the field default layout (::composeHybrid()). This matches the stored
+   * structure to the default by component and position, from the root down
+   * to each flagged region, and re-keys what the regions hold.
+   *
+   * It refuses rather than guesses: a stored layout whose locked structure
+   * differs from the default (another component, an extra one, content in a
+   * region that is not flagged) holds content hybrid mode has no place for.
+   * The entity's own props on a locked component are dropped, as hybrid mode
+   * always renders the default's.
+   *
+   * @param array $defaults
+   *   The field default layout, with 'tree' and 'props' keys.
+   * @param array $storedTree
+   *   The decoded stored tree.
+   * @param array $storedProps
+   *   The decoded stored props.
+   * @param array $anchors
+   *   The custom-region anchors.
+   *
+   * @return array
+   *   'status' is 'converted' (with 'tree' and 'props', decoded), 'already'
+   *   (the root is empty: a hybrid subset, or nothing stored) or 'mismatch'
+   *   (with 'reason').
+   */
+  public static function convertToHybridStorage(array $defaults, array $storedTree, array $storedProps, array $anchors): array {
+    if (empty($storedTree[self::ROOT_UUID])) {
+      return ['status' => 'already'];
+    }
+    $defaultTree = $defaults['tree'] ?? [self::ROOT_UUID => []];
+    $rekeyed = [];
+    $reason = self::rekeyLockedStructure($defaultTree, $storedTree, $anchors, self::ROOT_UUID, self::ROOT_UUID, $rekeyed);
+    if ($reason !== NULL) {
+      return ['status' => 'mismatch', 'reason' => $reason];
+    }
+    return ['status' => 'converted'] + self::extractHybridStorage($rekeyed + $storedTree, $storedProps, $anchors);
+  }
+
+  /**
+   * Walks one locked section of a stored layout against the default's.
+   *
+   * @param array $defaultTree
+   *   The default tree.
+   * @param array $storedTree
+   *   The stored tree.
+   * @param array $anchors
+   *   The custom-region anchors.
+   * @param string $defaultKey
+   *   The section in the default tree.
+   * @param string $storedKey
+   *   Its counterpart in the stored tree.
+   * @param array $rekeyed
+   *   Collects each flagged slot's stored tuples under the default's owner.
+   *
+   * @return string|null
+   *   Why the two differ, or NULL when they match.
+   */
+  private static function rekeyLockedStructure(array $defaultTree, array $storedTree, array $anchors, string $defaultKey, string $storedKey, array &$rekeyed): ?string {
+    $flagged = $anchors[$defaultKey]['slots'] ?? [];
+    foreach ($flagged as $slotId) {
+      $rekeyed[$defaultKey][$slotId] = array_values($storedTree[$storedKey][$slotId] ?? []);
+    }
+    $defaultSlots = $defaultKey === self::ROOT_UUID ? [NULL] : array_keys((array) ($defaultTree[$defaultKey] ?? []));
+    $storedSlots = $storedKey === self::ROOT_UUID ? [NULL] : array_keys((array) ($storedTree[$storedKey] ?? []));
+    $slots = array_diff(array_unique(array_merge($defaultSlots, $storedSlots), SORT_REGULAR), $flagged);
+    foreach ($slots as $slotId) {
+      $defaultTuples = $slotId === NULL ? ($defaultTree[$defaultKey] ?? []) : ($defaultTree[$defaultKey][$slotId] ?? []);
+      $storedTuples = $slotId === NULL ? ($storedTree[$storedKey] ?? []) : ($storedTree[$storedKey][$slotId] ?? []);
+      $where = $slotId === NULL ? 'the root' : sprintf('the "%s" region', $slotId);
+      if (array_column($defaultTuples, 'component') !== array_column($storedTuples, 'component')) {
+        return sprintf('%s holds [%s] where the default layout holds [%s]', ucfirst($where), implode(', ', array_column($storedTuples, 'component')), implode(', ', array_column($defaultTuples, 'component')));
+      }
+      foreach (array_values($defaultTuples) as $delta => $defaultTuple) {
+        $storedTuple = array_values($storedTuples)[$delta];
+        $reason = self::rekeyLockedStructure($defaultTree, $storedTree, $anchors, $defaultTuple['uuid'], $storedTuple['uuid'], $rekeyed);
+        if ($reason !== NULL) {
+          return $reason;
+        }
+      }
+    }
+    return NULL;
+  }
+
 }
