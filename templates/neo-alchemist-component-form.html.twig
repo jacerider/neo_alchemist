@@ -35,8 +35,12 @@
       {% endif %}
     </div>
   </div>
-  <div class="border-t -mx-form-item p-form-item">
-    {{ form.footer }}
-    {{ form.actions }}
-  </div>
+  {# No band at all when the footer is withheld: a component with nothing to
+     edit has nothing to apply either (InstanceComponentForm::buildForm()). #}
+  {% if form.footer['#access'] is not same as(false) %}
+    <div class="border-t -mx-form-item p-form-item">
+      {{ form.footer }}
+      {{ form.actions }}
+    </div>
+  {% endif %}
 </div>

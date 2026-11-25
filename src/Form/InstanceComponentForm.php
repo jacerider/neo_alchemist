@@ -236,6 +236,14 @@ final class InstanceComponentForm extends ContentEntityForm {
     $form['footer']['actions'] = $form['actions'];
     unset($form['actions']);
 
+    // With no field to offer there is nothing to apply or cancel, and the
+    // Enabled switch alone would invite turning off a component the user
+    // cannot otherwise touch (often the layout's own root). The whole band
+    // goes; see ::buildNothingToEdit() for what the body says instead.
+    if (!$this->instance->hasInspectorFields()) {
+      $form['footer']['#access'] = FALSE;
+    }
+
     // This is a content entity form, so field_group attaches the entity's form
     // display groups to it, even though the form display is never rendered
     // here. Without opting out, field_group pulls any element whose key
