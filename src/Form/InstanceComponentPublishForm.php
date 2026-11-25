@@ -7,6 +7,7 @@ use Drupal\Core\Entity\EntityConfirmFormBase;
 use Drupal\Core\Entity\SynchronizableInterface;
 use Drupal\Core\Field\WidgetPluginManager;
 use Drupal\Core\Form\FormStateInterface;
+use Drupal\Core\Url;
 use Drupal\neo_alchemist\ComponentManageHelper;
 use Drupal\neo_alchemist\EditorState\DraftConflictException;
 use Symfony\Component\DependencyInjection\ContainerInterface;
@@ -142,9 +143,14 @@ class InstanceComponentPublishForm extends EntityConfirmFormBase {
    * {@inheritdoc}
    */
   public function getDescription() {
-    $note = $this->entity->hasField('moderation_state')
-      ? $this->t('Use the workflow state below to control whether these changes go live now or wait for review. You can keep editing afterwards and save again at any time.')
+    // Whether the save will leave the canvas: canonical stands in for both
+    // targets, as latest-version is only chosen once the save has run.
+    $after = $this->savedUrl(NULL)
+      ? $this->t('Saving takes you to the page, and you can come back to edit again at any time.')
       : $this->t('You can keep editing afterwards and save again at any time.');
+    $note = $this->entity->hasField('moderation_state')
+      ? $this->t('Use the workflow state below to control whether these changes go live now or wait for review. @after', ['@after' => $after])
+      : $after;
     $description = $this->t('<p>Saving takes the changes you have been working on and makes them the saved version of this layout.</p><p class="text-xs">Everything you have done since the last save is included: components you added or removed, components you moved around, and any content or settings you edited inside them.</p><p class="text-xs">@note</p>', [
       '@note' => $note,
     ]);
@@ -176,7 +182,6 @@ class InstanceComponentPublishForm extends EntityConfirmFormBase {
     // commit deletes the draft before persisting, and the delete throws first,
     // so a refused publish persists nothing.
     $fieldItem->carryDraftVersion((int) $form_state->getValue('draft_version'));
-    $form_state->setRedirectUrl($this->entity->toUrl());
     $moderationState = $form_state->getValue(['moderation_state', 0, 'value']);
     if ($moderationState) {
       if ($this->entity->get('moderation_state')->value === $moderationState) {
@@ -195,22 +200,56 @@ class InstanceComponentPublishForm extends EntityConfirmFormBase {
       $form_state->setRebuild();
       return SAVED_UPDATED;
     }
-    // saveComponents() saves $this->entity, so Content Moderation's presave has
-    // now flipped isDefaultRevision() to reflect the saved revision. If the
-    // save created a non-default (forward) revision, e.g. published -> draft,
-    // redirect to the latest-version route.
-    if ($moderationState && $this->entity->getEntityType()->hasLinkTemplate('latest-version') && !$this->entity->isDefaultRevision()) {
-      $form_state->setRedirectUrl($this->entity->toUrl('latest-version'));
+    $state = $this->savedUnpublishedState($moderationState);
+    $message = $state
+      ? $this->t('Saved %label as @state.', [
+        '%label' => $this->entity->label(),
+        '@state' => $state,
+      ])
+      : $this->t('Saved %label.', ['%label' => $this->entity->label()]);
+    if ($url = $this->savedUrl($moderationState)) {
+      $this->leaveCanvas($form_state, $url, $message);
     }
-    $this->reportOutcome($form_state, $this->savedToast($moderationState), $this->t('Components have been published successfully on %label: %field_label.', [
-      '%label' => $this->entity->label(),
-      '%field_label' => $fieldItem->getFieldDefinition()->getLabel(),
-    ]));
+    else {
+      // Nowhere to show it: stay on the canvas, as Revert does.
+      $form_state->setRedirectUrl($this->getCancelUrl());
+      $this->reportOutcome($form_state, $state
+        ? $this->t('Saved as @state', ['@state' => $state])
+        : $this->t('Saved'), $message);
+    }
     return $result;
   }
 
   /**
-   * The toast after a save: "Saved", or the state it was saved in.
+   * Where a save sends the editor: the page that shows what was saved.
+   *
+   * Saved into a forward revision (a published node saved as Draft), that is
+   * the latest-version page, since the canonical one still shows the live
+   * revision. Otherwise it is the canonical page. NULL when the entity has
+   * neither, or the editor cannot view it, and the save stays on the canvas.
+   *
+   * @param string|null $moderationState
+   *   The moderation state submitted with the save, if the entity has one.
+   *
+   * @return \Drupal\Core\Url|null
+   *   The page, or NULL.
+   */
+  protected function savedUrl(?string $moderationState): ?Url {
+    $entityType = $this->entity->getEntityType();
+    // saveComponents() saved $this->entity, so Content Moderation's presave
+    // has flipped isDefaultRevision() to match the revision it wrote.
+    $rel = $moderationState
+      && $entityType->hasLinkTemplate('latest-version')
+      && !$this->entity->isDefaultRevision() ? 'latest-version' : 'canonical';
+    if (!$entityType->hasLinkTemplate($rel)) {
+      return NULL;
+    }
+    $url = $this->entity->toUrl($rel);
+    return $url->access() ? $url : NULL;
+  }
+
+  /**
+   * The label of the state a save went into, when that state is not live.
    *
    * Saved into a state that does not publish (a Draft, a Review), the change
    * is not live, and "Saved" alone would let the editor think it was.
@@ -218,19 +257,21 @@ class InstanceComponentPublishForm extends EntityConfirmFormBase {
    * @param string|null $moderationState
    *   The moderation state submitted with the save, if the entity has one.
    *
-   * @return \Drupal\Core\StringTranslation\TranslatableMarkup
-   *   The toast.
+   * @return string|null
+   *   The state's label, or NULL when the save went live or there is no
+   *   workflow.
    */
-  protected function savedToast(?string $moderationState) {
-    if ($moderationState && \Drupal::hasService('content_moderation.moderation_information')) {
-      $workflow = \Drupal::service('content_moderation.moderation_information')->getWorkflowForEntity($this->entity);
-      $plugin = $workflow?->getTypePlugin();
-      $state = $plugin && $plugin->hasState($moderationState) ? $plugin->getState($moderationState) : NULL;
-      if ($state && method_exists($state, 'isPublishedState') && !$state->isPublishedState()) {
-        return $this->t('Saved as @state', ['@state' => $state->label()]);
-      }
+  protected function savedUnpublishedState(?string $moderationState): ?string {
+    if (!$moderationState || !\Drupal::hasService('content_moderation.moderation_information')) {
+      return NULL;
     }
-    return $this->t('Saved');
+    $workflow = \Drupal::service('content_moderation.moderation_information')->getWorkflowForEntity($this->entity);
+    $plugin = $workflow?->getTypePlugin();
+    $state = $plugin && $plugin->hasState($moderationState) ? $plugin->getState($moderationState) : NULL;
+    if ($state && method_exists($state, 'isPublishedState') && !$state->isPublishedState()) {
+      return (string) $state->label();
+    }
+    return NULL;
   }
 
 }

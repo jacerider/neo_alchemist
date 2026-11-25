@@ -25,11 +25,19 @@ final class EntityComponentController extends ControllerBase {
 
     if (count($fieldDefinitions) === 1) {
       $url = $entity->toUrl('alchemist.manage')->setRouteParameter('neo_field', ComponentFieldConfig::getKeyFromFieldname(reset($fieldDefinitions)->getName()));
-      $destination = $request->query->get('destination');
-      $request->query->set('destination', NULL);
-      return $this->redirect($url->getRouteName(), $url->getRouteParameters(), [
-        'query' => ['destination' => $destination],
-      ]);
+      $destination = (string) $request->query->get('destination', '');
+      $request->query->remove('destination');
+      // A bare ?destination, left by forwarding a NULL one, is not
+      // forwarded: it names nowhere and only litters the editor's URL.
+      $options = [];
+      if ($destination !== '') {
+        $options['query']['destination'] = $destination;
+      }
+      return $this->redirect(
+        $url->getRouteName(),
+        $url->getRouteParameters(),
+        $options,
+      );
     }
 
     $rows = [];

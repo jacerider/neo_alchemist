@@ -1,5 +1,19 @@
 # Changelog
 
+## Save takes you to the page
+
+**Confirming Save in the editor now leaves it for the entity's page**, as it did before Save
+started staying on the canvas. A save into a forward revision (a published node saved as
+Draft) goes to the latest-version page, anything else to the canonical page, and the page
+says what happened: "Saved {label}." or "Saved {label} as {state}." When the entity has no
+page the editor can view, Save stays on the canvas with its toast, as before. Revert still
+stays on the canvas, and a save refused because a colleague moved the draft still reports
+inside the dialog.
+
+**The editor's URL no longer ends in a bare `?destination`.** The routes that forward to the
+editor passed an absent destination along as NULL, which Drupal writes as an empty
+parameter. They now forward a destination only when there is one.
+
 ## Duplicating a component, and a field default emptied by deletions
 
 **`Component::createDuplicate()` works.** It used to throw a TypeError, because core nulls the

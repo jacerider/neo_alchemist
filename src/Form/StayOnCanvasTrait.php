@@ -3,24 +3,28 @@
 namespace Drupal\neo_alchemist\Form;
 
 use Drupal\Core\Ajax\AjaxResponse;
+use Drupal\Core\Ajax\RedirectCommand;
 use Drupal\Core\Ajax\ReplaceCommand;
 use Drupal\Core\Form\FormStateInterface;
+use Drupal\Core\Url;
 use Drupal\neo_alchemist\Ajax\ComponentAjaxFormHelperTrait;
 use Drupal\neo_alchemist\Ajax\InstanceComponentManageToastCommand;
 use Drupal\neo_alchemist\ComponentManageHelper;
 
 /**
- * Keeps the editor open after a draft-level confirmation (Save, Revert).
+ * Ends a draft-level confirmation (Save, Revert) opened from the canvas.
  *
- * Opened from the canvas header in a dialog, these forms used to redirect to
- * the entity, which ended the editing session for actions whose point is to
- * carry on. Submitted through the dialog they now close it, refresh the
- * previews and the header's save group, and say what happened in a toast. A
- * submit that is not an AJAX one (the form opened as a page) still redirects
- * and uses the messenger.
+ * Submitted through the dialog, a form either stays on the canvas or leaves
+ * it. Staying (reportOutcome()) closes the dialog, refreshes the previews and
+ * the header's save group, and says what happened in a toast: Revert does
+ * this, because the point of discarding a draft is to carry on editing.
+ * Leaving (leaveCanvas()) sends the browser to a page and says what happened
+ * in a status message there: Save does this, because saving is how an editor
+ * finishes. A submit that is not an AJAX one (the form opened as a page)
+ * redirects either way and uses the messenger.
  *
  * The using form keeps the field item in $this->fieldItem and reports through
- * reportOutcome() from submitForm().
+ * reportOutcome() or leaveCanvas() from submitForm().
  *
  * @internal
  */
@@ -59,6 +63,24 @@ trait StayOnCanvasTrait {
   }
 
   /**
+   * Leaves the canvas for a page, saying what happened in a status message.
+   *
+   * @param \Drupal\Core\Form\FormStateInterface $form_state
+   *   The form state.
+   * @param \Drupal\Core\Url $url
+   *   Where to go.
+   * @param \Drupal\Component\Render\MarkupInterface|string $message
+   *   The status message for the page.
+   */
+  protected function leaveCanvas(FormStateInterface $form_state, Url $url, $message): void {
+    $form_state->setRedirectUrl($url);
+    if ($this->isAjax()) {
+      $form_state->set('neo_alchemist_leave', $url->toString());
+    }
+    $this->messenger()->addStatus($message);
+  }
+
+  /**
    * {@inheritdoc}
    */
   protected function successfulAjaxSubmit(array $form, FormStateInterface $form_state) {
@@ -73,6 +95,11 @@ trait StayOnCanvasTrait {
       $form['#sorted'] = FALSE;
       $response = new AjaxResponse();
       $response->addCommand(new ReplaceCommand('[data-drupal-selector="' . $form['#attributes']['data-drupal-selector'] . '"]', $form));
+      return $response;
+    }
+    if ($leave = $form_state->get('neo_alchemist_leave')) {
+      $response = new AjaxResponse();
+      $response->addCommand(new RedirectCommand($leave));
       return $response;
     }
     $response = $this->getComponentReponse(ComponentManageHelper::getId($this->fieldItem), NULL, $this->fieldItem);

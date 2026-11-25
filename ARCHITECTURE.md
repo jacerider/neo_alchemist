@@ -1099,7 +1099,10 @@ Centre (`top_center`): the light + Add pill (`buildOperations()`), Layers and on
 side panel. Trailing: the panels' badges, Undo · Redo (`top_end`, always rendered so a client
 can mount a badge there — the SDC preview's audit) and the save
 group (`buildDynamicOperations()`: Save, then ⋯ holding Discard unsaved changes — Revert —, Reset
-and Purge). The leading and trailing groups share what the centre leaves, keeping it centred;
+and Purge). Both confirmations submit over AJAX through `StayOnCanvasTrait`: Revert stays on the
+canvas and toasts (`reportOutcome()`), Save leaves it for the entity's latest-version or canonical
+page (`leaveCanvas()`, a `RedirectCommand`) and stays only when there is no page the editor can
+view. The leading and trailing groups share what the centre leaves, keeping it centred;
 `headerFit()` measures the band at its natural width and, while it lacks room, first lets the
 centre drift off-centre, then compacts step by step — the pills to their icons, + Add to "Add",
 the badges' `.neo-alchemist--compact-hide` parts — rerunning on resize and whenever the status
