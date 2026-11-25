@@ -388,6 +388,13 @@ final class InstanceComponentForm extends ContentEntityForm {
     $this->markFormPane($form['styles'], 'style');
     $this->markFormPane($form['filters'], 'sources');
 
+    // Reached from the breadcrumb or the Layers panel, or by clicking a part
+    // of it that holds no component: the canvas passes clicks through a
+    // component like this one, so say why there is nothing here.
+    if (!$this->instance->hasInspectorFields()) {
+      $form['nothing_to_edit'] = $this->buildNothingToEdit();
+    }
+
     // Which tab is open is client state, but the header is server-rendered
     // and the refresh below replaces it wholesale — so it has to round-trip.
     // Without it every refresh would hand back a strip that says "Content"
@@ -401,6 +408,51 @@ final class InstanceComponentForm extends ContentEntityForm {
     $form['header'] = $this->buildHeader((string) $form_state->getValue('active_tab', ''));
 
     return $form;
+  }
+
+  /**
+   * What the inspector says for a component with no field to offer.
+   *
+   * Every prop is bound to data or locked by the site builder, so the form
+   * would otherwise open on an empty pane with no account of itself. Where
+   * the content does come from the page's own entity, the way to it is
+   * offered.
+   *
+   * @return array
+   *   A render array.
+   */
+  private function buildNothingToEdit(): array {
+    $fieldItem = $this->instance->getFieldItem();
+    $host = $fieldItem->getEntity();
+    $args = ['%label' => (string) $this->instance->label()];
+    $build = [
+      '#type' => 'container',
+      '#attributes' => [
+        'class' => ['neo-alchemist--form-nothing', 'text-sm'],
+      ],
+    ];
+    if ($fieldItem->belongsToFieldConfig() || $host->isNew()) {
+      $build['text'] = [
+        '#markup' => '<p>' . $this->t('There is nothing to edit on %label here. What it shows is set by the layout.', $args) . '</p>',
+      ];
+      return $build;
+    }
+    $args['@type'] = $host->getEntityType()->getSingularLabel();
+    $build['text'] = [
+      '#markup' => '<p>' . $this->t('There is nothing to edit on %label here. What it shows comes from the @type itself, or is set by the layout.', $args) . '</p>',
+    ];
+    if ($host->hasLinkTemplate('edit-form') && $host->access('update')) {
+      $build['link'] = [
+        '#type' => 'link',
+        '#title' => $this->t('Edit this @type', $args),
+        '#url' => $host->toUrl('edit-form'),
+        '#attributes' => [
+          'class' => ['btn', 'btn-sm', 'btn-outline', 'mt-4'],
+          'target' => '_blank',
+        ],
+      ];
+    }
+    return $build;
   }
 
   /**

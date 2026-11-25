@@ -1,5 +1,31 @@
 # Changelog
 
+## One click to the thing you can edit
+
+**A click on the canvas now lands on the first component under the pointer that has something
+to edit.** It used to step down one level at a time, regions included, so a component inside a
+region of a data-bound layout took three clicks: the layout, the region, then the component.
+A region has no form and neither has a component whose every prop is bound or locked, so a
+click passes through both. From any selection, a click on a different component goes straight
+to it; a click inside the selection goes one editable component deeper. Escape and a click
+beside the selection step out to the nearest editable ancestor, or to nothing selected. The
+hover outline shows what a click would select.
+
+**A component with nothing to edit says so.** Reached from the breadcrumb, the Layers panel
+or a click on a part of it that holds no component, its inspector explains that what it shows
+comes from the entity or the layout, with a link to edit the entity when the user may.
+
+**A selected region offers "Add a component"** in the inspector, in place of the instruction
+to select something. An empty region on the canvas is no longer a selection target: its
+placeholder takes the click and opens the library.
+
+Hybrid layouts follow the same rule inside their customizable regions: a component there is
+one click, not two. Inherited components stay inert.
+
+For developers: each component's `data-component` payload carries `editable`
+(`ComponentInterface::hasInspectorFields()`), and the click rule is `clickTarget()` in
+`components-parent.ts`.
+
 ## Save takes you to the page
 
 **Confirming Save in the editor now leaves it for the entity's page**, as it did before Save

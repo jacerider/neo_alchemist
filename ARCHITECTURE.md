@@ -1134,6 +1134,18 @@ page and no `sort` route or op; the `sort` *access* operation still gates moves.
 dock shows Layers or one side panel (`leftPaneSet()`); the right dock is the inspector
 alone, open exactly while something is selected (`dockVisibilitySync()`).
 
+**What a canvas click selects** (`clickTarget()` in `components-parent.ts`): the first *click
+stop* on the way down to the node under the pointer that is not the selection or one of its
+ancestors. A click stop (`isClickStop()`) is a component whose `data-component` payload says
+`editable` (`Component::hasInspectorFields()`: a prop the user may update, or an editable
+filter). Regions and components with nothing to edit are passed through; with no stop on the
+way, the node under the pointer is selected and the inspector explains it
+(`inspectorRegion()`, `InstanceComponentForm::buildNothingToEdit()`). So every node outside
+the selection's ancestor chain is a live hit target at every depth (`elementsToggle()`),
+except an empty region, whose placeholder takes the click, and a hybrid-locked node
+(`isHybridLocked()`). `layerBack()` (Escape, the shade) steps out along the same stops. The
+hover outline is drawn on `clickTarget()`'s answer, never on the hit target itself.
+
 **The canvas chrome** — outlines, hit targets (`.neo-alchemist--element`, `.neo-alchemist--event`),
 shades and insertion seams are drawn on one layer, `.neo-alchemist--chrome`, which
 `components-parent.ts` puts inside `.neo-alchemist-manage--scale`, the row `setScale()`

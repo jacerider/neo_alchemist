@@ -296,6 +296,18 @@ interface ComponentInterface extends ConfigEntityInterface, RenderableInterface,
   public function setInspected(bool $inspected): self;
 
   /**
+   * Whether the inspector would show the current user a field to edit.
+   *
+   * The same test the inspector's form applies: a prop the user may update,
+   * or an editable filter. A component failing it has an inspector with
+   * nothing in it, so the editor's canvas passes clicks through it.
+   *
+   * @return bool
+   *   TRUE when there is at least one field.
+   */
+  public function hasInspectorFields(): bool;
+
+  /**
    * Checks whether the layout editor's inspector has this instance open.
    *
    * @return bool

@@ -45,6 +45,9 @@
     custom?: boolean;
     id?: string;
     ops?: Record<string, Op>;
+    // Whether the inspector would show this user a field (Component::
+    // hasInspectorFields()). Absent on a region.
+    editable?: boolean;
   }
 
   // Define interfaces for better type safety
@@ -277,7 +280,6 @@
   // The open breadcrumb descend menu, if any. Only one at a time.
   let openCrumbMenu: HTMLElement | null = null;
   // -1 when nothing is focused. Otherwise the focused node's depth, unbounded.
-  let layerLevel: number = -1;
   // Detached prototypes, cloned on demand.
   let shadeBase: HTMLElement;
   let overlayBase: HTMLElement;
@@ -321,6 +323,71 @@
     const parents = structureData[uuid].parents;
     return parents.length === 1 && isInheritedComponent(parents[0]);
   }
+  /**
+   * A node the creator can never reach in hybrid mode.
+   *
+   * Inherited components, and the regions that belong to them: only a
+   * customizable region and what sits inside it are the creator's.
+   */
+  function isHybridLocked(uuid: string): boolean {
+    if (!hybrid) {
+      return false;
+    }
+    const data = structureData[uuid];
+    if (!data) {
+      return true;
+    }
+    if (data.type === 'region') {
+      return !isCustomRegion(uuid) && !data.parents.some(parent => isCustomRegion(parent));
+    }
+    return isInheritedComponent(uuid);
+  }
+
+  /**
+   * A node a canvas click stops on: a component with something to edit.
+   *
+   * A region has no form, and neither has a component whose every prop is
+   * bound or locked, so a click passes through both to what they hold. A
+   * component that does not say (markup rendered before the flag existed)
+   * counts as editable.
+   */
+  function isClickStop(uuid: string): boolean {
+    const data = structureData[uuid];
+    return !!data
+      && data.type === 'component'
+      && data.data.editable !== false
+      && !isHybridLocked(uuid);
+  }
+
+  /**
+   * What a click on a hit target selects.
+   *
+   * The first click stop on the way down to the node under the pointer that
+   * is not the selection or one of its ancestors. So the first click on a
+   * page lands on the outermost thing with a form, a click inside the
+   * selection goes one stop deeper, and a click anywhere else goes straight
+   * to what is there. With no stop on the way, the node under the pointer
+   * itself: the empty space of a region, or a component with nothing to
+   * edit, which the inspector then explains. Null when a click does nothing.
+   */
+  function clickTarget(hit: string): string | null {
+    const data = structureData[hit];
+    if (!data) {
+      return null;
+    }
+    const selected = layerUuid ? structureData[layerUuid] : null;
+    const chain = selected && layerUuid ? [...selected.parents, layerUuid] : [];
+    const stop = [...data.parents, hit].find(uuid => !chain.includes(uuid) && isClickStop(uuid));
+    if (stop) {
+      return stop;
+    }
+    return chain.includes(hit) || isHybridLocked(hit) ? null : hit;
+  }
+
+  // What each hit target last outlined, so leaving it blurs the same node
+  // even when the selection has changed underneath the pointer.
+  const hitHoverTargets: Record<string, string | null> = {};
+
   let layerInteractSize: 'desktop' | 'tablet' | 'mobile' = 'desktop';
   /**
    * The frame being interacted with, which alone shows the selection's rail
@@ -1355,33 +1422,41 @@
       element.style.zIndex = (20 + level).toString();
       element.addEventListener('mouseenter', () => {
         interactSizeSet(size);
-        if (hybrid && isInheritedComponent(uuid)) {
-          return;
-        }
-        // A customizable region is directly interactive at the top level.
-        if (layerLevel + 1 === level || (isEditableTop(uuid) && layerLevel === -1)) {
-          elementHover(uuid);
+        const target = clickTarget(uuid);
+        hitHoverTargets[uuid] = target;
+        if (target) {
+          elementHover(target);
         }
       });
       element.addEventListener('mouseleave', () => {
-        if (hybrid && isInheritedComponent(uuid)) {
-          return;
-        }
-        if (layerLevel + 1 === level || (isEditableTop(uuid) && layerLevel === -1)) {
-          elementBlur(uuid);
+        const target = hitHoverTargets[uuid];
+        hitHoverTargets[uuid] = null;
+        // Only a hover is undone: a click may have selected it since.
+        if (target && overlayState[target] === 'hover') {
+          elementBlur(target);
         }
       });
       element.addEventListener('click', (e) => {
         e.preventDefault();
         e.stopPropagation();
-        if (hybrid && isInheritedComponent(uuid)) {
-          return;
-        }
         // The press that ended here was a pan, not a selection.
         if (pointerDragged(e)) {
           return;
         }
-        elementFocus(uuid);
+        const target = clickTarget(uuid);
+        if (!target) {
+          return;
+        }
+        elementFocus(target);
+        // The pointer has not moved, but what a second click here would
+        // select has: outline that, as entering this target would have.
+        if (layerUuid === target) {
+          const next = clickTarget(uuid);
+          hitHoverTargets[uuid] = next;
+          if (next) {
+            elementHover(next);
+          }
+        }
       });
       chrome.appendChild(element);
       structureElements[uuid][size] = element;
@@ -2292,10 +2367,34 @@
     if (data.type !== 'component') {
       // A region has no form of its own: the breadcrumb bar still says where
       // it is, and the body says what to do with it.
-      inspectorEmpty(Drupal.t('Select a component in @region to edit it, or use the + between components to add one.', { '@region': String(data.data.label ?? '') }));
+      inspectorRegion(uuid);
       return;
     }
     inspectorLoad(uuid);
+  }
+
+  /**
+   * The inspector for a region: what it is, and the one thing to do with it.
+   */
+  function inspectorRegion(uuid: string): void {
+    const data = structureData[uuid];
+    const label = String(data?.data?.label ?? '');
+    inspectorEmpty(data?.children.length
+      ? Drupal.t('Click a component in @region to edit it.', { '@region': label })
+      : Drupal.t('@region is empty.', { '@region': label }));
+    const baseUrl = libraryBaseUrl();
+    if (!dockBody || baseUrl === null) {
+      return;
+    }
+    const add = document.createElement('button');
+    add.type = 'button';
+    add.className = 'neo-alchemist--inspector-add btn btn-sm btn-primary';
+    add.textContent = Drupal.t('Add a component');
+    add.addEventListener('click', (e) => {
+      e.preventDefault();
+      actions.library(uuid, baseUrl);
+    });
+    dockBody.appendChild(add);
   }
 
   function inspectorEmpty(text: string): void {
@@ -2317,7 +2416,7 @@
       container.querySelector('.neo-alchemist--dock-identity')?.replaceChildren(name);
     }
     const note = document.createElement('p');
-    note.className = 'py-6 text-sm text-base-0-content/75';
+    note.className = 'pt-6 pb-4 text-sm text-base-0-content/75';
     note.textContent = text;
     dockBody.appendChild(note);
     inspectorDirtySet(false);
@@ -2904,7 +3003,6 @@
       });
     }
 
-    layerLevel = level;
     regionUuid = nearestRegion(uuid);
     layerUuid = uuid;
     actionsToggle();
@@ -3999,17 +4097,18 @@
     });
   }
 
+  /**
+   * Step out of the selection: to the nearest ancestor a click would have
+   * stopped on, or to nothing selected.
+   *
+   * The same stops as on the way in (isClickStop()), so backing out never
+   * lands on a region or on a component with nothing to edit. Those stay
+   * reachable from the breadcrumb and the Layers panel.
+   */
   function layerBack(): void {
     if (!layerUuid) return;
-    const data = structureData[layerUuid];
-    const lastParent = data.parents[data.parents.length - 1] || null;
-    // In hybrid mode the inherited owner is inert, so backing out of a
-    // top-level customizable region deselects rather than focusing the owner.
-    if (hybrid && (!lastParent || isInheritedComponent(lastParent))) {
-      layerShow(null);
-      return;
-    }
-    layerShow(lastParent);
+    const parents = structureData[layerUuid]?.parents ?? [];
+    layerShow([...parents].reverse().find(parent => isClickStop(parent)) ?? null);
   }
 
   function hideAll(): void {
@@ -4065,57 +4164,28 @@
     if (debugElements) {
       return
     }
-    let level = 0;
-    let parents: string[] = [];
-    let children: string[] = [];
-    if (uuid) {
-      const data = structureData[uuid];
-      parents = data.parents;
-      children = data.children;
-      level = parents.length;
-      // We want to show up to level + 1
-      level++;
-    }
+    const selected = uuid ? structureData[uuid] : null;
+    const chain = selected && uuid ? [...selected.parents, uuid] : [];
 
     Object.entries(structureData).forEach(([elementUuid, data]) => {
-      const dataLevel = data.parents.length;
       sizes.forEach(size => {
-        // Hybrid, nothing focused: only customizable regions are directly
-        // interactive; inherited components (and everything else) are inert,
-        // so the creator can click straight into a region. The focused branch
-        // below already inerts non-child ancestors and hides siblings, which
-        // is correct for hybrid too (the inherited owner shows inert; other
-        // inherited components hide).
-        if (hybrid && !uuid) {
-          if (isCustomRegion(elementUuid)) {
-            showLayer(elementUuid, size);
-          }
-          else {
-            hideLayer(elementUuid, size);
-          }
+        // The selection and its ancestors let the pointer through: a click
+        // inside the selection belongs to the preview (click-to-field), and
+        // one beside it, inside an ancestor, to the shade that backs out.
+        if (chain.includes(elementUuid)) {
+          showLayer(elementUuid, size, false);
           return;
         }
-        // const element = structureElements[elementUuid][size];
-        if (dataLevel <= level) {
-          if (uuid) {
-            if (children.includes(elementUuid)) {
-              showLayer(elementUuid, size);
-            }
-            else if (uuid === elementUuid || parents.includes(elementUuid)) {
-              showLayer(elementUuid, size, false);
-            }
-            else {
-              hideLayer(elementUuid, size);
-            }
-            return;
-          }
-          else {
-            showLayer(elementUuid, size);
-          }
-        }
-        else {
+        // An empty region is only its "Add a component" placeholder, which
+        // must take the click itself. A hybrid-locked node is never the
+        // creator's to select.
+        if (isHybridLocked(elementUuid) || (data.type === 'region' && !data.children.length)) {
           hideLayer(elementUuid, size);
+          return;
         }
+        // Everything else is a hit target at every depth: clickTarget()
+        // decides what a click on it selects.
+        showLayer(elementUuid, size);
       });
     });
   }

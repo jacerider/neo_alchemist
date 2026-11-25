@@ -600,6 +600,23 @@ class Component extends ConfigEntityBase implements ComponentInterface {
   /**
    * {@inheritdoc}
    */
+  public function hasInspectorFields(): bool {
+    foreach ($this->getPropShapes() as $shape) {
+      if ($shape->access('update')) {
+        return TRUE;
+      }
+    }
+    foreach ($this->getFilters() as $filter) {
+      if ($filter->isEditable()) {
+        return TRUE;
+      }
+    }
+    return FALSE;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
   public function isInspected(): bool {
     return $this->inspected;
   }
@@ -1675,6 +1692,9 @@ class Component extends ConfigEntityBase implements ComponentInterface {
       'warnings' => $warnings,
       'inherited' => $this instanceof ComponentInstanceInterface && $this->isInherited(),
       'ops' => $ops,
+      // What a canvas click reads: it passes through a component that offers
+      // nothing to edit and lands on the first one that does.
+      'editable' => $this->hasInspectorFields(),
     ];
 
     // Normally the component's own attributes prop. When a required prop could
