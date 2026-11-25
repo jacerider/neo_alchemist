@@ -1,5 +1,12 @@
 # Changelog
 
+## Layers stays closed until you open it
+
+**The Layers panel no longer opens by itself.** It used to start open on any layout that had
+a region and closed on a flat one, so whether it was there depended on the layout. It now
+starts closed everywhere and opens only where the user opened it: the choice is still
+remembered per layout, in the browser.
+
 ## Protected components, and moving a field to hybrid
 
 **An access rule that denies "Create or Remove" now denies deleting and cloning too.** Rules

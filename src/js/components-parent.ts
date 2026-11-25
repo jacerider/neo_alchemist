@@ -129,9 +129,7 @@
   }
   const dockBody = dock?.querySelector('.neo-alchemist--dock-body') as HTMLElement | null;
   const dockPrompt = dock?.querySelector('.neo-alchemist--dock-prompt') as HTMLElement | null;
-  // Scoped to this layout. A single global preference leaked a choice made on
-  // a nested layout onto every flat one, which is exactly what the depth
-  // default exists to avoid.
+  // Scoped to this layout: the panel stays closed until it is opened here.
   const layersStorageKey = `neo-alchemist-layers:${drupalSettings.neoAlchemist.baseUrl}`;
   localStorage.removeItem('neo-alchemist-layers');
   const layersPanel = container.querySelector('.neo-alchemist--layers') as HTMLElement | null;
@@ -1332,12 +1330,12 @@
     layersBuild();
     // The trail's menus list what the tree holds, so they follow every write.
     titleSet(layerUuid);
-    // An explicit choice wins, but only on the layout it was made on;
-    // otherwise whether this tree has regions decides. Once: a layout write
-    // re-runs this, and must not undo what was chosen since.
+    // Closed unless this user opened it, on this layout. It used to open by
+    // itself on any layout with a region, which read as the panel opening
+    // "sometimes". Once: a layout write re-runs this, and must not undo what
+    // was chosen since.
     if (!readyCount) {
-      const layersChoice = localStorage.getItem(layersStorageKey);
-      layersPanelToggle(layersChoice ? layersChoice === 'open' : layersHasRegions(), true);
+      layersPanelToggle(localStorage.getItem(layersStorageKey) === 'open', true);
     }
     // Every ready() after the first follows a layout write (the previews
     // refresh on its AJAX response), so the draft moved on under any side panel.
@@ -3549,10 +3547,6 @@
       layersDropMark(null, null);
       layersDragUuid = null;
     });
-  }
-
-  function layersHasRegions(): boolean {
-    return Object.values(structureData).some(data => data.type === 'region');
   }
 
   function layersPanelIsOpen(): boolean {
