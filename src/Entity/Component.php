@@ -1269,6 +1269,13 @@ class Component extends ConfigEntityBase implements ComponentInterface {
    *   The access result object indicating whether the operation is allowed.
    */
   protected function checkAccess(string $operation, ?AccountInterface $account = NULL): AccessResultInterface {
+    // The create rule is "Create or Remove": the editor asks about delete and
+    // clone by name, and both add or remove an instance. Left unmapped they
+    // fell outside the three ops below and past every rule. Moving (sort) is
+    // deliberately not mapped: a rule does not pin a component in place.
+    if ($operation === 'delete' || $operation === 'clone') {
+      $operation = 'create';
+    }
     if (!in_array($operation, array_keys(ComponentAccessInterface::OPS))) {
       return AccessResult::neutral();
     }
